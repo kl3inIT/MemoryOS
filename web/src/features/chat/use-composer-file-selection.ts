@@ -1,6 +1,25 @@
 import { useAui, useAuiState } from "@assistant-ui/react";
 import { fileIdFromReference, fileReference, type ChatFile } from "./chat-files";
 
+/** The composer attachment for a READY server file: its identity travels as a file reference, never its bytes. */
+export function composerAttachment(file: ChatFile) {
+  return {
+    id: file.id,
+    name: file.filename,
+    type: "file" as const,
+    contentType: file.mediaType,
+    content: [
+      {
+        type: "file" as const,
+        filename: file.filename,
+        mimeType: file.mediaType,
+        data: fileReference(file.id),
+        providerMetadata: { memoryos: { sizeBytes: file.sizeBytes } },
+      },
+    ],
+  };
+}
+
 /** Composer attachments as server file identities, updated from the recent-file list. */
 export function useComposerFileSelection() {
   const aui = useAui();
@@ -21,21 +40,7 @@ export function useComposerFileSelection() {
       });
       for (const file of files)
         if (!identities.includes(file.id))
-          void aui.composer.addAttachment({
-            id: file.id,
-            name: file.filename,
-            type: "file",
-            contentType: file.mediaType,
-            content: [
-              {
-                type: "file",
-                filename: file.filename,
-                mimeType: file.mediaType,
-                data: fileReference(file.id),
-                providerMetadata: { memoryos: { sizeBytes: file.sizeBytes } },
-              },
-            ],
-          });
+          void aui.composer.addAttachment(composerAttachment(file));
     },
   };
 }

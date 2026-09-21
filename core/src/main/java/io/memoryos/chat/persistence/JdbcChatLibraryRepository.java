@@ -1,9 +1,12 @@
 package io.memoryos.chat.persistence;
 
 import io.memoryos.chat.ChatLibraryFile;
+import io.memoryos.chat.UserFile;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.objectstorage.ObjectKey;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -55,9 +58,15 @@ public class JdbcChatLibraryRepository {
     private static final String SOURCES = """
             SELECT 'UPLOAD' AS source, u.id, u.filename,
                    COALESCE(u.detected_media_type, u.media_type) AS media_type, u.size_bytes, u.created_at,
-                   NULL::uuid AS session_id, NULL::varchar AS session_title, NULL::text AS search_extra
+                   NULL::uuid AS session_id, NULL::varchar AS session_title, NULL::text AS search_extra,
+                   u.favorite_at, u.status, u.error_code,
+                   CASE WHEN :allSessions THEN NULL ELSE (
+                        SELECT m.id FROM chat_message m CROSS JOIN LATERAL jsonb_array_elements(m.files) descriptor
+                        WHERE m.session_id = :session AND CAST(descriptor ->> 'id' AS uuid) = u.id
+                        ORDER BY m.created_at, m.id LIMIT 1) END AS message_id
             FROM chat_user_file u
-            WHERE u.tenant_id = :tenant AND u.owner_actor_id = :actor AND u.status = 'READY'
+            WHERE u.tenant_id = :tenant AND u.owner_actor_id = :actor
+              AND (CASE WHEN :pending THEN u.status IN ('UPLOADING', 'PROCESSING', 'FAILED') ELSE u.status = 'READY' END)
               AND (:allSessions OR EXISTS (
                     SELECT 1 FROM chat_message m
                     JOIN chat_session cs ON cs.id = m.session_id AND cs.tenant_id = u.tenant_id
@@ -65,14 +74,16 @@ public class JdbcChatLibraryRepository {
                     CROSS JOIN LATERAL jsonb_array_elements(m.files) descriptor
                     WHERE m.session_id = :session AND CAST(descriptor ->> 'id' AS uuid) = u.id))
             UNION ALL
-            SELECT 'GENERATED', a.id, a.filename, a.media_type, a.size_bytes, a.created_at, s.id, s.title, NULL
+            SELECT 'GENERATED', a.id, a.filename, a.media_type, a.size_bytes, a.created_at, s.id, s.title, NULL,
+                   a.favorite_at, 'READY', NULL, a.message_id
             FROM chat_file_artifact a JOIN chat_session s ON s.id = a.session_id AND s.tenant_id = a.tenant_id
-            WHERE a.tenant_id = :tenant AND a.owner_actor_id = :actor AND a.deleted_at IS NULL AND s.deleted_at IS NULL
+            WHERE NOT :pending AND a.tenant_id = :tenant AND a.owner_actor_id = :actor AND a.deleted_at IS NULL AND s.deleted_at IS NULL
               AND (:allSessions OR a.session_id = :session)
             UNION ALL
-            SELECT 'IMAGE', a.id, a.filename, a.media_type, a.size_bytes, a.created_at, s.id, s.title, a.revised_prompt
+            SELECT 'IMAGE', a.id, a.filename, a.media_type, a.size_bytes, a.created_at, s.id, s.title, a.revised_prompt,
+                   a.favorite_at, 'READY', NULL, a.message_id
             FROM chat_image_artifact a JOIN chat_session s ON s.id = a.session_id AND s.tenant_id = a.tenant_id
-            WHERE a.tenant_id = :tenant AND a.owner_actor_id = :actor AND a.deleted_at IS NULL AND s.deleted_at IS NULL
+            WHERE NOT :pending AND a.tenant_id = :tenant AND a.owner_actor_id = :actor AND a.deleted_at IS NULL AND s.deleted_at IS NULL
               AND (:allSessions OR a.session_id = :session)
             """;
 
@@ -81,44 +92,65 @@ public class JdbcChatLibraryRepository {
             SELECT f.*, %s AS category FROM (%s) f
             WHERE (:query = '' OR f.filename ILIKE :pattern OR (f.search_extra IS NOT NULL AND f.search_extra ILIKE :pattern))
               AND (:allSources OR f.source IN (:sources))
+              AND (NOT :favorites OR f.favorite_at IS NOT NULL)
+              AND (:allIds OR f.id IN (:ids))
             """;
 
-    public Page page(TenantId tenant, ActorId actor, String query, Set<String> sources, Set<String> categories,
-                     @Nullable UUID session, ChatLibraryFile.Sort sort, int offset, int limit) {
+    /**
+     * What a page is narrowed to. {@code session} is one conversation (MEM-144); {@code pending} lists the
+     * owner's uploads still uploading, processing or failed instead of the READY files (MEM-152); {@code ids}
+     * keeps only those files, for content search to page its matches through the same rows.
+     */
+    public record Filter(String query, Set<String> sources, Set<String> categories, @Nullable UUID session,
+                         boolean favorites, boolean pending, @Nullable Set<UUID> ids) {
+        public Filter {
+            sources = Set.copyOf(sources); categories = Set.copyOf(categories);
+            ids = ids == null ? null : Set.copyOf(ids);
+        }
+
+        public static Filter of(String query, Set<String> sources, Set<String> categories, @Nullable UUID session) {
+            return new Filter(query, sources, categories, session, false, false, null);
+        }
+    }
+
+    public Page page(TenantId tenant, ActorId actor, Filter filter, ChatLibraryFile.Sort sort, int offset, int limit) {
         String order = switch (sort) {
             case NEWEST -> "created_at DESC, id";
             case OLDEST -> "created_at, id";
             case LARGEST -> "size_bytes DESC, created_at DESC, id";
             case SMALLEST -> "size_bytes, created_at DESC, id";
+            case NAME -> "lower(filename), created_at DESC, id";
         };
         var rows = bind(jdbc.sql("""
                 SELECT source, id, filename, media_type, size_bytes, created_at, session_id, session_title, category,
+                       message_id, favorite_at, status, error_code,
                        COUNT(*) OVER () AS total_count, COALESCE(SUM(size_bytes) OVER (), 0) AS total_bytes
                 FROM (%s) categorized
                 WHERE :allCategories OR category IN (:categories)
                 ORDER BY %s OFFSET :offset LIMIT :limit
-                """.formatted(filtered(), order)), tenant, actor, query, sources, categories, session)
+                """.formatted(filtered(), order)), tenant, actor, filter)
                 .param("offset", offset).param("limit", limit)
                 .query((row, ignored) -> new Row(new ChatLibraryFile(
                         ChatLibraryFile.Source.valueOf(row.getString("source")), row.getObject("id", UUID.class),
                         row.getString("filename"), row.getString("media_type"), row.getLong("size_bytes"),
                         row.getTimestamp("created_at").toInstant(), ChatLibraryFile.Category.valueOf(row.getString("category")),
-                        row.getObject("session_id", UUID.class), row.getString("session_title"), List.of()),
+                        row.getObject("session_id", UUID.class), row.getString("session_title"),
+                        row.getObject("message_id", UUID.class), row.getTimestamp("favorite_at") != null,
+                        UserFile.Status.valueOf(row.getString("status")), row.getString("error_code"), List.of()),
                         row.getLong("total_count"), row.getLong("total_bytes")))
                 .list();
         // A page past the end carries no window row, and the filter's totals must not collapse with it.
-        if (rows.isEmpty()) return totals(tenant, actor, query, sources, categories, session);
+        if (rows.isEmpty()) return totals(tenant, actor, filter);
         return new Page(rows.stream().map(Row::file).toList(),
                 rows.getFirst().totalCount(), rows.getFirst().totalBytes());
     }
 
-    private Page totals(TenantId tenant, ActorId actor, String query, Set<String> sources, Set<String> categories,
-                        @Nullable UUID session) {
+    private Page totals(TenantId tenant, ActorId actor, Filter filter) {
         return bind(jdbc.sql("""
                 SELECT count(*) AS total_count, COALESCE(SUM(size_bytes), 0) AS total_bytes
                 FROM (%s) categorized
                 WHERE :allCategories OR category IN (:categories)
-                """.formatted(filtered())), tenant, actor, query, sources, categories, session)
+                """.formatted(filtered())), tenant, actor, filter)
                 .query((row, ignored) -> new Page(List.of(), row.getLong("total_count"), row.getLong("total_bytes")))
                 .single();
     }
@@ -126,16 +158,70 @@ public class JdbcChatLibraryRepository {
     private static String filtered() { return FILTERED.formatted(CATEGORY, SOURCES); }
 
     private static JdbcClient.StatementSpec bind(JdbcClient.StatementSpec statement, TenantId tenant, ActorId actor,
-                                                 String query, Set<String> sources, Set<String> categories,
-                                                 @Nullable UUID session) {
+                                                 Filter filter) {
+        var ids = filter.ids();
         return statement.param("tenant", tenant.value()).param("actor", actor.value())
-                .param("allSessions", session == null).param("session", session)
-                .param("query", query).param("pattern", "%" + escape(query) + "%")
-                .param("allSources", sources.isEmpty()).param("sources", sources.isEmpty() ? Set.of("") : sources)
-                .param("allCategories", categories.isEmpty()).param("categories", categories.isEmpty() ? Set.of("") : categories);
+                .param("allSessions", filter.session() == null).param("session", filter.session())
+                .param("query", filter.query()).param("pattern", "%" + escape(filter.query()) + "%")
+                .param("allSources", filter.sources().isEmpty())
+                .param("sources", filter.sources().isEmpty() ? Set.of("") : filter.sources())
+                .param("allCategories", filter.categories().isEmpty())
+                .param("categories", filter.categories().isEmpty() ? Set.of("") : filter.categories())
+                .param("favorites", filter.favorites()).param("pending", filter.pending())
+                .param("allIds", ids == null).param("ids", ids == null || ids.isEmpty() ? Set.of(new UUID(0, 0)) : ids);
+    }
+
+    /**
+     * Renames or stars a file the owner's library shows. A rename rewrites the file's own name, so the listing,
+     * name search, conversation cards and the download all use it at once; the bytes and object key never change.
+     * Answers false when no such file is listed.
+     */
+    public boolean update(TenantId tenant, ActorId actor, ChatLibraryFile.Source source, UUID id,
+                          @Nullable String filename, @Nullable Boolean favorite) {
+        String table = switch (source) {
+            case UPLOAD -> "chat_user_file";
+            case GENERATED -> "chat_file_artifact";
+            case IMAGE -> "chat_image_artifact";
+        };
+        String live = source == ChatLibraryFile.Source.UPLOAD
+                ? "f.status NOT IN ('DELETING','DELETED')"
+                : "f.deleted_at IS NULL AND EXISTS (SELECT 1 FROM chat_session s WHERE s.id = f.session_id"
+                        + " AND s.tenant_id = f.tenant_id AND s.deleted_at IS NULL)";
+        return jdbc.sql("""
+                UPDATE %s f SET filename = COALESCE(CAST(:filename AS varchar), f.filename),
+                    favorite_at = CASE WHEN CAST(:favorite AS boolean) IS NULL THEN f.favorite_at
+                                       WHEN CAST(:favorite AS boolean) THEN COALESCE(f.favorite_at, CURRENT_TIMESTAMP)
+                                       ELSE NULL END
+                WHERE f.tenant_id = :tenant AND f.id = :id AND f.owner_actor_id = :actor AND %s
+                """.formatted(table, live)).param("tenant", tenant.value()).param("actor", actor.value())
+                .param("id", id).param("filename", filename).param("favorite", favorite).update() == 1;
     }
 
     private record Row(ChatLibraryFile file, long totalCount, long totalBytes) {}
+
+    /** The stored bytes of an artifact the caller may copy into an upload. */
+    public record Artifact(ObjectKey key, String filename, String mediaType, long sizeBytes) {}
+
+    /**
+     * An artifact the actor owns, in a conversation that is not deleted, and not deleted itself: exactly what the
+     * library lists, so a file can be copied only while the library shows it.
+     */
+    public Optional<Artifact> artifact(TenantId tenant, ActorId actor, ChatLibraryFile.Source source, UUID id) {
+        String table = switch (source) {
+            case GENERATED -> "chat_file_artifact";
+            case IMAGE -> "chat_image_artifact";
+            case UPLOAD -> throw new IllegalArgumentException("an upload is not an artifact");
+        };
+        return jdbc.sql("""
+                SELECT a.object_key, a.filename, a.media_type, a.size_bytes FROM %s a
+                JOIN chat_session s ON s.id = a.session_id AND s.tenant_id = a.tenant_id
+                WHERE a.tenant_id = :tenant AND a.id = :id AND a.owner_actor_id = :actor
+                  AND a.deleted_at IS NULL AND s.deleted_at IS NULL
+                """.formatted(table)).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
+                .query((row, ignored) -> new Artifact(new ObjectKey(row.getString("object_key")), row.getString("filename"),
+                        row.getString("media_type"), row.getLong("size_bytes")))
+                .optional();
+    }
 
     /** ILIKE treats these as wildcards; a name search must match them literally. */
     private static String escape(String query) {

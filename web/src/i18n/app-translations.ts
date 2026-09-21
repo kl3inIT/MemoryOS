@@ -1,5 +1,77 @@
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-152 file library v2, phase 2: direct upload, content search, rename and favourites
+  "Khớp nội dung tệp.": "Matches the file's contents.",
+  "Tìm trong nội dung tệp": "Search inside files",
+  "Cách tìm": "Search by",
+  "Nội dung": "Contents",
+  "Tên A → Z": "Name A → Z",
+  "Yêu thích": "Favourites",
+  "Trạng thái tệp": "File state",
+  "Đang xử lý / Lỗi": "Processing / failed",
+  "Tìm trong nội dung tệp bạn đã tải lên và đã lập chỉ mục. Tệp do Chat tạo chỉ tìm được theo tên.":
+    "Searches inside the files you uploaded once they are indexed. Files Chat created are found by name only.",
+  "Nhập điều bạn nhớ về nội dung tệp.": "Type what you remember of the contents.",
+  "Không tìm được trong nội dung tệp.": "The contents could not be searched.",
+  "Không có tệp nào khớp nội dung này.": "No file contains this.",
+  "Không có tệp nào đang xử lý hoặc bị lỗi.": "No file is being processed or has failed.",
+  "Chưa có tệp nào. Tải tệp lên hoặc để Chat tạo ra, tệp sẽ xuất hiện ở đây.":
+    "No files yet. Upload one or let Chat create one, and it appears here.",
+  "Trạng thái": "State",
+  "Chưa xác nhận tải lên": "Upload not confirmed",
+  "Tải lên hết hạn · hãy tải lại tệp": "Upload expired · upload the file again",
+  "Sẵn sàng": "Ready",
+  "Gỡ bỏ {{name}}": "Remove {{name}}",
+  "Gỡ bỏ": "Remove",
+  "Đổi tên tệp": "Rename file",
+  "Tên mới hiển thị ở mọi nơi và khi tải về. Phần đuôi tệp được giữ nguyên.":
+    "The new name is shown everywhere and used for downloads. The extension is kept.",
+  "Bỏ yêu thích {{name}}": "Unstar {{name}}",
+  "Đánh dấu yêu thích {{name}}": "Star {{name}}",
+  "Thả tệp vào đây để tải lên": "Drop files here to upload them",
+  "Tải lên": "Upload",
+  "Tải tệp lên thư viện": "Upload files to the library",
+  "Tiến trình tải lên": "Upload progress",
+  "Đang tải lên {{count}} tệp": "Uploading {{count}} files",
+  "Đã tải lên xong": "Uploads finished",
+  "Đóng danh sách tải lên": "Close the upload list",
+  "Đã tải lên · {{size}}": "Uploaded · {{size}}",
+  "Đã huỷ": "Cancelled",
+  "Tải lên lỗi": "Upload failed",
+  "Huỷ tải {{name}}": "Cancel uploading {{name}}",
+  // MEM-152 file library v2
+  "Thêm vào dự án": "Add to project",
+  "Tệp được dùng trong mọi hội thoại của dự án. Gỡ khỏi dự án không xoá tệp khỏi thư viện.":
+    "Files are used in every conversation of the project. Removing one from the project keeps it in the library.",
+  "Không tải được danh sách dự án.": "The projects could not be loaded.",
+  "Bạn chưa có dự án nào. Tạo dự án trong mục Dự án trước.":
+    "You have no projects yet. Create one under Projects first.",
+  "Dự án chỉ giữ tối đa {{max}} tệp. Gỡ bớt tệp khỏi dự án rồi thử lại.":
+    "A project holds at most {{max}} files. Remove some from the project and try again.",
+  "Mở thư viện": "Open library",
+  "Đã gỡ khỏi dự án {{name}}.": "Removed from project {{name}}.",
+  "Đã thêm vào dự án {{name}}.": "Added to project {{name}}.",
+  "Gỡ khỏi {{name}}": "Remove from {{name}}",
+  "Không gỡ được. Hãy thử lại.": "Could not remove it. Try again.",
+  "Thêm {{name}} vào dự án": "Add {{name}} to a project",
+  "Chọn tệp từ thư viện": "Choose from your library",
+  "Tệp bạn đã tải lên, tệp do mã tạo và ảnh AI. Tệp do Chat tạo được sao chép để đính kèm.":
+    "Your uploads, files created by code and AI images. Files Chat created are copied to attach them.",
+  "Tệp trong thư viện": "Library files",
+  "Đã đính kèm": "Attached",
+  "Tải thêm": "Load more",
+  "Không chuẩn bị được tệp để đính kèm. Hãy thử lại.":
+    "The files could not be prepared for attaching. Try again.",
+  "Đang chuẩn bị tệp…": "Preparing files…",
+  "Đã chọn {{count}}/{{max}} tệp": "{{count}}/{{max}} files selected",
+  "Đính kèm {{count}} tệp": "Attach {{count}} files",
+  "Mỗi câu hỏi đính kèm tối đa 20 tệp.": "A question can carry at most 20 files.",
+  "Đã đính kèm {{name}} vào câu hỏi tiếp theo.": "Attached {{name}} to your next question.",
+  "Không tìm thấy tin nhắn chứa tệp này.": "The message holding this file could not be found.",
+  "Tệp trong hội thoại ({{count}})": "Files in this conversation ({{count}})",
+  "Đính kèm {{name}} vào câu hỏi": "Attach {{name}} to the question",
+  "Đính kèm vào câu hỏi tiếp theo": "Attach to the next question",
+  "Xem trong hội thoại": "Show in conversation",
   // MEM-142 file library
   "Tệp trong hội thoại": "Files in this conversation",
   "Hội thoại này chưa có tệp nào.": "This conversation has no files yet.",
@@ -1237,8 +1309,11 @@ export const englishUi: Record<string, string> = {
     "Nguồn riêng tư. Liên kết nhóm là tùy chọn và có thể thêm sau.",
   "You can no longer change one of these Sources for this group. Refresh and try again.":
     "Bạn không còn quyền thay đổi một trong các nguồn này cho nhóm. Làm mới rồi thử lại.",
-  "Sources with a lock are being deleted and can't be removed from this group.":
-    "Các nguồn có biểu tượng khóa đang được xóa nên không gỡ khỏi nhóm này được.",
+  "Sources with a lock can't be removed from this group: they are being deleted, or only their responsible manager can remove them.":
+    "Không gỡ được các nguồn có biểu tượng khóa khỏi nhóm này: nguồn đang được xóa, hoặc chỉ người phụ trách nguồn mới gỡ được.",
+  "Only {{v1}}, the responsible manager, can remove this Source.":
+    "Chỉ {{v1}}, người phụ trách, mới gỡ được nguồn này.",
+  "Only administrators can remove this Source.": "Chỉ quản trị viên mới gỡ được nguồn này.",
   "Members can search and read imported documents from associated restricted File and Google Drive Sources. Source management still follows global or scoped permissions.":
     "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ các nguồn Tệp và Google Drive giới hạn được liên kết. Quyền quản lý nguồn vẫn phụ thuộc quyền toàn tổ chức hoặc theo phạm vi.",
   "Administrator access": "Quyền quản trị viên",

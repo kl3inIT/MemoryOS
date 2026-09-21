@@ -1444,12 +1444,6 @@ export type ChatModelValidationResult = {
     failureCode: string | null;
 };
 
-export type ImageConnectionTestRequest = {
-    endpoint: string;
-    model: string;
-    credentialValue?: string;
-};
-
 export type ChatFileResponse = {
     id?: string;
     filename?: string;
@@ -1460,6 +1454,12 @@ export type ChatFileResponse = {
     updatedAt?: string;
     errorCode?: string;
     searchReady?: boolean;
+};
+
+export type ImageConnectionTestRequest = {
+    endpoint: string;
+    model: string;
+    credentialValue?: string;
 };
 
 export type ChatFileUploadRequest = {
@@ -1521,6 +1521,62 @@ export type VoiceSettingsResponse = {
     autoSend: boolean;
     autoPlayback: boolean;
     playbackSpeed: number;
+};
+
+export type ChatLibraryFileChange = {
+    /**
+     * A new name; the file keeps its extension
+     */
+    filename?: string;
+    /**
+     * Star or unstar the file
+     */
+    favorite?: boolean;
+};
+
+export type ChatLibraryFile = {
+    source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
+    id: string;
+    filename: string;
+    mediaType: string;
+    sizeBytes: number;
+    createdAt: string;
+    category: 'DOCUMENT' | 'SPREADSHEET' | 'IMAGE' | 'PRESENTATION' | 'OTHER';
+    /**
+     * The conversation that produced the file; null for an upload
+     */
+    sessionId: string | null;
+    sessionTitle: string | null;
+    /**
+     * The answer that produced an artifact, or the first message in the filtered conversation that attached an upload; null for an upload listed without a conversation
+     */
+    messageId: string | null;
+    /**
+     * Starred by its owner
+     */
+    favorite: boolean;
+    /**
+     * READY unless listed with status=PENDING, which shows uploads still in progress or failed
+     */
+    status: 'UPLOADING' | 'PROCESSING' | 'READY' | 'FAILED';
+    /**
+     * Why a FAILED upload failed
+     */
+    errorCode: string | null;
+    /**
+     * Projects and assistants holding this file
+     */
+    usedBy: Array<ChatLibraryFileUsage>;
+    /**
+     * False while a project or assistant holds the file
+     */
+    deletable: boolean;
+};
+
+export type ChatLibraryFileUsage = {
+    kind: 'AGENT' | 'PROJECT';
+    id: string;
+    name: string;
 };
 
 export type AccountType = 'STANDARD';
@@ -2279,35 +2335,6 @@ export type ChatPersonaPage = {
     nextCursor: string | null;
 };
 
-export type ChatLibraryFile = {
-    source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
-    id: string;
-    filename: string;
-    mediaType: string;
-    sizeBytes: number;
-    createdAt: string;
-    category: 'DOCUMENT' | 'SPREADSHEET' | 'IMAGE' | 'PRESENTATION' | 'OTHER';
-    /**
-     * The conversation that produced the file; null for an upload
-     */
-    sessionId: string | null;
-    sessionTitle: string | null;
-    /**
-     * Projects and assistants holding this file
-     */
-    usedBy: Array<ChatLibraryFileUsage>;
-    /**
-     * False while a project or assistant holds the file
-     */
-    deletable: boolean;
-};
-
-export type ChatLibraryFileUsage = {
-    kind: 'AGENT' | 'PROJECT';
-    id: string;
-    name: string;
-};
-
 export type ChatLibraryPage = {
     items: Array<ChatLibraryFile>;
     /**
@@ -2319,6 +2346,19 @@ export type ChatLibraryPage = {
      */
     totalBytes: number;
     hasMore: boolean;
+};
+
+export type ChatLibraryContentMatch = {
+    file: ChatLibraryFile;
+    /**
+     * Up to three matching passages
+     */
+    passages: Array<ChatLibraryPassage>;
+};
+
+export type ChatLibraryPassage = {
+    text: string;
+    ordinal: number;
 };
 
 export type InterpreterHealthResponse = {
@@ -9646,6 +9686,56 @@ export type ValidateChatModelResponses = {
 
 export type ValidateChatModelResponse = ValidateChatModelResponses[keyof ValidateChatModelResponses];
 
+export type CopyChatLibraryFileData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        source: 'GENERATED' | 'IMAGE';
+        id: string;
+    };
+    query?: never;
+    url: '/api/chat/library/{source}/{id}/copy';
+};
+
+export type CopyChatLibraryFileErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CopyChatLibraryFileError = CopyChatLibraryFileErrors[keyof CopyChatLibraryFileErrors];
+
+export type CopyChatLibraryFileResponses = {
+    /**
+     * The upload holding the copy; it is PROCESSING until extracted
+     */
+    200: ChatFileResponse;
+};
+
+export type CopyChatLibraryFileResponse = CopyChatLibraryFileResponses[keyof CopyChatLibraryFileResponses];
+
 export type TestChatImageConnectionData = {
     body?: ImageConnectionTestRequest;
     headers: {
@@ -10090,6 +10180,56 @@ export type UpdateChatVoiceSettingsResponses = {
 };
 
 export type UpdateChatVoiceSettingsResponse = UpdateChatVoiceSettingsResponses[keyof UpdateChatVoiceSettingsResponses];
+
+export type ChangeChatLibraryFileData = {
+    body: ChatLibraryFileChange;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
+        id: string;
+    };
+    query?: never;
+    url: '/api/chat/library/{source}/{id}';
+};
+
+export type ChangeChatLibraryFileErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ChangeChatLibraryFileError = ChangeChatLibraryFileErrors[keyof ChangeChatLibraryFileErrors];
+
+export type ChangeChatLibraryFileResponses = {
+    /**
+     * The file as the library now lists it
+     */
+    200: ChatLibraryFile;
+};
+
+export type ChangeChatLibraryFileResponse = ChangeChatLibraryFileResponses[keyof ChangeChatLibraryFileResponses];
 
 export type ListUsersData = {
     body?: never;
@@ -11943,6 +12083,14 @@ export type ListChatLibraryData = {
          * Only this conversation's own files; the caller must own it
          */
         sessionId?: string;
+        /**
+         * Only starred files
+         */
+        favorite?: boolean;
+        /**
+         * READY lists usable files; PENDING lists uploads still uploading, processing or failed
+         */
+        status?: 'READY' | 'PENDING';
         sort?: string;
         offset?: number;
         limit?: number;
@@ -11967,6 +12115,10 @@ export type ListChatLibraryErrors = {
      * Chat is unavailable
      */
     404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
 };
 
 export type ListChatLibraryError = ListChatLibraryErrors[keyof ListChatLibraryErrors];
@@ -11979,6 +12131,49 @@ export type ListChatLibraryResponses = {
 };
 
 export type ListChatLibraryResponse = ListChatLibraryResponses[keyof ListChatLibraryResponses];
+
+export type SearchChatLibraryContentData = {
+    body?: never;
+    path?: never;
+    query: {
+        query: string;
+    };
+    url: '/api/chat/library/search';
+};
+
+export type SearchChatLibraryContentErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SearchChatLibraryContentError = SearchChatLibraryContentErrors[keyof SearchChatLibraryContentErrors];
+
+export type SearchChatLibraryContentResponses = {
+    /**
+     * Matching files, best first
+     */
+    200: Array<ChatLibraryContentMatch>;
+};
+
+export type SearchChatLibraryContentResponse = SearchChatLibraryContentResponses[keyof SearchChatLibraryContentResponses];
 
 export type GetChatInterpreterHealthData = {
     body?: never;

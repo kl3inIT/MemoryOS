@@ -61,6 +61,16 @@ public class JdbcUserFileRepository {
                 .query((row, ignored) -> map(row)).list();
     }
 
+    /** The owner's most recent READY uploads that have an indexed document, the scope of a content search. */
+    public List<UUID> searchable(TenantId tenant, ActorId actor, int limit) {
+        return jdbc.sql("""
+                SELECT id FROM chat_user_file WHERE tenant_id=:tenant AND owner_actor_id=:actor
+                    AND status='READY' AND document_id IS NOT NULL
+                ORDER BY created_at DESC, id LIMIT :limit
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("limit", limit)
+                .query(UUID.class).list();
+    }
+
     public List<UserFile> recent(TenantId tenant, ActorId actor, int offset, int limit) {
         return jdbc.sql("""
                 SELECT * FROM chat_user_file WHERE tenant_id=:tenant AND owner_actor_id=:actor
@@ -112,6 +122,24 @@ public class JdbcUserFileRepository {
                 """).param("id", id).param("tenant", tenant.value()).param("actor", actor.value()).param("request", request)
                 .param("upload", upload.value()).param("name", spec.filename()).param("type", spec.mediaType())
                 .param("size", spec.sizeBytes()).param("sha", spec.checksum().value()).update();
+        return id;
+    }
+
+    /** The live upload copied from an artifact, if the owner already has one (V92). */
+    public Optional<Row> copy(TenantId tenant, ActorId actor, String source, UUID artifact) {
+        return jdbc.sql("""
+                SELECT * FROM chat_user_file WHERE tenant_id=:tenant AND owner_actor_id=:actor
+                    AND copied_from_source=:source AND copied_from_id=:artifact AND status NOT IN ('DELETING','DELETED')
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("source", source)
+                .param("artifact", artifact).query((row, ignored) -> map(row)).optional();
+    }
+
+    /** An upload whose bytes the server copied from an artifact; it then follows the ordinary upload lifecycle. */
+    public UUID createCopy(TenantId tenant, ActorId actor, ObjectUploadId upload, ObjectUploadSpecification spec,
+                           String source, UUID artifact) {
+        var id = create(tenant, actor, UUID.randomUUID(), upload, spec);
+        jdbc.sql("UPDATE chat_user_file SET copied_from_source=:source,copied_from_id=:artifact WHERE tenant_id=:tenant AND id=:id")
+                .param("source", source).param("artifact", artifact).param("tenant", tenant.value()).param("id", id).update();
         return id;
     }
 

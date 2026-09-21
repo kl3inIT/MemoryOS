@@ -1,5 +1,6 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.chat.contract.ChatFileResponse;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatLibraryFile;
 import io.memoryos.chat.ChatLibraryService;
@@ -23,7 +24,11 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,6 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
 @ApiResponse(responseCode = "403", description = "Tenant membership or CSRF requirement not met", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
 @ApiResponse(responseCode = "404", description = "Chat is unavailable", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
 @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content)
+@ApiResponse(responseCode = "503", description = "Storage unavailable", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
 class ChatLibraryController {
@@ -60,13 +66,24 @@ class ChatLibraryController {
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}, format = "uuid",
                     description = "The conversation that produced the file; null for an upload") @Nullable UUID sessionId,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String sessionTitle,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}, format = "uuid",
+                    description = "The answer that produced an artifact, or the first message in the filtered conversation"
+                            + " that attached an upload; null for an upload listed without a conversation")
+            @Nullable UUID messageId,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Starred by its owner") boolean favorite,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    allowableValues = {"UPLOADING", "PROCESSING", "READY", "FAILED"},
+                    description = "READY unless listed with status=PENDING, which shows uploads still in progress or failed")
+            String status,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"},
+                    description = "Why a FAILED upload failed") @Nullable String errorCode,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Projects and assistants holding this file") List<UsageResponse> usedBy,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "False while a project or assistant holds the file") boolean deletable) {
 
         static LibraryFileResponse from(ChatLibraryFile file) {
             return new LibraryFileResponse(file.source().name(), file.id(), file.filename(), file.mediaType(),
                     file.sizeBytes(), file.createdAt(), file.category().name(), file.sessionId(), file.sessionTitle(),
-                    file.usedBy().stream().map(UsageResponse::from).toList(), file.deletable());
+                    file.messageId(), file.favorite(), file.status().name(), file.errorCode(), file.usedBy().stream().map(UsageResponse::from).toList(), file.deletable());
         }
     }
 
@@ -83,7 +100,7 @@ class ChatLibraryController {
     @GetMapping
     @Operation(operationId = "listChatLibrary",
             summary = "List the caller's own uploads, generated files and generated images as one paginated library,"
-                    + " optionally narrowed to one conversation")
+                    + " optionally narrowed to one conversation, to starred files, or to uploads still in progress")
     @ApiResponse(responseCode = "200", description = "A page of the caller's files", useReturnTypeSchema = true)
     ResponseEntity<LibraryPageResponse> list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @RequestParam(defaultValue = "") String query,
@@ -91,15 +108,73 @@ class ChatLibraryController {
             @Parameter(description = "Empty means every category") @RequestParam(required = false) @Nullable List<String> categories,
             @Parameter(description = "Only this conversation's own files; the caller must own it")
             @RequestParam(required = false) @Nullable UUID sessionId,
+            @Parameter(description = "Only starred files") @RequestParam(defaultValue = "false") boolean favorite,
+            @Parameter(description = "READY lists usable files; PENDING lists uploads still uploading, processing or failed",
+                    schema = @Schema(allowableValues = {"READY", "PENDING"}))
+            @RequestParam(defaultValue = "READY") String status,
             @RequestParam(defaultValue = "NEWEST") String sort,
             @RequestParam(defaultValue = "0") int offset,
             @RequestParam(defaultValue = "50") int limit) {
-        var page = library.list(identity.actorId(), query,
+        boolean pending = switch (status.toUpperCase(Locale.ROOT)) {
+            case "READY" -> false;
+            case "PENDING" -> true;
+            default -> throw ChatException.invalid("Unknown status.");
+        };
+        var page = library.list(identity.actorId(), new ChatLibraryService.Listing(query,
                 parse(sources, ChatLibraryFile.Source.class), parse(categories, ChatLibraryFile.Category.class),
-                sessionId, value(sort, ChatLibraryFile.Sort.class), offset, limit);
+                sessionId, favorite, pending, value(sort, ChatLibraryFile.Sort.class), offset, limit));
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(new LibraryPageResponse(
                 page.items().stream().map(LibraryFileResponse::from).toList(),
                 page.totalCount(), page.totalBytes(), page.hasMore()));
+    }
+
+    @Schema(name = "ChatLibraryFileChange")
+    record ChangeRequest(
+            @Schema(description = "A new name; the file keeps its extension", maxLength = 255) @Nullable String filename,
+            @Schema(description = "Star or unstar the file") @Nullable Boolean favorite) {}
+
+    @PatchMapping(value = "/{source}/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "changeChatLibraryFile", summary = "Rename or star one of the caller's files")
+    @ApiResponse(responseCode = "200", description = "The file as the library now lists it", useReturnTypeSchema = true)
+    ResponseEntity<LibraryFileResponse> change(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @Parameter(schema = @Schema(allowableValues = {"UPLOAD", "GENERATED", "IMAGE"})) @PathVariable String source,
+            @PathVariable UUID id, @RequestBody ChangeRequest request) {
+        return ResponseEntity.ok().header("Cache-Control", "no-store").body(LibraryFileResponse.from(library.update(
+                identity.actorId(), value(source, ChatLibraryFile.Source.class), id, request.filename(), request.favorite())));
+    }
+
+    @Schema(name = "ChatLibraryContentMatch")
+    record ContentMatchResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) LibraryFileResponse file,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Up to three matching passages")
+            List<PassageResponse> passages) {}
+
+    @Schema(name = "ChatLibraryPassage")
+    record PassageResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String text,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int ordinal) {}
+
+    @GetMapping("/search")
+    @Operation(operationId = "searchChatLibraryContent",
+            summary = "Find the caller's own indexed uploads by what they contain, with the matching passages")
+    @ApiResponse(responseCode = "200", description = "Matching files, best first", useReturnTypeSchema = true)
+    ResponseEntity<List<ContentMatchResponse>> search(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @RequestParam String query) {
+        return ResponseEntity.ok().header("Cache-Control", "no-store").body(library.searchContent(identity.actorId(), query)
+                .stream().map(match -> new ContentMatchResponse(LibraryFileResponse.from(match.file()),
+                        match.passages().stream().map(passage -> new PassageResponse(passage.text(), passage.ordinal())).toList()))
+                .toList());
+    }
+
+    @PostMapping("/{source}/{id}/copy")
+    @Operation(operationId = "copyChatLibraryFile",
+            summary = "Copy a generated file or image into an upload of the caller, so it can be attached to a message,"
+                    + " a Project or an assistant; asking again returns the same upload")
+    @ApiResponse(responseCode = "200", description = "The upload holding the copy; it is PROCESSING until extracted",
+            useReturnTypeSchema = true)
+    ResponseEntity<ChatFileResponse> copy(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @Parameter(schema = @Schema(allowableValues = {"GENERATED", "IMAGE"})) @PathVariable String source,
+            @PathVariable UUID id) {
+        return ResponseEntity.ok().header("Cache-Control", "no-store").body(ChatFileResponse.from(
+                library.copy(identity.actorId(), value(source, ChatLibraryFile.Source.class), id)));
     }
 
     private static <E extends Enum<E>> Set<E> parse(@Nullable List<String> values, Class<E> type) {

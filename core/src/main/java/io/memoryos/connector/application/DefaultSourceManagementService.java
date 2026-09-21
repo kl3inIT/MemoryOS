@@ -317,7 +317,9 @@ public class DefaultSourceManagementService implements SourceManagementService {
         }
         Set<SourceId> removable = new LinkedHashSet<>(sourceGroups.removableFromGroup(
                 permissions.tenantId(),
-                requiredGroupId
+                requiredActorId,
+                requiredGroupId,
+                permissions.globalManage()
         ));
         removable.retainAll(associated.stream().map(SourceSummary::id).toList());
         return new GroupSources(associated, removable);
@@ -333,14 +335,15 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 requiredActorId,
                 IamCapability.SOURCES_MANAGE
         );
-        // Authority comes from the Group, not the Source: a Group manager decides what their own Group carries,
-        // even for a Source they cannot otherwise manage. They never touch the Source's other Groups.
-        if (access.authority() == Authority.GLOBAL) {
+        // Detaching needs the same authority as attaching: the Source's recorded manager, within a Group they manage.
+        // Another manager of that Group cannot touch the Source. The Source's other Groups are never changed.
+        boolean global = access.authority() == Authority.GLOBAL;
+        if (global) {
             groupScopes.validateGroupIds(access.tenantId(), List.of(requiredGroupId));
         } else {
             groupScopes.validateManagedGroupIds(access.tenantId(), requiredActorId, List.of(requiredGroupId));
         }
-        requireMutable(sources.lock(access.tenantId(), requiredSourceId));
+        requireMutable(sources.lockAuthorized(access.tenantId(), requiredActorId, requiredSourceId, global));
         if (!sourceGroups.groupIds(access.tenantId(), requiredSourceId).contains(requiredGroupId)) {
             throw SourceException.notFound();
         }

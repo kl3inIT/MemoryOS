@@ -23,9 +23,17 @@ One pull request on `kl3inIT/mem-25-audit`, one commit per step.
       table, CSV export of the current filters, and a line stating retention and who may read it. Vietnamese copy;
       action sentences translated, codes left as data.
 - [x] 8. Worker: the retention task (365 days by default, configurable).
-- [ ] 9. Tests: transaction coupling and writer failure, catalog completeness, denial scope, the no-secret sweep,
+- [x] 9. Tests: transaction coupling and writer failure, catalog completeness, denial scope, the no-secret sweep,
       Tenant isolation and authorization, cursor stability, retention and the append-only trigger, vitest for the
       screen; screenshots at 1280 light/dark and 390.
-- [ ] 10. Docs: a new `docs/specs/audit.md` and `docs/tests/audit.md`, ARCHITECTURE and the roadmap; `pnpm check` and
+- [x] 10. Docs: a new `docs/specs/audit.md` and `docs/tests/audit.md`, ARCHITECTURE and the roadmap; `pnpm check` and
       `./gradlew clean check`.
-- [ ] 11. Follow-up issue: ending a deactivated member's open sessions.
+- [x] 11. Follow-up issue: ending a deactivated member's open sessions (MEM-170).
+
+## Verification notes
+
+- The migration moved from V92 to V94 when main took V92 and V93 for the chat file library.
+- Local gates run: `pnpm check` (513 tests); the core audit, Group, invitation, admission, Source, Drive, SharePoint,
+  catalog, MCP and connection suites (178 tests); the API session, audit and configuration tests; the Worker
+  control-plane context. The full local `./gradlew clean check` was not run to completion on this machine (memory
+  pressure); CI is the full gate.

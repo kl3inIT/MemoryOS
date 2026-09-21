@@ -22,12 +22,14 @@ export function ChatSessionSettings({
   onChange,
   deleteSession,
   onDelete,
+  onShowMessage,
 }: {
   session?: ChatSession;
   busy: boolean;
   onChange: () => Promise<void>;
   deleteSession?: () => Promise<void>;
   onDelete: () => void;
+  onShowMessage?: (messageId: string) => Promise<boolean>;
 }) {
   const ui = useAppTranslation();
 
@@ -49,7 +51,7 @@ export function ChatSessionSettings({
   if (!session) return null;
   return (
     <div className="flex shrink-0 items-center gap-1">
-      <ChatSessionFiles sessionId={session.id} />
+      <ChatSessionFiles sessionId={session.id} onShowMessage={onShowMessage} />
       <SharingDialog sessionId={session.id} />
       <ChatSessionMenu
         session={session}

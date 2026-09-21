@@ -44,6 +44,7 @@ import { useTranslation } from "react-i18next";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { useChatThreads } from "./chat-threads-context";
 import type { ChatThreadController } from "./chat-thread-controller";
+import { branchSteps } from "./chat-library";
 
 export function ChatPage() {
   const ui = useAppTranslation();
@@ -284,6 +285,43 @@ function ChatConversation({
     },
   });
 
+  /**
+   * Scrolls to a message of this conversation (MEM-152 "show in conversation"). A message on another version is
+   * brought onto the selected path first, one version choice at a time, as the version arrows would.
+   */
+  const showMessage = async (messageId: string) => {
+    const find = () =>
+      document.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(messageId)}"]`);
+    let element = find();
+    if (!element && session) {
+      const current = (await branches.refetch()).data ?? [];
+      if (!current.some((branch) => branch.id === messageId)) return false;
+      const steps = branchSteps(current, messageId);
+      if (steps.length > 0) {
+        await controller.mutate(async () => {
+          for (const step of steps)
+            await selectChatBranch({
+              path: { sessionId: session.id },
+              body: step,
+              headers: sameOriginMutationHeaders,
+              signal: AbortSignal.timeout(30000),
+              throwOnError: true,
+            });
+        });
+        await branches.refetch();
+      }
+      for (let waited = 0; !element && waited < 5000; waited += 100) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        element = find();
+      }
+    }
+    if (!element) return false;
+    element.scrollIntoView({ block: "center", behavior: "smooth" });
+    element.setAttribute("data-chat-search-match", "true");
+    setTimeout(() => element.removeAttribute("data-chat-search-match"), 2400);
+    return true;
+  };
+
   if (state.unavailable)
     return (
       <AppShell pageTitle={ui("Chat")}>
@@ -327,6 +365,7 @@ function ChatConversation({
             }}
             deleteSession={() => runtime.threads.getItemById(controller.id).delete()}
             onDelete={() => controller.markUnavailable()}
+            onShowMessage={showMessage}
           />
         </div>
       }

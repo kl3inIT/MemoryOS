@@ -6,7 +6,7 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n";
@@ -18,12 +18,34 @@ const listChatLibrary = vi.hoisted(() => vi.fn());
 const deleteChatFile = vi.hoisted(() => vi.fn());
 const deleteChatFileArtifact = vi.hoisted(() => vi.fn());
 const deleteChatImageArtifact = vi.hoisted(() => vi.fn());
+const listChatProjects = vi.hoisted(() => vi.fn());
+const getChatProject = vi.hoisted(() => vi.fn());
+const updateChatProject = vi.hoisted(() => vi.fn());
+const copyChatLibraryFile = vi.hoisted(() => vi.fn());
+const getChatFile = vi.hoisted(() => vi.fn());
+const changeChatLibraryFile = vi.hoisted(() => vi.fn());
+const searchChatLibraryContent = vi.hoisted(() => vi.fn());
+const retryChatFile = vi.hoisted(() => vi.fn());
+const uploadChatFile = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/hey-api/sdk.gen", () => ({
   listChatLibrary: (...args: unknown[]) => listChatLibrary(...args),
   deleteChatFile: (...args: unknown[]) => deleteChatFile(...args),
   deleteChatFileArtifact: (...args: unknown[]) => deleteChatFileArtifact(...args),
   deleteChatImageArtifact: (...args: unknown[]) => deleteChatImageArtifact(...args),
+  listChatProjects: (...args: unknown[]) => listChatProjects(...args),
+  getChatProject: (...args: unknown[]) => getChatProject(...args),
+  updateChatProject: (...args: unknown[]) => updateChatProject(...args),
+  copyChatLibraryFile: (...args: unknown[]) => copyChatLibraryFile(...args),
+  getChatFile: (...args: unknown[]) => getChatFile(...args),
+  changeChatLibraryFile: (...args: unknown[]) => changeChatLibraryFile(...args),
+  searchChatLibraryContent: (...args: unknown[]) => searchChatLibraryContent(...args),
+  retryChatFile: (...args: unknown[]) => retryChatFile(...args),
+}));
+
+vi.mock("./chat-files", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./chat-files")>()),
+  uploadChatFile: (...args: unknown[]) => uploadChatFile(...args),
 }));
 
 vi.mock("@/features/identity/application-session-context", () => ({
@@ -44,6 +66,10 @@ const file = (overrides: Partial<ChatLibraryFile> = {}): ChatLibraryFile => ({
   category: "SPREADSHEET",
   sessionId: "22222222-2222-4222-8222-222222222222",
   sessionTitle: "Báo cáo",
+  messageId: "55555555-5555-4555-8555-555555555555",
+  favorite: false,
+  status: "READY",
+  errorCode: null,
   usedBy: [],
   deletable: true,
   ...overrides,
@@ -103,19 +129,29 @@ it("lists every source with its size, total and originating conversation", async
   await show();
 
   expect(screen.getByText("2 tệp · 3 KB")).toBeInTheDocument();
+  const user = userEvent.setup();
   const generated = screen.getByRole("row", { name: /doanh-thu\.xlsx/ });
   expect(within(generated).getByText("Do mã tạo")).toBeInTheDocument();
-  expect(within(generated).getByRole("link", { name: "Mở hội thoại gốc" })).toHaveAttribute(
+  await user.click(within(generated).getByRole("button", { name: "Thao tác với doanh-thu.xlsx" }));
+  expect(await screen.findByRole("menuitem", { name: "Mở hội thoại gốc" })).toHaveAttribute(
     "href",
     "/chat/22222222-2222-4222-8222-222222222222",
   );
-  // An upload belongs to its owner rather than one conversation, so it offers no conversation link.
+  await user.keyboard("{Escape}");
+
+  // An upload belongs to its owner rather than one conversation, so it offers no conversation link, and a
+  // Project holding it blocks the deletion with the holder named in its place.
   const uploaded = screen.getByRole("row", { name: /ghi-chú\.pdf/ });
-  expect(
-    within(uploaded).queryByRole("link", { name: "Mở hội thoại gốc" }),
-  ).not.toBeInTheDocument();
   expect(within(uploaded).getByText("Đang dùng trong Kế hoạch")).toBeInTheDocument();
-  expect(within(uploaded).getByRole("button", { name: "Xoá ghi-chú.pdf" })).toBeDisabled();
+  await user.click(within(uploaded).getByRole("button", { name: "Thao tác với ghi-chú.pdf" }));
+  const menu = await screen.findByRole("menu");
+  expect(
+    within(menu).queryByRole("menuitem", { name: "Mở hội thoại gốc" }),
+  ).not.toBeInTheDocument();
+  expect(within(menu).getByRole("menuitem", { name: "Đang dùng trong Kế hoạch" })).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
 });
 
 it("sends the filters, the search and the sort to the server", async () => {
@@ -179,7 +215,8 @@ it("names the project holding an upload when the server refuses the deletion", a
     }),
   );
 
-  await user.click(screen.getByRole("button", { name: "Xoá ghi-chú.pdf" }));
+  await user.click(screen.getByRole("button", { name: "Thao tác với ghi-chú.pdf" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Xoá" }));
   await user.click(
     within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Xoá" }),
   );
@@ -200,5 +237,196 @@ it("drops a selection made on another page, so paging cannot delete nothing sile
     expect(listChatLibrary).toHaveBeenLastCalledWith(
       expect.objectContaining({ query: expect.objectContaining({ offset: 50 }) }),
     ),
+  );
+});
+
+const PROJECT = {
+  id: "44444444-4444-4444-8444-444444444444",
+  name: "Kế hoạch",
+  description: "",
+  instructions: "",
+  revision: 3,
+  updatedAt: new Date().toISOString(),
+  fileIds: ["66666666-6666-4666-8666-666666666666"],
+};
+
+it("adds a generated file to a project by copying it into an upload first", async () => {
+  await show();
+  const user = userEvent.setup();
+  const copy = "77777777-7777-4777-8777-777777777777";
+  listChatProjects.mockResolvedValue({ data: [PROJECT] });
+  getChatProject.mockResolvedValue({ data: PROJECT });
+  updateChatProject.mockResolvedValue({ data: PROJECT });
+  copyChatLibraryFile.mockResolvedValue({
+    data: {
+      id: copy,
+      filename: "doanh-thu.xlsx",
+      mediaType: "text/csv",
+      sizeBytes: 2048,
+      status: "READY",
+    },
+  });
+
+  await user.click(screen.getByRole("button", { name: "Thao tác với doanh-thu.xlsx" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Thêm vào dự án" }));
+  const dialog = await screen.findByRole("dialog");
+  await within(dialog).findByRole("option", { name: "Kế hoạch (1/20)" });
+  await user.click(within(dialog).getByRole("button", { name: "Thêm vào dự án" }));
+
+  await waitFor(() =>
+    expect(updateChatProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: { projectId: PROJECT.id },
+        query: { revision: 3 },
+        body: expect.objectContaining({ fileIds: [...PROJECT.fileIds, copy] }),
+      }),
+    ),
+  );
+  expect(copyChatLibraryFile).toHaveBeenCalledWith(
+    expect.objectContaining({ path: { source: "GENERATED", id: file().id } }),
+  );
+  expect(await screen.findByText("Đã thêm vào dự án Kế hoạch.")).toBeInTheDocument();
+});
+
+it("takes an upload out of a project from its usage label without deleting it", async () => {
+  await show();
+  const user = userEvent.setup();
+  getChatProject.mockResolvedValue({
+    data: { ...PROJECT, fileIds: [upload.id, ...PROJECT.fileIds] },
+  });
+  updateChatProject.mockResolvedValue({ data: PROJECT });
+
+  await user.click(screen.getByRole("button", { name: "Gỡ khỏi Kế hoạch" }));
+
+  await waitFor(() =>
+    expect(updateChatProject).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.objectContaining({ fileIds: PROJECT.fileIds }) }),
+    ),
+  );
+  expect(deleteChatFile).not.toHaveBeenCalled();
+  expect(await screen.findByText("Đã gỡ khỏi dự án Kế hoạch.")).toBeInTheDocument();
+});
+
+it("takes files straight into the library, showing each upload's progress", async () => {
+  await show();
+  const user = userEvent.setup();
+  let report: ((value: number) => void) | undefined;
+  uploadChatFile.mockImplementation(
+    (_file, _id, signal: AbortSignal, progress: (value: number) => void) => {
+      report = progress;
+      return new Promise((_resolve, reject) =>
+        signal.addEventListener("abort", () => reject(signal.reason), { once: true }),
+      );
+    },
+  );
+
+  await user.upload(
+    screen.getByLabelText("Tải tệp lên thư viện"),
+    new File(["nội dung"], "hop-dong.pdf", { type: "application/pdf" }),
+  );
+
+  const tray = await screen.findByRole("region", { name: "Tiến trình tải lên" });
+  expect(within(tray).getByText("hop-dong.pdf")).toBeInTheDocument();
+  expect(uploadChatFile).toHaveBeenCalledOnce();
+  act(() => report?.(40));
+  expect(await within(tray).findByText("40%")).toBeInTheDocument();
+  // Cancelling one upload stops it and says so, without touching the others.
+  await user.click(within(tray).getByRole("button", { name: "Huỷ tải hop-dong.pdf" }));
+  expect(await within(tray).findByText("Đã huỷ")).toBeInTheDocument();
+});
+
+it("lists uploads still being processed separately, with retry", async () => {
+  await show();
+  const user = userEvent.setup();
+  const failed = file({
+    source: "UPLOAD",
+    id: "88888888-8888-4888-8888-888888888888",
+    filename: "bao-cao.pdf",
+    category: "DOCUMENT",
+    sessionId: null,
+    sessionTitle: null,
+    status: "FAILED",
+    errorCode: "EXTRACTION_FAILED",
+  });
+  listChatLibrary.mockResolvedValue({
+    data: { items: [failed], totalCount: 1, totalBytes: failed.sizeBytes, hasMore: false },
+  });
+  retryChatFile.mockResolvedValue({ data: undefined });
+
+  await user.click(screen.getByRole("tab", { name: "Đang xử lý / Lỗi" }));
+
+  await waitFor(() =>
+    expect(listChatLibrary).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: expect.objectContaining({ status: "PENDING" }) }),
+    ),
+  );
+  expect(await screen.findByText("Xử lý lỗi")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Thử lại" }));
+  await waitFor(() =>
+    expect(retryChatFile).toHaveBeenCalledWith(
+      expect.objectContaining({ path: { fileId: failed.id } }),
+    ),
+  );
+});
+
+it("renames a file, keeping its extension, and stars it", async () => {
+  await show();
+  const user = userEvent.setup();
+  changeChatLibraryFile.mockResolvedValue({
+    data: { ...file(), filename: "Doanh thu quý 3.xlsx" },
+  });
+
+  await user.click(screen.getByRole("button", { name: "Đánh dấu yêu thích doanh-thu.xlsx" }));
+  await waitFor(() =>
+    expect(changeChatLibraryFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: { source: "GENERATED", id: file().id },
+        body: { favorite: true },
+      }),
+    ),
+  );
+
+  await user.click(screen.getByRole("button", { name: "Thao tác với doanh-thu.xlsx" }));
+  await user.click(await screen.findByRole("menuitem", { name: "Đổi tên" }));
+  const dialog = await screen.findByRole("dialog");
+  const input = within(dialog).getByRole("textbox", { name: "Tên tệp" });
+  await user.clear(input);
+  await user.type(input, "Doanh thu quý 3");
+  await user.click(within(dialog).getByRole("button", { name: "Đổi tên" }));
+
+  await waitFor(() =>
+    expect(changeChatLibraryFile).toHaveBeenLastCalledWith(
+      expect.objectContaining({ body: { filename: "Doanh thu quý 3" } }),
+    ),
+  );
+});
+
+it("searches inside files and shows the matching passages", async () => {
+  await show();
+  const user = userEvent.setup();
+  searchChatLibraryContent.mockResolvedValue({
+    data: [
+      {
+        file: file({ filename: "hop-dong.pdf", source: "UPLOAD", category: "DOCUMENT" }),
+        passages: [{ text: "Điều khoản thanh toán trong 30 ngày", ordinal: 4 }],
+      },
+    ],
+  });
+
+  await user.click(screen.getByRole("tab", { name: "Nội dung" }));
+  await user.type(screen.getByRole("textbox", { name: "Tìm trong nội dung tệp" }), "thanh toán");
+
+  await waitFor(() =>
+    expect(searchChatLibraryContent).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: { query: "thanh toán" } }),
+    ),
+  );
+  expect(await screen.findByText("hop-dong.pdf")).toBeInTheDocument();
+  // The matched words are marked inside the passage.
+  const marked = await screen.findByText("thanh toán", { selector: "mark" });
+  expect(marked).toBeInTheDocument();
+  // The name listing is not asked again while the content mode is open.
+  expect(listChatLibrary).not.toHaveBeenCalledWith(
+    expect.objectContaining({ query: expect.objectContaining({ query: "thanh toán" }) }),
   );
 });

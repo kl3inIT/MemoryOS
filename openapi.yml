@@ -6468,9 +6468,10 @@ paths:
       tags:
       - Groups
       summary: Remove one source from one group
-      description: Global source managers may remove any association. A group manager
-        may remove a non-public source that stays associated with another group; other
-        groups keep their associations.
+      description: "Global source managers may remove any association. Otherwise only\
+        \ the source's responsible manager may remove it, from a group they manage;\
+        \ other managers of that group may not. The source's other groups keep their\
+        \ associations."
       operationId: removeGroupSource
       parameters:
       - name: X-MemoryOS-CSRF
@@ -9097,6 +9098,73 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/library/{source}/{id}/copy:
+    post:
+      tags:
+      - Chat
+      summary: "Copy a generated file or image into an upload of the caller, so it\
+        \ can be attached to a message, a Project or an assistant; asking again returns\
+        \ the same upload"
+      operationId: copyChatLibraryFile
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: source
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - GENERATED
+          - IMAGE
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The upload holding the copy; it is PROCESSING until extracted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatFileResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/images/connections/{provider}/test:
     post:
       tags:
@@ -9624,6 +9692,78 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/VoiceSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/{source}/{id}:
+    patch:
+      tags:
+      - Chat
+      summary: Rename or star one of the caller's files
+      operationId: changeChatLibraryFile
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: source
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatLibraryFileChange"
+        required: true
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The file as the library now lists it
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryFile"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -12100,7 +12240,8 @@ paths:
       tags:
       - Chat
       summary: "List the caller's own uploads, generated files and generated images\
-        \ as one paginated library, optionally narrowed to one conversation"
+        \ as one paginated library, optionally narrowed to one conversation, to starred\
+        \ files, or to uploads still in progress"
       operationId: listChatLibrary
       parameters:
       - name: query
@@ -12132,6 +12273,23 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: favorite
+        in: query
+        description: Only starred files
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - name: status
+        in: query
+        description: "READY lists usable files; PENDING lists uploads still uploading,\
+          \ processing or failed"
+        required: false
+        schema:
+          type: string
+          enum:
+          - READY
+          - PENDING
       - name: sort
         in: query
         required: false
@@ -12173,12 +12331,69 @@ paths:
                 $ref: "#/components/schemas/ApiProblem"
         "401":
           description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
         "200":
           description: A page of the caller's files
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatLibraryPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/search:
+    get:
+      tags:
+      - Chat
+      summary: "Find the caller's own indexed uploads by what they contain, with the\
+        \ matching passages"
+      operationId: searchChatLibraryContent
+      parameters:
+      - name: query
+        in: query
+        required: true
+        schema:
+          type: string
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "Matching files, best first"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatLibraryContentMatch"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -18104,24 +18319,6 @@ components:
       required:
       - failureCode
       - reachable
-    ImageConnectionTestRequest:
-      type: object
-      properties:
-        endpoint:
-          type: string
-          maxLength: 2048
-          minLength: 0
-        model:
-          type: string
-          maxLength: 200
-          minLength: 0
-        credentialValue:
-          type: string
-          maxLength: 8192
-          minLength: 0
-      required:
-      - endpoint
-      - model
     ChatFileResponse:
       type: object
       properties:
@@ -18154,6 +18351,24 @@ components:
           type: string
         searchReady:
           type: boolean
+    ImageConnectionTestRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        model:
+          type: string
+          maxLength: 200
+          minLength: 0
+        credentialValue:
+          type: string
+          maxLength: 8192
+          minLength: 0
+      required:
+      - endpoint
+      - model
     ChatFileUploadRequest:
       type: object
       properties:
@@ -18295,6 +18510,122 @@ components:
       - autoPlayback
       - autoSend
       - playbackSpeed
+    ChatLibraryFileChange:
+      type: object
+      properties:
+        filename:
+          type: string
+          description: A new name; the file keeps its extension
+          maxLength: 255
+        favorite:
+          type: boolean
+          description: Star or unstar the file
+    ChatLibraryFile:
+      type: object
+      properties:
+        source:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        category:
+          type: string
+          enum:
+          - DOCUMENT
+          - SPREADSHEET
+          - IMAGE
+          - PRESENTATION
+          - OTHER
+        sessionId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: The conversation that produced the file; null for an upload
+        sessionTitle:
+          type:
+          - string
+          - "null"
+        messageId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: "The answer that produced an artifact, or the first message\
+            \ in the filtered conversation that attached an upload; null for an upload\
+            \ listed without a conversation"
+        favorite:
+          type: boolean
+          description: Starred by its owner
+        status:
+          type: string
+          description: "READY unless listed with status=PENDING, which shows uploads\
+            \ still in progress or failed"
+          enum:
+          - UPLOADING
+          - PROCESSING
+          - READY
+          - FAILED
+        errorCode:
+          type:
+          - string
+          - "null"
+          description: Why a FAILED upload failed
+        usedBy:
+          type: array
+          description: Projects and assistants holding this file
+          items:
+            $ref: "#/components/schemas/ChatLibraryFileUsage"
+        deletable:
+          type: boolean
+          description: False while a project or assistant holds the file
+      required:
+      - category
+      - createdAt
+      - deletable
+      - errorCode
+      - favorite
+      - filename
+      - id
+      - mediaType
+      - messageId
+      - sessionId
+      - sessionTitle
+      - sizeBytes
+      - source
+      - status
+      - usedBy
+    ChatLibraryFileUsage:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - AGENT
+          - PROJECT
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - kind
+      - name
     AccountType:
       type: string
       enum:
@@ -20682,83 +21013,6 @@ components:
       required:
       - items
       - nextCursor
-    ChatLibraryFile:
-      type: object
-      properties:
-        source:
-          type: string
-          enum:
-          - UPLOAD
-          - GENERATED
-          - IMAGE
-        id:
-          type: string
-          format: uuid
-        filename:
-          type: string
-        mediaType:
-          type: string
-        sizeBytes:
-          type: integer
-          format: int64
-        createdAt:
-          type: string
-          format: date-time
-        category:
-          type: string
-          enum:
-          - DOCUMENT
-          - SPREADSHEET
-          - IMAGE
-          - PRESENTATION
-          - OTHER
-        sessionId:
-          type:
-          - string
-          - "null"
-          format: uuid
-          description: The conversation that produced the file; null for an upload
-        sessionTitle:
-          type:
-          - string
-          - "null"
-        usedBy:
-          type: array
-          description: Projects and assistants holding this file
-          items:
-            $ref: "#/components/schemas/ChatLibraryFileUsage"
-        deletable:
-          type: boolean
-          description: False while a project or assistant holds the file
-      required:
-      - category
-      - createdAt
-      - deletable
-      - filename
-      - id
-      - mediaType
-      - sessionId
-      - sessionTitle
-      - sizeBytes
-      - source
-      - usedBy
-    ChatLibraryFileUsage:
-      type: object
-      properties:
-        kind:
-          type: string
-          enum:
-          - AGENT
-          - PROJECT
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-      required:
-      - id
-      - kind
-      - name
     ChatLibraryPage:
       type: object
       properties:
@@ -20781,6 +21035,30 @@ components:
       - items
       - totalBytes
       - totalCount
+    ChatLibraryContentMatch:
+      type: object
+      properties:
+        file:
+          $ref: "#/components/schemas/ChatLibraryFile"
+        passages:
+          type: array
+          description: Up to three matching passages
+          items:
+            $ref: "#/components/schemas/ChatLibraryPassage"
+      required:
+      - file
+      - passages
+    ChatLibraryPassage:
+      type: object
+      properties:
+        text:
+          type: string
+        ordinal:
+          type: integer
+          format: int32
+      required:
+      - ordinal
+      - text
     InterpreterHealthResponse:
       type: object
       properties:
