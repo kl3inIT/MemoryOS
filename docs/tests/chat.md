@@ -411,4 +411,16 @@ Receipts: [MEM-112 verification](../increments/active/mem-112-chat-mcp-client/ve
 | Contract | Test and boundary |
 | --- | --- |
 | The filter returns the conversation's artifacts and the uploads attached in it, excludes another conversation's files and an upload never attached there, and matches nothing for a conversation the caller does not own or one that does not exist | `ChatPersistenceIntegrationTest.aConversationsOwnFilesAreItsArtifactsAndTheUploadsAttachedInIt`, `ChatSessionApiIntegrationTest.fileLibraryListsOwnUploadsAndNamesWhatBlocksDeletingOne` |
-| The panel asks for the conversation's files only once opened, lists them with size, total and download, says so when there are none, and deletes after the confirmation | `web/src/features/chat/chat-session-files.test.tsx` |
+| The panel counts the conversation's files on its button, lists them with size and total, searches and filters within the conversation on the server, says so when there are none, and deletes after the confirmation | `web/src/features/chat/chat-session-files.test.tsx` |
+
+## File library v2 (MEM-152)
+
+| Contract | Test and boundary |
+| --- | --- |
+| A server write is a verified upload adopted by its caller; bytes that disagree with their checksum are never verified, a size mismatch is refused, and a write never adopted is reclaimed by the abandoned-upload cleanup | `ObjectUploadLifecycleIntegrationTest.aServerWriteIsAVerifiedUploadThatIsAdoptedOrReclaimedLikeABrowserOne` |
+| Copying a generated image yields a PROCESSING upload queued for extraction; asking again returns it; another member, a deleted artifact, `UPLOAD` and an unknown source are refused; CSRF is required; deleting the copy lets it be copied again; deleting the artifact leaves the copy readable | `ChatSessionApiIntegrationTest.aGeneratedImageIsCopiedIntoOneReusableUploadThatOutlivesIt` |
+| A conversation's rows name the message to scroll to: the answer that made an artifact and the question that attached an upload | `ChatPersistenceIntegrationTest.aConversationsOwnFilesAreItsArtifactsAndTheUploadsAttachedInIt` |
+| The library picker attaches an upload as it is and a generated image through its ready copy, marks what is already on the draft, filters by source on the server, and stays open naming a failed copy | `web/src/features/chat/chat-library-picker.test.tsx` |
+| The panel attaches a generated file to the next question through its copy and jumps to the message a file belongs to | `web/src/features/chat/chat-session-files.test.tsx` |
+| Version selections that bring a message onto the selected path are computed from the top down, and none for a message already shown or outside the conversation | `web/src/features/chat/chat-library.test.ts` |
+| `/library` adds a generated file to a Project through its copy and the Project's revisioned update, and removes an upload from a Project without deleting it | `web/src/features/chat/chat-library-page.test.tsx` |
