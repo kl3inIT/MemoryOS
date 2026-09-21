@@ -6,6 +6,10 @@
 | Soniox live streams send diarization, endpoints, language and context terms; final tokens become segments split by speaker change and `<end>` with the offset applied; finalize ends with an empty frame; a provider error reconnects, replays the last five seconds and shifts times; exhausted retries report one failure | `SonioxLiveTranscriptionTest`: controlled JDK WebSocket boundary |
 | Providers without a live protocol get utterances cut at pauses, silence never reaches the provider, the recording clock is kept and a provider error is reported | `ChunkedLiveTranscriptionTest` |
 | The meeting module stays closed and depends only on IAM and the voice named interface; its persistence is private | `ModulithArchitectureTest`, `CoreDependencyRulesTest` |
+| Browser support follows Nojoin (shared audio on desktop Chromium, microphone-only on mobile Chrome, otherwise unsupported); a shared tab keeps only its audio, a missing tab audio and a closed picker are reported | `meeting-capture.test.ts` |
+| The track socket addresses the meeting at a whole-millisecond offset, opens on `ready`, relays previews and stored utterances, finishes after `finished`, rejects a refused open with its code and reports a failure once | `meeting-socket.test.ts` |
+| The recorder queues audio until a track connects, reconnects at the delivered offset and replays the queue, stops on terminal codes, drops audio while paused and resumes the clock without the pause, and flags a quiet shared tab | `meeting-recorder.test.ts` |
+| A member creates an in-person meeting with consent, records with Chromium's fake microphone through the real AudioWorklet, sees stored utterances and the live preview, names a speaker, stops and ends the meeting, at 1440 and 390 px without horizontal overflow | `tests/e2e/meetings.spec.ts` with a mocked API and WebSocket |
 | Meeting routes are documented and CSRF-protected in the committed OpenAPI | `OpenApiContractTest` |
 
 Live Soniox acceptance with real meetings, real microphones and shared tabs remains open, as for MEM-91.

@@ -140,6 +140,55 @@ export type GoogleDriveSelectionReceiptResponse = {
 };
 
 /**
+ * A blank or absent name restores the automatic label
+ */
+export type MeetingSpeakerRequest = {
+    name?: string | null;
+};
+
+export type MeetingDetail = {
+    id: string;
+    title: string;
+    kind: 'ONLINE' | 'IN_PERSON';
+    language: string | null;
+    participants: Array<string>;
+    terms: Array<string>;
+    notes: string;
+    status: 'RECORDING' | 'ENDED';
+    provider: string | null;
+    /**
+     * Whether speaker labels distinguish people
+     */
+    diarized: boolean;
+    createdAt: string;
+    endedAt: string | null;
+    revision: number;
+    speakers: Array<MeetingSpeaker>;
+    utterances: Array<MeetingUtterance>;
+};
+
+export type MeetingSpeaker = {
+    track: 'MIC' | 'TAB';
+    label: string;
+    name: string | null;
+};
+
+export type MeetingUtterance = {
+    id: string;
+    track: 'MIC' | 'TAB';
+    speaker: string;
+    startMs: number;
+    endMs: number;
+    text: string;
+    confidence: number;
+};
+
+export type MeetingNotesRequest = {
+    notes: string;
+    revision: number;
+};
+
+/**
  * Header values may contain secrets and are never returned; API-key servers place {api_key}
  */
 export type McpHeaderTemplateChange = {
@@ -1138,6 +1187,35 @@ export type SourceTypeFacet = {
     count: number;
 };
 
+/**
+ * What the owner enters before recording
+ */
+export type MeetingCreateRequest = {
+    title: string;
+    kind: 'ONLINE' | 'IN_PERSON';
+    language?: 'vi' | 'en';
+    /**
+     * Participant names, at most 50
+     */
+    participants?: Array<string> | null;
+    /**
+     * Names and terms the speech provider should prefer, at most 100
+     */
+    terms?: Array<string> | null;
+};
+
+export type MeetingTicketRequest = {
+    track: 'MIC' | 'TAB';
+};
+
+/**
+ * A 60-second single-use ticket for one meeting track's WebSocket
+ */
+export type MeetingTicket = {
+    ticket: string;
+    expiresAt: string;
+};
+
 export type McpToolRefresh = {
     server: McpServerView;
     tools: Array<McpToolView>;
@@ -1823,6 +1901,20 @@ export type SearchDocument = {
     firstOrdinal: number;
     totalChunks: number;
     hasMore: boolean;
+};
+
+export type MeetingSummary = {
+    id: string;
+    title: string;
+    kind: 'ONLINE' | 'IN_PERSON';
+    status: 'RECORDING' | 'ENDED';
+    participants: number;
+    /**
+     * End of the last utterance
+     */
+    durationMs: number;
+    createdAt: string;
+    endedAt: string | null;
 };
 
 export type ChatGroupOption = {
@@ -2659,6 +2751,102 @@ export type ReplaceGoogleDriveRootsResponses = {
 };
 
 export type ReplaceGoogleDriveRootsResponse = ReplaceGoogleDriveRootsResponses[keyof ReplaceGoogleDriveRootsResponses];
+
+export type NameMeetingSpeakerData = {
+    body: MeetingSpeakerRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        track: 'MIC' | 'TAB';
+        label: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/speakers/{track}/{label}';
+};
+
+export type NameMeetingSpeakerErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or speaker not available
+     */
+    404: ApiProblem;
+};
+
+export type NameMeetingSpeakerError = NameMeetingSpeakerErrors[keyof NameMeetingSpeakerErrors];
+
+export type NameMeetingSpeakerResponses = {
+    /**
+     * The meeting
+     */
+    200: MeetingDetail;
+};
+
+export type NameMeetingSpeakerResponse = NameMeetingSpeakerResponses[keyof NameMeetingSpeakerResponses];
+
+export type UpdateMeetingNotesData = {
+    body: MeetingNotesRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/notes';
+};
+
+export type UpdateMeetingNotesErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+    /**
+     * The meeting changed
+     */
+    409: ApiProblem;
+};
+
+export type UpdateMeetingNotesError = UpdateMeetingNotesErrors[keyof UpdateMeetingNotesErrors];
+
+export type UpdateMeetingNotesResponses = {
+    /**
+     * The meeting
+     */
+    200: MeetingDetail;
+};
+
+export type UpdateMeetingNotesResponse = UpdateMeetingNotesResponses[keyof UpdateMeetingNotesResponses];
 
 export type DeleteMcpServerData = {
     body?: never;
@@ -6803,6 +6991,172 @@ export type SearchDocumentsResponses = {
 
 export type SearchDocumentsResponse = SearchDocumentsResponses[keyof SearchDocumentsResponses];
 
+export type ListMeetingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/meetings';
+};
+
+export type ListMeetingsErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type ListMeetingsError = ListMeetingsErrors[keyof ListMeetingsErrors];
+
+export type ListMeetingsResponses = {
+    /**
+     * Meetings
+     */
+    200: Array<MeetingSummary>;
+};
+
+export type ListMeetingsResponse = ListMeetingsResponses[keyof ListMeetingsResponses];
+
+export type CreateMeetingData = {
+    body: MeetingCreateRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/meetings';
+};
+
+export type CreateMeetingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type CreateMeetingError = CreateMeetingErrors[keyof CreateMeetingErrors];
+
+export type CreateMeetingResponses = {
+    /**
+     * The new meeting
+     */
+    201: MeetingDetail;
+};
+
+export type CreateMeetingResponse = CreateMeetingResponses[keyof CreateMeetingResponses];
+
+export type CreateMeetingTicketData = {
+    body: MeetingTicketRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/tickets';
+};
+
+export type CreateMeetingTicketErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+    /**
+     * The meeting has ended
+     */
+    409: ApiProblem;
+};
+
+export type CreateMeetingTicketError = CreateMeetingTicketErrors[keyof CreateMeetingTicketErrors];
+
+export type CreateMeetingTicketResponses = {
+    /**
+     * Ticket
+     */
+    200: MeetingTicket;
+};
+
+export type CreateMeetingTicketResponse = CreateMeetingTicketResponses[keyof CreateMeetingTicketResponses];
+
+export type EndMeetingData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/end';
+};
+
+export type EndMeetingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type EndMeetingError = EndMeetingErrors[keyof EndMeetingErrors];
+
+export type EndMeetingResponses = {
+    /**
+     * The ended meeting
+     */
+    200: MeetingDetail;
+};
+
+export type EndMeetingResponse = EndMeetingResponses[keyof EndMeetingResponses];
+
 export type ListMcpServersData = {
     body?: never;
     path?: never;
@@ -10755,6 +11109,90 @@ export type ReadSearchDocumentOriginalResponses = {
 };
 
 export type ReadSearchDocumentOriginalResponse = ReadSearchDocumentOriginalResponses[keyof ReadSearchDocumentOriginalResponses];
+
+export type DeleteMeetingData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}';
+};
+
+export type DeleteMeetingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type DeleteMeetingError = DeleteMeetingErrors[keyof DeleteMeetingErrors];
+
+export type DeleteMeetingResponses = {
+    /**
+     * Deleted
+     */
+    204: void;
+};
+
+export type DeleteMeetingResponse = DeleteMeetingResponses[keyof DeleteMeetingResponses];
+
+export type GetMeetingData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}';
+};
+
+export type GetMeetingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type GetMeetingError = GetMeetingErrors[keyof GetMeetingErrors];
+
+export type GetMeetingResponses = {
+    /**
+     * The meeting
+     */
+    200: MeetingDetail;
+};
+
+export type GetMeetingResponse = GetMeetingResponses[keyof GetMeetingResponses];
 
 export type ListMcpServerToolsData = {
     body?: never;

@@ -22,6 +22,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { ThreadList, groupThreadTitles } from "@/components/assistant-ui/elements/thread-list";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
+import { MeetingsTab } from "@/features/meetings/meetings-tab";
 import { ChatHistorySearch } from "./chat-history-search";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { chatSessionsKey, newChatSession } from "./chat-api";
@@ -90,6 +91,11 @@ export function ChatNavigation({
       >
         {ui("Trợ lý")}
       </SidebarTab>
+      <MeetingsTab
+        collapsed={collapsed}
+        selected={pathname.startsWith("/meetings")}
+        onNavigate={onNavigate}
+      />
       <SidebarTab
         to="/library"
         icon={<FolderOpen className="size-4" />}

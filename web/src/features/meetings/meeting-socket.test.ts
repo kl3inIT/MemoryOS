@@ -1,0 +1,112 @@
+import { describe, expect, it, vi } from "vitest";
+import { meetingStreamUrl, MeetingStreamError, openMeetingSocket } from "./meeting-socket";
+
+class FakeSocket {
+  readyState = 0;
+  binaryType = "blob";
+  readonly sent: unknown[] = [];
+  onmessage: ((event: MessageEvent) => void) | null = null;
+  onclose: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  readonly url: string;
+
+  constructor(url: string) {
+    this.url = url;
+  }
+
+  send(data: unknown) {
+    this.sent.push(data);
+  }
+
+  close() {
+    if (this.readyState === 3) return;
+    this.readyState = 3;
+    this.onclose?.();
+  }
+
+  receive(message: unknown) {
+    this.readyState = 1;
+    this.onmessage?.({ data: JSON.stringify(message) } as MessageEvent);
+  }
+}
+
+function connect() {
+  let socket: FakeSocket | undefined;
+  const onPreview = vi.fn();
+  const onUtterance = vi.fn();
+  const onFailure = vi.fn();
+  const opening = openMeetingSocket({
+    meetingId: "meeting-1",
+    track: "TAB",
+    offsetMs: 61_234.5,
+    ticket: "ticket-value",
+    onPreview,
+    onUtterance,
+    onFailure,
+    location: { origin: "https://memoryos.example", protocol: "https:" },
+    createSocket: (url) => (socket = new FakeSocket(url)) as unknown as WebSocket,
+  });
+  return { opening, socket: () => socket!, onPreview, onUtterance, onFailure };
+}
+
+describe("meeting track socket", () => {
+  it("addresses the track at a whole-millisecond offset over a secure same-origin socket", () => {
+    expect(
+      meetingStreamUrl(
+        { meetingId: "m", track: "MIC", offsetMs: 1500.9, ticket: "t" },
+        { origin: "https://memoryos.example", protocol: "https:" },
+      ),
+    ).toBe("wss://memoryos.example/api/meeting-stream?meeting=m&track=MIC&offset=1500&ticket=t");
+  });
+
+  it("opens on ready, sends audio, relays previews and stored utterances, and finishes after the server", async () => {
+    const { opening, socket, onPreview, onUtterance, onFailure } = connect();
+    expect(socket().url).toContain("offset=61234");
+    socket().receive({ type: "ready" });
+    const live = await opening;
+    const pcm = new ArrayBuffer(4);
+    live.send(pcm);
+    expect(socket().sent).toEqual([pcm]);
+
+    socket().receive({ type: "preview", track: "TAB", speaker: "2", text: "Chốt ngân" });
+    socket().receive({
+      type: "utterance",
+      utterance: {
+        id: "u1",
+        track: "TAB",
+        speaker: "2",
+        startMs: 1000,
+        endMs: 2500,
+        text: "Chốt ngân sách.",
+        confidence: 0.9,
+      },
+    });
+    socket().receive({ type: "utterance", utterance: { id: "bad" } });
+    expect(onPreview).toHaveBeenCalledWith("2", "Chốt ngân");
+    expect(onUtterance).toHaveBeenCalledTimes(1);
+    expect(onUtterance.mock.calls[0][0].text).toBe("Chốt ngân sách.");
+
+    const finishing = live.finish();
+    expect(socket().sent.at(-1)).toBe(JSON.stringify({ type: "end" }));
+    socket().receive({ type: "finished" });
+    await finishing;
+    socket().close();
+    expect(onFailure).not.toHaveBeenCalled();
+  });
+
+  it("rejects a refused open with the server code", async () => {
+    const { opening, socket } = connect();
+    socket().receive({ type: "error", code: "MEETING_ENDED" });
+    await expect(opening).rejects.toEqual(new MeetingStreamError("MEETING_ENDED"));
+  });
+
+  it("reports a failure while recording once, even when the close follows the error", async () => {
+    const { opening, socket, onFailure } = connect();
+    socket().receive({ type: "ready" });
+    await opening;
+    socket().receive({ type: "error", code: "MEETING_PROVIDER_FAILED" });
+    socket().close();
+    expect(onFailure).toHaveBeenCalledTimes(1);
+    expect(onFailure.mock.calls[0][0].code).toBe("MEETING_PROVIDER_FAILED");
+  });
+});

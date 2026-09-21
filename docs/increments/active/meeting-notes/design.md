@@ -1,6 +1,6 @@
 # MEM-92 — Meeting notes: bot-less meeting capture, live transcript and minutes
 
-Linear: [MEM-92](https://linear.app/memory-os/issue/MEM-92) (this increment; phase 3 keeps its original cross-meeting tasks scope), related to [MEM-91](../mem-91-chat-voice/design.md) (voice providers). Meeting-platform transcript connectors are [MEM-169](https://linear.app/memory-os/issue/MEM-169). Status: designed, not started. Interactive mock: [mock.html](mock.html) (also published at <https://claude.ai/artifact/2hZMDJbwYYpVZJUVg6Ltio>). The mock shows intent, not a specification: implementation follows MemoryOS components and may change layout and flow where the real product works better; record such changes here.
+Linear: [MEM-92](https://linear.app/memory-os/issue/MEM-92) (this increment; phase 3 keeps its original cross-meeting tasks scope), related to [MEM-91](../mem-91-chat-voice/design.md) (voice providers). Meeting-platform transcript connectors are [MEM-169](https://linear.app/memory-os/issue/MEM-169). Status: phase 1 in progress (Soniox provider, meeting module and web recording done; minutes job, library publishing, upload and Tenant setting open). Interactive mock: [mock.html](mock.html) (also published at <https://claude.ai/artifact/2hZMDJbwYYpVZJUVg6Ltio>). The mock shows intent, not a specification: implementation follows MemoryOS components and may change layout and flow where the real product works better; record such changes here.
 
 ## Problem
 
@@ -79,6 +79,16 @@ Learning means logic, flow, prompts and UX. No source's code is ported; MemoryOS
 11. **A finished meeting becomes an owner-private file.** When the minutes are `READY`, the meeting publishes one Markdown rendering (title, participants, summary, decisions, action items, private notes, named transcript) as a `chat_user_file` owned by the meeting owner, through the same upload path as `ChatLibraryService.copy`. It then appears in `/library`, can be attached to a conversation or Project, and is read by Chat's file tools with the existing owner checks. Renaming a speaker, editing notes or regenerating minutes republishes it, replacing the previous upload. Publishing through `DocumentCommandPort.publish` directly is rejected: it bypasses upload ownership and would be treated as unreferenced.
 13. **Three ways to capture, as in ghiam-pro plus tab audio.** *Online meeting* (microphone + shared tab), *In person* (microphone only, phones included), and *Upload a recording* (`.mp3`, `.wav`, `.m4a` from a phone or dictaphone, transcribed in batch with diarization and then deleted). ghiam-pro offers live microphone recording and file upload; the tab track is the addition that captures remote participants.
 14. **Questions during the meeting come in phase 2.** *Catch me up* and meeting-scoped questions need a live model call and their own model flow; phase 1 ships the transcript, notes and minutes.
+
+## Implementation notes (phase 1, web)
+
+Deviations from the mock and reused components, recorded as the design allows:
+
+- **One recorder per browser tab, outside any page** (`meeting-session.ts`). Moving to Chat or the library keeps recording, as Nojoin keeps capturing across in-app navigation; the sidebar entry shows a live dot and the page warns before unload.
+- **No summary, decisions or tasks tabs yet.** They appear with the minutes job; ADR 0002 forbids UI for behavior that does not exist. The meeting page has *Transcript* and *My notes*.
+- **The preview line has no timestamp** but a "speaking" label, because uncommitted speech has no settled time.
+- **Capture follows Nojoin**: support detection (`featureDetect.ts` order), share picker before the microphone, tab audio without processing (silent-notetaker), the video track stopped at once (opennotetaker), per-track levels with Nojoin's quiet hint (RMS × 180 < 6 for 20 s), wake lock, and pause as socket close with offsets continuing the clock.
+- **Library components**: the recording indicator is assistant-ui `DotMatrix` (`components/ui/dot-matrix.tsx`, palette classes mapped to status tokens). assistant-ui `ComposerVoice` was not used because its waveform is decorative, not the measured level the quiet warning needs; AI Elements `Transcription` was not used because it has no speakers and syncs to audio playback, which meetings do not keep. AI Elements `MicSelector` is the candidate for choosing a microphone later.
 
 ## Security
 
