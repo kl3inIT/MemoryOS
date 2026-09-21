@@ -536,36 +536,55 @@ class PostgresSourceLifecycleTest {
     }
 
     @Test
-    void groupManagersDetachSourcesFromTheirOwnGroupWithoutSourceAuthority() {
-        GroupId managedGroup = new GroupId(UUID.randomUUID());
-        ActorId manager = addScopedManager(managedGroup);
+    void onlyTheResponsibleManagerDetachesASourceFromTheirGroup() {
+        GroupId sharedGroup = new GroupId(UUID.randomUUID());
+        ActorId responsible = addScopedManager(sharedGroup);
+        ActorId coManager = addScopedManager(sharedGroup);
         GroupId foreignGroup = new GroupId(UUID.randomUUID());
         addScopedManager(foreignGroup);
-        var shared = service.createFileSource(owner, "Shared", List.of(managedGroup, foreignGroup), SourceAccess.PRIVATE);
-        var onlyGroup = service.createFileSource(owner, "Only group", List.of(managedGroup), SourceAccess.PRIVATE);
-        var publicShared = service.createFileSource(owner, "Public shared", List.of(managedGroup), SourceAccess.PUBLIC);
-        var foreignOnly = service.createFileSource(owner, "Foreign only", List.of(foreignGroup), SourceAccess.PRIVATE);
+        var managed = service.createFileSource(responsible, "Managed", List.of(sharedGroup), null);
+        var unmanaged = service.createFileSource(owner, "Unmanaged", List.of(sharedGroup), SourceAccess.PRIVATE);
+        var publicSource = service.createFileSource(owner, "Public", List.of(sharedGroup), SourceAccess.PUBLIC);
+        service.replaceSourceGroups(owner, managed.id(), List.of(sharedGroup, foreignGroup));
 
-        // What their own Group carries is theirs to decide, even for Sources they cannot otherwise manage.
-        assertEquals(SourcePermissions.NONE, service.getSource(manager, shared.id()).permissions());
-        assertThat(service.listGroupSources(manager, managedGroup).removableSourceIds())
-                .containsExactlyInAnyOrder(shared.id(), onlyGroup.id(), publicShared.id());
-        assertThrows(IamException.class, () -> service.removeGroupSource(manager, foreignGroup, shared.id()));
+        // Managing the same Group gives another manager no authority over the Source: they neither detach nor attach it.
+        assertEquals(SourcePermissions.NONE, service.getSource(coManager, managed.id()).permissions());
+        assertThat(service.listGroupSources(coManager, sharedGroup).removableSourceIds()).isEmpty();
+        for (SourceId sourceId : List.of(managed.id(), unmanaged.id(), publicSource.id())) {
+            assertEquals("SOURCE_NOT_FOUND", assertThrows(SourceException.class,
+                    () -> service.removeGroupSource(coManager, sharedGroup, sourceId)).code());
+        }
+        assertThat(service.listSourceGroups(owner, managed.id()))
+                .extracting(io.memoryos.iam.group.GroupIdentity::id)
+                .containsExactlyInAnyOrder(sharedGroup, foreignGroup);
+
+        // The responsible manager detaches their own Source from a Group they manage, and only from that Group.
+        assertThat(service.listGroupSources(responsible, sharedGroup).removableSourceIds())
+                .containsExactly(managed.id());
+        assertThrows(IamException.class, () -> service.removeGroupSource(responsible, foreignGroup, managed.id()));
         assertEquals("SOURCE_NOT_FOUND", assertThrows(SourceException.class,
-                () -> service.removeGroupSource(manager, managedGroup, foreignOnly.id())).code());
-
-        service.removeGroupSource(manager, managedGroup, shared.id());
-        assertThat(service.listSourceGroups(owner, shared.id()))
+                () -> service.removeGroupSource(responsible, sharedGroup, unmanaged.id())).code());
+        service.removeGroupSource(responsible, sharedGroup, managed.id());
+        assertThat(service.listSourceGroups(owner, managed.id()))
                 .extracting(io.memoryos.iam.group.GroupIdentity::id).containsExactly(foreignGroup);
-        service.removeGroupSource(manager, managedGroup, onlyGroup.id());
-        assertThat(service.listSourceGroups(owner, onlyGroup.id())).isEmpty();
-        service.removeGroupSource(manager, managedGroup, publicShared.id());
-        assertThat(service.listGroupSources(manager, managedGroup).sources()).isEmpty();
         assertEquals("SOURCE_NOT_FOUND", assertThrows(SourceException.class,
-                () -> service.removeGroupSource(manager, managedGroup, shared.id())).code());
+                () -> service.removeGroupSource(responsible, sharedGroup, managed.id())).code());
 
-        service.removeGroupSource(owner, foreignGroup, shared.id());
-        assertThat(service.listSourceGroups(owner, shared.id())).isEmpty();
+        // What the responsible manager detached, they can attach again.
+        service.replaceSourceGroups(responsible, managed.id(), List.of(sharedGroup, foreignGroup));
+        assertThat(service.listSourceGroups(owner, managed.id()))
+                .extracting(io.memoryos.iam.group.GroupIdentity::id)
+                .containsExactlyInAnyOrder(sharedGroup, foreignGroup);
+
+        // Global Source management detaches any Source from any Group.
+        assertThat(service.listGroupSources(owner, sharedGroup).removableSourceIds())
+                .containsExactlyInAnyOrder(managed.id(), unmanaged.id(), publicSource.id());
+        service.removeGroupSource(owner, sharedGroup, unmanaged.id());
+        service.removeGroupSource(owner, sharedGroup, publicSource.id());
+        service.removeGroupSource(owner, foreignGroup, managed.id());
+        assertThat(service.listSourceGroups(owner, unmanaged.id())).isEmpty();
+        assertThat(service.listSourceGroups(owner, managed.id()))
+                .extracting(io.memoryos.iam.group.GroupIdentity::id).containsExactly(sharedGroup);
     }
 
     @Test
@@ -1232,9 +1251,11 @@ class PostgresSourceLifecycleTest {
                 .param("tenantId", tenantId)
                 .param("actorId", actorId.value())
                 .update();
+        // A second call for the same Group adds another manager to it.
         jdbcClient.sql("""
                         INSERT INTO iam_groups (tenant_id, id, name)
                         VALUES (:tenantId, :groupId, :name)
+                        ON CONFLICT DO NOTHING
                         """)
                 .param("tenantId", tenantId)
                 .param("groupId", groupId.value())

@@ -1810,7 +1810,7 @@ export const createGroup = <ThrowOnError extends boolean = false>(options: Optio
 /**
  * Remove one source from one group
  *
- * Global source managers may remove any association. A group manager may remove a non-public source that stays associated with another group; other groups keep their associations.
+ * Global source managers may remove any association. Otherwise only the source's responsible manager may remove it, from a group they manage; other managers of that group may not. The source's other groups keep their associations.
  */
 export const removeGroupSource = <ThrowOnError extends boolean = false>(options: Options<RemoveGroupSourceData, ThrowOnError>): RequestResult<RemoveGroupSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<RemoveGroupSourceResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {

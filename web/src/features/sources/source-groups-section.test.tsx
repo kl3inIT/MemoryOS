@@ -80,6 +80,7 @@ function setup(
   paginated = false,
   removableSourceIds = ["source"],
   sourceGroups: SourceGroup[] = [...systemGroups, ordinary],
+  groupSource: SourceSummary = source,
 ) {
   const saved: string[][] = [];
   const removed: string[] = [];
@@ -107,9 +108,9 @@ function setup(
         }
         return Response.json({ items: sourceGroups });
       }
-      if (url.pathname === "/api/sources") return Response.json([source]);
+      if (url.pathname === "/api/sources") return Response.json([groupSource]);
       if (url.pathname === "/api/groups/team/sources")
-        return Response.json({ items: [source], removableSourceIds });
+        return Response.json({ items: [groupSource], removableSourceIds });
       if (url.pathname === "/api/groups/team/sources/source/remove" && request.method === "POST") {
         removed.push("source");
         return new Response(null, { status: 204 });
@@ -249,7 +250,7 @@ describe("ordinary Source associations", () => {
     expect(saved).toEqual([]);
   });
 
-  it("lets a scoped manager remove a Source shared with another group from Group detail", async () => {
+  it("lets the responsible manager remove their Source shared with another group from Group detail", async () => {
     const user = userEvent.setup();
     const { saved, removed } = setup(
       <GroupSourcesSection group={group} onAuthorityChanged={async () => {}} />,
@@ -262,18 +263,42 @@ describe("ordinary Source associations", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("locks another manager's Source on Group detail and names who can remove it", async () => {
+    setup(
+      <GroupSourcesSection group={group} onAuthorityChanged={async () => {}} />,
+      scopedSession,
+      false,
+      [],
+      [...systemGroups, ordinary],
+      {
+        ...source,
+        managerActorId: "responsible",
+        managerName: "Lan Nguyen",
+        permissions: { ...source.permissions, edit: false },
+      },
+    );
+    expect(
+      await screen.findByText(
+        "Sources with a lock can't be removed from this group: they are being deleted, or only their responsible manager can remove them.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Only Lan Nguyen, the responsible manager, can remove this Source."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Remove Team knowledge/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save associations" })).not.toBeInTheDocument();
+  });
+
   it("locks a Source being deleted from Group detail", async () => {
     setup(
       <GroupSourcesSection group={group} onAuthorityChanged={async () => {}} />,
       scopedSession,
       false,
       [],
+      [...systemGroups, ordinary],
+      { ...source, status: "DELETING" },
     );
-    expect(
-      await screen.findByText(
-        "Sources with a lock are being deleted and can't be removed from this group.",
-      ),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("This Source is being deleted.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Remove Team knowledge/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save associations" })).not.toBeInTheDocument();
   });

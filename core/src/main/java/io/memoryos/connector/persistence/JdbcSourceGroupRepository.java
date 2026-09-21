@@ -4,6 +4,7 @@ import io.memoryos.connector.SourceAccessChanged;
 import io.memoryos.connector.SourceId;
 import io.memoryos.iam.group.GroupId;
 import io.memoryos.iam.group.GroupIdentity;
+import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;
 
 import java.util.Collection;
@@ -48,10 +49,11 @@ public class JdbcSourceGroupRepository {
     }
 
     /**
-     * Sources this Group can release: authority over the removal comes from the Group, so the caller has already
-     * been authorized for it. A Source being deleted is excluded because its associations are being torn down.
+     * Sources in this Group the caller may detach from it: with global access every associated Source, otherwise only
+     * those the caller manages under the scoped write rule. The caller has already been authorized for the Group. A
+     * Source being deleted is excluded because its associations are being torn down.
      */
-    public Set<SourceId> removableFromGroup(TenantId tenantId, GroupId groupId) {
+    public Set<SourceId> removableFromGroup(TenantId tenantId, ActorId actorId, GroupId groupId, boolean globalAccess) {
         return Set.copyOf(jdbcClient.sql("""
                         SELECT pair.id
                         FROM source_group_grants requested_grant
@@ -61,9 +63,12 @@ public class JdbcSourceGroupRepository {
                         WHERE requested_grant.tenant_id = :tenantId
                           AND requested_grant.group_id = :groupId
                           AND pair.status <> 'DELETING'
-                        """)
+                          AND (:globalAccess OR %s)
+                        """.formatted(SourceScopeSql.WRITE))
                 .param("tenantId", tenantId.value())
+                .param("actorId", actorId.value())
                 .param("groupId", groupId.value())
+                .param("globalAccess", globalAccess)
                 .query((resultSet, ignored) -> new SourceId(resultSet.getObject("id", UUID.class)))
                 .list());
     }
