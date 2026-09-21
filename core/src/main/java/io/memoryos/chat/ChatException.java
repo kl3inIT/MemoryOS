@@ -20,6 +20,12 @@ public final class ChatException extends BusinessException {
         return new ChatException("CHAT_CONFLICT", FailureCategory.CONFLICT, "Chat changed or has an active reply.");
     }
 
+    /** The owner's file library is at its storage limit; the caller's own numbers say by how much. */
+    public static ChatException storageFull(long usedBytes, long limitBytes) {
+        return new ChatException("CHAT_STORAGE_FULL", FailureCategory.CONFLICT,
+                "The file library is full: " + usedBytes + " of " + limitBytes + " bytes are used.");
+    }
+
     public static ChatException busy() {
         return new ChatException("CHAT_CAPACITY_EXCEEDED", FailureCategory.SERVICE_UNAVAILABLE, "Chat is busy. Retry later.");
     }

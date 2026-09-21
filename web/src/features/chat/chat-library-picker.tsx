@@ -1,8 +1,17 @@
 import { useDeferredValue, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Check, Search } from "lucide-react";
+import { Check, FileText, Search, X } from "lucide-react";
+import { Alert, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DocumentKindIcon } from "@/features/search/document-source-icon";
@@ -12,6 +21,7 @@ import { i18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { ChatDialog } from "./chat-dialog";
 import { fileSize } from "./chat-code";
+import { LibraryCategoryFilter } from "./chat-library-toolbar";
 import type { ChatFile } from "./chat-files";
 import { imageArtifactUrl } from "./chat-image";
 import {
@@ -23,8 +33,6 @@ import {
   type LibraryFile,
   type LibrarySource,
 } from "./chat-library";
-
-const CATEGORIES: LibraryCategory[] = ["DOCUMENT", "SPREADSHEET", "IMAGE", "PRESENTATION", "OTHER"];
 
 /**
  * "Choose an existing file" over the whole library (MEM-152): uploads, files a code run generated and generated
@@ -104,13 +112,6 @@ function PickerBody({
     GENERATED: ui("Do mã tạo"),
     IMAGE: ui("Ảnh AI"),
   };
-  const categoryLabels: Record<LibraryCategory, string> = {
-    DOCUMENT: ui("Tài liệu"),
-    SPREADSHEET: ui("Bảng tính"),
-    IMAGE: ui("Ảnh"),
-    PRESENTATION: ui("Trình chiếu"),
-    OTHER: ui("Khác"),
-  };
 
   const isChosen = (file: LibraryFile) =>
     chosen.some((item) => item.source === file.source && item.id === file.id);
@@ -152,6 +153,7 @@ function PickerBody({
             autoFocus
           />
         </div>
+        <LibraryCategoryFilter categories={categories} onCategories={setCategories} />
         <Tabs value={source} onValueChange={(value) => setSource(value as typeof source)}>
           <TabsList aria-label={ui("Nguồn tệp")}>
             <TabsTrigger value="ALL">{ui("Tất cả")}</TabsTrigger>
@@ -163,31 +165,6 @@ function PickerBody({
           </TabsList>
         </Tabs>
       </div>
-      <div className="flex flex-wrap gap-2" role="group" aria-label={ui("Lọc tệp")}>
-        {CATEGORIES.map((category) => (
-          <button
-            key={category}
-            type="button"
-            aria-pressed={categories.includes(category)}
-            onClick={() =>
-              setCategories(
-                categories.includes(category)
-                  ? categories.filter((item) => item !== category)
-                  : [...categories, category],
-              )
-            }
-            className={cn(
-              "h-7 rounded-full border px-3 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40",
-              categories.includes(category)
-                ? "border-transparent bg-surface-accent text-content-on-accent"
-                : "border-border-default text-content-secondary hover:text-content-primary",
-            )}
-          >
-            {categoryLabels[category]}
-          </button>
-        ))}
-      </div>
-
       <div
         className="max-h-[min(24rem,50dvh)] min-h-40 overflow-y-auto rounded-lg border border-border-default"
         role="list"
@@ -212,11 +189,23 @@ function PickerBody({
           </p>
         )}
         {pages.isSuccess && files.length === 0 && (
-          <p role="status" className="p-4 text-sm text-content-muted">
-            {query || source !== "ALL" || categories.length > 0
-              ? ui("Không có tệp nào khớp bộ lọc.")
-              : ui("Chưa có tệp nào. Tệp bạn tải lên hoặc Chat tạo ra sẽ xuất hiện ở đây.")}
-          </p>
+          <Empty className="py-8">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <FileText />
+              </EmptyMedia>
+              <EmptyTitle>
+                {query || source !== "ALL" || categories.length > 0
+                  ? ui("Không có tệp nào khớp")
+                  : ui("Thư viện đang trống")}
+              </EmptyTitle>
+              <EmptyDescription>
+                {query || source !== "ALL" || categories.length > 0
+                  ? ui("Hãy bỏ một vài bộ lọc hoặc đổi từ khoá tìm kiếm.")
+                  : ui("Tải tệp lên hoặc để Chat tạo ra, tệp sẽ xuất hiện ở đây.")}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         )}
         {files.map((file) => {
           const attached = file.source === "UPLOAD" && selected.includes(file.id);
@@ -227,8 +216,9 @@ function PickerBody({
               key={`${file.source}:${file.id}`}
               role="listitem"
               className={cn(
-                "flex items-center gap-3 border-b border-border-subtle px-3 py-2 last:border-b-0",
-                attached || full ? "opacity-60" : "cursor-pointer hover:bg-surface-sunken",
+                "group/item flex items-center gap-3 border-b border-border-subtle px-3 py-2 last:border-b-0",
+                attached || full ? "opacity-60" : "cursor-pointer hover:bg-surface-subtle",
+                checked && !attached && "bg-surface-subtle",
               )}
             >
               <Checkbox
@@ -254,10 +244,10 @@ function PickerBody({
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm" title={file.filename}>
+                <span className="block truncate font-main-ui-action" title={file.filename}>
                   {file.filename}
                 </span>
-                <span className="block truncate text-xs text-content-muted">
+                <span className="block truncate font-secondary-body text-content-muted">
                   {[
                     sourceLabels[file.source],
                     fileSize(file.sizeBytes, i18n.language),
@@ -269,10 +259,10 @@ function PickerBody({
                 </span>
               </span>
               {attached && (
-                <span className="inline-flex items-center gap-1 text-xs text-content-secondary">
-                  <Check className="size-3.5" aria-hidden="true" />
+                <Badge variant="secondary">
+                  <Check aria-hidden="true" />
                   {ui("Đã đính kèm")}
-                </span>
+                </Badge>
               )}
             </label>
           );
@@ -292,10 +282,28 @@ function PickerBody({
         )}
       </div>
 
+      {chosen.length > 0 && (
+        <ul aria-label={ui("Tệp sẽ đính kèm")} className="flex flex-wrap items-center gap-1.5">
+          {chosen.map((file) => (
+            <li key={`${file.source}:${file.id}`}>
+              <button
+                type="button"
+                disabled={preparing}
+                onClick={() => toggle(file)}
+                aria-label={ui("Bỏ chọn {{name}}", { name: file.filename })}
+                className="flex h-7 max-w-56 items-center gap-1 rounded-full border border-border-subtle bg-surface-subtle px-2.5 font-secondary-body text-content-secondary outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40 disabled:opacity-50"
+              >
+                <span className="truncate">{file.filename}</span>
+                <X className="size-3.5 shrink-0" aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {failed && (
-        <p role="alert" className="text-sm text-content-danger">
-          {ui("Không chuẩn bị được tệp để đính kèm. Hãy thử lại.")}
-        </p>
+        <Alert variant="destructive">
+          <AlertTitle>{ui("Không chuẩn bị được tệp để đính kèm. Hãy thử lại.")}</AlertTitle>
+        </Alert>
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm text-content-secondary" aria-live="polite">

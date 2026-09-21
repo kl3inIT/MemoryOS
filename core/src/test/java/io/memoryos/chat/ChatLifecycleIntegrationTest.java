@@ -118,8 +118,13 @@ class ChatLifecycleIntegrationTest {
         sessions = TestDatabase.transactionalProxy(new DefaultChatSessionService(tenants, authorization, repository,
                 new PersonaProperties(), new JdbcChatSearchRepository(jdbc)), ChatSessionService.class,
                 jpa.transactionManager());
+        var quotas = new ChatStorageQuotaService(tenants, authorization,
+                new io.memoryos.chat.persistence.JdbcChatStorageQuotaRepository(jdbc),
+                new JdbcChatLibraryRepository(jdbc));
         var files = new ChatFileService(tenants, repository, new JdbcUserFileRepository(jdbc),
-                mock(ObjectUploadService.class), new ChatFileProperties(104857600, 262144000), jpa.transactionManager());
+                mock(ObjectUploadService.class), new ChatFileProperties(104857600, 262144000), quotas,
+                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
+                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)), jpa.transactionManager());
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(jpa.transactionManager());
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
@@ -136,8 +141,9 @@ class ChatLifecycleIntegrationTest {
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5),
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
         interpreter = new InterpreterService(new JdbcInterpreterRepository(jdbc), new InterpreterProperties(null, null),
-                authorization, tenants, writes, storage, jpa.transactionManager(),
-                io.memoryos.TestDatabase.noAudit());
+                authorization, tenants, writes, storage, quotas, new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
+                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
+                jpa.transactionManager(), io.memoryos.TestDatabase.noAudit());
         // Constructed directly: the service owns its own transaction template, which is what the copy relies on.
         branches = new ChatBranchService(tenants, repository, new JdbcChatLibraryRepository(jdbc), storage, writes,
                 jpa.transactionManager());

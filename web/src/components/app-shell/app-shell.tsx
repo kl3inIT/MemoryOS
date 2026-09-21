@@ -9,6 +9,7 @@ import {
   ChartColumn,
   CloudUpload,
   Globe,
+  HardDrive,
   ImageIcon,
   KeyRound,
   Library,
@@ -52,6 +53,7 @@ export type AdminPage =
   | "voice"
   | "images"
   | "interpreter"
+  | "file-storage"
   | "retention"
   | "providers"
   | "models"
@@ -313,6 +315,15 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Tạo ảnh")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/file-storage"
+                  icon={<HardDrive className="size-4" />}
+                  selected={adminPage === "file-storage"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Dung lượng tệp")}
                 </SidebarTab>
                 <SidebarTab
                   to="/admin/code-interpreter"

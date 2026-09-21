@@ -175,7 +175,8 @@ class ChatSessionPurgeIntegrationTest {
 
     private ChatSessionPurgeService service(boolean hardDelete, java.time.Duration deletedAfter) {
         return new ChatSessionPurgeService(repository,
-                new ChatRetentionProperties(hardDelete, deletedAfter, java.time.Duration.ofHours(24)),
+                new ChatRetentionProperties(hardDelete, java.time.Duration.ofDays(30), deletedAfter,
+                        java.time.Duration.ofHours(24)),
                 jpa.transactionManager());
     }
 
