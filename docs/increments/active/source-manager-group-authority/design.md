@@ -6,6 +6,8 @@ Owner decision 2026-09-16, after reviewing the alternatives: attachment authorit
 
 Owner decision 2026-09-21: on a Group with two managers, the one who did not create a Source could detach it and then could not attach it again. Detaching now follows the Source's manager too, and another manager of the Group has no authority over that Source ([ADR 0013](../../decisions/0013-only-the-source-manager-detaches-sources.md)).
 
+Owner report 2026-09-21: an Actor with scoped `SOURCES_READ` from managing one ordinary Group opened another Group and the browser still mounted its Source-association section. `GET /api/groups/{groupId}/sources` correctly rejected the out-of-scope Group, but the UI rendered a misleading “could not load” error.
+
 ## Cause
 
 Scoped Source authority required a non-public Source whose associated ordinary Groups are **all** managed by the actor. A Source shared with another manager's Group therefore had `permissions.edit = false` for both managers, and only global authority could touch it. Group detail still rendered the remove control, then failed client-side before any request, and the generic retry copy hid the reason.
@@ -38,6 +40,7 @@ Consequences of the model:
 - `removeGroupSource` requires a Group the actor manages and then locks the Source through `lockAuthorized`, the same scoped write rule as `replaceSourceGroups`; `removableFromGroup` filters by that rule unless the caller has global access. Group detail shows the other Sources locked and names their responsible manager.
 - `assignSourceManager` takes the exclusive IAM lock, rejects a candidate who manages no ordinary Group (`SOURCE_MANAGER_NOT_ELIGIBLE`) and returns the refreshed summary.
 - `SourceSummary` carries `managerActorId` and `managerName`, so Source detail names the manager without reading the user directory. Administrators open the member list only to change it. Eligibility is not guessed in the browser — the server rejects an ineligible candidate.
+- `GroupSourcesSection` mounts the association read only for global `SOURCES_READ` or when the target Group's `manageSources` projection authorizes that target. A scoped Source capability from another Group never issues an out-of-scope request or renders a false load failure.
 
 ## Not in this increment
 
