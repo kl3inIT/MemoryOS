@@ -1,6 +1,10 @@
 package io.memoryos.api.security;
 
 import io.memoryos.api.invitation.InvitationSessionState;
+import io.memoryos.iam.audit.AuditAction;
+import io.memoryos.iam.audit.AuditOutcome;
+import io.memoryos.iam.audit.AuditRecord;
+import io.memoryos.iam.audit.AuditTrail;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.identity.ActorProfileRecorder;
 import io.memoryos.iam.identity.ExternalIdentity;
@@ -48,6 +52,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
     private final JitAdmissionPolicy jitAdmissionPolicy;
     private final TenantId tenantId;
     private final String trustedIssuer;
+    private final AuditTrail audit;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
     private final RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
 
@@ -59,8 +64,10 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
             TrustedIdentityAdmission trustedIdentityAdmission,
             JitAdmissionPolicy jitAdmissionPolicy,
             TenantId tenantId,
-            String trustedIssuer
+            String trustedIssuer,
+            AuditTrail audit
     ) {
+        this.audit = Objects.requireNonNull(audit, "audit must not be null");
         this.identityResolver = Objects.requireNonNull(identityResolver, "identityResolver must not be null");
         this.tenantAccessResolver = Objects.requireNonNull(
                 tenantAccessResolver,
@@ -85,6 +92,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
     ) throws IOException {
         if (!(authentication instanceof OAuth2AuthenticationToken oauth2Authentication)
                 || !(oauth2Authentication.getPrincipal() instanceof OidcUser oidcUser)) {
+            refused(null, null, "UNREADABLE_IDENTITY", AuditOutcome.FAILURE);
             rejectLogin(request, response);
             return;
         }
@@ -93,6 +101,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
         var issuer = idToken.getIssuer();
         String subject = idToken.getSubject();
         if (issuer == null || subject == null || subject.isBlank()) {
+            refused(null, oidcUser, "UNREADABLE_IDENTITY", AuditOutcome.FAILURE);
             rejectLogin(request, response);
             return;
         }
@@ -109,6 +118,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
                         invalidatePartialSession(request);
                         throw exception;
                     }
+                    refused(actorId, oidcUser, "NOT_ADMITTED", AuditOutcome.DENIED);
                     rejectLogin(request, response);
                     return;
                 } catch (RuntimeException exception) {
@@ -142,6 +152,9 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
         SecurityContextHolder.setContext(securityContext);
         securityContextRepository.saveContext(securityContext, request, response);
         ProviderSessionState.remember(request, idToken.getClaimAsString("sid"));
+        ActorId signedIn = actorId;
+        tenantAccessResolver.findActiveTenant(signedIn).ifPresent(tenant -> audit.recordSeparately(
+                AuditRecord.of(AuditAction.LOGIN, tenant).actor(signedIn).build()));
         redirectStrategy.sendRedirect(request, response, AUTHENTICATED_DESTINATION);
     }
 
@@ -172,6 +185,9 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
                     )
             );
         } catch (InvitationException exception) {
+            refused(identityResolver.resolve(externalIdentity).orElse(null), oidcUser,
+                    continuation != null || activationFlow ? "INVITATION_" + exception.reason().name() : "NOT_ADMITTED",
+                    continuation != null || activationFlow ? AuditOutcome.FAILURE : AuditOutcome.DENIED);
             if (continuation != null || activationFlow) {
                 rejectInvitation(
                         request,
@@ -183,6 +199,19 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
             }
             return null;
         }
+    }
+
+    /**
+     * A sign-in that authenticated at the provider but was not let in. Onyx records the same as
+     * {@code auth.login_failure}: refused (not admitted) is {@code DENIED}, an invitation that could not be used is
+     * {@code FAILURE}. The person is named by the e-mail their provider asserted, since they may have no profile here.
+     */
+    private void refused(@org.jspecify.annotations.Nullable ActorId actor,
+                         @org.jspecify.annotations.Nullable OidcUser user, String reason, AuditOutcome outcome) {
+        String who = user == null ? null : java.util.Objects.requireNonNullElse(user.getClaimAsString("email"),
+                user.getSubject());
+        audit.recordSeparately(AuditRecord.of(AuditAction.LOGIN_FAILURE, tenantId).outcome(outcome).actor(actor, who)
+                .detail("reason", reason).build());
     }
 
     private void rejectLogin(HttpServletRequest request, HttpServletResponse response) throws IOException {

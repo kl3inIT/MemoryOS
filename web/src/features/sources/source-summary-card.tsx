@@ -14,13 +14,13 @@ import { SourceHint } from "./source-hint";
 const googleDriveAccessHelp: Partial<Record<SourceSummary["access"], string>> = {
   PRIVATE:
     "Document access follows this Source's MemoryOS groups, not Google Drive file permissions.",
-  SYNC: "Readers need access to each file in Google Drive and a verified login email that matches it. Groups only decide who manages this Source.",
+  SYNC: "Whoever can open the file in Google Drive can read it.",
 };
 
 /** The short answer to who can read; the help beside it states the rule. */
 const readersLabel: Record<SourceSummary["access"], string> = {
-  PUBLIC: "Workspace members",
-  PRIVATE: "Members of its groups",
+  PUBLIC: "All members",
+  PRIVATE: "Members of the chosen groups",
   SYNC: "People with access in Google Drive",
 };
 
@@ -45,8 +45,11 @@ export function SourceSummaryCard({
   children?: ReactNode;
 }) {
   const ui = useAppTranslation();
+  // Only group access reads through groups, so other Sources have none to show.
+  const showGroups = source.access === "PRIVATE";
   const groups = useQuery({
     ...listSourceGroupsOptions({ path: { sourceId: source.id } }),
+    enabled: showGroups,
     retry: false,
   });
   const groupNames = (groups.data?.items ?? [])
@@ -103,44 +106,46 @@ export function SourceSummaryCard({
               </HelpPopover>
             </dd>
           </div>
-          <div className="flex min-h-8 min-w-0 items-center gap-2">
-            <dt className={statLabelClass}>{ui("Groups")}</dt>
-            <dd className="min-w-0 break-words text-content-primary">
-              {groups.isPending ? (
-                ui("Loading…")
-              ) : groups.isError ? (
-                ui("Unavailable")
-              ) : groupNames.length ? (
-                <>
-                  {shownGroupNames.join(", ")}
-                  {additionalGroupNames.length ? (
-                    <>
-                      {" "}
-                      <SourceHint
-                        hint={ui("Additional groups: {{v1}}", {
-                          v1: additionalGroupNames.join(", "),
-                        })}
-                      >
-                        <span
-                          tabIndex={0}
-                          aria-label={ui("Additional groups: {{v1}}", {
+          {showGroups ? (
+            <div className="flex min-h-8 min-w-0 items-center gap-2">
+              <dt className={statLabelClass}>{ui("Groups")}</dt>
+              <dd className="min-w-0 break-words text-content-primary">
+                {groups.isPending ? (
+                  ui("Loading…")
+                ) : groups.isError ? (
+                  ui("Unavailable")
+                ) : groupNames.length ? (
+                  <>
+                    {shownGroupNames.join(", ")}
+                    {additionalGroupNames.length ? (
+                      <>
+                        {" "}
+                        <SourceHint
+                          hint={ui("Additional groups: {{v1}}", {
                             v1: additionalGroupNames.join(", "),
                           })}
-                          className="cursor-default font-secondary-action text-content-secondary underline decoration-dotted underline-offset-2 outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-focus-ring"
                         >
-                          {ui("+{{count}} more groups", {
-                            count: additionalGroupNames.length,
-                          })}
-                        </span>
-                      </SourceHint>
-                    </>
-                  ) : null}
-                </>
-              ) : (
-                ui("None")
-              )}
-            </dd>
-          </div>
+                          <span
+                            tabIndex={0}
+                            aria-label={ui("Additional groups: {{v1}}", {
+                              v1: additionalGroupNames.join(", "),
+                            })}
+                            className="cursor-default font-secondary-action text-content-secondary underline decoration-dotted underline-offset-2 outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-focus-ring"
+                          >
+                            {ui("+{{count}} more groups", {
+                              count: additionalGroupNames.length,
+                            })}
+                          </span>
+                        </SourceHint>
+                      </>
+                    ) : null}
+                  </>
+                ) : (
+                  ui("None")
+                )}
+              </dd>
+            </div>
+          ) : null}
         </div>
       </dl>
     </div>

@@ -93,8 +93,91 @@ class ChatSessionPurgeIntegrationTest {
         assertEquals(0, count("chat_session WHERE id='" + running.session + "'"));
     }
 
+    @Test
+    void waitsOutTheWindowBeforePurgingAndTakesATemporaryConversationAtOnce() {
+        var deleted = conversation("Deleted today", true, false);
+        var temporary = conversation("Temporary", true, false);
+        jdbc.sql("UPDATE chat_session SET temporary = TRUE WHERE id = :id").param("id", temporary.session()).update();
+
+        // A conversation deleted today is inside a thirty-day window; a temporary one waits for nothing.
+        assertEquals(1, purge(true, java.time.Duration.ofDays(30)));
+        assertEquals(0, count("chat_session WHERE id='" + temporary.session() + "'"));
+        assertEquals(1, count("chat_session WHERE id='" + deleted.session() + "'"));
+        assertEquals(1, repository.awaiting(java.time.Duration.ofDays(30)));
+
+        // Once it is older than the window, the next run takes it.
+        jdbc.sql("UPDATE chat_session SET deleted_at = CURRENT_TIMESTAMP - INTERVAL '31 days' WHERE id = :id")
+                .param("id", deleted.session()).update();
+        assertEquals(1, purge(true, java.time.Duration.ofDays(30)));
+        assertEquals(0, count("chat_session WHERE id='" + deleted.session() + "'"));
+        assertEquals(0, repository.awaiting(java.time.Duration.ofDays(30)));
+    }
+
+    @Test
+    void aTemporaryConversationDeletesItselfAndReleasesTheUploadsSentIntoIt() {
+        var temporary = conversation("Temporary", false, false);
+        var ordinary = conversation("Ordinary", false, false);
+        var sent = upload();
+        var kept = upload();
+        jdbc.sql("UPDATE chat_session SET temporary = TRUE WHERE id = :id").param("id", temporary.session()).update();
+        jdbc.sql("UPDATE chat_user_file SET temporary_session_id = :session, status = 'READY' WHERE id = :id")
+                .param("session", temporary.session()).param("id", sent).update();
+        jdbc.sql("UPDATE chat_user_file SET status = 'READY' WHERE id = :id").param("id", kept).update();
+
+        // Nothing has gone quiet yet.
+        assertEquals(0, service(true, java.time.Duration.ZERO).expireTemporary());
+        jdbc.sql("UPDATE chat_session SET updated_at = CURRENT_TIMESTAMP - INTERVAL '25 hours'").update();
+        assertEquals(1, service(true, java.time.Duration.ZERO).expireTemporary(), "only the temporary one");
+        assertEquals(1, count("chat_session WHERE id='" + temporary.session() + "' AND deleted_at IS NOT NULL"));
+        assertEquals(1, count("chat_session WHERE id='" + ordinary.session() + "' AND deleted_at IS NULL"));
+
+        // The purge then removes it whatever the window says, and hands its upload to the file work.
+        assertEquals(1, purge(true, java.time.Duration.ofDays(30)));
+        assertEquals(0, count("chat_session WHERE id='" + temporary.session() + "'"));
+        assertEquals(1, count("chat_user_file WHERE id='" + sent + "' AND status='DELETING'"));
+        assertEquals(1, count("chat_file_work WHERE file_id='" + sent + "' AND action='DELETE'"));
+        // An upload that was never sent into a temporary conversation belongs to its owner, untouched.
+        assertEquals(1, count("chat_user_file WHERE id='" + kept + "' AND status='READY'"));
+        assertEquals(0, count("chat_file_work WHERE file_id='" + kept + "' AND action='DELETE'"));
+    }
+
+    @Test
+    void theTenantRetentionPolicyDeletesWhatNobodyHasTouchedAndCountsItFirst() {
+        var old = conversation("Untouched", false, false);
+        var recent = conversation("Yesterday", false, false);
+        jdbc.sql("UPDATE chat_session SET updated_at = CURRENT_TIMESTAMP - INTERVAL '120 days' WHERE id = :id")
+                .param("id", old.session()).update();
+        jdbc.sql("UPDATE chat_session SET updated_at = CURRENT_TIMESTAMP - INTERVAL '1 day' WHERE id = :id")
+                .param("id", recent.session()).update();
+
+        // Without a policy recorded, nothing happens at all.
+        assertEquals(0, service(true, java.time.Duration.ZERO).applyRetentionPolicies());
+        assertEquals(1, repository.affectedByRetention(tenant.value(), 90), "what a 90-day policy would delete");
+
+        jdbc.sql("""
+                INSERT INTO chat_settings(tenant_id, deep_research_enabled, chat_retention_days)
+                VALUES(:tenant, TRUE, 90)
+                """).param("tenant", tenant.value()).update();
+        assertEquals(1, service(true, java.time.Duration.ZERO).applyRetentionPolicies());
+        assertEquals(1, count("chat_session WHERE id='" + old.session() + "' AND deleted_at IS NOT NULL"));
+        assertEquals(1, count("chat_session WHERE id='" + recent.session() + "' AND deleted_at IS NULL"));
+        assertEquals(0, service(true, java.time.Duration.ZERO).applyRetentionPolicies(), "nothing is left");
+    }
+
     private int purge(boolean hardDelete) {
-        return new ChatSessionPurgeService(repository, new ChatRetentionProperties(hardDelete), jpa.transactionManager()).purge();
+        // These cases are about the switch, so the waiting window is zero: a deletion is purgeable at once.
+        return purge(hardDelete, java.time.Duration.ZERO);
+    }
+
+    private int purge(boolean hardDelete, java.time.Duration deletedAfter) {
+        return service(hardDelete, deletedAfter).purge();
+    }
+
+    private ChatSessionPurgeService service(boolean hardDelete, java.time.Duration deletedAfter) {
+        return new ChatSessionPurgeService(repository,
+                new ChatRetentionProperties(hardDelete, java.time.Duration.ofDays(30), deletedAfter,
+                        java.time.Duration.ofHours(24)),
+                jpa.transactionManager());
     }
 
     private long count(String from) {

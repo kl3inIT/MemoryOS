@@ -19,6 +19,8 @@ public record SearchProperties(
         @DefaultValue("3072") int dimensions,
         @DefaultValue("32") int embeddingBatchSize,
         @DefaultValue("2") int embeddingConcurrency,
+        @DefaultValue("10s") Duration embeddingTimeout,
+        @DefaultValue("2") int embeddingRetries,
         @DefaultValue("500") int candidateLimit,
         @DefaultValue("0.5") double keywordWeight,
         @DefaultValue("0.70") double minimumSemanticScore,
@@ -44,7 +46,9 @@ public record SearchProperties(
                 || keywordWeight <= 0 || keywordWeight >= 1 || candidateLimit < 50 || candidateLimit > 1000
                 || !Double.isFinite(minimumSemanticScore) || minimumSemanticScore < 0 || minimumSemanticScore > 1
                 || dimensions < 1 || dimensions > 16000 || replicas < 0 || replicas > 3
-                || timeout.isNegative() || timeout.isZero() || timeout.compareTo(Duration.ofMinutes(1)) > 0) {
+                || timeout.isNegative() || timeout.isZero() || timeout.compareTo(Duration.ofMinutes(1)) > 0
+                || embeddingTimeout.isNegative() || embeddingTimeout.isZero() || embeddingTimeout.compareTo(timeout) > 0
+                || embeddingRetries < 0 || embeddingRetries > 3) {
             throw new IllegalArgumentException("invalid search configuration");
         }
     }

@@ -36,7 +36,8 @@ public class JdbcGoogleDriveAclRepository implements GoogleDriveAclReader {
             p.status <> 'DELETING' AND c.status = 'ACTIVE' AND c.connector_type = 'GOOGLE_DRIVE' AS source_active,
             p.credential_id AS current_credential_id, COALESCE(g.credential_revision, 0) AS current_credential_revision,
             credential.status = 'ACTIVE' AND g.connection_status = 'ACTIVE'
-                AND g.oauth_client_ciphertext IS NOT NULL AND g.refresh_token_ciphertext IS NOT NULL AS credential_active,
+                AND ((g.auth_method = 'OAUTH' AND g.oauth_client_ciphertext IS NOT NULL AND g.refresh_token_ciphertext IS NOT NULL)
+                    OR (g.auth_method = 'SERVICE_ACCOUNT' AND g.service_account_key_ciphertext IS NOT NULL)) AS credential_active,
             s.revision AS current_scope_revision, s.generation AS current_generation,
             m.generation AS membership_generation,
             COALESCE(NOT m.excluded AND m.root_id IS NOT NULL AND (

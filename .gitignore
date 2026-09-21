@@ -26,6 +26,7 @@ graphify-out/
 tmp/
 codex-session-*.jsonl
 hs_err_pid*.log
+java_pid*.hprof
 replay_pid*.log
 *.docx
 !docs/academic/sep490/templates/*.docx

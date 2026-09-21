@@ -65,6 +65,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     private final GoogleDriveSelectionPolicy policy;
     private final SourceAccessPolicy sourceAccess;
     private final GoogleDriveMetadataCache metadataCache;
+    private final io.memoryos.iam.audit.AuditTrail audit;
 
     public DefaultGoogleDriveSourceService(IamAuthorization authorization, GoogleDriveConnectionService connections,
             JdbcGoogleDriveSourceRepository drive, JdbcSourceRepository sources, JdbcSourceSyncRepository sync,
@@ -72,7 +73,8 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
             GoogleDriveLinkReader linkReader, PlatformTransactionManager transactionManager,
             JdbcGoogleDriveSelectionRepository selections, JdbcGoogleDriveCredentialRepository credentials,
             GoogleDriveSelectionPolicy policy, JdbcSourceGroupRepository sourceGroups, SourceAccessPolicy sourceAccess,
-            GoogleDriveMetadataCache metadataCache) {
+            GoogleDriveMetadataCache metadataCache, io.memoryos.iam.audit.AuditTrail audit) {
+        this.audit = audit;
         this.authorization = authorization;
         this.connections = connections;
         this.drive = drive;
@@ -112,8 +114,13 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
             if (!credential.usable()) throw SourceException.conflict("Google connection is unavailable");
             var receipt = selections.receipt(tenant, actor, requestId, hash);
             if (receipt.isPresent()) return receipt.get();
-                return selections.submit(tenant, actor, requestId, hash, new SourceId(UUID.randomUUID()), credentialId,
+            var source = new SourceId(UUID.randomUUID());
+            var submitted = selections.submit(tenant, actor, requestId, hash, source, credentialId,
                     credential.revision(), 0, 0, scopeMode, name.strip(), ids, List.of(), policy.value(), groups, creation.access());
+            record(tenant, actor, io.memoryos.iam.audit.AuditAction.SOURCE_CREATE, source, name.strip(), event -> event
+                    .detail("provider", SourceType.GOOGLE_DRIVE.name()).detail("access", creation.access().name())
+                    .detail("groups", groups.size()));
+            return submitted;
         }));
     }
 
@@ -132,7 +139,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         var state = connections.state(tenant, source);
         var config = drive.configuration(tenant, source);
         return new Configuration(source, state.credentialId(), state.accountEmail(), state.status(), state.credentialRevision(),
-                state.oauthClientConfigured(), config.revision(), config.syncIntervalMinutes(), config.scheduleRevision(),
+                state.oauthClientConfigured(), state.authMethod(), config.revision(), config.syncIntervalMinutes(), config.scheduleRevision(),
                 config.syncPaused(), config.scopeMode(), drive.counts(tenant, source),
                 config.scopeMode() == ScopeMode.GENERAL ? 0 : config.discoveryRevision(),
                 config.scopeMode() == ScopeMode.GENERAL ? null : config.discoveredAt(),
@@ -176,8 +183,11 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
                     throw invalidLinkedSelection();
                 approvals.add(candidate);
             }
-            return selections.submit(tenant, actor, requestId, hash, source, saved.credentialId(), saved.credentialRevision(),
+            var submitted = selections.submit(tenant, actor, requestId, hash, source, saved.credentialId(), saved.credentialRevision(),
                     expectedRevision, saved.configuration().discoveryRevision(), scopeMode, null, roots, approvals, policy.value(), List.of(), null);
+            record(tenant, actor, io.memoryos.iam.audit.AuditAction.SOURCE_UPDATE, source, null, event -> event.detail("change", "SCOPE")
+                    .detail("after", java.util.Map.of("roots", roots.size(), "linkedDocuments", approvals.size())));
+            return submitted;
         }));
     }
 
@@ -268,7 +278,10 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         return Objects.requireNonNull(transactions.execute(_ -> {
             if (!tenant.equals(sourceAccess.lockManage(actor, source).tenantId())) throw SourceException.notFound();
             drive.requireGoogle(tenant, source);
+            int before = drive.configuration(tenant, source).syncIntervalMinutes();
             drive.updateSchedule(tenant, source, expectedRevision, syncIntervalMinutes);
+            if (before != syncIntervalMinutes) record(tenant, actor, io.memoryos.iam.audit.AuditAction.SOURCE_UPDATE, source, null, event -> event
+                    .detail("change", "SCHEDULE").detail("before", before).detail("after", syncIntervalMinutes));
             return configuration(tenant, source);
         }));
     }
@@ -278,7 +291,10 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         return Objects.requireNonNull(transactions.execute(_ -> {
             var tenant = sourceAccess.lockManage(actor, source).tenantId();
             drive.requireGoogle(tenant, source);
+            boolean before = drive.configuration(tenant, source).syncPaused();
             drive.setPaused(tenant, source, expectedRevision, paused);
+            if (before != paused) record(tenant, actor, paused ? io.memoryos.iam.audit.AuditAction.SOURCE_PAUSE : io.memoryos.iam.audit.AuditAction.SOURCE_RESUME,
+                    source, null, event -> event);
             return configuration(tenant, source);
         }));
     }
@@ -543,5 +559,13 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         digest.update((byte)(bytes.length >>> 8));
         digest.update((byte)bytes.length);
         digest.update(bytes);
+    }
+
+    /** Records a Source change; Drive and SharePoint Sources are created and re-scoped by a request the Worker settles. */
+    private void record(TenantId tenant, ActorId actor, io.memoryos.iam.audit.AuditAction action, SourceId source, @Nullable String name,
+                        java.util.function.UnaryOperator<io.memoryos.iam.audit.AuditRecord.Builder> details) {
+        String label = name != null ? name : sources.auditView(tenant, source).map(JdbcSourceRepository.AuditView::name).orElse(null);
+        audit.record(details.apply(io.memoryos.iam.audit.AuditRecord.of(action, tenant).actor(actor)
+                .resource("SOURCE", source.value(), label)).build());
     }
 }

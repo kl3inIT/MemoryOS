@@ -12,6 +12,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         "io.memoryos.retrieval.embedding",
         "io.memoryos.retrieval.opensearch",
         "io.memoryos.usage",
+        "io.memoryos.iam.audit",
         "io.memoryos.iam.group.persistence",
         "io.memoryos.iam.identity.persistence",
         "io.memoryos.iam.invitation.persistence",
@@ -26,7 +27,16 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         io.memoryos.chat.application.ChatArtifactCleanupService.class,
         // MEM-143: the sweep that removes conversations their owner deleted.
         io.memoryos.chat.persistence.JdbcChatSessionPurgeRepository.class,
-        io.memoryos.chat.application.ChatSessionPurgeService.class})
+        io.memoryos.chat.application.ChatSessionPurgeService.class,
+        // MEM-153: exporting one's own conversations and files, which reads the conversations themselves.
+        io.memoryos.chat.persistence.JdbcChatExportRepository.class,
+        io.memoryos.chat.persistence.JdbcChatRepository.class,
+        io.memoryos.chat.application.ChatExportService.class,
+        // MEM-152: packing a library selection into a ZIP and releasing expired archives.
+        io.memoryos.chat.persistence.JdbcChatLibraryArchiveRepository.class,
+        io.memoryos.chat.persistence.JdbcChatLibraryRepository.class,
+        io.memoryos.chat.persistence.JdbcUserFileRepository.class,
+        io.memoryos.chat.application.ChatLibraryArchiveService.class})
 public class MemoryOsWorkerApplication {
 
     public static void main(String[] args) {

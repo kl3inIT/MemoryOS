@@ -31,9 +31,14 @@ export function GoogleDriveConnectionAccount({
       <div className="min-w-0 flex-1">
         <p className="font-main-ui-action text-content-primary">{ui("Google Drive")}</p>
         <p className="truncate text-sm text-content-muted">
-          {credential
-            ? ui("{{v1}} ({{v2}})", { v1: credential.name, v2: credential.accountEmail })
-            : ui("No credential selected")}
+          {!credential
+            ? ui("No credential selected")
+            : credential.authMethod === "SERVICE_ACCOUNT"
+              ? ui("{{v1}} (service account acting as {{v2}})", {
+                  v1: credential.name,
+                  v2: credential.accountEmail,
+                })
+              : ui("{{v1}} ({{v2}})", { v1: credential.name, v2: credential.accountEmail })}
         </p>
       </div>
       <StatusBadge tone={tone} className={statusPill(tone)}>

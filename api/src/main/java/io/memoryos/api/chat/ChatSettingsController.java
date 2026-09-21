@@ -14,8 +14,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.jspecify.annotations.Nullable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -48,5 +52,37 @@ class ChatSettingsController {
     ChatSettingsResponse save(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @Valid @RequestBody ChatSettingsRequest request) {
         return ChatSettingsResponse.from(settings.save(identity.actorId(), request.deepResearchEnabled(), request.revision()));
+    }
+
+    @Schema(name = "ChatRetentionRequest")
+    record RetentionRequest(
+            @Schema(description = "Days of inactivity after which a conversation is deleted; leave it out to clear the policy")
+            @Min(1) @Max(3650) @Nullable Integer chatRetentionDays,
+            @Min(0) long revision) {}
+
+    @Schema(name = "ChatRetentionPreview")
+    record RetentionPreviewResponse(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"integer", "null"}) @Nullable Integer days,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "How many conversations this policy would delete now") long affected) {}
+
+    @PutMapping("/retention")
+    @ApiResponse(responseCode = "200", description = "Saved retention policy", useReturnTypeSchema = true)
+    @Operation(operationId = "saveChatRetention",
+            summary = "Bound how long this Tenant keeps conversations nobody has touched (Onyx maximum_chat_retention_days)")
+    ChatSettingsResponse saveRetention(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @Valid @RequestBody RetentionRequest request) {
+        return ChatSettingsResponse.from(
+                settings.saveRetention(identity.actorId(), request.chatRetentionDays(), request.revision()));
+    }
+
+    @GetMapping("/retention/preview")
+    @ApiResponse(responseCode = "200", description = "What the policy would delete", useReturnTypeSchema = true)
+    @Operation(operationId = "previewChatRetention",
+            summary = "How many conversations a retention policy would delete now")
+    RetentionPreviewResponse previewRetention(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @RequestParam(required = false) @Min(1) @Max(3650) @Nullable Integer days) {
+        var preview = settings.previewRetention(identity.actorId(), days);
+        return new RetentionPreviewResponse(preview.days(), preview.affected());
     }
 }

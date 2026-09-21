@@ -23,18 +23,18 @@ public class JdbcChatSearchRepository {
         return jdbc.sql("""
                 WITH terms AS (SELECT tsvector_to_array(to_tsvector('simple', :query)) AS words), matches AS (
                     SELECT s.id FROM chat_session s
-                    WHERE s.tenant_id = :tenant AND s.owner_actor_id = :actor AND s.deleted_at IS NULL
+                    WHERE s.tenant_id = :tenant AND s.owner_actor_id = :actor AND s.deleted_at IS NULL AND NOT s.temporary
                       AND to_tsvector('simple', s.title) @@ plainto_tsquery('simple', :query)
                     UNION
                     SELECT s.id FROM chat_message m JOIN chat_session s ON s.id = m.session_id
-                    WHERE s.tenant_id = :tenant AND s.owner_actor_id = :actor AND s.deleted_at IS NULL
+                    WHERE s.tenant_id = :tenant AND s.owner_actor_id = :actor AND s.deleted_at IS NULL AND NOT s.temporary
                       AND m.role IN ('USER', 'ASSISTANT')
                       AND octet_length(m.content) <= 65536
                       AND to_tsvector('simple', CASE WHEN octet_length(m.content) <= 65536 THEN m.content ELSE '' END)
                           @@ plainto_tsquery('simple', :query)
                     UNION
                     SELECT s.id FROM chat_message m JOIN chat_session s ON s.id = m.session_id CROSS JOIN terms
-                    WHERE s.tenant_id = :tenant AND s.owner_actor_id = :actor AND s.deleted_at IS NULL
+                    WHERE s.tenant_id = :tenant AND s.owner_actor_id = :actor AND s.deleted_at IS NULL AND NOT s.temporary
                       AND m.role IN ('USER', 'ASSISTANT') AND octet_length(m.content) > 65536
                       AND cardinality(terms.words) > 0
                       AND (SELECT count(DISTINCT word)

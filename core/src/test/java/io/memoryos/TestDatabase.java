@@ -142,7 +142,9 @@ public final class TestDatabase {
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
         var proxyFactory = new ProxyFactory();
         proxyFactory.setTarget(target);
-        proxyFactory.setInterfaces(contract);
+        // A service without an interface is proxied by subclass, as Spring proxies it in the application.
+        if (contract.isInterface()) proxyFactory.setInterfaces(contract);
+        else proxyFactory.setProxyTargetClass(true);
         proxyFactory.addAdvice(interceptor);
         return contract.cast(proxyFactory.getProxy());
     }
@@ -209,5 +211,21 @@ public final class TestDatabase {
             postgres.start();
         }
         return postgres;
+    }
+
+    /** The audit writer over the test database; it joins whatever transaction the service under test opened. */
+    public static io.memoryos.iam.audit.AuditTrail audit(org.springframework.jdbc.core.simple.JdbcClient jdbc,
+                                                         PlatformTransactionManager transactions) {
+        return new io.memoryos.iam.audit.AuditTrail(jdbc, io.memoryos.iam.audit.AuditRequestContext.TRACE_ONLY,
+                new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), transactions);
+    }
+
+    /** An audit writer that records nothing, for tests of behaviour other than the audit stream itself. */
+    public static io.memoryos.iam.audit.AuditTrail noAudit() {
+        var audit = org.mockito.Mockito.mock(io.memoryos.iam.audit.AuditTrail.class);
+        org.mockito.Mockito.when(audit.person(org.mockito.ArgumentMatchers.any())).thenAnswer(call ->
+                new io.memoryos.iam.audit.AuditTrail.Person(
+                        call.<io.memoryos.iam.identity.ActorId>getArgument(0).value().toString(), null));
+        return audit;
     }
 }

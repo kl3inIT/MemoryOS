@@ -165,6 +165,8 @@ public class ChatTurnPersistence {
             return new Reservation(user.userMessageId(), user.assistantMessageId(), false, user.selectedModelId(), user.fallbackReason());
         }
         if (chats.hasActiveReply(sessionId)) throw ChatException.conflict();
+        // A conversation someone is writing in is not archived (MEM-153), so this turn takes it back out.
+        if (session.archived()) chats.unarchiveOnActivity(sessionId);
         var target = chats.message(sessionId, command.targetMessageId()).orElseThrow(ChatException::unavailable);
         if (!chats.onSelectedBranch(session, target.id())) throw ChatException.conflict();
         UUID parentId;
@@ -200,6 +202,12 @@ public class ChatTurnPersistence {
         UUID assistant = UUID.randomUUID();
         if (command.operation() == ChatCommand.Operation.REGENERATE) chats.insertAssistant(sessionId, user, assistant, lease);
         else chats.insertPair(sessionId, parentId, command.requestId(), user, assistant, text, lease, attachments);
+        // An upload sent into a temporary conversation belongs to it (MEM-153): the library stops listing the
+        // file, and the purge releases its bytes with the conversation.
+        if (session.temporary()) {
+            chats.claimTemporaryUploads(tenant, actor, sessionId,
+                    attachments.stream().map(io.memoryos.chat.ChatFileDescriptor::id).toList());
+        }
         if (selection != null) chats.saveModelSelection(sessionId,
                 command.operation() == ChatCommand.Operation.REGENERATE ? assistant : user,
                 assistant, selection.requestedId(), selection.selectedId(), selection.fallbackReason());

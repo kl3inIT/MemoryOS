@@ -25,9 +25,12 @@ public class VoiceConnectionService {
     private final ProviderCredentials credentials;
     private final IamAuthorization authorization;
     private final TenantAccessResolver tenants;
+    private final io.memoryos.iam.audit.AuditTrail audit;
 
     public VoiceConnectionService(VoiceConnectionRepository connections, ProviderCredentials credentials,
-                                  IamAuthorization authorization, TenantAccessResolver tenants) {
+                                  IamAuthorization authorization, TenantAccessResolver tenants,
+                                  io.memoryos.iam.audit.AuditTrail audit) {
+        this.audit = audit;
         this.connections = connections; this.credentials = credentials;
         this.authorization = authorization; this.tenants = tenants;
     }
@@ -91,6 +94,7 @@ public class VoiceConnectionService {
                 throw ChatException.invalid("This connection cannot serve the selected voice function.");
             activate(tenant, saved, input.activate());
         }
+        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.VOICE_CONNECTION_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant)).actor(actor).resource("VOICE_CONNECTION", provider.name(), provider.name()).detail("change", "CONFIGURE").detail("credentialChange", input.credential() == null ? "KEEP" : input.credential().action().name()).build());
         return view(saved);
     }
 
@@ -101,6 +105,7 @@ public class VoiceConnectionService {
         var entity = connections.findByTenantIdAndProvider(tenant, provider).orElseThrow(ChatException::unavailable);
         if (entity.revision() != revision) throw ChatException.conflict();
         connections.delete(entity);
+        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.VOICE_CONNECTION_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant)).actor(actor).resource("VOICE_CONNECTION", provider.name(), provider.name()).detail("change", "DISCONNECT").detail("credentialChange", "REMOVE").build());
     }
 
     /** A null provider turns the function off for the Tenant. A Text-to-Speech selection may choose the provider's model. */
@@ -112,6 +117,7 @@ public class VoiceConnectionService {
             throw ChatException.invalid("Only a selected Text-to-Speech provider accepts a model.");
         if (provider == null) {
             for (var connection : connections.findByTenantIdOrderByProvider(tenant)) select(connection, function, false);
+            audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.VOICE_CONNECTION_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant)).actor(actor).resource("VOICE_CONNECTION", null, null).detail("change", "DISABLE_" + function.name()).build());
             return;
         }
         if (function == VoiceFunction.TTS && !provider.speech())
@@ -120,6 +126,7 @@ public class VoiceConnectionService {
         if (model != null) selected.useTtsModel(model);
         if (!serves(selected, function)) throw ChatException.providerUnavailable();
         activate(tenant, selected, function);
+        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.VOICE_CONNECTION_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant)).actor(actor).resource("VOICE_CONNECTION", provider.name(), provider.name()).detail("change", "SELECT_" + function.name()).build());
     }
 
     @Transactional(readOnly = true)

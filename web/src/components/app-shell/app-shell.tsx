@@ -1,6 +1,7 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link } from "@tanstack/react-router";
 import {
+  CalendarClock,
   ArrowLeft,
   AudioLines,
   Blocks,
@@ -8,6 +9,7 @@ import {
   ChartColumn,
   CloudUpload,
   Globe,
+  HardDrive,
   ImageIcon,
   KeyRound,
   Library,
@@ -16,6 +18,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plug,
+  ReceiptText,
+  ScrollText,
   Settings,
   Sparkles,
   SquareTerminal,
@@ -23,7 +27,6 @@ import {
   UserRound,
   Users,
   X,
-  ReceiptText,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Dialog } from "radix-ui";
@@ -50,11 +53,14 @@ export type AdminPage =
   | "voice"
   | "images"
   | "interpreter"
+  | "file-storage"
+  | "retention"
   | "providers"
   | "models"
   | "mcp"
   | "agents"
-  | "costs";
+  | "costs"
+  | "audit";
 
 type AppShellProps = {
   area?: AppShellArea;
@@ -151,6 +157,7 @@ function SidebarContents({
     canManageProviders,
     canManageMcp,
     canManageAgents,
+    canReadAudit,
     canAccessAdmin,
     adminEntryPath,
   } = useAdminAccess();
@@ -310,6 +317,15 @@ function SidebarContents({
                   {ui("Tạo ảnh")}
                 </SidebarTab>
                 <SidebarTab
+                  to="/admin/file-storage"
+                  icon={<HardDrive className="size-4" />}
+                  selected={adminPage === "file-storage"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Dung lượng tệp")}
+                </SidebarTab>
+                <SidebarTab
                   to="/admin/code-interpreter"
                   icon={<SquareTerminal className="size-4" />}
                   selected={adminPage === "interpreter"}
@@ -318,19 +334,41 @@ function SidebarContents({
                 >
                   {ui("Code Interpreter")}
                 </SidebarTab>
-              </SidebarSection>
-            ) : null}
-            {canManageModels ? (
-              <SidebarSection title={ui("Monitoring")} collapsed={collapsed}>
                 <SidebarTab
-                  to="/admin/ai-costs"
-                  icon={<ReceiptText className="size-4" />}
-                  selected={adminPage === "costs"}
+                  to="/admin/chat-retention"
+                  icon={<CalendarClock className="size-4" />}
+                  selected={adminPage === "retention"}
                   collapsed={collapsed}
                   onClick={onNavigate}
                 >
-                  {ui("AI costs")}
+                  {ui("Lưu giữ hội thoại")}
                 </SidebarTab>
+              </SidebarSection>
+            ) : null}
+            {canManageModels || canReadAudit ? (
+              <SidebarSection title={ui("Monitoring")} collapsed={collapsed}>
+                {canManageModels ? (
+                  <SidebarTab
+                    to="/admin/ai-costs"
+                    icon={<ReceiptText className="size-4" />}
+                    selected={adminPage === "costs"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    {ui("AI costs")}
+                  </SidebarTab>
+                ) : null}
+                {canReadAudit ? (
+                  <SidebarTab
+                    to="/admin/audit"
+                    icon={<ScrollText className="size-4" />}
+                    selected={adminPage === "audit"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    {ui("Audit log")}
+                  </SidebarTab>
+                ) : null}
               </SidebarSection>
             ) : null}
             {canManageAgents ? (

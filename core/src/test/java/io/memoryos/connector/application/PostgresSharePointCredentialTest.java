@@ -74,7 +74,7 @@ class PostgresSharePointCredentialTest {
         credentials = new JdbcSharePointCredentialRepository(jdbc, sources, sharePointEncryption());
         provider = mock(SharePointProvider.class);
         service = TestDatabase.transactionalProxy(
-                new DefaultSharePointCredentialService(credentials, provider, authorization, manager),
+                new DefaultSharePointCredentialService(credentials, provider, authorization, manager, io.memoryos.TestDatabase.noAudit()),
                 SharePointCredentialService.class, manager);
     }
 
@@ -245,7 +245,7 @@ class PostgresSharePointCredentialTest {
                 new JdbcSourceRepository(jdbc, event -> { }),
                 new SharePointCredentialConfiguration("", ""));
         var failing = TestDatabase.transactionalProxy(
-                new DefaultSharePointCredentialService(unconfigured, provider, authorization, manager),
+                new DefaultSharePointCredentialService(unconfigured, provider, authorization, manager, io.memoryos.TestDatabase.noAudit()),
                 SharePointCredentialService.class, manager);
         try (var draft = secretDraft("No key")) {
             var failure = assertThrows(SharePointException.class, () -> failing.create(owner, draft));

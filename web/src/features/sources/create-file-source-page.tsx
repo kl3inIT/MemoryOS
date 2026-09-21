@@ -45,8 +45,8 @@ export function CreateFileSourcePage() {
   const { pendingFinalize, setPendingFinalize } = useSourceUploadRecovery();
   const [sourceName, setSourceName] = useState("");
   const [groupIds, setGroupIds] = useState<Set<string>>(() => new Set());
-  // Scoped managers can only create Private Sources, which need groups they manage.
-  const showGroups = scoped || access === "PRIVATE";
+  // Only group access reads through groups; scoped managers are held to Private, which needs groups they manage.
+  const showGroups = access === "PRIVATE";
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [uploadAccepted, setUploadAccepted] = useState(false);
   const [files, setFiles] = useState<File[]>([]);

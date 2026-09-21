@@ -23,7 +23,9 @@ public enum IamCapability {
     MODELS_MANAGE,
     MCP_MANAGE,
     AGENTS_CREATE,
-    AGENTS_MANAGE;
+    AGENTS_MANAGE,
+    /** Read and export the Tenant's audit stream (ADR 0013); held apart from the powers it records. */
+    AUDIT_READ;
     private static final IamCapability[] VALUES = values();
     private static final Set<IamCapability> ALL_CAPABILITIES =
             Collections.unmodifiableSet(EnumSet.allOf(IamCapability.class));
@@ -40,7 +42,8 @@ public enum IamCapability {
 
     public boolean isOrdinaryGrant() {
         return switch (this) {
-            case USERS_MANAGE, GROUPS_MANAGE, SOURCES_MANAGE, MODELS_MANAGE, MCP_MANAGE, AGENTS_CREATE, AGENTS_MANAGE -> true;
+            case USERS_MANAGE, GROUPS_MANAGE, SOURCES_MANAGE, MODELS_MANAGE, MCP_MANAGE, AGENTS_CREATE, AGENTS_MANAGE,
+                 AUDIT_READ -> true;
             default -> false;
         };
     }

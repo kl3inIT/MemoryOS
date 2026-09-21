@@ -51,6 +51,7 @@ import type {
 } from "@/lib/hey-api/types.gen";
 import { startGoogleDriveAuthorization } from "@/lib/hey-api/sdk.gen";
 import { launchGoogleDriveAuthorization } from "./google-drive-authorization";
+import { googleDriveConfigurationConnected } from "./google-drive-credential";
 import { waitForSourceOperation } from "./source-operations";
 import { reconcileGoogleDriveConfiguration } from "./google-drive-selection";
 import { GoogleDriveSelectionPanel } from "./google-drive-selection-panel";
@@ -192,8 +193,8 @@ export function GoogleDrivePanel({
   const canPause = can(source, "edit");
   const stale = sourceStale || configurationQuery.isError;
   const controlsDisabled = disabled || busy || stale;
-  const connected =
-    configuration?.credentialStatus === "ACTIVE" && configuration.oauthClientConfigured;
+  const connected = googleDriveConfigurationConnected(configuration);
+  const serviceAccount = configuration?.credentialAuthMethod === "SERVICE_ACCOUNT";
   const savedClientConfigured =
     credential?.oauthClientConfigured ?? configuration?.oauthClientConfigured;
   const needsClient = canReplaceClient && (!savedClientConfigured || replaceClient);
@@ -945,9 +946,13 @@ export function GoogleDrivePanel({
       ) : null}
       {!connected ? (
         <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-          {ui(
-            "Reconnect the same Google account to save links and synchronize. Saved roots are retained.",
-          )}
+          {serviceAccount
+            ? ui(
+                "Replace the key of this service account in Google Drive credentials to save links and synchronize. Saved roots are retained.",
+              )
+            : ui(
+                "Reconnect the same Google account to save links and synchronize. Saved roots are retained.",
+              )}
         </p>
       ) : null}
       {navigation}
@@ -970,10 +975,19 @@ export function GoogleDrivePanel({
           <Collapsible className="group" defaultOpen={Boolean(!connected ? true : undefined)}>
             <CollapsibleTrigger className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-3 rounded-lg text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
               <StatusBadge tone={connected ? "success" : "warning"}>
-                {connected ? ui("Connected") : ui("Needs reconnect")}
+                {connected
+                  ? ui("Connected")
+                  : serviceAccount
+                    ? ui("Needs a new key")
+                    : ui("Needs reconnect")}
               </StatusBadge>
               <span className="min-w-0 break-all text-content-muted">
-                {configuration.accountEmail}
+                {serviceAccount && credential?.serviceAccountEmail
+                  ? ui("Service account {{v1}} acting as {{v2}}", {
+                      v1: credential.serviceAccountEmail,
+                      v2: configuration.accountEmail,
+                    })
+                  : configuration.accountEmail}
               </span>
               <span className="ml-auto inline-flex items-center gap-2 text-content-muted">
                 <span className="group-data-[state=open]:hidden">
@@ -1090,10 +1104,17 @@ export function GoogleDrivePanel({
                         </Button>
                       }
                       title={ui("Disconnect shared Google credential?")}
-                      description={ui(
-                        "Disconnecting stops acquisition for all {{v1}} Sources using this credential, including other Sources. Stored data is not deleted. Reconnect the same Google account to resume.",
-                        { v1: credential?.sourceCount ?? ui("attached") },
-                      )}
+                      description={
+                        serviceAccount
+                          ? ui(
+                              "Disconnecting destroys the saved key and stops acquisition for all {{v1}} Sources using this credential, including other Sources. Stored data is not deleted. Replace the key of the same service account to resume.",
+                              { v1: credential?.sourceCount ?? ui("attached") },
+                            )
+                          : ui(
+                              "Disconnecting stops acquisition for all {{v1}} Sources using this credential, including other Sources. Stored data is not deleted. Reconnect the same Google account to resume.",
+                              { v1: credential?.sourceCount ?? ui("attached") },
+                            )
+                      }
                       confirmLabel={ui("Disconnect")}
                       pendingLabel={ui("Disconnecting")}
                       onConfirm={() => perform("disconnect", disconnect)}

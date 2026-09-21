@@ -375,6 +375,7 @@ function ChatThreadRow({
       onNavigate={onNavigate}
       rename={(title) => item().rename(title)}
       deleteSession={() => item().delete()}
+      archiveSession={(archived) => (archived ? item().archive() : item().unarchive())}
     />
   );
 }

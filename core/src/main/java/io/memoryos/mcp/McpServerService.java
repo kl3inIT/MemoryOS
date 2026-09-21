@@ -51,11 +51,13 @@ public class McpServerService {
     private final McpClients clients;
     private final McpOAuthService oauth;
     private final TransactionTemplate transactions;
+    private final io.memoryos.iam.audit.AuditTrail audit;
 
     public McpServerService(JpaMcpServerRepository servers, JpaMcpServerToolRepository tools,
                             JpaMcpCredentialRepository credentials, IamAuthorization authorization,
                             GroupScopeService groups, McpSecrets secrets, McpClients clients, McpOAuthService oauth,
-                            PlatformTransactionManager transactionManager) {
+                            PlatformTransactionManager transactionManager, io.memoryos.iam.audit.AuditTrail audit) {
+        this.audit = audit;
         this.servers = servers; this.tools = tools; this.credentials = credentials; this.authorization = authorization;
         this.groups = groups; this.secrets = secrets; this.clients = clients; this.oauth = oauth;
         this.transactions = new TransactionTemplate(transactionManager);
@@ -123,7 +125,11 @@ public class McpServerService {
             throw McpException.invalid("This organization has reached the MCP server limit.");
         if (servers.existsByTenantIdAndSlug(tenant, validSlug)) throw McpException.slugTaken();
         Instant now = Instant.now();
-        return save(tenant, new McpServerEntity(UUID.randomUUID(), tenant, validSlug, now), input, true, now);
+        var created = save(tenant, new McpServerEntity(UUID.randomUUID(), tenant, validSlug, now), input, true, now);
+        record(tenant, actor, io.memoryos.iam.audit.AuditAction.MCP_SERVER_CREATE, created.id(), created.name(),
+                event -> event.detail("after", facts(created.url(), created.authType(), created.authPerformer(),
+                        created.tenantWide(), created.groupIds().size())));
+        return created;
     }
 
     @Transactional
@@ -132,7 +138,14 @@ public class McpServerService {
         var server = server(tenant, serverId);
         if (server.revision() != revision) throw McpException.conflict();
         if (!server.slug().equals(slug)) throw McpException.invalid("The slug of an MCP server cannot change.");
-        return save(tenant, server, input, false, Instant.now());
+        var before = facts(server.url(), server.authType(), server.authPerformer(), server.tenantWide(), server.groupIds().size());
+        var updated = save(tenant, server, input, false, Instant.now());
+        record(tenant, actor, io.memoryos.iam.audit.AuditAction.MCP_SERVER_UPDATE, updated.id(), updated.name(), event -> event
+                .detail("before", before)
+                .detail("after", facts(updated.url(), updated.authType(), updated.authPerformer(), updated.tenantWide(),
+                        updated.groupIds().size()))
+                .detail("credentialChange", input.sharedApiKey() == null ? "KEEP" : input.sharedApiKey().action().name()));
+        return updated;
     }
 
     @Transactional
@@ -141,6 +154,8 @@ public class McpServerService {
         var server = server(tenant, serverId);
         if (server.revision() != revision) throw McpException.conflict();
         servers.delete(server);
+        record(tenant, actor, io.memoryos.iam.audit.AuditAction.MCP_SERVER_DELETE, serverId, server.name(),
+                event -> event.detail("url", server.url()));
     }
 
     @Transactional(readOnly = true)
@@ -156,8 +171,12 @@ public class McpServerService {
         if (tool.revision() != revision) throw McpException.conflict();
         if (enabled && McpServerRules.modelToolName(server.slug(), tool.name()).isEmpty())
             throw McpException.toolNameUnsupported();
+        boolean changed = tool.enabled() != enabled;
         tool.enabled(enabled);
-        return toolView(server, tools.saveAndFlush(tool));
+        var saved = tools.saveAndFlush(tool);
+        if (changed) record(tenant, actor, io.memoryos.iam.audit.AuditAction.MCP_TOOL_CHANGE, serverId, server.name(),
+                event -> event.detail("tools", List.of(tool.name())).detail("enabled", enabled));
+        return toolView(server, saved);
     }
 
     /** Enables every exposable tool, or disables every tool. */
@@ -165,10 +184,16 @@ public class McpServerService {
     public List<ToolView> setAllToolsEnabled(ActorId actor, UUID serverId, boolean enabled) {
         UUID tenant = write(actor);
         var server = server(tenant, serverId);
+        var changed = new java.util.ArrayList<String>();
         for (var tool : tools.findByTenantIdAndServerIdOrderByNameAsc(tenant, serverId)) {
-            if (!enabled || McpServerRules.modelToolName(server.slug(), tool.name()).isPresent()) tool.enabled(enabled);
+            if ((!enabled || McpServerRules.modelToolName(server.slug(), tool.name()).isPresent()) && tool.enabled() != enabled) {
+                tool.enabled(enabled);
+                changed.add(tool.name());
+            }
         }
         tools.flush();
+        if (!changed.isEmpty()) record(tenant, actor, io.memoryos.iam.audit.AuditAction.MCP_TOOL_CHANGE, serverId, server.name(),
+                event -> event.detail("tools", changed).detail("enabled", enabled));
         return toolViews(server);
     }
 
@@ -397,5 +422,23 @@ public class McpServerService {
 
     private UUID write(ActorId actor) {
         return authorization.lockAndRequireExclusive(actor, IamCapability.MCP_MANAGE).tenantId().value();
+    }
+
+    private void record(UUID tenant, ActorId actor, io.memoryos.iam.audit.AuditAction action, UUID serverId, String name,
+                        java.util.function.UnaryOperator<io.memoryos.iam.audit.AuditRecord.Builder> details) {
+        audit.record(details.apply(io.memoryos.iam.audit.AuditRecord.of(action, new io.memoryos.iam.tenant.TenantId(tenant))
+                .actor(actor).resource("MCP_SERVER", serverId, name)).build());
+    }
+
+    /** Where the server is, how it authenticates and who may use it; header values and keys are never recorded. */
+    private static Map<String, Object> facts(String url, McpAuthType authType, McpAuthPerformer performer, boolean tenantWide,
+                                             int groups) {
+        var facts = new java.util.LinkedHashMap<String, Object>();
+        facts.put("url", url);
+        facts.put("authentication", authType.name());
+        facts.put("performer", performer.name());
+        facts.put("tenantWide", tenantWide);
+        facts.put("groups", groups);
+        return facts;
     }
 }

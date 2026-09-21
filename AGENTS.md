@@ -34,11 +34,12 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 - [MEM-58 — Frontend observability](docs/increments/active/mem-58-frontend-observability/design.md) owns optional browser error monitoring and trace correlation.
 - [MEM-26 — Chat reply stream replay in Redis](docs/increments/active/mem-26-chat-stream-redis/design.md) owns moving the Chat reply replay buffer to Redis, the Onyx-style resume endpoint behavior and the browser recovery rule; several API replicas are excluded.
 - [MEM-152 — File library v2](docs/increments/active/mem-152-file-library-v2/design.md) owns reusing library files (server-side copy of generated files into uploads, the composer library picker, conversation-panel actions, adding to Projects), then direct upload, content search, rename/favourite, ZIP download, previews, quota and trash, one pull request per phase.
+- [MEM-153 — Conversation lifecycle](docs/increments/active/mem-153-chat-lifecycle/design.md) owns archiving a conversation, branching one into a new chat, the window before a hard delete, temporary conversations, the Tenant retention policy and exporting one's own data.
 - [MEM-141 — RAG benchmark](docs/increments/active/mem-141-rag-benchmark/design.md) owns the retrieval and answer benchmark under `tools/rag-benchmark`: a frozen corpus, seven question categories including Group authority, and the zero-regression gate.
 - [MEM-77 — Provider/model administration](docs/increments/active/mem-77-provider-backend/design.md) retains the catalog administration UI and local OpenAI-compatible provider work. Its backend foundation is already implemented.
 - [MEM-79 — Standalone OCR](docs/increments/active/mem-79-rancher-ocr/design.md) remains active through Worker integration and full indexing acceptance.
-- [MEM-90 — Google Drive service-account credentials](docs/increments/active/google-drive-service-account/design.md) owns the additive service-account credential type with domain-wide delegation for whole-domain enterprise indexing. Designed only: no implementation has started.
-- [MEM-92 — Meeting notes (Cuộc họp)](docs/increments/active/meeting-notes/design.md) owns Glean-style bot-less meeting capture on the web: microphone and tab audio as two tracks relayed to the Tenant's voice connection (existing providers plus new Soniox), utterances stored without audio, a worker job for summary, decisions and action items, owner-private notes published to the file library, and a new `Cuộc họp` menu; cross-meeting tasks and the desktop app are later phases; transcript connectors are MEM-169. Designed only: no implementation has started.
+- [MEM-90 — Google Drive service-account credentials](docs/increments/active/google-drive-service-account/design.md) owns the additive service-account credential type with domain-wide delegation. The credential and Google Group membership for Auto Sync are implemented; whole-domain traversal and live Workspace acceptance remain open.
+- [MEM-92 — Meeting notes (Cuộc họp)](docs/increments/active/meeting-notes/design.md) owns Glean-style bot-less meeting capture on the web: microphone and tab audio as two tracks relayed to the Tenant's voice connection (existing providers plus new Soniox), utterances stored without audio, minutes written by the API from the transcript, a Vietnamese biên bản exported to Word, owner-private notes published to the file library, and a new `Cuộc họp` menu; cross-meeting tasks and the desktop app are later phases; transcript connectors are MEM-169. Recording, transcription, the minutes job and the biên bản export are implemented; the Tenant setting, uploading a recording and publishing to the library remain open.
 - [Chat Web search](docs/increments/active/chat-web-search/design.md) owns external Web search/URL reading; native provider-hosted adapters and live-provider acceptance remain open.
 - [MEM-91 — Chat voice](docs/increments/active/mem-91-chat-voice/design.md) owns Onyx Voice parity: Tenant voice providers and `/admin/voice`, streaming dictation in Chat and Search, read-aloud, auto-send/auto-playback/auto-listen and user voice settings; audio is never stored.
 - [MEM-112 — Chat MCP client](docs/increments/active/mem-112-chat-mcp-client/design.md) ports the Onyx MCP client to Chat without reducing its behavior (transports, authentication types, discovery/DCR, admin tool enablement), adds several OAuth clients per server, and is accepted against Google Drive MCP; MemoryOS as an MCP server and write-tool approval are excluded.
@@ -56,6 +57,7 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 - [Chat provider/model catalog](docs/specs/chat-models.md) and [backend adapter handoff](docs/increments/active/mem-77-provider-backend/adapter-handoff.md)
 - Provider endpoint review must preserve the [accepted internal HTTP and trusted model-manager policy](docs/specs/chat-models.md#credentials-and-provider-extension).
 - [Chat verification matrix](docs/tests/chat.md)
+- [File library trash decision](docs/decisions/0014-file-library-trash.md)
 - [AI usage and costs contract](docs/specs/ai-usage.md) and [verification matrix](docs/tests/ai-usage.md)
 - [Vision](docs/vision.md)
 - [Architecture](ARCHITECTURE.md)
@@ -81,6 +83,7 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 - [Shared identity runtime decision](docs/decisions/0004-memoryos-owned-shared-identity-runtime.md)
 - [Shared runtime migration runbook](docs/runbooks/shared-runtime-migration.md)
 - [Meetings contract](docs/specs/meeting.md) and [verification matrix](docs/tests/meeting.md)
+- [Audit evidence contract](docs/specs/audit.md) and [verification matrix](docs/tests/audit.md)
 - [Identity and IAM authorization contract](docs/specs/identity.md)
 - [Identity and IAM verification matrix](docs/tests/identity.md)
 - [Tenant contract](docs/specs/tenant.md)

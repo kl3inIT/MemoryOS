@@ -21,8 +21,16 @@
 
 ## Phase 3 — many files
 
-Not started.
+- [x] **ZIP download.** V94 `chat_library_archive`; `JdbcChatLibraryArchiveRepository` (lease, attempts, expiry claim); `ChatLibraryArchiveService` (request, pack, open, sweep); `POST/GET /api/chat/library/archives`, `…/{id}`, `…/{id}/content`; the `memoryos-chat-library-archive-v1` Worker task; the selection's *Tải về ZIP* with polling, auto-download and a named skip list.
+- [x] **Richer previews.** Rotation, drag-panning while zoomed and previous/next across the listed files, with arrow keys, in the preview modal; `/library` and the conversation panel pass their files as siblings.
+- [x] **Tests.** `ChatLibraryArchiveIntegrationTest` (packing with unique names and skips, expiry release, the request bounds, a request that keeps failing), `ChatSessionApiIntegrationTest.aSelectionIsPackedIntoOneOwnerPrivateZipAndRefusesWhatItCannotPack`, `chat-library-page.test.tsx` (ZIP flow) and `chat-file-preview-gallery.test.tsx`.
+- [x] **Docs.** Phase 3 decisions here, chat spec, verification matrix.
+- [ ] **Evidence.** Local 2026-09-21: the listed Java tests and `OpenApiContractTest` pass; `chat-library*` and preview web tests pass (20 + 2), with typecheck, oxlint, oxfmt and the i18n audit clean. CI on the pull request runs `clean check`.
 
 ## Phase 4 — limits and safety
 
-Not started.
+- [x] **Storage usage and quota.** `JdbcChatLibraryRepository.usage`; V98 `chat_settings.storage_quota_bytes` and `chat_storage_quota`; `ChatStorageQuotaService` (usage, `requireRoom`, administration); `GET /api/chat/library/usage`, `GET/PUT /api/chat/storage-quota`, `PUT /api/chat/storage-quota/{actorId}`; refusals wired into uploads, server-side copies, generated files and generated images; the storage bar on `/library` and the `/admin/file-storage` page.
+- [x] **Trash with restore.** [ADR 0014](../../../decisions/0014-file-library-trash.md); V99 `deleted_at`/`purge_after`; `memoryos.chat.retention.trash-after`; `ChatLibraryTrashService`; `status=TRASH`, restore, purge and empty routes; the `memoryos-chat-library-trash-v1` Worker task; the Trash view with restore, delete-for-good, empty-the-trash and a confirmation that follows the window.
+- [x] **Tests.** `ChatLibraryTrashIntegrationTest`, `ChatSessionApiIntegrationTest.aStorageLimitIsAdministeredByModelManagersAndRefusesAnUploadBeforeItIsAuthorized`, `ChatSessionApiIntegrationTest.aDeletedUploadWaitsInTheTrashWhereItsOwnerRestoresOrEndsIt`, `chat-library-page.test.tsx` (storage bar, trash) and `chat-storage-quota-page.test.tsx`.
+- [x] **Docs.** Phase 4 decisions here, ADR 0014, chat spec, verification matrix.
+- [ ] **Evidence.** Local 2026-09-21: the listed Java tests and `OpenApiContractTest` pass; the `chat` web suite passes (175 tests), with typecheck, oxlint, oxfmt and the i18n audit clean. CI on the pull request runs `clean check`.

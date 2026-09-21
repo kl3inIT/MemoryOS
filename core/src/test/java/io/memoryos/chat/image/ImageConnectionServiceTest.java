@@ -37,7 +37,7 @@ class ImageConnectionServiceTest {
     private final ActorId actor = new ActorId(UUID.randomUUID());
     private final TenantId tenant = new TenantId(UUID.randomUUID());
     private final ImageConnectionService service =
-            new ImageConnectionService(connections, credentials, authorization, tenants);
+            new ImageConnectionService(connections, credentials, authorization, tenants, io.memoryos.TestDatabase.noAudit());
 
     @Test
     void providersRequireModelManagement() {

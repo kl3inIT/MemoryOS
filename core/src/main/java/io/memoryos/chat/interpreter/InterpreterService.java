@@ -26,13 +26,31 @@ public class InterpreterService {
     private final ObjectWriteService writes;
     private final ObjectStorage storage;
     private final TransactionTemplate tx;
+    private final io.memoryos.iam.audit.AuditTrail audit;
+
+    private final io.memoryos.chat.ChatStorageQuotaService quotas;
+    private final io.memoryos.chat.application.ChatRetentionProperties retention;
 
     public InterpreterService(JdbcInterpreterRepository repository, InterpreterProperties properties, IamAuthorization authorization,
                               TenantAccessResolver tenants, ObjectWriteService writes, ObjectStorage storage,
-                              PlatformTransactionManager transactionManager) {
+                              io.memoryos.chat.ChatStorageQuotaService quotas,
+                              io.memoryos.chat.application.ChatRetentionProperties retention,
+                              PlatformTransactionManager transactionManager, io.memoryos.iam.audit.AuditTrail audit) {
+        this.audit = audit;
         this.repository = repository; this.properties = properties; this.authorization = authorization;
-        this.tenants = tenants; this.writes = writes; this.storage = storage;
-        this.tx = new TransactionTemplate(transactionManager);
+        this.tenants = tenants; this.writes = writes; this.storage = storage; this.quotas = quotas;
+        this.retention = retention; this.tx = new TransactionTemplate(transactionManager);
+    }
+
+    /**
+     * A generated file belongs to the owner of the conversation that produced it, so it is their storage limit
+     * that decides whether it can be kept. The refusal is named, and the tool reports it in the answer instead
+     * of failing the whole turn.
+     */
+    private void requireRoom(TenantId tenant, UUID messageId, long bytes) {
+        var owner = repository.owner(tenant, messageId).map(io.memoryos.iam.identity.ActorId::new)
+                .orElseThrow(() -> new IllegalStateException("generated file has no answer in this tenant"));
+        quotas.requireRoom(tenant, owner, bytes);
     }
 
     /** {@code configured} reports whether this deployment has an interpreter; no row means disabled. */
@@ -54,6 +72,7 @@ public class InterpreterService {
         if (current != revision) throw ChatException.conflict();
         if (enabled && !properties.configured()) throw ChatException.providerUnavailable();
         var saved = repository.save(tenant, enabled);
+        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.INTERPRETER_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant.value())).actor(actor).resource("SETTING", "interpreter", "Code Interpreter").detail("enabled", enabled).build());
         return new Settings(properties.configured(), saved.enabled(), saved.revision());
     }
 
@@ -85,7 +104,7 @@ public class InterpreterService {
     public void delete(ActorId actor, UUID id) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         tx.executeWithoutResult(ignored -> {
-            if (!repository.markArtifactDeleted(tenant, actor, id)) throw ChatException.unavailable();
+            if (!repository.markArtifactDeleted(tenant, actor, id, retention.trashAfter())) throw ChatException.unavailable();
         });
         LOGGER.atInfo().addKeyValue("event", "chat.artifact.deleted").addKeyValue("artifact_kind", "GENERATED_FILE")
                 .log("Generated file hidden; the cleanup sweep releases its bytes");
@@ -98,6 +117,7 @@ public class InterpreterService {
     /** Persists a generated file with optional chart data (a JSON object) captured from its figure. */
     public UUID store(TenantId tenant, UUID messageId, String filename, String mediaType, byte[] bytes,
                       @org.jspecify.annotations.Nullable String chart) {
+        requireRoom(tenant, messageId, bytes.length);
         UUID id = UUID.randomUUID();
         var staged = writes.stage(tenant, new ObjectWriteService.Specification(filename, mediaType, false), bytes);
         boolean adopted = false;

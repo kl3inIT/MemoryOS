@@ -49,14 +49,9 @@ public class DefaultGoogleDriveConnectionService implements GoogleDriveConnectio
     @Override
     public Connection openCredential(TenantId tenantId, CredentialId credentialId) {
         var stored = credentials.readUsable(tenantId, credentialId);
-        byte[] token = credentials.decrypt(tenantId, stored);
-        byte[] secret = null;
         GoogleDriveProvider.Session session;
-        try (var client = credentials.oauthClient(tenantId, stored)) {
-            secret = client.clientSecret();
-            try (var grant = new GoogleDriveProvider.Credential(client.clientId(), secret, token)) {
-                session = provider.open(grant);
-            }
+        try {
+            session = stored.serviceAccount() ? openServiceAccount(tenantId, stored) : openOAuth(tenantId, stored);
         } catch (GoogleDriveProviderException exception) {
             if (exception.failure() == GoogleDriveProviderException.Failure.AUTHENTICATION) {
                 boolean invalidated = Boolean.TRUE.equals(transactions.execute(_ ->
@@ -64,9 +59,6 @@ public class DefaultGoogleDriveConnectionService implements GoogleDriveConnectio
                 if (!invalidated) throw SourceException.conflict("Google refresh lost credential authority");
             }
             throw exception;
-        } finally {
-            Arrays.fill(token, (byte) 0);
-            if (secret != null) Arrays.fill(secret, (byte) 0);
         }
         byte[] rotated = null;
         try {
@@ -85,6 +77,27 @@ public class DefaultGoogleDriveConnectionService implements GoogleDriveConnectio
             session.close();
             throw exception;
         } finally { if (rotated != null) Arrays.fill(rotated, (byte) 0); }
+    }
+
+    private GoogleDriveProvider.Session openOAuth(TenantId tenantId, JdbcGoogleDriveCredentialRepository.Stored stored) {
+        byte[] token = credentials.decrypt(tenantId, stored);
+        byte[] secret = null;
+        try (var client = credentials.oauthClient(tenantId, stored)) {
+            secret = client.clientSecret();
+            try (var grant = new GoogleDriveProvider.OAuthCredential(client.clientId(), secret, token)) {
+                return provider.open(grant);
+            }
+        } finally {
+            Arrays.fill(token, (byte) 0);
+            if (secret != null) Arrays.fill(secret, (byte) 0);
+        }
+    }
+
+    /** A service account acts as its primary admin, the account recorded on the credential. */
+    private GoogleDriveProvider.Session openServiceAccount(TenantId tenantId, JdbcGoogleDriveCredentialRepository.Stored stored) {
+        try (var grant = new GoogleDriveProvider.ServiceAccountCredential(credentials.serviceAccountKey(tenantId, stored), stored.email())) {
+            return provider.open(grant);
+        }
     }
 
     @Override

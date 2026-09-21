@@ -25,9 +25,27 @@ Decisions recorded 2026-09-13:
 - Authorization: service-account credential creation and Source creation keep the existing global `SOURCES_MANAGE` authority. No new Actor-facing role is introduced in this increment.
 - Credential lifecycle mirrors OAuth credentials: named, Tenant-owned, reusable across Sources, revision-fenced, revocable. Revocation invalidates dependent Sources the same way OAuth revocation does.
 
+## Google Group membership for Auto Sync
+
+MEM-105 blocks Google Group grants because membership was not synchronized ([ADR 0011](../../../decisions/0011-verified-email-source-permission-matching.md)). A domain-wide-delegated service account can read the Directory, so this increment expands them, following Onyx `ee/onyx/external_permissions/google_drive/group_sync.py` (checkout `ec08b5f948`): `groups.list` over the primary-admin domain, then `members.list` per group, both as the primary admin.
+
+- Membership is a Workspace fact owned by the service-account credential, not by a Source. It is stored per credential as a generation: a run lists groups page by page and then each group's members page by page, and only a completed run becomes the active generation. A failed or interrupted run keeps the previous active generation, matching the MEM-105 rule that the last successful observation stays in force.
+- `members.list` uses `includeDerivedMembership=true`, so a member of a nested group is a member of the outer group. Onyx reads direct members only; a file shared with an outer group would otherwise stay hidden from nested-group members.
+- Group sync advances inside Drive SOURCE_SYNC steps of Sources whose credential is a service account, one bounded page per step under the credential's group-sync lock, so a large domain never exceeds a step budget and concurrent Sources on one credential never duplicate work. It restarts when the active generation is older than `memoryos.google-drive.group-sync-interval` (default one hour).
+- Auto Sync grant tokens gain `google_group:<lower-case group email>` for `type=group` permissions. Reader tokens gain `google_group:<group email>` for every group of an active service-account credential in the Tenant whose active generation lists the reader's verified login email. Reader tokens stay per request, so membership changes never require an index write. OAuth credentials sync no groups; their group grants still match nothing.
+- Revoking, reauthorizing or deleting the credential removes its generations, so its memberships stop granting access immediately.
+
+## Delivery order
+
+1. Service-account credential with the primary admin as the acting user: create, validate, list, revoke, delete, and every existing Drive path (selection tree, General and Specific scope, sync, ACL observation) through an impersonating token source. This makes a service account a drop-in replacement for OAuth without consent.
+2. Google Group membership for Auto Sync, as above.
+3. Whole-domain traversal: user enumeration and the per-user stage map.
+
+Each step is independently shippable; steps 1–2 close the Google Group gap left by MEM-105.
+
 ## Setup contract (documented for operators)
 
-Enable Drive, Admin SDK, Docs and Sheets APIs in the Google Cloud project; create the SA and download a JSON key (orgs created after 2024-04 may need the `iam.disableServiceAccountKeyCreation` org-policy override); grant the SA client ID domain-wide delegation with `drive.readonly`, `drive.metadata.readonly`, `admin.directory.user.readonly` and `admin.directory.group.readonly` scopes; supply a primary admin email holding Users/Groups/OU read privileges. Multiple credentials allow multiple Workspaces per deployment.
+Enable Drive, Admin SDK, Docs and Sheets APIs in the Google Cloud project; create the SA and download a JSON key (orgs created after 2024-04 may need the `iam.disableServiceAccountKeyCreation` org-policy override); grant the SA client ID domain-wide delegation with `drive.readonly`, `documents.readonly`, `spreadsheets.readonly`, `admin.directory.user.readonly` and `admin.directory.group.readonly` scopes (Docs and Sheets are read through their own APIs by the native extractors, unlike Onyx); supply a primary admin email holding Users/Groups/OU read privileges. Multiple credentials allow multiple Workspaces per deployment.
 
 ## Verification
 

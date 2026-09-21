@@ -62,12 +62,17 @@ public class SearchInfrastructureConfiguration {
 
     @Bean OpenSearchClient searchClient(OpenSearchTransport transport) { return new OpenSearchClient(transport); }
 
+    /**
+     * Each attempt gets a short timeout and the SDK retries a hung or failed call (I/O errors, 408, 429, 5xx), so a
+     * connection that stalls costs one attempt instead of the whole search deadline.
+     */
     @Bean @Lazy
     EmbeddingModel searchEmbeddingModel(SearchProperties properties, ObservationRegistry observations) {
         if (properties.apiKey().isBlank()) throw new IllegalStateException("embedding API key is not configured");
         return OpenAiEmbeddingModel.builder().metadataMode(MetadataMode.NONE).observationRegistry(observations)
                 .options(OpenAiEmbeddingOptions.builder().apiKey(properties.apiKey()).baseUrl(properties.embeddingEndpoint())
-                        .model(properties.model()).dimensions(properties.dimensions()).maxRetries(0).timeout(properties.timeout())
+                        .model(properties.model()).dimensions(properties.dimensions())
+                        .maxRetries(properties.embeddingRetries()).timeout(properties.embeddingTimeout())
                         .encodingFormat(OpenAiEmbeddingOptions.EncodingFormat.FLOAT).build()).build();
     }
 

@@ -6,6 +6,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.connector.GoogleDriveProvider;
 import io.memoryos.connector.GoogleDriveProviderException;
+import io.memoryos.connector.GoogleDriveServiceAccountKey;
 import io.memoryos.connector.GoogleDriveProvider.Permission;
 import io.memoryos.connector.GoogleDriveProvider.PermissionDetail;
 import io.memoryos.connector.GoogleDriveProviderException.Failure;
@@ -16,9 +17,12 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
+import java.security.Signature;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -83,7 +87,7 @@ class RestGoogleDriveProviderTest {
                          {"permissionType":"file","role":"commenter","inherited":false}]}]}
                     """);
         }); var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                fixture.base, fixture.base, fixture.base, null, null, null, 1_000, 0, 0, 0, 0, 0), mapper);
+                fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 1_000, 0, 0, 0, 0, 0), mapper);
              var credential = credential(); var session = provider.open(credential)) {
             var permissions = session.permissions("shared-file");
             assertEquals(List.of(
@@ -236,7 +240,7 @@ class RestGoogleDriveProviderTest {
         String second = "{\"permissions\":[{\"id\":\"second\",\"type\":\"user\",\"role\":\"reader\"}]}";
         try (var fixture = new Fixture(exchange -> ok(decodedQuery(exchange).contains("pageToken=next") ? second : first));
              var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                     fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, bytes(first).length), mapper);
+                     fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, bytes(first).length), mapper);
              var credential = credential(); var session = provider.open(credential)) {
             assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(GoogleDriveProviderException.class,
                     () -> session.permissions("file1")).failure());
@@ -260,7 +264,7 @@ class RestGoogleDriveProviderTest {
         }
         try (var fixture = new Fixture(exchange -> ok("{\"permissions\":[" + entry + "]}"));
              var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                     fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, 32), mapper);
+                     fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, 32), mapper);
              var credential = credential(); var session = provider.open(credential)) {
             assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(GoogleDriveProviderException.class,
                     () -> session.permissions("file1")).failure());
@@ -460,14 +464,92 @@ class RestGoogleDriveProviderTest {
     @Test
     void refreshUsesEachCredentialsAppWithoutCrossConnectionState() throws Exception {
         try (var fixture = new Fixture(exchange -> ok("{}")); var provider = provider(fixture, 0, 0);
-             var first = new GoogleDriveProvider.Credential("first.apps.googleusercontent.com", bytes("secret-one"), bytes("grant-one"));
-             var second = new GoogleDriveProvider.Credential("second.apps.googleusercontent.com", bytes("secret-two"), bytes("grant-two"))) {
+             var first = new GoogleDriveProvider.OAuthCredential("first.apps.googleusercontent.com", bytes("secret-one"), bytes("grant-one"));
+             var second = new GoogleDriveProvider.OAuthCredential("second.apps.googleusercontent.com", bytes("secret-two"), bytes("grant-two"))) {
             try (var ignored = provider.open(first)) { assertNotNull(ignored.rotatedRefreshToken()); }
             try (var ignored = provider.open(second)) { assertNotNull(ignored.rotatedRefreshToken()); }
             assertEquals(List.of(
                     "grant_type=refresh_token&client_id=first.apps.googleusercontent.com&client_secret=secret-one&refresh_token=grant-one",
                     "grant_type=refresh_token&client_id=second.apps.googleusercontent.com&client_secret=secret-two&refresh_token=grant-two"),
                     fixture.tokenForms);
+        }
+    }
+
+    @Test
+    void serviceAccountsExchangeASignedAssertionForTheImpersonatedUser() throws Exception {
+        var generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        var pair = generator.generateKeyPair();
+        String pem = "-----BEGIN PRIVATE KEY-----\\n" + Base64.getEncoder().encodeToString(pair.getPrivate().getEncoded())
+                + "\\n-----END PRIVATE KEY-----\\n";
+        String keyJson = "{\"type\":\"service_account\",\"private_key_id\":\"3f2a9c\",\"private_key\":\"" + pem
+                + "\",\"client_email\":\"indexer@memoryos-prod.iam.gserviceaccount.com\",\"client_id\":\"1045\"}";
+        try (var fixture = new Fixture(exchange -> "Bearer sa-access".equals(exchange.getRequestHeaders().getFirst("Authorization"))
+                ? ok("{\"files\":[]}") : new Response(401, new byte[0]));
+             var provider = provider(fixture, 0, 0); var key = GoogleDriveServiceAccountKey.parse(keyJson);
+             var credential = new GoogleDriveProvider.ServiceAccountCredential(key, "admin@example.com")) {
+            fixture.tokenResponse = ok("{\"access_token\":\"sa-access\",\"token_type\":\"Bearer\",\"expires_in\":3599}");
+            try (var session = provider.open(credential)) {
+                assertNull(session.rotatedRefreshToken());
+                assertTrue(session.listFiles("parent", null).files().isEmpty());
+            }
+            var form = new java.util.HashMap<String, String>();
+            for (String pairText : fixture.tokenForms.getFirst().split("&")) {
+                String[] parts = pairText.split("=", 2);
+                form.put(parts[0], URLDecoder.decode(parts[1], StandardCharsets.UTF_8));
+            }
+            assertEquals("urn:ietf:params:oauth:grant-type:jwt-bearer", form.get("grant_type"));
+            String[] jwt = form.get("assertion").split("\\.");
+            var decoder = Base64.getUrlDecoder();
+            var header = mapper.readTree(decoder.decode(jwt[0]));
+            var claims = mapper.readTree(decoder.decode(jwt[1]));
+            assertEquals("RS256", header.path("alg").asString());
+            assertEquals("3f2a9c", header.path("kid").asString());
+            assertEquals("indexer@memoryos-prod.iam.gserviceaccount.com", claims.path("iss").asString());
+            assertEquals("admin@example.com", claims.path("sub").asString());
+            assertEquals(fixture.base.resolve("/token").toString(), claims.path("aud").asString());
+            assertEquals(String.join(" ", GoogleDriveProvider.SERVICE_ACCOUNT_SCOPES), claims.path("scope").asString());
+            assertEquals(3600, claims.path("exp").asLong() - claims.path("iat").asLong());
+            var signature = Signature.getInstance("SHA256withRSA");
+            signature.initVerify(pair.getPublic());
+            signature.update((jwt[0] + "." + jwt[1]).getBytes(StandardCharsets.US_ASCII));
+            assertTrue(signature.verify(decoder.decode(jwt[2])));
+        }
+    }
+
+    @Test
+    void directoryReadsUsersGroupsAndDerivedMembersPageByPage() throws Exception {
+        try (var fixture = new Fixture(exchange -> {
+            String path = exchange.getRequestURI().getPath();
+            String query = decodedQuery(exchange);
+            if (path.equals("/users/admin@example.com")) return ok("{\"primaryEmail\":\"Admin@Example.com\",\"isAdmin\":true,\"suspended\":false}");
+            if (path.equals("/users/member@example.com")) return new Response(403, new byte[0]);
+            if (path.equals("/groups") && query.contains("domain=example.com") && !query.contains("pageToken"))
+                return ok("{\"nextPageToken\":\"groups-next\",\"groups\":[{\"email\":\"Sales@example.com\"}]}");
+            if (path.equals("/groups") && query.contains("pageToken=groups-next")) return ok("{\"groups\":[{\"email\":\"all@example.com\"}]}");
+            if (path.equals("/groups/sales@example.com/members") && query.contains("includeDerivedMembership=true"))
+                return ok("{\"members\":[{\"email\":\"Ann@example.com\",\"type\":\"USER\",\"status\":\"ACTIVE\"},"
+                        + "{\"email\":\"nested@example.com\",\"type\":\"GROUP\"},"
+                        + "{\"email\":\"gone@example.com\",\"type\":\"USER\",\"status\":\"SUSPENDED\"},"
+                        + "{\"id\":\"C01\",\"type\":\"CUSTOMER\"}]}");
+            return new Response(404, new byte[0]);
+        }); var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
+            var admin = session.directoryUser("admin@example.com");
+            assertEquals("admin@example.com", admin.primaryEmail());
+            assertTrue(admin.admin());
+            assertFalse(admin.suspended());
+            assertEquals(Failure.ACCESS_DENIED, assertThrows(GoogleDriveProviderException.class,
+                    () -> session.directoryUser("member@example.com")).failure());
+            var first = session.groups("example.com", null);
+            assertEquals(List.of("sales@example.com"), first.emails());
+            assertEquals("groups-next", first.nextPageToken());
+            var last = session.groups("example.com", first.nextPageToken());
+            assertEquals(List.of("all@example.com"), last.emails());
+            assertNull(last.nextPageToken());
+            var members = session.groupMembers("sales@example.com", null);
+            assertEquals(List.of("ann@example.com"), members.emails());
+            assertTrue(members.wholeDomain());
+            assertNull(members.nextPageToken());
         }
     }
 
@@ -501,11 +583,11 @@ class RestGoogleDriveProviderTest {
 
     private RestGoogleDriveProvider provider(Fixture fixture, int binaryLimit, int requests) {
         return new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                fixture.base, fixture.base, fixture.base, null, null, null, 0, requests, 0, 0, binaryLimit, 0), mapper);
+                fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, requests, 0, 0, binaryLimit, 0), mapper);
     }
 
     private static GoogleDriveProvider.Credential credential() {
-        return new GoogleDriveProvider.Credential("client.apps.googleusercontent.com", bytes("secret"), bytes("refresh"));
+        return new GoogleDriveProvider.OAuthCredential("client.apps.googleusercontent.com", bytes("secret"), bytes("refresh"));
     }
 
     private static byte[] bytes(String value) { return value.getBytes(StandardCharsets.UTF_8); }

@@ -52,7 +52,14 @@ export function TablePagination({
             role="status"
             className="min-w-16 text-center font-secondary-body whitespace-nowrap tabular-nums text-content-secondary"
           >
-            {page + 1} / {totalPages === undefined ? "—" : Math.max(totalPages, 1)}
+            {/* A stream with no known end counts the page alone rather than showing an empty total. */}
+            {totalPages === undefined ? (
+              ui("Trang {{pages}}", { pages: page + 1 })
+            ) : (
+              <>
+                {page + 1} / {Math.max(totalPages, 1)}
+              </>
+            )}
           </span>
           <Button
             size="sm"
