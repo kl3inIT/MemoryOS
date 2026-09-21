@@ -1099,7 +1099,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                   value="history"
                   className="mt-5 space-y-6 rounded-xl border border-border-subtle bg-surface-raised p-4 outline-none sm:p-5"
                 >
-                  <SourceRunHistory key={`${selectedId}-runs`} sourceId={selectedId} />
+                  <SourceRunHistory key={`${selectedId}-runs`} sourceId={selectedId} kinds />
                   <SourceItemHistory key={selectedId} sourceId={selectedId} />
                 </TabsContent>
                 <TabsContent value="settings" className="mt-5 outline-none">
