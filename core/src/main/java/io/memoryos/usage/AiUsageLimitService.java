@@ -195,9 +195,24 @@ public class AiUsageLimitService {
 
     // Administration. Every limit is a model manager's decision about spending, and every change is recorded.
 
+    /** A limit with what has been spent against it in its own window, so the screen shows both on one row. */
+    public record Configured(AiUsageLimit limit, long tokensUsed, BigDecimal costUsed) {}
+
     @Transactional(readOnly = true)
-    public List<AiUsageLimit> list(ActorId manager) {
-        return limits.list(manage(manager).value());
+    public List<Configured> list(ActorId manager) {
+        UUID tenant = manage(manager).value();
+        LocalDate today = LocalDate.now(clock.withZone(ZoneOffset.UTC));
+        return limits.list(tenant).stream().map(limit -> {
+            LocalDate from = today.minusDays(limit.periodDays() - 1L);
+            // A per-person budget has no single total; the busiest person is the one closest to it.
+            if (limit.scope() == AiUsageLimitScope.PERSON) {
+                var busiest = limits.busiestPerson(tenant, from);
+                return new Configured(limit, busiest.tokens(), busiest.cost());
+            }
+            List<DaySpend> spend = limits.spend(tenant, from, limit.scope(), limit.groupId());
+            return new Configured(limit, spend.stream().mapToLong(DaySpend::tokens).sum(),
+                    spend.stream().map(DaySpend::cost).reduce(BigDecimal.ZERO, BigDecimal::add));
+        }).toList();
     }
 
     @Transactional

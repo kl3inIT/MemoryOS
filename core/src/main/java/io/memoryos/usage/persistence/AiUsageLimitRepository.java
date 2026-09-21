@@ -118,6 +118,19 @@ public class AiUsageLimitRepository {
                 .list();
     }
 
+    /** The busiest person's spend in the window: what a per-person budget is measured against on the admin screen. */
+    public DaySpend busiestPerson(UUID tenant, LocalDate from) {
+        return jdbc.sql("""
+                        SELECT SUM(u.input_tokens + u.output_tokens) AS tokens, SUM(u.cost_usd) AS cost
+                        FROM ai_usage u
+                        WHERE u.tenant_id = :tenant AND u.day >= :from AND u.actor_id IS NOT NULL
+                        GROUP BY u.actor_id ORDER BY tokens DESC LIMIT 1
+                        """)
+                .param("tenant", tenant).param("from", from)
+                .query((r, ignored) -> new DaySpend(from, r.getLong("tokens"), r.getBigDecimal("cost")))
+                .optional().orElse(new DaySpend(from, 0, java.math.BigDecimal.ZERO));
+    }
+
     private static AiUsageLimit limit(ResultSet r, int ignored) throws SQLException {
         Long tokens = r.getObject("token_budget", Long.class);
         return new AiUsageLimit(r.getObject("id", UUID.class), AiUsageLimitScope.valueOf(r.getString("scope")),

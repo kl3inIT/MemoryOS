@@ -48,10 +48,18 @@ class AiUsageLimitController {
                  @Nullable UUID groupId, @Nullable String groupName,
                  @Nullable Long tokenBudget, @Nullable BigDecimal costBudgetUsd,
                  @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int periodDays,
-                 @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean enabled) {
+                 @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean enabled,
+                 @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Spent against this limit in its own window; for a per-person limit, the busiest person's spend")
+                 long tokensUsed,
+                 @Schema(requiredMode = Schema.RequiredMode.REQUIRED) BigDecimal costUsed) {
         static Limit from(AiUsageLimit value) {
-            return new Limit(value.id(), value.scope(), value.groupId(), value.groupName(), value.tokenBudget(),
-                    value.costBudgetUsd(), value.periodDays(), value.enabled());
+            return from(new AiUsageLimitService.Configured(value, 0, BigDecimal.ZERO));
+        }
+
+        static Limit from(AiUsageLimitService.Configured value) {
+            AiUsageLimit limit = value.limit();
+            return new Limit(limit.id(), limit.scope(), limit.groupId(), limit.groupName(), limit.tokenBudget(),
+                    limit.costBudgetUsd(), limit.periodDays(), limit.enabled(), value.tokensUsed(), value.costUsed());
         }
     }
 

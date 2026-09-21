@@ -17324,11 +17324,20 @@ components:
           format: int32
         enabled:
           type: boolean
+        tokensUsed:
+          type: integer
+          format: int64
+          description: "Spent against this limit in its own window; for a per-person\
+            \ limit, the busiest person's spend"
+        costUsed:
+          type: number
       required:
+      - costUsed
       - enabled
       - id
       - periodDays
       - scope
+      - tokensUsed
     ReplaceUserGroupsRequest:
       type: object
       additionalProperties: false

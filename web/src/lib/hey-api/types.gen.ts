@@ -929,6 +929,11 @@ export type AiUsageLimit = {
     costBudgetUsd?: number;
     periodDays: number;
     enabled: boolean;
+    /**
+     * Spent against this limit in its own window; for a per-person limit, the busiest person's spend
+     */
+    tokensUsed: number;
+    costUsed: number;
 };
 
 export type ReplaceUserGroupsRequest = {

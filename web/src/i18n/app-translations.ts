@@ -3081,6 +3081,38 @@ Object.assign(englishUi, {
   "Edit, share, publish, feature, restore and transfer every custom agent, edit the default agent, and administer agent labels and public prompt shortcuts within the Tenant.":
     "Sửa, chia sẻ, công khai, đánh dấu nổi bật, khôi phục và chuyển quyền sở hữu mọi trợ lý, sửa trợ lý mặc định, quản lý nhãn trợ lý và lệnh tắt dùng chung trong tổ chức.",
   "View audit log": "Xem nhật ký audit",
+  "Spending limit": "Hạn mức chi tiêu",
+  "Spending limits": "Hạn mức chi tiêu",
+  "Budget: {{whose}}": "Hạn mức: {{whose}}",
+  "The budget is spent. It frees again on {{when}}.": "Đã dùng hết hạn mức. Mở lại vào {{when}}.",
+  "Counted over {{days}} days. It frees again on {{when}}.":
+    "Tính trong {{days}} ngày. Mở lại vào {{when}}.",
+  "Cap what the organization, a group or each person may spend on AI. A chat turn is refused once its budget is spent.":
+    "Giới hạn mức chi cho AI của tổ chức, một nhóm hoặc từng người. Lượt chat bị từ chối khi hết hạn mức.",
+  "Add a limit": "Thêm hạn mức",
+  "Loading spending limits…": "Đang tải hạn mức…",
+  "Failed to load spending limits.": "Không tải được hạn mức.",
+  "No limit is set.": "Chưa đặt hạn mức nào.",
+  "Nothing caps AI spending until you add a limit.":
+    "Chưa có gì giới hạn mức chi cho AI cho tới khi bạn thêm hạn mức.",
+  "Applies to": "Áp dụng cho",
+  "Used of budget": "Đã dùng / hạn mức",
+  Enforced: "Đang áp dụng",
+  "{{days}} days": "{{days}} ngày",
+  "The person who spent the most": "Người dùng nhiều nhất",
+  "Set a token budget, a cost budget, or both. A model with no price adds token usage but no cost, so only a token budget caps it.":
+    "Đặt hạn mức theo token, theo chi phí, hoặc cả hai. Model chưa có giá chỉ cộng token chứ không cộng chi phí, nên chỉ hạn mức token mới chặn được.",
+  "Choose a group": "Chọn nhóm",
+  "Token budget": "Hạn mức token",
+  "No limit": "Không giới hạn",
+  "Cost budget (USD)": "Hạn mức chi phí (USD)",
+  "The limit could not be saved. Check the budget and try again.":
+    "Không lưu được hạn mức. Kiểm tra lại rồi thử lại.",
+  "{{used}} / {{budget}} token": "{{used}} / {{budget}} token",
+  "{{used}} of {{budget}}": "{{used}} trên {{budget}}",
+  "The whole organization": "Toàn tổ chức",
+  "A group": "Một nhóm",
+  "Each person": "Từng người",
   "Scrollable audit log": "Bảng nhật ký audit cuộn được",
   "Audit log pages": "Các trang nhật ký audit",
   "History of administrative changes in your organization. Events are kept for 365 days.":

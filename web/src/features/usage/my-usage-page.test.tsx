@@ -56,12 +56,13 @@ const models = [
   },
 ];
 
-function mount(calls: number) {
+function mount(calls: number, standing: unknown = null) {
   const requested: string[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (request: Request) => {
       requested.push(new URL(request.url).pathname);
+      if (request.url.includes("/api/ai-costs/limits/mine")) return Response.json(standing);
       if (request.url.includes("/api/ai-costs/mine"))
         return Response.json({
           summary: summary(calls),
@@ -96,6 +97,28 @@ describe("personal usage", () => {
     expect(within(byModel).getByText("gpt-5.6-luna").closest("tr")).toHaveTextContent(
       "$1.25 in · $10.00 out",
     );
+  });
+
+  it("shows the budget that binds the member, and when it frees, once one is set", async () => {
+    mount(1, {
+      scope: "PERSON",
+      groupName: null,
+      tokenBudget: 1000,
+      tokensUsed: 900,
+      costBudgetUsd: null,
+      costUsed: 0,
+      periodDays: 30,
+      resetsAt: "2026-10-01T00:00:00Z",
+    });
+    const budget = await screen.findByRole("region", { name: "Spending limit" });
+    expect(budget).toHaveTextContent("Each person");
+    expect(budget).toHaveTextContent("900 / 1,000 token");
+  });
+
+  it("says nothing about a budget when the organization sets no limit", async () => {
+    mount(1);
+    await screen.findByText("gpt-5.6-luna");
+    expect(screen.queryByRole("region", { name: "Spending limit" })).toBeNull();
   });
 
   it("explains an empty period instead of an empty table", async () => {
