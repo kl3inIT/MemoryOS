@@ -41,12 +41,13 @@ class ChatLibraryContentSearchTest {
     private final ChatLibraryService service = new ChatLibraryService(tenants, library, files,
             mock(JdbcChatRepository.class), mock(io.memoryos.objectstorage.ObjectStorage.class),
             mock(io.memoryos.objectstorage.ObjectUploadService.class), new ChatFileProperties(104857600L, 104857600L),
+            mock(ChatStorageQuotaService.class),
             mock(org.springframework.transaction.PlatformTransactionManager.class), fileSearch);
 
     private static ChatLibraryFile row(UUID id, String filename) {
         return new ChatLibraryFile(ChatLibraryFile.Source.UPLOAD, id, filename, "application/pdf", 10,
                 Instant.now(), ChatLibraryFile.Category.DOCUMENT, null, null, null, false,
-                UserFile.Status.READY, null, List.of());
+                UserFile.Status.READY, null, null, null, List.of());
     }
 
     private static SearchHit hit(UUID document, int ordinal, String content) {

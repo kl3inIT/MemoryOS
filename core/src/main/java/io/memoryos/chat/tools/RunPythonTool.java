@@ -140,6 +140,7 @@ public final class RunPythonTool {
             var generated = new ArrayList<Map<String, String>>();
             var produced = new ArrayList<io.memoryos.chat.ChatCodeEvent.GeneratedFile>();
             var tooLarge = new ArrayList<String>();
+            var noRoom = new ArrayList<String>();
             var charts = new ArrayList<Map<String, String>>();
             var chartFiles = new java.util.TreeMap<Integer, Map<String, String>>();
             for (var file : execution.files()) {
@@ -163,6 +164,10 @@ public final class RunPythonTool {
                         produced.add(new io.memoryos.chat.ChatCodeEvent.GeneratedFile(id, name, mediaType, bytes.length));
                 } catch (InterpreterClient.TooLargeException large) {
                     tooLarge.add(name);
+                } catch (io.memoryos.chat.ChatException refused) {
+                    // A full file library is the owner's business, not a tool failure: the answer says so.
+                    if (!"CHAT_STORAGE_FULL".equals(refused.code())) throw refused;
+                    noRoom.add(name);
                 } catch (IOException | RuntimeException failure) {
                     active.run();
                     LOG.warn("Code Interpreter could not store a generated file ({})", failure.getClass().getSimpleName());
@@ -199,6 +204,9 @@ public final class RunPythonTool {
                     if (json != null) delete(json);
                 }
             }
+            if (!noRoom.isEmpty())
+                notice = join(notice, noRoom.size() + " generated file(s) were not kept because the user's file library is"
+                        + " full: " + String.join(", ", noRoom) + ". Tell the user to free space in their library.");
             if (!tooLarge.isEmpty())
                 notice = join(notice, tooLarge.size() + " generated file(s) larger than " + InterpreterClient.MAX_DOWNLOAD_BYTES
                         + " bytes were not returned: " + String.join(", ", tooLarge) + ".");

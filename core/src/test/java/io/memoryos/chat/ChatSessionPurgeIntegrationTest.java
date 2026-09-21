@@ -94,7 +94,7 @@ class ChatSessionPurgeIntegrationTest {
     }
 
     private int purge(boolean hardDelete) {
-        return new ChatSessionPurgeService(repository, new ChatRetentionProperties(hardDelete), jpa.transactionManager()).purge();
+        return new ChatSessionPurgeService(repository, new ChatRetentionProperties(hardDelete, java.time.Duration.ofDays(30)), jpa.transactionManager()).purge();
     }
 
     private long count(String from) {

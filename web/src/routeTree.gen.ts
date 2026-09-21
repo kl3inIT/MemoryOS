@@ -26,6 +26,7 @@ import { Route as AuthenticatedAdminAgentsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminAiCostsRouteImport } from './routes/_authenticated.admin.ai-costs'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated.admin.audit'
 import { Route as AuthenticatedAdminCodeInterpreterRouteImport } from './routes/_authenticated.admin.code-interpreter'
+import { Route as AuthenticatedAdminFileStorageRouteImport } from './routes/_authenticated.admin.file-storage'
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
 import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from './routes/_authenticated.admin.identity-providers'
 import { Route as AuthenticatedAdminImageGenerationRouteImport } from './routes/_authenticated.admin.image-generation'
@@ -142,6 +143,12 @@ const AuthenticatedAdminCodeInterpreterRoute =
   AuthenticatedAdminCodeInterpreterRouteImport.update({
     id: '/code-interpreter',
     path: '/code-interpreter',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminFileStorageRoute =
+  AuthenticatedAdminFileStorageRouteImport.update({
+    id: '/file-storage',
+    path: '/file-storage',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminGroupsRoute =
@@ -343,6 +350,7 @@ export interface FileRoutesByFullPath {
   '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
+  '/admin/file-storage': typeof AuthenticatedAdminFileStorageRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
@@ -389,6 +397,7 @@ export interface FileRoutesByTo {
   '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
+  '/admin/file-storage': typeof AuthenticatedAdminFileStorageRoute
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/admin/mcp': typeof AuthenticatedAdminMcpRoute
@@ -437,6 +446,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
   '/_authenticated/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
+  '/_authenticated/admin/file-storage': typeof AuthenticatedAdminFileStorageRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/_authenticated/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/_authenticated/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
@@ -488,6 +498,7 @@ export interface FileRouteTypes {
     | '/admin/ai-costs'
     | '/admin/audit'
     | '/admin/code-interpreter'
+    | '/admin/file-storage'
     | '/admin/groups'
     | '/admin/identity-providers'
     | '/admin/image-generation'
@@ -534,6 +545,7 @@ export interface FileRouteTypes {
     | '/admin/ai-costs'
     | '/admin/audit'
     | '/admin/code-interpreter'
+    | '/admin/file-storage'
     | '/admin/identity-providers'
     | '/admin/image-generation'
     | '/admin/mcp'
@@ -581,6 +593,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/ai-costs'
     | '/_authenticated/admin/audit'
     | '/_authenticated/admin/code-interpreter'
+    | '/_authenticated/admin/file-storage'
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/identity-providers'
     | '/_authenticated/admin/image-generation'
@@ -742,6 +755,13 @@ declare module '@tanstack/react-router' {
       path: '/code-interpreter'
       fullPath: '/admin/code-interpreter'
       preLoaderRoute: typeof AuthenticatedAdminCodeInterpreterRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/file-storage': {
+      id: '/_authenticated/admin/file-storage'
+      path: '/file-storage'
+      fullPath: '/admin/file-storage'
+      preLoaderRoute: typeof AuthenticatedAdminFileStorageRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/groups': {
@@ -1027,6 +1047,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAiCostsRoute: typeof AuthenticatedAdminAiCostsRoute
   AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
   AuthenticatedAdminCodeInterpreterRoute: typeof AuthenticatedAdminCodeInterpreterRoute
+  AuthenticatedAdminFileStorageRoute: typeof AuthenticatedAdminFileStorageRoute
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
   AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute
   AuthenticatedAdminImageGenerationRoute: typeof AuthenticatedAdminImageGenerationRoute
@@ -1049,6 +1070,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
   AuthenticatedAdminCodeInterpreterRoute:
     AuthenticatedAdminCodeInterpreterRoute,
+  AuthenticatedAdminFileStorageRoute: AuthenticatedAdminFileStorageRoute,
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRouteWithChildren,
   AuthenticatedAdminIdentityProvidersRoute:
     AuthenticatedAdminIdentityProvidersRoute,

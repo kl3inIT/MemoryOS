@@ -463,6 +463,30 @@ export type VoiceConnectionResponse = {
     revision?: number;
 };
 
+export type ChatStorageQuotaInput = {
+    /**
+     * Bytes, 1 to 1 TiB; null removes the limit
+     */
+    maxBytes?: number | null;
+};
+
+export type ChatStoragePersonQuota = {
+    actorId: string;
+    name: string | null;
+    maxBytes: number;
+};
+
+export type ChatStorageQuota = {
+    /**
+     * The Tenant's limit per person; null means no limit
+     */
+    tenantLimitBytes: number | null;
+    /**
+     * People with their own limit
+     */
+    people: Array<ChatStoragePersonQuota>;
+};
+
 export type ChatSettingsRequest = {
     deepResearchEnabled: boolean;
     revision?: number;
@@ -1487,6 +1511,10 @@ export type ChatFileResponse = {
     searchReady?: boolean;
 };
 
+export type ChatLibraryTrashEmptied = {
+    purged: number;
+};
+
 export type ChatLibraryArchiveFile = {
     source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
     id: string;
@@ -1620,6 +1648,14 @@ export type ChatLibraryFile = {
      * Why a FAILED upload failed
      */
     errorCode: string | null;
+    /**
+     * When the owner deleted it; set only in the trash
+     */
+    deletedAt: string | null;
+    /**
+     * When its bytes may be released
+     */
+    purgeAfter: string | null;
     /**
      * Projects and assistants holding this file
      */
@@ -2390,6 +2426,31 @@ export type ChatLibraryPage = {
      */
     totalBytes: number;
     hasMore: boolean;
+};
+
+export type ChatLibraryCategoryUsage = {
+    category: 'DOCUMENT' | 'SPREADSHEET' | 'IMAGE' | 'PRESENTATION' | 'OTHER';
+    usedBytes: number;
+};
+
+export type ChatLibraryUsage = {
+    usedBytes: number;
+    fileCount: number;
+    /**
+     * The storage limit that applies to the caller; null means no limit
+     */
+    limitBytes: number | null;
+    /**
+     * Used bytes per category
+     */
+    byCategory: Array<ChatLibraryCategoryUsage>;
+};
+
+export type ChatLibraryTrashWindow = {
+    /**
+     * Days a deleted file stays restorable; 0 releases its bytes at once
+     */
+    days: number;
 };
 
 export type ChatLibraryContentMatch = {
@@ -3714,6 +3775,131 @@ export type SaveChatVoiceConnectionResponses = {
 };
 
 export type SaveChatVoiceConnectionResponse = SaveChatVoiceConnectionResponses[keyof SaveChatVoiceConnectionResponses];
+
+export type GetChatStorageQuotaData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/storage-quota';
+};
+
+export type GetChatStorageQuotaErrors = {
+    /**
+     * Invalid storage limit
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable or the person is not a member
+     */
+    404: ApiProblem;
+};
+
+export type GetChatStorageQuotaError = GetChatStorageQuotaErrors[keyof GetChatStorageQuotaErrors];
+
+export type GetChatStorageQuotaResponses = {
+    /**
+     * The Tenant limit and the people with their own
+     */
+    200: ChatStorageQuota;
+};
+
+export type GetChatStorageQuotaResponse = GetChatStorageQuotaResponses[keyof GetChatStorageQuotaResponses];
+
+export type SetChatStorageQuotaData = {
+    body: ChatStorageQuotaInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/storage-quota';
+};
+
+export type SetChatStorageQuotaErrors = {
+    /**
+     * Invalid storage limit
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable or the person is not a member
+     */
+    404: ApiProblem;
+};
+
+export type SetChatStorageQuotaError = SetChatStorageQuotaErrors[keyof SetChatStorageQuotaErrors];
+
+export type SetChatStorageQuotaResponses = {
+    /**
+     * The limits after the change
+     */
+    200: ChatStorageQuota;
+};
+
+export type SetChatStorageQuotaResponse = SetChatStorageQuotaResponses[keyof SetChatStorageQuotaResponses];
+
+export type SetChatStoragePersonQuotaData = {
+    body: ChatStorageQuotaInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        actorId: string;
+    };
+    query?: never;
+    url: '/api/chat/storage-quota/{actorId}';
+};
+
+export type SetChatStoragePersonQuotaErrors = {
+    /**
+     * Invalid storage limit
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable or the person is not a member
+     */
+    404: ApiProblem;
+};
+
+export type SetChatStoragePersonQuotaError = SetChatStoragePersonQuotaErrors[keyof SetChatStoragePersonQuotaErrors];
+
+export type SetChatStoragePersonQuotaResponses = {
+    /**
+     * The limits after the change
+     */
+    200: ChatStorageQuota;
+};
+
+export type SetChatStoragePersonQuotaResponse = SetChatStoragePersonQuotaResponses[keyof SetChatStoragePersonQuotaResponses];
 
 export type GetChatSettingsData = {
     body?: never;
@@ -9777,6 +9963,106 @@ export type ValidateChatModelResponses = {
 
 export type ValidateChatModelResponse = ValidateChatModelResponses[keyof ValidateChatModelResponses];
 
+export type RestoreChatLibraryFileData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
+        id: string;
+    };
+    query?: never;
+    url: '/api/chat/library/{source}/{id}/restore';
+};
+
+export type RestoreChatLibraryFileErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RestoreChatLibraryFileError = RestoreChatLibraryFileErrors[keyof RestoreChatLibraryFileErrors];
+
+export type RestoreChatLibraryFileResponses = {
+    /**
+     * Restored
+     */
+    204: void;
+};
+
+export type RestoreChatLibraryFileResponse = RestoreChatLibraryFileResponses[keyof RestoreChatLibraryFileResponses];
+
+export type PurgeChatLibraryFileData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
+        id: string;
+    };
+    query?: never;
+    url: '/api/chat/library/{source}/{id}/purge';
+};
+
+export type PurgeChatLibraryFileErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type PurgeChatLibraryFileError = PurgeChatLibraryFileErrors[keyof PurgeChatLibraryFileErrors];
+
+export type PurgeChatLibraryFileResponses = {
+    /**
+     * The file is queued for release
+     */
+    204: void;
+};
+
+export type PurgeChatLibraryFileResponse = PurgeChatLibraryFileResponses[keyof PurgeChatLibraryFileResponses];
+
 export type CopyChatLibraryFileData = {
     body?: never;
     headers: {
@@ -9826,6 +10112,53 @@ export type CopyChatLibraryFileResponses = {
 };
 
 export type CopyChatLibraryFileResponse = CopyChatLibraryFileResponses[keyof CopyChatLibraryFileResponses];
+
+export type EmptyChatLibraryTrashData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/library/trash/empty';
+};
+
+export type EmptyChatLibraryTrashErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type EmptyChatLibraryTrashError = EmptyChatLibraryTrashErrors[keyof EmptyChatLibraryTrashErrors];
+
+export type EmptyChatLibraryTrashResponses = {
+    /**
+     * How many files were queued for release
+     */
+    200: ChatLibraryTrashEmptied;
+};
+
+export type EmptyChatLibraryTrashResponse = EmptyChatLibraryTrashResponses[keyof EmptyChatLibraryTrashResponses];
 
 export type ListChatLibraryArchivesData = {
     body?: never;
@@ -12267,9 +12600,9 @@ export type ListChatLibraryData = {
          */
         favorite?: boolean;
         /**
-         * READY lists usable files; PENDING lists uploads still uploading, processing or failed
+         * READY lists usable files; PENDING lists uploads still uploading, processing or failed; TRASH lists what the owner deleted and may still restore
          */
-        status?: 'READY' | 'PENDING';
+        status?: 'READY' | 'PENDING' | 'TRASH';
         sort?: string;
         offset?: number;
         limit?: number;
@@ -12310,6 +12643,88 @@ export type ListChatLibraryResponses = {
 };
 
 export type ListChatLibraryResponse = ListChatLibraryResponses[keyof ListChatLibraryResponses];
+
+export type GetChatLibraryUsageData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/library/usage';
+};
+
+export type GetChatLibraryUsageErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatLibraryUsageError = GetChatLibraryUsageErrors[keyof GetChatLibraryUsageErrors];
+
+export type GetChatLibraryUsageResponses = {
+    /**
+     * Used bytes, file count, the limit and the breakdown
+     */
+    200: ChatLibraryUsage;
+};
+
+export type GetChatLibraryUsageResponse = GetChatLibraryUsageResponses[keyof GetChatLibraryUsageResponses];
+
+export type GetChatLibraryTrashWindowData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/library/trash';
+};
+
+export type GetChatLibraryTrashWindowErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatLibraryTrashWindowError = GetChatLibraryTrashWindowErrors[keyof GetChatLibraryTrashWindowErrors];
+
+export type GetChatLibraryTrashWindowResponses = {
+    /**
+     * The trash window
+     */
+    200: ChatLibraryTrashWindow;
+};
+
+export type GetChatLibraryTrashWindowResponse = GetChatLibraryTrashWindowResponses[keyof GetChatLibraryTrashWindowResponses];
 
 export type SearchChatLibraryContentData = {
     body?: never;

@@ -47,15 +47,17 @@ public class ChatLibraryService {
     private final ObjectStorage storage;
     private final ObjectUploadService uploads;
     private final ChatFileProperties policy;
+    private final ChatStorageQuotaService quotas;
     private final TransactionTemplate tx;
     private final ChatFileSearchService fileSearch;
 
     public ChatLibraryService(TenantAccessResolver tenants, JdbcChatLibraryRepository library, JdbcUserFileRepository files,
                               JdbcChatRepository chats, ObjectStorage storage, ObjectUploadService uploads,
-                              ChatFileProperties policy, PlatformTransactionManager transactionManager,
-                              ChatFileSearchService fileSearch) {
+                              ChatFileProperties policy, ChatStorageQuotaService quotas,
+                              PlatformTransactionManager transactionManager, ChatFileSearchService fileSearch) {
         this.tenants = tenants; this.library = library; this.files = files; this.chats = chats;
-        this.storage = storage; this.uploads = uploads; this.policy = policy; this.fileSearch = fileSearch;
+        this.storage = storage; this.uploads = uploads; this.policy = policy; this.quotas = quotas;
+        this.fileSearch = fileSearch;
         this.tx = new TransactionTemplate(transactionManager);
     }
 
@@ -67,8 +69,8 @@ public class ChatLibraryService {
      * READY files, so the library can show an upload's progress and let it be retried (MEM-152).
      */
     public record Listing(String query, Set<ChatLibraryFile.Source> sources, Set<ChatLibraryFile.Category> categories,
-                          @Nullable UUID session, boolean favorites, boolean pending, ChatLibraryFile.Sort sort,
-                          int offset, int limit) {
+                          @Nullable UUID session, boolean favorites, boolean pending, boolean trash,
+                          ChatLibraryFile.Sort sort, int offset, int limit) {
         public Listing {
             sources = Set.copyOf(sources); categories = Set.copyOf(categories);
         }
@@ -81,7 +83,8 @@ public class ChatLibraryService {
         ChatPersonaService.page(listing.offset(), listing.limit());
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         var filter = new JdbcChatLibraryRepository.Filter(query.trim(), names(listing.sources()),
-                names(listing.categories()), listing.session(), listing.favorites(), listing.pending(), null);
+                names(listing.categories()), listing.session(), listing.favorites(), listing.pending(),
+                listing.trash(), null);
         // One extra row answers hasMore without counting twice; the window total already covers the filter.
         var page = library.page(tenant, actor, filter, listing.sort(), listing.offset(), listing.limit() + 1);
         boolean hasMore = page.items().size() > listing.limit();
@@ -178,6 +181,8 @@ public class ChatLibraryService {
         var artifact = library.artifact(tenant, actor, source, id).orElseThrow(ChatException::unavailable);
         policy.validateSize(artifact.sizeBytes());
         if (artifact.sizeBytes() > MAX_COPY_BYTES) throw ChatException.invalid("File exceeds the configured Chat upload limit.");
+        // A copy is a second stored file, so it needs room of its own.
+        quotas.requireRoom(tenant, actor, artifact.sizeBytes());
         // Storage IO runs outside any transaction; ownership is checked again under the owner lock below.
         byte[] bytes = read(artifact);
         var spec = new ObjectUploadSpecification(artifact.filename(), artifact.mediaType(), bytes.length,
