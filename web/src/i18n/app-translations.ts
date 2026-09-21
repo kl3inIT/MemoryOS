@@ -1,5 +1,38 @@
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-152 file library v2
+  "Thêm vào dự án": "Add to project",
+  "Tệp được dùng trong mọi hội thoại của dự án. Gỡ khỏi dự án không xoá tệp khỏi thư viện.":
+    "Files are used in every conversation of the project. Removing one from the project keeps it in the library.",
+  "Không tải được danh sách dự án.": "The projects could not be loaded.",
+  "Bạn chưa có dự án nào. Tạo dự án trong mục Dự án trước.":
+    "You have no projects yet. Create one under Projects first.",
+  "Dự án chỉ giữ tối đa {{max}} tệp. Gỡ bớt tệp khỏi dự án rồi thử lại.":
+    "A project holds at most {{max}} files. Remove some from the project and try again.",
+  "Mở thư viện": "Open library",
+  "Đã gỡ khỏi dự án {{name}}.": "Removed from project {{name}}.",
+  "Đã thêm vào dự án {{name}}.": "Added to project {{name}}.",
+  "Gỡ khỏi {{name}}": "Remove from {{name}}",
+  "Không gỡ được. Hãy thử lại.": "Could not remove it. Try again.",
+  "Thêm {{name}} vào dự án": "Add {{name}} to a project",
+  "Chọn tệp từ thư viện": "Choose from your library",
+  "Tệp bạn đã tải lên, tệp do mã tạo và ảnh AI. Tệp do Chat tạo được sao chép để đính kèm.":
+    "Your uploads, files created by code and AI images. Files Chat created are copied to attach them.",
+  "Tệp trong thư viện": "Library files",
+  "Đã đính kèm": "Attached",
+  "Tải thêm": "Load more",
+  "Không chuẩn bị được tệp để đính kèm. Hãy thử lại.":
+    "The files could not be prepared for attaching. Try again.",
+  "Đang chuẩn bị tệp…": "Preparing files…",
+  "Đã chọn {{count}}/{{max}} tệp": "{{count}}/{{max}} files selected",
+  "Đính kèm {{count}} tệp": "Attach {{count}} files",
+  "Mỗi câu hỏi đính kèm tối đa 20 tệp.": "A question can carry at most 20 files.",
+  "Đã đính kèm {{name}} vào câu hỏi tiếp theo.": "Attached {{name}} to your next question.",
+  "Không tìm thấy tin nhắn chứa tệp này.": "The message holding this file could not be found.",
+  "Tệp trong hội thoại ({{count}})": "Files in this conversation ({{count}})",
+  "Đính kèm {{name}} vào câu hỏi": "Attach {{name}} to the question",
+  "Đính kèm vào câu hỏi tiếp theo": "Attach to the next question",
+  "Xem trong hội thoại": "Show in conversation",
   // MEM-142 file library
   "Tệp trong hội thoại": "Files in this conversation",
   "Hội thoại này chưa có tệp nào.": "This conversation has no files yet.",
