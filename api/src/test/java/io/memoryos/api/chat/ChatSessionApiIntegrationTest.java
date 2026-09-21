@@ -188,6 +188,8 @@ class ChatSessionApiIntegrationTest {
     private org.springframework.data.redis.core.StringRedisTemplate redis;
     @Autowired
     private ChatModelExecutor executor;
+    @Autowired
+    private io.memoryos.usage.report.UsageReportService usageReports;
     @LocalServerPort
     private int port;
     @MockitoBean(name = "chatProviderModel")
@@ -842,6 +844,83 @@ class ChatSessionApiIntegrationTest {
                 .with(authentication(actor))).andExpect(status().isBadRequest());
         mockMvc.perform(get("/api/ai-costs/summary").param("from", today).param("to", today).with(authentication(other)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void usageReportsAreQueuedBuiltAndDownloadedOnlyByModelManagers() throws Exception {
+        jdbc.sql("DELETE FROM ai_usage_report WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        var today = java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString();
+        jdbc.sql("""
+                INSERT INTO ai_usage(tenant_id, actor_id, day, flow, provider_name, model_name, data_boundary, calls, input_tokens,
+                    output_tokens, cost_usd, unknown_cost_calls)
+                VALUES (:tenant, :actor, CAST(:day AS date), 'CHAT', 'OpenAI', '=HYPERLINK("x")', 'EXTERNAL', 3, 900, 120, 0.05, 1),
+                       (:tenant, NULL, CAST(:day AS date), 'EMBEDDING_INDEXING', 'OpenAI', 'text-embedding-3-large', NULL, 2, 5000, 0, 0.01, 0)
+                """).param("tenant", TENANT).param("actor", actor.getPrincipal().actorId().value()).param("day", today).update();
+        String body = "{\"from\":\"" + today + "\",\"to\":\"" + today + "\"}";
+        mockMvc.perform(post("/api/ai-costs/reports").contentType(MediaType.APPLICATION_JSON).content(body)
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/ai-costs/reports").with(authentication(actor))).andExpect(status().isForbidden());
+        grantModelManagement();
+        mockMvc.perform(post("/api/ai-costs/reports").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"from\":\"" + today + "\",\"to\":\"2020-01-01\"}")
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isBadRequest());
+        var queued = Json.mapper().readTree(mockMvc.perform(post("/api/ai-costs/reports").contentType(MediaType.APPLICATION_JSON).content(body)
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isAccepted()).andExpect(jsonPath("$.status").value("PENDING"))
+                .andReturn().getResponse().getContentAsString());
+        String id = queued.path("id").asText();
+        // Not ready yet: nothing to download.
+        mockMvc.perform(get("/api/ai-costs/reports/" + id + "/content").with(authentication(actor))).andExpect(status().isNotFound());
+
+        // Object storage is a mock in this suite: keep what the Worker step writes, and serve it back.
+        var stored = new java.util.concurrent.ConcurrentHashMap<String, byte[]>();
+        org.mockito.Mockito.doAnswer(call -> {
+            stored.put(call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value(), call.getArgument(1));
+            return null;
+        }).when(fileStorage).write(any(), any(), any());
+        when(fileStorage.inspect(any())).thenAnswer(call -> {
+            byte[] bytes = stored.get(call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value());
+            return new io.memoryos.objectstorage.ObjectMetadata(bytes.length, "application/zip", new io.memoryos.objectstorage.ContentSha256(
+                    java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes))));
+        });
+        when(fileStorage.open(any())).thenAnswer(call -> {
+            var key = call.<io.memoryos.objectstorage.ObjectKey>getArgument(0);
+            byte[] bytes = stored.get(key.value());
+            var metadata = fileStorage.inspect(key);
+            return new io.memoryos.objectstorage.ObjectContent() {
+                private final java.io.InputStream input = new java.io.ByteArrayInputStream(bytes);
+                @Override public io.memoryos.objectstorage.ObjectMetadata metadata() { return metadata; }
+                @Override public java.io.InputStream inputStream() { return input; }
+                @Override public void close() {}
+            };
+        });
+        assertTrue(usageReports.buildNext());
+        assertFalse(usageReports.buildNext(), "one report, built once");
+        mockMvc.perform(get("/api/ai-costs/reports").with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(id)).andExpect(jsonPath("$[0].status").value("READY"))
+                .andExpect(jsonPath("$[0].hasPdf").value(true));
+        byte[] zip = mockMvc.perform(get("/api/ai-costs/reports/" + id + "/content").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(header().string("Content-Type", "application/zip"))
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("usage-report_" + today)))
+                .andReturn().getResponse().getContentAsByteArray();
+        var entries = new java.util.LinkedHashMap<String, byte[]>();
+        try (var in = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zip))) {
+            for (var entry = in.getNextEntry(); entry != null; entry = in.getNextEntry()) entries.put(entry.getName(), in.readAllBytes());
+        }
+        assertEquals(java.util.List.of("usage_by_user.csv", "users.csv", "usage_report.pdf"), java.util.List.copyOf(entries.keySet()));
+        String usage = new String(entries.get("usage_by_user.csv"), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(usage.contains("'=HYPERLINK"), "a formula in data is neutralized");
+        assertTrue(usage.contains("system"), "work without a person is exported");
+        assertEquals(3L, usage.strip().lines().count(), "header and two rows");
+        String users = new String(entries.get("users.csv"), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(users.contains(actor.getPrincipal().actorId().value() + ",") && users.contains(",true,true"), users);
+
+        // Another member without model management reads nothing, even with the id.
+        mockMvc.perform(get("/api/ai-costs/reports/" + id + "/content").with(authentication(other))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/ai-costs/reports/" + UUID.randomUUID() + "/content").with(authentication(actor)))
+                .andExpect(status().isNotFound());
     }
 
     @Test
