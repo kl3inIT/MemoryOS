@@ -99,7 +99,7 @@ story as the session starting. MEM-123 and MEM-125 add their own actions to this
 
 ## Scope
 
-- `V92__audit_event.sql`: the table, its indexes for the viewer's filters, and the trigger that makes it append-only.
+- `V94__audit_event.sql`: the table, its indexes for the viewer's filters, and the trigger that makes it append-only.
 - `iam`: the event record, the action catalog with its classes, the writer and the reader with
   cursor pagination; `AUDIT_READ` in `IamCapability`, implied by `SYSTEM_ADMIN`.
 - Call sites across `iam`, `connector`, `chat` and `mcp`, at the service boundary, never in a controller.

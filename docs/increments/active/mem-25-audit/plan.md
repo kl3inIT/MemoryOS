@@ -4,7 +4,7 @@ One pull request on `kl3inIT/mem-25-audit`, one commit per step.
 
 - [x] 1. Decision: [ADR 0013](../../decisions/0013-server-authored-audit-evidence.md) supersedes ADR 0003; mark ADR 0003
       superseded and reconcile the roadmap entry.
-- [x] 2. Foundation: `V92__audit_event.sql` (table, filter indexes, append-only trigger with a retention guard);
+- [x] 2. Foundation: `V94__audit_event.sql` (table, filter indexes, append-only trigger with a retention guard);
       `AuditAction` with its OCSF class, `AuditRecord`, and the declared `details` per action.
 - [x] 3. Writer: one `iam` service that writes in the caller's transaction, swallows its own failure into an ERROR log
       and a counter, and re-emits the event as one JSON line on `memoryos.audit.<class>`. Actor, Tenant, trace id,

@@ -6,7 +6,7 @@ from where. It is decided in [ADR 0013](../decisions/0013-server-authored-audit-
 
 ## Stream
 
-`audit_event` (V92) holds one row per event and Tenant:
+`audit_event` (V94) holds one row per event and Tenant:
 
 - **When:** `occurred_at`.
 - **What:** `action`, `event_class`, `outcome`.
