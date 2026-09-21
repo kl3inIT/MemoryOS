@@ -80,9 +80,8 @@ class ChatFileLifecycleIntegrationTest {
                 Duration.ofMinutes(1), 16), jpa.transactionManager());
         files = new ChatFileService(tenants, new JdbcChatRepository(jdbc), new JdbcUserFileRepository(jdbc), uploads,
                 new ChatFileProperties(104857600,262144000),
-                new io.memoryos.chat.ChatStorageQuotaService(tenants, mock(io.memoryos.iam.group.IamAuthorization.class),
-                        new io.memoryos.chat.persistence.JdbcChatStorageQuotaRepository(jdbc),
-                        new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc)),
+                new io.memoryos.chat.ChatStorageQuotaService(tenants,
+                new io.memoryos.chat.application.ChatStorageProperties(0), new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc)),
                 // This suite covers the release itself, so deletion releases at once; the trash window is
                 // covered by ChatLibraryTrashIntegrationTest.
                 new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,

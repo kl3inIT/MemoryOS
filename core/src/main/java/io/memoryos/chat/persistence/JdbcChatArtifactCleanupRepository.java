@@ -11,8 +11,10 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 /**
- * Deletion claims over the two Chat artifact tables. A deleted artifact keeps its row until its bytes are
- * released, so the sweep can retry: the claim lease, not the row's absence, is what stops two workers.
+ * Deletion claims over the two Chat artifact tables. Releasing the bytes does not remove the row: it becomes a
+ * tombstone, with its storage columns emptied and {@code purged_at} set, so the answer that generated the
+ * image or the file keeps saying it was deleted however long ago that was. The claim lease, not the row's
+ * absence, is what stops two workers, and a tombstone is never claimed again.
  */
 @Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
@@ -47,7 +49,7 @@ public class JdbcChatArtifactCleanupRepository {
         return jdbc.sql("""
                 WITH candidates AS (
                     SELECT a.tenant_id, a.id FROM chat_file_artifact a
-                    WHERE a.deleted_at IS NOT NULL
+                    WHERE a.deleted_at IS NOT NULL AND a.purged_at IS NULL
                       AND (a.purge_after IS NULL OR a.purge_after < CURRENT_TIMESTAMP)
                       AND (a.cleanup_until IS NULL OR a.cleanup_until < CURRENT_TIMESTAMP)
                     ORDER BY a.deleted_at LIMIT :limit FOR UPDATE SKIP LOCKED
@@ -64,7 +66,7 @@ public class JdbcChatArtifactCleanupRepository {
         return jdbc.sql("""
                 WITH candidates AS (
                     SELECT a.tenant_id, a.id FROM chat_image_artifact a
-                    WHERE a.deleted_at IS NOT NULL
+                    WHERE a.deleted_at IS NOT NULL AND a.purged_at IS NULL
                       AND (a.purge_after IS NULL OR a.purge_after < CURRENT_TIMESTAMP)
                       AND (a.cleanup_until IS NULL OR a.cleanup_until < CURRENT_TIMESTAMP)
                     ORDER BY a.deleted_at LIMIT :limit FOR UPDATE SKIP LOCKED
@@ -78,10 +80,23 @@ public class JdbcChatArtifactCleanupRepository {
                 """).param("limit", limit).query((row, ignored) -> map(Kind.IMAGE, row)).list();
     }
 
-    /** Removes the row only while this worker still holds the claim it was given. */
+    /**
+     * Turns the row into a tombstone, only while this worker still holds the claim it was given. What is kept
+     * is what an answer needs to explain itself — the name, the size and the message it belongs to — and what
+     * goes is everything that points at bytes, so nothing can serve, restore or copy it afterwards.
+     */
     public boolean remove(Claim claim) {
-        String table = claim.kind() == Kind.GENERATED_FILE ? "chat_file_artifact" : "chat_image_artifact";
-        return jdbc.sql("DELETE FROM " + table + " WHERE tenant_id = :tenant AND id = :id AND cleanup_token = :token")
+        boolean image = claim.kind() == Kind.IMAGE;
+        String table = image ? "chat_image_artifact" : "chat_file_artifact";
+        // V73 and V106 each keep their three columns all set or all empty, so they go together.
+        String preview = image
+                ? ", thumbnail_stored_object_id = NULL, thumbnail_object_key = NULL, thumbnail_media_type = NULL"
+                : ", preview_stored_object_id = NULL, preview_object_key = NULL, preview_size_bytes = NULL";
+        return jdbc.sql(("""
+                UPDATE %s SET purged_at = CURRENT_TIMESTAMP, stored_object_id = NULL, object_key = NULL,
+                    cleanup_token = NULL, cleanup_until = NULL%s
+                WHERE tenant_id = :tenant AND id = :id AND cleanup_token = :token
+                """).formatted(table, preview))
                 .param("tenant", claim.tenantId().value()).param("id", claim.id()).param("token", claim.token())
                 .update() == 1;
     }

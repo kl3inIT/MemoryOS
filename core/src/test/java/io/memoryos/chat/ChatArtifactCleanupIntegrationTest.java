@@ -99,9 +99,8 @@ class ChatArtifactCleanupIntegrationTest {
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
         artifacts = new JdbcInterpreterRepository(jdbc);
         pictures = new JdbcImageArtifactRepository(jdbc);
-        var quotas = new io.memoryos.chat.ChatStorageQuotaService(tenants, mock(IamAuthorization.class),
-                new io.memoryos.chat.persistence.JdbcChatStorageQuotaRepository(jdbc),
-                new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc));
+        var quotas = new io.memoryos.chat.ChatStorageQuotaService(tenants,
+                new io.memoryos.chat.application.ChatStorageProperties(0), new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc));
         interpreter = new InterpreterService(artifacts, new InterpreterProperties(null, null),
                 mock(IamAuthorization.class), tenants, writes, storage, quotas,
                 // This suite covers the release itself, so deletion releases at once.
@@ -140,7 +139,9 @@ class ChatArtifactCleanupIntegrationTest {
         assertEquals(1, cleanup.cleanup());
         verify(storage).delete(artifact.key());
         verify(storage).delete(previewKey);
-        assertEquals(0, count("chat_file_artifact"));
+        // The row stays as a tombstone for the answer, with nothing left pointing at bytes.
+        assertEquals(1, count("chat_file_artifact WHERE purged_at IS NOT NULL AND object_key IS NULL"
+                + " AND preview_object_key IS NULL AND stored_object_id IS NULL"));
         assertEquals(0, count("stored_objects"));
         assertEquals(0, count("object_writes"));
         // Nothing is left to claim, so a later sweep is a no-op.
@@ -165,7 +166,7 @@ class ChatArtifactCleanupIntegrationTest {
         reset(storage);
         jdbc.sql("UPDATE chat_image_artifact SET cleanup_until = CURRENT_TIMESTAMP - INTERVAL '1' MINUTE").update();
         assertEquals(1, cleanup.cleanup());
-        assertEquals(0, count("chat_image_artifact"));
+        assertEquals(1, count("chat_image_artifact WHERE purged_at IS NOT NULL"));
         assertEquals(0, count("stored_objects"));
         assertEquals(0, count("object_writes"));
     }
@@ -198,8 +199,9 @@ class ChatArtifactCleanupIntegrationTest {
         images.delete(owner, image);
 
         assertEquals(2, cleanup.cleanup());
-        assertEquals(List.of(kept), jdbc.sql("SELECT id FROM chat_file_artifact").query(UUID.class).list());
-        assertEquals(0, count("chat_image_artifact"));
+        assertEquals(List.of(kept), jdbc.sql("SELECT id FROM chat_file_artifact WHERE purged_at IS NULL")
+                .query(UUID.class).list());
+        assertEquals(1, count("chat_image_artifact WHERE purged_at IS NOT NULL"));
         assertEquals(1, count("stored_objects"));
     }
 
@@ -224,7 +226,7 @@ class ChatArtifactCleanupIntegrationTest {
         // Deleting the image releases both objects, so a thumbnail cannot outlive what it was made from.
         images.delete(owner, image);
         assertEquals(1, cleanup.cleanup());
-        assertEquals(0, count("chat_image_artifact"));
+        assertEquals(1, count("chat_image_artifact WHERE purged_at IS NOT NULL AND thumbnail_object_key IS NULL"));
         assertEquals(0, count("stored_objects"));
         assertEquals(0, count("object_writes"));
     }
@@ -240,6 +242,31 @@ class ChatArtifactCleanupIntegrationTest {
         assertEquals(1, count("stored_objects"));
         assertEquals(0, jdbc.sql("SELECT count(*) FROM chat_image_artifact WHERE thumbnail_object_key IS NOT NULL")
                 .query(Long.class).single());
+    }
+
+    @Test
+    void aPurgedArtifactKeepsItsCardOnTheAnswerAndLeavesTheLibrary() {
+        var image = images.store(tenant, messageId, new io.memoryos.chat.image.ImageProviderClient.Result(
+                new byte[] {9, 9}, "image/png", "a blue car"));
+        images.delete(owner, image);
+        assertEquals(1, cleanup.cleanup());
+
+        // The answer still carries the image, marked deleted: that is the "the image was deleted" card.
+        var onTheAnswer = images.forMessages(owner, List.of(messageId)).get(messageId);
+        assertNotNull(onTheAnswer);
+        assertEquals(1, onTheAnswer.size());
+        assertEquals(image, onTheAnswer.getFirst().id());
+        assertTrue(onTheAnswer.getFirst().deleted());
+        // A turn's own context never offers it, because there is nothing left to edit.
+        assertTrue(pictures.byMessages(tenant, List.of(messageId), false).isEmpty());
+
+        // The trash no longer offers it, and nothing can bring it back: the bytes are gone.
+        var trash = new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc).page(tenant, owner,
+                new io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter("", java.util.Set.of(),
+                        java.util.Set.of(), null, false, false, true, null),
+                ChatLibraryFile.Sort.DELETED, 0, 50);
+        assertEquals(List.of(), trash.items());
+        assertFalse(pictures.restore(tenant, owner, image));
     }
 
     private byte[] read(UUID image, ImageArtifactService.Variant variant, String expectedType) {
@@ -268,8 +295,9 @@ class ChatArtifactCleanupIntegrationTest {
                 .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes)));
     }
 
-    private long count(String table) {
-        return jdbc.sql("SELECT count(*) FROM " + table).query(Long.class).single();
+    /** Rows of a table, or of a table with a predicate: both read as "SELECT count(*) FROM <this>". */
+    private long count(String from) {
+        return jdbc.sql("SELECT count(*) FROM " + from).query(Long.class).single();
     }
 
     /** A conversation with one answer: artifacts take their owner and session from it. */

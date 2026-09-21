@@ -1,4 +1,5 @@
 import {
+  ArrowDownUp,
   Download,
   FolderPlus,
   LayoutGrid,
@@ -13,19 +14,32 @@ import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/radix-select";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
-import type { LibraryCategory, LibrarySort, LibrarySource } from "./chat-library";
+import {
+  LIBRARY_CATEGORIES,
+  type LibraryCategory,
+  type LibrarySort,
+  type LibrarySource,
+} from "./chat-library";
 import { categoryLabels, sourceLabels } from "./chat-library-labels";
 
 export type LibraryLayout = "list" | "grid";
 export type LibrarySearchMode = "name" | "content";
 
 const SOURCES: LibrarySource[] = ["UPLOAD", "GENERATED", "IMAGE"];
-const CATEGORIES: LibraryCategory[] = ["DOCUMENT", "SPREADSHEET", "IMAGE", "PRESENTATION", "OTHER"];
+/** The orders worth offering; the trash and the processing view order themselves and hide the control. */
+const SORTS: LibrarySort[] = ["NEWEST", "OLDEST", "NAME", "LARGEST", "SMALLEST"];
+const CATEGORIES: readonly LibraryCategory[] = LIBRARY_CATEGORIES;
 
 export type LibraryToolbarState = {
   search: string;
@@ -120,20 +134,7 @@ export function LibraryToolbar({
           <LibraryFilterPanel state={state} handlers={handlers} />
         </PopoverContent>
       </Popover>
-      {sortable && (
-        <Select
-          className="w-44"
-          aria-label={ui("Sắp xếp")}
-          value={state.sort}
-          onChange={(event) => handlers.onSort(event.target.value as LibrarySort)}
-        >
-          <option value="NEWEST">{ui("Mới nhất")}</option>
-          <option value="OLDEST">{ui("Cũ nhất")}</option>
-          <option value="NAME">{ui("Tên A → Z")}</option>
-          <option value="LARGEST">{ui("Dung lượng giảm dần")}</option>
-          <option value="SMALLEST">{ui("Dung lượng tăng dần")}</option>
-        </Select>
-      )}
+      {sortable && <LibrarySortSelect sort={state.sort} onSort={handlers.onSort} />}
       <ToggleGroup
         type="single"
         size="sm"
@@ -149,6 +150,44 @@ export function LibraryToolbar({
         </ToggleGroupItem>
       </ToggleGroup>
     </div>
+  );
+}
+
+/**
+ * How the list is ordered. It is the registry's own select rather than a native one: the browser draws a
+ * native option list in the system's colours, which on this page reads as a foreign control beside the
+ * filter, the search mode and the layout switch.
+ */
+function LibrarySortSelect({
+  sort,
+  onSort,
+}: {
+  sort: LibrarySort;
+  onSort: (next: LibrarySort) => void;
+}) {
+  const ui = useAppTranslation();
+  const labels: Record<LibrarySort, string> = {
+    NEWEST: ui("Mới nhất"),
+    OLDEST: ui("Cũ nhất"),
+    NAME: ui("Tên A → Z"),
+    LARGEST: ui("Dung lượng giảm dần"),
+    SMALLEST: ui("Dung lượng tăng dần"),
+    DELETED: ui("Xoá gần nhất"),
+  };
+  return (
+    <Select value={sort} onValueChange={(next) => onSort(next as LibrarySort)}>
+      <SelectTrigger aria-label={ui("Sắp xếp")} className="w-44">
+        <ArrowDownUp className="size-4 text-content-muted" aria-hidden="true" />
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {SORTS.map((value) => (
+          <SelectItem key={value} value={value}>
+            {labels[value]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 

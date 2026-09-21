@@ -118,9 +118,8 @@ class ChatLifecycleIntegrationTest {
         sessions = TestDatabase.transactionalProxy(new DefaultChatSessionService(tenants, authorization, repository,
                 new PersonaProperties(), new JdbcChatSearchRepository(jdbc)), ChatSessionService.class,
                 jpa.transactionManager());
-        var quotas = new ChatStorageQuotaService(tenants, authorization,
-                new io.memoryos.chat.persistence.JdbcChatStorageQuotaRepository(jdbc),
-                new JdbcChatLibraryRepository(jdbc));
+        var quotas = new io.memoryos.chat.ChatStorageQuotaService(tenants,
+                new io.memoryos.chat.application.ChatStorageProperties(0), new JdbcChatLibraryRepository(jdbc));
         var files = new ChatFileService(tenants, repository, new JdbcUserFileRepository(jdbc),
                 mock(ObjectUploadService.class), new ChatFileProperties(104857600, 262144000), quotas,
                 new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,

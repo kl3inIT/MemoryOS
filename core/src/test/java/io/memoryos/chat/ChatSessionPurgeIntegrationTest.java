@@ -142,7 +142,7 @@ class ChatSessionPurgeIntegrationTest {
     }
 
     @Test
-    void theTenantRetentionPolicyDeletesWhatNobodyHasTouchedAndCountsItFirst() {
+    void theOwnersRetentionPolicyDeletesWhatNobodyHasTouchedAndCountsItFirst() {
         var old = conversation("Untouched", false, false);
         var recent = conversation("Yesterday", false, false);
         jdbc.sql("UPDATE chat_session SET updated_at = CURRENT_TIMESTAMP - INTERVAL '120 days' WHERE id = :id")
@@ -152,16 +152,43 @@ class ChatSessionPurgeIntegrationTest {
 
         // Without a policy recorded, nothing happens at all.
         assertEquals(0, service(true, java.time.Duration.ZERO).applyRetentionPolicies());
-        assertEquals(1, repository.affectedByRetention(tenant.value(), 90), "what a 90-day policy would delete");
+        assertEquals(1, repository.affectedByRetention(tenant.value(), owner.value(), 90),
+                "what a 90-day policy would delete for this owner");
 
-        jdbc.sql("""
-                INSERT INTO chat_settings(tenant_id, deep_research_enabled, chat_retention_days)
-                VALUES(:tenant, TRUE, 90)
-                """).param("tenant", tenant.value()).update();
+        recordRetention(owner, 90);
         assertEquals(1, service(true, java.time.Duration.ZERO).applyRetentionPolicies());
         assertEquals(1, count("chat_session WHERE id='" + old.session() + "' AND deleted_at IS NOT NULL"));
         assertEquals(1, count("chat_session WHERE id='" + recent.session() + "' AND deleted_at IS NULL"));
         assertEquals(0, service(true, java.time.Duration.ZERO).applyRetentionPolicies(), "nothing is left");
+    }
+
+    @Test
+    void oneMembersRetentionPolicyLeavesAnotherMembersConversationsAlone() {
+        var mine = conversation("Mine", false, false);
+        var theirs = conversation("Theirs", false, false);
+        var other = new ActorId(UUID.randomUUID());
+        jdbc.sql("INSERT INTO actors(id) VALUES(:id)").param("id", other.value()).update();
+        jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES(:tenant,:actor,'MEMBER','ACTIVE')")
+                .param("tenant", tenant.value()).param("actor", other.value()).update();
+        jdbc.sql("UPDATE chat_session SET owner_actor_id = :actor WHERE id = :id")
+                .param("actor", other.value()).param("id", theirs.session()).update();
+        jdbc.sql("UPDATE chat_session SET updated_at = CURRENT_TIMESTAMP - INTERVAL '120 days'").update();
+
+        // My number bounds my history and nobody else's, even in the same Tenant.
+        recordRetention(owner, 30);
+        assertEquals(1, service(true, java.time.Duration.ZERO).applyRetentionPolicies());
+        assertEquals(1, count("chat_session WHERE id='" + mine.session() + "' AND deleted_at IS NOT NULL"));
+        assertEquals(1, count("chat_session WHERE id='" + theirs.session() + "' AND deleted_at IS NULL"));
+        assertEquals(0, repository.affectedByRetention(tenant.value(), owner.value(), 30), "mine is already gone");
+        assertEquals(1, repository.affectedByRetention(tenant.value(), other.value(), 30), "theirs is untouched");
+    }
+
+    /** The person's own retention number, where the preferences page records it. */
+    private void recordRetention(ActorId actor, int days) {
+        jdbc.sql("""
+                INSERT INTO chat_preferences(tenant_id, actor_id, retention_days) VALUES(:tenant, :actor, :days)
+                ON CONFLICT (tenant_id, actor_id) DO UPDATE SET retention_days = EXCLUDED.retention_days
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("days", days).update();
     }
 
     private int purge(boolean hardDelete) {

@@ -487,9 +487,8 @@ class WorkerFileProcessingIntegrationTest {
         var files = new io.memoryos.chat.ChatFileService(tenants, new io.memoryos.chat.persistence.JdbcChatRepository(jdbcClient),
                 new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbcClient), objectUploads,
                 new io.memoryos.chat.application.ChatFileProperties(104857600, 262144000),
-                new io.memoryos.chat.ChatStorageQuotaService(tenants, org.mockito.Mockito.mock(io.memoryos.iam.group.IamAuthorization.class),
-                        new io.memoryos.chat.persistence.JdbcChatStorageQuotaRepository(jdbcClient),
-                        new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbcClient)),
+                new io.memoryos.chat.ChatStorageQuotaService(tenants,
+                new io.memoryos.chat.application.ChatStorageProperties(0), new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbcClient)),
                 // This suite drives the worker's own release path, so deletion releases at once.
                 new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
                         java.time.Duration.ZERO, java.time.Duration.ofHours(24)), transactions);
