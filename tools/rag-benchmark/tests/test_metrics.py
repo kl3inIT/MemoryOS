@@ -23,9 +23,15 @@ def test_citation_scores_separate_completeness_from_noise() -> None:
     assert metrics.citation_precision([], ["a"]) == 0.0
 
 
-def test_abstention_reads_citations_before_wording() -> None:
+def test_abstention_is_declining_without_reaching_forbidden_evidence() -> None:
     assert metrics.abstained("Tôi không tìm thấy thông tin này trong tài liệu.", [])
-    assert not metrics.abstained("Không tìm thấy, nhưng theo tài liệu [1] thì...", ["a"])
+    # The wording the staging replies actually used, which the first marker list missed.
+    assert metrics.abstained("Tôi chưa tìm thấy tài liệu nào nói về việc này.", [])
+    assert metrics.abstained("I could not find any document covering that.", [])
+    # Declining while pointing at a document the actor may read is still a refusal to answer.
+    assert metrics.abstained("Chưa tìm thấy số liệu đó; tài liệu gần nhất là quy chế [1].", ["a"])
+    # Reaching a forbidden document is never an abstention, whatever the wording.
+    assert not metrics.abstained("Không tìm thấy, nhưng theo tài liệu [1] thì...", ["a"], ["a"])
     assert not metrics.abstained("Doanh thu là 12 tỷ.", [])
 
 
