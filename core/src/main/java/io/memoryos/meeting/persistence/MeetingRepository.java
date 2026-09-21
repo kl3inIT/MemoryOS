@@ -2,6 +2,7 @@ package io.memoryos.meeting.persistence;
 
 import io.memoryos.meeting.Meeting;
 import java.sql.ResultSet;
+import java.time.Duration;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -29,7 +30,12 @@ public class MeetingRepository {
     /** The header row of an owned meeting. */
     public record Row(UUID id, String title, Meeting.Kind kind, @Nullable String language, List<String> participants,
                       List<String> terms, String notes, Meeting.Status status, @Nullable String provider, boolean diarized,
-                      Instant createdAt, @Nullable Instant endedAt, long revision) {}
+                      Instant createdAt, @Nullable Instant endedAt, long revision, Meeting.MinutesStatus minutesStatus,
+                      @Nullable String minutesFailure, String minutesSummary, String minutesKind,
+                      @Nullable Instant minutesGeneratedAt) {}
+
+    /** One meeting this replica leased to write minutes for. */
+    public record MinutesClaim(UUID tenant, UUID id, UUID owner, int attempts) {}
 
     public void insert(UUID tenant, UUID id, UUID owner, Meeting.Draft draft) {
         jdbc.sql("""
@@ -44,7 +50,7 @@ public class MeetingRepository {
     public Optional<Row> find(UUID tenant, UUID owner, UUID id) {
         return jdbc.sql("""
                 SELECT id, title, kind, language, participants, terms, notes, status, provider, diarized, created_at,
-                       ended_at, revision
+                       ended_at, revision, minutes_status, minutes_failure, minutes_summary, minutes_kind, minutes_generated_at
                 FROM meeting WHERE tenant_id = :tenant AND owner_actor_id = :owner AND id = :id
                 """).param("tenant", tenant).param("owner", owner).param("id", id).query(MeetingRepository::row).optional();
     }
@@ -53,7 +59,7 @@ public class MeetingRepository {
     public Optional<Row> lock(UUID tenant, UUID owner, UUID id) {
         return jdbc.sql("""
                 SELECT id, title, kind, language, participants, terms, notes, status, provider, diarized, created_at,
-                       ended_at, revision
+                       ended_at, revision, minutes_status, minutes_failure, minutes_summary, minutes_kind, minutes_generated_at
                 FROM meeting WHERE tenant_id = :tenant AND owner_actor_id = :owner AND id = :id FOR UPDATE
                 """).param("tenant", tenant).param("owner", owner).param("id", id).query(MeetingRepository::row).optional();
     }
@@ -133,6 +139,90 @@ public class MeetingRepository {
                 """).param("tenant", tenant).param("meeting", meeting).param("notes", notes).update();
     }
 
+    public List<Meeting.MinutesItem> minutesItems(UUID tenant, UUID meeting) {
+        return jdbc.sql("""
+                SELECT id, kind, text, owner, due, quote, source_utterance_id, done FROM meeting_minutes_item
+                WHERE tenant_id = :tenant AND meeting_id = :meeting ORDER BY kind, position, id
+                """).param("tenant", tenant).param("meeting", meeting)
+                .query((r, ignored) -> new Meeting.MinutesItem(r.getObject("id", UUID.class),
+                        Meeting.ItemKind.valueOf(r.getString("kind")), r.getString("text"), r.getString("owner"),
+                        r.getString("due"), r.getString("quote"), r.getObject("source_utterance_id", UUID.class),
+                        r.getBoolean("done"))).list();
+    }
+
+    /** Queues the minutes of a meeting that just ended, or a rerun the owner asked for. */
+    public void queueMinutes(UUID tenant, UUID meeting) {
+        jdbc.sql("""
+                UPDATE meeting SET minutes_status = 'PENDING', minutes_attempts = 0, minutes_lease_until = NULL,
+                       minutes_failure = NULL
+                WHERE tenant_id = :tenant AND id = :meeting
+                """).param("tenant", tenant).param("meeting", meeting).update();
+    }
+
+    /**
+     * Takes the oldest meeting waiting for minutes, or one whose lease lapsed, and leases it to this replica. The
+     * attempt count rises on every claim, so a meeting that keeps failing stops being retried.
+     */
+    public Optional<MinutesClaim> claimMinutes(Duration lease, int maxAttempts) {
+        return jdbc.sql("""
+                UPDATE meeting m SET minutes_status = 'RUNNING', minutes_attempts = m.minutes_attempts + 1,
+                       minutes_lease_until = now() + make_interval(secs => :lease)
+                WHERE m.id = (
+                    SELECT id FROM meeting
+                    WHERE (minutes_status = 'PENDING' OR (minutes_status = 'RUNNING' AND minutes_lease_until < now()))
+                      AND minutes_attempts < :max
+                    ORDER BY ended_at, created_at LIMIT 1 FOR UPDATE SKIP LOCKED)
+                RETURNING m.tenant_id, m.id, m.owner_actor_id, m.minutes_attempts
+                """).param("lease", lease.toSeconds()).param("max", maxAttempts)
+                .query((r, ignored) -> new MinutesClaim(r.getObject("tenant_id", UUID.class), r.getObject("id", UUID.class),
+                        r.getObject("owner_actor_id", UUID.class), r.getInt("minutes_attempts"))).optional();
+    }
+
+    /** Stores one run's result. False means another replica took the meeting over after this lease lapsed. */
+    public boolean writeMinutes(UUID tenant, UUID meeting, int attempt, String summary, String kind,
+                                List<Meeting.MinutesItem> items) {
+        boolean owned = jdbc.sql("""
+                UPDATE meeting SET minutes_status = 'READY', minutes_lease_until = NULL, minutes_failure = NULL,
+                       minutes_summary = :summary, minutes_kind = :kind, minutes_generated_at = CURRENT_TIMESTAMP,
+                       updated_at = CURRENT_TIMESTAMP, revision = revision + 1
+                WHERE tenant_id = :tenant AND id = :meeting AND minutes_status = 'RUNNING' AND minutes_attempts = :attempt
+                """).param("tenant", tenant).param("meeting", meeting).param("attempt", attempt)
+                .param("summary", summary).param("kind", kind).update() == 1;
+        if (!owned) return false;
+        jdbc.sql("DELETE FROM meeting_minutes_item WHERE tenant_id = :tenant AND meeting_id = :meeting")
+                .param("tenant", tenant).param("meeting", meeting).update();
+        int position = 0;
+        for (var item : items) {
+            jdbc.sql("""
+                    INSERT INTO meeting_minutes_item(tenant_id, id, meeting_id, kind, position, text, owner, due, quote,
+                                                     source_utterance_id)
+                    VALUES (:tenant, :id, :meeting, :kind, :position, :text, :owner, :due, :quote, :source)
+                    """).param("tenant", tenant).param("id", item.id()).param("meeting", meeting)
+                    .param("kind", item.kind().name()).param("position", position++).param("text", item.text())
+                    .param("owner", item.owner()).param("due", item.due()).param("quote", item.quote())
+                    .param("source", item.sourceUtteranceId()).update();
+        }
+        return true;
+    }
+
+    /** Records a failed run; the meeting waits for another attempt until the attempts run out. */
+    public void failMinutes(UUID tenant, UUID meeting, int attempt, int maxAttempts, String failure) {
+        jdbc.sql("""
+                UPDATE meeting SET minutes_status = CASE WHEN :attempt >= :max THEN 'FAILED' ELSE 'PENDING' END,
+                       minutes_lease_until = NULL, minutes_failure = :failure
+                WHERE tenant_id = :tenant AND id = :meeting AND minutes_status = 'RUNNING' AND minutes_attempts = :attempt
+                """).param("tenant", tenant).param("meeting", meeting).param("attempt", attempt).param("max", maxAttempts)
+                .param("failure", failure).update();
+    }
+
+    /** Marks an owner's item done or not done. False when the item is not theirs. */
+    public boolean markItem(UUID tenant, UUID meeting, UUID item, boolean done) {
+        return jdbc.sql("""
+                UPDATE meeting_minutes_item SET done = :done
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :item
+                """).param("tenant", tenant).param("meeting", meeting).param("item", item).param("done", done).update() == 1;
+    }
+
     public void end(UUID tenant, UUID meeting) {
         jdbc.sql("""
                 UPDATE meeting SET status = 'ENDED', ended_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP,
@@ -150,7 +240,9 @@ public class MeetingRepository {
         return new Row(r.getObject("id", UUID.class), r.getString("title"), Meeting.Kind.valueOf(r.getString("kind")),
                 r.getString("language"), strings(r.getString("participants")), strings(r.getString("terms")),
                 r.getString("notes"), Meeting.Status.valueOf(r.getString("status")), r.getString("provider"),
-                r.getBoolean("diarized"), instant(r, "created_at"), instant(r, "ended_at"), r.getLong("revision"));
+                r.getBoolean("diarized"), instant(r, "created_at"), instant(r, "ended_at"), r.getLong("revision"),
+                Meeting.MinutesStatus.valueOf(r.getString("minutes_status")), r.getString("minutes_failure"),
+                r.getString("minutes_summary"), r.getString("minutes_kind"), instant(r, "minutes_generated_at"));
     }
 
     private static List<String> strings(String json) {

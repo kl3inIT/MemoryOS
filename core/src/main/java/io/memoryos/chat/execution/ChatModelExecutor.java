@@ -122,6 +122,35 @@ public final class ChatModelExecutor {
         return toolCalling && options.codeInterpreter();
     }
 
+    /**
+     * One structured call outside any conversation, for background work such as a meeting's minutes: no tools, no
+     * attachments, no streaming. The model answers as {@code shape}, and {@code accounting} receives its usage even
+     * when the call fails. The input is untrusted data; the caller's instructions say so.
+     */
+    public <T> T generateObject(ChatModelBinding selected, String instructions, String input, Class<T> shape,
+                                Duration timeout, int maxOutputTokens, Consumer<Accounting> accounting) {
+        var context = contexts.getObject();
+        var process = context.getProcessContext().getAgentProcess();
+        var deadline = Instant.now().plus(timeout);
+        ChatModelGuard admitted = null;
+        try {
+            var metadata = selected.service();
+            int output = selected.outputAtMost(maxOutputTokens);
+            var guard = new ChatModelGuard(metadata.getChatModel(), process, metadata,
+                    new Budget(limits.costCap(), Integer.MAX_VALUE, limits.tokenCap()), 1,
+                    () -> { if (!Instant.now().isBefore(deadline)) throw new IllegalStateException("CHAT_DEADLINE"); },
+                    selected.policy(), selected.contextWindow() - output, selected.finalRequest());
+            guard.outputLimit(output);
+            admitted = guard;
+            var runner = context.ai().withLlmService(selected.withModel(guard));
+            var llm = Objects.requireNonNull(runner.getLlm()).withoutThinking().withMaxTokens(output).withTimeout(timeout);
+            return runner.withLlm(llm).createObject(instructions + "\n\n" + input, shape);
+        } finally {
+            try { accounting.accept(admitted == null ? Accounting.NONE : Accounting.of(List.of(admitted), process, selected.service())); }
+            finally { processes.delete(process); }
+        }
+    }
+
     /** Separate best-effort naming invocation: no tools, no attachment bytes, no answer mutation. */
     public String generateTitle(ChatModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history) {
         return generateTitle(selected, history, ignored -> {});

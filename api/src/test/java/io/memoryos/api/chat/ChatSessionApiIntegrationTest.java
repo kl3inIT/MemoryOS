@@ -2822,6 +2822,89 @@ class ChatSessionApiIntegrationTest {
         }
     }
 
+    @Test
+    void endingAMeetingWritesItsMinutesFromTheTranscriptWithTheLinesTheyRestOn() throws Exception {
+        var prompts = new java.util.concurrent.LinkedBlockingQueue<String>();
+        when(model.call(any(Prompt.class))).thenAnswer(call -> {
+            String text = call.getArgument(0, Prompt.class).getInstructions().stream()
+                    .map(org.springframework.ai.chat.messages.Message::getText).collect(java.util.stream.Collectors.joining("\n"));
+            prompts.add(text);
+            return response("""
+                    {"summary":"Cuộc họp chốt ngân sách quý 4 trước thứ Năm.","kind":"Giao ban tuần",
+                     "decisions":[{"text":"Chốt ngân sách quý 4 trước thứ Năm","quote":"Chốt ngân sách quý 4 trước thứ Năm.","line":1}],
+                     "actions":[{"text":"Gửi bảng KPI tháng 9","owner":"Chị Lan","due":"chiều nay",
+                                 "quote":"Em gửi bảng KPI tháng 9 chiều nay.","line":2},
+                                {"text":"","owner":null,"due":null,"quote":null,"line":9}]}
+                    """, "stop", 40);
+        });
+        UUID meeting = UUID.randomUUID();
+        UUID[] utterances = {UUID.randomUUID(), UUID.randomUUID()};
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status, ended_at)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'IN_PERSON', 'vi', CAST(:people AS jsonb), 'RECORDING', NULL)
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value())
+                    .param("people", "[\"Anh Thanh\",\"Chị Lan\"]").update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label, name) VALUES (:tenant,:meeting,'MIC','1',NULL),(:tenant,:meeting,'MIC','2','Chị Lan')")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
+            String[] said = {"Chốt ngân sách quý 4 trước thứ Năm.", "Em gửi bảng KPI tháng 9 chiều nay."};
+            for (int i = 0; i < said.length; i++)
+                jdbc.sql("""
+                        INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text, confidence)
+                        VALUES (:tenant, :id, :meeting, 'MIC', :speaker, :start, :end, :text, 0.9)
+                        """).param("tenant", TENANT).param("id", utterances[i]).param("meeting", meeting)
+                        .param("speaker", String.valueOf(i + 1)).param("start", i * 5000).param("end", i * 5000 + 4000)
+                        .param("text", said[i]).update();
+
+            mockMvc.perform(post("/api/meetings/" + meeting + "/end").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.minutes.status").value("PENDING"));
+
+            var ready = new java.util.concurrent.atomic.AtomicReference<String>();
+            await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+                        var body = mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(actor)))
+                                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+                        assertEquals("READY", Json.mapper().readTree(body).path("minutes").path("status").asText());
+                        ready.set(body);
+                    });
+            var minutes = Json.mapper().readTree(ready.get()).path("minutes");
+            assertEquals("Cuộc họp chốt ngân sách quý 4 trước thứ Năm.", minutes.path("summary").asText());
+            assertEquals("Giao ban tuần", minutes.path("kind").asText());
+            assertEquals(1, minutes.path("decisions").size());
+            assertEquals(utterances[0].toString(), minutes.path("decisions").get(0).path("sourceUtteranceId").asText(),
+                    "a decision points at the line it rests on");
+            assertEquals(1, minutes.path("actions").size(), "an item with no text is dropped");
+            var action = minutes.path("actions").get(0);
+            assertEquals("Chị Lan", action.path("owner").asText());
+            assertEquals("chiều nay", action.path("due").asText());
+            assertEquals(utterances[1].toString(), action.path("sourceUtteranceId").asText());
+            assertFalse(action.path("done").asBoolean());
+
+            String prompt = prompts.poll(5, TimeUnit.SECONDS);
+            assertNotNull(prompt);
+            assertTrue(prompt.contains("[1] 00:00:00 Speaker 1: Chốt ngân sách quý 4 trước thứ Năm."));
+            assertTrue(prompt.contains("[2] 00:00:05 Chị Lan: Em gửi bảng KPI tháng 9 chiều nay."),
+                    "a named speaker reaches the model under that name");
+            assertTrue(prompt.contains("Never invent a decision"));
+
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/" + action.path("id").asText())
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"done\":true}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.minutes.actions[0].done").value(true));
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/" + UUID.randomUUID())
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"done\":true}")).andExpect(status().isNotFound());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/minutes").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
+            assertEquals(1, jdbc.sql("SELECT count(*) FROM ai_usage WHERE tenant_id=:tenant AND flow='MEETING_MINUTES'")
+                    .param("tenant", TENANT).query(Integer.class).single(), "the call is billed to the owner's Tenant");
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+            jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant AND flow='MEETING_MINUTES'").param("tenant", TENANT).update();
+        }
+    }
+
     private String voiceTicket(ActorAuthenticationToken authentication) throws Exception {
         var response = mockMvc.perform(post("/api/chat/voice/tickets").with(authentication(authentication)).with(csrf())
                 .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();

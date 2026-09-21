@@ -32,6 +32,10 @@ public final class ChatModelResolver {
     public Resolved resolveFlow(ActorId actor, UUID session, ModelFlow flow) {
         return acquire(catalog.resolveFlow(actor, session, flow));
     }
+    /** The Tenant model for background work with no conversation behind it, such as a meeting's minutes. */
+    public Resolved resolveFlow(ActorId actor, ModelFlow flow) {
+        return acquire(catalog.resolveFlow(actor, flow));
+    }
     public Resolved forValidation(ActorId actor, UUID model) { return acquire(catalog.validationSelection(actor, model)); }
 
     /**

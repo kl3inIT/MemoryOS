@@ -10,5 +10,6 @@ public enum AiUsageFlow {
     IMAGE_GENERATION,
     IMAGE_EDIT,
     SPEECH_TO_TEXT,
-    TEXT_TO_SPEECH
+    TEXT_TO_SPEECH,
+    MEETING_MINUTES
 }

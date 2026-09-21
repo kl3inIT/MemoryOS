@@ -165,6 +165,39 @@ export type MeetingDetail = {
     revision: number;
     speakers: Array<MeetingSpeaker>;
     utterances: Array<MeetingUtterance>;
+    minutes: MeetingMinutes;
+};
+
+/**
+ * What the model made of the meeting once it ended
+ */
+export type MeetingMinutes = {
+    status: 'NONE' | 'PENDING' | 'RUNNING' | 'READY' | 'FAILED';
+    failure: string | null;
+    summary: string;
+    /**
+     * What kind of meeting this was
+     */
+    kind: string;
+    generatedAt: string | null;
+    decisions: Array<MeetingMinutesItem>;
+    actions: Array<MeetingMinutesItem>;
+};
+
+/**
+ * A decision the meeting reached or work it handed out
+ */
+export type MeetingMinutesItem = {
+    id: string;
+    text: string;
+    owner: string | null;
+    due: string | null;
+    /**
+     * The transcript sentence the item rests on
+     */
+    quote: string | null;
+    sourceUtteranceId: string | null;
+    done: boolean;
 };
 
 export type MeetingSpeaker = {
@@ -186,6 +219,10 @@ export type MeetingUtterance = {
 export type MeetingNotesRequest = {
     notes: string;
     revision: number;
+};
+
+export type MeetingItemRequest = {
+    done: boolean;
 };
 
 /**
@@ -868,7 +905,7 @@ export type Pricing = {
  * Tenant model for one task; no model uses the conversation model
  */
 export type ModelFlow = {
-    flow: 'CHAT_NAMING';
+    flow: 'CHAT_NAMING' | 'MEETING_MINUTES';
     modelConfigurationId: string | null;
     /**
      * False when the model is set but no longer eligible; the task then uses the conversation model
@@ -2847,6 +2884,52 @@ export type UpdateMeetingNotesResponses = {
 };
 
 export type UpdateMeetingNotesResponse = UpdateMeetingNotesResponses[keyof UpdateMeetingNotesResponses];
+
+export type MarkMeetingMinutesItemData = {
+    body: MeetingItemRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/minutes/{itemId}';
+};
+
+export type MarkMeetingMinutesItemErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or item not available
+     */
+    404: ApiProblem;
+};
+
+export type MarkMeetingMinutesItemError = MarkMeetingMinutesItemErrors[keyof MarkMeetingMinutesItemErrors];
+
+export type MarkMeetingMinutesItemResponses = {
+    /**
+     * The meeting
+     */
+    200: MeetingDetail;
+};
+
+export type MarkMeetingMinutesItemResponse = MarkMeetingMinutesItemResponses[keyof MarkMeetingMinutesItemResponses];
 
 export type DeleteMcpServerData = {
     body?: never;
@@ -5789,7 +5872,7 @@ export type SetChatModelFlowData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        flow: 'CHAT_NAMING';
+        flow: 'CHAT_NAMING' | 'MEETING_MINUTES';
     };
     query: {
         modelConfigurationId?: string;
@@ -7111,6 +7194,51 @@ export type CreateMeetingTicketResponses = {
 };
 
 export type CreateMeetingTicketResponse = CreateMeetingTicketResponses[keyof CreateMeetingTicketResponses];
+
+export type RerunMeetingMinutesData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/minutes';
+};
+
+export type RerunMeetingMinutesErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type RerunMeetingMinutesError = RerunMeetingMinutesErrors[keyof RerunMeetingMinutesErrors];
+
+export type RerunMeetingMinutesResponses = {
+    /**
+     * The meeting, with its minutes queued
+     */
+    200: MeetingDetail;
+};
+
+export type RerunMeetingMinutesResponse = RerunMeetingMinutesResponses[keyof RerunMeetingMinutesResponses];
 
 export type EndMeetingData = {
     body?: never;
@@ -13512,7 +13640,7 @@ export type GetAiCostSummaryData = {
         from: string;
         to: string;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES';
     };
     url: '/api/ai-costs/summary';
 };
@@ -13664,7 +13792,7 @@ export type ListAiCostDaysData = {
         to: string;
         split?: 'BOUNDARY' | 'MODEL' | 'NONE';
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES';
     };
     url: '/api/ai-costs/daily';
 };
@@ -13704,7 +13832,7 @@ export type ListAiCostBreakdownData = {
         by: 'ACTOR' | 'GROUP' | 'MODEL' | 'FLOW' | 'PROVIDER';
         limit?: number;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES';
     };
     url: '/api/ai-costs/breakdown';
 };

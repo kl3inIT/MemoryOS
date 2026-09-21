@@ -78,6 +78,15 @@ async function mockMeetings(page: Page) {
         revision: 0,
         speakers: [],
         utterances: [],
+        minutes: {
+          status: "NONE",
+          failure: null,
+          summary: "",
+          kind: "",
+          generatedAt: null,
+          decisions: [],
+          actions: [],
+        },
       };
       await route.fulfill({ status: 201, json: meeting });
       return;
@@ -115,7 +124,52 @@ async function mockMeetings(page: Page) {
     await route.fulfill({ json: meeting });
   });
   await page.route(`**/api/meetings/${MEETING_ID}/end`, async (route) => {
-    meeting = { ...meeting!, status: "ENDED", endedAt: new Date().toISOString() };
+    meeting = {
+      ...meeting!,
+      status: "ENDED",
+      endedAt: new Date().toISOString(),
+      // The API queues the minutes when a meeting ends; this fixture answers with them already written.
+      minutes: {
+        status: "READY",
+        failure: null,
+        summary: "Cuộc họp chốt ngân sách quý 4 trước thứ Năm và giao bổ sung số liệu KPI.",
+        kind: "Giao ban tuần",
+        generatedAt: new Date().toISOString(),
+        decisions: [
+          {
+            id: "d1",
+            text: "Chốt ngân sách quý 4 trước thứ Năm",
+            owner: null,
+            due: null,
+            quote: "Tuần này bên mình phải chốt ngân sách quý 4 trước thứ Năm, không lùi nữa.",
+            sourceUtteranceId: "u1",
+            done: false,
+          },
+        ],
+        actions: [
+          {
+            id: "a1",
+            text: "Kiểm tra lại các bảng cân đối",
+            owner: "Anh Minh",
+            due: "thứ Tư",
+            quote: "Vậy anh Minh kiểm tra lại các bảng cân đối, xong trước thứ Tư nhé.",
+            sourceUtteranceId: "u3",
+            done: false,
+          },
+        ],
+      },
+    };
+    await route.fulfill({ json: meeting });
+  });
+  await page.route(`**/api/meetings/${MEETING_ID}/minutes/*`, async (route) => {
+    const { done } = route.request().postDataJSON() as { done: boolean };
+    meeting = {
+      ...meeting!,
+      minutes: {
+        ...meeting!.minutes,
+        actions: meeting!.minutes.actions.map((item) => ({ ...item, done })),
+      },
+    };
     await route.fulfill({ json: meeting });
   });
   await page.routeWebSocket(/\/api\/meeting-stream/, (socket) => {
@@ -206,11 +260,7 @@ for (const width of [1440, 390]) {
     await dialog.getByLabel("Thuật ngữ riêng").fill("Tasco, Vinaconex 9, OKR, KPI");
     await dialog.getByText("Họp trực tiếp", { exact: true }).click();
     await expect(dialog.getByRole("button", { name: "Bắt đầu ghi" })).toBeDisabled();
-    await dialog
-      .getByLabel(
-        "Tôi đã thông báo cho mọi người trong cuộc họp rằng buổi họp được ghi lại thành văn bản.",
-      )
-      .check();
+    await dialog.getByLabel("Tôi đã thông báo cho mọi người rằng buổi họp được ghi lại.").check();
     expect(
       await dialog.evaluate((element) => {
         const bounds = element.getBoundingClientRect();
@@ -241,7 +291,35 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: "Dừng", exact: true }).click();
     const confirm = page.getByRole("alertdialog");
     await confirm.getByRole("button", { name: "Dừng và kết thúc" }).click();
-    await expect(page.getByRole("button", { name: "Xoá" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Xoá cuộc họp" })).toBeVisible();
+    // The minutes open on their own tab once they are written.
+    await expect(
+      page.getByText("Cuộc họp chốt ngân sách quý 4 trước thứ Năm", { exact: false }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: `../output/playwright/meetings-minutes-${width}.png`,
+      fullPage: true,
+    });
+    await page.getByRole("tab", { name: /Việc cần làm/ }).click();
+    const action = page.getByRole("tabpanel").getByRole("listitem").first();
+    await expect(action.getByText("Kiểm tra lại các bảng cân đối", { exact: true })).toBeVisible();
+    await expect(action.getByText("Anh Minh", { exact: true })).toBeVisible();
+    await expect(action.getByText("thứ Tư", { exact: true })).toBeVisible();
+    await expect(
+      action.getByText("Vậy anh Minh kiểm tra lại các bảng cân đối", { exact: false }),
+    ).toBeVisible();
+    // The tick is stored before it shows, so the assertion waits rather than check() asserting at once.
+    await page.getByRole("checkbox", { name: /Đánh dấu xong/ }).click();
+    await expect(page.getByRole("checkbox", { name: /Đánh dấu xong/ })).toBeChecked();
+    await page.getByRole("tab", { name: /Quyết định/ }).click();
+    await expect(
+      page.getByRole("tabpanel").getByText("Chốt ngân sách quý 4 trước thứ Năm", { exact: true }),
+    ).toBeVisible();
+    await page.getByRole("tab", { name: /Việc cần làm/ }).click();
+    await page.screenshot({
+      path: `../output/playwright/meetings-actions-${width}.png`,
+      fullPage: true,
+    });
     expect(audio.ended).toBe(true);
     await expect(page.getByRole("timer")).toHaveCount(0);
     expect(

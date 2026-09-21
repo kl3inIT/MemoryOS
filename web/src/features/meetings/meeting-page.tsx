@@ -1,25 +1,35 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import {
-  ArrowLeft,
+  CheckSquare,
+  Clock,
   Lock,
+  MessageSquareText,
   Mic,
+  Gavel,
   MonitorSpeaker,
   Pause,
+  RefreshCw,
   Play,
   Square,
   Trash2,
   Users,
+  WifiOff,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
+import { BrandLoader } from "@/components/brand-loader";
+import { DangerZone } from "@/components/composites/danger-zone";
+import { DetailHeader } from "@/components/composites/detail-header";
+import { EmptyState } from "@/components/composites/empty-state";
+import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DotMatrix } from "@/components/ui/dot-matrix";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SettingsLayout } from "@/components/ui/settings-layout";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { i18n } from "@/i18n";
@@ -42,13 +52,16 @@ import {
   formatClock,
   formatWhen,
   loadMeeting,
+  markMinutesItem,
   meetingKey,
   meetingsKey,
   nameSpeaker,
   removeMeeting,
+  rerunMinutes,
   saveMeetingNotes,
   trackOffsets,
   type MeetingDetail,
+  type MeetingMinutesItem,
 } from "./meetings-api";
 
 type Translate = ReturnType<typeof useAppTranslation>;
@@ -98,9 +111,9 @@ function socketMessage(code: string, ui: Translate) {
       return ui("Máy chủ đang bận. Hãy thử lại sau ít phút.");
     case "MEETING_PROVIDER_FAILED":
     case "MEETING_UNAVAILABLE":
-      return ui("Dịch vụ nhận dạng giọng nói không phản hồi. Những gì đã ghi vẫn được lưu.");
+      return ui("Dịch vụ nhận dạng giọng nói không phản hồi. Phần đã ghi vẫn được lưu.");
     default:
-      return ui("Mất kết nối và không nối lại được. Những gì đã ghi vẫn được lưu.");
+      return ui("Mất kết nối và không nối lại được. Phần đã ghi vẫn được lưu.");
   }
 }
 
@@ -123,28 +136,40 @@ export function MeetingPage({
   const recorder = live?.meetingId === meetingId ? live.recorder : undefined;
   const snapshot = useRecorderSnapshot(recorder);
   const [tabMissing, setTabMissing] = useState(!!tabAudioMissing);
+  const [pane, setPane] = useState<string>();
   const [actionError, setActionError] = useState<string>();
   const [pending, setPending] = useState(false);
 
   if (meeting.isPending)
     return (
       <AppShell pageTitle={ui("Cuộc họp")}>
-        <SettingsLayout wide>
-          <Skeleton className="h-10 w-1/2" />
-          <Skeleton className="h-64 rounded-xl" />
+        <SettingsLayout wide className="gap-6 md:pt-8">
+          <DetailHeader parent={{ label: ui("Cuộc họp"), to: "/meetings" }} icon={<Mic />} />
+          <div
+            role="status"
+            className="flex justify-center rounded-xl border border-border-subtle px-6 py-20"
+          >
+            <BrandLoader label={ui("Đang tải cuộc họp")} />
+          </div>
         </SettingsLayout>
       </AppShell>
     );
   if (meeting.isError)
     return (
       <AppShell pageTitle={ui("Cuộc họp")}>
-        <SettingsLayout wide>
-          <p role="alert" className="text-sm text-status-danger-content">
-            {problemMessage(presentProblem(meeting.error, "initialLoad").message)}
-          </p>
-          <Link to="/meetings" className="text-sm underline">
-            {ui("Về danh sách cuộc họp")}
-          </Link>
+        <SettingsLayout wide className="gap-6 md:pt-8">
+          <DetailHeader parent={{ label: ui("Cuộc họp"), to: "/meetings" }} icon={<Mic />} />
+          <EmptyState
+            role="alert"
+            icon={<WifiOff />}
+            title={ui("Chưa xem được cuộc họp này")}
+            detail={problemMessage(presentProblem(meeting.error, "initialLoad").message)}
+            action={
+              <Button size="sm" prominence="secondary" onClick={() => void meeting.refetch()}>
+                {ui("Thử lại")}
+              </Button>
+            }
+          />
         </SettingsLayout>
       </AppShell>
     );
@@ -208,6 +233,10 @@ export function MeetingPage({
     }
   }
 
+  const duration = recording
+    ? snapshot.elapsedMs
+    : data.utterances.reduce((longest, utterance) => Math.max(longest, utterance.endMs), 0);
+  const named = data.speakers.filter((speaker) => speaker.name).length;
   const tab = snapshot.tracks.find((track) => track.track === "TAB");
   const reconnecting = snapshot.tracks.some((track) => track.reconnecting);
 
@@ -223,101 +252,105 @@ export function MeetingPage({
           ui={ui}
         />
       )}
-      <SettingsLayout wide className="gap-5">
-        <div className="grid gap-2">
-          <Link
-            to="/meetings"
-            className="inline-flex w-fit items-center gap-1 text-sm text-content-muted hover:text-content-primary"
-          >
-            <ArrowLeft className="size-4" aria-hidden="true" />
-            {ui("Cuộc họp")}
-          </Link>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <h1 className="min-w-0 break-words font-heading-h2 text-content-primary">
-              {data.title}
-            </h1>
-            <div className="flex flex-wrap gap-2">
-              {data.status === "RECORDING" && !recording && (
-                <>
-                  <Button
-                    pending={pending}
-                    disabled={!!live || captureSupport() === "unsupported"}
-                    onClick={() => void resume()}
-                  >
-                    <Mic aria-hidden="true" />
-                    {ui("Tiếp tục ghi")}
-                  </Button>
-                  <ConfirmDialog
-                    trigger={
-                      <Button prominence="secondary">
-                        <Square aria-hidden="true" />
-                        {ui("Kết thúc cuộc họp")}
-                      </Button>
-                    }
-                    title={ui("Kết thúc cuộc họp?")}
-                    description={ui("Sau khi kết thúc, cuộc họp này không ghi tiếp được nữa.")}
-                    confirmLabel={ui("Kết thúc")}
-                    pendingLabel={ui("Đang kết thúc…")}
-                    onConfirm={end}
-                  />
-                </>
+      <SettingsLayout wide className="gap-5 md:pt-8">
+        <DetailHeader
+          parent={{ label: ui("Cuộc họp"), to: "/meetings" }}
+          icon={<Mic />}
+          title={data.title}
+          description={
+            <span className="flex flex-wrap gap-x-4 gap-y-1">
+              <span>{formatWhen(data.createdAt, i18n.language)}</span>
+              <span className="inline-flex items-center gap-1">
+                {data.kind === "ONLINE" ? (
+                  <MonitorSpeaker className="size-3.5" aria-hidden="true" />
+                ) : (
+                  <Mic className="size-3.5" aria-hidden="true" />
+                )}
+                {data.kind === "ONLINE" ? ui("Họp online") : ui("Họp trực tiếp")}
+              </span>
+              {data.participants.length > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  <Users className="size-3.5" aria-hidden="true" />
+                  {data.participants.join(", ")}
+                </span>
               )}
-              {data.status === "ENDED" && (
+              <span className="inline-flex items-center gap-1">
+                <Lock className="size-3.5" aria-hidden="true" />
+                {ui("Chỉ mình bạn")}
+              </span>
+            </span>
+          }
+          actions={
+            data.status === "RECORDING" && !recording ? (
+              <>
+                <Button
+                  pending={pending}
+                  disabled={!!live || captureSupport() === "unsupported"}
+                  onClick={() => void resume()}
+                >
+                  <Mic aria-hidden="true" />
+                  {ui("Tiếp tục ghi")}
+                </Button>
                 <ConfirmDialog
                   trigger={
-                    <Button prominence="secondary" tone="danger">
-                      <Trash2 aria-hidden="true" />
-                      {ui("Xoá")}
+                    <Button prominence="secondary">
+                      <Square aria-hidden="true" />
+                      {ui("Kết thúc cuộc họp")}
                     </Button>
                   }
-                  title={ui("Xoá cuộc họp?")}
-                  description={ui(
-                    "Transcript, tên người nói và ghi chú của cuộc họp này sẽ bị xoá vĩnh viễn.",
-                  )}
-                  confirmLabel={ui("Xoá")}
-                  pendingLabel={ui("Đang xoá…")}
-                  confirmTone="danger"
-                  onConfirm={async () => {
-                    await removeMeeting(meetingId);
-                    cache.removeQueries({ queryKey: meetingKey(meetingId) });
-                    void cache.invalidateQueries({ queryKey: meetingsKey, exact: true });
-                    await navigate({ to: "/meetings" });
-                  }}
+                  title={ui("Kết thúc cuộc họp?")}
+                  description={ui("Sau khi kết thúc, cuộc họp không ghi tiếp được.")}
+                  confirmLabel={ui("Kết thúc")}
+                  pendingLabel={ui("Đang kết thúc…")}
+                  onConfirm={end}
                 />
-              )}
-            </div>
-          </div>
-          <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-content-muted">
-            <span>{formatWhen(data.createdAt, i18n.language)}</span>
-            <span className="inline-flex items-center gap-1">
-              {data.kind === "ONLINE" ? (
-                <MonitorSpeaker className="size-3.5" aria-hidden="true" />
-              ) : (
-                <Mic className="size-3.5" aria-hidden="true" />
-              )}
-              {data.kind === "ONLINE" ? ui("Họp online") : ui("Họp trực tiếp")}
-            </span>
-            {data.participants.length > 0 && (
-              <span className="inline-flex items-center gap-1">
-                <Users className="size-3.5" aria-hidden="true" />
-                {data.participants.join(", ")}
-              </span>
-            )}
-            <span className="inline-flex items-center gap-1">
-              <Lock className="size-3.5" aria-hidden="true" />
-              {ui("Chỉ mình bạn")}
-            </span>
-          </p>
-        </div>
+              </>
+            ) : undefined
+          }
+        />
+
+        <StatStrip columns={4}>
+          <StatTile
+            label={ui("Thời lượng")}
+            icon={<Clock />}
+            iconClass="text-chart-1"
+            value={formatClock(duration)}
+            hint={recording ? ui("Đang ghi") : undefined}
+          />
+          <StatTile
+            label={ui("Số câu")}
+            icon={<MessageSquareText />}
+            iconClass="text-chart-3"
+            value={data.utterances.length}
+          />
+          <StatTile
+            label={ui("Người nói")}
+            icon={<Users />}
+            iconClass="text-chart-6"
+            value={data.speakers.length}
+            hint={named > 0 ? ui("{{count}} đã đặt tên", { count: named }) : ui("Chưa đặt tên")}
+          />
+          <StatTile
+            label={ui("Nhận dạng")}
+            icon={<Mic />}
+            iconClass={data.provider ? "text-chart-2" : "text-content-muted"}
+            value={data.provider ?? "—"}
+            hint={
+              data.provider
+                ? data.diarized
+                  ? ui("Có tách người nói")
+                  : ui("Không tách người nói")
+                : undefined
+            }
+          />
+        </StatStrip>
 
         {data.status === "RECORDING" && !recording && !pending && (
           <p
             role="status"
             className="rounded-xl border border-border-default bg-surface-sunken px-4 py-3 text-sm text-content-secondary"
           >
-            {ui(
-              "Cuộc họp này chưa kết thúc nhưng không còn ghi, có thể do tab đã đóng. Bấm “Tiếp tục ghi” để ghi tiếp đúng mốc thời gian, hoặc kết thúc cuộc họp.",
-            )}
+            {ui("Cuộc họp chưa kết thúc nhưng không còn ghi. Ghi tiếp sẽ nối đúng mốc thời gian.")}
           </p>
         )}
         {recording && data.kind === "ONLINE" && (tabMissing || tab?.ended) && (
@@ -330,9 +363,7 @@ export function MeetingPage({
           >
             {tab?.ended
               ? ui("Tab cuộc họp đã dừng chia sẻ, nên chỉ còn ghi giọng của bạn.")
-              : ui(
-                  "Chưa có âm thanh của tab cuộc họp, có thể bạn chưa bật “Chia sẻ cả âm thanh của thẻ”. Hiện chỉ ghi giọng của bạn.",
-                )}
+              : ui("Chưa bật “Chia sẻ cả âm thanh của thẻ”, nên chỉ ghi giọng của bạn.")}
           </Warning>
         )}
         {recording && tab?.quiet && !tab.ended && (
@@ -343,9 +374,7 @@ export function MeetingPage({
               </Button>
             }
           >
-            {ui(
-              "Không nghe thấy âm thanh từ tab cuộc họp hơn 20 giây. Nếu mọi người đang nói, có thể âm thanh tab chưa được chia sẻ.",
-            )}
+            {ui("Không nghe thấy tab cuộc họp hơn 20 giây. Có thể âm thanh tab chưa được chia sẻ.")}
           </Warning>
         )}
         {reconnecting && (
@@ -353,7 +382,7 @@ export function MeetingPage({
             role="status"
             className="rounded-xl bg-status-info-surface px-4 py-3 text-sm text-status-info-content"
           >
-            {ui("Đang kết nối lại… Âm thanh vẫn được giữ và sẽ gửi tiếp khi có kết nối.")}
+            {ui("Đang kết nối lại… Âm thanh vẫn được giữ.")}
           </p>
         )}
         {recorder && snapshot.phase === "failed" && snapshot.error && (
@@ -373,11 +402,45 @@ export function MeetingPage({
           </p>
         )}
 
-        <Tabs defaultValue="transcript">
+        {/* The minutes take the reader's place as soon as they land, as ghiam-pro's conclusion tab does. */}
+        <Tabs
+          value={pane ?? (data.minutes.status === "READY" ? "summary" : "transcript")}
+          onValueChange={setPane}
+        >
           <TabsList>
+            {data.minutes.status !== "NONE" && (
+              <TabsTrigger value="summary">{ui("Tóm tắt")}</TabsTrigger>
+            )}
+            {data.minutes.actions.length > 0 && (
+              <TabsTrigger value="actions">
+                {ui("Việc cần làm")}
+                <span className="ml-1.5 rounded-full bg-surface-subtle px-1.5 text-xs">
+                  {data.minutes.actions.length}
+                </span>
+              </TabsTrigger>
+            )}
+            {data.minutes.decisions.length > 0 && (
+              <TabsTrigger value="decisions">
+                {ui("Quyết định")}
+                <span className="ml-1.5 rounded-full bg-surface-subtle px-1.5 text-xs">
+                  {data.minutes.decisions.length}
+                </span>
+              </TabsTrigger>
+            )}
             <TabsTrigger value="transcript">{ui("Transcript")}</TabsTrigger>
             <TabsTrigger value="notes">{ui("Ghi chú của tôi")}</TabsTrigger>
           </TabsList>
+          {data.minutes.status !== "NONE" && (
+            <TabsContent value="summary" className="pt-4">
+              <MinutesSummary meeting={data} ui={ui} />
+            </TabsContent>
+          )}
+          <TabsContent value="actions" className="pt-4">
+            <MinutesItems meeting={data} items={data.minutes.actions} kind="ACTION" ui={ui} />
+          </TabsContent>
+          <TabsContent value="decisions" className="pt-4">
+            <MinutesItems meeting={data} items={data.minutes.decisions} kind="DECISION" ui={ui} />
+          </TabsContent>
           <TabsContent value="transcript" className="pt-4">
             <Transcript meeting={data} snapshot={recording ? snapshot : idle} ui={ui} />
           </TabsContent>
@@ -385,8 +448,206 @@ export function MeetingPage({
             <Notes meeting={data} ui={ui} />
           </TabsContent>
         </Tabs>
+
+        {data.status === "ENDED" && (
+          <DangerZone
+            icon={<Trash2 />}
+            title={ui("Xoá cuộc họp này")}
+            description={ui("Transcript, tên người nói và ghi chú sẽ mất vĩnh viễn.")}
+            action={
+              <ConfirmDialog
+                trigger={
+                  <Button tone="danger" prominence="secondary">
+                    {ui("Xoá cuộc họp")}
+                  </Button>
+                }
+                title={ui("Xoá {{v1}}?", { v1: data.title })}
+                description={ui(
+                  "Transcript, tên người nói và ghi chú của cuộc họp này sẽ bị xoá vĩnh viễn.",
+                )}
+                confirmLabel={ui("Xoá")}
+                pendingLabel={ui("Đang xoá…")}
+                confirmTone="danger"
+                onConfirm={async () => {
+                  await removeMeeting(meetingId);
+                  cache.removeQueries({ queryKey: meetingKey(meetingId) });
+                  void cache.invalidateQueries({ queryKey: meetingsKey, exact: true });
+                  await navigate({ to: "/meetings" });
+                }}
+              />
+            }
+          />
+        )}
       </SettingsLayout>
     </AppShell>
+  );
+}
+
+/** The model's account of the meeting, with what it is still doing or why it could not. */
+function MinutesSummary({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
+  const cache = useQueryClient();
+  const [pending, setPending] = useState(false);
+  const { status, summary, generatedAt } = meeting.minutes;
+
+  async function rerun() {
+    setPending(true);
+    try {
+      cache.setQueryData(meetingKey(meeting.id), await rerunMinutes(meeting.id));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  if (status === "PENDING" || status === "RUNNING")
+    return (
+      <p
+        role="status"
+        className="rounded-xl bg-status-info-surface px-4 py-3 text-sm text-status-info-content"
+      >
+        {ui("Đang viết tóm tắt, quyết định và việc cần làm…")}
+      </p>
+    );
+  if (status === "FAILED")
+    return (
+      <EmptyState
+        role="alert"
+        icon={<WifiOff />}
+        title={ui("Chưa viết được tóm tắt")}
+        detail={ui("Transcript vẫn còn nguyên. Thử lại khi mô hình sẵn sàng.")}
+        action={
+          <Button size="sm" prominence="secondary" pending={pending} onClick={() => void rerun()}>
+            <RefreshCw aria-hidden="true" />
+            {ui("Viết lại")}
+          </Button>
+        }
+      />
+    );
+  return (
+    <div className="grid gap-3">
+      <div className="flex flex-wrap items-center gap-3 text-xs text-content-muted">
+        {generatedAt && (
+          <span>{ui("Viết lúc {{when}}", { when: formatWhen(generatedAt, i18n.language) })}</span>
+        )}
+        <Button size="sm" prominence="tertiary" pending={pending} onClick={() => void rerun()}>
+          <RefreshCw aria-hidden="true" />
+          {ui("Viết lại")}
+        </Button>
+      </div>
+      <p className="whitespace-pre-wrap text-content-secondary">{summary}</p>
+    </div>
+  );
+}
+
+/** Decisions and action items, each with the sentence it rests on. */
+function MinutesItems({
+  meeting,
+  items,
+  kind,
+  ui,
+}: {
+  meeting: MeetingDetail;
+  items: MeetingMinutesItem[];
+  kind: "ACTION" | "DECISION";
+  ui: Translate;
+}) {
+  const cache = useQueryClient();
+  const [failed, setFailed] = useState(false);
+  if (items.length === 0)
+    return (
+      <EmptyState
+        icon={kind === "ACTION" ? <CheckSquare /> : <Gavel />}
+        title={
+          kind === "ACTION" ? ui("Không có việc nào được giao") : ui("Không có quyết định nào")
+        }
+      />
+    );
+
+  async function toggle(item: MeetingMinutesItem, done: boolean) {
+    setFailed(false);
+    try {
+      cache.setQueryData(meetingKey(meeting.id), await markMinutesItem(meeting.id, item.id, done));
+    } catch {
+      setFailed(true);
+    }
+  }
+
+  return (
+    <>
+      {failed && (
+        <p role="alert" className="mb-2 text-sm text-status-danger-content">
+          {ui("Chưa lưu được thay đổi. Hãy thử lại.")}
+        </p>
+      )}
+      <ul className="grid gap-1">
+        {items.map((item) => (
+          <li
+            key={item.id}
+            className="grid grid-cols-[auto_1fr] gap-x-3 rounded-lg px-2 py-2 hover:bg-surface-base"
+          >
+            {kind === "ACTION" ? (
+              <Checkbox
+                className="mt-1"
+                checked={item.done}
+                aria-label={ui("Đánh dấu xong: {{text}}", { text: item.text })}
+                onCheckedChange={(checked) => void toggle(item, checked === true)}
+              />
+            ) : (
+              <Gavel className="mt-1 size-4 text-content-muted" aria-hidden="true" />
+            )}
+            <div className="min-w-0">
+              <p
+                className={cn(
+                  "text-content-primary",
+                  item.done && "text-content-muted line-through",
+                )}
+              >
+                {item.text}
+              </p>
+              {(item.owner || item.due) && (
+                <p className="mt-0.5 flex flex-wrap gap-3 text-xs text-content-secondary">
+                  {item.owner && (
+                    <span className="inline-flex items-center gap-1">
+                      <Users className="size-3" aria-hidden="true" />
+                      {item.owner}
+                    </span>
+                  )}
+                  {item.due && (
+                    <span className="inline-flex items-center gap-1">
+                      <Clock className="size-3" aria-hidden="true" />
+                      {item.due}
+                    </span>
+                  )}
+                </p>
+              )}
+              {item.quote && (
+                <p className="mt-1 text-xs text-content-muted">
+                  {item.sourceUtteranceId && (
+                    <button
+                      type="button"
+                      className="mr-1.5 font-mono text-action-selection hover:underline"
+                      onClick={() => {
+                        const line = meeting.utterances.find(
+                          (utterance) => utterance.id === item.sourceUtteranceId,
+                        );
+                        if (line)
+                          document.getElementById(line.id)?.scrollIntoView({ block: "center" });
+                      }}
+                    >
+                      {formatClock(
+                        meeting.utterances.find(
+                          (utterance) => utterance.id === item.sourceUtteranceId,
+                        )?.startMs ?? 0,
+                      )}
+                    </button>
+                  )}
+                  “{item.quote}”
+                </p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 
@@ -504,12 +765,9 @@ function RecordingBar({
           </Button>
         }
         title={ui("Dừng ghi và kết thúc cuộc họp?")}
-        description={ui(
-          "Những gì đã nói đến {{time}} đã được lưu. Sau khi dừng, cuộc họp này không ghi tiếp được.",
-          {
-            time: formatClock(snapshot.elapsedMs),
-          },
-        )}
+        description={ui("Đã lưu đến {{time}}. Sau khi dừng, cuộc họp không ghi tiếp được.", {
+          time: formatClock(snapshot.elapsedMs),
+        })}
         confirmLabel={ui("Dừng và kết thúc")}
         pendingLabel={ui("Đang lưu phần cuối…")}
         confirmTone="danger"
@@ -537,9 +795,7 @@ function Transcript({
   if (meeting.utterances.length === 0 && previews.length === 0)
     return (
       <p className="rounded-xl border border-dashed border-border-default px-4 py-8 text-center text-sm text-content-muted">
-        {snapshot.phase === "recording"
-          ? ui("Đang nghe… Transcript sẽ hiện khi có người nói.")
-          : ui("Cuộc họp này chưa có transcript.")}
+        {snapshot.phase === "recording" ? ui("Đang nghe…") : ui("Cuộc họp này chưa có transcript.")}
       </p>
     );
   return (
@@ -734,12 +990,11 @@ function Notes({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
 
   return (
     <div className="grid gap-2">
-      <label htmlFor={`${id}-notes`} className="text-sm text-content-muted">
-        {ui("Ghi chú riêng của bạn. Không ai khác xem được.")}
-      </label>
       <Textarea
         id={`${id}-notes`}
         value={value}
+        aria-label={ui("Ghi chú của tôi")}
+        placeholder={ui("Ghi trong lúc họp; chỉ mình bạn xem được.")}
         maxLength={50_000}
         rows={12}
         onChange={(event) => change(event.target.value)}
@@ -751,7 +1006,7 @@ function Notes({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
           : state === "saved"
             ? ui("Đã lưu")
             : state === "conflict"
-              ? ui("Ghi chú vừa được sửa ở nơi khác. Tải lại trang để xem bản mới.")
+              ? ui("Ghi chú vừa đổi ở nơi khác. Tải lại trang.")
               : ui("Chưa lưu")}
       </p>
     </div>

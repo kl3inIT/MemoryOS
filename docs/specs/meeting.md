@@ -34,3 +34,17 @@ Each track is one provider stream over the Tenant's default speech-to-text conne
 - **Other providers** have no live protocol: audio is cut into utterances after 800 ms of silence or at 30 seconds, silence never reaches the provider, and each utterance is transcribed through the provider's REST adapter with speaker `1`.
 
 Utterances are stored as they are committed, with their speaker row created on first use. Naming a speaker (`PUT /api/meetings/{id}/speakers/{track}/{label}`) applies to every utterance of that speaker; a blank name restores the automatic label.
+
+## Minutes
+
+Ending a meeting that has a transcript queues its minutes; a meeting nobody spoke in has none. `POST /api/meetings/{id}/minutes` queues them again after the transcript, the speaker names or the owner's notes changed, and refuses a meeting still recording or without a transcript.
+
+`minutes.status` is `NONE`, `PENDING`, `RUNNING`, `READY` or `FAILED`. A `FAILED` meeting carries a code, never provider text, and keeps its transcript.
+
+The job runs in the API process, where the model catalog lives, on a fixed delay (`memoryos.meeting.minutes-interval`, five seconds). It takes the oldest waiting meeting with `FOR UPDATE SKIP LOCKED`, leases it for ten minutes and raises its attempt count, so several API replicas never summarize the same meeting and a meeting that fails three times stops being retried. The model call happens outside any transaction; only the claim and the result are transactional, and a lease that lapsed mid-run loses the write to the replica that took the meeting over.
+
+One call to the Tenant's model for `MEETING_MINUTES`, no tools and no conversation, produces a structured `summary`, a `kind`, `decisions` and `actions`. The transcript reaches the model as numbered lines (`[n] hh:mm:ss Speaker: text`) under the title, the participants, the meeting time and the owner's notes; speakers appear under the names the owner gave them. Past 120,000 characters both ends are kept and the model is told part of the meeting is missing. The prompt forbids inventing a decision, an action, an owner or a date, requires an explicit assignment before work becomes an action, refuses to assign work to a group, and treats the transcript as untrusted data.
+
+Each item cites the line it rests on; that line number becomes the utterance id, so the owner can jump from an item to what was said. An item without text is dropped, an owner or due date is at most 100 characters and text or a quote at most 2,000. The call's tokens are recorded as `MEETING_MINUTES` usage against the owner's Tenant.
+
+`PUT /api/meetings/{id}/minutes/{itemId}` ticks an action off; an item that is not the owner's answers `MEETING_NOT_FOUND`.

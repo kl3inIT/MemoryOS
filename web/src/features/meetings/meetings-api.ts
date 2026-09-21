@@ -6,18 +6,22 @@ import {
   endMeeting,
   getMeeting,
   listMeetings,
+  markMeetingMinutesItem,
   nameMeetingSpeaker,
+  rerunMeetingMinutes,
   updateMeetingNotes,
 } from "@/lib/hey-api/sdk.gen";
 import type {
   MeetingCreateRequest,
   MeetingDetail,
+  MeetingMinutes,
+  MeetingMinutesItem,
   MeetingSummary,
   MeetingUtterance,
 } from "@/lib/hey-api/types.gen";
 import type { MeetingTrack } from "./meeting-socket";
 
-export type { MeetingDetail, MeetingSummary, MeetingUtterance };
+export type { MeetingDetail, MeetingMinutes, MeetingMinutesItem, MeetingSummary, MeetingUtterance };
 export type MeetingKind = MeetingDetail["kind"];
 
 export const meetingsKey = ["meetings"] as const;
@@ -80,6 +84,25 @@ export async function nameSpeaker(
 export async function finishMeeting(meetingId: string) {
   const { data } = await endMeeting({
     path: { meetingId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function rerunMinutes(meetingId: string) {
+  const { data } = await rerunMeetingMinutes({
+    path: { meetingId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function markMinutesItem(meetingId: string, itemId: string, done: boolean) {
+  const { data } = await markMeetingMinutesItem({
+    path: { meetingId, itemId },
+    body: { done },
     headers: sameOriginMutationHeaders,
     throwOnError: true,
   });

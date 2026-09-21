@@ -362,6 +362,69 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}/minutes/{itemId}:
+    put:
+      tags:
+      - Meetings
+      summary: Tick off a task the minutes found
+      operationId: markMeetingMinutesItem
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingItemRequest"
+        required: true
+      responses:
+        "200":
+          description: The meeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting or item not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/mcp/servers/{serverId}:
     get:
       tags:
@@ -4062,6 +4125,7 @@ paths:
           type: string
           enum:
           - CHAT_NAMING
+          - MEETING_MINUTES
       - name: modelConfigurationId
         in: query
         required: false
@@ -5724,6 +5788,57 @@ paths:
                 $ref: "#/components/schemas/ApiProblem"
         "409":
           description: The meeting has ended
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/minutes:
+    post:
+      tags:
+      - Meetings
+      summary: Write the minutes again after the meeting changed
+      operationId: rerunMeetingMinutes
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: "The meeting, with its minutes queued"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting not available
           content:
             application/problem+json:
               schema:
@@ -13987,6 +14102,7 @@ paths:
           - IMAGE_EDIT
           - SPEECH_TO_TEXT
           - TEXT_TO_SPEECH
+          - MEETING_MINUTES
       responses:
         "400":
           description: Invalid period or filter
@@ -14206,6 +14322,7 @@ paths:
           - IMAGE_EDIT
           - SPEECH_TO_TEXT
           - TEXT_TO_SPEECH
+          - MEETING_MINUTES
       responses:
         "400":
           description: Invalid period or filter
@@ -14292,6 +14409,7 @@ paths:
           - IMAGE_EDIT
           - SPEECH_TO_TEXT
           - TEXT_TO_SPEECH
+          - MEETING_MINUTES
       responses:
         "400":
           description: Invalid period or filter
@@ -15108,6 +15226,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MeetingUtterance"
+        minutes:
+          $ref: "#/components/schemas/MeetingMinutes"
       required:
       - createdAt
       - diarized
@@ -15115,6 +15235,7 @@ components:
       - id
       - kind
       - language
+      - minutes
       - notes
       - participants
       - provider
@@ -15124,6 +15245,85 @@ components:
       - terms
       - title
       - utterances
+    MeetingMinutes:
+      type: object
+      description: What the model made of the meeting once it ended
+      properties:
+        status:
+          type: string
+          enum:
+          - NONE
+          - PENDING
+          - RUNNING
+          - READY
+          - FAILED
+        failure:
+          type:
+          - string
+          - "null"
+        summary:
+          type: string
+        kind:
+          type: string
+          description: What kind of meeting this was
+        generatedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingMinutesItem"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingMinutesItem"
+      required:
+      - actions
+      - decisions
+      - failure
+      - generatedAt
+      - kind
+      - status
+      - summary
+    MeetingMinutesItem:
+      type: object
+      description: A decision the meeting reached or work it handed out
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type: string
+        owner:
+          type:
+          - string
+          - "null"
+        due:
+          type:
+          - string
+          - "null"
+        quote:
+          type:
+          - string
+          - "null"
+          description: The transcript sentence the item rests on
+        sourceUtteranceId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        done:
+          type: boolean
+      required:
+      - done
+      - due
+      - id
+      - owner
+      - quote
+      - sourceUtteranceId
+      - text
     MeetingSpeaker:
       type: object
       properties:
@@ -15186,6 +15386,13 @@ components:
       required:
       - notes
       - revision
+    MeetingItemRequest:
+      type: object
+      properties:
+        done:
+          type: boolean
+      required:
+      - done
     McpHeaderTemplateChange:
       type: object
       description: "Header values may contain secrets and are never returned; API-key\
@@ -16965,6 +17172,7 @@ components:
           type: string
           enum:
           - CHAT_NAMING
+          - MEETING_MINUTES
         modelConfigurationId:
           type:
           - string

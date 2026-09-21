@@ -107,12 +107,35 @@ public class MeetingService {
         return detail(tenant, actor, id);
     }
 
-    /** Ends recording. Ending twice is harmless; streams still open are closed by their sockets. */
+    /** Ends recording and queues the minutes. Ending twice is harmless; streams still open are closed by their sockets. */
     @Transactional
     public Meeting.Detail end(ActorId actor, UUID id) {
         UUID tenant = tenant(actor);
-        meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         meetings.end(tenant, id);
+        // A meeting nobody spoke in has nothing to summarize.
+        if (meeting.status() == Meeting.Status.RECORDING && !meetings.utterances(tenant, id).isEmpty())
+            meetings.queueMinutes(tenant, id);
+        return detail(tenant, actor, id);
+    }
+
+    /** Runs the minutes again, for a meeting whose transcript or notes changed after the first run. */
+    @Transactional
+    public Meeting.Detail rerunMinutes(ActorId actor, UUID id) {
+        UUID tenant = tenant(actor);
+        var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        if (meeting.status() != Meeting.Status.ENDED) throw MeetingException.invalid("The meeting is still recording.");
+        if (meetings.utterances(tenant, id).isEmpty()) throw MeetingException.invalid("This meeting has no transcript.");
+        meetings.queueMinutes(tenant, id);
+        return detail(tenant, actor, id);
+    }
+
+    /** Ticks off a task the minutes found. */
+    @Transactional
+    public Meeting.Detail markItem(ActorId actor, UUID id, UUID item, boolean done) {
+        UUID tenant = tenant(actor);
+        meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        if (!meetings.markItem(tenant, id, item, done)) throw MeetingException.notFound();
         return detail(tenant, actor, id);
     }
 
@@ -198,9 +221,14 @@ public class MeetingService {
 
     private Meeting.Detail detail(UUID tenant, ActorId actor, UUID id) {
         var row = meetings.find(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        var items = row.minutesStatus() == Meeting.MinutesStatus.READY ? meetings.minutesItems(tenant, id) : List.<Meeting.MinutesItem>of();
+        var minutes = new Meeting.Minutes(row.minutesStatus(), row.minutesFailure(), row.minutesSummary(), row.minutesKind(),
+                row.minutesGeneratedAt(),
+                items.stream().filter(item -> item.kind() == Meeting.ItemKind.DECISION).toList(),
+                items.stream().filter(item -> item.kind() == Meeting.ItemKind.ACTION).toList());
         return new Meeting.Detail(row.id(), row.title(), row.kind(), row.language(), row.participants(), row.terms(),
                 row.notes(), row.status(), row.provider(), row.diarized(), row.createdAt(), row.endedAt(), row.revision(),
-                meetings.speakers(tenant, id), meetings.utterances(tenant, id));
+                meetings.speakers(tenant, id), meetings.utterances(tenant, id), minutes);
     }
 
     private UUID tenant(ActorId actor) {

@@ -7,7 +7,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -113,13 +112,10 @@ export function NewMeetingDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl" aria-describedby={undefined}>
         <form onSubmit={(event) => void start(event)} className="grid gap-5">
           <DialogHeader>
             <DialogTitle>{ui("Ghi cuộc họp mới")}</DialogTitle>
-            <DialogDescription>
-              {ui("Không có bot nào vào cuộc gọi. MemoryOS chỉ lưu văn bản, không lưu âm thanh.")}
-            </DialogDescription>
           </DialogHeader>
           {support === "unsupported" && (
             <p
@@ -127,7 +123,7 @@ export function NewMeetingDialog({
               className="rounded-xl bg-status-warning-surface px-4 py-3 text-sm text-status-warning-content"
             >
               {ui(
-                "Trình duyệt này chưa ghi được cuộc họp. Hãy dùng Chrome hoặc Edge trên máy tính, hoặc Chrome trên điện thoại để ghi bằng micro.",
+                "Trình duyệt này chưa ghi được. Hãy dùng Chrome hoặc Edge trên máy tính, hoặc Chrome trên điện thoại.",
               )}
             </p>
           )}
@@ -152,7 +148,7 @@ export function NewMeetingDialog({
                 onChange={(event) => setParticipants(event.target.value)}
               />
               <p id={`${id}-participants-hint`} className="text-xs text-content-muted">
-                {ui("Dùng để gán tên người nói trong transcript. Cách nhau bằng dấu phẩy.")}
+                {ui("Cách nhau bằng dấu phẩy; dùng để gán tên người nói.")}
               </p>
             </div>
             <div className="grid gap-2">
@@ -177,9 +173,6 @@ export function NewMeetingDialog({
                       <MonitorSpeaker className="size-4" aria-hidden="true" />
                       {ui("Họp online")}
                     </span>
-                    <span className="text-xs text-content-muted">
-                      {ui("Micro của bạn và âm thanh tab Meet, Zoom hoặc Teams")}
-                    </span>
                   </span>
                 </Label>
                 <Label
@@ -192,17 +185,12 @@ export function NewMeetingDialog({
                       <Mic className="size-4" aria-hidden="true" />
                       {ui("Họp trực tiếp")}
                     </span>
-                    <span className="text-xs text-content-muted">
-                      {ui("Chỉ dùng micro, nghe cả phòng; dùng được trên điện thoại")}
-                    </span>
                   </span>
                 </Label>
               </RadioGroup>
               {kind === "ONLINE" && (
                 <p className="text-xs text-content-muted">
-                  {ui(
-                    "Trình duyệt sẽ hỏi chia sẻ tab. Hãy chọn tab cuộc họp và bật “Chia sẻ cả âm thanh của thẻ”. Nên đeo tai nghe để tiếng loa không lọt vào micro.",
-                  )}
+                  {ui("Nhớ bật “Chia sẻ cả âm thanh của thẻ”, và nên đeo tai nghe.")}
                 </p>
               )}
             </div>
@@ -232,7 +220,7 @@ export function NewMeetingDialog({
                 onChange={(event) => setTerms(event.target.value)}
               />
               <p id={`${id}-terms-hint`} className="text-xs text-content-muted">
-                {ui("Tên riêng và từ chuyên ngành giúp nhận dạng chính xác hơn.")}
+                {ui("Giúp nhận dạng đúng tên riêng và từ chuyên ngành.")}
               </p>
             </div>
             <div className="flex items-start gap-3 rounded-xl border border-border-subtle bg-surface-base p-3">
@@ -243,9 +231,7 @@ export function NewMeetingDialog({
                 className="mt-0.5"
               />
               <Label htmlFor={`${id}-consent`} className="flex-1 font-normal">
-                {ui(
-                  "Tôi đã thông báo cho mọi người trong cuộc họp rằng buổi họp được ghi lại thành văn bản.",
-                )}
+                {ui("Tôi đã thông báo cho mọi người rằng buổi họp được ghi lại.")}
               </Label>
               <Button
                 type="button"

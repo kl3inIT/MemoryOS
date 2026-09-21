@@ -1,14 +1,54 @@
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
   // MEM-92 meetings
+  "Chưa lưu được thay đổi. Hãy thử lại.": "The change could not be saved. Try again.",
+  "Meeting minutes": "Meeting minutes",
+  "Writes the summary, decisions and action items of a recorded meeting.":
+    "Writes the summary, decisions and action items of a recorded meeting.",
+  "Meeting minutes model": "Meeting minutes model",
+  "Tóm tắt": "Summary",
+  "Việc cần làm": "Action items",
+  "Quyết định": "Decisions",
+  "Đang viết tóm tắt, quyết định và việc cần làm…":
+    "Writing the summary, decisions and action items…",
+  "Chưa viết được tóm tắt": "The minutes could not be written",
+  "Transcript vẫn còn nguyên. Thử lại khi mô hình sẵn sàng.":
+    "The transcript is intact. Try again when the model is available.",
+  "Viết lại": "Write again",
+  "Viết lúc {{when}}": "Written at {{when}}",
+  "Không có việc nào được giao": "No work was assigned",
+  "Không có quyết định nào": "No decisions were reached",
+  "Đánh dấu xong: {{text}}": "Mark done: {{text}}",
+  "Ghi trong lúc họp; chỉ mình bạn xem được.": "Write during the meeting; only you can see it.",
+  "Transcript, tên người nói và ghi chú sẽ mất vĩnh viễn.":
+    "The transcript, speaker names and notes are lost for good.",
+  "Thời lượng": "Duration",
+  "Số câu": "Utterances",
+  "Người nói": "Speakers",
+  "{{count}} đã đặt tên": "{{count}} named",
+  "Chưa đặt tên": "None named",
+  "Nhận dạng": "Recognition",
+  "Có tách người nói": "Separates speakers",
+  "Không tách người nói": "No speaker separation",
+  "Xoá {{v1}}?": "Delete {{v1}}?",
+  "Đang tải cuộc họp": "Loading meeting",
+  "Chưa xem được danh sách cuộc họp": "Meetings unavailable",
+  "Chưa xem được cuộc họp này": "This meeting is unavailable",
+  "Xoá bộ lọc": "Clear filters",
+  "Xoá cuộc họp này": "Delete this meeting",
+  "Xoá cuộc họp": "Delete meeting",
+  "Tìm theo tên cuộc họp": "Search by meeting name",
+  "Mọi trạng thái": "Any status",
+  "Thời gian": "Period",
+  "30 ngày qua": "Last 30 days",
+  "90 ngày qua": "Last 90 days",
+  "Không có cuộc họp nào khớp bộ lọc.": "No meeting matches these filters.",
   "Đang kết nối lại": "Reconnecting",
   "đang nói": "speaking",
   "{{count}} người": "{{count}} people",
   "7 ngày qua": "Last 7 days",
   "Anh Thanh, Chị Lan, Anh Minh": "Thanh, Lan, Minh",
   "Áp dụng cho mọi câu của {{name}}": "Applies to everything {{name}} said",
-  "Bấm “Ghi cuộc họp mới” khi cuộc họp bắt đầu. Transcript hiện ngay trong lúc họp.":
-    "Select “Record a meeting” when the meeting starts. The transcript appears while you meet.",
   Bạn: "You",
   "Bạn chưa chọn tab cuộc họp nên chưa bắt đầu ghi.":
     "No meeting tab was chosen, so recording has not started.",
@@ -17,15 +57,11 @@ export const vietnameseUi: Record<string, string> = {
   "Buổi họp hôm nay được ghi lại thành văn bản trên MemoryOS để làm biên bản. Nếu ai không đồng ý, xin báo ngay.":
     "Today's meeting is being transcribed in MemoryOS for the minutes. If you do not agree, please say so now.",
   "Câu thông báo": "Notice text",
-  "Chỉ bạn xem được các cuộc họp này. MemoryOS không lưu âm thanh, chỉ lưu văn bản.":
-    "Only you can see these meetings. MemoryOS keeps text only, never audio.",
-  "Chỉ dùng micro, nghe cả phòng; dùng được trên điện thoại":
-    "Microphone only, hears the whole room; works on phones",
   "Chỉ mình bạn": "Only you",
   "Chọn lại tab": "Choose the tab again",
   "Chọn tab họp": "Choose the meeting tab",
-  "Chưa có âm thanh của tab cuộc họp, có thể bạn chưa bật “Chia sẻ cả âm thanh của thẻ”. Hiện chỉ ghi giọng của bạn.":
-    "The meeting tab's audio is missing; “Share tab audio” may not have been ticked. Only your voice is being recorded.",
+  "Chưa bật “Chia sẻ cả âm thanh của thẻ”, nên chỉ ghi giọng của bạn.":
+    "“Share tab audio” is off, so only your voice is recorded.",
   "Chưa có cuộc họp nào": "No meetings yet",
   "Chưa kết thúc": "Not ended",
   "Chưa lưu": "Not saved",
@@ -34,32 +70,26 @@ export const vietnameseUi: Record<string, string> = {
   "Cuộc họp đã kết thúc nên không ghi tiếp được.":
     "The meeting has ended, so it cannot record any more.",
   "Cuộc họp này chưa có transcript.": "This meeting has no transcript yet.",
-  "Cuộc họp này chưa kết thúc nhưng không còn ghi, có thể do tab đã đóng. Bấm “Tiếp tục ghi” để ghi tiếp đúng mốc thời gian, hoặc kết thúc cuộc họp.":
-    "This meeting has not ended but is no longer recording, perhaps because its tab closed. Select “Resume recording” to continue at the right time, or end the meeting.",
+  "Cuộc họp chưa kết thúc nhưng không còn ghi. Ghi tiếp sẽ nối đúng mốc thời gian.":
+    "This meeting has not ended but is no longer recording. Resuming continues its clock.",
   "Đã kết thúc": "Ended",
   "Đã lưu": "Saved",
   "Đang ghi": "Recording",
   "Đang ghi một cuộc họp": "A meeting is recording",
-  "Đang kết nối lại… Âm thanh vẫn được giữ và sẽ gửi tiếp khi có kết nối.":
-    "Reconnecting… Audio is kept and sent once the connection is back.",
+  "Đang kết nối lại… Âm thanh vẫn được giữ.": "Reconnecting… Audio is kept.",
   "Đang kết thúc…": "Ending…",
   "Đang lưu phần cuối…": "Saving the last part…",
-  "Đang nghe… Transcript sẽ hiện khi có người nói.":
-    "Listening… The transcript appears when someone speaks.",
+  "Đang nghe…": "Listening…",
   "Đặt tên cho {{name}}": "Name {{name}}",
-  "Dịch vụ nhận dạng giọng nói không phản hồi. Những gì đã ghi vẫn được lưu.":
-    "The speech recognition service stopped responding. Everything recorded so far is saved.",
+  "Dịch vụ nhận dạng giọng nói không phản hồi. Phần đã ghi vẫn được lưu.":
+    "The speech service stopped responding. What was recorded is saved.",
   Dừng: "Stop",
-  "Dùng để gán tên người nói trong transcript. Cách nhau bằng dấu phẩy.":
-    "Used to name speakers in the transcript. Separate names with commas.",
+  "Cách nhau bằng dấu phẩy; dùng để gán tên người nói.":
+    "Separate with commas; used to name speakers.",
   "Dừng ghi và kết thúc cuộc họp?": "Stop recording and end the meeting?",
   "Dừng và kết thúc": "Stop and end",
-  "Ghi âm cuộc họp không cần bot, xem transcript và ghi chú. Chỉ bạn xem được.":
-    "Record meetings without a bot and read their transcripts and notes. Only you can see them.",
   "Ghi chú của tôi": "My notes",
-  "Ghi chú riêng của bạn. Không ai khác xem được.": "Your private notes. Nobody else can see them.",
-  "Ghi chú vừa được sửa ở nơi khác. Tải lại trang để xem bản mới.":
-    "These notes changed elsewhere. Reload the page to see the latest version.",
+  "Ghi chú vừa đổi ở nơi khác. Tải lại trang.": "These notes changed elsewhere. Reload the page.",
   "Ghi cuộc họp mới": "Record a meeting",
   "Hình thức": "Format",
   "Họp online": "Online meeting",
@@ -68,25 +98,21 @@ export const vietnameseUi: Record<string, string> = {
   "Kết thúc cuộc họp": "End meeting",
   "Kết thúc cuộc họp?": "End the meeting?",
   "Không chia sẻ được tab. Hãy thử lại.": "The tab could not be shared. Try again.",
-  "Không có bot nào vào cuộc gọi. MemoryOS chỉ lưu văn bản, không lưu âm thanh.":
-    "No bot joins the call. MemoryOS keeps text only, never audio.",
   "Không đổi được sau khi bắt đầu ghi.": "Cannot be changed once recording starts.",
   "Không đổi được tên. Hãy thử lại.": "The name could not be changed. Try again.",
-  "Không nghe thấy âm thanh từ tab cuộc họp hơn 20 giây. Nếu mọi người đang nói, có thể âm thanh tab chưa được chia sẻ.":
-    "No sound from the meeting tab for over 20 seconds. If people are talking, the tab's audio may not be shared.",
-  "Mất kết nối và không nối lại được. Những gì đã ghi vẫn được lưu.":
-    "The connection was lost and could not be restored. Everything recorded so far is saved.",
+  "Không nghe thấy tab cuộc họp hơn 20 giây. Có thể âm thanh tab chưa được chia sẻ.":
+    "No sound from the meeting tab for over 20 seconds. Its audio may not be shared.",
+  "Mất kết nối và không nối lại được. Phần đã ghi vẫn được lưu.":
+    "The connection was lost for good. What was recorded is saved.",
   "Máy chủ đang bận. Hãy thử lại sau ít phút.": "The server is busy. Try again in a few minutes.",
   Micro: "Microphone",
-  "Micro của bạn và âm thanh tab Meet, Zoom hoặc Teams":
-    "Your microphone and the Meet, Zoom or Teams tab audio",
   "Mỗi luồng âm thanh ghi tối đa 5 giờ.": "Each audio track records at most 5 hours.",
   "Ngôn ngữ": "Language",
   "Người nói {{label}}": "Speaker {{label}}",
-  "Những gì đã nói đến {{time}} đã được lưu. Sau khi dừng, cuộc họp này không ghi tiếp được.":
-    "Everything said up to {{time}} is saved. After stopping, this meeting cannot record any more.",
-  "Sau khi kết thúc, cuộc họp này không ghi tiếp được nữa.":
-    "After it ends, this meeting cannot record any more.",
+  "Đã lưu đến {{time}}. Sau khi dừng, cuộc họp không ghi tiếp được.":
+    "Saved up to {{time}}. After stopping, the meeting cannot record again.",
+  "Sau khi kết thúc, cuộc họp không ghi tiếp được.":
+    "After it ends, the meeting cannot record again.",
   "Tab cuộc họp đã dừng chia sẻ, nên chỉ còn ghi giọng của bạn.":
     "The meeting tab stopped sharing, so only your voice is recorded.",
   "Tab họp": "Meeting tab",
@@ -95,8 +121,7 @@ export const vietnameseUi: Record<string, string> = {
   "Tên cuộc họp": "Meeting name",
   "Tên khác": "Another name",
   "Tên người nói": "Speaker name",
-  "Tên riêng và từ chuyên ngành giúp nhận dạng chính xác hơn.":
-    "Names and domain terms make recognition more accurate.",
+  "Giúp nhận dạng đúng tên riêng và từ chuyên ngành.": "Helps recognise names and domain terms.",
   "Thành phần": "Participants",
   "Thời gian ghi": "Recording time",
   "Thuật ngữ riêng": "Domain terms",
@@ -104,17 +129,17 @@ export const vietnameseUi: Record<string, string> = {
   "Tiếng Việt xen tiếng Anh": "Vietnamese mixed with English",
   "Tiếp tục": "Resume",
   "Tiếp tục ghi": "Resume recording",
-  "Tôi đã thông báo cho mọi người trong cuộc họp rằng buổi họp được ghi lại thành văn bản.":
-    "I have told everyone in the meeting that it is being transcribed.",
+  "Tôi đã thông báo cho mọi người rằng buổi họp được ghi lại.":
+    "I have told everyone that this meeting is being recorded.",
   Transcript: "Transcript",
   "Transcript, tên người nói và ghi chú của cuộc họp này sẽ bị xoá vĩnh viễn.":
     "This meeting's transcript, speaker names and notes will be permanently deleted.",
   "Trình duyệt không cho dùng micro. Hãy cho phép micro rồi thử lại.":
     "The browser blocked the microphone. Allow the microphone and try again.",
-  "Trình duyệt này chưa ghi được cuộc họp. Hãy dùng Chrome hoặc Edge trên máy tính, hoặc Chrome trên điện thoại để ghi bằng micro.":
-    "This browser cannot record meetings yet. Use Chrome or Edge on a computer, or Chrome on a phone to record with the microphone.",
-  "Trình duyệt sẽ hỏi chia sẻ tab. Hãy chọn tab cuộc họp và bật “Chia sẻ cả âm thanh của thẻ”. Nên đeo tai nghe để tiếng loa không lọt vào micro.":
-    "The browser will ask to share a tab. Choose the meeting tab and turn on “Share tab audio”. Wear headphones so the speakers do not leak into the microphone.",
+  "Trình duyệt này chưa ghi được. Hãy dùng Chrome hoặc Edge trên máy tính, hoặc Chrome trên điện thoại.":
+    "This browser cannot record. Use Chrome or Edge on a computer, or Chrome on a phone.",
+  "Nhớ bật “Chia sẻ cả âm thanh của thẻ”, và nên đeo tai nghe.":
+    "Remember to turn on “Share tab audio”, and wear headphones.",
   "Về danh sách cuộc họp": "Back to meetings",
   "Ví dụ: Giao ban tuần": "For example: Weekly briefing",
   "Xoá cuộc họp?": "Delete the meeting?",

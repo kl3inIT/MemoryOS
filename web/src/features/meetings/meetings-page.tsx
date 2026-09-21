@@ -1,18 +1,14 @@
-import { useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Clock, Lock, Mic, MonitorSpeaker, Users } from "lucide-react";
+import { Clock, Mic, MonitorSpeaker, Search, Users, WifiOff } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { BrandLoader } from "@/components/brand-loader";
+import { EmptyState } from "@/components/composites/empty-state";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
-import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { i18n } from "@/i18n";
@@ -46,26 +42,52 @@ function groupMeetings(items: readonly MeetingSummary[], now = new Date()): Grou
   return groups;
 }
 
+/** The meetings a name search, a status and a period leave visible. */
+function matchingMeetings(
+  meetings: readonly MeetingSummary[],
+  query: string,
+  status: "all" | "RECORDING" | "ENDED",
+  period: "30" | "90" | "all",
+  now = Date.now(),
+) {
+  const since = period === "all" ? 0 : now - Number(period) * 86_400_000;
+  return meetings.filter(
+    (meeting) =>
+      (status === "all" || meeting.status === status) &&
+      Date.parse(meeting.createdAt) >= since &&
+      (query === "" || meeting.title.toLocaleLowerCase("vi").includes(query)),
+  );
+}
+
 export function MeetingsPage() {
   const ui = useAppTranslation();
   const problemMessage = useProblemMessage();
   const { actorId, authorizationVersion } = useApplicationSession();
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<"all" | "RECORDING" | "ENDED">("all");
+  const [period, setPeriod] = useState<"30" | "90" | "all">("30");
+  const query = useDeferredValue(search.trim().toLocaleLowerCase("vi"));
   const live = useActiveMeeting();
   const meetings = useQuery({
     queryKey: [...meetingsKey, actorId, authorizationVersion],
     queryFn: ({ signal }) => loadMeetings(signal),
   });
   const groupTitle = { today: ui("Hôm nay"), week: ui("7 ngày qua"), earlier: ui("Trước đó") };
+  const all = meetings.data;
+  /** The list is small and already owner-private, so it filters in the browser. */
+  const shown = useMemo(
+    () => (all ? matchingMeetings(all, query, status, period) : []),
+    [all, query, status, period],
+  );
+  const filtered = !!all && all.length > 0 && shown.length === 0;
 
   return (
     <AppShell pageTitle={ui("Cuộc họp")}>
-      <SettingsLayout wide>
+      <SettingsLayout wide className="gap-6 md:pt-8">
         <PageHeader
           title={ui("Cuộc họp")}
-          description={ui(
-            "Ghi âm cuộc họp không cần bot, xem transcript và ghi chú. Chỉ bạn xem được.",
-          )}
+          icon={<Mic />}
           actions={
             <Button onClick={() => setCreating(true)} disabled={!!live}>
               <Mic aria-hidden="true" />
@@ -74,32 +96,95 @@ export function MeetingsPage() {
           }
         />
         {meetings.isPending ? (
-          <div className="grid gap-2" aria-busy="true">
-            {[0, 1, 2].map((row) => (
-              <Skeleton key={row} className="h-16 rounded-xl" />
-            ))}
+          <div
+            role="status"
+            className="flex justify-center rounded-xl border border-border-subtle px-6 py-20"
+          >
+            <BrandLoader label={ui("Đang tải cuộc họp")} />
           </div>
         ) : meetings.isError ? (
-          <p role="alert" className="text-sm text-status-danger-content">
-            {problemMessage(presentProblem(meetings.error, "initialLoad").message)}
-          </p>
-        ) : meetings.data.length === 0 ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Mic />
-              </EmptyMedia>
-              <EmptyTitle>{ui("Chưa có cuộc họp nào")}</EmptyTitle>
-              <EmptyDescription>
-                {ui(
-                  "Bấm “Ghi cuộc họp mới” khi cuộc họp bắt đầu. Transcript hiện ngay trong lúc họp.",
-                )}
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
+          <EmptyState
+            role="alert"
+            icon={<WifiOff />}
+            title={ui("Chưa xem được danh sách cuộc họp")}
+            detail={problemMessage(presentProblem(meetings.error, "initialLoad").message)}
+            action={
+              <Button size="sm" prominence="secondary" onClick={() => void meetings.refetch()}>
+                {ui("Thử lại")}
+              </Button>
+            }
+          />
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              <div className="relative min-w-0 flex-1 sm:max-w-80">
+                <Search
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
+                  aria-hidden="true"
+                />
+                <Input
+                  value={search}
+                  className="pl-9"
+                  placeholder={ui("Tìm theo tên cuộc họp")}
+                  aria-label={ui("Tìm theo tên cuộc họp")}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </div>
+              <Select
+                value={status}
+                aria-label={ui("Trạng thái")}
+                className="w-auto"
+                onChange={(event) => setStatus(event.target.value as typeof status)}
+              >
+                <option value="all">{ui("Mọi trạng thái")}</option>
+                <option value="RECORDING">{ui("Chưa kết thúc")}</option>
+                <option value="ENDED">{ui("Đã kết thúc")}</option>
+              </Select>
+              <Select
+                value={period}
+                aria-label={ui("Thời gian")}
+                className="w-auto"
+                onChange={(event) => setPeriod(event.target.value as typeof period)}
+              >
+                <option value="30">{ui("30 ngày qua")}</option>
+                <option value="90">{ui("90 ngày qua")}</option>
+                <option value="all">{ui("Tất cả")}</option>
+              </Select>
+            </div>
+          </>
+        )}
+        {meetings.isPending || meetings.isError ? null : !all || all.length === 0 ? (
+          <EmptyState
+            icon={<Mic />}
+            title={ui("Chưa có cuộc họp nào")}
+            action={
+              <Button size="sm" disabled={!!live} onClick={() => setCreating(true)}>
+                <Mic aria-hidden="true" />
+                {ui("Ghi cuộc họp mới")}
+              </Button>
+            }
+          />
+        ) : filtered ? (
+          <EmptyState
+            icon={<Search />}
+            title={ui("Không có cuộc họp nào khớp bộ lọc.")}
+            action={
+              <Button
+                size="sm"
+                prominence="secondary"
+                onClick={() => {
+                  setSearch("");
+                  setStatus("all");
+                  setPeriod("all");
+                }}
+              >
+                {ui("Xoá bộ lọc")}
+              </Button>
+            }
+          />
         ) : (
           <div className="grid gap-6">
-            {groupMeetings(meetings.data).map((group) => (
+            {groupMeetings(shown).map((group) => (
               <section
                 key={group.label}
                 aria-label={groupTitle[group.label]}
@@ -157,10 +242,6 @@ export function MeetingsPage() {
             ))}
           </div>
         )}
-        <p className="flex items-center gap-2 text-xs text-content-muted">
-          <Lock className="size-3.5" aria-hidden="true" />
-          {ui("Chỉ bạn xem được các cuộc họp này. MemoryOS không lưu âm thanh, chỉ lưu văn bản.")}
-        </p>
       </SettingsLayout>
       <NewMeetingDialog open={creating} onOpenChange={setCreating} />
     </AppShell>

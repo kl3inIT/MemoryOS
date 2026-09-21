@@ -388,6 +388,23 @@ public class ModelCatalogService {
         return new Selection(selection.model(), selection.provider(), null, chats.persona(sessionId, true, agentsManage(actor)).revision());
     }
 
+    /**
+     * The flow model for background work that belongs to no conversation, such as a meeting's minutes. It takes the
+     * Tenant's flow default and falls back to the Tenant's conversation default; a provider restricted to agents or
+     * Groups is not usable here, because there is no persona and no member selection to check it against.
+     */
+    @Transactional
+    public Selection resolveFlow(ActorId actor, ModelFlow flow) {
+        var membership = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable);
+        UUID tenant = membership.tenantId().value();
+        initialize(tenant);
+        UUID id = catalog.flowDefault(tenant, flow).modelConfigurationId();
+        var selection = id == null ? null : flowSelection(tenant, id);
+        if (selection == null) selection = flowSelection(tenant, catalog.defaultModel(tenant).modelConfigurationId());
+        if (selection == null) throw ChatException.providerUnavailable();
+        return new Selection(selection.model(), selection.provider(), null);
+    }
+
     @Transactional
     public Selection validationSelection(ActorId actor, UUID id) {
         UUID tenant = admin(actor, false);
