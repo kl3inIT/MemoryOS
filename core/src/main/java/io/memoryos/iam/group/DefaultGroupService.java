@@ -559,7 +559,7 @@ public class DefaultGroupService implements GroupService {
             audit.record(AuditRecord.of(AuditAction.GROUP_MANAGER_CHANGE, access.tenantId()).actor(requiredActorId)
                     .resource("GROUP", requiredGroupId.value(), groups.find(access.tenantId(), requiredGroupId)
                             .map(GroupEntity::getName).orElse(null))
-                    .detail("email", person.email() != null ? person.email() : person.label())
+                    .detail("member", person.label()).detail("email", person.email())
                     .detail("manager", manager).build());
         }
     }

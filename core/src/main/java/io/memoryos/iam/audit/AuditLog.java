@@ -87,24 +87,37 @@ public class AuditLog {
 
     /**
      * Streams the events the filters select, newest first, and records that they left the system. The record is written
-     * in the same transaction, so it names the number of rows actually read.
+     * outside this read, so an export that breaks halfway still leaves evidence of what was read before it broke.
      */
-    @Transactional
+    @Transactional(readOnly = true)
     public int export(ActorId reader, Query query, Consumer<Event> sink) {
         var tenant = reader(reader);
         int rows = 0;
         Cursor after = null;
-        while (rows < MAX_EXPORT) {
-            var page = select(tenant, query, after, Math.min(1000, MAX_EXPORT - rows));
-            if (page.isEmpty()) break;
-            page.forEach(sink);
-            rows += page.size();
-            after = new Cursor(page.getLast().occurredAt(), page.getLast().id());
+        try {
+            while (rows < MAX_EXPORT) {
+                var page = select(tenant, query, after, Math.min(1000, MAX_EXPORT - rows));
+                if (page.isEmpty()) break;
+                // Counted one by one, so a sink that breaks mid-page reports the rows it accepted.
+                for (Event event : page) {
+                    sink.accept(event);
+                    rows++;
+                }
+                after = new Cursor(page.getLast().occurredAt(), page.getLast().id());
+            }
+        } catch (RuntimeException failure) {
+            recordExport(tenant, reader, query, rows, AuditOutcome.FAILURE);
+            throw failure;
         }
-        trail.record(AuditRecord.of(AuditAction.AUDIT_EXPORT, tenant).actor(reader).resource("AUDIT_LOG", null, null)
+        recordExport(tenant, reader, query, rows, AuditOutcome.SUCCESS);
+        return rows;
+    }
+
+    private void recordExport(TenantId tenant, ActorId reader, Query query, int rows, AuditOutcome outcome) {
+        trail.recordSeparately(AuditRecord.of(AuditAction.AUDIT_EXPORT, tenant).actor(reader)
+                .resource("AUDIT_LOG", null, null).outcome(outcome)
                 .detail("from", query.from() == null ? null : query.from().toString())
                 .detail("to", query.to() == null ? null : query.to().toString()).detail("rows", rows).build());
-        return rows;
     }
 
     /** Refuses anyone who may not read the stream; for reads that need no row, such as the action catalog. */

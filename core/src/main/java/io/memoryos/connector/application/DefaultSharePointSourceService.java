@@ -202,9 +202,11 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
             sharePoint.lock(tenant, source);
             var before = sharePoint.configuration(tenant, source);
             sharePoint.updateSchedule(tenant, source, expectedScheduleRevision, syncIntervalMinutes, pruneIntervalHours);
-            record(tenant, actor, io.memoryos.iam.audit.AuditAction.SOURCE_UPDATE, source, null, event -> event.detail("change", "SCHEDULE")
-                    .detail("before", java.util.Map.of("syncMinutes", before.syncIntervalMinutes(), "pruneHours", before.pruneIntervalHours()))
-                    .detail("after", java.util.Map.of("syncMinutes", syncIntervalMinutes, "pruneHours", pruneIntervalHours)));
+            // A request that leaves the schedule as it was is not a change, as on Google Drive.
+            if (before.syncIntervalMinutes() != syncIntervalMinutes || before.pruneIntervalHours() != pruneIntervalHours)
+                record(tenant, actor, io.memoryos.iam.audit.AuditAction.SOURCE_UPDATE, source, null, event -> event.detail("change", "SCHEDULE")
+                        .detail("before", java.util.Map.of("syncMinutes", before.syncIntervalMinutes(), "pruneHours", before.pruneIntervalHours()))
+                        .detail("after", java.util.Map.of("syncMinutes", syncIntervalMinutes, "pruneHours", pruneIntervalHours)));
             return configuration(tenant, source);
         }));
     }
@@ -215,10 +217,12 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
         return Objects.requireNonNull(transactions.execute(_ -> {
             sourceAccess.lockManage(actor, source);
             sharePoint.lock(tenant, source);
+            boolean before = sharePoint.configuration(tenant, source).syncPaused();
             sharePoint.setPaused(tenant, source, expectedScheduleRevision, paused);
             if (paused) sync.cancel(tenant, source);
-            record(tenant, actor, paused ? io.memoryos.iam.audit.AuditAction.SOURCE_PAUSE : io.memoryos.iam.audit.AuditAction.SOURCE_RESUME,
-                    source, null, event -> event);
+            if (before != paused)
+                record(tenant, actor, paused ? io.memoryos.iam.audit.AuditAction.SOURCE_PAUSE : io.memoryos.iam.audit.AuditAction.SOURCE_RESUME,
+                        source, null, event -> event);
             return configuration(tenant, source);
         }));
     }

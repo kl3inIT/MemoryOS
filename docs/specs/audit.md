@@ -19,7 +19,8 @@ from where. It is decided in [ADR 0013](../decisions/0013-server-authored-audit-
 Rules on the table:
 
 - **Append-only.** A trigger refuses every UPDATE, and refuses a DELETE unless the transaction has set
-  `memoryos.audit_retention` (only the retention sweep does).
+  `memoryos.audit_retention` (only the retention sweep does). A second trigger refuses TRUNCATE, which fires no row
+  trigger.
 - **No foreign key on `actor_id`.** An event can never be deleted, so a foreign key would stop anyone from ever
   deleting that person.
 
@@ -84,7 +85,8 @@ Every read requires `AUDIT_READ`. It is an ordinary grant given through a Group,
 | `GET /api/audit/events` | A page of `AuditEvent`, newest first, keyed by an opaque `(occurred_at, id)` cursor. Optional filters: `from`, `to` (at most 366 days apart), `q` (actor name or e-mail, resource name; `%` and `_` are literal), `eventClass`, `action`, `outcome`, `actorId`, `resourceType`, `resourceId`. `size` is 1–100, default 50 |
 | `GET /api/audit/events/{eventId}` | One event of the Tenant |
 | `GET /api/audit/catalog` | Every action value with its class |
-| `GET /api/audit/export` | The filtered events as CSV, at most 50,000 rows, with a UTF-8 byte-order mark and formula prefixes neutralized. The export is itself recorded as `audit.export` with its row count |
+| `GET /api/audit/export` | The filtered events as CSV, at most 50,000 rows, with a UTF-8 byte-order mark and formula prefixes neutralized. The export is itself recorded as `audit.export` with its row count, outside the read, so an export that breaks
+  halfway is still recorded, with the rows it had written and the outcome `FAILURE` |
 
 ## Retention
 

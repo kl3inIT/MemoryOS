@@ -114,6 +114,7 @@ export const fieldLabels: Record<string, AppCopy> = {
   item: "Document",
   jitAllowed: "Join on first sign-in",
   manager: "Manager",
+  member: "Member",
   memberCount: "Members",
   model: "Model",
   name: "Name",

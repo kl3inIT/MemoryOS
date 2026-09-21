@@ -51,6 +51,17 @@ CREATE TRIGGER audit_event_append_only
     BEFORE UPDATE OR DELETE ON audit_event
     FOR EACH ROW EXECUTE FUNCTION audit_event_append_only();
 
+-- TRUNCATE fires no row trigger, so it would empty the stream past the rule above.
+CREATE OR REPLACE FUNCTION audit_event_no_truncate() RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'Audit events are append-only';
+END
+$$;
+
+CREATE TRIGGER audit_event_no_truncate
+    BEFORE TRUNCATE ON audit_event
+    FOR EACH STATEMENT EXECUTE FUNCTION audit_event_no_truncate();
+
 -- Reading the stream is a capability of its own, granted through a Group (ADR 0013).
 ALTER TABLE iam_group_capability_grants DROP CONSTRAINT ck_iam_group_capability_grants_capability;
 ALTER TABLE iam_group_capability_grants ADD CONSTRAINT ck_iam_group_capability_grants_capability CHECK (

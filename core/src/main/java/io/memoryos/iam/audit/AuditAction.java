@@ -35,7 +35,7 @@ public enum AuditAction {
     GROUP_RENAME("user_group.rename", AuditEventClass.GROUP_MANAGEMENT, "before", "after"),
     GROUP_DELETE("user_group.delete", AuditEventClass.GROUP_MANAGEMENT, "memberCount"),
     GROUP_MEMBER_CHANGE("user_group.member_change", AuditEventClass.GROUP_MANAGEMENT, "added", "removed"),
-    GROUP_MANAGER_CHANGE("user_group.manager_change", AuditEventClass.GROUP_MANAGEMENT, "email", "manager"),
+    GROUP_MANAGER_CHANGE("user_group.manager_change", AuditEventClass.GROUP_MANAGEMENT, "member", "email", "manager"),
     GROUP_PERMISSION_CHANGE("user_group.permission_change", AuditEventClass.GROUP_MANAGEMENT, "before", "after"),
 
     // AI configuration.
