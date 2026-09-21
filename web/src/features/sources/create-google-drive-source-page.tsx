@@ -507,7 +507,7 @@ function GoogleDriveSourceSetup() {
   }
 
   return (
-    <SettingsLayout className="max-w-3xl">
+    <SettingsLayout wide>
       <PageHeader icon={<GoogleDriveIcon />} title={ui("Google Drive")} />
       {googleDrive === "authorization-failed" ? (
         <p
@@ -775,21 +775,27 @@ function GoogleDriveSourceSetup() {
               >
                 <Table className="w-full table-fixed text-sm">
                   <TableCaption className="sr-only">{ui("Google Drive credentials")}</TableCaption>
-                  <TableHeader className="hidden bg-surface-raised text-xs text-content-secondary sm:table-header-group">
+                  <TableHeader className="hidden border-b border-border-subtle text-xs text-content-muted sm:table-header-group">
                     <TableRow>
                       <TableHead scope="col" className="w-12 py-3">
                         <span className="sr-only">{ui("Select")}</span>
                       </TableHead>
-                      <TableHead scope="col" className="w-[14%] px-2 py-3 text-left font-medium">
+                      <TableHead scope="col" className="w-[10%] px-2 py-3 text-left font-medium">
                         {ui("ID")}
                       </TableHead>
                       <TableHead scope="col" className="px-2 py-3 text-left font-medium">
                         {ui("Name")}
                       </TableHead>
-                      <TableHead scope="col" className="w-[17%] px-2 py-3 text-left font-medium">
+                      <TableHead scope="col" className="w-[26%] px-2 py-3 text-left font-medium">
+                        {ui("Account")}
+                      </TableHead>
+                      <TableHead scope="col" className="w-[13%] px-2 py-3 text-left font-medium">
+                        {ui("Status")}
+                      </TableHead>
+                      <TableHead scope="col" className="w-[12%] px-2 py-3 text-left font-medium">
                         {ui("Created")}
                       </TableHead>
-                      <TableHead scope="col" className="w-[17%] px-2 py-3 text-left font-medium">
+                      <TableHead scope="col" className="w-[13%] px-2 py-3 text-left font-medium">
                         {ui("Last Updated")}
                       </TableHead>
                       <TableHead scope="col" className="w-14 py-3">
@@ -833,38 +839,43 @@ function GoogleDriveSourceSetup() {
                             </Tooltip>
                           </TableCell>
                           <TableCell className="order-first px-2 py-2 align-middle">
-                            <div className="flex items-center gap-2">
-                              <div className="min-w-0 flex-1">
-                                <span className="min-w-0 flex-1 text-sm">
-                                  <span className="block wrap-anywhere font-medium text-content-primary">
-                                    {credential.name}
-                                  </span>
-                                  {serviceAccount ? (
-                                    <span className="block wrap-anywhere text-content-secondary">
-                                      {ui("Service account {{v1}} acting as {{v2}}", {
-                                        v1: credential.serviceAccountEmail ?? "",
-                                        v2: credential.accountEmail,
-                                      })}
-                                    </span>
-                                  ) : credential.accountEmail !== credential.name ? (
-                                    <span className="block wrap-anywhere text-content-secondary">
-                                      {credential.accountEmail}
-                                    </span>
-                                  ) : null}
-                                  {!ready ? (
-                                    <span className="mt-1 block">
-                                      <StatusBadge tone="warning">
-                                        {credential.status === "REVOKED"
-                                          ? ui("Revoked")
-                                          : serviceAccount
-                                            ? ui("Needs a new key")
-                                            : ui("Needs reconnect")}
-                                      </StatusBadge>
-                                    </span>
-                                  ) : null}
+                            <span className="block wrap-anywhere text-sm font-medium text-content-primary">
+                              {credential.name}
+                            </span>
+                          </TableCell>
+                          <TableCell className="col-span-2 col-start-2 px-2 py-2 align-middle text-sm text-content-secondary">
+                            <span className="mr-2 sm:hidden">{ui("Account")}</span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  tabIndex={0}
+                                  className="inline-block max-w-full truncate align-bottom"
+                                >
+                                  {serviceAccount
+                                    ? (credential.serviceAccountEmail ?? credential.accountEmail)
+                                    : credential.accountEmail}
                                 </span>
-                              </div>
-                            </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {serviceAccount
+                                  ? ui("Service account {{v1}} acting as {{v2}}", {
+                                      v1: credential.serviceAccountEmail ?? "",
+                                      v2: credential.accountEmail,
+                                    })
+                                  : credential.accountEmail}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell className="col-span-2 col-start-2 px-2 py-2 align-middle">
+                            <StatusBadge tone={ready ? "success" : "warning"}>
+                              {ready
+                                ? ui("Connected")
+                                : credential.status === "REVOKED"
+                                  ? ui("Revoked")
+                                  : serviceAccount
+                                    ? ui("Needs a new key")
+                                    : ui("Needs reconnect")}
+                            </StatusBadge>
                           </TableCell>
                           <TableCell className="col-span-2 col-start-2 px-2 py-2 align-middle text-xs text-content-secondary">
                             <span className="mr-2 sm:hidden">{ui("Created")}</span>
@@ -878,7 +889,7 @@ function GoogleDriveSourceSetup() {
                               {new Date(credential.updatedAt).toLocaleDateString(uiLocale())}
                             </time>
                           </TableCell>
-                          <TableCell className="order-first px-0 py-2 text-right align-middle">
+                          <TableCell className="order-first pr-1 pl-0 text-right align-middle">
                             <GoogleDriveCredentialActions
                               credential={credential}
                               disabled={unavailable || busy || frozenProposal}

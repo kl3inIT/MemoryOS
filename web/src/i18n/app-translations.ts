@@ -3531,6 +3531,7 @@ Object.assign(englishUi, {
 });
 
 Object.assign(englishUi, {
+  Account: "Tài khoản",
   "Service account": "Service account",
   "Service account key": "Khóa service account",
   "Authentication method": "Phương thức xác thực",

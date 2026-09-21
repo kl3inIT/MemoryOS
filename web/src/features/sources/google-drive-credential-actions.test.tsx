@@ -40,13 +40,30 @@ afterEach(cleanup);
 describe("GoogleDriveCredentialActions", () => {
   it("keeps the actions behind one menu that reports the attached Sources", async () => {
     const user = userEvent.setup();
-    const { onReconnect } = renderActions();
+    const { onReconnect } = renderActions({ sourceCount: 0 });
 
     expect(screen.queryByRole("menuitem", { name: "Reconnect" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Manage Workspace credential" }));
 
-    expect(screen.getByText("Used by 2 Sources")).toBeInTheDocument();
+    expect(screen.getByText("Used by 0 Sources")).toBeInTheDocument();
     await user.click(screen.getByRole("menuitem", { name: "Reconnect" }));
+
+    expect(onReconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("confirms reconnecting a credential other Sources share", async () => {
+    const user = userEvent.setup();
+    const { onReconnect } = renderActions();
+
+    await user.click(screen.getByRole("button", { name: "Manage Workspace credential" }));
+    await user.click(screen.getByRole("menuitem", { name: "Reconnect" }));
+
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "Reconnect shared Google credential?",
+    );
+    expect(onReconnect).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Reconnect" }));
 
     expect(onReconnect).toHaveBeenCalledTimes(1);
   });

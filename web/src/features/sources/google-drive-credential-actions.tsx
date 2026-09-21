@@ -39,7 +39,7 @@ export function GoogleDriveCredentialActions({
   const ui = useAppTranslation();
   const trigger = useRef<HTMLButtonElement>(null);
   const openingDialog = useRef(false);
-  const [confirming, setConfirming] = useState<"revoke" | "delete" | null>(null);
+  const [confirming, setConfirming] = useState<"reconnect" | "revoke" | "delete" | null>(null);
   const serviceAccount = credential.authMethod === "SERVICE_ACCOUNT";
   const attached = credential.sourceCount > 0;
   const canReconnect = credential.actions.includes("reauthorize");
@@ -48,7 +48,7 @@ export function GoogleDriveCredentialActions({
   const canDelete = credential.actions.includes("delete");
   if (!canReconnect && !canReplaceKey && !canRevoke && !canDelete) return null;
 
-  function confirm(action: "revoke" | "delete") {
+  function confirm(action: "reconnect" | "revoke" | "delete") {
     openingDialog.current = true;
     setConfirming(action);
   }
@@ -81,7 +81,9 @@ export function GoogleDriveCredentialActions({
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           {canReconnect ? (
-            <DropdownMenuItem onSelect={() => onReconnect(trigger.current)}>
+            <DropdownMenuItem
+              onSelect={() => (attached ? confirm("reconnect") : onReconnect(trigger.current))}
+            >
               <RefreshCw aria-hidden="true" />
               {ui("Reconnect")}
             </DropdownMenuItem>
@@ -115,6 +117,23 @@ export function GoogleDriveCredentialActions({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+      <ConfirmDialog
+        open={confirming === "reconnect"}
+        onOpenChange={(open) => setConfirming(open ? "reconnect" : null)}
+        restoreFocusRef={trigger}
+        title={ui("Reconnect shared Google credential?")}
+        description={ui(
+          "Reconnecting changes the authorization used by all {{v1}} Sources, including other Sources. Use the same Google account. Saved links and indexed documents are retained.",
+          { v1: credential.sourceCount },
+        )}
+        confirmLabel={ui("Reconnect")}
+        pendingLabel={ui("Reconnecting")}
+        onConfirm={() => {
+          onReconnect(trigger.current);
+          return Promise.resolve();
+        }}
+        errorMessage={errorMessage}
+      />
       <ConfirmDialog
         open={confirming === "revoke"}
         onOpenChange={(open) => setConfirming(open ? "revoke" : null)}
