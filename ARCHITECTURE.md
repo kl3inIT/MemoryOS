@@ -55,6 +55,7 @@ flowchart TB
     RET[retrieval]
     CHAT[chat]
     MCP[mcp]
+    MEET[meeting]
 
     MCP --> IAM
     OBJ --> IAM
@@ -76,6 +77,8 @@ flowchart TB
     CHAT --> CON
     CHAT --> RET
     CHAT --> MCP
+    MEET --> IAM
+    MEET --> CHAT
 
     API[api composition root] --> IAM
     API --> OBJ
@@ -84,6 +87,7 @@ flowchart TB
     API --> RET
     API --> CHAT
     API --> MCP
+    API --> MEET
     WORKER[worker composition root] --> IAM
     WORKER --> OBJ
     WORKER --> CON
@@ -92,7 +96,7 @@ flowchart TB
     WORKER --> RET
 ```
 
-Arrows show allowed use of public capability contracts. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided.
+Arrows show allowed use of public capability contracts. `meeting` reaches `chat` only through its `voice` and `summary` named interfaces. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided.
 
 | Gradle module | Responsibility |
 | --- | --- |

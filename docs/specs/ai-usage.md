@@ -14,7 +14,7 @@ The `usage` capability records every AI call MemoryOS makes into a daily ledger 
 
 ## Flows
 
-`CHAT`, `CHAT_NAMING`, `DEEP_RESEARCH`, `EMBEDDING_QUERY`, `EMBEDDING_INDEXING`, `IMAGE_GENERATION`, `IMAGE_EDIT`, `SPEECH_TO_TEXT`, `TEXT_TO_SPEECH`. A new AI task adds a value to `AiUsageFlow` and the table's check constraint.
+`CHAT`, `CHAT_NAMING`, `DEEP_RESEARCH`, `EMBEDDING_QUERY`, `EMBEDDING_INDEXING`, `IMAGE_GENERATION`, `IMAGE_EDIT`, `SPEECH_TO_TEXT`, `TEXT_TO_SPEECH`, `MEETING_MINUTES`. A new AI task adds a value to `AiUsageFlow` and the table's check constraint.
 
 | Flow | Captured by | Usage |
 | --- | --- | --- |
@@ -24,6 +24,7 @@ The `usage` capability records every AI call MemoryOS makes into a daily ledger 
 | Image generation and editing | `ImageProviderClient` after a delivered image | One image; cost unknown |
 | Speech-to-text | `VoiceTranscriptionService` once when the session closes | Seconds from the audio received (16-bit mono 24 kHz); cost unknown |
 | Text-to-speech | `VoiceSynthesisService` per synthesis | One call; cost unknown |
+| Meeting minutes | `TranscriptSummarizer` after the call that writes one meeting's minutes | Reported tokens on the minutes model; cost from the model price |
 
 ## Pricing
 

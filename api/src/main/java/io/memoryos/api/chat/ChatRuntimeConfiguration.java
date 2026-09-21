@@ -116,8 +116,21 @@ class ChatRuntimeConfiguration {
         return scheduler;
     }
 
+    /**
+     * Its own scheduler: one model call runs for minutes, and the chat maintenance ticks are due every second and
+     * every 25 ms. They must not wait behind a meeting.
+     */
+    @Bean(defaultCandidate = false)
+    ThreadPoolTaskScheduler meetingMinutesScheduler() {
+        var scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(1);
+        scheduler.setVirtualThreads(true);
+        scheduler.setThreadNamePrefix("meeting-minutes-");
+        return scheduler;
+    }
+
     record MeetingMinutes(io.memoryos.meeting.MeetingMinutesService minutes) {
-        @Scheduled(fixedDelayString = "${memoryos.meeting.minutes-interval:5s}", scheduler = "chatMaintenanceScheduler")
+        @Scheduled(fixedDelayString = "${memoryos.meeting.minutes-interval:5s}", scheduler = "meetingMinutesScheduler")
         public void write() {
             // A few per pass, so one replica draining a backlog still leaves room for the chat maintenance ticks.
             for (int written = 0; written < 2 && minutes.writeNext(); written++) { /* drain */ }
