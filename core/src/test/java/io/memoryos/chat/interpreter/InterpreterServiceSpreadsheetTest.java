@@ -28,7 +28,7 @@ class InterpreterServiceSpreadsheetTest {
     private final JdbcInterpreterRepository repository = mock(JdbcInterpreterRepository.class);
     private final TenantAccessResolver tenants = mock(TenantAccessResolver.class);
     private final ObjectStorage storage = mock(ObjectStorage.class);
-    private final InterpreterService service = new InterpreterService(repository, null, null, tenants, null, storage, null);
+    private final InterpreterService service = new InterpreterService(repository, null, null, tenants, null, storage, null, null, null);
     private final ActorId actor = new ActorId(UUID.randomUUID());
     private final TenantId tenant = new TenantId(UUID.randomUUID());
     private final UUID id = UUID.randomUUID();

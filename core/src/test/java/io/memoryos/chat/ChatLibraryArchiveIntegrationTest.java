@@ -109,7 +109,12 @@ class ChatLibraryArchiveIntegrationTest {
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
         repository = new JdbcChatLibraryArchiveRepository(jdbc);
         interpreter = new InterpreterService(new JdbcInterpreterRepository(jdbc), new InterpreterProperties(null, null),
-                mock(IamAuthorization.class), tenants, writes, storage, jpa.transactionManager());
+                mock(IamAuthorization.class), tenants, writes, storage,
+                new io.memoryos.chat.ChatStorageQuotaService(tenants, mock(IamAuthorization.class),
+                        new io.memoryos.chat.persistence.JdbcChatStorageQuotaRepository(jdbc),
+                        new JdbcChatLibraryRepository(jdbc)),
+                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO),
+                jpa.transactionManager());
         // The service is used directly: its @Transactional boundaries are Spring's, and each call here is one
         // statement group against real PostgreSQL, which auto-commits without them.
         archives = new ChatLibraryArchiveService(tenants, repository, new JdbcChatLibraryRepository(jdbc),

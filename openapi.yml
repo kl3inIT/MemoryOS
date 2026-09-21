@@ -1473,6 +1473,149 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/storage-quota:
+    get:
+      tags:
+      - Chat
+      summary: Read the Tenant storage limit and its exceptions
+      operationId: getChatStorageQuota
+      responses:
+        "400":
+          description: Invalid storage limit
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable or the person is not a member
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: The Tenant limit and the people with their own
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatStorageQuota"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat
+      summary: Set or remove the Tenant storage limit per person
+      operationId: setChatStorageQuota
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatStorageQuotaInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid storage limit
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable or the person is not a member
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: The limits after the change
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatStorageQuota"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/storage-quota/{actorId}:
+    put:
+      tags:
+      - Chat
+      summary: Set or remove one person's own storage limit
+      operationId: setChatStoragePersonQuota
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: actorId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatStorageQuotaInput"
+        required: true
+      responses:
+        "400":
+          description: Invalid storage limit
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable or the person is not a member
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: The limits after the change
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatStorageQuota"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/settings:
     get:
       tags:
@@ -9098,6 +9241,131 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/library/{source}/{id}/restore:
+    post:
+      tags:
+      - Chat
+      summary: Take one of the caller's files out of the trash while its bytes are
+        still there
+      operationId: restoreChatLibraryFile
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: source
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: Restored
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/{source}/{id}/purge:
+    post:
+      tags:
+      - Chat
+      summary: "End the trash window of one file now, so its bytes are released"
+      operationId: purgeChatLibraryFile
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: source
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "204":
+          description: The file is queued for release
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/library/{source}/{id}/copy:
     post:
       tags:
@@ -9162,6 +9430,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatFileResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/trash/empty:
+    post:
+      tags:
+      - Chat
+      summary: End the trash window of everything the caller deleted
+      operationId: emptyChatLibraryTrash
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: How many files were queued for release
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryTrashEmptied"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -12384,13 +12703,15 @@ paths:
       - name: status
         in: query
         description: "READY lists usable files; PENDING lists uploads still uploading,\
-          \ processing or failed"
+          \ processing or failed; TRASH lists what the owner deleted and may still\
+          \ restore"
         required: false
         schema:
           type: string
           enum:
           - READY
           - PENDING
+          - TRASH
       - name: sort
         in: query
         required: false
@@ -12444,6 +12765,91 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatLibraryPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/usage:
+    get:
+      tags:
+      - Chat
+      summary: What the caller's file library holds and the storage limit that applies
+        to them
+      operationId: getChatLibraryUsage
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: "Used bytes, file count, the limit and the breakdown"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryUsage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/library/trash:
+    get:
+      tags:
+      - Chat
+      summary: How long a deleted file stays in the trash in this deployment
+      operationId: getChatLibraryTrashWindow
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The trash window
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryTrashWindow"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -15642,6 +16048,49 @@ components:
       - sttModel
       - ttsModel
       - ttsVoice
+    ChatStorageQuotaInput:
+      type: object
+      properties:
+        maxBytes:
+          type:
+          - integer
+          - "null"
+          format: int64
+          description: "Bytes, 1 to 1 TiB; null removes the limit"
+    ChatStoragePersonQuota:
+      type: object
+      properties:
+        actorId:
+          type: string
+          format: uuid
+        name:
+          type:
+          - string
+          - "null"
+        maxBytes:
+          type: integer
+          format: int64
+      required:
+      - actorId
+      - maxBytes
+      - name
+    ChatStorageQuota:
+      type: object
+      properties:
+        tenantLimitBytes:
+          type:
+          - integer
+          - "null"
+          format: int64
+          description: The Tenant's limit per person; null means no limit
+        people:
+          type: array
+          description: People with their own limit
+          items:
+            $ref: "#/components/schemas/ChatStoragePersonQuota"
+      required:
+      - people
+      - tenantLimitBytes
     ChatSettingsRequest:
       type: object
       properties:
@@ -18290,6 +18739,14 @@ components:
           type: string
         searchReady:
           type: boolean
+    ChatLibraryTrashEmptied:
+      type: object
+      properties:
+        purged:
+          type: integer
+          format: int32
+      required:
+      - purged
     ChatLibraryArchiveFile:
       type: object
       properties:
@@ -18597,6 +19054,18 @@ components:
           - string
           - "null"
           description: Why a FAILED upload failed
+        deletedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: When the owner deleted it; set only in the trash
+        purgeAfter:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: When its bytes may be released
         usedBy:
           type: array
           description: Projects and assistants holding this file
@@ -18609,12 +19078,14 @@ components:
       - category
       - createdAt
       - deletable
+      - deletedAt
       - errorCode
       - favorite
       - filename
       - id
       - mediaType
       - messageId
+      - purgeAfter
       - sessionId
       - sessionTitle
       - sizeBytes
@@ -21043,6 +21514,59 @@ components:
       - items
       - totalBytes
       - totalCount
+    ChatLibraryCategoryUsage:
+      type: object
+      properties:
+        category:
+          type: string
+          enum:
+          - DOCUMENT
+          - SPREADSHEET
+          - IMAGE
+          - PRESENTATION
+          - OTHER
+        usedBytes:
+          type: integer
+          format: int64
+      required:
+      - category
+      - usedBytes
+    ChatLibraryUsage:
+      type: object
+      properties:
+        usedBytes:
+          type: integer
+          format: int64
+        fileCount:
+          type: integer
+          format: int64
+        limitBytes:
+          type:
+          - integer
+          - "null"
+          format: int64
+          description: The storage limit that applies to the caller; null means no
+            limit
+        byCategory:
+          type: array
+          description: Used bytes per category
+          items:
+            $ref: "#/components/schemas/ChatLibraryCategoryUsage"
+      required:
+      - byCategory
+      - fileCount
+      - limitBytes
+      - usedBytes
+    ChatLibraryTrashWindow:
+      type: object
+      properties:
+        days:
+          type: integer
+          format: int64
+          description: Days a deleted file stays restorable; 0 releases its bytes
+            at once
+      required:
+      - days
     ChatLibraryContentMatch:
       type: object
       properties:

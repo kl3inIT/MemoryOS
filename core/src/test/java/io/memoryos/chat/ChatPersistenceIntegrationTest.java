@@ -96,7 +96,13 @@ class ChatPersistenceIntegrationTest {
         interceptor.setTransactionManager(jpa.transactionManager());
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
         var fileService = new ChatFileService(tenants, repository, new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc),
-                mock(io.memoryos.objectstorage.ObjectUploadService.class), new io.memoryos.chat.application.ChatFileProperties(104857600, 262144000), jpa.transactionManager());
+                mock(io.memoryos.objectstorage.ObjectUploadService.class),
+                new io.memoryos.chat.application.ChatFileProperties(104857600, 262144000),
+                new ChatStorageQuotaService(tenants, authorization,
+                        new io.memoryos.chat.persistence.JdbcChatStorageQuotaRepository(jdbc),
+                        new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc)),
+                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO),
+                jpa.transactionManager());
         var factory = new ProxyFactory(new ChatTurnPersistence(tenants, authorization, repository, new PersonaProperties(), fileService,
                 new ActorLanguageService(jpa.repository(JpaActorRepository.class,
                         RepositoryFragments.just(new ActorRefreshImpl(jpa.entityManager()))), tenants),
@@ -355,15 +361,15 @@ class ChatPersistenceIntegrationTest {
         assertEquals(0, library.page(scope, other, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50).totalCount());
 
         // Deleting a generated file hides it everywhere and refuses a preview that was converting meanwhile.
-        assertTrue(interpreter.markArtifactDeleted(scope, owner, generated));
-        assertFalse(interpreter.markArtifactDeleted(scope, other, generated));
+        assertTrue(interpreter.markArtifactDeleted(scope, owner, generated, java.time.Duration.ZERO));
+        assertFalse(interpreter.markArtifactDeleted(scope, other, generated, java.time.Duration.ZERO));
         assertTrue(interpreter.ownedArtifact(scope, owner, generated).isEmpty());
         assertFalse(interpreter.attachPreview(scope, generated, UUID.randomUUID(),
                 new io.memoryos.objectstorage.ObjectKey("p/late"), 10));
-        assertTrue(images.markDeleted(scope, owner, image));
+        assertTrue(images.markDeleted(scope, owner, image, java.time.Duration.ZERO));
         // Deleting again succeeds while another member still cannot delete the same image.
-        assertTrue(images.markDeleted(scope, owner, image));
-        assertFalse(images.markDeleted(scope, other, image));
+        assertTrue(images.markDeleted(scope, owner, image, java.time.Duration.ZERO));
+        assertFalse(images.markDeleted(scope, other, image, java.time.Duration.ZERO));
         assertTrue(images.inSession(scope, owner, session.id(), image).isEmpty());
         assertEquals(List.of(upload), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
         // History keeps both as tombstones so the answer does not silently lose its cards.
@@ -374,7 +380,7 @@ class ChatPersistenceIntegrationTest {
         assertTrue(images.byMessages(scope, List.of(reply.assistantMessageId()), false).isEmpty());
         // Once the sweep has removed the row, the owner's repeated delete is still the outcome they asked for.
         jdbc.sql("DELETE FROM chat_image_artifact WHERE id=:id").param("id", image).update();
-        assertTrue(images.markDeleted(scope, owner, image));
+        assertTrue(images.markDeleted(scope, owner, image, java.time.Duration.ZERO));
 
         // Deleting the conversation withdraws its artifacts from the library; the upload is the owner's.
         var kept = sessions.create(owner, "Kept");
