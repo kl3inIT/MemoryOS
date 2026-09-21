@@ -16,5 +16,7 @@ One pull request on `kl3inIT/mem-139-usage-report`.
 - [x] 6. Web: a "Usage reports" section at the foot of AI costs, with Onyx's copy, a pending row polled
       while a report is pending, ready rows with a download link, an empty state and an error state.
 - [x] 7. Tests: renderer, CSV guard, aggregation, HTTP lifecycle and authorization, vitest; screenshots.
-- [x] 8. Docs: `docs/specs/ai-usage.md`, `docs/tests/ai-usage.md`; `pnpm check`, `./gradlew clean check`.
+- [x] 8. Docs: `docs/specs/ai-usage.md`, `docs/tests/ai-usage.md`, roadmap, architecture. `pnpm check` passed locally.
+      The local `./gradlew clean check` was stopped for memory pressure after it caught a Spring Modulith
+      violation (`usage` → `objectstorage`, now declared); the full Gradle gate runs in CI.
 - [x] 9. Follow-up issue for VND conversion at an administrator's rate: MEM-151.
