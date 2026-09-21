@@ -10,8 +10,9 @@ CREATE TABLE audit_event (
     event_class VARCHAR(32) NOT NULL CHECK (event_class IN ('AUTHENTICATION', 'ACCOUNT_CHANGE',
         'USER_ACCESS_MANAGEMENT', 'GROUP_MANAGEMENT', 'API_ACTIVITY')),
     outcome VARCHAR(16) NOT NULL CHECK (outcome IN ('SUCCESS', 'FAILURE', 'DENIED')),
-    -- Null for work the system did without a person, such as a failed sign-in before the actor is known.
-    actor_id UUID REFERENCES actors(id),
+    -- Null for a failed sign-in before the actor is known. Deliberately not a foreign key: an event that can never be
+    -- deleted must not keep a person from ever being deleted; the label and e-mail keep the record readable.
+    actor_id UUID,
     -- Who the actor was when this happened: a later rename or deletion must not rewrite the record.
     actor_label VARCHAR(320),
     actor_email VARCHAR(320),

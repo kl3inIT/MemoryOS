@@ -54,20 +54,28 @@ Recorded in [ADR 0013](../../decisions/0013-server-authored-audit-evidence.md), 
 an append-only table per Tenant, written in the operation's transaction, never failing the operation; successes
 always, denials only for a scoped manager outside their scope; `AUDIT_READ`; no secrets; 365-day retention.
 
-Three consequences worth stating here:
+Consequences worth stating here:
 
 - **Audit belongs to `iam`**, which already owns authority and is the one module every other module may depend on.
   No new capability module, and no dependency inversion: `chat`, `connector` and `mcp` record events through an `iam`
   service they already reach.
 - **`details` is declared per action**, unlike Onyx's free-form `extra`. Each action names its fields in code, so a
   reader knows what a row can contain and a secret cannot be added by accident at a call site.
-- **The catalog is append-only and enforced at startup**, as in Onyx: an action without a class fails the context.
+- **The catalog is append-only, and every action has a class by construction**: the class is an argument of each
+  enum constant, so the compiler enforces what Onyx checks at import.
+- **`actor_id` is not a foreign key.** An event can never be deleted, so a foreign key would keep a person from ever
+  being deleted; the actor's name and e-mail are captured with the event instead.
+- **A refusal is written after its transaction ends.** Refusals are raised while the transaction holds the Tenant row
+  `FOR UPDATE`; an insert in a second transaction would wait on that lock for its foreign key and never return. The
+  writer registers the event to be written once the transaction completes, whichever way it completes.
+- **A failed provider exchange is not recorded.** `OAuth2LoginFailureHandler` sees no identity, only a provider or
+  network failure (an API restart mid-login, for example); it is an operational error, not evidence about a person.
 
 ## Catalog (v1)
 
 | Class | Actions |
 | --- | --- |
-| Authentication | `auth.login`, `auth.login_failure` (not admitted, invitation refused, provider failure), `auth.logout`, `auth.jit_admit` |
+| Authentication | `auth.login`, `auth.login_failure` (not admitted, invitation refused, unreadable identity), `auth.logout`, `auth.jit_admit` |
 | Account change | `user.invite`, `user.invite_rotate`, `user.invite_revoke`, `user.join`, `user.deactivate`, `user.reactivate` |
 | User access management | `user.group_change` (a person's Groups replaced) |
 | Group management | `user_group.create`, `user_group.rename`, `user_group.delete`, `user_group.member_change`, `user_group.manager_change`, `user_group.permission_change` |
@@ -79,10 +87,11 @@ story as the session starting. MEM-123 and MEM-125 add their own actions to this
 ## Scope
 
 - `V92__audit_event.sql`: the table, its indexes for the viewer's filters, and the trigger that makes it append-only.
-- `iam`: the event record, the action catalog with its classes, the writer, the startup check, and the reader with
+- `iam`: the event record, the action catalog with its classes, the writer and the reader with
   cursor pagination; `AUDIT_READ` in `IamCapability`, implied by `SYSTEM_ADMIN`.
 - Call sites across `iam`, `connector`, `chat` and `mcp`, at the service boundary, never in a controller.
-- `DefaultIamAuthorization`: a denial event where a scoped manager exceeds their scope.
+- A denial event where a scoped manager exceeds their scope, at the scope checks of the Group and Source services
+  (`DefaultIamAuthorization` cannot tell a manager outside their scope from someone who never held the capability).
 - API: `GET /api/audit/events` (filters, cursor), `GET /api/audit/events/{id}`, `GET /api/audit/export` (CSV).
 - Worker: one recurring retention task.
 - Web: Monitoring › Audit log, built from the existing `SettingsLayout`, `PageHeader`, `EmptyState` and table
@@ -102,7 +111,7 @@ story as the session starting. MEM-123 and MEM-125 add their own actions to this
 
 - Rolling back an administrative transaction leaves no event.
 - A writer failure leaves the operation committed, the ERROR logged and the metric raised.
-- Every action in the catalog has a class, checked at startup; a fixture asserts the catalog has not lost an action.
+- Every action is readable back from its stored value, and an unknown stored value does not fail a reader.
 - A scoped manager outside their scope produces one denial event; a member without the capability produces none.
 - No event carries a secret: a test drives the provider and credential paths with recognizable secret values and
   asserts they appear in no column of the table.

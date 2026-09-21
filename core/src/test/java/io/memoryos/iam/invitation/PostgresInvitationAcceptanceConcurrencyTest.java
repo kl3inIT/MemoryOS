@@ -201,6 +201,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                 (_, _) -> KeycloakRecipientProvisioning.EXISTING_VERIFIED,
                 authorization,
                 locks,
+                TestDatabase.audit(jdbcClient, jpa.transactionManager()),
                 new TransactionTemplate(jpa.transactionManager()),
                 clock,
                 Duration.ofHours(72)

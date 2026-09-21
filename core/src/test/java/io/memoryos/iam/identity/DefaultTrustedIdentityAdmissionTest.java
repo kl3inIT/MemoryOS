@@ -128,6 +128,8 @@ class DefaultTrustedIdentityAdmissionTest {
                 .param("actor", owner.value()).query(Long.class).single());
         assertEquals(2L, count("actors"));
         assertEquals(0L, count("tenant_invitations"));
+        // One admission, recorded once: the replay and the owner's sign-in change no authority.
+        assertEquals(java.util.List.of("auth.jit_admit"), jdbc.sql("SELECT action FROM audit_event").query(String.class).list());
     }
 
     @Test
@@ -210,7 +212,8 @@ class DefaultTrustedIdentityAdmissionTest {
     private TrustedIdentityAdmission service(GroupProvisioner provisioner) {
         return TestDatabase.transactionalProxy(
                 new DefaultTrustedIdentityAdmission(tenants, locks, identities,
-                        new JpaTenantMembershipProvisioner(tenants), provisioner),
+                        new JpaTenantMembershipProvisioner(tenants), provisioner,
+                        TestDatabase.audit(jdbc, jpa.transactionManager())),
                 TrustedIdentityAdmission.class,
                 jpa.transactionManager()
         );

@@ -33,6 +33,13 @@ public class AuditTrail {
     private final MeterRegistry meters;
     private final org.springframework.transaction.support.TransactionTemplate separate;
 
+    /** The API supplies the request it is serving; the Worker has none, and records the trace alone. */
+    @org.springframework.beans.factory.annotation.Autowired
+    public AuditTrail(JdbcClient jdbc, org.springframework.beans.factory.ObjectProvider<AuditRequestContext> requestContext,
+                      MeterRegistry meters, org.springframework.transaction.PlatformTransactionManager transactions) {
+        this(jdbc, requestContext.getIfAvailable(() -> AuditRequestContext.TRACE_ONLY), meters, transactions);
+    }
+
     public AuditTrail(JdbcClient jdbc, AuditRequestContext requestContext, MeterRegistry meters,
                       org.springframework.transaction.PlatformTransactionManager transactions) {
         this.jdbc = jdbc;
