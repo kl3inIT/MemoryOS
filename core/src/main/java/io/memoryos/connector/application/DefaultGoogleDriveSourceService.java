@@ -132,7 +132,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         var state = connections.state(tenant, source);
         var config = drive.configuration(tenant, source);
         return new Configuration(source, state.credentialId(), state.accountEmail(), state.status(), state.credentialRevision(),
-                state.oauthClientConfigured(), config.revision(), config.syncIntervalMinutes(), config.scheduleRevision(),
+                state.oauthClientConfigured(), state.authMethod(), config.revision(), config.syncIntervalMinutes(), config.scheduleRevision(),
                 config.syncPaused(), config.scopeMode(), drive.counts(tenant, source),
                 config.scopeMode() == ScopeMode.GENERAL ? 0 : config.discoveryRevision(),
                 config.scopeMode() == ScopeMode.GENERAL ? null : config.discoveredAt(),

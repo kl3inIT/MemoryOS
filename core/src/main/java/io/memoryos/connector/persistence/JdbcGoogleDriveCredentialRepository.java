@@ -193,7 +193,7 @@ public class JdbcGoogleDriveCredentialRepository {
     public State state(TenantId tenantId, SourceId sourceId) {
         var id = credentialId(tenantId, sourceId);
         var row = read(tenantId, id, false).orElseThrow(SourceException::notFound);
-        return new State(id, row.email(), row.status(), row.revision(), row.oauthClientConfigured());
+        return new State(id, row.email(), row.status(), row.revision(), row.oauthClientConfigured(), row.authMethod());
     }
 
     public Stored readUsable(TenantId tenantId, CredentialId credentialId) {

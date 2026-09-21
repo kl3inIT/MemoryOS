@@ -141,7 +141,7 @@ class PostgresGoogleDriveSyncTest {
         session = mock(GoogleDriveProvider.Session.class);
         connections = mock(GoogleDriveConnectionService.class);
         when(connections.current(any(), any(), anyLong())).thenAnswer(i -> (long) i.getArgument(2) == revision.get());
-        when(connections.state(any(), any())).thenAnswer(_ -> new GoogleDriveConnectionService.State(credentialId, "owner@example.test", "ACTIVE", revision.get(), true));
+        when(connections.state(any(), any())).thenAnswer(_ -> new GoogleDriveConnectionService.State(credentialId, "owner@example.test", "ACTIVE", revision.get(), true, "OAUTH"));
         when(connections.open(any(), any())).thenAnswer(_ -> new GoogleDriveConnectionService.Connection(session, revision.get()));
         when(connections.openCredential(any(), any())).thenAnswer(_ -> new GoogleDriveConnectionService.Connection(session, revision.get()));
         when(linkReader.read(any())).thenAnswer(invocation -> {
