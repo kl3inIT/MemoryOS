@@ -115,6 +115,24 @@ public class JdbcUserFileRepository {
         return id;
     }
 
+    /** The live upload copied from an artifact, if the owner already has one (V92). */
+    public Optional<Row> copy(TenantId tenant, ActorId actor, String source, UUID artifact) {
+        return jdbc.sql("""
+                SELECT * FROM chat_user_file WHERE tenant_id=:tenant AND owner_actor_id=:actor
+                    AND copied_from_source=:source AND copied_from_id=:artifact AND status NOT IN ('DELETING','DELETED')
+                """).param("tenant", tenant.value()).param("actor", actor.value()).param("source", source)
+                .param("artifact", artifact).query((row, ignored) -> map(row)).optional();
+    }
+
+    /** An upload whose bytes the server copied from an artifact; it then follows the ordinary upload lifecycle. */
+    public UUID createCopy(TenantId tenant, ActorId actor, ObjectUploadId upload, ObjectUploadSpecification spec,
+                           String source, UUID artifact) {
+        var id = create(tenant, actor, UUID.randomUUID(), upload, spec);
+        jdbc.sql("UPDATE chat_user_file SET copied_from_source=:source,copied_from_id=:artifact WHERE tenant_id=:tenant AND id=:id")
+                .param("source", source).param("artifact", artifact).param("tenant", tenant.value()).param("id", id).update();
+        return id;
+    }
+
     public void finalized(TenantId tenant, UUID id) {
         if (jdbc.sql("""
                 UPDATE chat_user_file SET status='PROCESSING',updated_at=CURRENT_TIMESTAMP

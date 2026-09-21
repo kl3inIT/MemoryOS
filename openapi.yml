@@ -9097,6 +9097,73 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/library/{source}/{id}/copy:
+    post:
+      tags:
+      - Chat
+      summary: "Copy a generated file or image into an upload of the caller, so it\
+        \ can be attached to a message, a Project or an assistant; asking again returns\
+        \ the same upload"
+      operationId: copyChatLibraryFile
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: source
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - GENERATED
+          - IMAGE
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The upload holding the copy; it is PROCESSING until extracted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatFileResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/images/connections/{provider}/test:
     post:
       tags:
@@ -12173,6 +12240,12 @@ paths:
                 $ref: "#/components/schemas/ApiProblem"
         "401":
           description: Authentication required
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
         "200":
           description: A page of the caller's files
           content:
@@ -17843,24 +17916,6 @@ components:
       required:
       - failureCode
       - reachable
-    ImageConnectionTestRequest:
-      type: object
-      properties:
-        endpoint:
-          type: string
-          maxLength: 2048
-          minLength: 0
-        model:
-          type: string
-          maxLength: 200
-          minLength: 0
-        credentialValue:
-          type: string
-          maxLength: 8192
-          minLength: 0
-      required:
-      - endpoint
-      - model
     ChatFileResponse:
       type: object
       properties:
@@ -17893,6 +17948,24 @@ components:
           type: string
         searchReady:
           type: boolean
+    ImageConnectionTestRequest:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          maxLength: 2048
+          minLength: 0
+        model:
+          type: string
+          maxLength: 200
+          minLength: 0
+        credentialValue:
+          type: string
+          maxLength: 8192
+          minLength: 0
+      required:
+      - endpoint
+      - model
     ChatFileUploadRequest:
       type: object
       properties:
@@ -20457,6 +20530,14 @@ components:
           type:
           - string
           - "null"
+        messageId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: "The answer that produced an artifact, or the first message\
+            \ in the filtered conversation that attached an upload; null for an upload\
+            \ listed without a conversation"
         usedBy:
           type: array
           description: Projects and assistants holding this file
@@ -20472,6 +20553,7 @@ components:
       - filename
       - id
       - mediaType
+      - messageId
       - sessionId
       - sessionTitle
       - sizeBytes

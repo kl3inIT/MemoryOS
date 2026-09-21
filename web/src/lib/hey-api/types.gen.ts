@@ -1444,12 +1444,6 @@ export type ChatModelValidationResult = {
     failureCode: string | null;
 };
 
-export type ImageConnectionTestRequest = {
-    endpoint: string;
-    model: string;
-    credentialValue?: string;
-};
-
 export type ChatFileResponse = {
     id?: string;
     filename?: string;
@@ -1460,6 +1454,12 @@ export type ChatFileResponse = {
     updatedAt?: string;
     errorCode?: string;
     searchReady?: boolean;
+};
+
+export type ImageConnectionTestRequest = {
+    endpoint: string;
+    model: string;
+    credentialValue?: string;
 };
 
 export type ChatFileUploadRequest = {
@@ -2292,6 +2292,10 @@ export type ChatLibraryFile = {
      */
     sessionId: string | null;
     sessionTitle: string | null;
+    /**
+     * The answer that produced an artifact, or the first message in the filtered conversation that attached an upload; null for an upload listed without a conversation
+     */
+    messageId: string | null;
     /**
      * Projects and assistants holding this file
      */
@@ -9600,6 +9604,56 @@ export type ValidateChatModelResponses = {
 
 export type ValidateChatModelResponse = ValidateChatModelResponses[keyof ValidateChatModelResponses];
 
+export type CopyChatLibraryFileData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        source: 'GENERATED' | 'IMAGE';
+        id: string;
+    };
+    query?: never;
+    url: '/api/chat/library/{source}/{id}/copy';
+};
+
+export type CopyChatLibraryFileErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CopyChatLibraryFileError = CopyChatLibraryFileErrors[keyof CopyChatLibraryFileErrors];
+
+export type CopyChatLibraryFileResponses = {
+    /**
+     * The upload holding the copy; it is PROCESSING until extracted
+     */
+    200: ChatFileResponse;
+};
+
+export type CopyChatLibraryFileResponse = CopyChatLibraryFileResponses[keyof CopyChatLibraryFileResponses];
+
 export type TestChatImageConnectionData = {
     body?: ImageConnectionTestRequest;
     headers: {
@@ -11921,6 +11975,10 @@ export type ListChatLibraryErrors = {
      * Chat is unavailable
      */
     404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
 };
 
 export type ListChatLibraryError = ListChatLibraryErrors[keyof ListChatLibraryErrors];

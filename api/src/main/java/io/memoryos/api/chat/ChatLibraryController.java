@@ -1,5 +1,6 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.chat.contract.ChatFileResponse;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatLibraryFile;
 import io.memoryos.chat.ChatLibraryService;
@@ -23,6 +24,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
 @ApiResponse(responseCode = "403", description = "Tenant membership or CSRF requirement not met", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
 @ApiResponse(responseCode = "404", description = "Chat is unavailable", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
 @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content)
+@ApiResponse(responseCode = "503", description = "Storage unavailable", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
 class ChatLibraryController {
@@ -60,13 +64,17 @@ class ChatLibraryController {
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}, format = "uuid",
                     description = "The conversation that produced the file; null for an upload") @Nullable UUID sessionId,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String sessionTitle,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}, format = "uuid",
+                    description = "The answer that produced an artifact, or the first message in the filtered conversation"
+                            + " that attached an upload; null for an upload listed without a conversation")
+            @Nullable UUID messageId,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Projects and assistants holding this file") List<UsageResponse> usedBy,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "False while a project or assistant holds the file") boolean deletable) {
 
         static LibraryFileResponse from(ChatLibraryFile file) {
             return new LibraryFileResponse(file.source().name(), file.id(), file.filename(), file.mediaType(),
                     file.sizeBytes(), file.createdAt(), file.category().name(), file.sessionId(), file.sessionTitle(),
-                    file.usedBy().stream().map(UsageResponse::from).toList(), file.deletable());
+                    file.messageId(), file.usedBy().stream().map(UsageResponse::from).toList(), file.deletable());
         }
     }
 
@@ -100,6 +108,19 @@ class ChatLibraryController {
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(new LibraryPageResponse(
                 page.items().stream().map(LibraryFileResponse::from).toList(),
                 page.totalCount(), page.totalBytes(), page.hasMore()));
+    }
+
+    @PostMapping("/{source}/{id}/copy")
+    @Operation(operationId = "copyChatLibraryFile",
+            summary = "Copy a generated file or image into an upload of the caller, so it can be attached to a message,"
+                    + " a Project or an assistant; asking again returns the same upload")
+    @ApiResponse(responseCode = "200", description = "The upload holding the copy; it is PROCESSING until extracted",
+            useReturnTypeSchema = true)
+    ResponseEntity<ChatFileResponse> copy(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @Parameter(schema = @Schema(allowableValues = {"GENERATED", "IMAGE"})) @PathVariable String source,
+            @PathVariable UUID id) {
+        return ResponseEntity.ok().header("Cache-Control", "no-store").body(ChatFileResponse.from(
+                library.copy(identity.actorId(), value(source, ChatLibraryFile.Source.class), id)));
     }
 
     private static <E extends Enum<E>> Set<E> parse(@Nullable List<String> values, Class<E> type) {
