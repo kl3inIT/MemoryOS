@@ -3532,6 +3532,8 @@ Object.assign(englishUi, {
 
 Object.assign(englishUi, {
   Account: "Tài khoản",
+  "Selected groups": "Nhóm đã chọn",
+  "Group limit reached.": "Đã chọn tối đa số nhóm.",
   "Service account": "Service account",
   "Service account key": "Khóa service account",
   "Authentication method": "Phương thức xác thực",
