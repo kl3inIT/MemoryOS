@@ -1076,17 +1076,15 @@ export const englishUi: Record<string, string> = {
   None: "Không có",
   "Leave the selection empty for no group associations. Global Source management does not require an association.":
     "Để trống lựa chọn nếu không muốn liên kết nhóm. Quyền quản lý Nguồn toàn Tenant không yêu cầu liên kết nhóm.",
-  "For Private Sources, group members can search and read imported documents. For Auto Sync Sources, groups only decide who manages the Source.":
-    "Với Nguồn riêng tư, thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập. Với Nguồn tự động đồng bộ, nhóm chỉ quyết định ai quản lý Nguồn.",
-  "Group members can search and read imported documents from Private Sources. For Auto Sync Sources, groups only decide who manages the Source; Google Drive file permissions decide who reads. Global Source management does not grant access to private documents without group membership.":
-    "Thành viên nhóm được tìm kiếm và đọc tài liệu đã nhập từ Nguồn riêng tư. Với Nguồn tự động đồng bộ, nhóm chỉ quyết định ai quản lý Nguồn; quyền từng tệp trên Google Drive quyết định ai được đọc. Quyền quản lý Nguồn toàn Tenant không cấp quyền đọc tài liệu riêng tư nếu không là thành viên nhóm.",
+  "Only members of these groups can read this Source.":
+    "Chỉ thành viên các nhóm này đọc được Nguồn này.",
   "Select at least one group you manage.": "Chọn ít nhất một nhóm bạn quản lý.",
   "Select groups": "Chọn nhóm",
   "Type to find more groups.": "Nhập tên để tìm thêm nhóm.",
   "Auto Sync · people who can open each file in Google Drive":
     "Tự động đồng bộ · những người mở được từng tệp trên Google Drive",
-  "Readers need access to each file in Google Drive and a verified login email that matches it. Groups only decide who manages this Source.":
-    "Người đọc cần có quyền với từng tệp trên Google Drive và email đăng nhập đã xác minh trùng khớp. Nhóm chỉ quyết định ai quản lý Nguồn này.",
+  "Whoever can open the file in Google Drive can read it.":
+    "Ai mở được tệp trên Google Drive thì đọc được.",
   "Connection details": "Chi tiết kết nối",
   "This connection has no saved OAuth app. Upload or paste your Google Web OAuth client JSON below, then reconnect the same Google account. Saved files and folders are retained.":
     "Kết nối này chưa lưu ứng dụng OAuth. Tải lên hoặc dán JSON ứng dụng khách Google Web OAuth bên dưới, rồi kết nối lại cùng tài khoản Google. Các tệp và thư mục đã lưu được giữ nguyên.",
@@ -1123,10 +1121,6 @@ export const englishUi: Record<string, string> = {
   "Canceled by pause. Resume the Source to continue synchronization and indexing.":
     "Đã hủy do tạm dừng. Tiếp tục Nguồn để tiếp tục đồng bộ và lập chỉ mục.",
   "Private · associated group members": "Riêng tư · thành viên các nhóm liên kết",
-  "Public files can be searched and read by everyone in this Tenant. Private files require membership in an associated group.":
-    "Mọi người trong Tenant này có thể tìm kiếm và đọc tệp công khai. Tệp riêng tư yêu cầu tư cách thành viên của một nhóm liên kết.",
-  "Public documents can be read by everyone in this Tenant and Private documents by members of an associated group. Auto Sync documents can be read by people who can open the file in Google Drive, matched by their verified login email.":
-    "Mọi người trong Tenant này đọc được tài liệu công khai; thành viên nhóm liên kết đọc được tài liệu riêng tư. Tài liệu tự động đồng bộ chỉ đọc được bởi những người mở được tệp trên Google Drive, đối chiếu theo email đăng nhập đã xác minh.",
   "Save name": "Lưu tên",
   "Save visibility": "Lưu chế độ hiển thị",
   "Automatic synchronization": "Đồng bộ tự động",
@@ -1710,7 +1704,6 @@ Object.assign(englishUi, {
     "Tối đa 16 KiB. Chứa khóa bí mật ứng dụng; chỉ gửi tới MemoryOS cho kết nối này, không lưu trong bộ nhớ trình duyệt và được xóa khi tiếp tục hoặc rời thiết lập.",
   "Reading client JSON…": "Đang đọc JSON ứng dụng…",
   "Every {{v1}}": "Mỗi {{v1}}",
-  "Members of its groups": "Thành viên các nhóm của nguồn",
   "People with access in Google Drive": "Người có quyền trên Google Drive",
   "Loading…": "Đang tải…",
   Unavailable: "Không khả dụng",
@@ -2205,15 +2198,15 @@ Object.assign(englishUi, {
   "Previous errors": "Trang lỗi trước",
   "Next errors": "Trang lỗi tiếp",
   "Source setup": "Thiết lập nguồn",
-  "Available to workspace members, not the public Internet.":
-    "Khả dụng với thành viên không gian làm việc, không công khai trên Internet.",
-  "Only members of the associated groups can read this Source.":
-    "Chỉ thành viên các nhóm liên kết mới đọc được Nguồn này.",
-  "Readers need access to each file in Google Drive.":
-    "Người đọc cần có quyền với từng tệp trên Google Drive.",
-  "Workspace members": "Thành viên không gian làm việc",
+  "Everyone can read it.": "Mọi người đều đọc được.",
+  "Only members of the chosen groups can read it.": "Chỉ thành viên các nhóm được chọn đọc được.",
+  "Permissions come from the source.": "Quyền được lấy theo quyền từ nguồn.",
+  "All members": "Toàn bộ thành viên",
+  "Specific groups": "Một số nhóm cụ thể",
+  "Sync permissions from source": "Đồng bộ quyền từ nguồn",
+  "Members of the chosen groups": "Thành viên các nhóm được chọn",
+  "Choose who can read this Source.": "Chọn ai được đọc Nguồn này.",
   Private: "Riêng tư",
-  "Auto Sync": "Tự động đồng bộ",
   "Source summary": "Tóm tắt nguồn",
   "Source status": "Trạng thái nguồn",
   Access: "Truy cập",
@@ -3558,15 +3551,10 @@ Object.assign(englishUi, {
   "Primary admin email": "Email quản trị viên chính",
   "admin@company.com": "admin@company.com",
   "e.g. Company Google Workspace": "vd. Google Workspace của công ty",
-  "Use a service account with domain-wide delegation to index your company's Google Workspace.":
-    "Dùng service account có ủy quyền toàn miền (domain-wide delegation) để lập chỉ mục Google Workspace của công ty.",
-  "An active Google Workspace administrator. The service account acts as this user to read Drive, users and groups.":
-    "Một quản trị viên Google Workspace đang hoạt động. Service account thay mặt người này để đọc Drive, người dùng và nhóm.",
+  "Connect with a service account key.": "Kết nối bằng khóa service account.",
   "Replacing the key affects all {{v1}} Sources using this credential. Use a key of the same service account; saved links and indexed documents are retained.":
     "Thay khóa ảnh hưởng tới cả {{v1}} Nguồn đang dùng thông tin kết nối này. Hãy dùng khóa của cùng service account; liên kết đã lưu và tài liệu đã lập chỉ mục được giữ nguyên.",
   "Verifying the service account with Google…": "Đang xác minh service account với Google…",
-  "Upload the JSON key of a service account with domain-wide delegation. MemoryOS reads Drive and the Google Workspace directory as the primary admin.":
-    "Tải lên khóa JSON của service account có ủy quyền toàn miền. MemoryOS đọc Drive và danh bạ Google Workspace thay mặt quản trị viên chính.",
   "Enable the Drive, Docs, Sheets and Admin SDK APIs in your Google Cloud project, create a service account and download its JSON key.":
     "Bật các API Drive, Docs, Sheets và Admin SDK trong dự án Google Cloud, tạo service account và tải khóa JSON của nó.",
   "Google service account guide": "Hướng dẫn service account của Google",
@@ -3575,8 +3563,6 @@ Object.assign(englishUi, {
   "Upload service account JSON key": "Tải lên khóa JSON của service account",
   "Attach the service account JSON key": "Đính kèm khóa JSON của service account",
   "Clear service account key": "Xóa khóa service account",
-  "Maximum 16 KiB. Contains a private key; sent only to MemoryOS, encrypted at rest, never saved in browser storage, and cleared when you continue or leave setup.":
-    "Tối đa 16 KiB. Chứa khóa riêng; chỉ gửi tới MemoryOS, được mã hóa khi lưu, không bao giờ lưu trong trình duyệt và bị xóa khi bạn tiếp tục hoặc rời thiết lập.",
   "Reading service account key…": "Đang đọc khóa service account…",
   "Choose a service account JSON key between 1 byte and 16 KiB.":
     "Chọn khóa JSON của service account có kích thước từ 1 byte đến 16 KiB.",

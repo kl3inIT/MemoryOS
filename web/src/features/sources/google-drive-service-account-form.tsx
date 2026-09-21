@@ -143,17 +143,8 @@ export function GoogleDriveServiceAccountForm({
           onChange={(event) => setAdminEmail(event.target.value)}
           placeholder={ui("admin@company.com")}
           autoComplete="off"
-          aria-describedby="google-drive-service-account-admin-hint"
           className="mt-2"
         />
-        <p
-          id="google-drive-service-account-admin-hint"
-          className="mt-2 text-sm text-content-secondary"
-        >
-          {ui(
-            "An active Google Workspace administrator. The service account acts as this user to read Drive, users and groups.",
-          )}
-        </p>
       </div>
       {replacing ? (
         <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">

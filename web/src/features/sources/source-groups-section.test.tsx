@@ -172,7 +172,6 @@ describe("ordinary Source associations", () => {
       <SourceGroupsSection
         sourceId="source"
         editable={false}
-        restricted
         onAuthorityChanged={async () => {}}
       />,
     );
@@ -184,12 +183,7 @@ describe("ordinary Source associations", () => {
   it("lets a global manager clear the final ordinary association without submitting system IDs", async () => {
     const user = userEvent.setup();
     const { saved } = setup(
-      <SourceGroupsSection
-        sourceId="source"
-        editable
-        restricted
-        onAuthorityChanged={async () => {}}
-      />,
+      <SourceGroupsSection sourceId="source" editable onAuthorityChanged={async () => {}} />,
     );
     const choice = await screen.findByRole("checkbox", { name: ordinary.name });
     await waitFor(() => expect(choice).toBeChecked());
@@ -201,12 +195,7 @@ describe("ordinary Source associations", () => {
   it("lets the responsible manager clear the last association and warns that nobody can read it", async () => {
     const user = userEvent.setup();
     const { saved } = setup(
-      <SourceGroupsSection
-        sourceId="source"
-        editable
-        restricted
-        onAuthorityChanged={async () => {}}
-      />,
+      <SourceGroupsSection sourceId="source" editable onAuthorityChanged={async () => {}} />,
       scopedSession,
     );
     const choice = await screen.findByRole("checkbox", { name: ordinary.name });
@@ -222,7 +211,6 @@ describe("ordinary Source associations", () => {
       <SourceGroupsSection
         sourceId="source"
         editable={false}
-        restricted
         onAuthorityChanged={async () => {}}
       />,
       globalSession,

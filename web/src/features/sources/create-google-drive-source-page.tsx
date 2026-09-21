@@ -148,7 +148,8 @@ function GoogleDriveSourceSetup() {
   const [linksTouched, setLinksTouched] = useState(false);
   const links = scopeMode === "GENERAL" ? [] : parseGoogleDriveLinks(linksText);
   // Readers of a Private Source are its groups; scoped managers also need groups for Auto Sync.
-  const showGroups = access === "PRIVATE" || (access === "SYNC" && !globalManage);
+  // Drive file permissions decide who reads a source-permission Source, so only group access picks groups.
+  const showGroups = access === "PRIVATE";
   const proposal = {
     name: sourceName.trim(),
     credentialId: selected?.id ?? "",
@@ -1100,9 +1101,7 @@ function GoogleDriveSourceSetup() {
                 className="mt-2 text-sm text-content-secondary"
               >
                 {method === "SERVICE_ACCOUNT"
-                  ? ui(
-                      "Use a service account with domain-wide delegation to index your company's Google Workspace.",
-                    )
+                  ? ui("Connect with a service account key.")
                   : ui("Authenticate with OAuth to access your Google Drive documents.")}
               </DialogDescription>
             </div>

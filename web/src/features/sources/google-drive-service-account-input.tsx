@@ -120,11 +120,6 @@ export function GoogleDriveServiceAccountInput({
     <fieldset disabled={disabled} className="flex min-w-0 flex-col gap-4">
       <legend className="sr-only">{ui("Service account key")}</legend>
       <p className="font-main-ui-action text-content-primary">{ui("Service account key")}</p>
-      <p className="font-secondary-body text-content-muted">
-        {ui(
-          "Upload the JSON key of a service account with domain-wide delegation. MemoryOS reads Drive and the Google Workspace directory as the primary admin.",
-        )}
-      </p>
       <Collapsible className="font-secondary-body text-content-muted">
         <CollapsibleTrigger className="w-fit cursor-pointer underline underline-offset-4">
           {ui("Setup instructions")}
@@ -216,11 +211,6 @@ export function GoogleDriveServiceAccountInput({
           <dd className="font-mono text-xs text-content-primary">{key.clientId}</dd>
         </dl>
       ) : null}
-      <p className="font-secondary-body text-content-muted">
-        {ui(
-          "Maximum 16 KiB. Contains a private key; sent only to MemoryOS, encrypted at rest, never saved in browser storage, and cleared when you continue or leave setup.",
-        )}
-      </p>
       {reading ? (
         <p role="status" className="text-sm text-content-secondary">
           {ui("Reading service account key…")}
