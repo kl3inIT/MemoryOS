@@ -22,6 +22,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   downloadChatFile,
   getChatFileArtifact,
+  getChatImageArtifact,
   getChatFileArtifactPdfPreview,
   previewChatFileArtifactSpreadsheet,
   previewChatFileSpreadsheet,
@@ -58,12 +59,19 @@ async function readBlob(target: PreviewTarget, signal: AbortSignal): Promise<Blo
           signal,
           throwOnError: true,
         })
-      : await downloadChatFile({
-          path: { fileId: target.id },
-          parseAs: "blob",
-          signal,
-          throwOnError: true,
-        });
+      : target.source === "image"
+        ? await getChatImageArtifact({
+            path: { artifactId: target.id },
+            parseAs: "blob",
+            signal,
+            throwOnError: true,
+          })
+        : await downloadChatFile({
+            path: { fileId: target.id },
+            parseAs: "blob",
+            signal,
+            throwOnError: true,
+          });
   if (!(data instanceof Blob)) throw new Error("Invalid file content");
   return data;
 }

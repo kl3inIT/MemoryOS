@@ -22,6 +22,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 /** Server-side storage of a generated image: stage bytes, then adopt and record within one transaction. */
 @Service
 public class ImageArtifactService {
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ImageArtifactService.class);
     /** Same ceiling as vision input; an edit source is read fully into memory. */
     private static final int EDIT_SOURCE_LIMIT = 20 * 1024 * 1024;
     private final ObjectWriteService writes;
@@ -60,7 +61,20 @@ public class ImageArtifactService {
      */
     public Map<UUID, List<JdbcImageArtifactRepository.Artifact>> forMessages(ActorId actor, Collection<UUID> messageIds) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
-        return artifacts.byMessages(tenant, messageIds);
+        return artifacts.byMessages(tenant, messageIds, true);
+    }
+
+    /**
+     * Hides a generated image the caller owns and leaves its bytes to the cleanup sweep. Deleting an image
+     * already deleted succeeds, so a repeated request from the library is not an error.
+     */
+    public void delete(ActorId actor, UUID id) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        tx.executeWithoutResult(ignored -> {
+            if (!artifacts.markDeleted(tenant, actor, id)) throw ChatException.unavailable();
+        });
+        LOGGER.atInfo().addKeyValue("event", "chat.artifact.deleted").addKeyValue("artifact_kind", "IMAGE")
+                .log("Generated image hidden; the cleanup sweep releases its bytes");
     }
 
     /**
@@ -97,7 +111,8 @@ public class ImageArtifactService {
             tx.executeWithoutResult(ignored -> {
                 writes.adopt(tenant, staged);
                 artifacts.insert(tenant, messageId, id, staged.object().id().value(), staged.object().key(),
-                        result.mediaType(), result.revisedPrompt(), sourceArtifactId, sourceFileId);
+                        result.mediaType(), extension(result.mediaType()), result.bytes().length,
+                        result.revisedPrompt(), sourceArtifactId, sourceFileId);
             });
             adopted = true;
             return id;

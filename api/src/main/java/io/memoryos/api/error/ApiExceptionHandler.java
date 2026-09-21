@@ -2,6 +2,7 @@ package io.memoryos.api.error;
 
 import io.memoryos.BusinessException;
 import io.memoryos.FailureCategory;
+import io.memoryos.chat.ChatFileInUseException;
 import io.memoryos.connector.GoogleDriveProviderException;
 
 import java.net.URI;
@@ -37,6 +38,15 @@ final class ApiExceptionHandler {
         problem.setTitle(title(exception.category()));
         problem.setType(problemType(exception.code()));
         problem.setProperty("code", exception.code());
+        return problem;
+    }
+
+    /** The conflict above, plus what holds the file, so the caller can name the project or assistant. */
+    @ExceptionHandler(ChatFileInUseException.class)
+    ProblemDetail handleChatFileInUse(ChatFileInUseException exception) {
+        ProblemDetail problem = handleBusinessException(exception);
+        problem.setProperty("usedBy", exception.usedBy().stream()
+                .map(used -> Map.of("kind", used.kind(), "id", used.id().toString(), "name", used.name())).toList());
         return problem;
     }
 

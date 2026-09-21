@@ -18,6 +18,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 /** Per-Tenant Code Interpreter switch and the files its runs produce (MEM-110). */
 @Service
 public class InterpreterService {
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(InterpreterService.class);
     private final JdbcInterpreterRepository repository;
     private final InterpreterProperties properties;
     private final IamAuthorization authorization;
@@ -67,7 +68,6 @@ public class InterpreterService {
         return properties.configured() && repository.setting(tenant).map(JdbcInterpreterRepository.Setting::enabled).orElse(false);
     }
 
-    /** Persists a generated file against the assistant message; returns the artifact id. */
     /**
      * Generated files for an already-authorized page of messages, keyed by message id. The caller has resolved these
      * message ids from an ownership-checked history read; results are scoped to the actor's active Tenant.
@@ -76,6 +76,19 @@ public class InterpreterService {
             ActorId actor, java.util.Collection<UUID> messageIds) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(io.memoryos.chat.ChatException::unavailable);
         return repository.byMessages(tenant, messageIds);
+    }
+
+    /**
+     * Hides a generated file the caller owns and leaves its bytes to the cleanup sweep. Deleting a file
+     * already deleted succeeds, so a repeated request from the library is not an error.
+     */
+    public void delete(ActorId actor, UUID id) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        tx.executeWithoutResult(ignored -> {
+            if (!repository.markArtifactDeleted(tenant, actor, id)) throw ChatException.unavailable();
+        });
+        LOGGER.atInfo().addKeyValue("event", "chat.artifact.deleted").addKeyValue("artifact_kind", "GENERATED_FILE")
+                .log("Generated file hidden; the cleanup sweep releases its bytes");
     }
 
     public UUID store(TenantId tenant, UUID messageId, String filename, String mediaType, byte[] bytes) {
@@ -125,20 +138,23 @@ public class InterpreterService {
         return storage.open(key);
     }
 
-    /** Stores a converted PDF preview; when another request stored one first, this copy is discarded. */
+    /**
+     * Stores a converted PDF preview. When another request stored one first, or the file was deleted while the
+     * conversion ran, this copy is discarded rather than left adopted with nothing referencing it.
+     */
     public void storePreview(TenantId tenant, UUID id, byte[] pdf) {
         var staged = writes.stage(tenant, new ObjectWriteService.Specification("preview.pdf", "application/pdf", false), pdf);
         boolean adopted = false;
         try {
             tx.executeWithoutResult(ignored -> {
                 writes.adopt(tenant, staged);
-                // Another request stored a preview first: roll back this adoption and keep theirs.
+                // Another request stored a preview first, or the file is gone: roll back this adoption.
                 if (!repository.attachPreview(tenant, id, staged.object().id().value(), staged.object().key(), pdf.length))
                     throw new PreviewAlreadyStored();
             });
             adopted = true;
         } catch (PreviewAlreadyStored ignored) {
-            // The caller reads the stored preview.
+            // The caller reads the stored preview, or fails on the next owner check when the file is gone.
         } finally {
             if (!adopted) writes.discard(tenant, staged);
         }

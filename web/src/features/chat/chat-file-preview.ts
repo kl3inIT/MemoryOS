@@ -1,9 +1,13 @@
 import DOMPurify from "dompurify";
 import { fileArtifactUrl } from "./chat-code";
+import { imageArtifactUrl } from "./chat-image";
 
-/** A chat file to preview: a file run_python generated or an attachment, each read through its owner route. */
+/**
+ * A chat file to preview: a file run_python generated, an attachment, or a generated image, each read
+ * through its own owner route.
+ */
 export type PreviewTarget = {
-  source: "generated" | "attachment";
+  source: "generated" | "attachment" | "image";
   id: string;
   filename: string;
   /** The stored type when known; a link in an answer only knows the name. */
@@ -11,9 +15,9 @@ export type PreviewTarget = {
 };
 
 export function downloadUrl(target: PreviewTarget): string {
-  return target.source === "generated"
-    ? fileArtifactUrl(target.id)
-    : `/api/chat/files/${encodeURIComponent(target.id)}/content`;
+  if (target.source === "generated") return fileArtifactUrl(target.id);
+  if (target.source === "image") return imageArtifactUrl(target.id);
+  return `/api/chat/files/${encodeURIComponent(target.id)}/content`;
 }
 
 /** The first matching preview, in the Onyx PreviewModal variant order; anything else downloads. */

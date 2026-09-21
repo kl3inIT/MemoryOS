@@ -12017,6 +12017,93 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/library:
+    get:
+      tags:
+      - Chat
+      summary: "List the caller's own uploads, generated files and generated images\
+        \ as one paginated library, optionally narrowed to one conversation"
+      operationId: listChatLibrary
+      parameters:
+      - name: query
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ""
+      - name: sources
+        in: query
+        description: Empty means every source
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      - name: categories
+        in: query
+        description: Empty means every category
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+      - name: sessionId
+        in: query
+        description: Only this conversation's own files; the caller must own it
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+          default: NEWEST
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "400":
+          description: Invalid library request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: A page of the caller's files
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatLibraryPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/interpreter/health:
     get:
       tags:
@@ -13681,6 +13768,114 @@ paths:
           description: Authentication required
         "204":
           description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/image-artifacts/{artifactId}:
+    delete:
+      tags:
+      - Chat
+      summary: Delete an owner-private generated image; the answer keeps a deleted
+        card and a sweep releases the bytes
+      operationId: deleteChatImageArtifact
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid image request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Image not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: Image deleted
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/file-artifacts/{artifactId}:
+    delete:
+      tags:
+      - Chat
+      summary: Delete an owner-private generated file; the answer keeps a deleted
+        card and a sweep releases the bytes
+      operationId: deleteChatFileArtifact
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: artifactId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: File deleted
       security:
       - bearerAuth: []
       - browserSession: []
@@ -19373,8 +19568,13 @@ components:
         chart:
           type: boolean
           description: "Chart data is available at /api/chat/file-artifacts/{id}/chart"
+        deleted:
+          type: boolean
+          description: The file was deleted from the library; its content routes no
+            longer serve it
       required:
       - chart
+      - deleted
       - filename
       - id
       - mediaType
@@ -19391,7 +19591,12 @@ components:
           type:
           - string
           - "null"
+        deleted:
+          type: boolean
+          description: The image was deleted from the library; its content route no
+            longer serves it
       required:
+      - deleted
       - id
       - mediaType
       - revisedPrompt
@@ -20022,6 +20227,105 @@ components:
       required:
       - items
       - nextCursor
+    ChatLibraryFile:
+      type: object
+      properties:
+        source:
+          type: string
+          enum:
+          - UPLOAD
+          - GENERATED
+          - IMAGE
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        category:
+          type: string
+          enum:
+          - DOCUMENT
+          - SPREADSHEET
+          - IMAGE
+          - PRESENTATION
+          - OTHER
+        sessionId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: The conversation that produced the file; null for an upload
+        sessionTitle:
+          type:
+          - string
+          - "null"
+        usedBy:
+          type: array
+          description: Projects and assistants holding this file
+          items:
+            $ref: "#/components/schemas/ChatLibraryFileUsage"
+        deletable:
+          type: boolean
+          description: False while a project or assistant holds the file
+      required:
+      - category
+      - createdAt
+      - deletable
+      - filename
+      - id
+      - mediaType
+      - sessionId
+      - sessionTitle
+      - sizeBytes
+      - source
+      - usedBy
+    ChatLibraryFileUsage:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - AGENT
+          - PROJECT
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - kind
+      - name
+    ChatLibraryPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatLibraryFile"
+        totalCount:
+          type: integer
+          format: int64
+          description: "Files matching the filter, not only this page"
+        totalBytes:
+          type: integer
+          format: int64
+          description: Total size of the files matching the filter
+        hasMore:
+          type: boolean
+      required:
+      - hasMore
+      - items
+      - totalBytes
+      - totalCount
     InterpreterHealthResponse:
       type: object
       properties:
