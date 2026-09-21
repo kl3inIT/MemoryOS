@@ -39,6 +39,9 @@ import tools.jackson.databind.node.ObjectNode;
 public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoCloseable {
     private static final String FILE_FIELDS = "id,name,mimeType,version,md5Checksum,modifiedTime,trashed,parents,driveId,shortcutDetails(targetId)";
     private static final String PERMISSION_FIELDS = "id,type,role,emailAddress,domain,expirationTime,allowFileDiscovery,deleted,pendingOwner,permissionDetails(permissionType,role,inheritedFrom,inherited),view,inheritedPermissionsDisabled";
+    private static final String JWT_BEARER_GRANT = "urn:ietf:params:oauth:grant-type:jwt-bearer";
+    /** Google accepts assertions valid for at most one hour. */
+    private static final long ASSERTION_LIFETIME_SECONDS = 3600;
     private static final String PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
     private final GoogleDriveProviderProperties properties;
     private final ObjectMapper mapper;
@@ -58,24 +61,62 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
 
     @Override public Session open(Credential credential) {
         properties.validate();
+        return switch (credential) {
+            case OAuthCredential oauth -> refresh(oauth);
+            case ServiceAccountCredential serviceAccount -> impersonate(serviceAccount);
+        };
+    }
+
+    private Session refresh(OAuthCredential credential) {
         byte[] refresh = credential.refreshToken();
         byte[] secret = credential.clientSecret();
         try {
             String form = "grant_type=refresh_token&client_id=" + encode(credential.clientId())
                     + "&client_secret=" + encode(new String(secret, StandardCharsets.UTF_8))
                     + "&refresh_token=" + encode(new String(refresh, StandardCharsets.UTF_8));
-            HttpRequest request = HttpRequest.newBuilder(properties.tokenUri())
-                    .header("Content-Type", "application/x-www-form-urlencoded")
-                    .POST(HttpRequest.BodyPublishers.ofString(form)).build();
-            JsonNode response = json(exchange(request, new Budget(), 65_536, true, NOT_FOUND));
-            String bearer = required(response, "access_token");
-            if (!"Bearer".equalsIgnoreCase(required(response, "token_type"))) throw failure(MALFORMED);
+            JsonNode response = exchangeToken(form);
             String rotated = optional(response, "refresh_token");
-            return new DriveSession(bearer, rotated == null ? null : rotated.getBytes(StandardCharsets.UTF_8));
+            return new DriveSession(bearer(response), rotated == null ? null : rotated.getBytes(StandardCharsets.UTF_8));
         } finally {
             Arrays.fill(refresh, (byte) 0);
             Arrays.fill(secret, (byte) 0);
         }
+    }
+
+    /** RFC 7523 JWT bearer grant: the service account signs an assertion naming the user it acts as. */
+    private Session impersonate(ServiceAccountCredential credential) {
+        var key = credential.key();
+        long issuedAt = Instant.now().getEpochSecond();
+        ObjectNode header = mapper.createObjectNode().put("alg", "RS256").put("typ", "JWT").put("kid", key.privateKeyId());
+        ObjectNode claims = mapper.createObjectNode().put("iss", key.clientEmail()).put("sub", credential.subject())
+                .put("scope", String.join(" ", SERVICE_ACCOUNT_SCOPES)).put("aud", properties.tokenUri().toString())
+                .put("iat", issuedAt).put("exp", issuedAt + ASSERTION_LIFETIME_SECONDS);
+        var encoder = java.util.Base64.getUrlEncoder().withoutPadding();
+        String signingInput = encoder.encodeToString(mapper.writeValueAsBytes(header)) + "."
+                + encoder.encodeToString(mapper.writeValueAsBytes(claims));
+        String assertion;
+        try {
+            var signature = java.security.Signature.getInstance("SHA256withRSA");
+            signature.initSign(key.privateKey());
+            signature.update(signingInput.getBytes(StandardCharsets.US_ASCII));
+            assertion = signingInput + "." + encoder.encodeToString(signature.sign());
+        } catch (java.security.GeneralSecurityException exception) {
+            throw failure(AUTHENTICATION);
+        }
+        return new DriveSession(bearer(exchangeToken("grant_type=" + encode(JWT_BEARER_GRANT) + "&assertion=" + encode(assertion))), null);
+    }
+
+    private JsonNode exchangeToken(String form) {
+        HttpRequest request = HttpRequest.newBuilder(properties.tokenUri())
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .POST(HttpRequest.BodyPublishers.ofString(form)).build();
+        return json(exchange(request, new Budget(), 65_536, true, NOT_FOUND));
+    }
+
+    private static String bearer(JsonNode response) {
+        String bearer = required(response, "access_token");
+        if (!"Bearer".equalsIgnoreCase(required(response, "token_type"))) throw failure(MALFORMED);
+        return bearer;
     }
 
     @Override public void close() { client.close(); }

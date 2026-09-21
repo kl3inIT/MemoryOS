@@ -472,7 +472,7 @@ class GoogleDriveCredentialAuthorityTest {
         assertThrows(SourceException.class, () -> authorizations.oauthClient(owner, reused));
         try (var grant = grant("stale-grant")) { assertThrows(SourceException.class, () -> authorizations.complete(owner, reused, grant)); }
         when(provider.open(any())).thenAnswer(invocation -> {
-            GoogleDriveProvider.Credential client = invocation.getArgument(0);
+            var client = (GoogleDriveProvider.OAuthCredential) invocation.getArgument(0);
             assertEquals("replacement.apps.googleusercontent.com", client.clientId());
             assertArrayEquals(bytes("replacement-secret"), client.clientSecret());
             assertArrayEquals(bytes("replacement-grant"), client.refreshToken());

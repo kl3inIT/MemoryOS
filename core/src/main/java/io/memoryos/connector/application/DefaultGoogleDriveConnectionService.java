@@ -54,7 +54,7 @@ public class DefaultGoogleDriveConnectionService implements GoogleDriveConnectio
         GoogleDriveProvider.Session session;
         try (var client = credentials.oauthClient(tenantId, stored)) {
             secret = client.clientSecret();
-            try (var grant = new GoogleDriveProvider.Credential(client.clientId(), secret, token)) {
+            try (var grant = new GoogleDriveProvider.OAuthCredential(client.clientId(), secret, token)) {
                 session = provider.open(grant);
             }
         } catch (GoogleDriveProviderException exception) {

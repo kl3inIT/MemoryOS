@@ -18,6 +18,11 @@ public final class GoogleDriveException extends BusinessException {
                 "Supply valid Google Web OAuth client JSON containing the configured redirect URI.");
     }
 
+    public static GoogleDriveException invalidServiceAccountKey() {
+        return new GoogleDriveException("GOOGLE_DRIVE_SERVICE_ACCOUNT_KEY_INVALID", FailureCategory.VALIDATION,
+                "Supply the JSON key downloaded for a Google Cloud service account, with an RSA key of at least 2048 bits.");
+    }
+
     public static GoogleDriveException notConfigured() {
         return new GoogleDriveException("GOOGLE_DRIVE_NOT_CONFIGURED", FailureCategory.SERVICE_UNAVAILABLE,
                 "Google Drive authorization is not configured. Contact the deployment owner.");
