@@ -325,9 +325,14 @@ export function ChatFilePreviewModal({
                 {target.filename}
               </Dialog.Title>
               {view?.description && (
-                <span className="hidden shrink-0 text-content-muted md:inline">
-                  · {view.description}
-                </span>
+                <>
+                  <span className="hidden shrink-0 text-content-muted md:inline" aria-hidden="true">
+                    ·
+                  </span>
+                  <span className="hidden shrink-0 text-content-muted md:inline">
+                    {view.description}
+                  </span>
+                </>
               )}
             </nav>
             {at >= 0 && gallery.length > 1 && (
