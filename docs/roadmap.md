@@ -141,7 +141,7 @@ Planning snapshot of 2026-09-15 ([MEM-115](https://linear.app/memory-os/issue/ME
 | [SEP490: Hồ sơ và bảo vệ đồ án](https://linear.app/memory-os/project/sep490-f571b6150b5f) | In progress, at risk | 2026-08-24 → 2026-12-21 | MEM-85, MEM-86, MEM-115 |
 | Nguồn Google Drive và phân quyền | In progress | → 2026-10 | MEM-60, MEM-9, MEM-10, MEM-63, MEM-88, MEM-89, MEM-90, MEM-104, MEM-105 |
 | Đọc tài liệu scan (OCR) | In progress | → 2026-10 | MEM-79 |
-| Trợ lý AI nâng cao | In progress | → 2026-11 | MEM-101, MEM-107, MEM-110, MEM-111, MEM-116; candidates MEM-117, MEM-122 |
+| Trợ lý AI nâng cao | In progress | → 2026-11 | MEM-101, MEM-107, MEM-110, MEM-111, MEM-116, MEM-122; candidate MEM-117 |
 | Mô hình AI và chi phí | In progress | → 2026-11 | MEM-66, MEM-96, MEM-98, MEM-102, MEM-113, MEM-123, MEM-139, MEM-151 |
 | Bảo mật, quản trị và vận hành | In progress | → 2026-12 | MEM-25, MEM-54, MEM-65, MEM-69, MEM-124, MEM-125 |
 | Agent và Skill tùy chỉnh | In progress | → 2026-11 | MEM-119 delivered; MEM-120 |

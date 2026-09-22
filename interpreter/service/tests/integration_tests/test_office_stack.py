@@ -263,6 +263,149 @@ print(json.dumps(result, ensure_ascii=False))
     assert result["refusal"] == {"converted": False, "error": "only .pptx files are supported"}
 
 
+def test_render_deck_builds_a_vietnamese_deck_that_check_pptx_passes() -> None:
+    client = TestClient(create_app())
+    code = """
+import json, subprocess
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+plt.bar(['Q1', 'Q2', 'Q3', 'Q4'], [268, 301, 322, 343])
+plt.savefig('doanh-thu.png')
+plt.close()
+plan = {'title': 'Báo cáo kết quả kinh doanh 2024',
+        'subtitle': 'Tổng hợp từ tài liệu đã lập chỉ mục',
+        'author': 'Phòng Tài chính', 'date': '22/09/2026', 'confidentiality': 'Nội bộ',
+        'sources': [{'label': 'Báo cáo tài chính 2024.pdf', 'detail': 'trang 12'}],
+        'slides': [
+            {'type': 'title'},
+            {'type': 'agenda', 'items': ['Kết quả', 'Kế hoạch']},
+            {'type': 'metrics', 'title': 'Chỉ tiêu chính', 'cites': [1],
+             'metrics': [{'value': '1.234 tỷ', 'label': 'Doanh thu', 'delta': '+12,4%'},
+                         {'value': '218 tỷ', 'label': 'Lợi nhuận sau thuế'}]},
+            {'type': 'bullets', 'title': 'Động lực tăng trưởng', 'cites': [1],
+             'bullets': ['Thiết bị công nghiệp tăng 21%',
+                         {'text': 'Miền Trung đóng góp 38% mức tăng', 'level': 1}]},
+            {'type': 'table', 'title': 'Doanh thu theo quý', 'columns': ['Quý', 'Doanh thu'],
+             'rows': [['Q1', '268 tỷ'], ['Q2', '301 tỷ']]},
+            {'type': 'image', 'title': 'Biểu đồ doanh thu', 'path': 'doanh-thu.png'},
+            {'type': 'closing', 'title': 'Cảm ơn'}]}
+with open('ke-hoach.json', 'w', encoding='utf-8') as handle:
+    json.dump(plan, handle, ensure_ascii=False)
+rendered = subprocess.run(['render-deck', 'ke-hoach.json', 'báo cáo.pptx', 'báo cáo.html'],
+                          capture_output=True, text=True)
+checked = subprocess.run(['check-pptx', 'báo cáo.pptx'], capture_output=True, text=True)
+subprocess.run(['pptx-to-pdf', 'báo cáo.pptx', 'xem.pdf'], capture_output=True, text=True)
+text = subprocess.run(['pdftotext', 'xem.pdf', '-'], capture_output=True, text=True).stdout
+page = open('báo cáo.html', encoding='utf-8').read()
+print(json.dumps({'render_code': rendered.returncode,
+                  'render': [json.loads(line) for line in rendered.stdout.splitlines()],
+                  'check_code': checked.returncode, 'check': json.loads(checked.stdout),
+                  'text': text,
+                  'html': {'sections': page.count('<section class="slide"'),
+                           'inlined_image': 'src="data:image/png;base64,' in page,
+                           'external_refs': page.count('src="http') + page.count('href="http'),
+                           'page_rule': '@page' in page,
+                           'title': 'Báo cáo kết quả kinh doanh 2024' in page}},
+                 ensure_ascii=False))
+""".strip()
+
+    response = client.post("/v1/execute", json={"code": code, "timeout_ms": 60000})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["exit_code"] == 0, payload
+    result = json.loads(str(payload["stdout"]))
+
+    # Seven planned slides plus the sources slide the renderer appends from `sources`, in both formats.
+    assert result["render_code"] == 0
+    deck, page = result["render"]
+    assert [deck["slides"], page["slides"]] == [8, 8]
+    assert deck["warnings"] == [] and page["warnings"] == []
+    # The template decides the layout, so a rendered deck has nothing for the gate to report.
+    assert result["check_code"] == 0
+    assert result["check"]["built_with_render_deck"] is True
+    assert result["check"]["issues"] == [], result["check"]
+    # LibreOffice renders what a reader sees: Vietnamese content, the footer and the sources slide.
+    rendered_text = str(result["text"])
+    assert "Báo cáo kết quả kinh doanh 2024" in rendered_text
+    assert "Động lực tăng trưởng" in rendered_text
+    assert "Nguồn tham khảo" in rendered_text
+    assert "Nội bộ" in rendered_text
+    # The HTML deck is one file that keeps working offline: same slides, picture embedded, nothing fetched.
+    assert result["html"] == {"sections": 8, "inlined_image": True, "external_refs": 0,
+                              "page_rule": True, "title": True}
+
+
+def test_render_deck_refuses_a_plan_it_cannot_lay_out_and_writes_no_deck() -> None:
+    client = TestClient(create_app())
+    code = """
+import json, os, subprocess
+plan = {'title': 'Kế hoạch sai', 'slides': [
+    {'type': 'bullets', 'title': 'Quá nhiều ý', 'bullets': ['Ý số %d' % n for n in range(1, 10)]},
+    {'type': 'bullets', 'title': 'Sai tên trường', 'bullets': ['Một ý'], 'bullet': ['x']},
+    {'type': 'pie', 'title': 'Không có loại này'}]}
+with open('sai.json', 'w', encoding='utf-8') as handle:
+    json.dump(plan, handle, ensure_ascii=False)
+done = subprocess.run(['render-deck', 'sai.json', 'sai.pptx'], capture_output=True, text=True)
+print(json.dumps({'code': done.returncode, 'report': json.loads(done.stdout),
+                  'written': os.path.exists('sai.pptx')}, ensure_ascii=False))
+""".strip()
+
+    response = client.post("/v1/execute", json={"code": code, "timeout_ms": 60000})
+    assert response.status_code == 200
+    result = json.loads(str(response.json()["stdout"]))
+
+    assert result["code"] == 1
+    # A refused plan leaves no half-correct deck for the model to hand over.
+    assert result["written"] is False
+    errors = " | ".join(result["report"]["errors"])
+    assert "9 items" in errors
+    assert "unknown field 'bullet'" in errors
+    assert "unknown type 'pie'" in errors
+
+
+def test_check_pptx_names_the_faults_of_a_hand_built_deck() -> None:
+    client = TestClient(create_app())
+    code = """
+import json, subprocess
+from pptx import Presentation
+from pptx.util import Inches, Pt
+deck = Presentation()
+deck.slide_width, deck.slide_height = Inches(13.333), Inches(7.5)
+slide = deck.slides.add_slide(deck.slide_layouts[6])
+box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(3), Inches(0.5))
+box.text_frame.word_wrap = True
+run = box.text_frame.paragraphs[0].add_run()
+run.text = 'Doanh thu quý 4 tăng 16,1% nhờ hai hợp đồng khung ký trong quý 2. ' * 3
+run.font.size = Pt(8)
+outside = slide.shapes.add_textbox(Inches(12.5), Inches(1), Inches(3), Inches(0.5))
+outside.text_frame.text = 'TODO bổ sung số liệu miền Nam'
+deck.slides.add_slide(deck.slide_layouts[6])
+deck.save('thủ công.pptx')
+done = subprocess.run(['check-pptx', 'thủ công.pptx', 'thiếu.pptx'], capture_output=True, text=True)
+print(json.dumps({'code': done.returncode,
+                  'reports': [json.loads(line) for line in done.stdout.splitlines()]},
+                 ensure_ascii=False))
+""".strip()
+
+    response = client.post("/v1/execute", json={"code": code, "timeout_ms": 60000})
+    assert response.status_code == 200
+    result = json.loads(str(response.json()["stdout"]))
+    hand, missing = result["reports"]
+
+    assert hand["built_with_render_deck"] is False
+    issues = " | ".join(hand["issues"])
+    assert "not built by render-deck" in issues
+    assert "8 pt text" in issues
+    assert "runs past the edge" in issues
+    assert "placeholder text" in issues
+    assert "lies partly outside the slide" in issues
+    assert "slide 2 is empty" in issues
+    # As check-docx does, a fault is a report: only the unreadable file makes the command fail.
+    assert missing == {"file": "thiếu.pptx", "checked": False, "error": "file not found"}
+    assert result["code"] == 1
+
+
 def test_files_written_to_mnt_data_are_returned() -> None:
     """ChatGPT-trained models save to /mnt/data; it is the workspace, so the file comes back."""
     client = TestClient(create_app())
