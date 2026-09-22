@@ -22,7 +22,6 @@ import {
 import { AppShell } from "@/components/app-shell/app-shell";
 import { BrandLoader } from "@/components/brand-loader";
 import { DangerZone } from "@/components/composites/danger-zone";
-import { DetailHeader } from "@/components/composites/detail-header";
 import { EmptyState } from "@/components/composites/empty-state";
 import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { Button } from "@/components/ui/button";
@@ -31,7 +30,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DotMatrix } from "@/components/ui/dot-matrix";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { SettingsLayout } from "@/components/ui/settings-layout";
+import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { i18n } from "@/i18n";
@@ -160,7 +159,7 @@ export function MeetingPage({
     return (
       <AppShell pageTitle={ui("Cuộc họp")}>
         <SettingsLayout wide className="gap-6 md:pt-8">
-          <DetailHeader parent={{ label: ui("Cuộc họp"), to: "/meetings" }} icon={<Mic />} />
+          <PageHeader title={ui("Cuộc họp")} icon={<Mic />} />
           <div
             role="status"
             className="flex justify-center rounded-xl border border-border-subtle px-6 py-20"
@@ -174,7 +173,7 @@ export function MeetingPage({
     return (
       <AppShell pageTitle={ui("Cuộc họp")}>
         <SettingsLayout wide className="gap-6 md:pt-8">
-          <DetailHeader parent={{ label: ui("Cuộc họp"), to: "/meetings" }} icon={<Mic />} />
+          <PageHeader title={ui("Cuộc họp")} icon={<Mic />} />
           <EmptyState
             role="alert"
             icon={<WifiOff />}
@@ -272,8 +271,7 @@ export function MeetingPage({
         />
       )}
       <SettingsLayout wide className="gap-5 md:pt-8">
-        <DetailHeader
-          parent={{ label: ui("Cuộc họp"), to: "/meetings" }}
+        <PageHeader
           icon={<Mic />}
           title={data.title}
           description={
