@@ -90,7 +90,7 @@ public class DocumentChunkService implements DocumentChunkPort {
     }
 
     @Override
-    public void markSearchFailed(TenantId tenant, DocumentId document, UUID generation) {
-        repository.searchState(tenant, document, generation, "SEARCH_INDEX_FAILED");
+    public void markSearchFailed(TenantId tenant, DocumentId document, UUID generation, String errorCode) {
+        repository.searchState(tenant, document, generation, errorCode);
     }
 }

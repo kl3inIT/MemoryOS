@@ -1,6 +1,7 @@
 package io.memoryos.ingestion.application;
 
 import io.memoryos.document.DocumentChunkPort;
+import io.memoryos.document.DocumentContentException;
 import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.persistence.JdbcSearchWorkRepository;
@@ -79,12 +80,16 @@ public final class SearchIngestionCoordinator implements IngestionCoordinator {
             if (completed && claim.index()) purgePreviousGeneration(claim);
             return completed ? Outcome.COMPLETED : Outcome.SKIPPED;
         } catch (RuntimeException failure) {
+            // Content rejections never heal on retry: finish FAILED at once with the specific code.
+            boolean permanent = failure instanceof DocumentContentException;
+            String errorCode = permanent ? ((DocumentContentException) failure).code() : "SEARCH_INDEX_FAILED";
             transactions.executeWithoutResult(_ -> {
-                boolean finished = work.finish(claim, claim.attempts() < 3 ? "NOT_STARTED" : "FAILED", "SEARCH_INDEX_FAILED");
-                if (finished && claim.index()) documents.markSearchFailed(claim.tenantId(), claim.documentId(), claim.generation());
+                boolean finished = work.finish(claim, !permanent && claim.attempts() < 3 ? "NOT_STARTED" : "FAILED", errorCode);
+                if (finished && claim.index()) documents.markSearchFailed(claim.tenantId(), claim.documentId(), claim.generation(), errorCode);
             });
             LoggerFactory.getLogger(getClass()).atWarn().addKeyValue("event", "search.index.failed")
                     .addKeyValue("error_type", failure.getClass().getName())
+                    .addKeyValue("error_code", errorCode)
                     .log("Search indexing failed; durable retry retained");
             return Outcome.FAILED;
         } finally {

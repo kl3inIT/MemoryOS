@@ -109,7 +109,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [cleanupPending, setCleanupPending] = useState(false);
   const [driveBusy, setDriveBusy] = useState(false);
-  const [filesSize, setFilesSize] = useState(25);
+  const [filesSize, setFilesSize] = useState(10);
   const [cursor, setCursor] = useState<string>();
   const [previous, setPrevious] = useState<Array<string | undefined>>([]);
   const filesHeading = useRef<HTMLHeadingElement | null>(null);
@@ -839,6 +839,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                         )}
                       >
                         {ui(sourceStatusMessage(item.errorCode))}
+                      </p>
+                    ) : null}
+                    {item.searchStatus === "FAILED" && item.searchErrorCode ? (
+                      <p className="mt-1 text-xs text-status-danger-content">
+                        {ui(sourceStatusMessage(item.searchErrorCode))}
                       </p>
                     ) : null}
                   </TableCell>

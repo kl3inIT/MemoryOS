@@ -19944,6 +19944,11 @@ components:
           type:
           - string
           - "null"
+        searchErrorCode:
+          type:
+          - string
+          - "null"
+          description: "Stable code explaining a FAILED search status, e.g. SEARCH_INDEX_CONTENT_LIMIT."
         searchStatus:
           type: string
           enum:
@@ -19957,6 +19962,7 @@ components:
       - id
       - lastIndexedAt
       - latestAttempt
+      - searchErrorCode
       - searchStatus
       - sha256
       - sizeBytes

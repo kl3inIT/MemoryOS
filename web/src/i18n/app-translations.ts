@@ -2874,6 +2874,13 @@ Object.assign(englishUi, {
     "Trích xuất tệp gặp lỗi ngoài dự kiến. Thử lập chỉ mục lại.",
   "Cleanup failed unexpectedly. Try the removal again.":
     "Dọn dẹp gặp lỗi ngoài dự kiến. Thử xóa lại.",
+  "Search indexing failed unexpectedly. Try indexing the file again.":
+    "Đưa vào chỉ mục tìm kiếm gặp lỗi ngoài dự kiến. Thử lập chỉ mục lại.",
+  "The extracted document could not be read for indexing. Upload the file again; if it still fails, the file may be corrupt.":
+    "Không đọc được nội dung trích xuất để lập chỉ mục. Tải tệp lên lại; nếu vẫn lỗi, tệp có thể bị hỏng.",
+  "The file contains no searchable text.": "Tệp không chứa văn bản nào có thể tìm kiếm.",
+  "The extracted document exceeds the supported indexing size. Split the file and upload it again.":
+    "Nội dung trích xuất vượt kích thước lập chỉ mục được hỗ trợ. Chia nhỏ tệp rồi tải lên lại.",
   "This configuration changed in another session. Reload the saved selection before trying again.":
     "Cấu hình đã thay đổi ở phiên khác. Tải lại lựa chọn đã lưu trước khi thử lại.",
   "Some supplied links overlap. Use a folder or its descendants, not both.":
