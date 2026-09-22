@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 import httpx
@@ -36,6 +36,9 @@ class Reply:
     timeline: list[dict[str, Any]]
     steps: int
     seconds: float
+    # The model configuration that produced this reply, and why the requested one was not used.
+    model: str | None = None
+    fallback: str | None = None
 
 
 class ActorClient:
@@ -179,12 +182,21 @@ class ActorClient:
                 # Request identity: a fresh one per ask, so no two asks are deduplicated into one.
                 "clientRequestId": str(uuid.uuid4()),
                 "text": question,
+                **(
+                    {"modelConfigurationId": self._config.model_configuration_id}
+                    if self._config.model_configuration_id
+                    else {}
+                ),
             },
         )
         if accepted.status_code != 202:
             raise BenchmarkError(f"message rejected ({accepted.status_code})")
         body = accepted.json()
         assistant_id, user_id = body["assistantMessageId"], body["userMessageId"]
+        # What answered, as the API resolved it: a requested model can fall back, and a comparison
+        # that cannot say which model produced a number is not a comparison.
+        answered_by = body.get("modelConfigurationId")
+        fallback = body.get("fallbackReason")
         deadline = started + self._config.reply_timeout_seconds
         while True:
             history = self._request(
@@ -199,7 +211,8 @@ class ActorClient:
                 None,
             )
             if message and message["status"] != "RUNNING":
-                return self._reply(message, time.monotonic() - started)
+                reply = self._reply(message, time.monotonic() - started)
+                return replace(reply, model=answered_by, fallback=fallback)
             if time.monotonic() > deadline:
                 raise BenchmarkError(f"reply {assistant_id} did not finish in time")
             time.sleep(2)

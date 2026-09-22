@@ -97,6 +97,9 @@ class Config:
     reply_timeout_seconds: float = 600.0
     search_page_size: int = 20
     recall_at: tuple[int, ...] = field(default=(5, 10))
+    # The model configuration that answers, or None for the Tenant default. The turn endpoint
+    # one per message, so comparing two models changes nothing for the Tenant.
+    model_configuration_id: str | None = None
 
     @staticmethod
     def from_environment() -> Config:
@@ -117,6 +120,7 @@ class Config:
             ).rstrip("/"),
             judge_api_key=os.environ.get("MEMORYOS_JUDGE_API_KEY", "").strip(),
             judge_trials=max(1, _whole("MEMORYOS_JUDGE_TRIALS", 3)),
+            model_configuration_id=os.environ.get("MEMORYOS_BENCHMARK_MODEL", "").strip() or None,
             data_dir=Path(os.environ.get("MEMORYOS_BENCHMARK_DATA", root / "datasets")),
             out_dir=Path(os.environ.get("MEMORYOS_BENCHMARK_OUT", root / "runs")),
             # Outside the repository: a refresh token is a credential.

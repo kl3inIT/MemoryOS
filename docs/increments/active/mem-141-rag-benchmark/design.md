@@ -87,6 +87,15 @@ model is not deterministic in practice and a borderline answer must not swing on
 count in the recorded reason, and a failed judge call is reported rather than outvoted. Judge verdicts are recorded
 with the run so a disputed score can be reread.
 
+The rubric scores **coverage**, following the semantics RAGAS uses for factual correctness: the reply must carry
+every point and figure of the gold answer and contradict none of it, and correct detail beyond the gold answer — a
+document number, a converted figure, the line code it came from — is not penalised. The first rubric failed any reply
+that said more, which marked 19 of the 24 failures in the first staging run wrong while retrieval was near perfect.
+Re-judging the stored answers with the coverage rubric moved `temporal` from 0.200 to 0.800 and `cross_department`
+from 0.444 to 0.667, and moved two asks the other way — `cross_department-007` and `-008` lost their pass for omitting
+a gold figure — which is how a rubric change is told apart from moving the goalposts. Any rubric change is measured by
+re-judging a stored run, never by asking the system again.
+
 A question that expects a refusal is not judged. It is scored on what the reply reached: correct when the reply
 declines and names no forbidden document and no forbidden fact. Declining while citing a document the actor may read
 is still a refusal — the search page does return those documents, and saying they are not about the question is the
@@ -147,6 +156,38 @@ Where this benchmark is biased, stated so a reader does not over-read a score:
    disagreed, but the *system* is still asked once, so latency and any non-determinism in retrieval are unmeasured
    spread. OrgMemory's rule — never present one number as the truth — applies here too.
 6. **One tenant, one language, one corpus.** Nothing here generalises beyond Vietnamese corporate disclosure.
+
+## What the first staging runs measured
+
+Run on 2026-09-22 against the deployed fix for undated documents, with the coverage rubric:
+
+| | `temporal` (10 asks) | `cross_department` (41 asks) |
+| --- | --- | --- |
+| recall@5 / nDCG@5 | 1.000 / 0.826 | 0.981 / 0.905 |
+| citation recall | 1.000 | 0.981 |
+| correctness | 0.800 | 0.667 |
+| abstention | — | 0.923 |
+| forbidden documents reached | 0 | 0 |
+
+The authority boundary held: no forbidden document reached any actor, and `outsider` declined all ten
+`cross_department` questions. What the run did find is a behaviour the categories were written for: when the evidence
+covers only part of a question, the reply completes the rest from general knowledge. `cross_department-005` had
+`finance` assert "145% of plan, 261.6 billion" for a supervisory-board report it cannot read, where the document says
+152%; `cross_department-008` had it assert the 35% charter threshold; `cross_department-001` had `hr` assert who may
+appoint a deputy general director. Three of the four are statutory defaults as well as charter clauses, which is why
+the model does not treat them as organization-specific. That belongs to `ChatPrompts.KNOWLEDGE_GUIDANCE`, which today
+covers only a question with no evidence at all, and this category is its regression test.
+
+A model comparison runs per turn, not per Tenant: the send-message endpoint takes `modelConfigurationId`, so
+`MEMORYOS_BENCHMARK_MODEL` names a candidate model without changing anything for anyone else, and each result records
+the model that actually answered and any fallback. GPT-5.6 Luna against the default on `temporal` under one rubric:
+correctness 0.700 against 0.800, citation precision 0.467 against 0.608, median latency equal. One question in ten
+decides nothing; both models showed the same completion behaviour above.
+
+A benchmark is only readable against a still environment. The `cross_department` comparison was lost because staging
+was being reconfigured during the run: the Tasco Source became `PUBLIC`, which makes the authority expectations of
+`cross_department-003` stale, and the MEM-171 identity migration recreated the eight benchmark credentials. Run
+`freeze` and `check` immediately before a scored run; both would have reported this drift.
 
 ## Operation
 

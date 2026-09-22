@@ -40,8 +40,11 @@
    - each result keeps the turn's timeline: queries, filters and documents per tool step;
    - the report carries `judgeDisagreement`, so a soft correctness figure is visible, as OrgMemory's
      RAGAS runner reports its spread rather than one number.
-8. **First baseline** — sign in the four actors, `freeze`, `check`, then `run --label baseline --save-baseline`.
-9. **First comparison** — the chunk-size question that started this increment: one candidate per chunk setting,
+8. **First staging measurement** — done 2026-09-22. It verified the undated-documents fix (`temporal` citation
+   recall 1.000, 0 errors) and produced the rubric correction and the per-turn model option above. No baseline was
+   saved: the environment changed under the run.
+9. **First baseline** — sign in the four actors, `freeze`, `check`, then `run --label baseline --save-baseline`.
+10. **First comparison** — the chunk-size question that started this increment: one candidate per chunk setting,
    reported together.
 
 ## Verification
@@ -51,7 +54,7 @@
   renewal, refusal scoring, judge trials and the reply timeline.
 - The expectation check against staging read sets (SQL of the code's read rule): 131 actor asks, no gold
   document unreadable and no forbidden document readable; `rag-benchmark check` reports 90 valid questions.
-- A staging run whose report is attached to MEM-141 — pending step 8.
+- A staging run whose report is attached to MEM-141 — pending step 9.
 - Documentation consolidated into [docs/tests](../../../tests) and the roadmap when the first comparison lands.
 
 ## Open questions
