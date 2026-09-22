@@ -3225,6 +3225,96 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void theOwnerCorrectsTheMinutesAndARerunAsksBeforeThrowingThatWorkAway() throws Exception {
+        UUID meeting = UUID.randomUUID();
+        UUID line = UUID.randomUUID();
+        UUID decision = UUID.randomUUID();
+        UUID action = UUID.randomUUID();
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status,
+                                        ended_at, minutes_status, minutes_summary, minutes_kind, minutes_generated_at)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'IN_PERSON', 'vi', '[]'::jsonb, 'ENDED',
+                            CURRENT_TIMESTAMP, 'READY', 'Cuộc họp chốt ngân sách.', 'Giao ban tuần', CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label) VALUES (:tenant,:meeting,'MIC','1')")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text,
+                                                  confidence)
+                    VALUES (:tenant, :id, :meeting, 'MIC', '1', 0, 2000, 'Chốt ngân sách quý 4.', 0.9)
+                    """).param("tenant", TENANT).param("id", line).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_minutes_item(tenant_id, id, meeting_id, kind, position, text)
+                    VALUES (:tenant, :id, :meeting, 'DECISION', 0, 'Chốt ngân sách quý 4')
+                    """).param("tenant", TENANT).param("id", decision).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_minutes_item(tenant_id, id, meeting_id, kind, position, text, owner, due)
+                    VALUES (:tenant, :id, :meeting, 'ACTION', 0, 'Gửi bảng KPI', 'Chị Lan', 'chiều nay')
+                    """).param("tenant", TENANT).param("id", action).param("meeting", meeting).update();
+
+            var corrected = Json.mapper().readTree(mockMvc.perform(
+                    put("/api/meetings/" + meeting + "/minutes/summary").with(authentication(actor)).with(csrf())
+                            .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"summary\":\"Cuộc họp chốt ngân sách quý 4 trước thứ Năm.\"}"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals("Cuộc họp chốt ngân sách quý 4 trước thứ Năm.",
+                    corrected.path("minutes").path("summary").asText());
+            assertTrue(corrected.path("minutes").path("edited").asBoolean(),
+                    "the words standing now are the owner's");
+            assertEquals("Cuộc họp chốt ngân sách.", jdbc.sql("""
+                    SELECT before FROM meeting_minutes_event
+                    WHERE tenant_id = :tenant AND meeting_id = :meeting AND field = 'SUMMARY' ORDER BY id LIMIT 1
+                    """).param("tenant", TENANT).param("meeting", meeting).query(String.class).single(),
+                    "and what the model wrote is still on the record");
+
+            var reassigned = Json.mapper().readTree(mockMvc.perform(
+                    put("/api/meetings/" + meeting + "/minutes/items/" + action).with(authentication(actor))
+                            .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"text\":\"Gửi bảng KPI tháng 9\",\"owner\":\"Anh Minh\",\"due\":\"thứ Năm\"}"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            var item = reassigned.path("minutes").path("actions").get(0);
+            assertEquals("Gửi bảng KPI tháng 9", item.path("text").asText());
+            assertEquals("Anh Minh", item.path("owner").asText());
+            assertEquals("thứ Năm", item.path("due").asText());
+            assertTrue(item.path("edited").asBoolean());
+            assertEquals(3, jdbc.sql("""
+                    SELECT count(*) FROM meeting_minutes_event
+                    WHERE tenant_id = :tenant AND meeting_id = :meeting AND item_id = CAST(:item AS uuid)
+                    """).param("tenant", TENANT).param("meeting", meeting).param("item", action.toString())
+                    .query(Integer.class).single(), "the words, the owner and the deadline each moved");
+
+            // A decision belongs to the meeting, not to a person.
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/items/" + decision).with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"text\":\"Chốt ngân sách quý 4\",\"owner\":\"Anh Minh\",\"due\":null}"))
+                    .andExpect(status().isBadRequest());
+
+            // Nobody but the owner corrects them, however the meeting is shared.
+            jdbc.sql("""
+                    INSERT INTO meeting_user_share(tenant_id, meeting_id, actor_id) VALUES (:tenant, :meeting, :reader)
+                    """).param("tenant", TENANT).param("meeting", meeting)
+                    .param("reader", other.getPrincipal().actorId().value()).update();
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/summary").with(authentication(other))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"summary\":\"Của tôi\"}")).andExpect(status().isNotFound());
+
+            // Rerunning writes the whole minutes again, so it asks before discarding what was corrected.
+            mockMvc.perform(post("/api/meetings/" + meeting + "/minutes").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isConflict());
+            var rerun = Json.mapper().readTree(mockMvc.perform(
+                    post("/api/meetings/" + meeting + "/minutes?discardEdits=true").with(authentication(actor))
+                            .with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertFalse(rerun.path("minutes").path("edited").asBoolean(),
+                    "a rerun starts from the model's own words again");
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
     void aProposalIsOnlyAnOfferUntilTheOwnerTakesItAndCanBeTakenBack() throws Exception {
         var asked = new java.util.concurrent.atomic.AtomicReference<String>();
         when(model.call(any(Prompt.class))).thenAnswer(call -> {

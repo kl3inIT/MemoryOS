@@ -213,6 +213,10 @@ export type MeetingMinutes = {
     generatedAt: string | null;
     decisions: Array<MeetingMinutesItem>;
     actions: Array<MeetingMinutesItem>;
+    /**
+     * Whether the words standing now are the owner's rather than the model's
+     */
+    edited: boolean;
 };
 
 /**
@@ -229,6 +233,10 @@ export type MeetingMinutesItem = {
     quote: string | null;
     sourceUtteranceId: string | null;
     done: boolean;
+    /**
+     * Whether these words are the owner's rather than the model's
+     */
+    edited: boolean;
 };
 
 /**
@@ -292,6 +300,16 @@ export type MeetingNotesRequest = {
 
 export type MeetingItemRequest = {
     done: boolean;
+};
+
+export type MeetingMinutesSummaryRequest = {
+    summary: string;
+};
+
+export type MeetingMinutesItemRequest = {
+    text: string;
+    owner?: string | null;
+    due?: string | null;
 };
 
 /**
@@ -3566,6 +3584,97 @@ export type MarkMeetingMinutesItemResponses = {
 };
 
 export type MarkMeetingMinutesItemResponse = MarkMeetingMinutesItemResponses[keyof MarkMeetingMinutesItemResponses];
+
+export type EditMeetingMinutesSummaryData = {
+    body: MeetingMinutesSummaryRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/minutes/summary';
+};
+
+export type EditMeetingMinutesSummaryErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type EditMeetingMinutesSummaryError = EditMeetingMinutesSummaryErrors[keyof EditMeetingMinutesSummaryErrors];
+
+export type EditMeetingMinutesSummaryResponses = {
+    /**
+     * The meeting with the summary as it now reads
+     */
+    200: MeetingDetail;
+};
+
+export type EditMeetingMinutesSummaryResponse = EditMeetingMinutesSummaryResponses[keyof EditMeetingMinutesSummaryResponses];
+
+export type EditMeetingMinutesItemData = {
+    body: MeetingMinutesItemRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/minutes/items/{itemId}';
+};
+
+export type EditMeetingMinutesItemErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or item not available
+     */
+    404: ApiProblem;
+};
+
+export type EditMeetingMinutesItemError = EditMeetingMinutesItemErrors[keyof EditMeetingMinutesItemErrors];
+
+export type EditMeetingMinutesItemResponses = {
+    /**
+     * The meeting with the item as it now reads
+     */
+    200: MeetingDetail;
+};
+
+export type EditMeetingMinutesItemResponse = EditMeetingMinutesItemResponses[keyof EditMeetingMinutesItemResponses];
 
 export type DeleteMcpServerData = {
     body?: never;
@@ -8170,7 +8279,12 @@ export type RerunMeetingMinutesData = {
     path: {
         meetingId: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * Required once the minutes were corrected by hand, because a rerun writes them again and throws that work away
+         */
+        discardEdits?: boolean;
+    };
     url: '/api/meetings/{meetingId}/minutes';
 };
 
@@ -8191,6 +8305,10 @@ export type RerunMeetingMinutesErrors = {
      * Meeting not available
      */
     404: ApiProblem;
+    /**
+     * The minutes were corrected by hand; say so to discard that work
+     */
+    409: ApiProblem;
 };
 
 export type RerunMeetingMinutesError = RerunMeetingMinutesErrors[keyof RerunMeetingMinutesErrors];

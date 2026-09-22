@@ -6,6 +6,8 @@ import {
   createMeeting,
   createMeetingTicket,
   deleteMeeting,
+  editMeetingMinutesItem,
+  editMeetingMinutesSummary,
   endMeeting,
   exportMeetingMinutes,
   finalizeMeetingRecording,
@@ -227,9 +229,37 @@ export async function revertCorrection(meetingId: string, correctionId: string) 
   return data;
 }
 
-export async function rerunMinutes(meetingId: string) {
+/** Writes the minutes again from the transcript. Saying so is required once they were corrected by hand. */
+export async function rerunMinutes(meetingId: string, discardEdits = false) {
   const { data } = await rerunMeetingMinutes({
     path: { meetingId },
+    query: { discardEdits },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function editMinutesSummary(meetingId: string, summary: string) {
+  const { data } = await editMeetingMinutesSummary({
+    path: { meetingId },
+    body: { summary },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function editMinutesItem(
+  meetingId: string,
+  itemId: string,
+  text: string,
+  owner: string,
+  due: string,
+) {
+  const { data } = await editMeetingMinutesItem({
+    path: { meetingId, itemId },
+    body: { text, owner: owner.trim() || null, due: due.trim() || null },
     headers: sameOriginMutationHeaders,
     throwOnError: true,
   });

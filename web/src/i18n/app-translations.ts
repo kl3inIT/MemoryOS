@@ -15,6 +15,14 @@ export const vietnameseUi: Record<string, string> = {
   "Transcript vẫn còn nguyên. Thử lại khi mô hình sẵn sàng.":
     "The transcript is intact. Try again when the model is available.",
   "Viết lại": "Write again",
+  "Viết lại tóm tắt?": "Write the minutes again?",
+  "Những chỗ bạn đã sửa sẽ bị thay bằng bản mới.":
+    "What you corrected is replaced by the new version.",
+  "Đang viết lại…": "Writing again…",
+  "Sửa tóm tắt": "Edit the summary",
+  "Người nhận": "Owner",
+  Hạn: "Due",
+  "Bạn đã sửa": "You corrected this",
   "Soát lỗi nhận dạng": "Check what was misheard",
   "Tìm trong transcript": "Search the transcript",
   "Tải Word": "Download Word",

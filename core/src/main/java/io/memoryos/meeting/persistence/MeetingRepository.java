@@ -35,7 +35,7 @@ public class MeetingRepository {
                       @Nullable String minutesFailure, String minutesSummary, String minutesKind,
                       @Nullable Instant minutesGeneratedAt, Meeting.AudioStatus audioStatus,
                       @Nullable String audioFailure, @Nullable String audioFilename, long audioSizeBytes,
-                      @Nullable String audioProvider, boolean owned) {}
+                      @Nullable String audioProvider, boolean owned, boolean minutesEdited) {}
 
     /** One meeting this replica leased to write minutes for. */
     public record MinutesClaim(UUID tenant, UUID id, UUID owner, int attempts) {}
@@ -58,7 +58,8 @@ public class MeetingRepository {
         return jdbc.sql("""
                 SELECT id, title, kind, language, participants, terms, notes, status, provider, diarized, created_at,
                        ended_at, revision, minutes_status, minutes_failure, minutes_summary, minutes_kind, minutes_generated_at,
-                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider, TRUE AS owned
+                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider, TRUE AS owned,
+                       minutes_edited
                 FROM meeting m WHERE tenant_id = :tenant AND owner_actor_id = :owner AND id = :id
                 """).param("tenant", tenant).param("owner", owner).param("id", id).query(MeetingRepository::row).optional();
     }
@@ -68,7 +69,8 @@ public class MeetingRepository {
         return jdbc.sql("""
                 SELECT id, title, kind, language, participants, terms, notes, status, provider, diarized, created_at,
                        ended_at, revision, minutes_status, minutes_failure, minutes_summary, minutes_kind, minutes_generated_at,
-                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider, (m.owner_actor_id = :actor) AS owned
+                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider,
+                       (m.owner_actor_id = :actor) AS owned, m.minutes_edited
                 FROM meeting m WHERE m.tenant_id = :tenant AND m.id = :id AND %s
                 """.formatted(MeetingAccessSql.READS))
                 .param("tenant", tenant).param("actor", actor).param("id", id).query(MeetingRepository::row).optional();
@@ -79,7 +81,8 @@ public class MeetingRepository {
         return jdbc.sql("""
                 SELECT id, title, kind, language, participants, terms, notes, status, provider, diarized, created_at,
                        ended_at, revision, minutes_status, minutes_failure, minutes_summary, minutes_kind, minutes_generated_at,
-                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider, TRUE AS owned
+                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider, TRUE AS owned,
+                       minutes_edited
                 FROM meeting m WHERE tenant_id = :tenant AND owner_actor_id = :owner AND id = :id FOR UPDATE
                 """).param("tenant", tenant).param("owner", owner).param("id", id).query(MeetingRepository::row).optional();
     }
@@ -223,19 +226,21 @@ public class MeetingRepository {
 
     public List<Meeting.MinutesItem> minutesItems(UUID tenant, UUID meeting) {
         return jdbc.sql("""
-                SELECT id, kind, text, owner, due, quote, source_utterance_id, done FROM meeting_minutes_item
+                SELECT id, kind, text, owner, due, quote, source_utterance_id, done, edited
+                FROM meeting_minutes_item
                 WHERE tenant_id = :tenant AND meeting_id = :meeting ORDER BY kind, position, id
                 """).param("tenant", tenant).param("meeting", meeting)
                 .query((r, ignored) -> new Meeting.MinutesItem(r.getObject("id", UUID.class),
                         Meeting.ItemKind.valueOf(r.getString("kind")), r.getString("text"), r.getString("owner"),
                         r.getString("due"), r.getString("quote"), r.getObject("source_utterance_id", UUID.class),
-                        r.getBoolean("done"))).list();
+                        r.getBoolean("done"), r.getBoolean("edited"))).list();
     }
 
     /** Queues the minutes of a meeting that just ended, or a rerun the owner asked for. */
     public void queueMinutes(UUID tenant, UUID meeting) {
         jdbc.sql("""
                 UPDATE meeting SET minutes_status = 'PENDING', minutes_attempts = 0, minutes_lease_until = NULL,
+                       minutes_edited = FALSE,
                        minutes_failure = NULL
                 WHERE tenant_id = :tenant AND id = :meeting
                 """).param("tenant", tenant).param("meeting", meeting).update();
@@ -298,6 +303,51 @@ public class MeetingRepository {
     }
 
     /** Marks an owner's item done or not done. False when the item is not theirs. */
+    /** One item of the minutes, locked for the change about to be made to it. */
+    public Optional<Meeting.MinutesItem> lockItem(UUID tenant, UUID meeting, UUID item) {
+        return jdbc.sql("""
+                SELECT id, kind, text, owner, due, quote, source_utterance_id, done, edited
+                FROM meeting_minutes_item WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :item FOR UPDATE
+                """).param("tenant", tenant).param("meeting", meeting).param("item", item)
+                .query((r, ignored) -> new Meeting.MinutesItem(r.getObject("id", UUID.class),
+                        Meeting.ItemKind.valueOf(r.getString("kind")), r.getString("text"), r.getString("owner"),
+                        r.getString("due"), r.getString("quote"), r.getObject("source_utterance_id", UUID.class),
+                        r.getBoolean("done"), r.getBoolean("edited"))).optional();
+    }
+
+    /** Writes what an item now says. The event beside it is the only history of what it said before. */
+    public void rewriteItem(UUID tenant, UUID meeting, Meeting.MinutesItem item) {
+        jdbc.sql("""
+                UPDATE meeting_minutes_item SET text = :text, owner = :owner, due = :due, edited = TRUE
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :item
+                """).param("tenant", tenant).param("meeting", meeting).param("item", item.id())
+                .param("text", item.text()).param("owner", item.owner()).param("due", item.due()).update();
+        markMinutesEdited(tenant, meeting);
+    }
+
+    public void rewriteSummary(UUID tenant, UUID meeting, String summary) {
+        jdbc.sql("""
+                UPDATE meeting SET minutes_summary = :summary WHERE tenant_id = :tenant AND id = :meeting
+                """).param("tenant", tenant).param("meeting", meeting).param("summary", summary).update();
+        markMinutesEdited(tenant, meeting);
+    }
+
+    private void markMinutesEdited(UUID tenant, UUID meeting) {
+        jdbc.sql("UPDATE meeting SET minutes_edited = TRUE WHERE tenant_id = :tenant AND id = :meeting")
+                .param("tenant", tenant).param("meeting", meeting).update();
+    }
+
+    /** Records one change to the minutes, so the words the model wrote stay readable after they are replaced. */
+    public void recordMinutesEdit(UUID tenant, UUID meeting, @Nullable UUID item, Meeting.MinutesField field,
+            UUID actor, String before, String after) {
+        jdbc.sql("""
+                INSERT INTO meeting_minutes_event(tenant_id, meeting_id, item_id, field, actor_id, before, after)
+                VALUES (:tenant, :meeting, :item, :field, :actor, :before, :after)
+                """).param("tenant", tenant).param("meeting", meeting).param("item", item)
+                .param("field", field.name()).param("actor", actor).param("before", before).param("after", after)
+                .update();
+    }
+
     public boolean markItem(UUID tenant, UUID meeting, UUID item, boolean done) {
         return jdbc.sql("""
                 UPDATE meeting_minutes_item SET done = :done
@@ -628,7 +678,7 @@ public class MeetingRepository {
                 r.getString("minutes_summary"), r.getString("minutes_kind"), instant(r, "minutes_generated_at"),
                 Meeting.AudioStatus.valueOf(r.getString("audio_status")), r.getString("audio_failure"),
                 r.getString("audio_filename"), r.getLong("audio_size_bytes"), r.getString("audio_provider"),
-                r.getBoolean("owned"));
+                r.getBoolean("owned"), r.getBoolean("minutes_edited"));
     }
 
     private static Meeting.@Nullable EditSource editSource(ResultSet r) throws SQLException {

@@ -55,6 +55,7 @@ import { MeetingShareField, type MeetingAudience } from "./meeting-share-field";
 import { startRecording, stopRecording, useActiveMeeting } from "./meeting-session";
 import type { MeetingTrack } from "./meeting-socket";
 import { slug } from "./meeting-file-name";
+import { EditableItem, EditableSummary } from "./minutes-editing";
 import { TranscriptCorrections } from "./transcript-corrections";
 import { matches } from "./transcript-search";
 import { Said } from "./transcript-text";
@@ -631,7 +632,7 @@ function MinutesSummary({ meeting, ui }: { meeting: MeetingDetail; ui: Translate
   const [exporting, setExporting] = useState(false);
   const [opening, setOpening] = useState(false);
   const navigate = useNavigate();
-  const { status, summary, generatedAt } = meeting.minutes;
+  const { status, generatedAt } = meeting.minutes;
 
   /** Publishes the minutes into the library, then opens a new conversation with them in the composer. */
   async function openInChat() {
@@ -644,10 +645,10 @@ function MinutesSummary({ meeting, ui }: { meeting: MeetingDetail; ui: Translate
     }
   }
 
-  async function rerun() {
+  async function rerun(discardEdits = false) {
     setPending(true);
     try {
-      cache.setQueryData(meetingKey(meeting.id), await rerunMinutes(meeting.id));
+      cache.setQueryData(meetingKey(meeting.id), await rerunMinutes(meeting.id, discardEdits));
     } finally {
       setPending(false);
     }
@@ -683,12 +684,28 @@ function MinutesSummary({ meeting, ui }: { meeting: MeetingDetail; ui: Translate
         {generatedAt && (
           <span>{ui("Viết lúc {{when}}", { when: formatWhen(generatedAt, i18n.language) })}</span>
         )}
-        {meeting.owned && (
-          <Button size="sm" prominence="tertiary" pending={pending} onClick={() => void rerun()}>
-            <RefreshCw aria-hidden="true" />
-            {ui("Viết lại")}
-          </Button>
-        )}
+        {meeting.owned &&
+          (meeting.minutes.edited ? (
+            <ConfirmDialog
+              trigger={
+                <Button size="sm" prominence="tertiary" pending={pending}>
+                  <RefreshCw aria-hidden="true" />
+                  {ui("Viết lại")}
+                </Button>
+              }
+              title={ui("Viết lại tóm tắt?")}
+              description={ui("Những chỗ bạn đã sửa sẽ bị thay bằng bản mới.")}
+              confirmLabel={ui("Viết lại")}
+              pendingLabel={ui("Đang viết lại…")}
+              confirmTone="danger"
+              onConfirm={() => rerun(true)}
+            />
+          ) : (
+            <Button size="sm" prominence="tertiary" pending={pending} onClick={() => void rerun()}>
+              <RefreshCw aria-hidden="true" />
+              {ui("Viết lại")}
+            </Button>
+          ))}
         <Button size="sm" prominence="tertiary" onClick={() => setExporting(true)}>
           <FileDown aria-hidden="true" />
           {ui("Xuất biên bản")}
@@ -698,7 +715,7 @@ function MinutesSummary({ meeting, ui }: { meeting: MeetingDetail; ui: Translate
           {ui("Mở trong Chat")}
         </Button>
       </div>
-      <p className="whitespace-pre-wrap text-content-secondary">{summary}</p>
+      <EditableSummary meeting={meeting} />
       {exporting && (
         <ExportMinutesDialog meeting={meeting} open onOpenChange={(next) => setExporting(next)} />
       )}
@@ -764,54 +781,56 @@ function MinutesItems({
               <Gavel className="mt-1 size-4 text-content-muted" aria-hidden="true" />
             )}
             <div className="min-w-0">
-              <p
-                className={cn(
-                  "text-content-primary",
-                  item.done && "text-content-muted line-through",
+              <EditableItem meeting={meeting} item={item} kind={kind}>
+                <p
+                  className={cn(
+                    "text-content-primary",
+                    item.done && "text-content-muted line-through",
+                  )}
+                >
+                  {item.text}
+                </p>
+                {(item.owner || item.due) && (
+                  <p className="mt-0.5 flex flex-wrap gap-3 text-xs text-content-secondary">
+                    {item.owner && (
+                      <span className="inline-flex items-center gap-1">
+                        <Users className="size-3" aria-hidden="true" />
+                        {item.owner}
+                      </span>
+                    )}
+                    {item.due && (
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="size-3" aria-hidden="true" />
+                        {item.due}
+                      </span>
+                    )}
+                  </p>
                 )}
-              >
-                {item.text}
-              </p>
-              {(item.owner || item.due) && (
-                <p className="mt-0.5 flex flex-wrap gap-3 text-xs text-content-secondary">
-                  {item.owner && (
-                    <span className="inline-flex items-center gap-1">
-                      <Users className="size-3" aria-hidden="true" />
-                      {item.owner}
-                    </span>
-                  )}
-                  {item.due && (
-                    <span className="inline-flex items-center gap-1">
-                      <Clock className="size-3" aria-hidden="true" />
-                      {item.due}
-                    </span>
-                  )}
-                </p>
-              )}
-              {item.quote && (
-                <p className="mt-1 text-xs text-content-muted">
-                  {item.sourceUtteranceId && (
-                    <button
-                      type="button"
-                      className="mr-1.5 font-mono text-action-selection hover:underline"
-                      onClick={() => {
-                        const line = meeting.utterances.find(
-                          (utterance) => utterance.id === item.sourceUtteranceId,
-                        );
-                        if (line)
-                          document.getElementById(line.id)?.scrollIntoView({ block: "center" });
-                      }}
-                    >
-                      {formatClock(
-                        meeting.utterances.find(
-                          (utterance) => utterance.id === item.sourceUtteranceId,
-                        )?.startMs ?? 0,
-                      )}
-                    </button>
-                  )}
-                  “{item.quote}”
-                </p>
-              )}
+                {item.quote && (
+                  <p className="mt-1 text-xs text-content-muted">
+                    {item.sourceUtteranceId && (
+                      <button
+                        type="button"
+                        className="mr-1.5 font-mono text-action-selection hover:underline"
+                        onClick={() => {
+                          const line = meeting.utterances.find(
+                            (utterance) => utterance.id === item.sourceUtteranceId,
+                          );
+                          if (line)
+                            document.getElementById(line.id)?.scrollIntoView({ block: "center" });
+                        }}
+                      >
+                        {formatClock(
+                          meeting.utterances.find(
+                            (utterance) => utterance.id === item.sourceUtteranceId,
+                          )?.startMs ?? 0,
+                        )}
+                      </button>
+                    )}
+                    “{item.quote}”
+                  </p>
+                )}
+              </EditableItem>
             </div>
           </li>
         ))}
