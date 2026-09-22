@@ -97,8 +97,10 @@ The first deployment on a host is recognised by the absence of a running `memory
 missing `current.env`: a runtime built over SSH before this script existed also has no
 `current.env`, and it does have something to roll back to. On a first deployment there is nothing
 to capture, so `rollback` refuses rather than restoring nothing, and the reservation stays until
-an operator has looked. The database was empty when it began, so recovery is to take the stack
-down with its volumes and deploy again.
+an operator has looked. Recovery is to stop the candidate api, worker, web and interpreter and
+remove `deployments/pending`. Do **not** take the stack down with its volumes: PostgreSQL holds the
+Keycloak realm as well, and the migrations the failed attempt applied are carried by the next
+release too, so the next deployment's migration check passes against them.
 
 The observability stack is a prerequisite, not a companion. The api and worker join
 `memoryos-telemetry`, which is declared external and owned by that stack, and they read

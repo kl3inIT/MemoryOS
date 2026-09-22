@@ -224,8 +224,9 @@ elif [[ "$mode" == rollback ]]; then
     # keeps saying that somebody has to look. The database was empty when this began, so recovery
     # is to take the stack down, discard its volumes and deploy again, not to restore anything.
     echo 'First deployment on this host: no previous runtime exists to restore.' >&2
-    echo 'Migrations may have applied to a database that was empty when this began.' >&2
-    echo 'Recover by taking the stack down with its volumes and deploying again; see the CI/CD runbook.' >&2
+    echo 'Stop the candidate api, worker, web and interpreter, then remove the reservation.' >&2
+    echo 'Keep the database: the same volume holds the identity realm, and migrations already applied' >&2
+    echo 'are carried by the next release as well. See the CI/CD runbook.' >&2
     exit 1
   fi
   target=candidate; compose stop --timeout 45 worker api
