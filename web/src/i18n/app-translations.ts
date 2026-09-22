@@ -550,7 +550,8 @@ export const vietnameseUi: Record<string, string> = {
   "Không có tệp nào khớp bộ lọc.": "No file matches this filter.",
   "Chưa có tệp nào. Tệp bạn tải lên hoặc Chat tạo ra sẽ xuất hiện ở đây.":
     "No files yet. What you upload or Chat generates appears here.",
-  "Chọn tất cả": "Select all",
+  "Chọn tất cả trên trang này": "Select all on this page",
+  "Chọn tất cả {{day}}": "Select all in {{day}}",
   "Tên tệp": "File name",
   "Nguồn tệp": "Source",
   "Dung lượng": "Size",

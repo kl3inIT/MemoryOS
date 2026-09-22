@@ -77,6 +77,7 @@ export function LibraryList({
   grouped,
   actions,
   onSelect,
+  onSelectDay,
 }: {
   files: LibraryFile[];
   view: LibraryView;
@@ -86,6 +87,8 @@ export function LibraryList({
   grouped: boolean;
   actions: RowActions;
   onSelect: (file: LibraryFile) => void;
+  /** A whole day is chosen or dropped at its heading; without it a heading is only a heading. */
+  onSelectDay?: (files: readonly LibraryFile[], pick: boolean) => void;
 }) {
   const ui = useAppTranslation();
   const groups = grouped ? groupByDate(files) : [];
@@ -129,6 +132,7 @@ export function LibraryList({
           selected={selected}
           actions={actions}
           onSelect={onSelect}
+          onSelectDay={onSelectDay}
           label={heading(group)}
           showLabel
         />
@@ -145,6 +149,7 @@ function FileGroup({
   selected,
   actions,
   onSelect,
+  onSelectDay,
   label,
   showLabel = false,
 }: {
@@ -154,15 +159,33 @@ function FileGroup({
   selected: string[];
   actions: RowActions;
   onSelect: (file: LibraryFile) => void;
+  onSelectDay?: (files: readonly LibraryFile[], pick: boolean) => void;
   label: string;
   showLabel?: boolean;
 }) {
+  const ui = useAppTranslation();
+  const chosen = files.filter((file) => selected.includes(file.id)).length;
   return (
     <section aria-label={label}>
       {showLabel && (
-        <h2 className="mb-1.5 font-secondary-body text-content-muted first-letter:uppercase">
-          {label}
-        </h2>
+        <div className="mb-1.5 flex items-center gap-2 px-[13px]">
+          {onSelectDay ? (
+            <label className="flex cursor-pointer items-center gap-2">
+              <Checkbox
+                aria-label={ui("Chọn tất cả {{day}}", { day: label })}
+                checked={chosen === 0 ? false : chosen === files.length ? true : "indeterminate"}
+                onCheckedChange={(checked) => onSelectDay(files, checked === true)}
+              />
+              <h2 className="font-secondary-body text-content-muted first-letter:uppercase">
+                {label}
+              </h2>
+            </label>
+          ) : (
+            <h2 className="font-secondary-body text-content-muted first-letter:uppercase">
+              {label}
+            </h2>
+          )}
+        </div>
       )}
       {layout === "grid" ? (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">

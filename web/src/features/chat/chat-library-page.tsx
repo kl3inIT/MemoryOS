@@ -448,17 +448,26 @@ export function ChatLibraryPage() {
                         page.isPlaceholderData && "opacity-60",
                       )}
                     >
-                      <div className="flex items-center gap-2 px-3">
-                        <Checkbox
-                          aria-label={ui("Chọn tất cả")}
-                          checked={files.length > 0 && selected.length === files.length}
-                          onCheckedChange={(checked) =>
-                            setSelected(checked ? files.map((file) => file.id) : [])
-                          }
-                        />
-                        <span className="font-secondary-body text-content-muted">
-                          {ui("Chọn tất cả")}
-                        </span>
+                      {/* A list header, aligned to the rows' own checkbox column so the three checkbox
+                          gutters (page, day, file) read as one line down the page. */}
+                      <div className="flex items-center border-b border-border-subtle px-[13px] pb-2">
+                        <label className="flex cursor-pointer items-center gap-2 font-secondary-body text-content-muted">
+                          <Checkbox
+                            aria-label={ui("Chọn tất cả trên trang này")}
+                            checked={
+                              selected.length === 0
+                                ? false
+                                : selected.length === files.length
+                                  ? true
+                                  : "indeterminate"
+                            }
+                            onCheckedChange={(checked) =>
+                              setSelected(checked === true ? files.map((file) => file.id) : [])
+                            }
+                          />
+                          {/* The scope is on the label, because a selection never leaves its page. */}
+                          {ui("Chọn tất cả trên trang này")}
+                        </label>
                       </div>
                       <LibraryList
                         files={files}
@@ -474,6 +483,14 @@ export function ChatLibraryPage() {
                               : [...selected, file.id],
                           )
                         }
+                        onSelectDay={(day, pick) => {
+                          const ids = day.map((file) => file.id);
+                          setSelected(
+                            pick
+                              ? [...selected, ...ids.filter((id) => !selected.includes(id))]
+                              : selected.filter((id) => !ids.includes(id)),
+                          );
+                        }}
                       />
                     </div>
                   )}
