@@ -31,6 +31,9 @@ const ANCHOR_WORDS = 8;
 /** Below this many anchor words the ends are too common to identify one place in a document. */
 const MIN_ANCHOR_WORDS = 3;
 
+/** How the chunk header joins the heading trail it writes, outermost heading first. */
+const HEADING_SEPARATOR = " > ";
+
 /** How far an anchored span may differ in length from the passage before it is not the passage. */
 const LENGTH_TOLERANCE = 0.4;
 
@@ -82,15 +85,42 @@ export function normalizeForMatch(raw: string): NormalizedText {
  * Where `passage` sits in `document`, as offsets into the source `document` was normalized from, or `none`
  * when it cannot be placed with confidence.
  */
-export function locatePassage(document: NormalizedText, passage: string): CitationLocation {
+export function locatePassage(
+  document: NormalizedText,
+  passage: string,
+  section?: string,
+): CitationLocation {
   const needle = normalizeForMatch(passage).text;
   if (!needle || !document.text) return NOT_FOUND;
   const found = document.text.indexOf(needle);
   if (found < 0) return anchored(document, needle);
-  // A repeated line — a table header on every page, a boilerplate footer — is in the document more than
-  // once, and nothing here says which one was cited.
-  if (document.text.indexOf(needle, found + 1) >= 0) return NOT_FOUND;
+  // A repeated line — a table header on every page, a figure in two statements — is in the document more
+  // than once, so only the heading it was read under can say which occurrence was cited.
+  if (document.text.indexOf(needle, found + 1) >= 0) return underSection(document, needle, section);
   return span(document, found, found + needle.length, "exact");
+}
+
+/**
+ * The first occurrence after the heading the passage was read under. The heading has to identify one place
+ * itself, or it says no more than the repeated passage does; the result is `approximate`, because a heading
+ * narrows the search without proving which line inside its section was cited.
+ */
+function underSection(
+  document: NormalizedText,
+  needle: string,
+  section: string | undefined,
+): CitationLocation {
+  // The trail reads outermost first, so the most specific heading is the last one and is tried first.
+  const trail = (section ?? "").split(HEADING_SEPARATOR).reverse();
+  for (const level of trail) {
+    const heading = normalizeForMatch(level).text;
+    if (!heading) continue;
+    const at = document.text.indexOf(heading);
+    if (at < 0 || document.text.indexOf(heading, at + 1) >= 0) continue;
+    const found = document.text.indexOf(needle, at + heading.length);
+    if (found >= 0) return span(document, found, found + needle.length, "approximate");
+  }
+  return NOT_FOUND;
 }
 
 /**

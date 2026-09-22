@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { locatePassage, normalizeForMatch } from "./preview-highlight";
 
 /** What the reader would see highlighted, so the assertions read as the reader's experience. */
-function highlighted(raw: string, passage: string) {
-  const found = locatePassage(normalizeForMatch(raw), passage);
+function highlighted(raw: string, passage: string, section?: string) {
+  const found = locatePassage(normalizeForMatch(raw), passage, section);
   return found.confidence === "none"
     ? { confidence: found.confidence as string }
     : { confidence: found.confidence as string, text: raw.slice(found.start, found.end) };
@@ -104,6 +104,52 @@ describe("locatePassage", () => {
     expect(highlighted("Doanh thu quý 3 đạt 412 tỷ đồng.", "Doanh thu 412")).toEqual({
       confidence: "none",
     });
+  });
+
+  it("uses the heading a repeated passage was read under to say which occurrence was cited", () => {
+    const raw = [
+      "3.3. Bao cao tinh hinh tai chinh",
+      "19. LNST cua cong ty me\t130.909.072.653",
+      "3.4. Bao cao ket qua hoat dong kinh doanh rieng",
+      "19. LNST cua cong ty me\t130.909.072.653",
+    ].join("\n");
+
+    const found = locatePassage(
+      normalizeForMatch(raw),
+      "130.909.072.653",
+      "3.4. Bao cao ket qua hoat dong kinh doanh rieng",
+    );
+
+    expect(found.confidence).toBe("approximate");
+    // The occurrence under that heading, not the identical one above it.
+    expect(found.confidence !== "none" && found.start).toBeGreaterThan(raw.indexOf("3.4."));
+  });
+
+  it("reads the heading trail from its most specific end", () => {
+    const raw = [
+      "PHAN 3. BAO CAO TAI CHINH RIENG",
+      "3.3. Bao cao tinh hinh tai chinh",
+      "19. LNST cua cong ty me\t130.909.072.653",
+      "3.4. Bao cao ket qua hoat dong kinh doanh rieng",
+      "19. LNST cua cong ty me\t130.909.072.653",
+    ].join("\n");
+
+    const found = locatePassage(
+      normalizeForMatch(raw),
+      "130.909.072.653",
+      "PHAN 3. BAO CAO TAI CHINH RIENG > 3.4. Bao cao ket qua hoat dong kinh doanh rieng",
+    );
+
+    // The outermost heading would have pointed at the first occurrence; the innermost one is the citation's.
+    expect(found.confidence !== "none" && found.start).toBeGreaterThan(raw.indexOf("3.4."));
+  });
+
+  it("still refuses a repeated passage whose heading does not single out one place", () => {
+    const raw = "Tong cong\t412\nTong cong\t412\n";
+    expect(highlighted(raw, "Tong cong 412")).toEqual({ confidence: "none" });
+    // A heading the document does not carry, and one it carries twice, both say nothing.
+    expect(highlighted(raw, "Tong cong 412", "3.9. Khong co")).toEqual({ confidence: "none" });
+    expect(highlighted(raw, "Tong cong 412", "Tong cong")).toEqual({ confidence: "none" });
   });
 
   it("refuses an empty passage and an empty document", () => {

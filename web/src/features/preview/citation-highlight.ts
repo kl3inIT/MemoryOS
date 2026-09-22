@@ -16,10 +16,15 @@ type TextRun = { node: Text; from: number };
 
 /**
  * Places each passage in the text the container renders, reading that text once however deeply it is
- * nested. A passage the locator will not commit to comes back without a range, so the caller draws nothing
- * for it rather than drawing it somewhere plausible.
+ * nested. The heading each passage was read under is passed with it, because a figure that appears in two
+ * statements is told apart only by its own section. A passage the locator will not commit to comes back
+ * without a range, so the caller draws nothing for it rather than drawing it somewhere plausible.
  */
-export function placeCitations(container: Node, passages: readonly string[]): CitationPlacement[] {
+export function placeCitations(
+  container: Node,
+  passages: readonly string[],
+  sections: readonly (string | undefined)[] = [],
+): CitationPlacement[] {
   const runs: TextRun[] = [];
   let raw = "";
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
@@ -30,8 +35,8 @@ export function placeCitations(container: Node, passages: readonly string[]): Ci
   }
   if (!raw) return passages.map(() => UNPLACED);
   const document_ = normalizeForMatch(raw);
-  return passages.map((passage) => {
-    const found = locatePassage(document_, passage);
+  return passages.map((passage, index) => {
+    const found = locatePassage(document_, passage, sections[index]);
     if (found.confidence === "none") return UNPLACED;
     const range = rangeOf(runs, found.start, found.end);
     return range ? { confidence: found.confidence, range } : UNPLACED;
