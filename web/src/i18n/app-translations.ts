@@ -2263,6 +2263,7 @@ Object.assign(englishUi, {
     "Thông tin kết nối này cho phép nhập tệp. Nhóm của nguồn trong MemoryOS quyết định ai được tìm kiếm và đọc tài liệu đã nhập.",
   "Retry Save selection": "Thử lưu lựa chọn lại",
   "Expand everything in {{v1}}": "Mở tất cả bên trong {{v1}}",
+  "Expand everything": "Mở toàn bộ",
   "Load more": "Tải thêm",
   "Load more items in {{v1}}": "Tải thêm mục trong {{v1}}",
   "Load more selected content": "Tải thêm nội dung đã chọn",
@@ -2370,6 +2371,9 @@ Object.assign(englishUi, {
   "Linked document · Not selected for sync": "Tài liệu liên kết · Chưa chọn đồng bộ",
   "Sync {{v1}}": "Đồng bộ {{v1}}",
   "Sync all links in {{v1}}": "Đồng bộ tất cả liên kết trong {{v1}}",
+  "Select for sync": "Chọn để đồng bộ",
+  "{{v1}} linked documents selected. Save selection applies the checked documents on the next sync.":
+    "Đã chọn {{v1}} tài liệu liên kết. Lưu lựa chọn để áp dụng các tài liệu đã tick vào lần đồng bộ tiếp theo.",
   "Add a source": "Thêm nguồn",
   "Connect the content you want to keep in MemoryOS.":
     "Kết nối nội dung bạn muốn lưu trong MemoryOS.",

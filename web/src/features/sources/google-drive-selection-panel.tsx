@@ -746,7 +746,19 @@ export function GoogleDriveSelectionPanel({
           {ui("Retry selection policy")}
         </Button>
       ) : null}
-      {draft && !draft.editingRoots ? draftActions : null}
+      {draft && !draft.editingRoots ? (
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border border-border-default bg-surface-subtle px-3 py-2">
+          <p className="min-w-0 text-xs text-content-muted">
+            {ui(
+              "{{v1}} linked documents selected. Save selection applies the checked documents on the next sync.",
+              {
+                v1: draft.approved.size.toLocaleString(uiLocale()),
+              },
+            )}
+          </p>
+          {draftActions}
+        </div>
+      ) : null}
       {configuration.scopeMode === "SPECIFIC" && draft?.editingRoots ? (
         <div
           className="space-y-3 rounded-lg border border-border-default p-4"

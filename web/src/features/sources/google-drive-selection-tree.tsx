@@ -3,6 +3,7 @@ import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, ChevronsDown } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useSyncExternalStore } from "react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getGoogleDriveSelectionTreeQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
@@ -174,7 +175,11 @@ function branchQuery(
 
 export function GoogleDriveSelectionTree(props: TreeProps) {
   const view = useTreeView();
-  return <SelectionBranch {...props} view={view} ancestors={[]} />;
+  return (
+    <TooltipProvider>
+      <SelectionBranch {...props} view={view} ancestors={[]} />
+    </TooltipProvider>
+  );
 }
 
 /** Re-renders only the node whose path changed, which keeps large trees responsive. */
@@ -366,14 +371,19 @@ const SelectionTreeNode = memo(function SelectionTreeNode({
           ) : null}
         </div>
         {expandable ? (
-          <Button
-            prominence="tertiary"
-            className="size-8 shrink-0 p-0 text-content-muted"
-            aria-label={ui("Expand everything in {{v1}}", { v1: item.name })}
-            onClick={() => view.onExpandAll(path)}
-          >
-            <ChevronsDown aria-hidden="true" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                prominence="tertiary"
+                className="size-8 shrink-0 p-0 text-content-muted"
+                aria-label={ui("Expand everything in {{v1}}", { v1: item.name })}
+                onClick={() => view.onExpandAll(path)}
+              >
+                <ChevronsDown aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{ui("Expand everything")}</TooltipContent>
+          </Tooltip>
         ) : null}
         {branchControl ? <BranchSelectionControl {...props} item={item} /> : null}
       </div>
@@ -423,47 +433,41 @@ export function GoogleDriveSelectionRow({
     ) : null;
   return (
     <div className="flex min-w-0 items-center gap-2 py-1">
+      {canSelect ? (
+        <div className="shrink-0" data-selection-control={item.id}>
+          <Checkbox
+            aria-label={ui("Sync {{v1}}", { v1: item.name })}
+            checked={included}
+            disabled={disabled || (!included && item.status !== "AVAILABLE")}
+            onClick={(event) => {
+              // Before a draft exists, checking loads the complete draft and approves this
+              // target; the checkbox itself stays unchecked until the draft arrives.
+              if (!approved)
+                onSelect(
+                  item,
+                  event.currentTarget.closest<HTMLElement>("[data-selection-control]")!,
+                );
+            }}
+            onCheckedChange={(event) => {
+              if (approved) onApprove(item.id, event === true);
+            }}
+          />
+        </div>
+      ) : item.kind === "LINKED" ? (
+        // Keep linked rows aligned with their selectable siblings.
+        <span aria-hidden="true" className="w-4 shrink-0" />
+      ) : null}
       <FileTypeIcon name={item.name} mimeType={item.mimeType} />
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <div className="flex min-w-0 flex-1 basis-36 items-center gap-2">
-            <p className="min-w-0 break-words text-content-primary">{item.name}</p>
-            {statusChip}
-          </div>
-          {canSelect ? (
-            <div className="min-w-0" data-selection-control={item.id}>
-              <label className="flex min-h-8 cursor-pointer items-center text-xs">
-                <Checkbox
-                  aria-label={ui("Sync {{v1}}", { v1: item.name })}
-                  checked={included}
-                  disabled={disabled || (!included && item.status !== "AVAILABLE")}
-                  onClick={(event) => {
-                    // Before a draft exists, checking loads the complete draft and approves this
-                    // target; the checkbox itself stays unchecked until the draft arrives.
-                    if (!approved)
-                      onSelect(
-                        item,
-                        event.currentTarget.closest<HTMLElement>("[data-selection-control]")!,
-                      );
-                  }}
-                  onCheckedChange={(event) => {
-                    if (approved) onApprove(item.id, event === true);
-                  }}
-                />
-              </label>
-            </div>
-          ) : null}
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <p className="min-w-0 break-words text-content-primary">{item.name}</p>
+          {statusChip}
         </div>
       </div>
     </div>
   );
 }
 
-/**
- * One checkbox on an expandable file row approves or clears every recorded linked child of that
- * file. Its state reflects the linked children already loaded for the branch; clicking pages the
- * whole branch on the server before the draft changes.
- */
 function BranchSelectionControl({
   item,
   approved,
@@ -485,11 +489,14 @@ function BranchSelectionControl({
         ? true
         : "indeterminate";
   return (
-    <Checkbox
-      aria-label={ui("Sync all links in {{v1}}", { v1: item.name })}
-      checked={checked}
-      disabled={disabled || linked.length === 0}
-      onCheckedChange={(event) => onApproveBranch(item.id, event === true)}
-    />
+    <label className="flex min-h-8 cursor-pointer items-center gap-2 text-xs">
+      <Checkbox
+        aria-label={ui("Sync all links in {{v1}}", { v1: item.name })}
+        checked={checked}
+        disabled={disabled || linked.length === 0}
+        onCheckedChange={(event) => onApproveBranch(item.id, event === true)}
+      />
+      {ui("Select for sync")}
+    </label>
   );
 }
