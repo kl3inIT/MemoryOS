@@ -27,6 +27,18 @@ OVERLAYS = ("compose.base.yaml", "compose.staging.yaml", "compose.production.yam
 # name it exports does not follow the <NAME>_FILE rule the loop applies to every other secret.
 DERIVED = {"MEMORYOS_REDIS_TLS_CA_CERTIFICATE": "MEMORYOS_REDIS_TLS_CA_FILE"}
 
+# Values the CI configuration step supplies itself, so the example files leave them blank: the
+# release images and the credentials and Tenant identity a server fills in when it is provisioned.
+# Keep this in step with the env block of "Verify deployment and monitoring configuration".
+RENDERED_BY_CI = {
+    "MEMORYOS_RELEASE", "MEMORYOS_API_IMAGE", "MEMORYOS_WORKER_IMAGE", "MEMORYOS_WEB_IMAGE",
+    "MEMORYOS_INTERPRETER_IMAGE", "MEMORYOS_INTERPRETER_EXECUTOR_IMAGE",
+    "MEMORYOS_POSTGRES_ADMIN_PASSWORD", "MEMORYOS_DATABASE_PASSWORD",
+    "MEMORYOS_KEYCLOAK_DATABASE_PASSWORD", "MEMORYOS_KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD",
+    "MEMORYOS_TENANT_ID", "MEMORYOS_TENANT_SLUG", "MEMORYOS_TENANT_DISPLAY_NAME",
+    "MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE",
+}
+
 
 def required(directories):
     """Names written as ${NAME}: no default, so an absent value stops the application."""
@@ -79,16 +91,20 @@ class ConfigurationReachesTheContainerTest(unittest.TestCase):
             self.assertTrue("%s: ${%s:?" % (name, name) in base,
                             "%s must be required, not defaulted" % name)
 
-    def test_the_production_environment_file_documents_what_production_must_carry(self):
-        # A server is provisioned from this file; a name missing here is a deployment that fails
-        # on the customer's machine rather than in review.
-        example = (DEPLOYMENT / "production.env.example").read_text(encoding="utf-8")
-        present = set(re.findall(r"^(MEMORYOS_[A-Z0-9_]*)=", example, re.M))
+    def test_each_environment_file_documents_what_that_environment_must_carry(self):
+        # A server is provisioned from these files, and CI renders the composition against them.
+        # A name missing here is a deployment that fails on the machine rather than in review.
+        # The image names are the exception: CD writes them from the release bundle.
         base = (DEPLOYMENT / "compose.base.yaml").read_text(encoding="utf-8")
-        production = (DEPLOYMENT / "compose.production.yaml").read_text(encoding="utf-8")
-        demanded = set(re.findall(r"\$\{(MEMORYOS_[A-Z0-9_]*):\?", base + production))
-        self.assertEqual(sorted(demanded - present), [],
-                         "production.env.example does not carry every required value")
+        for environment in ("staging", "production"):
+            overlay = (DEPLOYMENT / ("compose.%s.yaml" % environment)).read_text(encoding="utf-8")
+            search = (DEPLOYMENT / ("compose.search.%s.yaml" % environment)).read_text(encoding="utf-8")
+            demanded = set(re.findall(r"\$\{(MEMORYOS_[A-Z0-9_]*):\?", base + overlay + search))
+            example = (DEPLOYMENT / ("%s.env.example" % environment)).read_text(encoding="utf-8")
+            # Compose reads an empty value as no value at all, so a bare name satisfies nothing.
+            carried = set(re.findall(r"^(MEMORYOS_[A-Z0-9_]*)=.+$", example, re.M))
+            self.assertEqual(sorted(demanded - carried - RENDERED_BY_CI), [],
+                             "%s.env.example does not carry every required value" % environment)
 
 
 if __name__ == "__main__":
