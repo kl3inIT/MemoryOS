@@ -29,7 +29,7 @@ A reader opens the meeting while it records and after it ends: the transcript as
 
 1. `POST /api/meetings/{id}/tickets` with `{track}` issues a 60-second single-use ticket bound to the actor, the meeting and the track (the voice ticket store with scope `MEETING:{id}:{track}`).
 2. The browser opens the same-origin WebSocket `/api/meeting-stream?meeting=&track=&offset=&ticket=`. `offset` is the recording time in milliseconds of the first sample, so a reconnect or a resume after pause continues the meeting clock. The handshake consumes the ticket and rechecks ownership and `RECORDING`.
-3. The socket accepts PCM16 24 kHz mono binary frames of at most 64 KiB and one `{"type":"end"}`. It answers `ready`, `preview {track, speaker, text}` (uncommitted speech that replaces the previous preview), `utterance {id, track, speaker, startMs, endMs, text, confidence}` (already stored), `finished` after an end, and `error {code}`. Codes: `MEETING_INVALID_AUDIO`, `MEETING_INVALID_MESSAGE`, `MEETING_TOO_LONG` (a track records at most five hours), `MEETING_IDLE` (no audio for 60 seconds; pausing closes the socket), `MEETING_PROVIDER_FAILED`, `MEETING_BUSY`, `MEETING_UNAVAILABLE`, plus the meeting codes above.
+3. The socket accepts PCM16 24 kHz mono binary frames of at most 64 KiB and one `{"type":"end"}`. It answers `ready`, `preview {track, speaker, text}` (uncommitted speech that replaces the previous preview), `utterance {id, track, speaker, startMs, endMs, text, confidence, spans}` (already stored), `finished` after an end, and `error {code}`. The server pings the socket every 20 seconds while a track is open: nobody speaking means it writes nothing for minutes, and a reverse proxy reads an idle upstream as a dead one — the staging edge cuts at 300 seconds. The browser answers the ping without the page being told. Codes: `MEETING_INVALID_AUDIO`, `MEETING_INVALID_MESSAGE`, `MEETING_TOO_LONG` (a track records at most five hours), `MEETING_IDLE` (no audio for 60 seconds; pausing closes the socket), `MEETING_PROVIDER_FAILED`, `MEETING_BUSY`, `MEETING_UNAVAILABLE`, plus the meeting codes above.
 4. `POST /api/meetings/{id}/end` ends the meeting; open sockets end with their browser.
 
 ## Transcription
@@ -38,6 +38,40 @@ Each track is one provider stream over the Tenant's default speech-to-text conne
 
 - **Soniox** streams realtime with endpoint detection, the language hint and the meeting's terms. Online, `MIC` is not diarized (it is the owner); `TAB` and in-person `MIC` are. Final tokens form an utterance that ends at a speaker change or an `<end>` endpoint. A keepalive is sent after five seconds without audio. When the provider stream fails, it reconnects after 2/5/10/20/30 seconds, replays the last five seconds of audio and shifts the new stream's times by the audio sent before the replay; after the last retry the socket reports `MEETING_PROVIDER_FAILED`.
 - **Other providers** have no live protocol: audio is cut into utterances after 800 ms of silence or at 30 seconds, silence never reaches the provider, and each utterance is transcribed through the provider's REST adapter with speaker `1`.
+
+An utterance also carries `spans`: the stretches the provider was least sure of, as half-open character offsets into the stored text with the lowest confidence among the tokens each covers. A token below 0.6 — Soniox's own review threshold — is marked, neighbouring marked tokens become one stretch, and the threshold is applied once, when the utterance is built, so stored stretches reflect the threshold in force at transcription time. Only Soniox reports a confidence per token, live and for an uploaded recording; every other provider stores an empty list and nothing is marked. The transcript highlights those stretches and shows the percentage on hover.
+
+## Finding a line, and keeping one
+
+Searching a transcript happens in the browser over what is already loaded; no route answers a query. Every hit is numbered across the whole meeting so the arrows walk them in reading order, and a hit is drawn over an uncertain stretch where the two overlap.
+
+Two marks belong to whoever left them, and nobody else sees them — a meeting five people read collects five sets. A **star** says a line matters and is left afterwards, while reading: `PUT` and `DELETE /api/meetings/{id}/utterances/{utteranceId}/star`, answered with the meeting as that reader sees it. A **bookmark** says to come back to a moment and is left during the meeting, when there is no line yet to star: `POST /api/meetings/{id}/bookmarks` takes milliseconds from the start of the recording and a label, numbering it `Đánh dấu N` when none is given, and `DELETE /api/meetings/{id}/bookmarks/{bookmarkId}` takes back one of the caller's own. At most 200 bookmarks per person per meeting, and a time outside the recording is refused. Anyone who reads the meeting may leave both; the meeting carries `starred` and `bookmarks` for the caller alone.
+
+## Correcting the minutes
+
+The minutes are the owner's to correct: a model that misheard one conclusion costs one edit, not a rerun of the whole meeting. `PUT /api/meetings/{id}/minutes/summary` rewrites the summary; `PUT /api/meetings/{id}/minutes/items/{itemId}` rewrites one decision or one piece of work, its owner and its deadline. A decision belongs to the meeting rather than to a person, so giving one an owner or a deadline is refused. Only the owner reaches either — a reader of a shared meeting gets 404.
+
+What the reader sees is the row, and the history is the events beside it: every change is a row in `meeting_minutes_event` carrying the field, who changed it, and what it said before, so the model's own words stay readable after they are replaced. `minutes.edited` and each item's `edited` say whether the words standing now are the owner's.
+
+Rerunning writes the whole minutes again, which throws that work away, so `POST /api/meetings/{id}/minutes` answers 409 once anything was corrected unless it is called with `discardEdits=true`. A rerun starts from the model's own words again and clears the flag.
+
+## Taking the transcript away
+
+`GET /api/meetings/{id}/transcript?format=DOCX|PDF` answers what was said — every line with its time and the name of whoever said it — to anybody who can read the meeting. It is not the biên bản: nothing is arranged around it, and no model runs, so the same meeting always produces the same file. A meeting with no transcript yet is refused.
+
+Both files are built from one list of lines, so they say exactly the same thing. Word uses Times New Roman as the minutes do. The PDF embeds the bundled Hanken Grotesk, because the built-in PDF typefaces cannot draw Vietnamese; text is composed to NFC so its marks land on the font's own glyphs, and a character the typeface lacks becomes a question mark rather than failing the download. A speaker nobody named reads as `Người nói 1`, or `Speaker 1` in an English meeting.
+
+## Correcting what was misheard
+
+The owner asks a model what was probably said at each marked stretch: `POST /api/meetings/{id}/corrections` answers the run and its proposals, and changes nothing. Only the owner reaches any of this — a reader of a shared meeting gets 404 — and the call is billed to the owner's Tenant as `MEETING_CORRECTION`, a model flow an administrator selects like any other. One pass at a time per meeting; a second press while one is running answers 409.
+
+Neighbouring marks that read as one phrase are asked about together: joined when at most 5 characters and 8 words apart with no `.`, `!` or `?` between them. Each stretch is sent with 100 characters of context either side, the two lines before and after with the one being judged marked, the speaker, the meeting's terms, and the same words where they appear clearly elsewhere in the transcript. A line the owner has rewritten is never sent again.
+
+A proposal carries the model's reason and three scores — is this what was said, does it fit the sentences around it, does it leave the meaning alone. Naturalness is deliberately not asked for: people speak untidily, and tidying that is a change to what was said.
+
+`POST .../corrections/{id}/accept` puts the words in, either the model's or the owner's own; `/keep` declines and leaves the record showing what was offered; `/accept-all` takes everything a run still has undecided, applying later stretches of a line first so the earlier offsets still hold; `/revert` puts back what the line said before, and `/revert-all` takes back everything one pass put in — accepting in bulk is only safe if undoing in bulk costs the same one press. A stretch whose line moved since the run answers 409 rather than writing over words it never read.
+
+`meeting_utterance.text` is always what the reader sees. Every change to it is a row in `meeting_utterance_event` with its `before`, its `after`, who made it and which run it belonged to, so the words the provider first wrote stay recoverable. `edit_source` says who last changed a line (`MODEL`, `HUMAN`, or nothing at all) and is what locks a line the owner rewrote. Accepting shifts the line's remaining marks: one covering the replaced words is dropped, the rest move by the difference in length.
 
 Utterances are stored as they are committed, with their speaker row created on first use. Naming a speaker (`PUT /api/meetings/{id}/speakers/{track}/{label}`) applies to every utterance of that speaker; a blank name restores the automatic label.
 

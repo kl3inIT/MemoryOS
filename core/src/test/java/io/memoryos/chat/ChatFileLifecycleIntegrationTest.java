@@ -87,11 +87,18 @@ class ChatFileLifecycleIntegrationTest {
                 new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
                         java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
                 jpa.transactionManager());
-        fileContent = new ChatFileContentService(new JdbcUserFileRepository(jdbc), tenants, storage);
+        var storedObjects = new JdbcStoredObjectRepository(jdbc);
+        var writes = new io.memoryos.objectstorage.application.DefaultObjectWriteService(storedObjects,
+                new io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository(jdbc), storage,
+                new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5),
+                        Duration.ofMinutes(1), 16), jpa.transactionManager());
+        fileContent = new ChatFileContentService(new JdbcUserFileRepository(jdbc), tenants, storage, writes,
+                jpa.transactionManager());
         documents = TestDatabase.transactionalProxy(new JdbcDocumentRepository(jdbc, new ObjectMapper(), ignored -> {}),
                 DocumentCommandPort.class, jpa.transactionManager());
-        work = TestDatabase.transactionalProxy(new DefaultUserFileWorkService(new JdbcUserFileWorkRepository(jdbc), documents, uploads, tenants),
-                UserFileWorkPort.class, jpa.transactionManager());
+        work = TestDatabase.transactionalProxy(new DefaultUserFileWorkService(new JdbcUserFileWorkRepository(jdbc), documents,
+                uploads, tenants, new io.memoryos.objectstorage.application.DefaultStoredObjectRegistry(storedObjects), writes,
+                storage), UserFileWorkPort.class, jpa.transactionManager());
     }
 
     @AfterEach
@@ -293,6 +300,85 @@ class ChatFileLifecycleIntegrationTest {
         when(storage.open(any())).thenAnswer(ignored -> { files.delete(owner, id); return stream; });
         assertThrows(ChatException.class, () -> fileContent.open(owner, id));
         verify(stream).close();
+    }
+
+    @Test
+    void uploadedImageRendersOneThumbnailThatIsReusedAndReleasedWithTheUpload() throws Exception {
+        byte[] png = noisyPng();
+        var written = new java.util.HashMap<ObjectKey, byte[]>();
+        doAnswer(call -> { written.put(call.getArgument(0), call.getArgument(1)); return null; })
+                .when(storage).write(any(), any(), any());
+        when(storage.inspect(any())).thenAnswer(call -> {
+            byte[] bytes = written.get((ObjectKey) call.getArgument(0));
+            return bytes == null ? new ObjectMetadata(png.length, "image/png", new ContentSha256(SHA))
+                    : new ObjectMetadata(bytes.length, "image/jpeg", new ContentSha256(sha256(bytes)));
+        });
+        when(storage.open(any())).thenAnswer(call -> {
+            byte[] bytes = written.getOrDefault((ObjectKey) call.getArgument(0), png);
+            return content(bytes, bytes == png ? "image/png" : "image/jpeg");
+        });
+        var id = files.initiate(owner, new ChatFileService.UploadInput(UUID.randomUUID(), "photo.png", "image/png",
+                png.length, SHA)).file().id();
+        files.finalizeUpload(owner, id);
+        var delivery = dispatch();
+        assertTrue(work.complete(work.claim(tenant, delivery.operationId().value(), delivery.deliveryId()).orElseThrow(),
+                new DocumentContent("image/png", "photo.png", "", Map.of())));
+
+        int rendered;
+        try (var served = fileContent.thumbnail(owner, id)) {
+            assertEquals("image/jpeg", served.mediaType());
+            assertTrue(served.sizeBytes() < png.length, "a thumbnail must be smaller than the image it came from");
+            rendered = served.inputStream().readAllBytes().length;
+        }
+        var thumbnailKey = new ObjectKey(jdbc.sql("SELECT thumbnail_object_key FROM chat_user_file WHERE id=:id")
+                .param("id", id).query(String.class).single());
+        assertEquals(rendered, written.get(thumbnailKey).length);
+        assertEquals(2, count("stored_objects"));
+
+        // A second read serves the recorded object rather than rendering and storing a second one.
+        try (var again = fileContent.thumbnail(owner, id)) { assertEquals("image/jpeg", again.mediaType()); }
+        assertEquals(2, count("stored_objects"));
+        assertThrows(ChatException.class, () -> fileContent.thumbnail(other, id));
+
+        files.delete(owner, id);
+        var deletion = dispatch();
+        assertTrue(work.deleted(work.claim(tenant, deletion.operationId().value(), deletion.deliveryId()).orElseThrow()));
+        verify(storage).delete(thumbnailKey);
+        assertNull(jdbc.sql("SELECT thumbnail_object_key FROM chat_user_file WHERE id=:id").param("id", id)
+                .query(String.class).optional().orElse(null));
+        assertEquals(1, count("stored_objects"));
+    }
+
+    @Test
+    void anUploadThatIsNotAnImageHasNoThumbnail() {
+        var id = finalized();
+        var delivery = dispatch();
+        assertTrue(work.complete(work.claim(tenant, delivery.operationId().value(), delivery.deliveryId()).orElseThrow(), content()));
+        assertEquals("Only image files have a thumbnail",
+                assertThrows(ChatException.class, () -> fileContent.thumbnail(owner, id)).getMessage());
+        verify(storage, never()).open(any());
+    }
+
+    /** Noise, so the PNG is past the size below which a thumbnail would not pay for itself. */
+    private static byte[] noisyPng() throws java.io.IOException {
+        var image = new java.awt.image.BufferedImage(600, 600, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var random = new java.util.Random(7);
+        for (int y = 0; y < image.getHeight(); y++)
+            for (int x = 0; x < image.getWidth(); x++) image.setRGB(x, y, random.nextInt(0xFFFFFF));
+        var out = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(image, "png", out);
+        return out.toByteArray();
+    }
+
+    private static String sha256(byte[] bytes) throws Exception {
+        return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
+    }
+
+    private static ObjectContent content(byte[] bytes, String mediaType) throws Exception {
+        var stream = mock(ObjectContent.class);
+        when(stream.metadata()).thenReturn(new ObjectMetadata(bytes.length, mediaType, new ContentSha256(sha256(bytes))));
+        when(stream.inputStream()).thenReturn(new java.io.ByteArrayInputStream(bytes));
+        return stream;
     }
 
     private UUID finalized() {

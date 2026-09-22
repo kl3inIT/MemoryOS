@@ -7,6 +7,8 @@ const FINISH_TIMEOUT_MS = 20_000;
 
 export type MeetingTrack = "MIC" | "TAB";
 
+export type UtteranceSpan = { start: number; end: number; confidence: number };
+
 export type StreamedUtterance = {
   id: string;
   track: MeetingTrack;
@@ -15,6 +17,7 @@ export type StreamedUtterance = {
   endMs: number;
   text: string;
   confidence: number;
+  spans: UtteranceSpan[];
 };
 
 /** Codes after which reconnecting cannot help. */
@@ -91,7 +94,23 @@ function parseUtterance(value: unknown): StreamedUtterance | undefined {
     endMs: item.endMs,
     text: item.text,
     confidence: typeof item.confidence === "number" ? item.confidence : 1,
+    spans: readSpans(item.spans),
   };
+}
+
+function readSpans(value: unknown): UtteranceSpan[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const span = entry as Partial<UtteranceSpan>;
+    if (typeof span?.start !== "number" || typeof span?.end !== "number") return [];
+    return [
+      {
+        start: span.start,
+        end: span.end,
+        confidence: typeof span.confidence === "number" ? span.confidence : 0,
+      },
+    ];
+  });
 }
 
 /** Opens the socket and resolves once the server has opened the provider stream (`ready`). */

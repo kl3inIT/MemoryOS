@@ -141,13 +141,6 @@ export type GoogleDriveSelectionReceiptResponse = {
 };
 
 /**
- * A blank or absent name restores the automatic label
- */
-export type MeetingSpeakerRequest = {
-    name?: string | null;
-};
-
-/**
  * An uploaded recording being turned into a transcript
  */
 export type MeetingAudio = {
@@ -156,6 +149,15 @@ export type MeetingAudio = {
     filename: string | null;
     sizeBytes: number;
     provider: string | null;
+};
+
+/**
+ * A moment the caller marked while the meeting was running. Only they see it.
+ */
+export type MeetingBookmark = {
+    id: string;
+    atMs: number;
+    label: string;
 };
 
 export type MeetingDetail = {
@@ -187,6 +189,14 @@ export type MeetingDetail = {
      * Who the meeting is shared with; empty for anyone but its owner
      */
     readers: Array<MeetingReader>;
+    /**
+     * Lines the caller starred; another reader's stars are their own
+     */
+    starred: Array<string>;
+    /**
+     * Moments the caller marked while the meeting was running
+     */
+    bookmarks: Array<MeetingBookmark>;
 };
 
 /**
@@ -203,6 +213,10 @@ export type MeetingMinutes = {
     generatedAt: string | null;
     decisions: Array<MeetingMinutesItem>;
     actions: Array<MeetingMinutesItem>;
+    /**
+     * Whether the words standing now are the owner's rather than the model's
+     */
+    edited: boolean;
 };
 
 /**
@@ -219,6 +233,10 @@ export type MeetingMinutesItem = {
     quote: string | null;
     sourceUtteranceId: string | null;
     done: boolean;
+    /**
+     * Whether these words are the owner's rather than the model's
+     */
+    edited: boolean;
 };
 
 /**
@@ -244,6 +262,27 @@ export type MeetingUtterance = {
     endMs: number;
     text: string;
     confidence: number;
+    spans: Array<MeetingUtteranceSpan>;
+    /**
+     * Who last changed what this line says; absent while nobody has
+     */
+    editSource?: 'MODEL' | 'HUMAN';
+};
+
+/**
+ * A stretch of the utterance the provider was unsure of, by character offset, half-open.
+ */
+export type MeetingUtteranceSpan = {
+    start: number;
+    end: number;
+    confidence: number;
+};
+
+/**
+ * A blank or absent name restores the automatic label
+ */
+export type MeetingSpeakerRequest = {
+    name?: string | null;
 };
 
 /**
@@ -261,6 +300,16 @@ export type MeetingNotesRequest = {
 
 export type MeetingItemRequest = {
     done: boolean;
+};
+
+export type MeetingMinutesSummaryRequest = {
+    summary: string;
+};
+
+export type MeetingMinutesItemRequest = {
+    text: string;
+    owner?: string | null;
+    due?: string | null;
 };
 
 /**
@@ -1012,7 +1061,7 @@ export type Pricing = {
  * Tenant model for one task; no model uses the conversation model
  */
 export type ModelFlow = {
-    flow: 'CHAT_NAMING' | 'MEETING_MINUTES';
+    flow: 'CHAT_NAMING' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     modelConfigurationId: string | null;
     /**
      * False when the model is set but no longer eligible; the task then uses the conversation model
@@ -1450,6 +1499,52 @@ export type MeetingLibraryFile = {
      * READY when Chat can read it; PROCESSING while it is extracted
      */
     status: string;
+};
+
+/**
+ * One proposal for one uncertain stretch. Nothing changes until it is accepted.
+ */
+export type MeetingCorrection = {
+    id: string;
+    utteranceId: string;
+    runId: string;
+    start: number;
+    end: number;
+    before: string;
+    after: string;
+    reason: string;
+    confidence: number;
+    contextFit: number;
+    meaningSafe: number;
+    matchedGlossary: boolean;
+    status: 'PENDING' | 'ACCEPTED' | 'KEPT' | 'REVERTED';
+};
+
+export type MeetingCorrectionRun = {
+    runId: string;
+    corrections: Array<MeetingCorrection>;
+};
+
+export type AcceptMeetingCorrection = {
+    /**
+     * The caller's own wording instead of the model's
+     */
+    text?: string | null;
+};
+
+export type MeetingCorrectionRunRef = {
+    runId: string;
+};
+
+export type MeetingBookmarkRequest = {
+    /**
+     * Milliseconds from the start of the recording
+     */
+    atMs: number;
+    /**
+     * What to call it; a number is used when this is left out
+     */
+    label?: string | null;
 };
 
 export type McpToolRefresh = {
@@ -3221,6 +3316,98 @@ export type ReplaceGoogleDriveRootsResponses = {
 
 export type ReplaceGoogleDriveRootsResponse = ReplaceGoogleDriveRootsResponses[keyof ReplaceGoogleDriveRootsResponses];
 
+export type UnstarMeetingUtteranceData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        utteranceId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/utterances/{utteranceId}/star';
+};
+
+export type UnstarMeetingUtteranceErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or line not available
+     */
+    404: ApiProblem;
+};
+
+export type UnstarMeetingUtteranceError = UnstarMeetingUtteranceErrors[keyof UnstarMeetingUtteranceErrors];
+
+export type UnstarMeetingUtteranceResponses = {
+    /**
+     * The meeting with the caller's marks
+     */
+    200: MeetingDetail;
+};
+
+export type UnstarMeetingUtteranceResponse = UnstarMeetingUtteranceResponses[keyof UnstarMeetingUtteranceResponses];
+
+export type StarMeetingUtteranceData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        utteranceId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/utterances/{utteranceId}/star';
+};
+
+export type StarMeetingUtteranceErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or line not available
+     */
+    404: ApiProblem;
+};
+
+export type StarMeetingUtteranceError = StarMeetingUtteranceErrors[keyof StarMeetingUtteranceErrors];
+
+export type StarMeetingUtteranceResponses = {
+    /**
+     * The meeting with the caller's marks
+     */
+    200: MeetingDetail;
+};
+
+export type StarMeetingUtteranceResponse = StarMeetingUtteranceResponses[keyof StarMeetingUtteranceResponses];
+
 export type NameMeetingSpeakerData = {
     body: MeetingSpeakerRequest;
     headers: {
@@ -3407,6 +3594,97 @@ export type MarkMeetingMinutesItemResponses = {
 };
 
 export type MarkMeetingMinutesItemResponse = MarkMeetingMinutesItemResponses[keyof MarkMeetingMinutesItemResponses];
+
+export type EditMeetingMinutesSummaryData = {
+    body: MeetingMinutesSummaryRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/minutes/summary';
+};
+
+export type EditMeetingMinutesSummaryErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type EditMeetingMinutesSummaryError = EditMeetingMinutesSummaryErrors[keyof EditMeetingMinutesSummaryErrors];
+
+export type EditMeetingMinutesSummaryResponses = {
+    /**
+     * The meeting with the summary as it now reads
+     */
+    200: MeetingDetail;
+};
+
+export type EditMeetingMinutesSummaryResponse = EditMeetingMinutesSummaryResponses[keyof EditMeetingMinutesSummaryResponses];
+
+export type EditMeetingMinutesItemData = {
+    body: MeetingMinutesItemRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/minutes/items/{itemId}';
+};
+
+export type EditMeetingMinutesItemErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or item not available
+     */
+    404: ApiProblem;
+};
+
+export type EditMeetingMinutesItemError = EditMeetingMinutesItemErrors[keyof EditMeetingMinutesItemErrors];
+
+export type EditMeetingMinutesItemResponses = {
+    /**
+     * The meeting with the item as it now reads
+     */
+    200: MeetingDetail;
+};
+
+export type EditMeetingMinutesItemResponse = EditMeetingMinutesItemResponses[keyof EditMeetingMinutesItemResponses];
 
 export type DeleteMcpServerData = {
     body?: never;
@@ -6501,7 +6779,7 @@ export type SetChatModelFlowData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        flow: 'CHAT_NAMING' | 'MEETING_MINUTES';
+        flow: 'CHAT_NAMING' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     query: {
         modelConfigurationId?: string;
@@ -8011,7 +8289,12 @@ export type RerunMeetingMinutesData = {
     path: {
         meetingId: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * Required once the minutes were corrected by hand, because a rerun writes them again and throws that work away
+         */
+        discardEdits?: boolean;
+    };
     url: '/api/meetings/{meetingId}/minutes';
 };
 
@@ -8032,6 +8315,10 @@ export type RerunMeetingMinutesErrors = {
      * Meeting not available
      */
     404: ApiProblem;
+    /**
+     * The minutes were corrected by hand; say so to discard that work
+     */
+    409: ApiProblem;
 };
 
 export type RerunMeetingMinutesError = RerunMeetingMinutesErrors[keyof RerunMeetingMinutesErrors];
@@ -8179,6 +8466,379 @@ export type EndMeetingResponses = {
 };
 
 export type EndMeetingResponse = EndMeetingResponses[keyof EndMeetingResponses];
+
+export type ListMeetingCorrectionsData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections';
+};
+
+export type ListMeetingCorrectionsErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type ListMeetingCorrectionsError = ListMeetingCorrectionsErrors[keyof ListMeetingCorrectionsErrors];
+
+export type ListMeetingCorrectionsResponses = {
+    /**
+     * The proposals
+     */
+    200: Array<MeetingCorrection>;
+};
+
+export type ListMeetingCorrectionsResponse = ListMeetingCorrectionsResponses[keyof ListMeetingCorrectionsResponses];
+
+export type ProposeMeetingCorrectionsData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections';
+};
+
+export type ProposeMeetingCorrectionsErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+    /**
+     * A pass is already running
+     */
+    409: ApiProblem;
+};
+
+export type ProposeMeetingCorrectionsError = ProposeMeetingCorrectionsErrors[keyof ProposeMeetingCorrectionsErrors];
+
+export type ProposeMeetingCorrectionsResponses = {
+    /**
+     * What the pass proposed; the transcript is unchanged
+     */
+    200: MeetingCorrectionRun;
+};
+
+export type ProposeMeetingCorrectionsResponse = ProposeMeetingCorrectionsResponses[keyof ProposeMeetingCorrectionsResponses];
+
+export type RevertMeetingCorrectionData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        correctionId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections/{correctionId}/revert';
+};
+
+export type RevertMeetingCorrectionErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or proposal not available
+     */
+    404: ApiProblem;
+    /**
+     * The line changed again after this proposal
+     */
+    409: ApiProblem;
+};
+
+export type RevertMeetingCorrectionError = RevertMeetingCorrectionErrors[keyof RevertMeetingCorrectionErrors];
+
+export type RevertMeetingCorrectionResponses = {
+    /**
+     * The meeting with the line restored
+     */
+    200: MeetingDetail;
+};
+
+export type RevertMeetingCorrectionResponse = RevertMeetingCorrectionResponses[keyof RevertMeetingCorrectionResponses];
+
+export type KeepMeetingWordingData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        correctionId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections/{correctionId}/keep';
+};
+
+export type KeepMeetingWordingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or proposal not available
+     */
+    404: ApiProblem;
+};
+
+export type KeepMeetingWordingError = KeepMeetingWordingErrors[keyof KeepMeetingWordingErrors];
+
+export type KeepMeetingWordingResponses = {
+    /**
+     * The meeting, unchanged
+     */
+    200: MeetingDetail;
+};
+
+export type KeepMeetingWordingResponse = KeepMeetingWordingResponses[keyof KeepMeetingWordingResponses];
+
+export type AcceptMeetingCorrectionData = {
+    body: AcceptMeetingCorrection;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        correctionId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections/{correctionId}/accept';
+};
+
+export type AcceptMeetingCorrectionErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or proposal not available
+     */
+    404: ApiProblem;
+    /**
+     * The line moved since the proposal was made
+     */
+    409: ApiProblem;
+};
+
+export type AcceptMeetingCorrectionError = AcceptMeetingCorrectionErrors[keyof AcceptMeetingCorrectionErrors];
+
+export type AcceptMeetingCorrectionResponses = {
+    /**
+     * The meeting with the line rewritten
+     */
+    200: MeetingDetail;
+};
+
+export type AcceptMeetingCorrectionResponse = AcceptMeetingCorrectionResponses[keyof AcceptMeetingCorrectionResponses];
+
+export type RevertAllMeetingCorrectionsData = {
+    body: MeetingCorrectionRunRef;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections/revert-all';
+};
+
+export type RevertAllMeetingCorrectionsErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+    /**
+     * A line changed again after the pass
+     */
+    409: ApiProblem;
+};
+
+export type RevertAllMeetingCorrectionsError = RevertAllMeetingCorrectionsErrors[keyof RevertAllMeetingCorrectionsErrors];
+
+export type RevertAllMeetingCorrectionsResponses = {
+    /**
+     * The meeting with every line of that pass restored
+     */
+    200: MeetingDetail;
+};
+
+export type RevertAllMeetingCorrectionsResponse = RevertAllMeetingCorrectionsResponses[keyof RevertAllMeetingCorrectionsResponses];
+
+export type AcceptAllMeetingCorrectionsData = {
+    body: MeetingCorrectionRunRef;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections/accept-all';
+};
+
+export type AcceptAllMeetingCorrectionsErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type AcceptAllMeetingCorrectionsError = AcceptAllMeetingCorrectionsErrors[keyof AcceptAllMeetingCorrectionsErrors];
+
+export type AcceptAllMeetingCorrectionsResponses = {
+    /**
+     * The meeting with every accepted line rewritten
+     */
+    200: MeetingDetail;
+};
+
+export type AcceptAllMeetingCorrectionsResponse = AcceptAllMeetingCorrectionsResponses[keyof AcceptAllMeetingCorrectionsResponses];
+
+export type BookmarkMeetingMomentData = {
+    body: MeetingBookmarkRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/bookmarks';
+};
+
+export type BookmarkMeetingMomentErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type BookmarkMeetingMomentError = BookmarkMeetingMomentErrors[keyof BookmarkMeetingMomentErrors];
+
+export type BookmarkMeetingMomentResponses = {
+    /**
+     * The meeting with the caller's marks
+     */
+    200: MeetingDetail;
+};
+
+export type BookmarkMeetingMomentResponse = BookmarkMeetingMomentResponses[keyof BookmarkMeetingMomentResponses];
 
 export type ListMcpServersData = {
     body?: never;
@@ -12837,6 +13497,47 @@ export type GetMeetingResponses = {
 
 export type GetMeetingResponse = GetMeetingResponses[keyof GetMeetingResponses];
 
+export type ExportMeetingTranscriptData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: {
+        format?: 'DOCX' | 'PDF';
+    };
+    url: '/api/meetings/{meetingId}/transcript';
+};
+
+export type ExportMeetingTranscriptErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type ExportMeetingTranscriptError = ExportMeetingTranscriptErrors[keyof ExportMeetingTranscriptErrors];
+
+export type ExportMeetingTranscriptResponses = {
+    /**
+     * The transcript
+     */
+    200: Blob | File;
+};
+
+export type ExportMeetingTranscriptResponse = ExportMeetingTranscriptResponses[keyof ExportMeetingTranscriptResponses];
+
 export type ListMeetingTranscribersData = {
     body?: never;
     path?: never;
@@ -15006,6 +15707,53 @@ export type GetChatFileResponses = {
 
 export type GetChatFileResponse = GetChatFileResponses[keyof GetChatFileResponses];
 
+export type GetChatFileThumbnailData = {
+    body?: never;
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/chat/files/{fileId}/thumbnail';
+};
+
+export type GetChatFileThumbnailErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatFileThumbnailError = GetChatFileThumbnailErrors[keyof GetChatFileThumbnailErrors];
+
+export type GetChatFileThumbnailResponses = {
+    /**
+     * Thumbnail bytes, or the original image when no smaller rendering could be made
+     */
+    200: Blob | File;
+};
+
+export type GetChatFileThumbnailResponse = GetChatFileThumbnailResponses[keyof GetChatFileThumbnailResponses];
+
 export type ReadChatFileTextData = {
     body?: never;
     path: {
@@ -15812,7 +16560,7 @@ export type GetAiCostSummaryData = {
         from: string;
         to: string;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     url: '/api/ai-costs/summary';
 };
@@ -15997,7 +16745,7 @@ export type ListAiCostDaysData = {
         to: string;
         split?: 'BOUNDARY' | 'MODEL' | 'NONE';
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     url: '/api/ai-costs/daily';
 };
@@ -16037,7 +16785,7 @@ export type ListAiCostBreakdownData = {
         by: 'ACTOR' | 'GROUP' | 'MODEL' | 'FLOW' | 'PROVIDER';
         limit?: number;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     url: '/api/ai-costs/breakdown';
 };
@@ -16067,6 +16815,52 @@ export type ListAiCostBreakdownResponses = {
 };
 
 export type ListAiCostBreakdownResponse = ListAiCostBreakdownResponses[keyof ListAiCostBreakdownResponses];
+
+export type RemoveMeetingBookmarkData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        bookmarkId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/bookmarks/{bookmarkId}';
+};
+
+export type RemoveMeetingBookmarkErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or mark not available
+     */
+    404: ApiProblem;
+};
+
+export type RemoveMeetingBookmarkError = RemoveMeetingBookmarkErrors[keyof RemoveMeetingBookmarkErrors];
+
+export type RemoveMeetingBookmarkResponses = {
+    /**
+     * The meeting with the caller's marks
+     */
+    200: MeetingDetail;
+};
+
+export type RemoveMeetingBookmarkResponse = RemoveMeetingBookmarkResponses[keyof RemoveMeetingBookmarkResponses];
 
 export type DisconnectMcpServerOAuthData = {
     body?: never;

@@ -6,8 +6,6 @@ import {
   Bot,
   Compass,
   Folder,
-  ChevronDown,
-  ChevronRight,
   FileSearch,
   FolderOpen,
   GripVertical,
@@ -30,7 +28,7 @@ import { listChatPersonaPins } from "@/lib/hey-api/sdk.gen";
 import { usePinUpdates } from "@/features/agents/agent-pins";
 import { AgentAvatar } from "@/features/agents/agent-avatar";
 import { ChatSessionRow, CHAT_DRAG_TYPE } from "./chat-session-row";
-import { ProjectEditor, ProjectConversationList } from "./chat-projects-page";
+import { ProjectEditor } from "./chat-projects-page";
 import {
   loadProjects,
   moveConversation,
@@ -146,17 +144,6 @@ export function ChatNavigation({
           {projects.isError && (
             <Button size="sm" prominence="internal" onClick={() => void projects.refetch()}>
               {ui("Tải lại dự án")}
-            </Button>
-          )}
-          {projects.data?.length === 0 && (
-            <Button
-              size="sm"
-              prominence="internal"
-              className="w-full justify-start"
-              onClick={() => setCreating(true)}
-            >
-              <Folder className="size-4" />
-              {ui("Tạo dự án mới")}
             </Button>
           )}
           <h2 className="px-2 pb-2 pt-6 text-sm font-medium text-content-secondary">
@@ -383,7 +370,6 @@ function ChatThreadRow({
 function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?: () => void }) {
   const ui = useAppTranslation();
 
-  const [expanded, setExpanded] = useState(false);
   const [over, setOver] = useState(false);
   const [pending, setPending] = useState(false);
   const busy = useRef(false);
@@ -420,7 +406,6 @@ function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?:
               cache.invalidateQueries({ queryKey: ["chat-project-sessions"] }),
               cache.invalidateQueries({ queryKey: ["chat-session", sessionId] }),
             ]);
-            setExpanded(true);
           })
           .catch((cause: unknown) => setError(chatActionError(cause)))
           .finally(() => {
@@ -436,24 +421,12 @@ function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?:
           over && "ring-2 ring-ring",
         )}
       >
-        <IconButton
-          size="sm"
-          prominence="internal"
-          aria-label={ui("{{v1}} dự án {{v2}}", {
-            v1: expanded ? ui("Thu gọn") : ui("Mở rộng"),
-            v2: project.name,
-          })}
-          aria-expanded={expanded}
-          onClick={() => setExpanded(!expanded)}
-        >
-          {expanded ? <ChevronDown /> : <ChevronRight />}
-        </IconButton>
         <Link
           to="/projects/$projectId"
           params={{ projectId: project.id }}
           onClick={onNavigate}
           aria-current={selected ? "page" : undefined}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg py-2 pr-2 text-sm focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Folder className="size-4 shrink-0 text-content-muted" />
           <span className="truncate">{project.name}</span>
@@ -468,9 +441,6 @@ function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?:
         <p role="alert" className="px-3 text-xs">
           {ui(error)}
         </p>
-      )}
-      {expanded && (
-        <ProjectConversationList projectId={project.id} compact onNavigate={onNavigate} />
       )}
     </div>
   );

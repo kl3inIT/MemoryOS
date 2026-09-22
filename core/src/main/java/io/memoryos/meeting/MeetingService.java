@@ -33,6 +33,11 @@ public class MeetingService {
     static final int MAX_TERMS = 100;
     static final int MAX_NAME = 200;
     static final int MAX_TERM = 100;
+    static final int MAX_SUMMARY = 20_000;
+    static final int MAX_ITEM = 2_000;
+    static final int MAX_DUE = 100;
+    /** Marks a person leaves for themselves; past this many they are no longer marking anything out. */
+    static final int MAX_BOOKMARKS = 200;
     static final int MAX_NOTES = 50_000;
     /** A meeting is shared with people who were in it, not broadcast; the bound keeps the list readable. */
     static final int MAX_READERS = 200;
@@ -130,17 +135,99 @@ public class MeetingService {
 
     /** Runs the minutes again, for a meeting whose transcript or notes changed after the first run. */
     @Transactional
-    public Meeting.Detail rerunMinutes(ActorId actor, UUID id) {
+    public Meeting.Detail rerunMinutes(ActorId actor, UUID id, boolean discardEdits) {
         UUID tenant = tenant(actor);
         var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         if (meeting.status() != Meeting.Status.ENDED) throw MeetingException.invalid("The meeting is still recording.");
         if (meetings.utterances(tenant, id).isEmpty()) throw MeetingException.invalid("This meeting has no transcript.");
+        // A rerun writes the whole minutes again, so it throws away whatever the owner corrected by hand. They have
+        // to say they mean that, rather than find their work gone.
+        if (meeting.minutesEdited() && !discardEdits) throw MeetingException.conflict();
         meetings.queueMinutes(tenant, id);
         return detail(tenant, actor, id);
     }
 
+    /** Rewrites the summary in the owner's own words. What the model wrote stays in the events beside it. */
+    @Transactional
+    public Meeting.Detail editSummary(ActorId actor, UUID id, String summary) {
+        UUID tenant = tenant(actor);
+        var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        if (meeting.minutesStatus() != Meeting.MinutesStatus.READY)
+            throw MeetingException.invalid("The minutes are not written yet.");
+        String clean = text(summary, MAX_SUMMARY, "A summary");
+        if (!clean.equals(meeting.minutesSummary())) {
+            meetings.recordMinutesEdit(tenant, id, null, Meeting.MinutesField.SUMMARY, actor.value(),
+                    meeting.minutesSummary(), clean);
+            meetings.rewriteSummary(tenant, id, clean);
+        }
+        return detail(tenant, actor, id);
+    }
+
+    /** Rewrites one decision or one piece of work: what it says, who owns it, when it is due. */
+    @Transactional
+    public Meeting.Detail editItem(ActorId actor, UUID id, UUID itemId, String itemText, @Nullable String owner,
+            @Nullable String due) {
+        UUID tenant = tenant(actor);
+        meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        var item = meetings.lockItem(tenant, id, itemId).orElseThrow(MeetingException::notFound);
+        String cleanText = text(itemText, MAX_ITEM, "An item");
+        String cleanOwner = optional(owner, MAX_NAME, "An owner");
+        String cleanDue = optional(due, MAX_DUE, "A deadline");
+        // A decision belongs to the meeting, not to a person, so it carries neither an owner nor a deadline.
+        if (item.kind() == Meeting.ItemKind.DECISION && (cleanOwner != null || cleanDue != null))
+            throw MeetingException.invalid("A decision has no owner and no deadline.");
+        record Change(Meeting.MinutesField field, String before, String after) {}
+        var changes = new ArrayList<Change>(3);
+        if (!cleanText.equals(item.text()))
+            changes.add(new Change(Meeting.MinutesField.TEXT, item.text(), cleanText));
+        if (!java.util.Objects.equals(cleanOwner, item.owner()))
+            changes.add(new Change(Meeting.MinutesField.OWNER, item.owner() == null ? "" : item.owner(),
+                    cleanOwner == null ? "" : cleanOwner));
+        if (!java.util.Objects.equals(cleanDue, item.due()))
+            changes.add(new Change(Meeting.MinutesField.DUE, item.due() == null ? "" : item.due(),
+                    cleanDue == null ? "" : cleanDue));
+        if (changes.isEmpty()) return detail(tenant, actor, id);
+        for (var change : changes)
+            meetings.recordMinutesEdit(tenant, id, itemId, change.field(), actor.value(), change.before(),
+                    change.after());
+        meetings.rewriteItem(tenant, id, new Meeting.MinutesItem(item.id(), item.kind(), cleanText, cleanOwner,
+                cleanDue, item.quote(), item.sourceUtteranceId(), item.done(), true));
+        return detail(tenant, actor, id);
+    }
+
+    private static String text(@Nullable String value, int limit, String what) {
+        String clean = value == null ? "" : value.strip();
+        if (clean.isEmpty() || clean.length() > limit)
+            throw MeetingException.invalid(what + " has 1 to " + limit + " characters.");
+        return clean;
+    }
+
+    private static @Nullable String optional(@Nullable String value, int limit, String what) {
+        String clean = value == null ? "" : value.strip();
+        if (clean.isEmpty()) return null;
+        if (clean.length() > limit || clean.chars().anyMatch(Character::isISOControl))
+            throw MeetingException.invalid(what + " has at most " + limit + " characters.");
+        return clean;
+    }
+
     /** Renders the minutes as a Vietnamese biên bản in Word format. Nothing is stored; the heading comes with the call. */
     @Transactional(readOnly = true)
+    /** What the transcript is downloaded as. Both say the same thing; one is for editing and one for reading. */
+    public enum TranscriptFormat { DOCX, PDF }
+
+    /**
+     * The transcript itself, for anybody who can read the meeting. This is not the biên bản: it is what was said,
+     * with the time and the speaker, and nothing arranged around it.
+     */
+    @Transactional(readOnly = true)
+    public byte[] exportTranscript(ActorId actor, UUID id, TranscriptFormat format) {
+        var meeting = readable(tenant(actor), actor, id);
+        if (meeting.utterances().isEmpty()) throw MeetingException.invalid("This meeting has no transcript yet.");
+        return format == TranscriptFormat.PDF
+                ? MeetingTranscriptPdf.render(meeting)
+                : MeetingTranscriptDocument.render(meeting);
+    }
+
     public byte[] exportMinutes(ActorId actor, UUID id, MeetingMinutesDocument.Heading heading) {
         UUID tenant = tenant(actor);
         var meeting = readable(tenant, actor, id);
@@ -249,7 +336,7 @@ public class MeetingService {
                 if (segment.text().isBlank()) return;
                 var utterance = new Meeting.Utterance(UUID.randomUUID(), track, speaker(segment.speaker()),
                         segment.startMs(), Math.max(segment.startMs(), segment.endMs()), trim(segment.text()),
-                        Math.clamp(segment.confidence(), 0, 1));
+                        Math.clamp(segment.confidence(), 0, 1), spans(segment));
                 try {
                     meetings.insertUtterance(tenant, id, utterance);
                 } catch (RuntimeException gone) {
@@ -302,7 +389,8 @@ public class MeetingService {
 
     /** The meeting as its owner reads it. Commands use this after they have locked the row. */
     private Meeting.Detail detail(UUID tenant, ActorId actor, UUID id) {
-        return present(tenant, id, meetings.find(tenant, actor.value(), id).orElseThrow(MeetingException::notFound));
+        return present(tenant, actor.value(), id,
+                meetings.find(tenant, actor.value(), id).orElseThrow(MeetingException::notFound));
     }
 
     /**
@@ -310,21 +398,66 @@ public class MeetingService {
      * transcript, the speakers and the minutes; the owner's private notes and the list of readers stay with the owner.
      */
     private Meeting.Detail readable(UUID tenant, ActorId actor, UUID id) {
-        return present(tenant, id, meetings.read(tenant, actor.value(), id).orElseThrow(MeetingException::notFound));
+        return present(tenant, actor.value(), id,
+                meetings.read(tenant, actor.value(), id).orElseThrow(MeetingException::notFound));
     }
 
-    private Meeting.Detail present(UUID tenant, UUID id, MeetingRepository.Row row) {
+    /** Stars a line for the caller alone, or takes the star off again. */
+    @Transactional
+    public Meeting.Detail star(ActorId actor, UUID id, UUID utteranceId, boolean starred) {
+        UUID tenant = tenant(actor);
+        meetings.read(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        if (!meetings.hasUtterance(tenant, id, utteranceId)) throw MeetingException.notFound();
+        if (starred) meetings.star(tenant, id, utteranceId, actor.value());
+        else meetings.unstar(tenant, utteranceId, actor.value());
+        return readable(tenant, actor, id);
+    }
+
+    /**
+     * Marks the moment the caller is at. It happens while the meeting is still running, so there is no line to
+     * attach it to; the label is the caller's, or the next number when they do not give one.
+     */
+    @Transactional
+    public Meeting.Detail bookmark(ActorId actor, UUID id, long atMs, @Nullable String label) {
+        UUID tenant = tenant(actor);
+        meetings.read(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        if (atMs < 0 || atMs > MAX_TRACK.toMillis()) throw MeetingException.invalid("A bookmark sits inside the recording.");
+        var mine = meetings.bookmarks(tenant, id, actor.value());
+        if (mine.size() >= MAX_BOOKMARKS) throw MeetingException.invalid("This meeting has enough bookmarks.");
+        String clean = label == null || label.isBlank() ? "" : label.strip();
+        if (clean.length() > MAX_NAME || clean.chars().anyMatch(Character::isISOControl))
+            throw MeetingException.invalid("A bookmark label has at most 200 characters.");
+        if (clean.isEmpty()) clean = "Đánh dấu " + (mine.size() + 1);
+        meetings.addBookmark(tenant, id, actor.value(), new Meeting.Bookmark(UUID.randomUUID(), atMs, clean));
+        return readable(tenant, actor, id);
+    }
+
+    @Transactional
+    public Meeting.Detail removeBookmark(ActorId actor, UUID id, UUID bookmarkId) {
+        UUID tenant = tenant(actor);
+        meetings.read(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        if (!meetings.deleteBookmark(tenant, id, actor.value(), bookmarkId)) throw MeetingException.notFound();
+        return readable(tenant, actor, id);
+    }
+
+    private Meeting.Detail present(UUID tenant, UUID actor, UUID id, MeetingRepository.Row row) {
         var items = row.minutesStatus() == Meeting.MinutesStatus.READY ? meetings.minutesItems(tenant, id) : List.<Meeting.MinutesItem>of();
         var minutes = new Meeting.Minutes(row.minutesStatus(), row.minutesFailure(), row.minutesSummary(), row.minutesKind(),
                 row.minutesGeneratedAt(),
                 items.stream().filter(item -> item.kind() == Meeting.ItemKind.DECISION).toList(),
-                items.stream().filter(item -> item.kind() == Meeting.ItemKind.ACTION).toList());
+                items.stream().filter(item -> item.kind() == Meeting.ItemKind.ACTION).toList(), row.minutesEdited());
         return new Meeting.Detail(row.id(), row.title(), row.kind(), row.language(), row.participants(), row.terms(),
                 row.owned() ? row.notes() : "", row.status(), row.provider(), row.diarized(), row.createdAt(),
                 row.endedAt(), row.revision(), meetings.speakers(tenant, id), meetings.utterances(tenant, id), minutes,
                 new Meeting.Audio(row.audioStatus(), row.audioFailure(), row.audioFilename(), row.audioSizeBytes(),
                         row.audioProvider()),
-                row.owned(), row.owned() ? meetings.readers(tenant, id) : List.of());
+                row.owned(), row.owned() ? meetings.readers(tenant, id) : List.of(),
+                meetings.starred(tenant, id, actor), meetings.bookmarks(tenant, id, actor));
+    }
+
+    /** The Tenant the actor is writing in; correction runs need it to bill the model call. */
+    public UUID tenantOf(ActorId actor) {
+        return tenant(actor);
     }
 
     private UUID tenant(ActorId actor) {
@@ -362,6 +495,11 @@ public class MeetingService {
     /** Provider labels are short tokens; anything else is folded into one safe label. */
     private static String speaker(String label) {
         return label.matches("[0-9A-Za-z_-]{1,16}") ? label : "1";
+    }
+
+    private static List<Meeting.Span> spans(LiveTranscription.Segment segment) {
+        return segment.spans().stream()
+                .map(span -> new Meeting.Span(span.start(), span.end(), Math.clamp(span.confidence(), 0, 1))).toList();
     }
 
     private static String trim(String text) {

@@ -18,6 +18,7 @@ import {
   type MeetingDetail,
   type MeetingHeadingRequest,
 } from "./meetings-api";
+import { slug } from "./meeting-file-name";
 
 /** Saves the returned document through a temporary object URL, as the file preview does. */
 function save(document: Blob, name: string) {
@@ -27,18 +28,6 @@ function save(document: Blob, name: string) {
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-}
-
-function slug(title: string) {
-  return (
-    title
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/đ/gi, "d")
-      .replace(/[^a-zA-Z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .toLowerCase() || "cuoc-hop"
-  );
 }
 
 /**

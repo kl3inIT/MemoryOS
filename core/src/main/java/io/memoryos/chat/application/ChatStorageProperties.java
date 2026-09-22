@@ -9,11 +9,11 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * size is an operational fact, so the number belongs to the environment
  * ({@code MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES}) rather than to a settings page.
  *
- * <p>{@code 0} means no limit, which is how Chat behaved before a limit existed. The default, 2 GiB, is a real
- * bound so the storage meter a person sees always means something.
+ * <p>{@code 0} means no limit, which is how Chat behaved before a limit existed. The default, 512 MiB, is a
+ * real bound so the storage meter a person sees always means something.
  */
 @ConfigurationProperties("memoryos.chat.storage")
-public record ChatStorageProperties(@DefaultValue("2147483648") long libraryBytes) {
+public record ChatStorageProperties(@DefaultValue("536870912") long libraryBytes) {
     /** A byte less than nothing is not a limit, and no deployment holds a pebibyte for one person. */
     public static final long CEILING = 1024L * 1024 * 1024 * 1024;
 

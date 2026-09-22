@@ -21,6 +21,7 @@ import tools.jackson.databind.ObjectMapper;
 public class MeetingRepository {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final TypeReference<List<String>> STRINGS = new TypeReference<>() {};
+    private static final TypeReference<List<Meeting.Span>> SPANS = new TypeReference<>() {};
     private final JdbcClient jdbc;
 
     public MeetingRepository(JdbcClient jdbc) {
@@ -34,7 +35,7 @@ public class MeetingRepository {
                       @Nullable String minutesFailure, String minutesSummary, String minutesKind,
                       @Nullable Instant minutesGeneratedAt, Meeting.AudioStatus audioStatus,
                       @Nullable String audioFailure, @Nullable String audioFilename, long audioSizeBytes,
-                      @Nullable String audioProvider, boolean owned) {}
+                      @Nullable String audioProvider, boolean owned, boolean minutesEdited) {}
 
     /** One meeting this replica leased to write minutes for. */
     public record MinutesClaim(UUID tenant, UUID id, UUID owner, int attempts) {}
@@ -57,7 +58,8 @@ public class MeetingRepository {
         return jdbc.sql("""
                 SELECT id, title, kind, language, participants, terms, notes, status, provider, diarized, created_at,
                        ended_at, revision, minutes_status, minutes_failure, minutes_summary, minutes_kind, minutes_generated_at,
-                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider, TRUE AS owned
+                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider, TRUE AS owned,
+                       minutes_edited
                 FROM meeting m WHERE tenant_id = :tenant AND owner_actor_id = :owner AND id = :id
                 """).param("tenant", tenant).param("owner", owner).param("id", id).query(MeetingRepository::row).optional();
     }
@@ -67,7 +69,8 @@ public class MeetingRepository {
         return jdbc.sql("""
                 SELECT id, title, kind, language, participants, terms, notes, status, provider, diarized, created_at,
                        ended_at, revision, minutes_status, minutes_failure, minutes_summary, minutes_kind, minutes_generated_at,
-                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider, (m.owner_actor_id = :actor) AS owned
+                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider,
+                       (m.owner_actor_id = :actor) AS owned, m.minutes_edited
                 FROM meeting m WHERE m.tenant_id = :tenant AND m.id = :id AND %s
                 """.formatted(MeetingAccessSql.READS))
                 .param("tenant", tenant).param("actor", actor).param("id", id).query(MeetingRepository::row).optional();
@@ -78,7 +81,8 @@ public class MeetingRepository {
         return jdbc.sql("""
                 SELECT id, title, kind, language, participants, terms, notes, status, provider, diarized, created_at,
                        ended_at, revision, minutes_status, minutes_failure, minutes_summary, minutes_kind, minutes_generated_at,
-                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider, TRUE AS owned
+                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider, TRUE AS owned,
+                       minutes_edited
                 FROM meeting m WHERE tenant_id = :tenant AND owner_actor_id = :owner AND id = :id FOR UPDATE
                 """).param("tenant", tenant).param("owner", owner).param("id", id).query(MeetingRepository::row).optional();
     }
@@ -168,12 +172,14 @@ public class MeetingRepository {
 
     public List<Meeting.Utterance> utterances(UUID tenant, UUID meeting) {
         return jdbc.sql("""
-                SELECT id, track, speaker, start_ms, end_ms, text, confidence FROM meeting_utterance
+                SELECT id, track, speaker, start_ms, end_ms, text, confidence, spans, edit_source
+                FROM meeting_utterance
                 WHERE tenant_id = :tenant AND meeting_id = :meeting ORDER BY start_ms, end_ms, id
                 """).param("tenant", tenant).param("meeting", meeting)
                 .query((r, ignored) -> new Meeting.Utterance(r.getObject("id", UUID.class),
                         Meeting.Track.valueOf(r.getString("track")), r.getString("speaker"), r.getLong("start_ms"),
-                        r.getLong("end_ms"), r.getString("text"), r.getDouble("confidence"))).list();
+                        r.getLong("end_ms"), r.getString("text"), r.getDouble("confidence"),
+                        JSON.readValue(r.getString("spans"), SPANS), editSource(r))).list();
     }
 
     /** Stores one finalized utterance, creating its speaker row on first use. */
@@ -184,12 +190,14 @@ public class MeetingRepository {
                 """).param("tenant", tenant).param("meeting", meeting).param("track", utterance.track().name())
                 .param("label", utterance.speaker()).update();
         jdbc.sql("""
-                INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text, confidence)
-                VALUES (:tenant, :id, :meeting, :track, :speaker, :start, :end, :text, :confidence)
+                INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text,
+                                              confidence, spans)
+                VALUES (:tenant, :id, :meeting, :track, :speaker, :start, :end, :text, :confidence, CAST(:spans AS jsonb))
                 """).param("tenant", tenant).param("id", utterance.id()).param("meeting", meeting)
                 .param("track", utterance.track().name()).param("speaker", utterance.speaker())
                 .param("start", utterance.startMs()).param("end", utterance.endMs()).param("text", utterance.text())
-                .param("confidence", (float) utterance.confidence()).update();
+                .param("confidence", (float) utterance.confidence())
+                .param("spans", JSON.writeValueAsString(utterance.spans())).update();
     }
 
     public void recordProvider(UUID tenant, UUID meeting, String provider, String model, boolean diarized) {
@@ -218,19 +226,21 @@ public class MeetingRepository {
 
     public List<Meeting.MinutesItem> minutesItems(UUID tenant, UUID meeting) {
         return jdbc.sql("""
-                SELECT id, kind, text, owner, due, quote, source_utterance_id, done FROM meeting_minutes_item
+                SELECT id, kind, text, owner, due, quote, source_utterance_id, done, edited
+                FROM meeting_minutes_item
                 WHERE tenant_id = :tenant AND meeting_id = :meeting ORDER BY kind, position, id
                 """).param("tenant", tenant).param("meeting", meeting)
                 .query((r, ignored) -> new Meeting.MinutesItem(r.getObject("id", UUID.class),
                         Meeting.ItemKind.valueOf(r.getString("kind")), r.getString("text"), r.getString("owner"),
                         r.getString("due"), r.getString("quote"), r.getObject("source_utterance_id", UUID.class),
-                        r.getBoolean("done"))).list();
+                        r.getBoolean("done"), r.getBoolean("edited"))).list();
     }
 
     /** Queues the minutes of a meeting that just ended, or a rerun the owner asked for. */
     public void queueMinutes(UUID tenant, UUID meeting) {
         jdbc.sql("""
                 UPDATE meeting SET minutes_status = 'PENDING', minutes_attempts = 0, minutes_lease_until = NULL,
+                       minutes_edited = FALSE,
                        minutes_failure = NULL
                 WHERE tenant_id = :tenant AND id = :meeting
                 """).param("tenant", tenant).param("meeting", meeting).update();
@@ -293,6 +303,51 @@ public class MeetingRepository {
     }
 
     /** Marks an owner's item done or not done. False when the item is not theirs. */
+    /** One item of the minutes, locked for the change about to be made to it. */
+    public Optional<Meeting.MinutesItem> lockItem(UUID tenant, UUID meeting, UUID item) {
+        return jdbc.sql("""
+                SELECT id, kind, text, owner, due, quote, source_utterance_id, done, edited
+                FROM meeting_minutes_item WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :item FOR UPDATE
+                """).param("tenant", tenant).param("meeting", meeting).param("item", item)
+                .query((r, ignored) -> new Meeting.MinutesItem(r.getObject("id", UUID.class),
+                        Meeting.ItemKind.valueOf(r.getString("kind")), r.getString("text"), r.getString("owner"),
+                        r.getString("due"), r.getString("quote"), r.getObject("source_utterance_id", UUID.class),
+                        r.getBoolean("done"), r.getBoolean("edited"))).optional();
+    }
+
+    /** Writes what an item now says. The event beside it is the only history of what it said before. */
+    public void rewriteItem(UUID tenant, UUID meeting, Meeting.MinutesItem item) {
+        jdbc.sql("""
+                UPDATE meeting_minutes_item SET text = :text, owner = :owner, due = :due, edited = TRUE
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :item
+                """).param("tenant", tenant).param("meeting", meeting).param("item", item.id())
+                .param("text", item.text()).param("owner", item.owner()).param("due", item.due()).update();
+        markMinutesEdited(tenant, meeting);
+    }
+
+    public void rewriteSummary(UUID tenant, UUID meeting, String summary) {
+        jdbc.sql("""
+                UPDATE meeting SET minutes_summary = :summary WHERE tenant_id = :tenant AND id = :meeting
+                """).param("tenant", tenant).param("meeting", meeting).param("summary", summary).update();
+        markMinutesEdited(tenant, meeting);
+    }
+
+    private void markMinutesEdited(UUID tenant, UUID meeting) {
+        jdbc.sql("UPDATE meeting SET minutes_edited = TRUE WHERE tenant_id = :tenant AND id = :meeting")
+                .param("tenant", tenant).param("meeting", meeting).update();
+    }
+
+    /** Records one change to the minutes, so the words the model wrote stay readable after they are replaced. */
+    public void recordMinutesEdit(UUID tenant, UUID meeting, @Nullable UUID item, Meeting.MinutesField field,
+            UUID actor, String before, String after) {
+        jdbc.sql("""
+                INSERT INTO meeting_minutes_event(tenant_id, meeting_id, item_id, field, actor_id, before, after)
+                VALUES (:tenant, :meeting, :item, :field, :actor, :before, :after)
+                """).param("tenant", tenant).param("meeting", meeting).param("item", item)
+                .param("field", field.name()).param("actor", actor).param("before", before).param("after", after)
+                .update();
+    }
+
     public boolean markItem(UUID tenant, UUID meeting, UUID item, boolean done) {
         return jdbc.sql("""
                 UPDATE meeting_minutes_item SET done = :done
@@ -404,6 +459,216 @@ public class MeetingRepository {
                 """).param("tenant", tenant).param("meeting", meeting).update();
     }
 
+    /** The lines this reader starred, so a meeting five people read collects five sets of marks. */
+    public List<UUID> starred(UUID tenant, UUID meeting, UUID actor) {
+        return jdbc.sql("""
+                SELECT utterance_id FROM meeting_utterance_star
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND actor_id = :actor
+                """).param("tenant", tenant).param("meeting", meeting).param("actor", actor)
+                .query(UUID.class).list();
+    }
+
+    /** Stars a line for this reader; starring twice is starring once. */
+    public void star(UUID tenant, UUID meeting, UUID utterance, UUID actor) {
+        jdbc.sql("""
+                INSERT INTO meeting_utterance_star(tenant_id, meeting_id, utterance_id, actor_id)
+                VALUES (:tenant, :meeting, :utterance, :actor) ON CONFLICT DO NOTHING
+                """).param("tenant", tenant).param("meeting", meeting).param("utterance", utterance)
+                .param("actor", actor).update();
+    }
+
+    public void unstar(UUID tenant, UUID utterance, UUID actor) {
+        jdbc.sql("""
+                DELETE FROM meeting_utterance_star
+                WHERE tenant_id = :tenant AND utterance_id = :utterance AND actor_id = :actor
+                """).param("tenant", tenant).param("utterance", utterance).param("actor", actor).update();
+    }
+
+    /** Whether this line belongs to this meeting, which is what makes starring it meaningful. */
+    public boolean hasUtterance(UUID tenant, UUID meeting, UUID utterance) {
+        return jdbc.sql("""
+                SELECT count(*) FROM meeting_utterance
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :utterance
+                """).param("tenant", tenant).param("meeting", meeting).param("utterance", utterance)
+                .query(Integer.class).single() > 0;
+    }
+
+    public List<Meeting.Bookmark> bookmarks(UUID tenant, UUID meeting, UUID actor) {
+        return jdbc.sql("""
+                SELECT id, at_ms, label FROM meeting_bookmark
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND actor_id = :actor ORDER BY at_ms, id
+                """).param("tenant", tenant).param("meeting", meeting).param("actor", actor)
+                .query((r, ignored) -> new Meeting.Bookmark(r.getObject("id", UUID.class), r.getLong("at_ms"),
+                        r.getString("label"))).list();
+    }
+
+    public void addBookmark(UUID tenant, UUID meeting, UUID actor, Meeting.Bookmark bookmark) {
+        jdbc.sql("""
+                INSERT INTO meeting_bookmark(tenant_id, id, meeting_id, actor_id, at_ms, label)
+                VALUES (:tenant, :id, :meeting, :actor, :at, :label)
+                """).param("tenant", tenant).param("id", bookmark.id()).param("meeting", meeting)
+                .param("actor", actor).param("at", bookmark.atMs()).param("label", bookmark.label()).update();
+    }
+
+    public boolean deleteBookmark(UUID tenant, UUID meeting, UUID actor, UUID id) {
+        return jdbc.sql("""
+                DELETE FROM meeting_bookmark
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND actor_id = :actor AND id = :id
+                """).param("tenant", tenant).param("meeting", meeting).param("actor", actor).param("id", id)
+                .update() == 1;
+    }
+
+    /**
+     * Claims the right to run one correction pass over this meeting. The owner is watching the request, so this is a
+     * window rather than a lease: a pass that outlives it is abandoned and the next press starts a new one.
+     */
+    public boolean beginCorrection(UUID tenant, UUID owner, UUID meeting, Duration window) {
+        return jdbc.sql("""
+                UPDATE meeting SET correction_running_until = now() + make_interval(secs => :window)
+                WHERE tenant_id = :tenant AND id = :meeting AND owner_actor_id = :owner
+                  AND (correction_running_until IS NULL OR correction_running_until < CURRENT_TIMESTAMP)
+                """).param("tenant", tenant).param("meeting", meeting).param("owner", owner)
+                .param("window", window.toSeconds()).update() == 1;
+    }
+
+    public void endCorrection(UUID tenant, UUID meeting) {
+        jdbc.sql("UPDATE meeting SET correction_running_until = NULL WHERE tenant_id = :tenant AND id = :meeting")
+                .param("tenant", tenant).param("meeting", meeting).update();
+    }
+
+    /** Stores one pass's proposals. They are offers: no utterance changes until somebody decides. */
+    public void insertCorrections(UUID tenant, UUID meeting, UUID run, List<Meeting.Correction> corrections) {
+        for (var correction : corrections)
+            jdbc.sql("""
+                    INSERT INTO meeting_correction(tenant_id, id, meeting_id, utterance_id, run_id, span_start,
+                                                   span_end, before, after, reason, confidence, context_fit,
+                                                   meaning_safe, matched_glossary)
+                    VALUES (:tenant, :id, :meeting, :utterance, :run, :start, :end, :before, :after, :reason,
+                            :confidence, :contextFit, :meaningSafe, :glossary)
+                    """).param("tenant", tenant).param("id", correction.id()).param("meeting", meeting)
+                    .param("utterance", correction.utteranceId()).param("run", run)
+                    .param("start", correction.start()).param("end", correction.end())
+                    .param("before", correction.before()).param("after", correction.after())
+                    .param("reason", correction.reason()).param("confidence", (float) correction.confidence())
+                    .param("contextFit", (float) correction.contextFit())
+                    .param("meaningSafe", (float) correction.meaningSafe())
+                    .param("glossary", correction.matchedGlossary()).update();
+    }
+
+    public List<Meeting.Correction> corrections(UUID tenant, UUID meeting) {
+        return jdbc.sql("""
+                SELECT id, utterance_id, run_id, span_start, span_end, before, after, reason, confidence,
+                       context_fit, meaning_safe, matched_glossary, status
+                FROM meeting_correction WHERE tenant_id = :tenant AND meeting_id = :meeting
+                ORDER BY created_at, id
+                """).param("tenant", tenant).param("meeting", meeting).query(MeetingRepository::correction).list();
+    }
+
+    /** One proposal, locked, so two decisions on the same stretch cannot both land. */
+    public Optional<Meeting.Correction> lockCorrection(UUID tenant, UUID meeting, UUID id) {
+        return jdbc.sql("""
+                SELECT id, utterance_id, run_id, span_start, span_end, before, after, reason, confidence,
+                       context_fit, meaning_safe, matched_glossary, status
+                FROM meeting_correction WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :id FOR UPDATE
+                """).param("tenant", tenant).param("meeting", meeting).param("id", id)
+                .query(MeetingRepository::correction).optional();
+    }
+
+    /** What one pass actually put into the transcript, newest first, so a whole pass can be taken back at once. */
+    public List<Meeting.Correction> acceptedOfRun(UUID tenant, UUID meeting, UUID run) {
+        return jdbc.sql("""
+                SELECT id, utterance_id, run_id, span_start, span_end, before, after, reason, confidence,
+                       context_fit, meaning_safe, matched_glossary, status
+                FROM meeting_correction
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND run_id = :run AND status = 'ACCEPTED'
+                ORDER BY decided_at DESC, id DESC FOR UPDATE
+                """).param("tenant", tenant).param("meeting", meeting).param("run", run)
+                .query(MeetingRepository::correction).list();
+    }
+
+    public List<Meeting.Correction> pendingOfRun(UUID tenant, UUID meeting, UUID run) {
+        return jdbc.sql("""
+                SELECT id, utterance_id, run_id, span_start, span_end, before, after, reason, confidence,
+                       context_fit, meaning_safe, matched_glossary, status
+                FROM meeting_correction
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND run_id = :run AND status = 'PENDING'
+                ORDER BY created_at, id FOR UPDATE
+                """).param("tenant", tenant).param("meeting", meeting).param("run", run)
+                .query(MeetingRepository::correction).list();
+    }
+
+    /** Records the decision and the words that actually went in, which are the owner's when they rewrote them. */
+    public void accepted(UUID tenant, UUID id, UUID actor, String after) {
+        jdbc.sql("""
+                UPDATE meeting_correction
+                SET status = 'ACCEPTED', after = :after, decided_at = CURRENT_TIMESTAMP, decided_by = :actor
+                WHERE tenant_id = :tenant AND id = :id
+                """).param("tenant", tenant).param("id", id).param("after", after).param("actor", actor).update();
+    }
+
+    public void decide(UUID tenant, UUID id, Meeting.CorrectionStatus status, UUID actor) {
+        jdbc.sql("""
+                UPDATE meeting_correction
+                SET status = :status, decided_at = CURRENT_TIMESTAMP, decided_by = :actor
+                WHERE tenant_id = :tenant AND id = :id
+                """).param("tenant", tenant).param("id", id).param("status", status.name())
+                .param("actor", actor).update();
+    }
+
+    /** One utterance, locked for the change about to be made to it. */
+    public Optional<Meeting.Utterance> lockUtterance(UUID tenant, UUID meeting, UUID id) {
+        return jdbc.sql("""
+                SELECT id, track, speaker, start_ms, end_ms, text, confidence, spans, edit_source
+                FROM meeting_utterance WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :id FOR UPDATE
+                """).param("tenant", tenant).param("meeting", meeting).param("id", id)
+                .query((r, ignored) -> new Meeting.Utterance(r.getObject("id", UUID.class),
+                        Meeting.Track.valueOf(r.getString("track")), r.getString("speaker"), r.getLong("start_ms"),
+                        r.getLong("end_ms"), r.getString("text"), r.getDouble("confidence"),
+                        JSON.readValue(r.getString("spans"), SPANS), editSource(r))).optional();
+    }
+
+    /**
+     * Writes what a line now says, together with the event that records the change. The event is the only history:
+     * the words the provider first wrote are the {@code before} of the oldest one.
+     */
+    public void rewrite(UUID tenant, UUID meeting, UUID utterance, String before, String after, List<Meeting.Span> spans,
+            Meeting.@Nullable EditSource source, @Nullable UUID run, UUID actor, String eventSource) {
+        jdbc.sql("""
+                UPDATE meeting_utterance SET text = :text, spans = CAST(:spans AS jsonb), edit_source = :source
+                WHERE tenant_id = :tenant AND id = :utterance
+                """).param("tenant", tenant).param("utterance", utterance).param("text", after)
+                .param("spans", JSON.writeValueAsString(spans))
+                .param("source", source == null ? null : source.name()).update();
+        jdbc.sql("""
+                INSERT INTO meeting_utterance_event(tenant_id, meeting_id, utterance_id, run_id, actor_id, source,
+                                                    before, after)
+                VALUES (:tenant, :meeting, :utterance, :run, :actor, :eventSource, :before, :after)
+                """).param("tenant", tenant).param("meeting", meeting).param("utterance", utterance)
+                .param("run", run).param("actor", actor).param("eventSource", eventSource)
+                .param("before", before).param("after", after).update();
+    }
+
+    /**
+     * Who owns the words a line is about to be left with: the source of the newest change that produced exactly this
+     * text, or nothing at all when it is back to what the provider first wrote.
+     */
+    public Meeting.@Nullable EditSource standingEdit(UUID tenant, UUID utterance, String text) {
+        return jdbc.sql("""
+                SELECT source FROM meeting_utterance_event
+                WHERE tenant_id = :tenant AND utterance_id = :utterance AND after = :text AND source <> 'REVERT'
+                ORDER BY id DESC LIMIT 1
+                """).param("tenant", tenant).param("utterance", utterance).param("text", text)
+                .query(String.class).optional().map(Meeting.EditSource::valueOf).orElse(null);
+    }
+
+    private static Meeting.Correction correction(ResultSet r, int ignored) throws SQLException {
+        return new Meeting.Correction(r.getObject("id", UUID.class), r.getObject("utterance_id", UUID.class),
+                r.getObject("run_id", UUID.class), r.getInt("span_start"), r.getInt("span_end"),
+                r.getString("before"), r.getString("after"), r.getString("reason"), r.getDouble("confidence"),
+                r.getDouble("context_fit"), r.getDouble("meaning_safe"), r.getBoolean("matched_glossary"),
+                Meeting.CorrectionStatus.valueOf(r.getString("status")));
+    }
+
     private static Row row(ResultSet r, int ignored) throws SQLException {
         return new Row(r.getObject("id", UUID.class), r.getString("title"), Meeting.Kind.valueOf(r.getString("kind")),
                 r.getString("language"), strings(r.getString("participants")), strings(r.getString("terms")),
@@ -413,7 +678,12 @@ public class MeetingRepository {
                 r.getString("minutes_summary"), r.getString("minutes_kind"), instant(r, "minutes_generated_at"),
                 Meeting.AudioStatus.valueOf(r.getString("audio_status")), r.getString("audio_failure"),
                 r.getString("audio_filename"), r.getLong("audio_size_bytes"), r.getString("audio_provider"),
-                r.getBoolean("owned"));
+                r.getBoolean("owned"), r.getBoolean("minutes_edited"));
+    }
+
+    private static Meeting.@Nullable EditSource editSource(ResultSet r) throws SQLException {
+        String value = r.getString("edit_source");
+        return value == null ? null : Meeting.EditSource.valueOf(value);
     }
 
     private static List<String> strings(String json) {

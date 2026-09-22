@@ -42,20 +42,131 @@ Mục mới trong [runbook CI/CD](../../../runbooks/ci-cd.md) cho một host Ubu
 
 Chuyển năm khối ấy sang `if [ -n "${VAR:-}" ]`. Staging giữ nguyên hành vi vì vẫn truyền đủ biến; production chạy cùng script và không truyền, nên realm của nó không có các client đó. Kiểm chứng: dựng lại realm staging bằng script đã sửa và so sánh kết quả không đổi, rồi dựng realm production chỉ với bộ biến tối thiểu.
 
-## Phase 1 — Cấu hình môi trường (chờ quyết định)
+## Phase 1 — Dựng node production (đã chốt quyết định, 2026-09-22)
 
-Chạy được ngay khi các mục tương ứng trong design được chốt.
+Node `application` (`hn-fci-k8s-aioffice-application`, `167.254.65.226`, Ubuntu 24.04.2, 12 vCPU, 31 GiB, 469 GiB trống). Kiểm ngày 2026-09-22.
 
-| Việc | Chờ quyết định |
-| --- | --- |
-| DNS, chứng chỉ, cấu hình reverse proxy, các origin trong `.env.production` | Tên miền và TLS |
-| Realm Keycloak production bằng `infrastructure/keycloak/configure-memoryos-realm.sh`, hoặc đấu nối IdP Tasco | Identity provider |
-| Cấu hình SMTP cho Keycloak | Máy chủ SMTP |
-| Machine identity và bootstrap file | Infisical `production` |
-| Docling trên node `serving` với limit dưới 15 GiB, hoặc trỏ Worker sang `jmix-ocr` | Phân vai node |
-| Tạo secret files MinIO, mật khẩu PostgreSQL, Tenant bootstrap | — |
+**Đã có**: Docker 29.8.1 + Compose v5.5.1, `jq`, `flock`, `tar`, `curl`; `/apps/memoryos/{deployments,incoming,secrets}` mode đúng; DNS `app.vadan.app`, `auth.vadan.app`, `objects.vadan.app` đều trỏ `167.254.65.226`.
 
-Tạo GitHub environment `production` giới hạn `main`, với biến `PRODUCTION_HOST`, `PRODUCTION_USER`, `PRODUCTION_KNOWN_HOSTS` và secret `PRODUCTION_SSH_KEY`. Key này phải sinh riêng cho cụm — không dùng lại key staging, không copy key cá nhân vào Actions.
+**Chưa có**: `proxy-network`, reverse proxy, tường lửa, user triển khai, secret, `.env.production`, realm. Không container nào đang chạy.
+
+**Mở toang**: `PasswordAuthentication yes` và `PermitRootLogin yes` trên IP công cộng, `ufw` tắt. Đây là việc gấp nhất, làm trước mọi thứ khác.
+
+Thứ tự dưới đây là thứ tự phụ thuộc thật, không phải thứ tự cho đẹp.
+
+### 1.1 Đóng đường vào trước khi mở dịch vụ
+
+Làm trước tiên, vì từ bước 1.2 trở đi máy bắt đầu mở cổng ra Internet.
+
+* Nạp khoá công khai của người vận hành vào `~ubuntu/.ssh/authorized_keys`, **đăng nhập thử bằng khoá ở một phiên thứ hai** rồi mới sửa `sshd_config`. Không bao giờ sửa SSH khi chỉ có một phiên đang mở.
+* `PasswordAuthentication no`, `PermitRootLogin prohibit-password`, `KbdInteractiveAuthentication no`. `sshd -t` trước khi `systemctl reload ssh`.
+* `ufw`: `deny incoming`, `allow outgoing`, mở `22`, `80`, `443`. Bật sau cùng trong bước này.
+* Không mở `81` (giao diện Nginx Proxy Manager) ra Internet ở bất kỳ bước nào — xem 1.3.
+
+Nghiệm thu: đăng nhập bằng mật khẩu bị từ chối; `ufw status` liệt kê đúng ba cổng; phiên đang mở không đứt.
+
+### 1.2 `proxy-network` và Nginx Proxy Manager
+
+* `docker network create proxy-network` — Compose khai nó là `external`, nên thiếu là deployment hỏng chứ không tự tạo.
+* NPM trong compose riêng của nó (không thuộc stack MemoryOS, vì nó phải sống qua mọi lần deploy): cổng `80` và `443` publish ra ngoài, cổng `81` **chỉ bind `127.0.0.1`**, nối vào `proxy-network`.
+* Đổi mật khẩu tài khoản mặc định `admin@example.com / changeme` ngay lần đăng nhập đầu.
+* `client_max_body_size` nâng lên (đề xuất `512m`) trong Advanced của host `objects.vadan.app`. Mặc định NPM là `1m`; để nguyên thì upload file lớn chết ở proxy chứ không phải ở ứng dụng, và thông báo lỗi sẽ không chỉ về đúng chỗ.
+
+Nghiệm thu: `docker network inspect proxy-network` tồn tại; `curl -I http://127.0.0.1:81` trả 200 trên máy; `ss -tln` không thấy `0.0.0.0:81`.
+
+### 1.3 Giao diện NPM truy cập được từ ngoài, nhưng không phơi cổng 81
+
+Yêu cầu: quản trị proxy từ trình duyệt, không phải qua SSH tunnel.
+
+Cách làm: cho NPM tự phục vụ chính nó. Thêm một proxy host `proxy.vadan.app` → `127.0.0.1:81` với chứng chỉ Let's Encrypt như mọi host khác, rồi gắn **Access List** của NPM lên host đó (HTTP Basic, tài khoản riêng, không trùng tài khoản NPM). Cổng `81` vẫn chỉ nghe trên loopback; người ngoài đi qua `443`.
+
+Vì sao không publish thẳng `81`: đó là trang đăng nhập quản trị toàn bộ reverse proxy, chạy HTTP trần, không giới hạn số lần thử. Publish nó nghĩa là toàn bộ TLS của hệ thống chỉ còn cách Internet đúng một mật khẩu, truyền dạng rõ.
+
+**Cần anh**: thêm bản ghi DNS `proxy.vadan.app` → `167.254.65.226`. Chưa có bản ghi này thì Let's Encrypt không cấp được chứng chỉ.
+
+Nghiệm thu: `https://proxy.vadan.app` hỏi Basic auth rồi tới trang đăng nhập NPM; `http://167.254.65.226:81` không kết nối được từ ngoài.
+
+### 1.4 Chứng chỉ TLS cho ba host ứng dụng
+
+DNS đã trỏ đúng nên HTTP-01 dùng được ngay, không cần DNS challenge.
+
+| Host | Đích trong `proxy-network` | Ghi chú |
+| --- | --- | --- |
+| `app.vadan.app` | `memoryos-web:8080` | WebSocket bật (Chat stream, ghi âm cuộc họp) |
+| `auth.vadan.app` | `memoryos-keycloak:8080` | Phải khớp `KC_HOSTNAME`, nếu không Keycloak từ chối |
+| `objects.vadan.app` | `memoryos-minio:9000` | `client_max_body_size 512m` |
+
+Bật **Force SSL** và **HTTP/2** cho cả ba. Apex `vadan.app` hiện trỏ `72.62.193.33` (staging) — không đụng tới, nhưng ghi lại ở đây để người sau không tưởng là nhầm.
+
+Nghiệm thu: cả ba trả chứng chỉ hợp lệ; `auth.vadan.app` mở được trang đăng nhập Keycloak sau bước 1.7.
+
+### 1.5 User triển khai và sudoers
+
+* Tạo user `memoryos-ci`, không mật khẩu, chỉ vào bằng khoá.
+* Sinh **cặp khoá SSH mới riêng cho cụm này**. Không dùng lại khoá staging, không copy khoá cá nhân vào GitHub Actions.
+* `authorized_keys` của nó thêm `no-agent-forwarding,no-port-forwarding,no-X11-forwarding,no-pty` trước phần khoá.
+* `/etc/sudoers.d/memoryos-production-ci`: chỉ cho chạy đúng `deploy.sh`, `NOPASSWD`. **Ghim đúng tên `deploy.sh`** — staging từng ghim tên script cũ và mọi lần deploy chết ở `sudo: a password is required`. Kiểm bằng `visudo -c` trước khi đặt file vào chỗ.
+* Thêm `memoryos-ci` vào group `docker` nếu `deploy.sh` cần, hoặc để nó gọi qua `sudo` — chọn một, ghi vào runbook.
+
+Nghiệm thu: `ssh memoryos-ci@... 'sudo /apps/.../deploy.sh'` không hỏi mật khẩu; `ssh memoryos-ci@...` không mở được shell tương tác.
+
+### 1.6 Sinh secret thành file
+
+Máy production **chưa bao giờ** có file bootstrap Infisical và sẽ không bao giờ có. Mọi secret sinh tại chỗ, `0600`, chủ sở hữu `root`.
+
+Sinh mới hoàn toàn: mật khẩu PostgreSQL (platform + app + keycloak), root/api/worker MinIO, ba mật khẩu Redis + bộ chứng chỉ TLS nội bộ, mật khẩu service OpenSearch, khoá API interpreter, khoá API Docling, hai client secret Keycloak (browser + admin) và secret provisioner.
+
+**Ba khoá mã hoá credential — Google Drive, SharePoint, MCP — sinh mới, tuyệt đối không copy từ staging.** Dùng chung nghĩa là ai đọc được database staging cũng giải mã được credential của khách hàng thật.
+
+Khoá API model là thứ duy nhất đến từ bên ngoài; xem 1.10.
+
+Ngay sau bước này: thư mục secret là **bản duy nhất** của những giá trị đó. Không có vault giữ hộ nữa. Sao lưu ngoài host từ đây là bắt buộc, không phải "nên có" — đã ghi ở cuối tài liệu này.
+
+Nghiệm thu: mọi đường dẫn `file:` mà `compose.base.yaml` khai đều tồn tại, khác rỗng, mode `0600`.
+
+### 1.7 `.env.production` và realm Keycloak
+
+`.env.production` chép từ `production.env.example`, mode `0600` của root, **regular file** (kịch bản deploy từ chối symlink). Bắt buộc `MEMORYOS_SEARCH_REPLICAS=0`: một node giữ mọi shard, có replica thì shard không bao giờ được gán, cluster không bao giờ xanh, healthcheck treo mãi.
+
+Realm phải có **trước** khi `api` khoẻ được, vì `api` lấy JWK set lúc khởi động. Nên trình tự là:
+
+1. `docker compose ... up -d postgres keycloak` — chỉ hai dịch vụ này.
+2. Chạy `infrastructure/keycloak/configure-memoryos-realm.sh` với bộ biến tối thiểu: `KEYCLOAK_URL`, tài khoản admin, `MEMORYOS_BROWSER_CLIENT_SECRET` (file đã sinh ở 1.6), `MEMORYOS_BROWSER_REDIRECT_URI`, `MEMORYOS_KEYCLOAK_PROVISIONER_CLIENT_SECRET`, và danh tính chủ sở hữu đầu tiên.
+3. **Không truyền** biến SMTP và bốn khối công cụ kiểm tra (Mailpit, pgweb, RedisInsight, MinIO Console) — script đã cho phép vắng mặt từ 0.6, nên realm production không có các client đó. Thành viên vào bằng JIT ([MEM-172](https://linear.app/memory-os/issue/MEM-172)), không qua email mời.
+4. `MEMORYOS_INITIAL_OWNER_SUBJECT` trong `.env.production` phải **đúng bằng** subject mà script vừa tạo. Lệch là Tenant bàn giao cho một người không tồn tại.
+
+Bootstrap security của OpenSearch chạy sau, khi overlay search đã lên.
+
+Nghiệm thu: `auth.vadan.app` trả realm `memoryos`; JWK set lấy được từ ngoài; realm không có client nào của công cụ kiểm tra và không có cấu hình SMTP.
+
+### 1.8 GitHub environment `production`
+
+Giới hạn nhánh `main`. Biến `PRODUCTION_HOST`, `PRODUCTION_USER`, `PRODUCTION_KNOWN_HOSTS`; secret `PRODUCTION_SSH_KEY` là khoá riêng sinh ở 1.5. Không đặt biến auto-deploy — production chỉ chạy khi có người bấm.
+
+`PRODUCTION_KNOWN_HOSTS` lấy bằng `ssh-keyscan` **từ một máy tin cậy**, và đối chiếu vân tay với cái đọc được trên chính máy chủ. Lấy qua đường không kiểm chứng thì mục đích của known_hosts mất sạch.
+
+Nghiệm thu: workflow `deploy-production` đọc được cả ba biến (bước in tên host, không in khoá).
+
+### 1.9 Điều kiện trước khi promote
+
+Không bắt đầu Phase 2 khi còn thiếu một trong số:
+
+* 1.1 xong và đã kiểm lại bằng một phiên SSH mới.
+* Ba host TLS hợp lệ, `proxy.vadan.app` có Access List.
+* Mọi file secret tồn tại và khác rỗng.
+* Realm trả JWK set.
+* `docker compose --env-file .env.production ... config --quiet` chạy sạch **trên chính máy chủ** — phiên bản Compose trên máy chủ và trên runner GitHub đã từng bất đồng một lần về default lồng nhau.
+* Đích sao lưu ngoài host đã có, hoặc đã được chấp nhận rủi ro bằng văn bản.
+
+### 1.10 Còn chờ người quyết
+
+| Cần | Vì sao chặn | Ai |
+| --- | --- | --- |
+| Danh tính chủ sở hữu đầu tiên: username, email, subject | 1.7 không chạy được; Tenant không có người nhận | Chủ sản phẩm |
+| DNS `proxy.vadan.app` | 1.3 không cấp được chứng chỉ | Người quản trị tên miền |
+| Đường embedding: API ngoài hay tự chạy trên node `serving` | Quyết trước khi index dữ liệu thật; đổi sau là dựng lại toàn bộ index cho tới khi [MEM-135](https://linear.app/memory-os/issue/MEM-135) bước 2 xong | Chủ sản phẩm |
+
+Khoá Docling **không** nằm trong danh sách này: Docling tự chạy trong stack, khoá là chuỗi mình tự sinh đặt ở hai đầu, không phải thứ đi mua. Khoá model chat cũng không: credential provider nằm trong database, mã hoá bằng khoá catalog, cấu hình ở trang quản trị — chỉ embedding mới cần giá trị lúc triển khai.
 
 ## Phase 2 — Lần promote đầu tiên
 

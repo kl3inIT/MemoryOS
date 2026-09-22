@@ -3,6 +3,7 @@ package io.memoryos.api.meeting;
 import io.memoryos.api.chat.VoiceTicketStore;
 import io.memoryos.iam.identity.IdentityContext;
 import io.memoryos.meeting.Meeting;
+import io.memoryos.meeting.MeetingCorrectionService;
 import io.memoryos.meeting.MeetingException;
 import io.memoryos.chat.voice.BatchTranscriptionService;
 import io.memoryos.chat.voice.VoiceProvider;
@@ -21,6 +22,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
@@ -37,6 +40,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -60,14 +64,16 @@ class MeetingController {
     private final ChatLibraryService library;
     private final ChatFileService files;
     private final VoiceTicketStore tickets;
+    private final MeetingCorrectionService corrections;
 
     MeetingController(MeetingService meetings, MeetingRecordingService recordings, ChatLibraryService library,
-                      ChatFileService files, VoiceTicketStore tickets) {
+                      ChatFileService files, VoiceTicketStore tickets, MeetingCorrectionService corrections) {
         this.meetings = meetings;
         this.recordings = recordings;
         this.library = library;
         this.files = files;
         this.tickets = tickets;
+        this.corrections = corrections;
     }
 
     @Schema(name = "MeetingCreateRequest", description = "What the owner enters before recording")
@@ -185,10 +191,13 @@ class MeetingController {
                                @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
                                        description = "The transcript sentence the item rests on") @Nullable String quote,
                                @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable UUID sourceUtteranceId,
-                               @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean done) {
+                               @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean done,
+                               @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                       description = "Whether these words are the owner's rather than the model's")
+                               boolean edited) {
         static MinutesItemResponse from(Meeting.MinutesItem item) {
             return new MinutesItemResponse(item.id(), item.text(), item.owner(), item.due(), item.quote(),
-                    item.sourceUtteranceId(), item.done());
+                    item.sourceUtteranceId(), item.done(), item.edited());
         }
     }
 
@@ -200,11 +209,14 @@ class MeetingController {
                            String kind,
                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable Instant generatedAt,
                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<MinutesItemResponse> decisions,
-                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<MinutesItemResponse> actions) {
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<MinutesItemResponse> actions,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                   description = "Whether the words standing now are the owner's rather than the model's")
+                           boolean edited) {
         static MinutesResponse from(Meeting.Minutes minutes) {
             return new MinutesResponse(minutes.status(), minutes.failure(), minutes.summary(), minutes.kind(),
                     minutes.generatedAt(), minutes.decisions().stream().map(MinutesItemResponse::from).toList(),
-                    minutes.actions().stream().map(MinutesItemResponse::from).toList());
+                    minutes.actions().stream().map(MinutesItemResponse::from).toList(), minutes.edited());
         }
     }
 
@@ -250,10 +262,87 @@ class MeetingController {
                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long startMs,
                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long endMs,
                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String text,
-                             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) double confidence) {
+                             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) double confidence,
+                             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<SpanResponse> spans,
+                             @Schema(description = "Who last changed what this line says; absent while nobody has")
+                             Meeting.@Nullable EditSource editSource) {
         static UtteranceResponse from(Meeting.Utterance utterance) {
             return new UtteranceResponse(utterance.id(), utterance.track(), utterance.speaker(), utterance.startMs(),
-                    utterance.endMs(), utterance.text(), utterance.confidence());
+                    utterance.endMs(), utterance.text(), utterance.confidence(),
+                    utterance.spans().stream().map(SpanResponse::from).toList(), utterance.editSource());
+        }
+    }
+
+    @Schema(name = "MeetingMinutesSummaryRequest")
+    record SummaryRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) @Size(max = 20000) String summary) {}
+
+    @Schema(name = "MeetingMinutesItemRequest")
+    record MinutesItemRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) @Size(max = 2000) String text,
+                              @Schema(nullable = true) @Size(max = 200) @Nullable String owner,
+                              @Schema(nullable = true) @Size(max = 100) @Nullable String due) {}
+
+    @Schema(name = "MeetingBookmarkRequest")
+    record BookmarkRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                   description = "Milliseconds from the start of the recording") long atMs,
+                           @Schema(description = "What to call it; a number is used when this is left out",
+                                   nullable = true) @Size(max = 200) @Nullable String label) {}
+
+    @Schema(name = "MeetingBookmark",
+            description = "A moment the caller marked while the meeting was running. Only they see it.")
+    record BookmarkResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long atMs,
+                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String label) {
+        static BookmarkResponse from(Meeting.Bookmark bookmark) {
+            return new BookmarkResponse(bookmark.id(), bookmark.atMs(), bookmark.label());
+        }
+    }
+
+    @Schema(name = "MeetingCorrectionRun")
+    record RunResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID runId,
+                       @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<CorrectionResponse> corrections) {
+        static RunResponse from(MeetingCorrectionService.Run run) {
+            return new RunResponse(run.id(), run.corrections().stream().map(CorrectionResponse::from).toList());
+        }
+    }
+
+    @Schema(name = "MeetingCorrection",
+            description = "One proposal for one uncertain stretch. Nothing changes until it is accepted.")
+    record CorrectionResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID utteranceId,
+                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID runId,
+                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int start,
+                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int end,
+                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String before,
+                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String after,
+                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String reason,
+                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) double confidence,
+                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) double contextFit,
+                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) double meaningSafe,
+                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean matchedGlossary,
+                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Meeting.CorrectionStatus status) {
+        static CorrectionResponse from(Meeting.Correction correction) {
+            return new CorrectionResponse(correction.id(), correction.utteranceId(), correction.runId(),
+                    correction.start(), correction.end(), correction.before(), correction.after(),
+                    correction.reason(), correction.confidence(), correction.contextFit(), correction.meaningSafe(),
+                    correction.matchedGlossary(), correction.status());
+        }
+    }
+
+    @Schema(name = "AcceptMeetingCorrection")
+    record AcceptCorrectionRequest(
+            @Schema(description = "The caller's own wording instead of the model's", nullable = true)
+            @Size(max = 2000) @Nullable String text) {}
+
+    @Schema(name = "MeetingCorrectionRunRef")
+    record RunRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID runId) {}
+
+    @Schema(name = "MeetingUtteranceSpan",
+            description = "A stretch of the utterance the provider was unsure of, by character offset, half-open.")
+    record SpanResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int start,
+                        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int end,
+                        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) double confidence) {
+        static SpanResponse from(Meeting.Span span) {
+            return new SpanResponse(span.start(), span.end(), span.confidence());
         }
     }
 
@@ -281,7 +370,13 @@ class MeetingController {
                           boolean owned,
                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                                   description = "Who the meeting is shared with; empty for anyone but its owner")
-                          List<ReaderResponse> readers) {
+                          List<ReaderResponse> readers,
+                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                  description = "Lines the caller starred; another reader's stars are their own")
+                          List<UUID> starred,
+                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                  description = "Moments the caller marked while the meeting was running")
+                          List<BookmarkResponse> bookmarks) {
         static DetailResponse from(Meeting.Detail detail) {
             return new DetailResponse(detail.id(), detail.title(), detail.kind(), detail.language(), detail.participants(),
                     detail.terms(), detail.notes(), detail.status(), detail.provider(), detail.diarized(), detail.createdAt(),
@@ -289,7 +384,8 @@ class MeetingController {
                     detail.speakers().stream().map(s -> new SpeakerResponse(s.track(), s.label(), s.name())).toList(),
                     detail.utterances().stream().map(UtteranceResponse::from).toList(),
                     MinutesResponse.from(detail.minutes()), AudioResponse.from(detail.audio()), detail.owned(),
-                    detail.readers().stream().map(ReaderResponse::from).toList());
+                    detail.readers().stream().map(ReaderResponse::from).toList(), detail.starred(),
+                    detail.bookmarks().stream().map(BookmarkResponse::from).toList());
         }
     }
 
@@ -348,13 +444,126 @@ class MeetingController {
         return DetailResponse.from(meetings.end(identity.actorId(), meetingId));
     }
 
+    @PutMapping("/{meetingId}/utterances/{utteranceId}/star")
+    @Operation(operationId = "starMeetingUtterance", summary = "Mark one line as one the caller cares about")
+    @ApiResponse(responseCode = "200", description = "The meeting with the caller's marks", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting or line not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse star(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                        @PathVariable UUID meetingId, @PathVariable UUID utteranceId) {
+        return DetailResponse.from(meetings.star(identity.actorId(), meetingId, utteranceId, true));
+    }
+
+    @DeleteMapping("/{meetingId}/utterances/{utteranceId}/star")
+    @Operation(operationId = "unstarMeetingUtterance", summary = "Take the caller's mark off a line")
+    @ApiResponse(responseCode = "200", description = "The meeting with the caller's marks", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting or line not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse unstar(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                          @PathVariable UUID meetingId, @PathVariable UUID utteranceId) {
+        return DetailResponse.from(meetings.star(identity.actorId(), meetingId, utteranceId, false));
+    }
+
+    @PostMapping(value = "/{meetingId}/bookmarks", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "bookmarkMeetingMoment",
+            summary = "Mark the moment the caller is at, while the meeting is still running")
+    @ApiResponse(responseCode = "200", description = "The meeting with the caller's marks", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse bookmark(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                            @PathVariable UUID meetingId, @Valid @RequestBody BookmarkRequest body) {
+        return DetailResponse.from(meetings.bookmark(identity.actorId(), meetingId, body.atMs(), body.label()));
+    }
+
+    @DeleteMapping("/{meetingId}/bookmarks/{bookmarkId}")
+    @Operation(operationId = "removeMeetingBookmark", summary = "Take back one of the caller's own marks")
+    @ApiResponse(responseCode = "200", description = "The meeting with the caller's marks", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting or mark not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse removeBookmark(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                                  @PathVariable UUID meetingId, @PathVariable UUID bookmarkId) {
+        return DetailResponse.from(meetings.removeBookmark(identity.actorId(), meetingId, bookmarkId));
+    }
+
+    @PostMapping("/{meetingId}/corrections")
+    @Operation(operationId = "proposeMeetingCorrections",
+            summary = "Ask a model what the speech provider probably meant at each uncertain stretch")
+    @ApiResponse(responseCode = "200", description = "What the pass proposed; the transcript is unchanged",
+            useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    @ApiResponse(responseCode = "409", description = "A pass is already running", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    RunResponse propose(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                        @PathVariable UUID meetingId) {
+        return RunResponse.from(corrections.propose(identity.actorId(), meetingId));
+    }
+
+    @GetMapping("/{meetingId}/corrections")
+    @Operation(operationId = "listMeetingCorrections",
+            summary = "Every proposal made for this meeting, decided or not")
+    @ApiResponse(responseCode = "200", description = "The proposals", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    List<CorrectionResponse> corrections(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                                         @PathVariable UUID meetingId) {
+        return corrections.corrections(identity.actorId(), meetingId).stream().map(CorrectionResponse::from).toList();
+    }
+
+    @PostMapping(value = "/{meetingId}/corrections/{correctionId}/accept", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "acceptMeetingCorrection",
+            summary = "Put the proposed words, or the caller's own, into the transcript")
+    @ApiResponse(responseCode = "200", description = "The meeting with the line rewritten", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting or proposal not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    @ApiResponse(responseCode = "409", description = "The line moved since the proposal was made", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse accept(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                          @PathVariable UUID meetingId, @PathVariable UUID correctionId,
+                          @RequestBody AcceptCorrectionRequest body) {
+        return DetailResponse.from(corrections.accept(identity.actorId(), meetingId, correctionId, body.text()));
+    }
+
+    @PostMapping("/{meetingId}/corrections/{correctionId}/keep")
+    @Operation(operationId = "keepMeetingWording", summary = "Decline a proposal and keep what the provider heard")
+    @ApiResponse(responseCode = "200", description = "The meeting, unchanged", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting or proposal not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse keep(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                        @PathVariable UUID meetingId, @PathVariable UUID correctionId) {
+        return DetailResponse.from(corrections.keep(identity.actorId(), meetingId, correctionId));
+    }
+
+    @PostMapping(value = "/{meetingId}/corrections/accept-all", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "acceptAllMeetingCorrections", summary = "Accept everything a pass proposed and has not decided")
+    @ApiResponse(responseCode = "200", description = "The meeting with every accepted line rewritten", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse acceptAll(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                             @PathVariable UUID meetingId, @RequestBody RunRequest body) {
+        return DetailResponse.from(corrections.acceptAll(identity.actorId(), meetingId, body.runId()));
+    }
+
+    @PostMapping(value = "/{meetingId}/corrections/revert-all", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "revertAllMeetingCorrections", summary = "Take back everything one pass put in")
+    @ApiResponse(responseCode = "200", description = "The meeting with every line of that pass restored", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    @ApiResponse(responseCode = "409", description = "A line changed again after the pass", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse revertAll(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                             @PathVariable UUID meetingId, @RequestBody RunRequest body) {
+        return DetailResponse.from(corrections.revertAll(identity.actorId(), meetingId, body.runId()));
+    }
+
+    @PostMapping("/{meetingId}/corrections/{correctionId}/revert")
+    @Operation(operationId = "revertMeetingCorrection", summary = "Put back what the line said before this proposal")
+    @ApiResponse(responseCode = "200", description = "The meeting with the line restored", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting or proposal not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    @ApiResponse(responseCode = "409", description = "The line changed again after this proposal", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse revert(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                          @PathVariable UUID meetingId, @PathVariable UUID correctionId) {
+        return DetailResponse.from(corrections.revert(identity.actorId(), meetingId, correctionId));
+    }
+
     @PostMapping("/{meetingId}/minutes")
     @Operation(operationId = "rerunMeetingMinutes", summary = "Write the minutes again after the meeting changed")
     @ApiResponse(responseCode = "200", description = "The meeting, with its minutes queued", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "409", description = "The minutes were corrected by hand; say so to discard that work", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
     @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
     DetailResponse minutes(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-                           @PathVariable UUID meetingId) {
-        var meeting = DetailResponse.from(meetings.rerunMinutes(identity.actorId(), meetingId));
+                           @PathVariable UUID meetingId,
+                           @Parameter(description = "Required once the minutes were corrected by hand, because a "
+                                   + "rerun writes them again and throws that work away")
+                           @RequestParam(defaultValue = "false") boolean discardEdits) {
+        var meeting = DetailResponse.from(meetings.rerunMinutes(identity.actorId(), meetingId, discardEdits));
         // The published minutes are about to be wrong. Drop them so the next use publishes what was rewritten; a
         // file a Project or an Agent still holds is left alone rather than pulled out from under them.
         library.published(identity.actorId(), ChatLibraryFile.Source.MEETING, meetingId).ifPresent(file -> {
@@ -442,6 +651,49 @@ class MeetingController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename("bien-ban-" + meetingId + ".docx", StandardCharsets.UTF_8).build().toString())
                 .contentType(MediaType.parseMediaType(DOCX)).body(document);
+    }
+
+    @PutMapping(value = "/{meetingId}/minutes/summary", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "editMeetingMinutesSummary", summary = "Rewrite the summary in the owner's own words")
+    @ApiResponse(responseCode = "200", description = "The meeting with the summary as it now reads", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "400", description = "The minutes are not written yet", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse editSummary(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                               @PathVariable UUID meetingId, @Valid @RequestBody SummaryRequest body) {
+        return DetailResponse.from(meetings.editSummary(identity.actorId(), meetingId, body.summary()));
+    }
+
+    @PutMapping(value = "/{meetingId}/minutes/items/{itemId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "editMeetingMinutesItem",
+            summary = "Rewrite one decision or one piece of work, its owner and its deadline")
+    @ApiResponse(responseCode = "200", description = "The meeting with the item as it now reads", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "400", description = "A decision has no owner and no deadline", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    @ApiResponse(responseCode = "404", description = "Meeting or item not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse editItem(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                            @PathVariable UUID meetingId, @PathVariable UUID itemId,
+                            @Valid @RequestBody MinutesItemRequest body) {
+        return DetailResponse.from(meetings.editItem(identity.actorId(), meetingId, itemId, body.text(), body.owner(),
+                body.due()));
+    }
+
+    @GetMapping("/{meetingId}/transcript")
+    @Operation(operationId = "exportMeetingTranscript",
+            summary = "Download what was said, with its times and speakers, as Word or PDF")
+    @ApiResponse(responseCode = "200", description = "The transcript",
+            content = {@Content(mediaType = DOCX, schema = @Schema(type = "string", format = "binary")),
+                    @Content(mediaType = MediaType.APPLICATION_PDF_VALUE, schema = @Schema(type = "string", format = "binary"))})
+    @ApiResponse(responseCode = "400", description = "The meeting has no transcript yet", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    ResponseEntity<byte[]> transcript(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                                      @PathVariable UUID meetingId,
+                                      @RequestParam(defaultValue = "DOCX") MeetingService.TranscriptFormat format) {
+        byte[] document = meetings.exportTranscript(identity.actorId(), meetingId, format);
+        boolean pdf = format == MeetingService.TranscriptFormat.PDF;
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename("transcript-" + meetingId + (pdf ? ".pdf" : ".docx"), StandardCharsets.UTF_8)
+                        .build().toString())
+                .contentType(pdf ? MediaType.APPLICATION_PDF : MediaType.parseMediaType(DOCX)).body(document);
     }
 
     @DeleteMapping("/{meetingId}")

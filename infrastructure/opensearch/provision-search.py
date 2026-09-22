@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Create deployment-owned TLS/credentials; reconcile only managed Security YAML."""
+"""Create deployment-owned TLS/credentials; reconcile only managed Security YAML.
+
+Serves a deployment that publishes Dashboards and one that does not. Dashboards brings a browser,
+which brings an identity provider, a second service account and a third certificate; a deployment
+without it needs none of them, and asking for them would only be credentials nobody uses.
+
+Dashboards is present when MEMORYOS_OPENSEARCH_DASHBOARDS_PUBLIC_URL is set, the same way the
+Keycloak realm script decides which optional surfaces a realm gets.
+"""
 import argparse
 from datetime import datetime, timezone
 import json
@@ -11,6 +19,15 @@ import subprocess
 import tempfile
 import time
 
+# How long a leaf certificate is good for. Five years, against ten for the authority.
+#
+# These names live inside the deployment network and no public authority can issue for them, so
+# the exposure a short life limits is small, while an expiry stops OpenSearch answering at all:
+# search and ingestion fail, and the symptom points nowhere near a certificate. Renewal still runs
+# and still replaces a leaf inside its last thirty days; the long life is so that a deployment
+# whose renewal was never installed does not fall over on an anniversary nobody wrote down.
+LEAF_VALIDITY_DAYS = 1825
+AUTHORITY_VALIDITY_DAYS = 3650
 IMAGE = "opensearchproject/opensearch:3.8.0@sha256:bcc1797519726ceb6d651d4a3e60b7c30da91793914a8dfe75fd441d4f641509"
 SOURCE = Path(__file__).resolve().parent
 LEAF_CERTIFICATES = {
@@ -19,10 +36,39 @@ LEAF_CERTIFICATES = {
              "extendedKeyUsage=serverAuth,clientAuth\nsubjectAltName=DNS:opensearch,DNS:memoryos-opensearch,DNS:localhost,IP:127.0.0.1\n"),
     "admin": ("/CN=memoryos-search-admin",
               "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=clientAuth\n"),
+}
+DASHBOARDS_CERTIFICATE = {
     "dashboards": ("/CN=memoryos-opensearch-dashboards",
                    "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\n"
                    "extendedKeyUsage=serverAuth\nsubjectAltName=DNS:memoryos-opensearch-dashboards,DNS:localhost,IP:127.0.0.1\n"),
 }
+# Credentials only a published Dashboards needs: its own service account, its OIDC client secret
+# and the key that signs its session cookie.
+DASHBOARDS_SECRETS = ("dashboards-password.txt", "oidc-client-secret.txt", "cookie-password.txt")
+
+
+def publishes_dashboards():
+    return bool(os.environ.get("MEMORYOS_OPENSEARCH_DASHBOARDS_PUBLIC_URL", "").strip())
+
+
+def leaf_certificates():
+    return {**LEAF_CERTIFICATES, **DASHBOARDS_CERTIFICATE} if publishes_dashboards() else dict(LEAF_CERTIFICATES)
+
+
+def without_dashboards(text):
+    """Drop the blocks the shared Security YAML marks as belonging to Dashboards."""
+    kept, dropping = [], False
+    for line in text.splitlines(keepends=True):
+        marker = line.strip()
+        if marker.startswith("# >>> dashboards"):
+            dropping = True
+            continue
+        if marker == "# <<< dashboards":
+            dropping = False
+            continue
+        if not dropping:
+            kept.append(line)
+    return "".join(kept)
 
 
 def run(*args):
@@ -50,7 +96,7 @@ def certificate(directory, name, subject, extensions, authority=None):
     run("openssl", "req", "-new", "-key", str(directory / (name + ".key")), "-subj", subject, "-out", str(directory / (name + ".csr")))
     write(directory / (name + ".ext"), extensions)
     run("openssl", "x509", "-req", "-in", str(directory / (name + ".csr")), "-CA", str(authority / "ca.crt"),
-        "-CAkey", str(authority / "ca.key"), "-set_serial", "0x" + run("openssl", "rand", "-hex", "16").strip(), "-days", "365", "-sha256",
+        "-CAkey", str(authority / "ca.key"), "-set_serial", "0x" + run("openssl", "rand", "-hex", "16").strip(), "-days", str(LEAF_VALIDITY_DAYS), "-sha256",
         "-extfile", str(directory / (name + ".ext")), "-out", str(directory / (name + ".crt")))
 
 
@@ -70,7 +116,7 @@ def renew_certificates(directory, within_days=30):
     with (directory / ".certificate-renewal.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         due = []
-        for name in LEAF_CERTIFICATES:
+        for name in leaf_certificates():
             run("openssl", "verify", "-no_check_time", "-CAfile", str(directory / "ca.crt"), str(directory / (name + ".crt")))
             result = subprocess.run(["openssl", "x509", "-checkend", str(within_days * 86400), "-noout",
                                      "-in", str(directory / (name + ".crt"))], capture_output=True)
@@ -82,7 +128,7 @@ def renew_certificates(directory, within_days=30):
         with tempfile.TemporaryDirectory(prefix=".certificate-renewal-", dir=directory) as name:
             temporary = Path(name)
             for leaf in due:
-                certificate(temporary, leaf, *LEAF_CERTIFICATES[leaf], authority=directory)
+                certificate(temporary, leaf, *leaf_certificates()[leaf], authority=directory)
                 run("openssl", "verify", "-CAfile", str(directory / "ca.crt"), str(temporary / (leaf + ".crt")))
             backup = directory / "certificate-backups" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
             backup.mkdir(parents=True, mode=0o700)
@@ -123,10 +169,18 @@ def reconcile(directory, issuer):
     for filename, kind in (("tenants.yml", "tenants"), ("nodes_dn.yml", "nodesdn"), ("allowlist.yml", "allowlist")):
         write(security / filename, json.dumps({"_meta": {"type": kind, "config_version": 2}}))
     write(security / "audit.yml", json.dumps({"_meta": {"type": "audit", "config_version": 2}, "config": {"enabled": False}}))
-    write(security / "config.yml", (SOURCE / "security/config.yml").read_text().replace("__OIDC_ISSUER__", issuer))
-    write(security / "roles_mapping.yml", (SOURCE / "security/roles_mapping.yml").read_text())
+    configuration = (SOURCE / "security/config.yml").read_text()
+    mapping = (SOURCE / "security/roles_mapping.yml").read_text()
+    accounts = [("memoryos-service", "service-password.txt")]
+    if publishes_dashboards():
+        configuration = configuration.replace("__OIDC_ISSUER__", issuer)
+        accounts.append(("memoryos-dashboards", "dashboards-password.txt"))
+    else:
+        configuration, mapping = without_dashboards(configuration), without_dashboards(mapping)
+    write(security / "config.yml", configuration)
+    write(security / "roles_mapping.yml", mapping)
     users = {"_meta": {"type": "internalusers", "config_version": 2}}
-    for username, filename in (("memoryos-service", "service-password.txt"), ("memoryos-dashboards", "dashboards-password.txt")):
+    for username, filename in accounts:
         output = run("docker", "run", "--rm", "--network", "none", "--entrypoint", "/bin/sh",
                      "-v", str(directory) + ":/provision:ro", IMAGE, "-c",
                      '/usr/share/opensearch/plugins/opensearch-security/tools/hash.sh -p "$(cat /provision/' + filename + ')"')
@@ -146,16 +200,21 @@ def main():
         raise ValueError("certificate renewal window must be between 1 and 366 days")
     os.umask(0o077)
     directory = Path(os.environ.get("MEMORYOS_OPENSEARCH_SECRET_DIRECTORY", "/apps/memoryos/secrets/opensearch")).resolve()
-    issuer = os.environ.get("MEMORYOS_OPENSEARCH_OIDC_ISSUER", "https://auth.kl3in.tech/realms/memoryos").rstrip("/")
-    if not re.fullmatch(r"https://[A-Za-z0-9.:-]+/realms/[A-Za-z0-9_-]+", issuer):
-        raise ValueError("expected an exact HTTPS Keycloak realm issuer")
+    issuer = os.environ.get("MEMORYOS_OPENSEARCH_OIDC_ISSUER", "").rstrip("/")
+    if publishes_dashboards():
+        if not re.fullmatch(r"https://[A-Za-z0-9.:-]+/realms/[A-Za-z0-9_-]+", issuer):
+            raise ValueError("expected an exact HTTPS Keycloak realm issuer for Dashboards")
+    elif issuer:
+        raise ValueError("an issuer was given but no Dashboards is published")
     if os.getuid() != 1000:
         raise RuntimeError("run as deployment UID 1000 to match the pinned OpenSearch image")
     if arguments.renew_certificates:
         renew_certificates(directory, arguments.within_days)
         return
-    required = ["ca.crt", "ca.key", "node.crt", "node.key", "admin.crt", "admin.key", "service-password.txt",
-                "dashboards-password.txt", "oidc-client-secret.txt", "cookie-password.txt", "health.curl"]
+    required = ["ca.crt", "ca.key", "node.crt", "node.key", "admin.crt", "admin.key",
+                "service-password.txt", "health.curl"]
+    if publishes_dashboards():
+        required += ["dashboards.crt", "dashboards.key", *DASHBOARDS_SECRETS]
     if directory.exists():
         if not all((directory / name).is_file() and (directory / name).stat().st_size for name in required):
             raise RuntimeError("partial secret set; restore the complete set before retrying")
@@ -164,13 +223,15 @@ def main():
         temporary = Path(tempfile.mkdtemp(prefix=".opensearch-init-", dir=directory.parent))
         try:
             run("openssl", "req", "-x509", "-newkey", "rsa:3072", "-nodes", "-keyout", str(temporary / "ca.key"),
-                "-out", str(temporary / "ca.crt"), "-sha256", "-days", "3650", "-subj", "/CN=MemoryOS Search CA")
-            for leaf, definition in LEAF_CERTIFICATES.items():
+                "-out", str(temporary / "ca.crt"), "-sha256", "-days", str(AUTHORITY_VALIDITY_DAYS), "-subj", "/CN=MemoryOS Search CA")
+            for leaf, definition in leaf_certificates().items():
                 certificate(temporary, leaf, *definition)
-            for filename in ("service-password.txt", "dashboards-password.txt", "oidc-client-secret.txt", "cookie-password.txt"):
+            secrets = ("service-password.txt", *DASHBOARDS_SECRETS) if publishes_dashboards() else ("service-password.txt",)
+            for filename in secrets:
                 write(temporary / filename, run("openssl", "rand", "-hex", "32").strip() + "\n")
             write(temporary / "health.curl", 'user = "memoryos-service:' + (temporary / "service-password.txt").read_text().strip() + '"\n')
-            write_dashboards_bootstrap_config(temporary)
+            if publishes_dashboards():
+                write_dashboards_bootstrap_config(temporary)
             (temporary / "ca.crt").chmod(0o444)
             reconcile(temporary, issuer)
             temporary.rename(directory)
@@ -179,11 +240,12 @@ def main():
                 shutil.rmtree(temporary)
         print("OpenSearch TLS and credentials provisioned; values withheld")
         return
-    if not (directory / "dashboards.crt").exists() and not (directory / "dashboards.key").exists():
-        certificate(directory, "dashboards", *LEAF_CERTIFICATES["dashboards"])
-    if not (directory / "dashboards.crt").is_file() or not (directory / "dashboards.key").is_file():
-        raise RuntimeError("partial Dashboards TLS certificate pair")
-    write_dashboards_bootstrap_config(directory)
+    if publishes_dashboards():
+        if not (directory / "dashboards.crt").exists() and not (directory / "dashboards.key").exists():
+            certificate(directory, "dashboards", *DASHBOARDS_CERTIFICATE["dashboards"])
+        if not (directory / "dashboards.crt").is_file() or not (directory / "dashboards.key").is_file():
+            raise RuntimeError("partial Dashboards TLS certificate pair")
+        write_dashboards_bootstrap_config(directory)
     reconcile(directory, issuer)
     print("OpenSearch Security YAML reconciled; existing TLS and credentials preserved")
 

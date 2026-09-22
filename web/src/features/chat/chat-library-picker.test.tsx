@@ -93,42 +93,20 @@ beforeEach(async () => {
 });
 afterEach(cleanup);
 
-it("attaches an upload as it is and a generated image through its ready copy", async () => {
+it("hands the chosen library files to the composer and closes", async () => {
   const { onAttach, onOpenChange } = show();
   const user = userEvent.setup();
-  const copy = "55555555-5555-4555-8555-555555555555";
-  copyChatLibraryFile.mockResolvedValue({
-    data: {
-      id: copy,
-      filename: image.filename,
-      mediaType: "image/png",
-      sizeBytes: 1024,
-      status: "PROCESSING",
-    },
-  });
-  getChatFile.mockResolvedValue({
-    data: {
-      id: copy,
-      filename: image.filename,
-      mediaType: "image/png",
-      sizeBytes: 1024,
-      status: "READY",
-    },
-  });
 
   await user.click(await screen.findByRole("checkbox", { name: "Chọn hop-dong.pdf" }));
   await user.click(screen.getByRole("checkbox", { name: `Chọn ${image.filename}` }));
   await user.click(screen.getByRole("button", { name: "Đính kèm 2 tệp" }));
 
-  await waitFor(() =>
-    expect(onAttach).toHaveBeenCalledWith([
-      expect.objectContaining({ id: upload.id, status: "READY" }),
-      expect.objectContaining({ id: copy, status: "READY" }),
-    ]),
-  );
-  expect(copyChatLibraryFile).toHaveBeenCalledWith(
-    expect.objectContaining({ path: { source: "IMAGE", id: image.id } }),
-  );
+  expect(onAttach).toHaveBeenCalledWith([
+    expect.objectContaining({ id: upload.id, source: "UPLOAD" }),
+    expect.objectContaining({ id: image.id, source: "IMAGE" }),
+  ]);
+  // The copy belongs to the composer, where the wait is shown; the dialog does not hold the person.
+  expect(copyChatLibraryFile).not.toHaveBeenCalled();
   expect(onOpenChange).toHaveBeenCalledWith(false);
 });
 
@@ -140,26 +118,43 @@ it("shows what is already on the draft as attached and filters by source on the 
   expect(within(row).getByText("Đã đính kèm")).toBeInTheDocument();
   expect(within(row).getByRole("checkbox")).toBeDisabled();
 
+  const narrowed = Promise.withResolvers<unknown>();
+  listChatLibrary.mockReturnValueOnce(narrowed.promise);
   await user.click(screen.getByRole("tab", { name: "Ảnh AI" }));
   await waitFor(() =>
     expect(listChatLibrary).toHaveBeenLastCalledWith(
       expect.objectContaining({ query: expect.objectContaining({ sources: ["IMAGE"] }) }),
     ),
   );
+  // The list being read stays on screen, marked busy, instead of emptying while the narrowed one loads.
+  const list = screen.getByRole("list", { name: "Tệp trong thư viện" });
+  await waitFor(() => expect(list).toHaveAttribute("aria-busy", "true"));
+  expect(within(list).getByText("da-gan.txt")).toBeInTheDocument();
+
+  narrowed.resolve({ data: { items: [image], totalCount: 1, totalBytes: 1024, hasMore: false } });
+  await waitFor(() => expect(list).not.toHaveAttribute("aria-busy"));
+  expect(within(list).queryByText("da-gan.txt")).not.toBeInTheDocument();
 });
 
-it("keeps the dialog open and says so when a copy fails", async () => {
-  const { onAttach } = show();
-  const user = userEvent.setup();
-  copyChatLibraryFile.mockRejectedValue(new Error("gone"));
+it("counts files the composer is still preparing against the message limit", async () => {
+  listChatLibrary.mockResolvedValue({
+    data: { items: [upload, image, attached], totalCount: 3, totalBytes: 3072, hasMore: false },
+  });
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <ChatLibraryPicker
+        open
+        onOpenChange={vi.fn()}
+        selected={["55555555-5555-4555-8555-555555555555"]}
+        preparing={3}
+        onAttach={vi.fn()}
+      />
+    </QueryClientProvider>,
+  );
 
-  await user.click(await screen.findByRole("checkbox", { name: `Chọn ${image.filename}` }));
-  await user.click(screen.getByRole("button", { name: "Đính kèm 1 tệp" }));
-
-  expect(
-    await screen.findByText("Không chuẩn bị được tệp để đính kèm. Hãy thử lại."),
-  ).toBeInTheDocument();
-  expect(onAttach).not.toHaveBeenCalled();
+  expect(await screen.findByText("Đã chọn 0/16 tệp")).toBeInTheDocument();
 });
 
 it("names what it will attach and takes a file back off that list", async () => {

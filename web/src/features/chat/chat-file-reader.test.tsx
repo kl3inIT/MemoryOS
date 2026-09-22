@@ -299,7 +299,7 @@ describe("File selection", () => {
     mount(<ChatFilePicker selected={[]} onSelect={vi.fn()} />);
     await userEvent.click(screen.getByRole("button", { name: "Đính kèm tệp" }));
     await userEvent.click(screen.getByRole("button", { name: "Tất cả tệp gần đây" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Xóa" }));
+    await userEvent.click(await screen.findByRole("button", { name: `Xóa ${file.filename}` }));
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     expect(backend.remove).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Xóa tệp" }));

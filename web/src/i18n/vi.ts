@@ -85,9 +85,11 @@ export const vi = {
     preview: "Xem trước ảnh",
     previewTitle: "Xem trước ảnh đính kèm",
     fileLabel: "Tệp đính kèm: {{name}}",
+    list: "Tệp đính kèm",
     remove: "Gỡ tệp",
     uploading: "Đang tải…",
     processing: "Đang xử lý…",
+    preparing: "Đang chuẩn bị…",
     failed: "Không đính kèm được tệp. Hãy gỡ tệp rồi thử lại.",
   },
   common: {

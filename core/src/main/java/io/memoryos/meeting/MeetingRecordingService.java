@@ -142,7 +142,9 @@ public class MeetingRecordingService {
         var utterances = transcribed.segments().stream()
                 .map(segment -> new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.MIC, segment.speaker(),
                         segment.startMs(), Math.max(segment.endMs(), segment.startMs()), segment.text(),
-                        Math.clamp(segment.confidence(), 0, 1)))
+                        Math.clamp(segment.confidence(), 0, 1),
+                        segment.spans().stream().map(span -> new Meeting.Span(span.start(), span.end(),
+                                Math.clamp(span.confidence(), 0, 1))).toList()))
                 .toList();
         boolean stored = Boolean.TRUE.equals(tx.execute(ignored -> {
             boolean written = meetings.writeAudio(claim.tenant(), claim.id(), claim.attempts(),

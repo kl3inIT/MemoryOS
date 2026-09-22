@@ -2,12 +2,6 @@
 
 FROM eclipse-temurin:25-jdk-noble@sha256:534968c051301957beae735e7ba1db54d99ddecf08746d3b9d4f318cc132dbc3 AS build
 
-ARG INFISICAL_CLI_VERSION=0.43.125
-ADD --checksum=sha256:8c3431afab5097ca7d943585be1580ebc13c28843e7d0c5292fb07d077be0372 \
-    https://github.com/Infisical/cli/releases/download/v${INFISICAL_CLI_VERSION}/cli_${INFISICAL_CLI_VERSION}_linux_amd64.tar.gz \
-    /tmp/infisical-cli.tar.gz
-RUN tar -xzf /tmp/infisical-cli.tar.gz -C /usr/local/bin infisical \
-    && /usr/local/bin/infisical --version
 WORKDIR /workspace
 
 # Dependencies live in an image layer (not a cache mount) so CI's BuildKit cache can restore them.
@@ -43,7 +37,6 @@ RUN addgroup -S -g 1654 memoryos \
     && adduser -S -D -H -u 1654 -G memoryos memoryos
 
 WORKDIR /application
-COPY --from=build /usr/local/bin/infisical /usr/local/bin/infisical
 COPY --chmod=0755 api/src/main/docker/api-entrypoint.sh /usr/local/bin/memoryos-entrypoint
 COPY --chmod=0755 api/src/main/docker/application-launcher.sh /usr/local/bin/memoryos-launcher
 

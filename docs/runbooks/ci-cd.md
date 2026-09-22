@@ -8,7 +8,7 @@ The repository ships one GitHub Actions path: [CI](../../.github/workflows/ci.ym
 
 `CI Gate` requires successful backend/infrastructure checks, frontend checks/browser fixtures, all three production image builds, the landing page checks and image smoke, and a redacted Gitleaks history scan. Main pushes run every job. On a pull request the `changes` job maps the merge commit's changed paths to areas: backend (`check`, `backend-images`: `core`, `connector`, `api`, `worker`, Gradle files, `Dockerfile`, `infrastructure`), web (`frontend-check`, `frontend`, `frontend-image`: `web`), landing (`landing`); `openapi.yml` selects backend and web, docs and Markdown select nothing, and any other path or an empty diff selects every area. The gate requires `changes` and `secrets` to succeed, every job of a selected area to succeed and every job of an unselected area to be skipped; any other failed, canceled or skipped job fails it. Obsolete PR runs are canceled; main runs are not. PR runs have no package-write or staging authority and do not retain image archives.
 
-`frontend-check` runs the frontend static/unit/build gate on a plain runner. Browser tests run as four Playwright shards (following Playwright's CI guidance: one worker per runner, scale with shards; `fullyParallel` splits by test) with matrix fail-fast disabled; all shards must succeed for `frontend` to pass. Each shard uploads a one-day `blob-report-<n>` artifact, and the non-gating `frontend-report` job merges them into the seven-day `frontend-tests` HTML report with traces, screenshots and videos. API and worker images stay on one runner to reuse their shared build layers. Image jobs build with BuildKit and `type=gha` layer caches (`backend-api`, `backend-worker`, `web`); the backend Dockerfile resolves Gradle dependencies in their own layer before copying sources. Core tests run in two JVMs, each cloning PostgreSQL fixtures from a template migrated once per JVM. MinIO fixtures and the deployment default use the official Quay mirror with the existing immutable digest, avoiding the unavailable Docker Hub repository without upgrading the service.
+`frontend-check` runs the frontend static/unit/build gate on a plain runner. Browser tests run as four Playwright shards (following Playwright's CI guidance: one worker per runner, scale with shards; `fullyParallel` splits by test) with matrix fail-fast disabled; all shards must succeed for `frontend` to pass. A failing shard annotates the run and prints its own assertion; no browser report is kept, because merging blob reports into an HTML nobody opened was most of what filled the artifact store. Reports that are kept — backend test XML, the frontend unit report, landing — live three days and never fail the job that produced them, and a verified image waits two days for the deploy that collects it. API and worker images stay on one runner to reuse their shared build layers. Image jobs build with BuildKit and `type=gha` layer caches (`backend-api`, `backend-worker`, `web`); the backend Dockerfile resolves Gradle dependencies in their own layer before copying sources. Core tests run in two JVMs, each cloning PostgreSQL fixtures from a template migrated once per JVM. MinIO fixtures and the deployment default use the official Quay mirror with the existing immutable digest, avoiding the unavailable Docker Hub repository without upgrading the service.
 
 After successful main gates, publication loads the preserved API, worker, web, interpreter and interpreter executor images, checks their revision/source labels, and pushes those bytes to GHCR. It does not rebuild them. The release artifact is named `release-<source SHA>-<CI attempt>` and contains:
 
@@ -37,7 +37,7 @@ Production uses the same delivery workflow through [Deploy production](../../.gi
 
 No application login, smoke user, Actor variable or business-test credential is required by CD. The user tests the deployed application through normal identity and authorization paths. An optional operator-run acceptance script requires its own valid account and configuration; its result is separate from deployment status.
 
-Application secrets continue to come from the existing Infisical/server path. The workflow forwards its short-lived package-read token over SSH stdin for pulling private GHCR images; the server removes the temporary Docker credential file when that operation exits. An interrupted process can require operator cleanup of its private transaction directory after the job token expires. No application credentials are read or rotated by CD.
+Application secrets are files the server itself holds under `/apps/memoryos/secrets`; no vault is reached at container start. The workflow forwards its short-lived package-read token over SSH stdin for pulling private GHCR images; the server removes the temporary Docker credential file when that operation exits. An interrupted process can require operator cleanup of its private transaction directory after the job token expires. No application credentials are read or rotated by CD.
 
 Branch-protection changes are outside MEM-70. An owner can separately select the stable `CI Gate` check as a required merge check.
 
@@ -60,6 +60,54 @@ Do not add the deployment user to the `docker` group. Membership is root without
 | `/apps/memoryos/.env.<environment>` | `0600` | values Compose cannot default; the script refuses a symlink or any other mode |
 
 Secrets live in files rather than environment variables because an environment variable is visible in `docker inspect`, in a crash log and in `/proc/<pid>/environ`. Their subdirectories follow the environment file: `minio/`, `redis/`, `opensearch/`, `interpreter/`.
+
+The database bootstrap runs once, at the first start of an empty data directory. Changing the
+connection limit or the memory settings in the repository therefore reaches a new host only.
+On a host that already holds data, recreate the `postgres` container to pick up the memory
+settings, and apply the limits by hand as the platform role:
+
+```sql
+ALTER ROLE memoryos_app CONNECTION LIMIT 40;
+ALTER ROLE memoryos_app SET idle_in_transaction_session_timeout = '60s';
+ALTER ROLE keycloak CONNECTION LIMIT 20;
+ALTER ROLE keycloak SET idle_in_transaction_session_timeout = '60s';
+```
+
+A role already at its limit answers `too many connections for role`, which reads as load rather
+than as a ceiling somebody chose; the pools hold their connections idle, so nothing appears to be
+running at the moment it refuses.
+
+A host reaches its first deployment with more than directories. Three things the script does not
+do for itself, each of which stopped a first promotion before it was written down:
+
+* **`vm.max_map_count` at least 262144**, in `/etc/sysctl.d/`, not only `sysctl -w`. OpenSearch
+  memory-maps its Lucene segments and refuses to start below that, as a bootstrap check rather
+  than a warning. Setting it without a file leaves a host that works until it reboots.
+* **The supporting services started once**, from the release's own Compose files:
+  `up -d --wait minio minio-bootstrap redis opensearch docling`. The rollout uses `--no-deps`,
+  because those services belong to the operator rather than to a release, so a deployment onto a
+  host where they were never started brings up an api that cannot reach Redis and waits four
+  minutes for a health check that will not go green — after the reservation is taken.
+* **The Search security configuration loaded once**, with
+  `--profile ops run --rm search-security-bootstrap`. With
+  `plugins.security.allow_default_init_securityindex: false` the node answers 503 until
+  `securityadmin.sh` has run, so its health check stays red and nothing that depends on it starts.
+
+The first deployment on a host is recognised by the absence of a running `memoryos-api`, not by a
+missing `current.env`: a runtime built over SSH before this script existed also has no
+`current.env`, and it does have something to roll back to. On a first deployment there is nothing
+to capture, so `rollback` refuses rather than restoring nothing, and the reservation stays until
+an operator has looked. The database was empty when it began, so recovery is to take the stack
+down with its volumes and deploy again.
+
+The observability stack is a prerequisite, not a companion. The api and worker join
+`memoryos-telemetry`, which is declared external and owned by that stack, and they read
+`MEMORYOS_OTLP_BASE_URL` with no application default. A deployment onto a host where the stack has
+never been started fails at `compose up` with a missing network; one where the address is absent
+fails later, while the application defines beans. Start
+`infrastructure/observability/compose.observability.yaml` before the first rollout on a new host.
+
+The environment file feeds Compose interpolation and nothing else. A value reaches a container only when the service block in `compose.base.yaml` names it, so adding a key here does not by itself make the application see it — that was how the first deployment without the vault failed. Addresses inside the composition (the database, Keycloak's admin API, OpenSearch) are written in Compose and must not be repeated here; a stale copy silently wins over the composition. `infrastructure/deployment/test_configuration_reaches_the_container.py` holds both rules.
 
 **Networks.** `docker network create proxy-network`. Compose declares it `external`, so it is not created on demand and the whole stack refuses to start without it. Production declares no other external network; `shared-infra` exists only on the host MemoryOS shares with OrgMemory.
 

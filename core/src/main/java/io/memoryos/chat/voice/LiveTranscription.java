@@ -26,8 +26,23 @@ public interface LiveTranscription extends AutoCloseable {
         }
     }
 
+    /**
+     * A stretch of {@link Segment#text()} the provider was unsure of, by character offset, half-open. The confidence
+     * is the lowest among the tokens it covers.
+     */
+    record Span(int start, int end, double confidence) {}
+
     /** One committed piece of speech. The speaker is the provider's label within this stream, such as {@code 1}. */
-    record Segment(String speaker, long startMs, long endMs, String text, double confidence) {}
+    record Segment(String speaker, long startMs, long endMs, String text, double confidence, List<Span> spans) {
+        public Segment {
+            spans = List.copyOf(spans);
+        }
+
+        /** A provider that reports no per-token confidence marks nothing. */
+        public Segment(String speaker, long startMs, long endMs, String text, double confidence) {
+            this(speaker, startMs, endMs, text, confidence, List.of());
+        }
+    }
 
     /** Receives stream events on provider threads; implementations must be quick and thread-safe. */
     interface Listener {

@@ -91,10 +91,13 @@ async function mockMeetings(page: Page) {
           generatedAt: null,
           decisions: [],
           actions: [],
+          edited: false,
         },
         audio: { status: "NONE", failure: null, filename: null, sizeBytes: 0, provider: null },
         owned: true,
         readers: [],
+        starred: [],
+        bookmarks: [],
       };
       await route.fulfill({ status: 201, json: meeting });
       return;
@@ -117,6 +120,59 @@ async function mockMeetings(page: Page) {
     await route.fulfill({ json: [...current, ...earlier] });
   });
   await page.route(`**/api/meetings/${MEETING_ID}`, (route) => route.fulfill({ json: meeting }));
+  await page.route(`**/api/meetings/${MEETING_ID}/utterances/*/star`, async (route) => {
+    const line = new URL(route.request().url()).pathname.split("/").at(-2)!;
+    const starred = route.request().method() === "PUT" ? [line] : [];
+    meeting = { ...meeting!, starred };
+    await route.fulfill({ json: meeting });
+  });
+  await page.route(`**/api/meetings/${MEETING_ID}/bookmarks`, async (route) => {
+    const body = route.request().postDataJSON() as { atMs: number };
+    meeting = {
+      ...meeting!,
+      bookmarks: [
+        ...meeting!.bookmarks,
+        { id: "b1", atMs: body.atMs, label: `Đánh dấu ${meeting!.bookmarks.length + 1}` },
+      ],
+    };
+    await route.fulfill({ json: meeting });
+  });
+  await page.route(`**/api/meetings/${MEETING_ID}/corrections`, (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "c1",
+          utteranceId: "u2",
+          runId: "r1",
+          start: 59,
+          end: 70,
+          before: "Vinaconex 9",
+          after: "Vinaconex 09",
+          reason: "Mã dự án đọc rõ ở câu sau là 09.",
+          confidence: 0.82,
+          contextFit: 0.74,
+          meaningSafe: 0.96,
+          matchedGlossary: true,
+          status: "PENDING",
+        },
+        {
+          id: "c2",
+          utteranceId: "u1",
+          runId: "r1",
+          start: 26,
+          end: 31,
+          before: "quý 4",
+          after: "quý IV",
+          reason: "Văn bản của công ty viết số La Mã.",
+          confidence: 0.71,
+          contextFit: 0.8,
+          meaningSafe: 0.99,
+          matchedGlossary: false,
+          status: "ACCEPTED",
+        },
+      ],
+    }),
+  );
   await page.route(`**/api/meetings/${MEETING_ID}/tickets`, (route) =>
     route.fulfill({
       json: { ticket: "synthetic-ticket", expiresAt: new Date(Date.now() + 60_000).toISOString() },
@@ -299,6 +355,8 @@ async function mockMeetings(page: Page) {
               startMs: 7_100,
               endMs: 12_300,
               text: "Bên nhân sự đã gửi bảng KPI tháng 9, còn thiếu số liệu của Vinaconex 9 và Tower 3.",
+              // Soniox was unsure of the company name; the transcript marks exactly those characters.
+              spans: [{ start: 59, end: 70, confidence: 0.41 }],
             },
             {
               id: "u3",
@@ -312,7 +370,12 @@ async function mockMeetings(page: Page) {
             const speaker = { track: "MIC" as const, label: utterance.speaker, name: null };
             if (!meeting!.speakers.some((item) => item.label === utterance.speaker))
               meeting = { ...meeting!, speakers: [...meeting!.speakers, speaker] };
-            const stored = { ...utterance, track: "MIC" as const, confidence: 0.92 };
+            const stored = {
+              spans: [] as { start: number; end: number; confidence: number }[],
+              ...utterance,
+              track: "MIC" as const,
+              confidence: 0.92,
+            };
             meeting = { ...meeting!, utterances: [...meeting!.utterances, stored] };
             socket.send(JSON.stringify({ type: "utterance", utterance: stored }));
           }
@@ -510,6 +573,32 @@ for (const width of [1440, 390]) {
       attendees: ["Anh Thanh", "Chị Lan", "Anh Minh"],
     });
     await expect(bienBan).toHaveCount(0);
+
+    // What the model would change, and what it already changed, both live above the transcript.
+    await page.getByRole("tab", { name: "Transcript" }).click();
+    // Searching the transcript, and keeping one line for later.
+    const find = page.getByRole("textbox", { name: "Tìm trong transcript" });
+    await find.fill("KPI");
+    await expect(page.getByText("1/1")).toBeVisible();
+    await find.fill("");
+
+    await page
+      .getByRole("listitem")
+      .filter({ hasText: "Bên nhân sự đã gửi bảng KPI" })
+      .getByRole("button", { name: "Đánh dấu câu này" })
+      .click();
+    await page.getByRole("button", { name: "Câu đã đánh dấu (1)" }).click();
+    await expect(page.getByText("Tuần này bên mình phải chốt")).toHaveCount(0);
+    await page.getByRole("button", { name: "Câu đã đánh dấu (1)" }).click();
+
+    await expect(page.getByText("Mã dự án đọc rõ ở câu sau là 09.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Nhận", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Hoàn tác", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Hoàn tác cả lượt (1)" })).toBeVisible();
+    await page.screenshot({
+      path: `../output/playwright/meetings-corrections-${width}.png`,
+      fullPage: true,
+    });
 
     expect(audio.ended).toBe(true);
     await expect(page.getByRole("timer")).toHaveCount(0);

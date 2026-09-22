@@ -12,6 +12,9 @@ name: CI
       - 'docs/**'
       - '*.md'
       - 'tools/visual-paradigm-mcp/**'
+  # A merge that produced no run leaves main with nothing to deploy from, and an empty commit cannot start one
+  # because a push that changes no file matches every ignored path. This is the way back.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -20,9 +23,12 @@ defaults:
   run:
     shell: bash
 
+# One run per branch, and the newest commit wins. Keying main by its commit let three of them verify at once,
+# each publishing a release, so the deploys that followed took turns calling one another stale. A commit that
+# supersedes another already contains it, so finishing the older run proves nothing worth waiting for.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   changes:
@@ -116,7 +122,7 @@ jobs:
         run: |
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           bash -n infrastructure/deployment/deploy.sh
-          shellcheck -x infrastructure/deployment/deploy.sh
+          shellcheck -x infrastructure/deployment/deploy.sh api/src/main/docker/application-launcher.sh api/src/main/docker/api-entrypoint.sh
 
       - name: Verify deployment and monitoring configuration
         # Interpolation-only values; this step never starts application services.
@@ -177,6 +183,7 @@ jobs:
 
       - name: Upload backend test reports
         if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: backend-tests
@@ -186,7 +193,7 @@ jobs:
             api/build/test-results/test/*.xml
             worker/build/test-results/test/*.xml
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 3
 
   frontend-check:
     needs: changes
@@ -218,12 +225,13 @@ jobs:
 
       - name: Upload frontend unit reports
         if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: frontend-check-reports
           path: web/reports/
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 3
 
   frontend:
     needs: changes
@@ -252,49 +260,6 @@ jobs:
       - name: Exercise browser states
         run: pnpm --dir web test:e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
-      - name: Upload shard blob report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: blob-report-${{ matrix.shard }}
-          path: web/blob-report/
-          if-no-files-found: warn
-          retention-days: 1
-
-  # Not a gate: merges the shard blob reports (with their traces, screenshots and videos) into one HTML report.
-  frontend-report:
-    needs: [changes, frontend]
-    if: ${{ !cancelled() && needs.changes.outputs.web == 'true' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-
-      - name: Install the frontend toolchain and dependencies
-        uses: ./.github/actions/pnpm-project
-        with:
-          directory: web
-
-      - name: Download shard blob reports
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          pattern: blob-report-*
-          merge-multiple: true
-          path: web/all-blob-reports
-
-      - name: Merge browser reports
-        run: pnpm --dir web exec playwright merge-reports --reporter html ./all-blob-reports
-
-      - name: Upload merged browser report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: frontend-tests
-          path: web/playwright-report/
-          if-no-files-found: warn
-          retention-days: 7
 
   frontend-image:
     needs: changes
@@ -384,7 +349,7 @@ jobs:
           path: candidate/web.tar
           if-no-files-found: error
           compression-level: 1
-          retention-days: 7
+          retention-days: 2
 
   landing:
     needs: changes
@@ -441,12 +406,13 @@ jobs:
 
       - name: Upload landing test reports
         if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: landing-tests
           path: landing/reports/
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 3
 
       # Named outside candidate-* so the application publication never downloads it.
       - name: Preserve verified landing image
@@ -457,7 +423,7 @@ jobs:
           path: candidate/landing.tar
           if-no-files-found: error
           compression-level: 1
-          retention-days: 7
+          retention-days: 2
 
   interpreter:
     needs: changes
@@ -560,7 +526,7 @@ jobs:
           path: candidate/interpreter.tar
           if-no-files-found: error
           compression-level: 1
-          retention-days: 7
+          retention-days: 2
 
   backend-images:
     needs: changes
@@ -629,7 +595,7 @@ jobs:
           path: candidate/backend.tar
           if-no-files-found: error
           compression-level: 1
-          retention-days: 7
+          retention-days: 2
 
   secrets:
     runs-on: ubuntu-24.04

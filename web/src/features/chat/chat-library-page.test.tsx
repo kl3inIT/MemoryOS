@@ -9,6 +9,7 @@ import {
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { ActionNotifications } from "@/components/ui/action-notifications";
 import { i18n } from "@/i18n";
 import { ApiError } from "@/lib/api";
 import type { ChatLibraryFile } from "@/lib/hey-api/types.gen";
@@ -36,6 +37,8 @@ const purgeChatLibraryFile = vi.hoisted(() => vi.fn());
 const emptyChatLibraryTrash = vi.hoisted(() => vi.fn());
 const getChatRetention = vi.hoisted(() => vi.fn());
 const previewChatRetention = vi.hoisted(() => vi.fn());
+const createChatSession = vi.hoisted(() => vi.fn());
+const getChatImageArtifact = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/hey-api/sdk.gen", () => ({
   listChatLibrary: (...args: unknown[]) => listChatLibrary(...args),
@@ -59,6 +62,15 @@ vi.mock("@/lib/hey-api/sdk.gen", () => ({
   emptyChatLibraryTrash: (...args: unknown[]) => emptyChatLibraryTrash(...args),
   getChatRetention: (...args: unknown[]) => getChatRetention(...args),
   previewChatRetention: (...args: unknown[]) => previewChatRetention(...args),
+  createChatSession: (...args: unknown[]) => createChatSession(...args),
+  getChatImageArtifact: (...args: unknown[]) => getChatImageArtifact(...args),
+  getChatFileArtifact: vi.fn(),
+  downloadChatFile: vi.fn(),
+  getChatFileArtifactPdfPreview: vi.fn(),
+  previewChatFileArtifactSpreadsheet: vi.fn(),
+  previewChatFileSpreadsheet: vi.fn(),
+  getChatSession: vi.fn(),
+  getChatHistory: vi.fn(),
 }));
 
 vi.mock("./chat-files", async (importOriginal) => ({
@@ -124,8 +136,14 @@ async function show(items: ChatLibraryFile[] = [file(), upload], hasMore = false
     path: "/library",
     component: () => <ChatLibraryPage />,
   });
+  // A question about a file opens a conversation, so the page can navigate to one.
+  const chatRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/chat/$sessionId",
+    component: () => null,
+  });
   const router = createRouter({
-    routeTree: rootRoute.addChildren([route]),
+    routeTree: rootRoute.addChildren([route, chatRoute]),
     history: createMemoryHistory({ initialEntries: ["/library"] }),
   });
   await router.load();
@@ -133,10 +151,13 @@ async function show(items: ChatLibraryFile[] = [file(), upload], hasMore = false
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <RouterProvider router={router} />
+      <ActionNotifications>
+        <RouterProvider router={router} />
+      </ActionNotifications>
     </QueryClientProvider>,
   );
   if (first) await screen.findByText(first.filename);
+  return router;
 }
 
 beforeEach(async () => {
@@ -221,7 +242,7 @@ it("deletes each selected file through its own route and reports a refusal", asy
   deleteChatFileArtifact.mockRejectedValue(new Error("refused"));
   deleteChatImageArtifact.mockResolvedValue({ data: undefined });
 
-  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả" }));
+  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả trên trang này" }));
   await user.click(screen.getByRole("button", { name: "Xoá" }));
   // The dialog's own confirm button, not the toolbar one that opened it.
   await user.click(
@@ -260,16 +281,47 @@ it("drops a selection made on another page, so paging cannot delete nothing sile
   await show([file()], true);
   const user = userEvent.setup();
 
-  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả" }));
+  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả trên trang này" }));
   expect(screen.getByText("Đã chọn 1 tệp")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Trang sau" }));
 
-  expect(screen.queryByText("Đã chọn 1 tệp")).not.toBeInTheDocument();
+  // The bar plays its exit before it goes, so the selection is dropped a frame before the DOM says so.
+  await waitFor(() => expect(screen.queryByText("Đã chọn 1 tệp")).not.toBeInTheDocument());
+  // The page after the one shown is prefetched, so the request to assert is the page itself, not the last.
   await waitFor(() =>
-    expect(listChatLibrary).toHaveBeenLastCalledWith(
+    expect(listChatLibrary).toHaveBeenCalledWith(
       expect.objectContaining({ query: expect.objectContaining({ offset: 50 }) }),
     ),
   );
+});
+
+it("chooses one day at its heading and leaves the other days alone", async () => {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const older = file({
+    id: "66666666-6666-4666-8666-666666666666",
+    filename: "bảng-lương.xlsx",
+    createdAt: yesterday.toISOString(),
+  });
+  await show([file(), upload, older]);
+  const user = userEvent.setup();
+
+  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả Hôm nay" }));
+
+  // Today holds the two files the server returned first; yesterday's file is untouched.
+  expect(screen.getByText("Đã chọn 2 tệp")).toBeInTheDocument();
+  expect(screen.getByRole("checkbox", { name: "Chọn tất cả Hôm qua" })).toHaveAttribute(
+    "data-state",
+    "unchecked",
+  );
+  // The page's own box says part of the page, not all of it.
+  expect(screen.getByRole("checkbox", { name: "Chọn tất cả trên trang này" })).toHaveAttribute(
+    "data-state",
+    "indeterminate",
+  );
+
+  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả Hôm nay" }));
+  await waitFor(() => expect(screen.queryByText("Đã chọn 2 tệp")).not.toBeInTheDocument());
 });
 
 const PROJECT = {
@@ -493,7 +545,7 @@ it("packs a selection into a ZIP, then downloads it and names what was skipped",
   });
   const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 
-  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả" }));
+  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả trên trang này" }));
   await user.click(screen.getByRole("button", { name: "Tải về ZIP" }));
 
   expect(await screen.findByText(/Đang đóng gói 2 tệp/)).toBeInTheDocument();
@@ -669,4 +721,66 @@ it("keeps the library's own settings on the library: what is stored and how long
       }),
     ),
   );
+});
+
+it("cuts the list into pages of the chosen size, from its first page", async () => {
+  await show([file()], true);
+  const user = userEvent.setup();
+
+  await user.click(screen.getByRole("button", { name: "Trang sau" }));
+  await waitFor(() =>
+    expect(listChatLibrary).toHaveBeenCalledWith(
+      expect.objectContaining({ query: expect.objectContaining({ offset: 50, limit: 50 }) }),
+    ),
+  );
+
+  await user.click(screen.getByRole("combobox", { name: "Số tệp mỗi trang" }));
+  await user.click(await screen.findByRole("option", { name: "12" }));
+
+  await waitFor(() =>
+    expect(listChatLibrary).toHaveBeenCalledWith(
+      expect.objectContaining({ query: expect.objectContaining({ offset: 0, limit: 12 }) }),
+    ),
+  );
+  expect(screen.getByText("Hiển thị 1–12 trên 60 tệp")).toBeInTheDocument();
+});
+
+it("asks Chat about the file being previewed, with the file attached to the question", async () => {
+  const picture = file({
+    source: "UPLOAD",
+    id: "99999999-9999-4999-8999-999999999999",
+    filename: "so-do.png",
+    mediaType: "image/png",
+    category: "IMAGE",
+    sessionId: null,
+    sessionTitle: null,
+  });
+  const router = await show([picture]);
+  const user = userEvent.setup();
+  getChatImageArtifact.mockResolvedValue({ data: new Blob(["png"], { type: "image/png" }) });
+  globalThis.URL.createObjectURL = vi.fn(() => "blob:preview");
+  globalThis.URL.revokeObjectURL = vi.fn();
+  createChatSession.mockResolvedValue({
+    data: { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", title: "Sơ đồ này nói gì?" },
+  });
+
+  await user.click(screen.getByRole("button", { name: "so-do.png" }));
+  await user.type(
+    await screen.findByRole("textbox", { name: "Hỏi về so-do.png" }),
+    "Sơ đồ này nói gì?",
+  );
+  await user.click(screen.getByRole("button", { name: "Hỏi trong Chat" }));
+
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe("/chat/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+  );
+  expect(router.state.location.search).toEqual({
+    ask: "Sơ đồ này nói gì?",
+    attach: [picture.id],
+  });
+  expect(createChatSession).toHaveBeenCalledWith(
+    expect.objectContaining({ body: expect.objectContaining({ title: "Sơ đồ này nói gì?" }) }),
+  );
+  // An upload is already the file Chat attaches, so nothing is copied for it.
+  expect(copyChatLibraryFile).not.toHaveBeenCalled();
 });

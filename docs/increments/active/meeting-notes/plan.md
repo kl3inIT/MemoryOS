@@ -16,33 +16,39 @@ Design: [design.md](design.md). Each phase is its own pull request.
 - [x] **Share a meeting.** The participants field picks real members and Groups beside free-text names for people outside MemoryOS; `meeting_user_share` and `meeting_group_share` follow the shape used by Agents and Document Sets. A reader opens the meeting, watches the transcript arrive, reads the minutes and downloads the biên bản; only the owner edits or deletes.
 - [x] **Publish to the library.** The owner takes the minutes into their library as Markdown on demand — never the transcript — and *Open in Chat* opens a new conversation with the file in the composer. Rewriting the minutes drops the published file so the next use republishes. A reader's own copy waits on MEM-179, where a Group's knowledge base answers without anyone attaching anything.
 - [x] **Minutes job.** `ModelFlow.MEETING_MINUTES`, `AiUsageFlow.MEETING_MINUTES` and their CHECK migrations; session-less model resolution; an API job with lease and attempts; structured summary, decisions and action items with source utterances, plus the meeting type and a summary depth; prompts learned from ghiam-pro (explicit assignments only, a source quote per task, administrative wording), Nojoin (never invent, one named owner or unassigned) and silent-notetaker (an action without an owner becomes a key point).
-- [ ] **Tests.** Owner isolation (404 for a foreign meeting), utterance persistence across reconnect, silent-track detection, minutes job retry and failure, usage recording, web tests for capture states and speaker naming.
+- [x] **Tests.** Owner isolation, ticketed sockets and utterance persistence, the upload job and its refusals, sharing, the minutes job and its billing, the biên bản bytes, the published Markdown, browser capture, recorder and socket, two Playwright flows, and the nginx WebSocket routes. Listed one by one in [docs/tests/meeting.md](../../../tests/meeting.md).
 - [x] **Docs.** `docs/specs/meeting.md`, `docs/tests/meeting.md`, `ARCHITECTURE.md` module graph and table, `AGENTS.md` module list and active increment entry.
 
 ## Phase 2 — minutes quality, export and search
 
-Reading the transcript back:
+Reading the transcript back — [MEM-183](https://linear.app/memory-os/issue/MEM-183):
 
-- [ ] Search inside a transcript: highlighted matches and a match count, with next/previous.
-- [ ] Star a line and filter to starred lines only (ghiam-pro's highlight, which also scopes what the AI reads).
-- [ ] Show the provider's low confidence: a wavy underline on the span and a percentage, from the confidence already stored.
+- [x] Search inside a transcript: highlighted matches and a match count, with next/previous. It runs in the browser over the transcript already loaded.
+- [x] Star a line and filter to starred lines only, plus a bookmark for a moment while the meeting is still running. Both belong to whoever left them. Scoping what the model reads to starred lines belongs with the minutes work ([MEM-188](https://linear.app/memory-os/issue/MEM-188)).
+- [x] Show the provider's low confidence: the uncertain stretches are highlighted in the transcript, with the percentage on hover. Soniox reports a confidence per token, so the mark is the word rather than the line; every other provider reports none and marks nothing.
 - [ ] A topic timeline that jumps to its utterance.
 
 Minutes to send:
 
+- [x] The minutes are the owner's to correct: the summary, each decision and each piece of work, with the model's
+  own words kept as events beside them, and a rerun that asks before discarding that work —
+  [MEM-188](https://linear.app/memory-os/issue/MEM-188).
+
 - [x] Vietnamese administrative minutes (*biên bản*) and Word export, built in Java with Apache POI XWPF, which the repository already carries for spreadsheets. The export is deterministic, testable and free of a model call; `run_python` stays for one-off formats a person asks Chat for. Layout follows Nghị định 30/2020 Mẫu 1.9 (Quốc hiệu/Tiêu ngữ, tên cơ quan, thời gian và địa điểm, I. Thành phần, II. Nội dung, III. Kết luận, IV. Nhiệm vụ, chữ ký chủ tọa and thư ký), which binds state bodies only — a private company such as Tasco follows it by convention, so the fields stay editable before export. A second template for *giao ban* and one for HĐQT/ĐHĐCĐ (Luật Doanh nghiệp 2020 điều 150/158 require the vote tallies and percentages) come only if asked for.
 - [ ] Uploading a company's own `.docx` template is deferred: no notetaker ships it (0 of 20 surveyed; Glean states its format is fixed), and it needs Word content controls plus office-stamper or docx4j to survive Word splitting a placeholder across runs. Revisit when Tasco supplies a real ISO biểu mẫu.
 
+- [x] Download the transcript as Word or PDF, for sending to somebody who was not there.
+
 Vietnamese transcript quality:
 
-- [ ] Transcript correction suggestions with review and undo, using the span logic learned from ghiam-pro and the user glossary.
+- [x] Transcript correction suggestions with review and undo, using the span logic learned from ghiam-pro and the user glossary — [MEM-183](https://linear.app/memory-os/issue/MEM-183). One button proposes for every marked stretch; the owner accepts, accepts in their own words or keeps what was heard, and anything applied can be undone. Accepting the sure ones without review, behind the owner's own choice, is PR B and comes next.
 - [ ] Dialect mappings (local word to standard word) — [MEM-177](https://linear.app/memory-os/issue/MEM-177): a Tenant dictionary fed to the minutes prompt, never a rewrite of the transcript.
 
 Asking and finding:
 
-- [ ] *Catch me up* and meeting-scoped questions during and after the meeting (own model flow, answers from the transcript only, with timestamps).
+- [ ] *Catch me up* and meeting-scoped questions during and after the meeting (own model flow, answers from the transcript only, with timestamps) — [MEM-185](https://linear.app/memory-os/issue/MEM-185).
 - [ ] Owner filter in retrieval so meeting notes appear in the owner's Search and `search_knowledge`.
-- [ ] Speaker-name suggestions from participants and self-introductions, offered for confirmation with the evidence quote, never applied silently.
+- [ ] Speaker-name suggestions from participants and self-introductions, offered for confirmation with the evidence quote, never applied silently — [MEM-186](https://linear.app/memory-os/issue/MEM-186), which also carries ghiam-pro's voice profiles as a second tier behind consent and deletion.
 
 ## Phase 3 — tasks and desktop
 

@@ -4,9 +4,11 @@ _meta:
 memoryos_search:
   users:
     - memoryos-service
+# >>> dashboards
 kibana_server:
   users:
     - memoryos-dashboards
+# <<< dashboards
 memoryos_search_inspector:
   backend_roles:
     - memoryos-inspector

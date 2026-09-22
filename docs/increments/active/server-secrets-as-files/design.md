@@ -34,6 +34,24 @@ Secret vào container dạng Docker secret file chứ không phải biến môi 
 
 Infisical `dev` cho lập trình viên giữ nguyên: dev chạy `infisical run` trên máy cá nhân, không qua entrypoint của container, nên thay đổi này không chạm vào họ.
 
+## Còn nợ sau bước này
+
+`postgres` và `keycloak` vẫn nhận mật khẩu database dạng biến môi trường, vì container database tự tạo role của nó lúc khởi tạo lần đầu và script bootstrap đọc biến đó. Chuyển chúng sang file cần sửa `bootstrap-shared-databases.sh` và cách Keycloak nhận `KC_DB_PASSWORD` — là một thay đổi riêng, không gộp vào đây. Giá trị vẫn nằm trong `.env.<environment>` mode `0600` của root, nên biên bảo vệ trên đĩa không đổi; khác biệt là chúng hiện trong `docker inspect` của hai container đó.
+
+## Cấu hình cũng đi cùng đường đó
+
+`infisical run` bơm **toàn bộ** môi trường của nó vào tiến trình, nên file Compose chưa bao giờ phải gọi tên cấu hình: 16 giá trị như `MEMORYOS_IDENTITY_JWK_SET_URI`, `MEMORYOS_OPENSEARCH_ENDPOINT` hay `MEMORYOS_SEARCH_REPLICAS` tới được ứng dụng chỉ vì vault bơm hộ. Bỏ vault khỏi máy chủ là mất luôn đường đó. `.env.<environment>` chỉ nuôi phép nội suy của Compose; một giá trị tới được container khi và chỉ khi khối dịch vụ gọi tên nó.
+
+Lần deploy đầu tiên không có vault dừng ở `Could not resolve placeholder 'MEMORYOS_IDENTITY_JWK_SET_URI'` — đúng biểu hiện của chỗ hổng này, và là lỗi ồn ào nên phát hiện ngay. Loại nguy hiểm hơn là giá trị **có** default: `MEMORYOS_OPENSEARCH_ENDPOINT` lặng lẽ thành `http://127.0.0.1:9200` trong container thì tìm kiếm hỏng mà không ai báo.
+
+Cách chia đã chọn:
+
+* **Địa chỉ do chính file Compose quyết định** — database, Keycloak admin, OpenSearch — viết thẳng trong Compose. File môi trường không được phép bất đồng với nó. Staging chứng minh vì sao: nó vẫn mang `memoryos-shared-keycloak` sau khi dịch vụ đã đổi tên.
+* **Giá trị khác nhau giữa các môi trường** — issuer, audience, các URI trả về trình duyệt, `SESSION_COOKIE_SECURE`, `SEARCH_REPLICAS`, phiên bản khoá Google Drive — khai báo `:?`. Thiếu thì deployment từ chối đặt chỗ, thay vì chạy với ý nghĩa của môi trường kia.
+* **Tên vai trò do provisioning đặt** — user database, user OpenSearch — có default, ghi đè được, giống cách `MEMORYOS_REDIS_USERNAME` và access key MinIO đang làm.
+
+`test_configuration_reaches_the_container.py` giữ ba ràng buộc đó, và kiểm thêm rằng `production.env.example` mang đủ mọi giá trị `:?` mà production cần — để lần dựng đầu trên máy khách không lặp lại chuyện này.
+
 ## Ngoài phạm vi
 
 * Đổi quy trình của lập trình viên.

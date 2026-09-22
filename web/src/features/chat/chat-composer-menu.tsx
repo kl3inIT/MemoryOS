@@ -25,6 +25,7 @@ import { ChatMcpServers, ChatMcpToggle } from "./chat-mcp-options";
 import { useMcpConnections } from "./chat-mcp-connections";
 import type { ImageMode } from "./chat-image";
 import { useComposerFileSelection } from "./use-composer-file-selection";
+import { useChatAttachmentStaging } from "./chat-attachment-staging-context";
 
 /**
  * The composer's single `+` entry for files and tools, with the active Web tool as a chip.
@@ -70,6 +71,7 @@ export function ChatComposerMenu({
 }) {
   const ui = useAppTranslation();
   const files = useComposerFileSelection();
+  const staging = useChatAttachmentStaging();
   const mcpConnections = useMcpConnections();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<"root" | "files" | "web" | "mcp">("root");
@@ -229,9 +231,8 @@ export function ChatComposerMenu({
         open={allFiles}
         onOpenChange={setAllFiles}
         selected={files.selected}
-        onAttach={(picked) =>
-          files.select([...files.selected, ...picked.map((file) => file.id)], picked)
-        }
+        preparing={staging.preparing}
+        onAttach={staging.attach}
       />
     </div>
   );

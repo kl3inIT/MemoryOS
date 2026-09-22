@@ -79,12 +79,14 @@ describe("meeting track socket", () => {
         endMs: 2500,
         text: "Chốt ngân sách.",
         confidence: 0.9,
+        spans: [{ start: 5, end: 14, confidence: 0.42 }, { start: 99 }],
       },
     });
     socket().receive({ type: "utterance", utterance: { id: "bad" } });
     expect(onPreview).toHaveBeenCalledWith("2", "Chốt ngân");
     expect(onUtterance).toHaveBeenCalledTimes(1);
     expect(onUtterance.mock.calls[0][0].text).toBe("Chốt ngân sách.");
+    expect(onUtterance.mock.calls[0][0].spans).toEqual([{ start: 5, end: 14, confidence: 0.42 }]);
 
     const finishing = live.finish();
     expect(socket().sent.at(-1)).toBe(JSON.stringify({ type: "end" }));

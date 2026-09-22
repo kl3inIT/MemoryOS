@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { ErrorMessage } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { ErrorState } from "@/components/assistant-ui/elements/error-state";
+import { cn } from "@/lib/utils";
 
 export function ChatDialog({
   title,
@@ -19,6 +20,7 @@ export function ChatDialog({
   closeOnSuccess = true,
   submitDisabled = false,
   wide = false,
+  fill = false,
 }: {
   title: string;
   description: string;
@@ -32,6 +34,11 @@ export function ChatDialog({
   submitDisabled?: boolean;
   /** Wider layout for multi-section editors. */
   wide?: boolean;
+  /**
+   * The body owns the scrolling: the dialog keeps to the viewport and its content stretches inside it, so a
+   * long list scrolls on its own instead of putting a second scrollbar on the dialog.
+   */
+  fill?: boolean;
 }) {
   const { t } = useTranslation("common");
   const { t: statusText } = useTranslation("chatStatus");
@@ -52,7 +59,14 @@ export function ChatDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px]" />
         <Dialog.Content
-          className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[min(40rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border-default bg-surface-overlay p-6 shadow-md outline-none data-[wide=true]:w-[min(56rem,calc(100vw-2rem))]"
+          className={cn(
+            "fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[min(40rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border-default bg-surface-overlay p-6 shadow-md outline-none data-[wide=true]:w-[min(56rem,calc(100vw-2rem))]",
+            // A definite height is what lets the body own the scrolling: percentage-free flex children cannot
+            // resolve against `max-height` alone, and the footer would be clipped instead of staying in view.
+            fill
+              ? "flex h-[min(44rem,calc(100dvh-2rem))] flex-col overflow-hidden"
+              : "overflow-y-auto",
+          )}
           data-wide={wide}
           onEscapeKeyDown={(event) => {
             if (busy.current) event.preventDefault();
@@ -62,6 +76,7 @@ export function ChatDialog({
           }}
         >
           <form
+            className={cn(fill && "flex min-h-0 flex-1 flex-col")}
             onSubmit={(event) => {
               event.preventDefault();
               if (!onSubmit || busy.current || submitDisabled) return;
@@ -84,7 +99,10 @@ export function ChatDialog({
             <Dialog.Description className="mt-2 text-sm text-content-secondary">
               {description}
             </Dialog.Description>
-            <fieldset disabled={pending} className="mt-5 space-y-4">
+            <fieldset
+              disabled={pending}
+              className={cn("mt-5 space-y-4", fill && "flex min-h-0 flex-1 flex-col")}
+            >
               {children}
             </fieldset>
             {error && (

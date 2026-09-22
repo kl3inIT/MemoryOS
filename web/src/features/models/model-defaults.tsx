@@ -273,6 +273,11 @@ export function TaskModels(catalog: Catalog) {
       description: ui("Writes the summary, decisions and action items of a recorded meeting."),
       ariaLabel: ui("Meeting minutes model"),
     },
+    MEETING_CORRECTION: {
+      title: ui("Transcript corrections"),
+      description: ui("Proposes what was said where the speech provider was unsure."),
+      ariaLabel: ui("Transcript correction model"),
+    },
   };
   return flows.data.map((flow) => (
     <SelectionEditor

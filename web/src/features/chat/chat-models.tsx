@@ -18,6 +18,34 @@ export const REASONING_EFFORTS = [
 /** As the server's ResearchProperties.minimumContextTokens (Onyx's Deep research minimum). */
 export const RESEARCH_MINIMUM_CONTEXT = 50_000;
 
+/**
+ * The model a person last chose, kept per actor for this tab. Chat reads it when a conversation opens and
+ * the file preview writes it when a question is started from there, so one choice follows the person.
+ */
+export function readChatModelPreference(actorId: string): string | undefined {
+  try {
+    const saved: unknown = JSON.parse(sessionStorage.getItem(chatModelKey(actorId)) ?? "{}");
+    if (saved && typeof saved === "object" && "id" in saved && typeof saved.id === "string")
+      return /^[0-9a-f-]{36}$/i.test(saved.id) ? saved.id : undefined;
+  } catch {
+    /* Preference storage is optional. */
+  }
+  return undefined;
+}
+
+export function writeChatModelPreference(actorId: string, id?: string) {
+  try {
+    if (id) sessionStorage.setItem(chatModelKey(actorId), JSON.stringify({ id }));
+    else sessionStorage.removeItem(chatModelKey(actorId));
+  } catch {
+    /* Preference storage is optional. */
+  }
+}
+
+function chatModelKey(actorId: string) {
+  return `memoryos.chat.model:${actorId}`;
+}
+
 /** The authorized model catalog for a conversation, shared by the picker and regeneration. */
 export function useChatModels(sessionId?: string) {
   const ui = useAppTranslation();

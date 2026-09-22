@@ -11,6 +11,13 @@ export type ArchiveState =
   | { phase: "ready"; archive: ChatLibraryArchive }
   | { phase: "failed"; message: string };
 
+/** What the hook hands its page: where the ZIP is, and the two commands that move it. */
+export type LibraryArchive = {
+  state: ArchiveState;
+  start: (files: readonly LibraryFile[]) => Promise<void>;
+  reset: () => void;
+};
+
 /** The archive route is owner-private, so the browser downloads it as a normal navigation. */
 export const archiveContentUrl = (id: string) => `/api/chat/library/archives/${id}/content`;
 
@@ -18,7 +25,7 @@ export const archiveContentUrl = (id: string) => `/api/chat/library/archives/${i
  * Downloading a selection as one ZIP (MEM-152): the request is recorded, a Worker packs it, and the browser
  * polls until it is ready and then downloads it. A file that disappeared meanwhile is reported, not hidden.
  */
-export function useLibraryArchive() {
+export function useLibraryArchive(): LibraryArchive {
   const [state, setState] = useState<ArchiveState>({ phase: "idle" });
   const running = useRef<AbortController>(null);
   useEffect(() => () => running.current?.abort(), []);

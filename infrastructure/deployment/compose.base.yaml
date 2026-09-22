@@ -17,6 +17,23 @@ services:
   postgres:
     image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382}
     container_name: memoryos-postgres
+    # Every one of these was the stock default until now, on a machine that has far more memory
+    # than the defaults assume. The defaults here stay modest because one environment shares its
+    # host with unrelated services; an environment with room of its own raises them in its
+    # environment file. work_mem is charged per sort or hash within a query, not per connection,
+    # so the ceiling is the pool size times the operations one query can hold at once.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=${MEMORYOS_POSTGRES_SHARED_BUFFERS:-256MB}
+      - -c
+      - effective_cache_size=${MEMORYOS_POSTGRES_EFFECTIVE_CACHE_SIZE:-1GB}
+      - -c
+      - work_mem=${MEMORYOS_POSTGRES_WORK_MEM:-8MB}
+      - -c
+      - maintenance_work_mem=${MEMORYOS_POSTGRES_MAINTENANCE_WORK_MEM:-128MB}
+      - -c
+      - max_connections=${MEMORYOS_POSTGRES_MAX_CONNECTIONS:-100}
     restart: unless-stopped
     init: true
     security_opt:
@@ -31,6 +48,7 @@ services:
       MEMORYOS_DATABASE_NAME: ${MEMORYOS_DATABASE_NAME:-memoryos}
       MEMORYOS_DATABASE_USERNAME: ${MEMORYOS_DATABASE_USERNAME:-memoryos_app}
       MEMORYOS_DATABASE_PASSWORD: ${MEMORYOS_DATABASE_PASSWORD:?Set MEMORYOS_DATABASE_PASSWORD}
+      MEMORYOS_DATABASE_CONNECTION_LIMIT: ${MEMORYOS_DATABASE_CONNECTION_LIMIT:-40}
       MEMORYOS_KEYCLOAK_DATABASE_NAME: ${MEMORYOS_KEYCLOAK_DATABASE_NAME:-keycloak}
       MEMORYOS_KEYCLOAK_DATABASE_USERNAME: ${MEMORYOS_KEYCLOAK_DATABASE_USERNAME:-keycloak}
       MEMORYOS_KEYCLOAK_DATABASE_PASSWORD: ${MEMORYOS_KEYCLOAK_DATABASE_PASSWORD:?Set MEMORYOS_KEYCLOAK_DATABASE_PASSWORD}
@@ -150,7 +168,9 @@ services:
           memory: 256m
 
   minio-bootstrap:
-    image: ${MEMORYOS_MINIO_MC_IMAGE:-minio/mc:RELEASE.2025-04-16T18-13-26Z@sha256:aead63c77f9db9107f1696fb08ecb0faeda23729cde94b0f663edf4fe09728e3}
+    # The same registry the server comes from, and by the same digest: Docker Hub no longer
+    # serves minio/mc, so a host without it already cached cannot pull the client at all.
+    image: ${MEMORYOS_MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z@sha256:aead63c77f9db9107f1696fb08ecb0faeda23729cde94b0f663edf4fe09728e3}
     container_name: memoryos-minio-bootstrap
     cap_add:
       - DAC_OVERRIDE
@@ -267,6 +287,7 @@ services:
       MEMORYOS_OBJECT_STORAGE_ACCESS_KEY: ${MEMORYOS_OBJECT_STORAGE_API_ACCESS_KEY:-memoryos-api}
       MEMORYOS_OBJECT_STORAGE_SECRET_KEY_FILE: /run/secrets/minio_api_secret_key
       MEMORYOS_OBJECT_STORAGE_READINESS_KEY: ${MEMORYOS_OBJECT_STORAGE_READINESS_KEY:-system/readiness}
+      MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES: ${MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES:-536870912}
       MEMORYOS_TENANT_ID: ${MEMORYOS_TENANT_ID:?Set MEMORYOS_TENANT_ID}
       MEMORYOS_TENANT_SLUG: ${MEMORYOS_TENANT_SLUG:?Set MEMORYOS_TENANT_SLUG}
       MEMORYOS_TENANT_DISPLAY_NAME: ${MEMORYOS_TENANT_DISPLAY_NAME:?Set MEMORYOS_TENANT_DISPLAY_NAME}
@@ -283,13 +304,55 @@ services:
       MEMORYOS_REDIS_PASSWORD_FILE: /run/secrets/redis_api_password
       MEMORYOS_REDIS_CONNECT_TIMEOUT: ${MEMORYOS_REDIS_CONNECT_TIMEOUT:-2s}
       MEMORYOS_REDIS_COMMAND_TIMEOUT: ${MEMORYOS_REDIS_COMMAND_TIMEOUT:-2s}
+      # Configuration the vault used to inject into the process. Compose interpolation fills the
+      # composition file only; a value reaches the container when a service names it here.
+      #
+      # Addresses the composition itself decides, so the environment file cannot drift from them.
+      MEMORYOS_DATABASE_URL: jdbc:postgresql://memoryos-postgres:5432/${MEMORYOS_DATABASE_NAME:-memoryos}
+      MEMORYOS_DATABASE_USERNAME: ${MEMORYOS_DATABASE_USERNAME:-memoryos_app}
+      MEMORYOS_DATABASE_POOL_SIZE: ${MEMORYOS_API_DATABASE_POOL_SIZE:-15}
+      MEMORYOS_KEYCLOAK_ADMIN_SERVER_URL: http://memoryos-keycloak:8080
+      MEMORYOS_OPENSEARCH_ENDPOINT: https://opensearch:9200
+      MEMORYOS_OPENSEARCH_USERNAME: ${MEMORYOS_OPENSEARCH_USERNAME:-memoryos-service}
+      #
+      # Values that differ between environments. Required rather than defaulted: a wrong issuer or
+      # a search index built for the other environment fails quietly, and quiet is the failure
+      # that reaches customers.
+      MEMORYOS_IDENTITY_ISSUER: ${MEMORYOS_IDENTITY_ISSUER:?Set MEMORYOS_IDENTITY_ISSUER}
+      MEMORYOS_IDENTITY_JWK_SET_URI: ${MEMORYOS_IDENTITY_JWK_SET_URI:?Set MEMORYOS_IDENTITY_JWK_SET_URI}
+      MEMORYOS_IDENTITY_AUDIENCE: ${MEMORYOS_IDENTITY_AUDIENCE:?Set MEMORYOS_IDENTITY_AUDIENCE}
+      MEMORYOS_INITIAL_OWNER_SUBJECT: ${MEMORYOS_INITIAL_OWNER_SUBJECT:?Set MEMORYOS_INITIAL_OWNER_SUBJECT}
+      MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI: ${MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI:?Set MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI}
+      MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI: ${MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI:?Set MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI}
+      MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION}
+      MEMORYOS_MCP_REDIRECT_URI: ${MEMORYOS_MCP_REDIRECT_URI:?Set MEMORYOS_MCP_REDIRECT_URI}
+      MEMORYOS_SESSION_COOKIE_SECURE: ${MEMORYOS_SESSION_COOKIE_SECURE:?Set MEMORYOS_SESSION_COOKIE_SECURE}
+      MEMORYOS_SEARCH_REPLICAS: ${MEMORYOS_SEARCH_REPLICAS:?Set MEMORYOS_SEARCH_REPLICAS}
+      # An empty list admits nobody, which is the safe reading of an absent setting.
+      MEMORYOS_JIT_ALLOWED_PROVIDER_ALIASES: ${MEMORYOS_JIT_ALLOWED_PROVIDER_ALIASES:-}
+      MEMORYOS_DATABASE_PASSWORD_FILE: /run/secrets/database_password
+      MEMORYOS_BROWSER_CLIENT_SECRET_FILE: /run/secrets/browser_client_secret
+      MEMORYOS_KEYCLOAK_ADMIN_CLIENT_SECRET_FILE: /run/secrets/keycloak_admin_client_secret
+      MEMORYOS_OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_password
+      MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_FILE: /run/secrets/chat_catalog_encryption_key
+      MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/google_drive_credential_encryption_key
+      MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/mcp_credential_encryption_key
+      # One key serves chat and embedding; the launcher exports both names from this file.
+      MEMORYOS_CHAT_API_KEY_FILE: /run/secrets/model_api_key
+      MEMORYOS_EMBEDDING_API_KEY_FILE: /run/secrets/model_api_key
     secrets:
-      - source: memoryos_infisical_bootstrap
-        target: memoryos_infisical_bootstrap
       - minio_api_secret_key
       - interpreter_api_key
       - redis_tls_ca
       - redis_api_password
+      - database_password
+      - browser_client_secret
+      - keycloak_admin_client_secret
+      - opensearch_password
+      - chat_catalog_encryption_key
+      - google_drive_credential_encryption_key
+      - mcp_credential_encryption_key
+      - model_api_key
     depends_on:
       postgres:
         condition: service_healthy
@@ -360,12 +423,29 @@ services:
       MEMORYOS_REDIS_POOL_MAX_IDLE: ${MEMORYOS_REDIS_POOL_MAX_IDLE:-8}
       MEMORYOS_REDIS_POOL_MIN_IDLE: ${MEMORYOS_REDIS_POOL_MIN_IDLE:-0}
       MEMORYOS_REDIS_POOL_MAX_WAIT: ${MEMORYOS_REDIS_POOL_MAX_WAIT:-2s}
+      # See the api service. The Worker reads the database, the search cluster and the Google Drive
+      # key version; identity and the redirect URIs belong to the browser-facing service alone.
+      MEMORYOS_DATABASE_URL: jdbc:postgresql://memoryos-postgres:5432/${MEMORYOS_DATABASE_NAME:-memoryos}
+      MEMORYOS_DATABASE_USERNAME: ${MEMORYOS_DATABASE_USERNAME:-memoryos_app}
+      MEMORYOS_DATABASE_POOL_SIZE: ${MEMORYOS_WORKER_DATABASE_POOL_SIZE:-10}
+      MEMORYOS_OPENSEARCH_ENDPOINT: https://opensearch:9200
+      MEMORYOS_OPENSEARCH_USERNAME: ${MEMORYOS_OPENSEARCH_USERNAME:-memoryos-service}
+      MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION}
+      MEMORYOS_SEARCH_REPLICAS: ${MEMORYOS_SEARCH_REPLICAS:?Set MEMORYOS_SEARCH_REPLICAS}
+      MEMORYOS_DATABASE_PASSWORD_FILE: /run/secrets/database_password
+      MEMORYOS_OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_password
+      MEMORYOS_EXTRACTION_DOCLING_API_KEY_FILE: /run/secrets/docling_api_key
+      MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/google_drive_credential_encryption_key
+      MEMORYOS_EMBEDDING_API_KEY_FILE: /run/secrets/model_api_key
     secrets:
-      - source: memoryos_infisical_bootstrap
-        target: memoryos_infisical_bootstrap
       - minio_worker_secret_key
       - redis_tls_ca
       - redis_worker_password
+      - database_password
+      - opensearch_password
+      - docling_api_key
+      - google_drive_credential_encryption_key
+      - model_api_key
     depends_on:
       api:
         condition: service_healthy
@@ -569,8 +649,27 @@ networks:
     external: true
 
 secrets:
-  memoryos_infisical_bootstrap:
-    file: ${MEMORYOS_INFISICAL_BOOTSTRAP_FILE:?Set MEMORYOS_INFISICAL_BOOTSTRAP_FILE}
+  # Generated on the server and never leaving it. A deployment refuses to reserve the environment
+  # when one of these files is missing, which is a clearer failure than a container that starts
+  # without a password. See docs/increments/active/server-secrets-as-files.
+  database_password:
+    file: ${MEMORYOS_DATABASE_PASSWORD_SECRET_FILE:-/apps/memoryos/secrets/database/app-password.txt}
+  browser_client_secret:
+    file: ${MEMORYOS_BROWSER_CLIENT_SECRET_SECRET_FILE:-/apps/memoryos/secrets/keycloak/browser-client-secret.txt}
+  keycloak_admin_client_secret:
+    file: ${MEMORYOS_KEYCLOAK_ADMIN_CLIENT_SECRET_SECRET_FILE:-/apps/memoryos/secrets/keycloak/admin-client-secret.txt}
+  opensearch_password:
+    file: ${MEMORYOS_OPENSEARCH_PASSWORD_SECRET_FILE:-/apps/memoryos/secrets/opensearch/service-password.txt}
+  docling_api_key:
+    file: ${MEMORYOS_EXTRACTION_DOCLING_API_KEY_SECRET_FILE:-/apps/memoryos/secrets/docling/api-key.txt}
+  chat_catalog_encryption_key:
+    file: ${MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/chat-catalog-key.txt}
+  google_drive_credential_encryption_key:
+    file: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/google-drive-credential-key.txt}
+  mcp_credential_encryption_key:
+    file: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/mcp-credential-key.txt}
+  model_api_key:
+    file: ${MEMORYOS_MODEL_API_KEY_SECRET_FILE:-/apps/memoryos/secrets/model/api-key.txt}
   minio_root_password:
     file: ${MEMORYOS_MINIO_ROOT_PASSWORD_FILE:-/apps/memoryos/secrets/minio/root-password.txt}
   minio_api_secret_key:

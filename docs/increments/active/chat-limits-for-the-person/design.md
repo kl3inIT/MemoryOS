@@ -21,7 +21,7 @@ the conversation with nothing said — the answer silently lost content it had p
 ## Decisions
 
 1. **The storage maximum is deployment configuration.** `memoryos.chat.storage.library-bytes`
-   (`MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES`) bounds every person's library, defaulting to 2 GiB; `0` means no
+   (`MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES`) bounds every person's library, defaulting to 512 MiB; `0` means no
    limit, which is how Chat behaved before a limit existed. `ChatStorageQuotaService` reads it instead of
    `chat_storage_quota`, and the table, its per-person exceptions, `chat_settings.storage_quota_bytes`, the
    `/api/chat/storage-quota` routes and the administration page are gone. A limit that can be raised for one

@@ -39,6 +39,9 @@ class QuestionResult:
     correct: bool | None = None
     judge_reason: str = ""
     # Agreeing trials out of trials run; below one means the judge contradicted itself.
+    # Which model answered, so two runs can be compared later without guessing.
+    model: str | None = None
+    fallback: str | None = None
     judge_agreed: int = 0
     judge_trials: int = 0
     abstained: bool | None = None
@@ -164,6 +167,8 @@ def _answer(client: ActorClient, question: Question, result: QuestionResult) -> 
     result.status = reply.status
     result.seconds = round(reply.seconds, 2)
     result.steps = reply.steps
+    result.model = reply.model
+    result.fallback = reply.fallback
 
 
 def _score(

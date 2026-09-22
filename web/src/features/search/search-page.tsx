@@ -46,11 +46,9 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import { cn } from "@/lib/utils";
 import { searchDocuments } from "@/lib/hey-api/sdk.gen";
-import { uiLanguage } from "@/i18n";
 import { matchingProvenance } from "./source-provenance";
 import { useVoiceAvailability } from "@/features/voice/use-voice-availability";
-import { startVoiceDictation, type VoiceDictation } from "@/features/voice/voice-dictation";
-import { requestVoiceTicket, voiceFailureCopy } from "@/features/voice/voice-failure";
+import { useDictationInput, type DictationStatus } from "@/features/voice/use-dictation-input";
 import type {
   Result as SearchResult,
   SearchRequest,
@@ -87,8 +85,6 @@ const PAGE_SIZE = 10;
 /** `SearchRequest.page` accepts 0–49. */
 const MAX_PAGES = 50;
 
-type VoiceStatus = "idle" | "starting" | "listening" | "finishing" | "failed";
-
 export function SearchPage() {
   const ui = useAppTranslation();
   const canSearch = useGlobalCapability("SEARCH_READ");
@@ -111,7 +107,7 @@ export function SearchPage() {
 
 function AuthorizedSearchPage() {
   const ui = useAppTranslation();
-  const { actorId, uiLanguage: sessionLanguage } = useApplicationSession();
+  const { actorId } = useApplicationSession();
   const [recentSearches, setRecentSearches] = useState(() => readRecentSearches(actorId));
   const [query, setQuery] = useState("");
   const [mediaType, setMediaType] = useState<string | null>(null);
@@ -125,19 +121,23 @@ function AuthorizedSearchPage() {
   const searchFormRef = useRef<HTMLFormElement | null>(null);
   const previousSearchTopRef = useRef<number | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
-  const dictationRef = useRef<VoiceDictation | null>(null);
-  const voiceAttemptRef = useRef(0);
   const reportedSearchError = useRef<unknown>(null);
-  const voiceQueryPrefixRef = useRef("");
-  const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("idle");
-  const [voiceFailure, setVoiceFailure] = useState<AppCopy>();
   // Voice search uses the Tenant's speech-to-text provider through MemoryOS, never browser recognition.
   const voiceSearchAvailable = useVoiceAvailability().data?.sttAvailable === true;
   const documentSets = useQuery({
     queryKey: ["document-sets", actorId],
     queryFn: ({ signal }) => loadDocumentSets(signal),
   });
-  const isListening = voiceStatus === "listening";
+  const {
+    status: voiceStatus,
+    failure: voiceFailure,
+    listening: isListening,
+    toggle: toggleVoiceSearch,
+  } = useDictationInput({
+    text: query,
+    onText: setQuery,
+    onFinished: () => searchInputRef.current?.focus(),
+  });
   const hasRequest = request !== null;
   const result = useQuery({
     queryKey: ["document-search", request],
@@ -192,64 +192,6 @@ function AuthorizedSearchPage() {
       failureKind: "api-or-network",
     });
   }, [request, result.error, result.isError]);
-
-  useEffect(
-    () => () => {
-      voiceAttemptRef.current += 1;
-      dictationRef.current?.cancel();
-    },
-    [],
-  );
-
-  function voiceQuery(transcript: string) {
-    return [voiceQueryPrefixRef.current, transcript.trim()].filter(Boolean).join(" ");
-  }
-
-  async function toggleVoiceSearch() {
-    if (voiceStatus === "listening") {
-      const dictation = dictationRef.current;
-      dictationRef.current = null;
-      if (!dictation) return;
-      setVoiceStatus("finishing");
-      const transcript = await dictation.stop();
-      if (transcript) setQuery(voiceQuery(transcript));
-      setVoiceStatus("idle");
-      searchInputRef.current?.focus();
-      return;
-    }
-    if (voiceStatus === "starting" || voiceStatus === "finishing") return;
-    const attempt = ++voiceAttemptRef.current;
-    const current = () => voiceAttemptRef.current === attempt;
-    voiceQueryPrefixRef.current = query.trim();
-    setVoiceFailure(undefined);
-    setVoiceStatus("starting");
-    try {
-      const dictation = await startVoiceDictation({
-        language: uiLanguage(sessionLanguage),
-        requestTicket: requestVoiceTicket,
-        onInterim: (transcript) => {
-          if (current()) setQuery(voiceQuery(transcript));
-        },
-        onLevel: () => {},
-        onFailure: (error) => {
-          if (!current()) return;
-          dictationRef.current = null;
-          setVoiceFailure(voiceFailureCopy(error));
-          setVoiceStatus("failed");
-        },
-      });
-      if (!current()) {
-        dictation.cancel();
-        return;
-      }
-      dictationRef.current = dictation;
-      setVoiceStatus("listening");
-    } catch (error) {
-      if (!current()) return;
-      setVoiceFailure(voiceFailureCopy(error));
-      setVoiceStatus("failed");
-    }
-  }
 
   function submit(text = query) {
     if (!text.trim()) return;
@@ -755,7 +697,7 @@ function AuthorizedSearchPage() {
   );
 }
 
-function voiceStatusMessage(status: VoiceStatus) {
+function voiceStatusMessage(status: DictationStatus) {
   if (status === "starting") return "Starting the microphone…";
   if (status === "listening") return "Listening… Speak now, then review your query.";
   if (status === "finishing") return "Finishing the transcript…";

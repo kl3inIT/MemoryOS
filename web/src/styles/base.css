@@ -56,6 +56,25 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* Tailwind v4 resets buttons to the arrow cursor. Anything the person can press says so with the hand,
+     while a disabled control keeps the arrow because pressing it does nothing. */
+  :where(
+    button,
+    [role="button"],
+    [role="menuitem"],
+    [role="option"],
+    [role="tab"],
+    summary,
+    label[for],
+    a[href]
+  ):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+    cursor: pointer;
+  }
+
+  :where(button, [role="button"]):is(:disabled, [aria-disabled="true"], [data-disabled]) {
+    cursor: not-allowed;
+  }
+
   :where(input, textarea, select)[aria-invalid="true"] {
     border-color: var(--status-danger-content);
   }

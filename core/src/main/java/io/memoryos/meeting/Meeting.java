@@ -32,11 +32,26 @@ public final class Meeting {
 
     /** A decision the meeting reached or work it handed out, with the line it rests on. */
     public record MinutesItem(UUID id, ItemKind kind, String text, @Nullable String owner, @Nullable String due,
-                              @Nullable String quote, @Nullable UUID sourceUtteranceId, boolean done) {}
+                              @Nullable String quote, @Nullable UUID sourceUtteranceId, boolean done,
+                              boolean edited) {
+        public MinutesItem(UUID id, ItemKind kind, String text, @Nullable String owner, @Nullable String due,
+                @Nullable String quote, @Nullable UUID sourceUtteranceId, boolean done) {
+            this(id, kind, text, owner, due, quote, sourceUtteranceId, done, false);
+        }
+    }
 
     /** What a run of the minutes job produced, as the owner reads it. */
     public record Minutes(MinutesStatus status, @Nullable String failure, String summary, String kind,
-                          @Nullable Instant generatedAt, List<MinutesItem> decisions, List<MinutesItem> actions) {}
+                          @Nullable Instant generatedAt, List<MinutesItem> decisions, List<MinutesItem> actions,
+                          boolean edited) {
+        public Minutes(MinutesStatus status, @Nullable String failure, String summary, String kind,
+                @Nullable Instant generatedAt, List<MinutesItem> decisions, List<MinutesItem> actions) {
+            this(status, failure, summary, kind, generatedAt, decisions, actions, false);
+        }
+    }
+
+    /** What part of the minutes a change was made to. */
+    public enum MinutesField { SUMMARY, TEXT, OWNER, DUE }
 
     public record Summary(UUID id, String title, Kind kind, Status status, int participants, long durationMs,
                           Instant createdAt, @Nullable Instant endedAt, boolean owned) {}
@@ -50,11 +65,62 @@ public final class Meeting {
                          List<String> terms, String notes, Status status, @Nullable String provider, boolean diarized,
                          Instant createdAt, @Nullable Instant endedAt, long revision, List<Speaker> speakers,
                          List<Utterance> utterances, Minutes minutes, Audio audio, boolean owned,
-                         List<Reader> readers) {}
+                         List<Reader> readers, List<UUID> starred, List<Bookmark> bookmarks) {
+
+        /** A meeting read for a document rather than for a person carries nobody's marks. */
+        public Detail(UUID id, String title, Kind kind, @Nullable String language, List<String> participants,
+                List<String> terms, String notes, Status status, @Nullable String provider, boolean diarized,
+                Instant createdAt, @Nullable Instant endedAt, long revision, List<Speaker> speakers,
+                List<Utterance> utterances, Minutes minutes, Audio audio, boolean owned, List<Reader> readers) {
+            this(id, title, kind, language, participants, terms, notes, status, provider, diarized, createdAt,
+                    endedAt, revision, speakers, utterances, minutes, audio, owned, readers, List.of(), List.of());
+        }
+    }
+
+    /**
+     * A moment somebody marked while the meeting was still running, when there was no line yet to star. Times are
+     * milliseconds from the start of the recording, the same clock the utterances are on.
+     */
+    public record Bookmark(UUID id, long atMs, String label) {}
 
     public record Speaker(Track track, String label, @Nullable String name) {}
 
-    public record Utterance(UUID id, Track track, String speaker, long startMs, long endMs, String text, double confidence) {}
+    public record Utterance(UUID id, Track track, String speaker, long startMs, long endMs, String text,
+                            double confidence, List<Span> spans, @Nullable EditSource editSource) {
+        public Utterance {
+            // The text is trimmed and capped after the provider wrote it, so a stretch can fall outside; drop it
+            // rather than store an offset that points past the line a reader sees.
+            spans = spans.stream().filter(span -> span.start() >= 0 && span.end() <= text.length()
+                    && span.start() < span.end()).toList();
+        }
+
+        public Utterance(UUID id, Track track, String speaker, long startMs, long endMs, String text,
+                double confidence) {
+            this(id, track, speaker, startMs, endMs, text, confidence, List.of(), null);
+        }
+
+        public Utterance(UUID id, Track track, String speaker, long startMs, long endMs, String text,
+                double confidence, List<Span> spans) {
+            this(id, track, speaker, startMs, endMs, text, confidence, spans, null);
+        }
+    }
+
+    /** A stretch of an utterance the provider was unsure of, by character offset, half-open. */
+    public record Span(int start, int end, double confidence) {}
+
+    /** Who last changed what an utterance says. Absent means nobody has: the provider's own words still stand. */
+    public enum EditSource { MODEL, HUMAN }
+
+    /** What became of a proposal. */
+    public enum CorrectionStatus { PENDING, ACCEPTED, KEPT, REVERTED }
+
+    /**
+     * One proposal for one uncertain stretch. It carries the model's own reasons and scores so the owner can weigh
+     * it; nothing in the transcript changes until the owner decides.
+     */
+    public record Correction(UUID id, UUID utteranceId, UUID runId, int start, int end, String before, String after,
+                             String reason, double confidence, double contextFit, double meaningSafe,
+                             boolean matchedGlossary, CorrectionStatus status) {}
 
     /** What the owner enters before recording. */
     public record Draft(String title, Kind kind, @Nullable String language, List<String> participants, List<String> terms) {}

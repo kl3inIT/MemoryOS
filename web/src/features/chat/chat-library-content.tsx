@@ -37,9 +37,7 @@ export function LibraryContentMatches({
                 className="mt-0.5 size-4 shrink-0"
               />
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium hover:underline">
-                  {match.file.filename}
-                </span>
+                <span className="block truncate font-medium">{match.file.filename}</span>
                 <span className="block text-xs text-content-muted">
                   {fileSize(match.file.sizeBytes, i18n.language)}
                 </span>

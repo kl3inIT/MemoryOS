@@ -1,24 +1,40 @@
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
+  acceptAllMeetingCorrections,
+  acceptMeetingCorrection,
+  bookmarkMeetingMoment,
   createMeeting,
   createMeetingTicket,
   deleteMeeting,
+  editMeetingMinutesItem,
+  editMeetingMinutesSummary,
   endMeeting,
   exportMeetingMinutes,
   finalizeMeetingRecording,
   getMeeting,
+  keepMeetingWording,
+  listMeetingCorrections,
   listMeetings,
   listMeetingTranscribers,
   markMeetingMinutesItem,
   nameMeetingSpeaker,
+  proposeMeetingCorrections,
+  exportMeetingTranscript,
   publishMeetingMinutes,
+  removeMeetingBookmark,
   rerunMeetingMinutes,
   reserveMeetingRecording,
+  revertAllMeetingCorrections,
+  revertMeetingCorrection,
   shareMeeting as shareMeetingRequest,
+  starMeetingUtterance,
+  unstarMeetingUtterance,
   updateMeetingNotes,
 } from "@/lib/hey-api/sdk.gen";
 import type {
   MeetingAudio,
+  MeetingCorrection,
+  MeetingCorrectionRun,
   MeetingCreateRequest,
   MeetingHeadingRequest,
   MeetingDetail,
@@ -34,6 +50,8 @@ import type { MeetingTrack } from "./meeting-socket";
 
 export type {
   MeetingAudio,
+  MeetingCorrection,
+  MeetingCorrectionRun,
   MeetingDetail,
   MeetingHeadingRequest,
   MeetingMinutes,
@@ -111,9 +129,137 @@ export async function finishMeeting(meetingId: string) {
   return data;
 }
 
-export async function rerunMinutes(meetingId: string) {
+export async function setUtteranceStar(meetingId: string, utteranceId: string, starred: boolean) {
+  const request = starred ? starMeetingUtterance : unstarMeetingUtterance;
+  const { data } = await request({
+    path: { meetingId, utteranceId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function addBookmark(meetingId: string, atMs: number, label?: string) {
+  const { data } = await bookmarkMeetingMoment({
+    path: { meetingId },
+    body: { atMs, label: label ?? null },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function removeBookmark(meetingId: string, bookmarkId: string) {
+  const { data } = await removeMeetingBookmark({
+    path: { meetingId, bookmarkId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export const correctionsKey = (id: string) => [...meetingKey(id), "corrections"] as const;
+
+export async function loadCorrections(
+  id: string,
+  signal: AbortSignal,
+): Promise<MeetingCorrection[]> {
+  const { data } = await listMeetingCorrections({
+    path: { meetingId: id },
+    signal,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function proposeCorrections(meetingId: string): Promise<MeetingCorrectionRun> {
+  const { data } = await proposeMeetingCorrections({
+    path: { meetingId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function acceptCorrection(meetingId: string, correctionId: string, text?: string) {
+  const { data } = await acceptMeetingCorrection({
+    path: { meetingId, correctionId },
+    body: { text: text ?? null },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function keepWording(meetingId: string, correctionId: string) {
+  const { data } = await keepMeetingWording({
+    path: { meetingId, correctionId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function acceptAllCorrections(meetingId: string, runId: string) {
+  const { data } = await acceptAllMeetingCorrections({
+    path: { meetingId },
+    body: { runId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function revertAllCorrections(meetingId: string, runId: string) {
+  const { data } = await revertAllMeetingCorrections({
+    path: { meetingId },
+    body: { runId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function revertCorrection(meetingId: string, correctionId: string) {
+  const { data } = await revertMeetingCorrection({
+    path: { meetingId, correctionId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+/** Writes the minutes again from the transcript. Saying so is required once they were corrected by hand. */
+export async function rerunMinutes(meetingId: string, discardEdits = false) {
   const { data } = await rerunMeetingMinutes({
     path: { meetingId },
+    query: { discardEdits },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function editMinutesSummary(meetingId: string, summary: string) {
+  const { data } = await editMeetingMinutesSummary({
+    path: { meetingId },
+    body: { summary },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function editMinutesItem(
+  meetingId: string,
+  itemId: string,
+  text: string,
+  owner: string,
+  due: string,
+) {
+  const { data } = await editMeetingMinutesItem({
+    path: { meetingId, itemId },
+    body: { text, owner: owner.trim() || null, due: due.trim() || null },
     headers: sameOriginMutationHeaders,
     throwOnError: true,
   });
@@ -139,6 +285,16 @@ export async function exportMinutes(
     path: { meetingId },
     body: heading,
     headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data as Blob;
+}
+
+/** Downloads what was said, for reading elsewhere or for sending to somebody who was not there. */
+export async function exportTranscript(meetingId: string, format: "DOCX" | "PDF"): Promise<Blob> {
+  const { data } = await exportMeetingTranscript({
+    path: { meetingId },
+    query: { format },
     throwOnError: true,
   });
   return data as Blob;
