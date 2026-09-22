@@ -58,6 +58,18 @@ class BatchTranscriptionTest {
     }
 
     @Test
+    void anAudioEventIsNotSomethingSomebodySaid() {
+        var segments = SonioxAsync.group(JSON.readTree("""
+                {"tokens":[
+                  {"text":"Chốt rồi.","speaker":"1","start_ms":0,"end_ms":900,"confidence":0.9,
+                   "is_audio_event":false},
+                  {"text":"<laughter>","speaker":"1","start_ms":900,"end_ms":1200,"is_audio_event":true}]}
+                """));
+        assertEquals(1, segments.size());
+        assertEquals("Chốt rồi.", segments.getFirst().text());
+    }
+
+    @Test
     void aTokenWithOnlyADurationStillCarriesItsEnd() {
         var segments = SonioxAsync.group(JSON.readTree("""
                 {"tokens":[{"text":"Một câu.","speaker":"1","start_ms":1000,"duration_ms":700}]}

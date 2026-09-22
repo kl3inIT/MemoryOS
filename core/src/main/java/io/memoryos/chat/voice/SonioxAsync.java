@@ -104,6 +104,8 @@ final class SonioxAsync {
         for (JsonNode token : transcript.path("tokens")) {
             String word = token.path("text").asString("");
             if (word.isEmpty() || "<fin>".equals(word) || "<end>".equals(word)) continue;
+            // Soniox marks laughter, applause and the like as tokens of their own; they are not what was said.
+            if (token.path("is_audio_event").asBoolean(false)) continue;
             String at = token.path("speaker").asString("1");
             if (at.isEmpty()) at = "1";
             long start = token.path("start_ms").asLong(0);
