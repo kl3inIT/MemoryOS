@@ -31,6 +31,18 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
             "application/pdf", ".pdf",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx",
             "application/vnd.openxmlformats-officedocument.presentationml.presentation", ".pptx");
+    // Failures that belong to the service rather than to the document: Docling unreachable, slow,
+    // or answering with something that is not a usable conversion. The native reader can stand in
+    // for those. A failure that belongs to the document itself (encrypted, over a size or page
+    // limit) is not in this set, because another reader would refuse the same document.
+    private static final Set<ExtractionFailure> FALLBACK_ON = java.util.EnumSet.of(
+            ExtractionFailure.CONNECTION_FAILED, ExtractionFailure.TIMEOUT,
+            ExtractionFailure.INTERNAL, ExtractionFailure.MALFORMED);
+    // A PDF with a text layer carries hundreds of characters on a page. A scan carries none, or a
+    // signature on one page: the Tasco financial reports have text on 6 of 260 pages. Below this
+    // density the native reader has read the scan's margins, not the document, and indexing that
+    // would publish a document that answers no question while reporting success.
+    static final int MIN_FALLBACK_CHARACTERS_PER_PDF_PAGE = 100;
     private final DoclingProperties properties;
     private final DoclingServeApi client;
     private final ObjectMapper mapper;
@@ -62,11 +74,13 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
     public DocumentContent extract(byte[] bytes, String filename, String mediaType,
             SourceInputDescriptor input) throws ExtractionException {
         if (bytes.length < 1 || bytes.length > ObjectUploadSpecification.MAX_SIZE_BYTES) throw failure(ExtractionFailure.WRITE_LIMIT);
+        int pages = 0;
         if ("application/pdf".equals(mediaType)) {
-            // Admission only: content extraction remains exclusively in Docling.
+            // Admission only; the page count also sets how much text a native fallback must find.
             try (var pdf = org.apache.pdfbox.Loader.loadPDF(bytes)) {
                 if (pdf.isEncrypted()) throw failure(ExtractionFailure.ENCRYPTED);
-                if (pdf.getNumberOfPages() > properties.maxPages()) throw failure(ExtractionFailure.WRITE_LIMIT);
+                pages = pdf.getNumberOfPages();
+                if (pages > properties.maxPages()) throw failure(ExtractionFailure.WRITE_LIMIT);
             } catch (org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException e) {
                 throw failure(ExtractionFailure.ENCRYPTED);
             } catch (IOException e) { throw failure(ExtractionFailure.MALFORMED); }
@@ -84,31 +98,94 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
                         .base64String(Base64.getEncoder().encodeToString(bytes)).build())
                 .options(properties.options())
                 .target(InBodyTarget.builder().build()).build();
+        ExtractionException serviceFailure;
         try {
             var result = bounded.convertDocument(request);
             return canonical(result, filename, mediaType, ObjectUploadSpecification.MAX_SIZE_BYTES);
+        } catch (ExtractionException e) {
+            serviceFailure = e;
         } catch (RuntimeException e) {
-            throw requestFailure(e);
+            serviceFailure = requestFailure(e);
         }
+        return fallBack(serviceFailure, mediaType, pages,
+                () -> nativeReader.extract(new java.io.ByteArrayInputStream(bytes), bytes.length, filename, input));
     }
 
     /** Disk-backed multipart prevents a 250 MiB file becoming several base64/JSON heap copies. */
     public DocumentContent extractChatFile(java.nio.file.Path file, String filename, String mediaType) throws ExtractionException {
         if (!(client instanceof BoundedDoclingClient bounded) || !usesDocling(mediaType)) throw failure(ExtractionFailure.UNSUPPORTED);
+        int pages = 0;
         try {
             long size = java.nio.file.Files.size(file);
             if (size < 1 || size > 262_144_000) throw failure(ExtractionFailure.WRITE_LIMIT);
             if ("application/pdf".equals(mediaType)) {
                 try (var pdf = org.apache.pdfbox.Loader.loadPDF(file.toFile())) {
                     if (pdf.isEncrypted()) throw failure(ExtractionFailure.ENCRYPTED);
-                    if (pdf.getNumberOfPages() > properties.maxPages()) throw failure(ExtractionFailure.WRITE_LIMIT);
+                    pages = pdf.getNumberOfPages();
+                    if (pages > properties.maxPages()) throw failure(ExtractionFailure.WRITE_LIMIT);
                 }
             }
-            var result = bounded.convertFile(file, FORMATS.get(mediaType), properties);
-            return canonical(result, filename, mediaType, 262_144_000);
         } catch (org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException encrypted) { throw failure(ExtractionFailure.ENCRYPTED); }
         catch (IOException invalid) { throw failure(ExtractionFailure.MALFORMED); }
-        catch (RuntimeException e) { throw requestFailure(e); }
+        ExtractionException serviceFailure;
+        try {
+            var result = bounded.convertFile(file, FORMATS.get(mediaType), properties);
+            return canonical(result, filename, mediaType, 262_144_000);
+        } catch (ExtractionException e) {
+            serviceFailure = e;
+        } catch (IOException transport) {
+            serviceFailure = failure(ExtractionFailure.MALFORMED);
+        } catch (RuntimeException e) {
+            serviceFailure = requestFailure(e);
+        }
+        return fallBack(serviceFailure, mediaType, pages, () -> nativeReader.extractChatFile(file, filename, mediaType));
+    }
+
+    @FunctionalInterface
+    private interface NativeRead { DocumentContent read() throws ExtractionException; }
+
+    /**
+     * Reads the document natively when Docling failed for a reason of its own, and says so.
+     *
+     * The shape follows Onyx, whose better parser is tried first and whose ordinary readers take
+     * over on any failure. Two things differ, both because silence is the actual risk: a native
+     * result that is empty or scan-thin is refused and the original failure stands, and the
+     * document records which reader produced it and why, so it can be found and extracted again
+     * once Docling is back. Any refusal rethrows Docling's own failure, so a caller sees exactly
+     * what it saw before this path existed.
+     */
+    private DocumentContent fallBack(ExtractionException docling, String mediaType, int pages, NativeRead nativeRead)
+            throws ExtractionException {
+        if (!FALLBACK_ON.contains(docling.failure())) throw docling;
+        DocumentContent content;
+        try {
+            content = nativeRead.read();
+        } catch (ExtractionException nativeFailure) {
+            LOG.atWarn().addKeyValue("event", "extraction.fallback.failed")
+                    .addKeyValue("docling_failure", docling.failure().name())
+                    .addKeyValue("native_failure", nativeFailure.failure().name())
+                    .log("Native reader could not stand in for Docling");
+            throw docling;
+        }
+        long characters = content.normalizedText().codePoints().filter(c -> !Character.isWhitespace(c)).count();
+        long required = "application/pdf".equals(mediaType) ? (long) MIN_FALLBACK_CHARACTERS_PER_PDF_PAGE * Math.max(1, pages) : 1;
+        if (characters < required) {
+            LOG.atWarn().addKeyValue("event", "extraction.fallback.refused")
+                    .addKeyValue("docling_failure", docling.failure().name())
+                    .addKeyValue("characters", characters).addKeyValue("required", required)
+                    .log("Native text too thin to stand in for Docling; the document needs OCR");
+            throw docling;
+        }
+        var metadata = new java.util.HashMap<>(content.metadata());
+        metadata.put("parser", "tika");
+        metadata.put("fallback_from", "docling");
+        metadata.put("fallback_reason", docling.failure().name());
+        LOG.atInfo().addKeyValue("event", "extraction.fell_back")
+                .addKeyValue("docling_failure", docling.failure().name())
+                .addKeyValue("characters", characters)
+                .log("Docling unavailable; document read natively without OCR or table structure");
+        return new DocumentContent(mediaType, content.title(), content.normalizedText(), metadata,
+                content.structuredJson(), null);
     }
 
     private DocumentContent canonical(BoundedDoclingClient.CanonicalResponse result, String filename, String mediaType, long maxInput) throws ExtractionException {
