@@ -1,5 +1,10 @@
 name: pnpm project
-description: Node, pnpm, a warm store and one project's dependencies.
+description: pnpm, its Node.js runtime, a warm store and one project's dependencies.
+
+# pnpm's own CI guidance no longer goes through Corepack, and `pnpm doctor` warns when it finds
+# pnpm running under it: Corepack takes over version management and disables `pnpm self-update`.
+# This action installs pnpm directly, at the version the project's package.json already pins in
+# `packageManager`, and brings its own Node.js — so the toolchain has one source of truth.
 
 inputs:
   directory:
@@ -9,28 +14,15 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Set up Node.js 24
-      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+    - name: Install pnpm and Node.js
+      uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
       with:
-        node-version: '24'
-
-    - name: Enable pnpm 11.22.0
-      shell: bash
-      run: |
-        corepack enable
-        corepack install --global pnpm@11.22.0
-
-    - name: Resolve the pnpm store
-      id: store
-      shell: bash
-      run: echo "path=$(pnpm store path)" >> "$GITHUB_OUTPUT"
-
-    - name: Cache pnpm downloads
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-      with:
-        path: ${{ steps.store.outputs.path }}
-        key: pnpm-${{ runner.os }}-${{ hashFiles(format('{0}/pnpm-lock.yaml', inputs.directory)) }}
-        restore-keys: pnpm-${{ runner.os }}-
+        runtime: node@24
+        working-directory: ${{ inputs.directory }}
+        cache: true
+        cache-dependency-path: ${{ inputs.directory }}/pnpm-lock.yaml
+        # The install below states --frozen-lockfile rather than relying on a default.
+        install: false
 
     - name: Install dependencies
       shell: bash
