@@ -33,6 +33,8 @@ public class MeetingService {
     static final int MAX_TERMS = 100;
     static final int MAX_NAME = 200;
     static final int MAX_TERM = 100;
+    /** Marks a person leaves for themselves; past this many they are no longer marking anything out. */
+    static final int MAX_BOOKMARKS = 200;
     static final int MAX_NOTES = 50_000;
     /** A meeting is shared with people who were in it, not broadcast; the bound keeps the list readable. */
     static final int MAX_READERS = 200;
@@ -302,7 +304,8 @@ public class MeetingService {
 
     /** The meeting as its owner reads it. Commands use this after they have locked the row. */
     private Meeting.Detail detail(UUID tenant, ActorId actor, UUID id) {
-        return present(tenant, id, meetings.find(tenant, actor.value(), id).orElseThrow(MeetingException::notFound));
+        return present(tenant, actor.value(), id,
+                meetings.find(tenant, actor.value(), id).orElseThrow(MeetingException::notFound));
     }
 
     /**
@@ -310,10 +313,49 @@ public class MeetingService {
      * transcript, the speakers and the minutes; the owner's private notes and the list of readers stay with the owner.
      */
     private Meeting.Detail readable(UUID tenant, ActorId actor, UUID id) {
-        return present(tenant, id, meetings.read(tenant, actor.value(), id).orElseThrow(MeetingException::notFound));
+        return present(tenant, actor.value(), id,
+                meetings.read(tenant, actor.value(), id).orElseThrow(MeetingException::notFound));
     }
 
-    private Meeting.Detail present(UUID tenant, UUID id, MeetingRepository.Row row) {
+    /** Stars a line for the caller alone, or takes the star off again. */
+    @Transactional
+    public Meeting.Detail star(ActorId actor, UUID id, UUID utteranceId, boolean starred) {
+        UUID tenant = tenant(actor);
+        meetings.read(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        if (!meetings.hasUtterance(tenant, id, utteranceId)) throw MeetingException.notFound();
+        if (starred) meetings.star(tenant, id, utteranceId, actor.value());
+        else meetings.unstar(tenant, utteranceId, actor.value());
+        return readable(tenant, actor, id);
+    }
+
+    /**
+     * Marks the moment the caller is at. It happens while the meeting is still running, so there is no line to
+     * attach it to; the label is the caller's, or the next number when they do not give one.
+     */
+    @Transactional
+    public Meeting.Detail bookmark(ActorId actor, UUID id, long atMs, @Nullable String label) {
+        UUID tenant = tenant(actor);
+        meetings.read(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        if (atMs < 0 || atMs > MAX_TRACK.toMillis()) throw MeetingException.invalid("A bookmark sits inside the recording.");
+        var mine = meetings.bookmarks(tenant, id, actor.value());
+        if (mine.size() >= MAX_BOOKMARKS) throw MeetingException.invalid("This meeting has enough bookmarks.");
+        String clean = label == null || label.isBlank() ? "" : label.strip();
+        if (clean.length() > MAX_NAME || clean.chars().anyMatch(Character::isISOControl))
+            throw MeetingException.invalid("A bookmark label has at most 200 characters.");
+        if (clean.isEmpty()) clean = "Đánh dấu " + (mine.size() + 1);
+        meetings.addBookmark(tenant, id, actor.value(), new Meeting.Bookmark(UUID.randomUUID(), atMs, clean));
+        return readable(tenant, actor, id);
+    }
+
+    @Transactional
+    public Meeting.Detail removeBookmark(ActorId actor, UUID id, UUID bookmarkId) {
+        UUID tenant = tenant(actor);
+        meetings.read(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        if (!meetings.deleteBookmark(tenant, id, actor.value(), bookmarkId)) throw MeetingException.notFound();
+        return readable(tenant, actor, id);
+    }
+
+    private Meeting.Detail present(UUID tenant, UUID actor, UUID id, MeetingRepository.Row row) {
         var items = row.minutesStatus() == Meeting.MinutesStatus.READY ? meetings.minutesItems(tenant, id) : List.<Meeting.MinutesItem>of();
         var minutes = new Meeting.Minutes(row.minutesStatus(), row.minutesFailure(), row.minutesSummary(), row.minutesKind(),
                 row.minutesGeneratedAt(),
@@ -324,7 +366,8 @@ public class MeetingService {
                 row.endedAt(), row.revision(), meetings.speakers(tenant, id), meetings.utterances(tenant, id), minutes,
                 new Meeting.Audio(row.audioStatus(), row.audioFailure(), row.audioFilename(), row.audioSizeBytes(),
                         row.audioProvider()),
-                row.owned(), row.owned() ? meetings.readers(tenant, id) : List.of());
+                row.owned(), row.owned() ? meetings.readers(tenant, id) : List.of(),
+                meetings.starred(tenant, id, actor), meetings.bookmarks(tenant, id, actor));
     }
 
     /** The Tenant the actor is writing in; correction runs need it to bill the model call. */
