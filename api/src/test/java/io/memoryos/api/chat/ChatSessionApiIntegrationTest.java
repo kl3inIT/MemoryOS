@@ -3,6 +3,7 @@ package io.memoryos.api.chat;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -156,6 +157,8 @@ import org.springframework.test.web.servlet.MockMvc;
         "memoryos.chat.execution.mcp-call-timeout=2s",
         "memoryos.mcp.redirect-uri=http://127.0.0.1:8080/login/oauth2/code/mcp",
         "memoryos.chat.stream.heartbeat=100ms",
+        // The per-person library ceiling is a deployment setting now; 1 MiB bounds it visibly here.
+        "memoryos.chat.storage.library-bytes=1048576",
         "springdoc.api-docs.enabled=true",
         "spring.security.oauth2.resourceserver.jwt.issuer-uri=https://issuer.example.test",
         "spring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://127.0.0.1:1/jwks",
@@ -519,7 +522,10 @@ class ChatSessionApiIntegrationTest {
             byte[] bytes = stored.get(call.<io.memoryos.objectstorage.ObjectKey>getArgument(0).value());
             return new io.memoryos.objectstorage.ObjectContent() {
                 private final java.io.InputStream input = new java.io.ByteArrayInputStream(bytes);
-                @Override public io.memoryos.objectstorage.ObjectMetadata metadata() { return null; }
+                @Override public io.memoryos.objectstorage.ObjectMetadata metadata() {
+                    return new io.memoryos.objectstorage.ObjectMetadata(bytes.length, "image/png",
+                            new io.memoryos.objectstorage.ContentSha256("b".repeat(64)));
+                }
                 @Override public java.io.InputStream inputStream() { return input; }
                 @Override public void close() {}
             };
@@ -540,6 +546,25 @@ class ChatSessionApiIntegrationTest {
                     .param("session", UUID.fromString(session.path("id").asText())).param("size", png.length)
                     .param("deleted", artifact.equals(gone) ? java.sql.Timestamp.from(Instant.now()) : null).update();
         }
+        // Every rendering is cacheable by the owner's own browser and by nothing in between, so a library page
+        // revisited costs no transfer. These bytes are not a decodable image, so the thumbnail a library asks
+        // for falls back to the artifact itself rather than failing the request.
+        for (var variant : List.of("ORIGINAL", "THUMBNAIL")) {
+            byte[] served = mockMvc.perform(get("/api/chat/image-artifacts/" + image + "/content")
+                            .param("variant", variant).with(authentication(actor)))
+                    .andExpect(status().isOk()).andExpect(content().contentType("image/png"))
+                    .andExpect(header().string("Cache-Control", "private, max-age=31536000, immutable"))
+                    .andReturn().getResponse().getContentAsByteArray();
+            assertArrayEquals(png, served);
+        }
+        assertEquals(0L, jdbc.sql("SELECT count(*) FROM chat_image_artifact WHERE thumbnail_object_key IS NOT NULL")
+                .query(Long.class).single());
+        mockMvc.perform(get("/api/chat/image-artifacts/" + image + "/content").param("variant", "SOMETHING")
+                        .with(authentication(actor))).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/chat/image-artifacts/" + image + "/content").with(authentication(other)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/chat/image-artifacts/" + image + "/content")).andExpect(status().isUnauthorized());
+
         String copyUrl = "/api/chat/library/IMAGE/" + image + "/copy";
 
         mockMvc.perform(post(copyUrl).with(authentication(actor))).andExpect(status().isForbidden());
@@ -730,53 +755,84 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
-    void aStorageLimitIsAdministeredByModelManagersAndRefusesAnUploadBeforeItIsAuthorized() throws Exception {
+    void theDeploymentsStorageLimitIsShownToItsOwnerAndRefusesAnUploadBeforeItIsAuthorized() throws Exception {
         when(fileStorage.authorizeUpload(any(),any())).thenReturn(new io.memoryos.objectstorage.UploadAuthorization(
                 "PUT",URI.create("https://storage.invalid/upload"),Map.of("Content-Type","text/plain"),Instant.now().plusSeconds(300)));
         when(fileStorage.inspect(any())).thenReturn(new io.memoryos.objectstorage.ObjectMetadata(4,"text/plain",
                 new io.memoryos.objectstorage.ContentSha256("a".repeat(64))));
 
-        // Nothing is limited until an administrator says so, and only a model manager may say it.
+        // The limit comes from the deployment, so every member reads the same number on their own page.
         mockMvc.perform(get("/api/chat/library/usage").with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.usedBytes").value(0))
-                .andExpect(jsonPath("$.limitBytes").doesNotExist());
-        mockMvc.perform(get("/api/chat/storage-quota").with(authentication(actor))).andExpect(status().isForbidden());
+                .andExpect(jsonPath("$.limitBytes").value(1048576));
+        mockMvc.perform(get("/api/chat/library/usage").with(authentication(other)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.limitBytes").value(1048576));
+
+        // Nobody administers it any more, by any route, however much authority they have.
         grantModelManagement();
-        mockMvc.perform(put("/api/chat/storage-quota").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"maxBytes\":0}"))
-                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/chat/storage-quota").with(authentication(actor))).andExpect(status().isNotFound());
         mockMvc.perform(put("/api/chat/storage-quota").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"maxBytes\":3}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.tenantLimitBytes").value(3));
+                .andExpect(status().isNotFound());
 
-        // A four-byte upload no longer fits, and no upload is authorized for it.
-        String request = Json.mapper().writeValueAsString(Map.of("requestId",UUID.randomUUID(),"filename","ghi-chu.txt",
+        // An upload that fits is authorized, and one that would pass the ceiling is refused before it is.
+        String small = Json.mapper().writeValueAsString(Map.of("requestId",UUID.randomUUID(),"filename","ghi-chu.txt",
                 "mediaType","text/plain","sizeBytes",4,"sha256","a".repeat(64)));
         mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
-                        .contentType(MediaType.APPLICATION_JSON).content(request))
+                        .contentType(MediaType.APPLICATION_JSON).content(small))
+                .andExpect(status().isOk());
+        String tooBig = Json.mapper().writeValueAsString(Map.of("requestId",UUID.randomUUID(),"filename","phim.bin",
+                "mediaType","text/plain","sizeBytes",2 * 1024 * 1024,"sha256","b".repeat(64)));
+        org.mockito.Mockito.clearInvocations(fileStorage);
+        mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
+                        .contentType(MediaType.APPLICATION_JSON).content(tooBig))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CHAT_STORAGE_FULL"));
         verify(fileStorage, never()).authorizeUpload(any(), any());
+    }
 
-        // One person may be given more room than the Tenant allows, and it can be taken away again.
-        var person = actor.getPrincipal().actorId().value();
-        mockMvc.perform(put("/api/chat/storage-quota/" + person).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"maxBytes\":1048576}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.people[0].maxBytes").value(1048576));
-        mockMvc.perform(get("/api/chat/library/usage").with(authentication(actor)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.limitBytes").value(1048576));
-        mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
-                        .contentType(MediaType.APPLICATION_JSON).content(request))
-                .andExpect(status().isOk());
-        mockMvc.perform(put("/api/chat/storage-quota/" + UUID.randomUUID()).with(authentication(actor)).with(csrf())
-                        .header("X-MemoryOS-CSRF","1").contentType(MediaType.APPLICATION_JSON).content("{\"maxBytes\":10}"))
-                .andExpect(status().isNotFound());
-        mockMvc.perform(put("/api/chat/storage-quota/" + person).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"maxBytes\":null}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.people.length()").value(0));
-        // The administration routes stay CSRF-guarded and closed to other members.
-        mockMvc.perform(put("/api/chat/storage-quota").with(authentication(actor)).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"maxBytes\":null}")).andExpect(status().isForbidden());
-        mockMvc.perform(get("/api/chat/storage-quota").with(authentication(other))).andExpect(status().isForbidden());
+    @Test
+    void retentionIsTheOwnersOwnSettingAndCountsWhatItWouldDeleteFirst() throws Exception {
+        // Nothing is deleted on a timer until the person says so.
+        mockMvc.perform(get("/api/chat/retention").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(org.hamcrest.Matchers.nullValue()));
+        mockMvc.perform(get("/api/chat/retention/preview").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.affected").value(0));
+
+        // A conversation nobody has touched for a long time is what a short policy would take.
+        String session = Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions").with(authentication(actor))
+                        .with(csrf()).header("X-MemoryOS-CSRF","1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Hội thoại cũ\"}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).path("id").asText();
+        jdbc.sql("UPDATE chat_session SET updated_at = CURRENT_TIMESTAMP - INTERVAL '200 days' WHERE id = :id")
+                .param("id", UUID.fromString(session)).update();
+        mockMvc.perform(get("/api/chat/retention/preview").param("days", "90").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.affected").value(1));
+        // Another member's history is never counted with mine.
+        mockMvc.perform(get("/api/chat/retention/preview").param("days", "90").with(authentication(other)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.affected").value(0));
+
+        // Saving takes a member and nothing more, and a number outside the range is refused.
+        mockMvc.perform(put("/api/chat/retention").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"days\":0}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/chat/retention").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"days\":90}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(90));
+        mockMvc.perform(get("/api/chat/retention").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(90));
+        // It is mine: nobody else's policy changed with it.
+        mockMvc.perform(get("/api/chat/retention").with(authentication(other)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(org.hamcrest.Matchers.nullValue()));
+
+        // Leaving the field out clears it, and the write stays CSRF-guarded.
+        mockMvc.perform(put("/api/chat/retention").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(org.hamcrest.Matchers.nullValue()));
+        mockMvc.perform(put("/api/chat/retention").with(authentication(actor))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"days\":30}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/chat/retention")).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -1244,6 +1300,63 @@ class ChatSessionApiIntegrationTest {
                 .with(authentication(actor))).andExpect(status().isBadRequest());
         mockMvc.perform(get("/api/ai-costs/summary").param("from", today).param("to", today).with(authentication(other)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void spendingLimitsAreSetByModelManagersAndRefuseATurnWithTheBudgetSpent() throws Exception {
+        jdbc.sql("DELETE FROM ai_usage_limit WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        var today = java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString();
+        String body = "{\"scope\":\"PERSON\",\"tokenBudget\":1000,\"periodDays\":7,\"enabled\":true}";
+        mockMvc.perform(post("/api/ai-costs/limits").contentType(MediaType.APPLICATION_JSON).content(body)
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isForbidden());
+        grantModelManagement();
+        String limitId = Json.mapper().readTree(mockMvc.perform(post("/api/ai-costs/limits")
+                        .contentType(MediaType.APPLICATION_JSON).content(body)
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString()).get("id").asText();
+        // The change is evidence: MEM-25 records who capped what.
+        assertEquals(1L, jdbc.sql("SELECT COUNT(*) FROM audit_event WHERE tenant_id=:tenant AND action='ai_limit.create'")
+                .param("tenant", TENANT).query(Long.class).single());
+
+        // Indexing carries no person, so it fills no one's budget.
+        jdbc.sql("""
+                INSERT INTO ai_usage(tenant_id, actor_id, day, flow, provider_name, model_name, data_boundary, calls, input_tokens,
+                    output_tokens, cost_usd, unknown_cost_calls)
+                VALUES (:tenant, NULL, CAST(:day AS date), 'EMBEDDING_INDEXING', 'OpenAI', 'text-embedding-3-large', NULL, 2, 50000, 0, 0.01, 0)
+                """).param("tenant", TENANT).param("day", today).update();
+        mockMvc.perform(get("/api/ai-costs/limits/mine").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.tokensUsed").value(0))
+                .andExpect(jsonPath("$.scope").value("PERSON"));
+
+        jdbc.sql("""
+                INSERT INTO ai_usage(tenant_id, actor_id, day, flow, provider_name, model_name, data_boundary, calls, input_tokens,
+                    output_tokens, cost_usd, unknown_cost_calls)
+                VALUES (:tenant, :actor, CAST(:day AS date), 'CHAT', 'OpenAI', 'gpt-5.1', 'EXTERNAL', 3, 900, 200, 0.05, 0)
+                """).param("tenant", TENANT).param("actor", actor.getPrincipal().actorId().value()).param("day", today).update();
+        mockMvc.perform(get("/api/ai-costs/limits").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].tokensUsed").value(1100));
+
+        // A turn that would exceed the budget is refused before any provider is called.
+        var created = mockMvc.perform(post("/api/chat/sessions").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Hạn mức\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        var opened = Json.mapper().readTree(created.getResponse().getContentAsString());
+        mockMvc.perform(post("/api/chat/sessions/" + opened.path("id").asText() + "/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(Json.mapper().createObjectNode().put("parentMessageId", opened.path("rootMessageId").asText())
+                                .put("clientRequestId", UUID.randomUUID().toString()).put("text", "xin chào").toString())
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().exists("Retry-After"))
+                .andExpect(jsonPath("$.code").value("AI_USAGE_LIMIT_EXCEEDED"))
+                .andExpect(jsonPath("$.scope").value("PERSON"))
+                .andExpect(jsonPath("$.resetsAt").exists());
+
+        mockMvc.perform(delete("/api/ai-costs/limits/" + limitId)
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+        jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant").param("tenant", TENANT).update();
     }
 
     @Test

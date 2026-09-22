@@ -82,7 +82,7 @@ public class JdbcChatLibraryRepository {
                    a.favorite_at, 'READY', NULL, a.deleted_at, a.purge_after, a.message_id
             FROM chat_file_artifact a JOIN chat_session s ON s.id = a.session_id AND s.tenant_id = a.tenant_id
             WHERE NOT :pending AND a.tenant_id = :tenant AND a.owner_actor_id = :actor AND s.deleted_at IS NULL
-              AND NOT s.temporary
+              AND NOT s.temporary AND a.purged_at IS NULL
               AND (CASE WHEN :trash THEN a.deleted_at IS NOT NULL ELSE a.deleted_at IS NULL END)
               AND (:allSessions OR a.session_id = :session)
             UNION ALL
@@ -90,7 +90,7 @@ public class JdbcChatLibraryRepository {
                    a.favorite_at, 'READY', NULL, a.deleted_at, a.purge_after, a.message_id
             FROM chat_image_artifact a JOIN chat_session s ON s.id = a.session_id AND s.tenant_id = a.tenant_id
             WHERE NOT :pending AND a.tenant_id = :tenant AND a.owner_actor_id = :actor AND s.deleted_at IS NULL
-              AND NOT s.temporary
+              AND NOT s.temporary AND a.purged_at IS NULL
               AND (CASE WHEN :trash THEN a.deleted_at IS NOT NULL ELSE a.deleted_at IS NULL END)
               AND (:allSessions OR a.session_id = :session)
             """;

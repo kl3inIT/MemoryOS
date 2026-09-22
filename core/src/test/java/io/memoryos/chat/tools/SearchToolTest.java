@@ -19,6 +19,7 @@ import com.embabel.chat.AssistantMessage;
 import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.retrieval.DocumentSearchService;
+import io.memoryos.retrieval.SearchFilters;
 import io.memoryos.retrieval.SearchResults;
 import io.memoryos.retrieval.SearchHit;
 import io.memoryos.retrieval.SearchPage;
@@ -319,6 +320,105 @@ class SearchToolTest {
             verify(runner).createObject(anyList(), eq(SearchTool.SemanticQuery.class));
             verify(runner).createObject(anyList(), eq(SearchTool.KeywordQueries.class));
         }
+    }
+
+    @Test
+    void anInferredDateWindowThatMatchesNothingIsDroppedAndTheSearchIsRepeated() {
+        // Google Drive items carry no source dates, so an inferred window removed the whole corpus.
+        when(runner.createObject(anyString(), eq(SearchTool.TimeChoice.class))).thenReturn(
+                new SearchTool.TimeChoice("updated", "2025-09-01", "2025-09-30"));
+        when(runner.createObject(anyString(), eq(SearchTool.SourceChoice.class)))
+                .thenReturn(new SearchTool.SourceChoice(List.of()));
+        var observed = new ArrayList<SearchFilters>();
+        var empty = mock(SearchResults.class);
+        when(empty.hits()).thenReturn(List.of());
+        var found = candidates();
+        when(search.ranked(any(SourceSearchScope.class), any(), any(), any())).thenAnswer(call -> {
+            SearchFilters filters = call.getArgument(2);
+            observed.add(filters);
+            return filters.updated() == null ? found : empty;
+        });
+        when(runner.createObject(anyString(), eq(SearchTool.Selection.class)))
+                .thenReturn(new SearchTool.Selection(List.of(1)));
+
+        String evidence;
+        try (var tool = tool(8000, Duration.ofSeconds(5), true)) {
+            evidence = tool.searchKnowledge(List.of("policy"), null);
+        }
+
+        assertEquals(2, observed.size(), "the same queries are asked again without the inferred window");
+        assertTrue(observed.getFirst().updated() != null);
+        assertTrue(observed.getLast().updated() == null);
+        assertTrue(evidence.contains("Section"), "the retry returns the evidence the window had hidden");
+    }
+
+    @Test
+    void aTurnThatStillFindsNothingAfterDroppingTheWindowSaysSo() {
+        // Otherwise the model reports an empty knowledge base when what was empty was the period.
+        when(runner.createObject(anyString(), eq(SearchTool.TimeChoice.class))).thenReturn(
+                new SearchTool.TimeChoice("updated", "2025-09-01", "2025-09-30"));
+        when(runner.createObject(anyString(), eq(SearchTool.SourceChoice.class)))
+                .thenReturn(new SearchTool.SourceChoice(List.of()));
+        var empty = mock(SearchResults.class);
+        when(empty.hits()).thenReturn(List.of());
+        when(search.ranked(any(SourceSearchScope.class), any(), any(), any())).thenReturn(empty);
+
+        String evidence;
+        try (var tool = tool(8000, Duration.ofSeconds(5), true)) {
+            evidence = tool.searchKnowledge(List.of("policy"), null);
+        }
+
+        verify(search, times(2)).ranked(any(SourceSearchScope.class), any(), any(), any());
+        assertTrue(evidence.contains("dropped"), "the dropped window is reported even with no evidence");
+    }
+
+    @Test
+    void anInferenceTheExplicitWindowAlreadyCoversIsNotSearchedTwice() {
+        // The intersection is the explicit window, so there is nothing inferred left to drop.
+        when(runner.createObject(anyString(), eq(SearchTool.TimeChoice.class))).thenReturn(
+                new SearchTool.TimeChoice("updated", "2025-09-01", "2025-09-30"));
+        when(runner.createObject(anyString(), eq(SearchTool.SourceChoice.class)))
+                .thenReturn(new SearchTool.SourceChoice(List.of()));
+        var empty = mock(SearchResults.class);
+        when(empty.hits()).thenReturn(List.of());
+        when(search.ranked(any(SourceSearchScope.class), any(), any(), any())).thenReturn(empty);
+        var september = new SearchFilters(java.util.Set.of(), null, new SearchFilters.Interval(
+                Instant.parse("2025-09-01T00:00:00Z"), Instant.parse("2025-09-30T23:59:59Z")));
+
+        String evidence;
+        try (var tool = tool(8000, Duration.ofSeconds(5), true)) {
+            evidence = tool.searchKnowledge(List.of("policy"), september);
+        }
+
+        verify(search).ranked(any(SourceSearchScope.class), any(), any(), any());
+        assertFalse(evidence.contains("dropped"));
+    }
+
+    @Test
+    void aDateWindowTheUserAskedForIsNotDroppedWhenItMatchesNothing() {
+        // Only the helper's own guess is retried away: an empty result is the honest answer to an explicit window.
+        when(runner.createObject(anyString(), eq(SearchTool.TimeChoice.class)))
+                .thenReturn(new SearchTool.TimeChoice(null, null, null));
+        when(runner.createObject(anyString(), eq(SearchTool.SourceChoice.class)))
+                .thenReturn(new SearchTool.SourceChoice(List.of()));
+        var observed = new ArrayList<SearchFilters>();
+        var empty = mock(SearchResults.class);
+        when(empty.hits()).thenReturn(List.of());
+        when(search.ranked(any(SourceSearchScope.class), any(), any(), any())).thenAnswer(call -> {
+            observed.add(call.getArgument(2));
+            return empty;
+        });
+        var september = new SearchFilters(java.util.Set.of(), null,
+                new SearchFilters.Interval(Instant.parse("2025-09-01T00:00:00Z"), Instant.parse("2025-09-30T23:59:59Z")));
+
+        String evidence;
+        try (var tool = tool(8000, Duration.ofSeconds(5), true)) {
+            evidence = tool.searchKnowledge(List.of("policy"), september);
+        }
+
+        assertEquals(1, observed.size(), "an explicit window is asked once and kept");
+        assertEquals(september.updated(), observed.getFirst().updated());
+        assertFalse(evidence.contains("dropped"), "nothing is said about dropping a window the user asked for");
     }
 
     @Test

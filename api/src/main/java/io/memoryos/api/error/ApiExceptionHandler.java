@@ -41,6 +41,19 @@ final class ApiExceptionHandler {
         return problem;
     }
 
+    /** A spent AI budget: which budget it was and when it frees, plus Retry-After, as Onyx answers. */
+    @ExceptionHandler(io.memoryos.usage.AiUsageLimitException.class)
+    org.springframework.http.ResponseEntity<ProblemDetail> handleAiUsageLimit(io.memoryos.usage.AiUsageLimitException exception) {
+        ProblemDetail problem = handleBusinessException(exception);
+        problem.setProperty("scope", exception.scope().name());
+        if (exception.groupName() != null) problem.setProperty("group", exception.groupName());
+        problem.setProperty("resetsAt", exception.resetsAt().toString());
+        long seconds = Math.max(1, java.time.Duration.between(java.time.Instant.now(), exception.resetsAt()).toSeconds());
+        problem.setProperty("retryAfterSeconds", seconds);
+        return org.springframework.http.ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", Long.toString(seconds)).body(problem);
+    }
+
     /** The conflict above, plus what holds the file, so the caller can name the project or assistant. */
     @ExceptionHandler(ChatFileInUseException.class)
     ProblemDetail handleChatFileInUse(ChatFileInUseException exception) {
@@ -153,6 +166,7 @@ final class ApiExceptionHandler {
             case NOT_FOUND -> HttpStatus.NOT_FOUND;
             case CONFLICT -> HttpStatus.CONFLICT;
             case GONE -> HttpStatus.GONE;
+            case LIMIT_EXCEEDED -> HttpStatus.TOO_MANY_REQUESTS;
             case SERVICE_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
         };
     }
@@ -164,6 +178,7 @@ final class ApiExceptionHandler {
             case NOT_FOUND -> "Not found";
             case CONFLICT -> "Conflict";
             case GONE -> "Unavailable";
+            case LIMIT_EXCEEDED -> "Limit reached";
             case SERVICE_UNAVAILABLE -> "Service unavailable";
         };
     }

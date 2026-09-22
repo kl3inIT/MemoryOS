@@ -108,7 +108,9 @@ def test_a_leak_fails_the_run_whatever_the_other_metrics_say() -> None:
 
     assert scores.leaks == 1
     assert scores.recall[5] == 1.0
-    assert report.regressions(scores, None) == ["rò rỉ quyền: 1 trích dẫn không được phép"]
+    assert report.regressions(scores, None) == [
+        "rò rỉ quyền: 1 tài liệu hoặc dữ kiện không được phép đã tới actor"
+    ]
 
 
 def test_a_candidate_is_rejected_only_when_a_metric_falls_below_the_baseline(

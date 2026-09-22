@@ -288,8 +288,12 @@ public class OpenSearchIndexService implements SearchIndex {
             origins.add(Map.of("terms", Map.of("source_metadata.source_id", sourceIds)));
             if (!restrictions.sources().isEmpty()) origins.add(Map.of("terms", Map.of("source_metadata.type",
                     restrictions.sources().stream().map(Enum::name).sorted().toList())));
-            if (restrictions.created() != null) origins.add(range("source_metadata.created_at", restrictions.created()));
-            if (restrictions.updated() != null) origins.add(range("source_metadata.updated_at", restrictions.updated()));
+            // A window must not remove a document that carries no date; see the undated-documents increment.
+            if (restrictions.created() != null)
+                origins.add(dateRange("source_metadata.created_at", restrictions.created(), true));
+            if (restrictions.updated() != null)
+                origins.add(dateRange("source_metadata.updated_at", restrictions.updated(),
+                        SearchFilters.keepsUndated(restrictions.updated(), Instant.now())));
             filters.add(Map.of("nested", Map.of("path", "source_metadata", "query", Map.of("bool", Map.of("filter", origins)))));
         }
         var response = gateway.json("POST", "/" + readAlias() + "/_search", Map.of("search_pipeline", pipeline()), Map.of(
@@ -499,6 +503,15 @@ public class OpenSearchIndexService implements SearchIndex {
     }
 
     private static Map<String,Object> term(String field, String value) { return Map.of("term", Map.of(field, value)); }
+
+    /** The range, widened to documents without that date when the shared rule admits them. */
+    static Map<String, Object> dateRange(String field, SearchFilters.Interval interval, boolean keepUndated) {
+        var within = range(field, interval);
+        if (!keepUndated) return within;
+        return Map.of("bool", Map.of(
+                "should", List.of(within, Map.of("bool", Map.of("must_not", Map.of("exists", Map.of("field", field))))),
+                "minimum_should_match", 1));
+    }
 
     private static Map<String, Object> range(String field, SearchFilters.Interval interval) {
         var bounds = new LinkedHashMap<String, String>();

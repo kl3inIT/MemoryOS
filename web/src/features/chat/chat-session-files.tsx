@@ -283,7 +283,12 @@ export function ChatSessionFiles({
                     onClick={() => setPreview(libraryPreviewTarget(file))}
                   >
                     {file.source === "IMAGE" ? (
-                      <img src={imageArtifactUrl(file.id)} alt="" loading="lazy" />
+                      <img
+                        src={imageArtifactUrl(file.id, "thumbnail")}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                      />
                     ) : (
                       <DocumentKindIcon
                         mediaType={file.mediaType}

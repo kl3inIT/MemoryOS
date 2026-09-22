@@ -26,9 +26,7 @@ import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminAgentsRouteImport } from './routes/_authenticated.admin.agents'
 import { Route as AuthenticatedAdminAiCostsRouteImport } from './routes/_authenticated.admin.ai-costs'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated.admin.audit'
-import { Route as AuthenticatedAdminChatRetentionRouteImport } from './routes/_authenticated.admin.chat-retention'
 import { Route as AuthenticatedAdminCodeInterpreterRouteImport } from './routes/_authenticated.admin.code-interpreter'
-import { Route as AuthenticatedAdminFileStorageRouteImport } from './routes/_authenticated.admin.file-storage'
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
 import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from './routes/_authenticated.admin.identity-providers'
 import { Route as AuthenticatedAdminImageGenerationRouteImport } from './routes/_authenticated.admin.image-generation'
@@ -45,6 +43,7 @@ import { Route as AuthenticatedSettingsArchivedChatsRouteImport } from './routes
 import { Route as AuthenticatedSettingsChatRouteImport } from './routes/_authenticated.settings.chat'
 import { Route as AuthenticatedSettingsConnectionsRouteImport } from './routes/_authenticated.settings.connections'
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated.settings.general'
+import { Route as AuthenticatedSettingsStorageRouteImport } from './routes/_authenticated.settings.storage'
 import { Route as AuthenticatedSettingsUsageRouteImport } from './routes/_authenticated.settings.usage'
 import { Route as AuthenticatedSharedSessionIdRouteImport } from './routes/_authenticated.shared.$sessionId'
 import { Route as AuthenticatedChatChatSessionIdRouteImport } from './routes/_authenticated._chat.chat.$sessionId'
@@ -148,22 +147,10 @@ const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
-const AuthenticatedAdminChatRetentionRoute =
-  AuthenticatedAdminChatRetentionRouteImport.update({
-    id: '/chat-retention',
-    path: '/chat-retention',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
 const AuthenticatedAdminCodeInterpreterRoute =
   AuthenticatedAdminCodeInterpreterRouteImport.update({
     id: '/code-interpreter',
     path: '/code-interpreter',
-    getParentRoute: () => AuthenticatedAdminRoute,
-  } as any)
-const AuthenticatedAdminFileStorageRoute =
-  AuthenticatedAdminFileStorageRouteImport.update({
-    id: '/file-storage',
-    path: '/file-storage',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminGroupsRoute =
@@ -257,6 +244,12 @@ const AuthenticatedSettingsGeneralRoute =
   AuthenticatedSettingsGeneralRouteImport.update({
     id: '/general',
     path: '/general',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsStorageRoute =
+  AuthenticatedSettingsStorageRouteImport.update({
+    id: '/storage',
+    path: '/storage',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
 const AuthenticatedSettingsUsageRoute =
@@ -377,9 +370,7 @@ export interface FileRoutesByFullPath {
   '/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
-  '/admin/chat-retention': typeof AuthenticatedAdminChatRetentionRoute
   '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
-  '/admin/file-storage': typeof AuthenticatedAdminFileStorageRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
@@ -394,6 +385,7 @@ export interface FileRoutesByFullPath {
   '/settings/chat': typeof AuthenticatedSettingsChatRoute
   '/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/settings/storage': typeof AuthenticatedSettingsStorageRoute
   '/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
@@ -428,9 +420,7 @@ export interface FileRoutesByTo {
   '/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
-  '/admin/chat-retention': typeof AuthenticatedAdminChatRetentionRoute
   '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
-  '/admin/file-storage': typeof AuthenticatedAdminFileStorageRoute
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/admin/mcp': typeof AuthenticatedAdminMcpRoute
@@ -444,6 +434,7 @@ export interface FileRoutesByTo {
   '/settings/chat': typeof AuthenticatedSettingsChatRoute
   '/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/settings/storage': typeof AuthenticatedSettingsStorageRoute
   '/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
@@ -481,9 +472,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/_authenticated/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
-  '/_authenticated/admin/chat-retention': typeof AuthenticatedAdminChatRetentionRoute
   '/_authenticated/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
-  '/_authenticated/admin/file-storage': typeof AuthenticatedAdminFileStorageRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/_authenticated/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/_authenticated/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
@@ -498,6 +487,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/chat': typeof AuthenticatedSettingsChatRoute
   '/_authenticated/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
+  '/_authenticated/settings/storage': typeof AuthenticatedSettingsStorageRoute
   '/_authenticated/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/_authenticated/shared/$sessionId': typeof AuthenticatedSharedSessionIdRoute
   '/_authenticated/_chat/': typeof AuthenticatedChatIndexRoute
@@ -537,9 +527,7 @@ export interface FileRouteTypes {
     | '/admin/agents'
     | '/admin/ai-costs'
     | '/admin/audit'
-    | '/admin/chat-retention'
     | '/admin/code-interpreter'
-    | '/admin/file-storage'
     | '/admin/groups'
     | '/admin/identity-providers'
     | '/admin/image-generation'
@@ -554,6 +542,7 @@ export interface FileRouteTypes {
     | '/settings/chat'
     | '/settings/connections'
     | '/settings/general'
+    | '/settings/storage'
     | '/settings/usage'
     | '/shared/$sessionId'
     | '/admin/'
@@ -588,9 +577,7 @@ export interface FileRouteTypes {
     | '/admin/agents'
     | '/admin/ai-costs'
     | '/admin/audit'
-    | '/admin/chat-retention'
     | '/admin/code-interpreter'
-    | '/admin/file-storage'
     | '/admin/identity-providers'
     | '/admin/image-generation'
     | '/admin/mcp'
@@ -604,6 +591,7 @@ export interface FileRouteTypes {
     | '/settings/chat'
     | '/settings/connections'
     | '/settings/general'
+    | '/settings/storage'
     | '/settings/usage'
     | '/shared/$sessionId'
     | '/admin'
@@ -640,9 +628,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/agents'
     | '/_authenticated/admin/ai-costs'
     | '/_authenticated/admin/audit'
-    | '/_authenticated/admin/chat-retention'
     | '/_authenticated/admin/code-interpreter'
-    | '/_authenticated/admin/file-storage'
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/identity-providers'
     | '/_authenticated/admin/image-generation'
@@ -657,6 +643,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/chat'
     | '/_authenticated/settings/connections'
     | '/_authenticated/settings/general'
+    | '/_authenticated/settings/storage'
     | '/_authenticated/settings/usage'
     | '/_authenticated/shared/$sessionId'
     | '/_authenticated/_chat/'
@@ -808,25 +795,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminAuditRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
-    '/_authenticated/admin/chat-retention': {
-      id: '/_authenticated/admin/chat-retention'
-      path: '/chat-retention'
-      fullPath: '/admin/chat-retention'
-      preLoaderRoute: typeof AuthenticatedAdminChatRetentionRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
     '/_authenticated/admin/code-interpreter': {
       id: '/_authenticated/admin/code-interpreter'
       path: '/code-interpreter'
       fullPath: '/admin/code-interpreter'
       preLoaderRoute: typeof AuthenticatedAdminCodeInterpreterRouteImport
-      parentRoute: typeof AuthenticatedAdminRoute
-    }
-    '/_authenticated/admin/file-storage': {
-      id: '/_authenticated/admin/file-storage'
-      path: '/file-storage'
-      fullPath: '/admin/file-storage'
-      preLoaderRoute: typeof AuthenticatedAdminFileStorageRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/groups': {
@@ -939,6 +912,13 @@ declare module '@tanstack/react-router' {
       path: '/general'
       fullPath: '/settings/general'
       preLoaderRoute: typeof AuthenticatedSettingsGeneralRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/storage': {
+      id: '/_authenticated/settings/storage'
+      path: '/storage'
+      fullPath: '/settings/storage'
+      preLoaderRoute: typeof AuthenticatedSettingsStorageRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/usage': {
@@ -1125,9 +1105,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAgentsRoute: typeof AuthenticatedAdminAgentsRoute
   AuthenticatedAdminAiCostsRoute: typeof AuthenticatedAdminAiCostsRoute
   AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
-  AuthenticatedAdminChatRetentionRoute: typeof AuthenticatedAdminChatRetentionRoute
   AuthenticatedAdminCodeInterpreterRoute: typeof AuthenticatedAdminCodeInterpreterRoute
-  AuthenticatedAdminFileStorageRoute: typeof AuthenticatedAdminFileStorageRoute
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
   AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute
   AuthenticatedAdminImageGenerationRoute: typeof AuthenticatedAdminImageGenerationRoute
@@ -1148,10 +1126,8 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAgentsRoute: AuthenticatedAdminAgentsRoute,
   AuthenticatedAdminAiCostsRoute: AuthenticatedAdminAiCostsRoute,
   AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
-  AuthenticatedAdminChatRetentionRoute: AuthenticatedAdminChatRetentionRoute,
   AuthenticatedAdminCodeInterpreterRoute:
     AuthenticatedAdminCodeInterpreterRoute,
-  AuthenticatedAdminFileStorageRoute: AuthenticatedAdminFileStorageRoute,
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRouteWithChildren,
   AuthenticatedAdminIdentityProvidersRoute:
     AuthenticatedAdminIdentityProvidersRoute,
@@ -1183,6 +1159,7 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsChatRoute: typeof AuthenticatedSettingsChatRoute
   AuthenticatedSettingsConnectionsRoute: typeof AuthenticatedSettingsConnectionsRoute
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
+  AuthenticatedSettingsStorageRoute: typeof AuthenticatedSettingsStorageRoute
   AuthenticatedSettingsUsageRoute: typeof AuthenticatedSettingsUsageRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
@@ -1193,6 +1170,7 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsChatRoute: AuthenticatedSettingsChatRoute,
   AuthenticatedSettingsConnectionsRoute: AuthenticatedSettingsConnectionsRoute,
   AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
+  AuthenticatedSettingsStorageRoute: AuthenticatedSettingsStorageRoute,
   AuthenticatedSettingsUsageRoute: AuthenticatedSettingsUsageRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
 }

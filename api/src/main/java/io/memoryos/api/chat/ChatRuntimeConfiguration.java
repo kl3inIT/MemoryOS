@@ -76,8 +76,9 @@ class ChatRuntimeConfiguration {
                                     ChatModelResolver models, io.memoryos.chat.web.WebConnectionService web,
                                     io.memoryos.chat.image.ImageConnectionService images, io.memoryos.chat.ChatSettingsService settings,
                                     io.memoryos.chat.research.ResearchProperties research,
-                                    io.memoryos.mcp.McpTurnService mcp) {
-        var service = new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images, settings, research, mcp);
+                                    io.memoryos.mcp.McpTurnService mcp,
+                                    io.memoryos.usage.AiUsageLimitService spending) {
+        var service = new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images, settings, research, mcp, spending);
         // Context refresh completes before the web server accepts requests, so no send can race this.
         service.failOrphanedRuns();
         return service;

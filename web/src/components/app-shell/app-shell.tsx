@@ -1,7 +1,6 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link } from "@tanstack/react-router";
 import {
-  CalendarClock,
   ArrowLeft,
   AudioLines,
   Blocks,
@@ -42,7 +41,7 @@ import { ChatNavigation } from "@/features/chat/chat-navigation";
 
 export type AppShellArea = "app" | "admin" | "settings";
 /** Personal settings tabs, as Onyx Settings (MEM-145). */
-export type SettingsPage = "general" | "chat" | "connections" | "usage";
+export type SettingsPage = "general" | "chat" | "storage" | "connections" | "usage";
 export type AdminPage =
   | "sources"
   | "addSource"
@@ -53,8 +52,6 @@ export type AdminPage =
   | "voice"
   | "images"
   | "interpreter"
-  | "file-storage"
-  | "retention"
   | "providers"
   | "models"
   | "mcp"
@@ -257,6 +254,15 @@ function SidebarContents({
               {ui("Chat")}
             </SidebarTab>
             <SidebarTab
+              to="/settings/storage"
+              icon={<HardDrive className="size-4" />}
+              selected={settingsPage === "storage"}
+              collapsed={collapsed}
+              onClick={onNavigate}
+            >
+              {ui("Bộ nhớ lưu trữ")}
+            </SidebarTab>
+            <SidebarTab
               to="/settings/connections"
               icon={<Blocks className="size-4" />}
               selected={settingsPage === "connections"}
@@ -317,15 +323,6 @@ function SidebarContents({
                   {ui("Tạo ảnh")}
                 </SidebarTab>
                 <SidebarTab
-                  to="/admin/file-storage"
-                  icon={<HardDrive className="size-4" />}
-                  selected={adminPage === "file-storage"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  {ui("Dung lượng tệp")}
-                </SidebarTab>
-                <SidebarTab
                   to="/admin/code-interpreter"
                   icon={<SquareTerminal className="size-4" />}
                   selected={adminPage === "interpreter"}
@@ -334,41 +331,6 @@ function SidebarContents({
                 >
                   {ui("Code Interpreter")}
                 </SidebarTab>
-                <SidebarTab
-                  to="/admin/chat-retention"
-                  icon={<CalendarClock className="size-4" />}
-                  selected={adminPage === "retention"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  {ui("Lưu giữ hội thoại")}
-                </SidebarTab>
-              </SidebarSection>
-            ) : null}
-            {canManageModels || canReadAudit ? (
-              <SidebarSection title={ui("Monitoring")} collapsed={collapsed}>
-                {canManageModels ? (
-                  <SidebarTab
-                    to="/admin/ai-costs"
-                    icon={<ReceiptText className="size-4" />}
-                    selected={adminPage === "costs"}
-                    collapsed={collapsed}
-                    onClick={onNavigate}
-                  >
-                    {ui("AI costs")}
-                  </SidebarTab>
-                ) : null}
-                {canReadAudit ? (
-                  <SidebarTab
-                    to="/admin/audit"
-                    icon={<ScrollText className="size-4" />}
-                    selected={adminPage === "audit"}
-                    collapsed={collapsed}
-                    onClick={onNavigate}
-                  >
-                    {ui("Audit log")}
-                  </SidebarTab>
-                ) : null}
               </SidebarSection>
             ) : null}
             {canManageAgents ? (
@@ -463,6 +425,32 @@ function SidebarContents({
                     onClick={onNavigate}
                   >
                     {ui("Sign-in providers")}
+                  </SidebarTab>
+                ) : null}
+              </SidebarSection>
+            ) : null}
+            {canManageModels || canReadAudit ? (
+              <SidebarSection title={ui("Monitoring")} collapsed={collapsed}>
+                {canManageModels ? (
+                  <SidebarTab
+                    to="/admin/ai-costs"
+                    icon={<ReceiptText className="size-4" />}
+                    selected={adminPage === "costs"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    {ui("AI costs")}
+                  </SidebarTab>
+                ) : null}
+                {canReadAudit ? (
+                  <SidebarTab
+                    to="/admin/audit"
+                    icon={<ScrollText className="size-4" />}
+                    selected={adminPage === "audit"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    {ui("Audit log")}
                   </SidebarTab>
                 ) : null}
               </SidebarSection>

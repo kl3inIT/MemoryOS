@@ -57,6 +57,12 @@ export const periodLabels: Record<PeriodId, AppCopy> = {
   lastMonth: "Last month",
 };
 
+export const scopeLabels: Record<"TENANT" | "GROUP" | "PERSON", AppCopy> = {
+  TENANT: "The whole organization",
+  GROUP: "A group",
+  PERSON: "Each person",
+};
+
 export const flowLabels: Record<Flow, AppCopy> = {
   CHAT: "Chat",
   CHAT_NAMING: "Conversation naming",

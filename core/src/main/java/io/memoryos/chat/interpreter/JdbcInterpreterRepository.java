@@ -114,7 +114,7 @@ public class JdbcInterpreterRepository {
         return jdbc.sql("""
                 UPDATE chat_file_artifact SET deleted_at = NULL, purge_after = NULL, cleanup_token = NULL,
                     cleanup_until = NULL
-                WHERE tenant_id = :tenant AND id = :id AND owner_actor_id = :actor AND deleted_at IS NOT NULL
+                WHERE tenant_id = :tenant AND id = :id AND owner_actor_id = :actor AND deleted_at IS NOT NULL AND purged_at IS NULL
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id).update() == 1;
     }
 
@@ -122,7 +122,7 @@ public class JdbcInterpreterRepository {
     public boolean purgeArtifactNow(TenantId tenant, ActorId actor, UUID id) {
         return jdbc.sql("""
                 UPDATE chat_file_artifact SET purge_after = CURRENT_TIMESTAMP
-                WHERE tenant_id = :tenant AND id = :id AND owner_actor_id = :actor AND deleted_at IS NOT NULL
+                WHERE tenant_id = :tenant AND id = :id AND owner_actor_id = :actor AND deleted_at IS NOT NULL AND purged_at IS NULL
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id).update() == 1;
     }
 
@@ -132,7 +132,7 @@ public class JdbcInterpreterRepository {
                 UPDATE chat_file_artifact SET purge_after = CURRENT_TIMESTAMP
                 WHERE (tenant_id, id) IN (
                     SELECT tenant_id, id FROM chat_file_artifact
-                    WHERE tenant_id = :tenant AND owner_actor_id = :actor AND deleted_at IS NOT NULL
+                    WHERE tenant_id = :tenant AND owner_actor_id = :actor AND deleted_at IS NOT NULL AND purged_at IS NULL
                     ORDER BY deleted_at LIMIT :limit)
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("limit", limit).update();
     }

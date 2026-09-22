@@ -1,4 +1,4 @@
-import { Files, Hourglass, Star, Trash2 } from "lucide-react";
+import { FolderOpen, LoaderCircle, Star, Trash2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { TextButton } from "@/components/ui/text-button";
@@ -39,9 +39,9 @@ export function LibraryRail({
 }) {
   const ui = useAppTranslation();
   const views: { value: LibraryView; label: string; icon: React.ReactNode }[] = [
-    { value: "ready", label: ui("Tất cả tệp"), icon: <Files /> },
+    { value: "ready", label: ui("Tất cả tệp"), icon: <FolderOpen /> },
     { value: "favorite", label: ui("Yêu thích"), icon: <Star /> },
-    { value: "pending", label: ui("Đang xử lý"), icon: <Hourglass /> },
+    { value: "pending", label: ui("Đang xử lý"), icon: <LoaderCircle /> },
     { value: "trash", label: ui("Thùng rác"), icon: <Trash2 /> },
   ];
   return (

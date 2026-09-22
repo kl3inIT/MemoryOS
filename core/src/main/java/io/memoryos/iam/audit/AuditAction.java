@@ -51,9 +51,7 @@ public enum AuditAction {
     VOICE_CONNECTION_CHANGE("voice_connection.change", AuditEventClass.API_ACTIVITY, "change", "credentialChange"),
     IMAGE_CONNECTION_CHANGE("image_connection.change", AuditEventClass.API_ACTIVITY, "change", "credentialChange"),
     INTERPRETER_CHANGE("interpreter.change", AuditEventClass.API_ACTIVITY, "enabled"),
-    CHAT_SETTINGS_CHANGE("chat_settings.change", AuditEventClass.API_ACTIVITY, "deepResearchEnabled",
-            // MEM-153: how long this Tenant keeps conversations nobody has touched; a count of days, never a conversation.
-            "chatRetentionDays"),
+    CHAT_SETTINGS_CHANGE("chat_settings.change", AuditEventClass.API_ACTIVITY, "deepResearchEnabled"),
     MCP_SERVER_CREATE("mcp_server.create", AuditEventClass.API_ACTIVITY, "after"),
     MCP_SERVER_UPDATE("mcp_server.update", AuditEventClass.API_ACTIVITY, "before", "after", "credentialChange"),
     MCP_SERVER_DELETE("mcp_server.delete", AuditEventClass.API_ACTIVITY, "url"),
@@ -77,6 +75,11 @@ public enum AuditAction {
     CREDENTIAL_CREATE("credential.create", AuditEventClass.API_ACTIVITY, "provider", "authentication"),
     CREDENTIAL_UPDATE("credential.update", AuditEventClass.API_ACTIVITY, "provider", "change"),
     CREDENTIAL_DELETE("credential.delete", AuditEventClass.API_ACTIVITY, "provider"),
+
+    // What a Tenant may spend on AI (MEM-123).
+    AI_LIMIT_CREATE("ai_limit.create", AuditEventClass.API_ACTIVITY, "scope", "group", "after"),
+    AI_LIMIT_UPDATE("ai_limit.update", AuditEventClass.API_ACTIVITY, "scope", "group", "before", "after"),
+    AI_LIMIT_DELETE("ai_limit.delete", AuditEventClass.API_ACTIVITY, "scope", "group", "before"),
 
     // The audit stream's own reads that leave the system, and refused authority.
     AUDIT_EXPORT("audit.export", AuditEventClass.API_ACTIVITY, "from", "to", "rows"),

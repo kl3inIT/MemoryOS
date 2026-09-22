@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { DailyChart } from "./daily-chart";
+import { UsageLimits } from "./usage-limits";
 import { UsageReports } from "./usage-reports";
 import { Link } from "@tanstack/react-router";
 import {
@@ -166,6 +167,8 @@ export function AiCostsPage() {
           )}
         </CardContent>
       </Card>
+
+      <UsageLimits />
 
       <UsageReports />
 

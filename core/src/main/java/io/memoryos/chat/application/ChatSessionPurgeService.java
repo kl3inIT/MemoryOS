@@ -77,22 +77,22 @@ public class ChatSessionPurgeService {
     }
 
     /**
-     * Applies each Tenant's retention policy: a conversation nobody has touched for longer than the policy is
-     * deleted as its owner would have deleted it, and the purge then treats it like any other deletion. The
-     * audit line carries counts only, never a title or a message.
+     * Applies the retention each person chose for their own conversations: one nobody has touched for longer
+     * than that number of days is deleted exactly as its owner would have deleted it, and the purge then
+     * treats it like any other deletion. The log carries counts only, never a title or a message.
      */
     public int applyRetentionPolicies() {
         int deleted = 0;
         for (var policy : sessions.policies()) {
-            int forTenant = Objects.requireNonNull(tx.execute(
-                    ignored -> sessions.applyRetention(policy.tenant(), policy.days(), POLICY_BATCH)));
-            if (forTenant > 0) {
+            int forOwner = Objects.requireNonNull(tx.execute(ignored ->
+                    sessions.applyRetention(policy.tenant(), policy.owner(), policy.days(), POLICY_BATCH)));
+            if (forOwner > 0) {
                 LOGGER.atInfo().addKeyValue("event", "chat.retention.applied")
                         .addKeyValue("tenant_id", policy.tenant()).addKeyValue("days", policy.days())
-                        .addKeyValue("deleted", forTenant)
-                        .log("Deleted conversations past the Tenant retention policy");
+                        .addKeyValue("deleted", forOwner)
+                        .log("Deleted conversations past the owner's retention policy");
             }
-            deleted += forTenant;
+            deleted += forOwner;
         }
         return deleted;
     }

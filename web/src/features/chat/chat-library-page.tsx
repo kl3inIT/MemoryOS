@@ -1,5 +1,6 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearch } from "@tanstack/react-router";
 import { Download, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -12,13 +13,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { i18n } from "@/i18n";
 import { chatActionError } from "./chat-action-utils";
 import { ChatAddToProjectDialog } from "./chat-add-to-project";
 import { ChatDialog } from "./chat-dialog";
 import { LibraryContentMatches } from "./chat-library-content";
 import { LibraryDropZone, LibraryUploadButton, LibraryUploadTray } from "./chat-library-uploads";
 import { LibraryRail, type LibraryView } from "./chat-library-rail";
+import { LibrarySettingsButton } from "./chat-library-settings";
 import { FileActions, LibraryEmpty, LibraryList } from "./chat-library-rows";
 import {
   LibraryFilterPills,
@@ -29,7 +30,6 @@ import {
 } from "./chat-library-toolbar";
 import { archiveContentUrl, useLibraryArchive } from "./use-library-archive";
 import { useLibraryUploads } from "./use-library-uploads";
-import { fileSize } from "./chat-code";
 import { ChatFilePreviewModal } from "./chat-file-preview-modal";
 import { type PreviewTarget } from "./chat-file-preview";
 import {
@@ -61,7 +61,10 @@ export function ChatLibraryPage() {
   const [search, setSearch] = useState("");
   const query = useDeferredValue(search.trim());
   const [sources, setSources] = useState<LibrarySource[]>([]);
-  const [categories, setCategories] = useState<LibraryCategory[]>([]);
+  // A link from the storage page names one category; the filters then behave like any other filter. The
+  // search is read without binding to the route, so the page also renders where that route is not mounted.
+  const linked = useSearch({ strict: false }).category as LibraryCategory | undefined;
+  const [categories, setCategories] = useState<LibraryCategory[]>(linked ? [linked] : []);
   const [sort, setSort] = useState<LibrarySort>("NEWEST");
   /** Name search reads the listing; content search asks the file search what a file contains. */
   const [mode, setMode] = useState<LibrarySearchMode>("name");
@@ -214,15 +217,20 @@ export function ChatLibraryPage() {
         <LibraryDropZone onFiles={uploads.start}>
           <PageHeader
             title={ui("Thư viện")}
-            description={
-              page.data
-                ? ui("{{count}} tệp · {{size}}", {
-                    count: page.data.totalCount,
-                    size: fileSize(page.data.totalBytes, i18n.language),
-                  })
-                : undefined
+            actions={
+              <>
+                <LibraryUploadButton onFiles={uploads.start} />
+                <LibrarySettingsButton
+                  usage={usage.data}
+                  usageFailed={usage.isError}
+                  trashDays={trashWindow.data}
+                  onCategory={(category) => {
+                    setView("ready");
+                    fromTheFirstPage(setCategories)([category]);
+                  }}
+                />
+              </>
             }
-            actions={<LibraryUploadButton onFiles={uploads.start} />}
           />
 
           <div className="mt-6 flex flex-col gap-6 lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">

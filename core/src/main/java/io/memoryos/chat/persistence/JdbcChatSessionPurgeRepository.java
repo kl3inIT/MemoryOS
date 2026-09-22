@@ -65,39 +65,41 @@ public class JdbcChatSessionPurgeRepository {
      * Deletes the conversations of one Tenant whose last activity is older than its retention policy, in
      * batches; the purge then treats them exactly like a conversation someone deleted.
      */
-    public int applyRetention(java.util.UUID tenant, int days, int limit) {
+    public int applyRetention(java.util.UUID tenant, java.util.UUID owner, int days, int limit) {
         return jdbc.sql("""
                 UPDATE chat_session SET deleted_at = CURRENT_TIMESTAMP
                 WHERE id IN (
                     SELECT s.id FROM chat_session s
-                    WHERE s.tenant_id = :tenant AND s.deleted_at IS NULL
+                    WHERE s.tenant_id = :tenant AND s.owner_actor_id = :owner AND s.deleted_at IS NULL
                       AND s.updated_at <= CURRENT_TIMESTAMP - make_interval(days => :days)
                       AND NOT EXISTS (SELECT 1 FROM chat_message m
                                       WHERE m.session_id = s.id AND m.status = 'RUNNING')
                     ORDER BY s.updated_at LIMIT :limit)
-                """).param("tenant", tenant).param("days", days).param("limit", limit).update();
+                """).param("tenant", tenant).param("owner", owner).param("days", days).param("limit", limit)
+                .update();
     }
 
-    /** Every Tenant that records a retention policy, with its number of days. */
+    /** Every person who keeps their conversations for a limited time, with the number of days they chose. */
     public List<Policy> policies() {
         return jdbc.sql("""
-                SELECT tenant_id, chat_retention_days FROM chat_settings WHERE chat_retention_days IS NOT NULL
+                SELECT tenant_id, actor_id, retention_days FROM chat_preferences WHERE retention_days IS NOT NULL
                 """).query((row, ignored) -> new Policy(row.getObject("tenant_id", UUID.class),
-                        row.getInt("chat_retention_days"))).list();
+                        row.getObject("actor_id", UUID.class), row.getInt("retention_days"))).list();
     }
 
-    public record Policy(UUID tenant, int days) {}
+    public record Policy(UUID tenant, UUID owner, int days) {}
 
     /**
-     * How many of one Tenant's conversations a policy of {@code days} would delete, so an administrator sees
-     * the size of the change before saving it.
+     * How many of this person's own conversations a policy of {@code days} would delete, so they see the size
+     * of the change before saving it. A temporary conversation is not counted: it deletes itself anyway.
      */
-    public long affectedByRetention(java.util.UUID tenant, int days) {
+    public long affectedByRetention(java.util.UUID tenant, java.util.UUID owner, int days) {
         return jdbc.sql("""
                 SELECT count(*) FROM chat_session s
-                WHERE s.tenant_id = :tenant AND s.deleted_at IS NULL
+                WHERE s.tenant_id = :tenant AND s.owner_actor_id = :owner AND s.deleted_at IS NULL
+                  AND NOT s.temporary
                   AND s.updated_at <= CURRENT_TIMESTAMP - make_interval(days => :days)
-                """).param("tenant", tenant).param("days", days).query(Long.class).single();
+                """).param("tenant", tenant).param("owner", owner).param("days", days).query(Long.class).single();
     }
 
     /**

@@ -1,0 +1,36 @@
+name: Deploy production
+
+# Production is never promoted automatically: an operator selects the CI run whose release is
+# already running on staging. There is no PRODUCTION_AUTO_DEPLOY variable by design.
+
+"on":
+  workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful main CI run containing the verified release; select one already accepted on staging
+        required: true
+        type: string
+      recovery_release:
+        description: Optional exact healthy pending SHA-run-attempt to finish before deploying; never restores a database
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read # Check out trusted main deployment code.
+  actions: read # Verify the source CI run and download its release bundle.
+  packages: read # Pull the verified private GHCR images on production.
+
+concurrency:
+  group: memoryos-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: production
+      ci_run_id: ${{ inputs.ci_run_id }}
+      recovery_release: ${{ inputs.recovery_release }}
+    secrets: inherit

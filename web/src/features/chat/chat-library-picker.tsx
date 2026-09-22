@@ -230,9 +230,10 @@ function PickerBody({
               <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-sunken">
                 {file.source === "IMAGE" ? (
                   <img
-                    src={imageArtifactUrl(file.id)}
+                    src={imageArtifactUrl(file.id, "thumbnail")}
                     alt=""
                     loading="lazy"
+                    decoding="async"
                     className="size-full object-cover"
                   />
                 ) : (

@@ -586,30 +586,6 @@ export type VoiceConnectionResponse = {
     revision?: number;
 };
 
-export type ChatStorageQuotaInput = {
-    /**
-     * Bytes, 1 to 1 TiB; null removes the limit
-     */
-    maxBytes?: number | null;
-};
-
-export type ChatStoragePersonQuota = {
-    actorId: string;
-    name: string | null;
-    maxBytes: number;
-};
-
-export type ChatStorageQuota = {
-    /**
-     * The Tenant's limit per person; null means no limit
-     */
-    tenantLimitBytes: number | null;
-    /**
-     * People with their own limit
-     */
-    people: Array<ChatStoragePersonQuota>;
-};
-
 export type ChatSettingsRequest = {
     deepResearchEnabled: boolean;
     revision?: number;
@@ -620,19 +596,7 @@ export type ChatSettingsResponse = {
      * Deep research: agentic research across the web and connected sources; uses significantly more tokens per query.
      */
     deepResearchEnabled: boolean;
-    /**
-     * Days of inactivity after which a conversation is deleted; null is no policy
-     */
-    chatRetentionDays: number | null;
     revision: number;
-};
-
-export type ChatRetentionRequest = {
-    /**
-     * Days of inactivity after which a conversation is deleted; leave it out to clear the policy
-     */
-    chatRetentionDays?: number;
-    revision?: number;
 };
 
 export type Title = {
@@ -707,6 +671,20 @@ export type Feedback = {
 export type BranchSelection = {
     messageId: string;
     expectedChildId?: string | null;
+};
+
+export type ChatRetentionInput = {
+    /**
+     * Days of inactivity, 1 to 3650; leave it out to keep conversations until you delete them
+     */
+    days?: number;
+};
+
+export type ChatRetentionPolicy = {
+    /**
+     * Days of inactivity after which one of your conversations is deleted; null keeps them until you delete them
+     */
+    days: number | null;
 };
 
 export type Change = {
@@ -1112,6 +1090,34 @@ export type View = {
 export type DocumentSetSharingInput = {
     actorIds?: Array<string>;
     groupIds?: Array<string>;
+};
+
+export type AiUsageLimitRequest = {
+    scope: 'TENANT' | 'GROUP' | 'PERSON';
+    groupId?: string;
+    tokenBudget?: number;
+    costBudgetUsd?: number;
+    periodDays: number;
+    enabled: boolean;
+};
+
+/**
+ * A cap on AI spending. A model without a price adds tokens but no cost, so only a token budget binds it
+ */
+export type AiUsageLimit = {
+    id: string;
+    scope: 'TENANT' | 'GROUP' | 'PERSON';
+    groupId?: string;
+    groupName?: string;
+    tokenBudget?: number;
+    costBudgetUsd?: number;
+    periodDays: number;
+    enabled: boolean;
+    /**
+     * Spent against this limit in its own window; for a per-person limit, the busiest person's spend
+     */
+    tokensUsed: number;
+    costUsed: number;
 };
 
 export type ReplaceUserGroupsRequest = {
@@ -2539,14 +2545,6 @@ export type WebLocation = {
     retrievedAt?: string;
 };
 
-export type ChatRetentionPreview = {
-    days: number | null;
-    /**
-     * How many conversations this policy would delete now
-     */
-    affected: number;
-};
-
 export type TextDeltaEvent = {
     assistantMessageId: string;
     sequence: number;
@@ -2681,6 +2679,14 @@ export type ChatSessionSearchItem = {
 export type ChatSessionSearchPage = {
     items: Array<ChatSessionSearchItem>;
     hasMore: boolean;
+};
+
+export type ChatRetentionPreview = {
+    days: number | null;
+    /**
+     * How many of your conversations this policy would delete now
+     */
+    affected: number;
 };
 
 export type Descriptor = {
@@ -2936,6 +2942,20 @@ export type AiCostRow = {
     inputTokens: number;
     outputTokens: number;
     cost: number;
+};
+
+/**
+ * The budget that binds the caller, and what they have spent against it
+ */
+export type AiUsageStanding = {
+    scope: 'TENANT' | 'GROUP' | 'PERSON';
+    groupName?: string;
+    tokenBudget?: number;
+    tokensUsed: number;
+    costBudgetUsd?: number;
+    costUsed: number;
+    periodDays: number;
+    resetsAt: string;
 };
 
 export type ApiProblem = {
@@ -4286,131 +4306,6 @@ export type SaveChatVoiceConnectionResponses = {
 
 export type SaveChatVoiceConnectionResponse = SaveChatVoiceConnectionResponses[keyof SaveChatVoiceConnectionResponses];
 
-export type GetChatStorageQuotaData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/chat/storage-quota';
-};
-
-export type GetChatStorageQuotaErrors = {
-    /**
-     * Invalid storage limit
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Model management or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * Chat is unavailable or the person is not a member
-     */
-    404: ApiProblem;
-};
-
-export type GetChatStorageQuotaError = GetChatStorageQuotaErrors[keyof GetChatStorageQuotaErrors];
-
-export type GetChatStorageQuotaResponses = {
-    /**
-     * The Tenant limit and the people with their own
-     */
-    200: ChatStorageQuota;
-};
-
-export type GetChatStorageQuotaResponse = GetChatStorageQuotaResponses[keyof GetChatStorageQuotaResponses];
-
-export type SetChatStorageQuotaData = {
-    body: ChatStorageQuotaInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path?: never;
-    query?: never;
-    url: '/api/chat/storage-quota';
-};
-
-export type SetChatStorageQuotaErrors = {
-    /**
-     * Invalid storage limit
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Model management or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * Chat is unavailable or the person is not a member
-     */
-    404: ApiProblem;
-};
-
-export type SetChatStorageQuotaError = SetChatStorageQuotaErrors[keyof SetChatStorageQuotaErrors];
-
-export type SetChatStorageQuotaResponses = {
-    /**
-     * The limits after the change
-     */
-    200: ChatStorageQuota;
-};
-
-export type SetChatStorageQuotaResponse = SetChatStorageQuotaResponses[keyof SetChatStorageQuotaResponses];
-
-export type SetChatStoragePersonQuotaData = {
-    body: ChatStorageQuotaInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path: {
-        actorId: string;
-    };
-    query?: never;
-    url: '/api/chat/storage-quota/{actorId}';
-};
-
-export type SetChatStoragePersonQuotaErrors = {
-    /**
-     * Invalid storage limit
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Model management or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * Chat is unavailable or the person is not a member
-     */
-    404: ApiProblem;
-};
-
-export type SetChatStoragePersonQuotaError = SetChatStoragePersonQuotaErrors[keyof SetChatStoragePersonQuotaErrors];
-
-export type SetChatStoragePersonQuotaResponses = {
-    /**
-     * The limits after the change
-     */
-    200: ChatStorageQuota;
-};
-
-export type SetChatStoragePersonQuotaResponse = SetChatStoragePersonQuotaResponses[keyof SetChatStoragePersonQuotaResponses];
-
 export type GetChatSettingsData = {
     body?: never;
     path?: never;
@@ -4498,53 +4393,6 @@ export type SaveChatSettingsResponses = {
 };
 
 export type SaveChatSettingsResponse = SaveChatSettingsResponses[keyof SaveChatSettingsResponses];
-
-export type SaveChatRetentionData = {
-    body: ChatRetentionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
-    path?: never;
-    query?: never;
-    url: '/api/chat/settings/retention';
-};
-
-export type SaveChatRetentionErrors = {
-    /**
-     * Invalid Chat settings
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Chat unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Chat settings changed
-     */
-    409: ApiProblem;
-};
-
-export type SaveChatRetentionError = SaveChatRetentionErrors[keyof SaveChatRetentionErrors];
-
-export type SaveChatRetentionResponses = {
-    /**
-     * Saved retention policy
-     */
-    200: ChatSettingsResponse;
-};
-
-export type SaveChatRetentionResponse = SaveChatRetentionResponses[keyof SaveChatRetentionResponses];
 
 export type GenerateChatTitleData = {
     body?: never;
@@ -5080,6 +4928,86 @@ export type SelectChatBranchResponses = {
 };
 
 export type SelectChatBranchResponse = SelectChatBranchResponses[keyof SelectChatBranchResponses];
+
+export type GetChatRetentionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/retention';
+};
+
+export type GetChatRetentionErrors = {
+    /**
+     * The number of days is outside 1 to 3650
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable or the person is not a member
+     */
+    404: ApiProblem;
+};
+
+export type GetChatRetentionError = GetChatRetentionErrors[keyof GetChatRetentionErrors];
+
+export type GetChatRetentionResponses = {
+    /**
+     * Your retention policy
+     */
+    200: ChatRetentionPolicy;
+};
+
+export type GetChatRetentionResponse = GetChatRetentionResponses[keyof GetChatRetentionResponses];
+
+export type SaveChatRetentionData = {
+    body: ChatRetentionInput;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/retention';
+};
+
+export type SaveChatRetentionErrors = {
+    /**
+     * The number of days is outside 1 to 3650
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable or the person is not a member
+     */
+    404: ApiProblem;
+};
+
+export type SaveChatRetentionError = SaveChatRetentionErrors[keyof SaveChatRetentionErrors];
+
+export type SaveChatRetentionResponses = {
+    /**
+     * The policy after the change
+     */
+    200: ChatRetentionPolicy;
+};
+
+export type SaveChatRetentionResponse = SaveChatRetentionResponses[keyof SaveChatRetentionResponses];
 
 export type DeleteChatProviderData = {
     body?: never;
@@ -6964,6 +6892,88 @@ export type ShareDocumentSetResponses = {
 };
 
 export type ShareDocumentSetResponse = ShareDocumentSetResponses[keyof ShareDocumentSetResponses];
+
+export type DeleteAiUsageLimitData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        limitId: string;
+    };
+    query?: never;
+    url: '/api/ai-costs/limits/{limitId}';
+};
+
+export type DeleteAiUsageLimitErrors = {
+    /**
+     * Invalid budget or period
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type DeleteAiUsageLimitError = DeleteAiUsageLimitErrors[keyof DeleteAiUsageLimitErrors];
+
+export type DeleteAiUsageLimitResponses = {
+    /**
+     * Removed
+     */
+    204: void;
+};
+
+export type DeleteAiUsageLimitResponse = DeleteAiUsageLimitResponses[keyof DeleteAiUsageLimitResponses];
+
+export type UpdateAiUsageLimitData = {
+    body: AiUsageLimitRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        limitId: string;
+    };
+    query?: never;
+    url: '/api/ai-costs/limits/{limitId}';
+};
+
+export type UpdateAiUsageLimitErrors = {
+    /**
+     * Invalid budget or period
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type UpdateAiUsageLimitError = UpdateAiUsageLimitErrors[keyof UpdateAiUsageLimitErrors];
+
+export type UpdateAiUsageLimitResponses = {
+    /**
+     * Updated
+     */
+    200: AiUsageLimit;
+};
+
+export type UpdateAiUsageLimitResponse = UpdateAiUsageLimitResponses[keyof UpdateAiUsageLimitResponses];
 
 export type ReplaceUserGroupsData = {
     body: ReplaceUserGroupsRequest;
@@ -11828,6 +11838,78 @@ export type RequestUsageReportResponses = {
 
 export type RequestUsageReportResponse = RequestUsageReportResponses[keyof RequestUsageReportResponses];
 
+export type ListAiUsageLimitsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ai-costs/limits';
+};
+
+export type ListAiUsageLimitsErrors = {
+    /**
+     * Invalid budget or period
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type ListAiUsageLimitsError = ListAiUsageLimitsErrors[keyof ListAiUsageLimitsErrors];
+
+export type ListAiUsageLimitsResponses = {
+    /**
+     * Successful result
+     */
+    200: Array<AiUsageLimit>;
+};
+
+export type ListAiUsageLimitsResponse = ListAiUsageLimitsResponses[keyof ListAiUsageLimitsResponses];
+
+export type CreateAiUsageLimitData = {
+    body: AiUsageLimitRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/ai-costs/limits';
+};
+
+export type CreateAiUsageLimitErrors = {
+    /**
+     * Invalid budget or period
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type CreateAiUsageLimitError = CreateAiUsageLimitErrors[keyof CreateAiUsageLimitErrors];
+
+export type CreateAiUsageLimitResponses = {
+    /**
+     * Created
+     */
+    201: AiUsageLimit;
+};
+
+export type CreateAiUsageLimitResponse = CreateAiUsageLimitResponses[keyof CreateAiUsageLimitResponses];
+
 export type GetChatVoiceSettingsData = {
     body?: never;
     path?: never;
@@ -13245,49 +13327,6 @@ export type GetSharedChatHistoryResponses = {
 
 export type GetSharedChatHistoryResponse = GetSharedChatHistoryResponses[keyof GetSharedChatHistoryResponses];
 
-export type PreviewChatRetentionData = {
-    body?: never;
-    path?: never;
-    query?: {
-        days?: number;
-    };
-    url: '/api/chat/settings/retention/preview';
-};
-
-export type PreviewChatRetentionErrors = {
-    /**
-     * Invalid Chat settings
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Management authority or CSRF required
-     */
-    403: ApiProblem;
-    /**
-     * Chat unavailable
-     */
-    404: ApiProblem;
-    /**
-     * Chat settings changed
-     */
-    409: ApiProblem;
-};
-
-export type PreviewChatRetentionError = PreviewChatRetentionErrors[keyof PreviewChatRetentionErrors];
-
-export type PreviewChatRetentionResponses = {
-    /**
-     * What the policy would delete
-     */
-    200: ChatRetentionPreview;
-};
-
-export type PreviewChatRetentionResponse = PreviewChatRetentionResponses[keyof PreviewChatRetentionResponses];
-
 export type DeleteChatSessionData = {
     body?: never;
     headers: {
@@ -13553,6 +13592,45 @@ export type SearchChatSessionsResponses = {
 };
 
 export type SearchChatSessionsResponse = SearchChatSessionsResponses[keyof SearchChatSessionsResponses];
+
+export type PreviewChatRetentionData = {
+    body?: never;
+    path?: never;
+    query?: {
+        days?: number;
+    };
+    url: '/api/chat/retention/preview';
+};
+
+export type PreviewChatRetentionErrors = {
+    /**
+     * The number of days is outside 1 to 3650
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable or the person is not a member
+     */
+    404: ApiProblem;
+};
+
+export type PreviewChatRetentionError = PreviewChatRetentionErrors[keyof PreviewChatRetentionErrors];
+
+export type PreviewChatRetentionResponses = {
+    /**
+     * What the policy would delete
+     */
+    200: ChatRetentionPreview;
+};
+
+export type PreviewChatRetentionResponse = PreviewChatRetentionResponses[keyof PreviewChatRetentionResponses];
 
 export type ListChatProviderAdaptersData = {
     body?: never;
@@ -14423,7 +14501,12 @@ export type GetChatImageArtifactData = {
     path: {
         artifactId: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * Which rendering to read; a thumbnail is what the file library shows
+         */
+        variant?: 'ORIGINAL' | 'THUMBNAIL';
+    };
     url: '/api/chat/image-artifacts/{artifactId}/content';
 };
 
@@ -15528,6 +15611,39 @@ export type GetMyAiCostsResponses = {
 };
 
 export type GetMyAiCostsResponse = GetMyAiCostsResponses[keyof GetMyAiCostsResponses];
+
+export type GetMyAiUsageStandingData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ai-costs/limits/mine';
+};
+
+export type GetMyAiUsageStandingErrors = {
+    /**
+     * Invalid budget or period
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type GetMyAiUsageStandingError = GetMyAiUsageStandingErrors[keyof GetMyAiUsageStandingErrors];
+
+export type GetMyAiUsageStandingResponses = {
+    /**
+     * The binding budget, or nothing when the Tenant sets no limit
+     */
+    200: AiUsageStanding;
+};
+
+export type GetMyAiUsageStandingResponse = GetMyAiUsageStandingResponses[keyof GetMyAiUsageStandingResponses];
 
 export type GetAiCostDetailData = {
     body?: never;

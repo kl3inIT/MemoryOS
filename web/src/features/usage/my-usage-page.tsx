@@ -3,6 +3,7 @@ import { Activity, ChartColumn, CircleDollarSign, Gauge, Layers } from "lucide-r
 import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { ChatModelLogo } from "@/features/chat/chat-model-logo";
 import { DailyChart } from "./daily-chart";
 import { appText, type AppCopy } from "@/i18n/app-text";
@@ -10,10 +11,11 @@ import { formatUiDate, uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   getMyAiCostsOptions,
+  getMyAiUsageStandingOptions,
   listAvailableChatModelsOptions,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import type { AvailableModel } from "@/lib/hey-api/types.gen";
-import { change, count, money, period, previousPeriod } from "./ai-costs";
+import type { AiUsageStanding, AvailableModel } from "@/lib/hey-api/types.gen";
+import { change, count, money, period, previousPeriod, scopeLabels } from "./ai-costs";
 
 /** The model's own price under its name: input and output per million tokens, as the prices table showed them. */
 function price(models: AvailableModel[] | undefined, label: string, ui: (copy: AppCopy) => string) {
@@ -46,6 +48,62 @@ const perMillion = (value: number | null | undefined) =>
 const day = (iso: string) =>
   formatUiDate(`${iso}T00:00:00Z`, { day: "numeric", month: "numeric", timeZone: "UTC" });
 
+/** The budget that binds this person, once their organization sets one: what is left, and when it frees. */
+function Budget({ standing }: { standing: AiUsageStanding }) {
+  const ui = useAppTranslation();
+  const byTokens = standing.tokenBudget ? standing.tokensUsed / standing.tokenBudget : 0;
+  const byCost = standing.costBudgetUsd ? standing.costUsed / standing.costBudgetUsd : 0;
+  const used = Math.min(1, Math.max(byTokens, byCost));
+  const whose =
+    standing.scope === "GROUP" && standing.groupName
+      ? standing.groupName
+      : ui(scopeLabels[standing.scope]);
+  return (
+    <section
+      aria-label={ui("Spending limit")}
+      className="flex max-w-2xl flex-col gap-2 rounded-md border border-border-subtle bg-surface-raised p-4"
+    >
+      <p className="font-main-ui-action text-content-primary">
+        {ui(appText("Budget: {{whose}}", { whose }))}
+      </p>
+      <p className="font-secondary-body text-content-secondary tabular-nums">
+        {standing.tokenBudget
+          ? ui(
+              appText("{{used}} / {{budget}} token", {
+                used: count(standing.tokensUsed),
+                budget: count(standing.tokenBudget),
+              }),
+            )
+          : null}
+        {standing.tokenBudget && standing.costBudgetUsd ? " · " : null}
+        {standing.costBudgetUsd
+          ? ui(
+              appText("{{used}} of {{budget}}", {
+                used: money(standing.costUsed),
+                budget: money(standing.costBudgetUsd),
+              }),
+            )
+          : null}
+      </p>
+      <Progress className="h-1.5" value={Math.round(used * 100)} aria-hidden="true" />
+      <p className="font-secondary-body text-content-muted">
+        {used >= 1
+          ? ui(
+              appText("The budget is spent. It frees again on {{when}}.", {
+                when: formatUiDate(standing.resetsAt, { dateStyle: "medium", timeStyle: "short" }),
+              }),
+            )
+          : ui(
+              appText("Counted over {{days}} days. It frees again on {{when}}.", {
+                days: standing.periodDays,
+                when: formatUiDate(standing.resetsAt, { dateStyle: "medium" }),
+              }),
+            )}
+      </p>
+    </section>
+  );
+}
+
 /** Onyx Settings › Usage: the member's own spend this period, tokens per model and the prices they pay. */
 export function MyUsagePage() {
   const ui = useAppTranslation();
@@ -59,6 +117,7 @@ export function MyUsagePage() {
     retry: false,
   });
   const models = useQuery({ ...listAvailableChatModelsOptions(), retry: false });
+  const standing = useQuery({ ...getMyAiUsageStandingOptions(), retry: false });
   const summary = usage.data?.summary;
   const spend = change(summary?.cost, before.data?.summary.cost);
   const used = (summary?.calls ?? 0) > 0;
@@ -80,6 +139,8 @@ export function MyUsagePage() {
           ),
         )}
       />
+
+      {standing.data ? <Budget standing={standing.data} /> : null}
 
       {usage.isError ? (
         <div role="alert" className="flex max-w-2xl flex-col items-start gap-2">

@@ -1771,149 +1771,6 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
-  /api/chat/storage-quota:
-    get:
-      tags:
-      - Chat
-      summary: Read the Tenant storage limit and its exceptions
-      operationId: getChatStorageQuota
-      responses:
-        "400":
-          description: Invalid storage limit
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Model management or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Chat is unavailable or the person is not a member
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "200":
-          description: The Tenant limit and the people with their own
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ChatStorageQuota"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-    put:
-      tags:
-      - Chat
-      summary: Set or remove the Tenant storage limit per person
-      operationId: setChatStorageQuota
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ChatStorageQuotaInput"
-        required: true
-      responses:
-        "400":
-          description: Invalid storage limit
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Model management or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Chat is unavailable or the person is not a member
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "200":
-          description: The limits after the change
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ChatStorageQuota"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/chat/storage-quota/{actorId}:
-    put:
-      tags:
-      - Chat
-      summary: Set or remove one person's own storage limit
-      operationId: setChatStoragePersonQuota
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: actorId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ChatStorageQuotaInput"
-        required: true
-      responses:
-        "400":
-          description: Invalid storage limit
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Model management or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Chat is unavailable or the person is not a member
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "200":
-          description: The limits after the change
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ChatStorageQuota"
-      security:
-      - bearerAuth: []
-      - browserSession: []
   /api/chat/settings:
     get:
       tags:
@@ -2005,64 +1862,6 @@ paths:
                 $ref: "#/components/schemas/ApiProblem"
         "200":
           description: Saved Tenant Chat settings
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ChatSettingsResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/chat/settings/retention:
-    put:
-      tags:
-      - Chat Settings
-      summary: Bound how long this Tenant keeps conversations nobody has touched (Onyx
-        maximum_chat_retention_days)
-      operationId: saveChatRetention
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ChatRetentionRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid Chat settings
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Chat unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Chat settings changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: Saved retention policy
           content:
             application/json:
               schema:
@@ -2737,6 +2536,92 @@ paths:
           description: Authentication required
         "204":
           description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/retention:
+    get:
+      tags:
+      - Chat
+      summary: Read how long you keep your own conversations
+      operationId: getChatRetention
+      responses:
+        "400":
+          description: The number of days is outside 1 to 3650
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable or the person is not a member
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Your retention policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatRetentionPolicy"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat
+      summary: Set or clear how long you keep your own conversations
+      operationId: saveChatRetention
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRetentionInput"
+        required: true
+      responses:
+        "400":
+          description: The number of days is outside 1 to 3650
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable or the person is not a member
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: The policy after the change
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatRetentionPolicy"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -5051,6 +4936,98 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/View"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/ai-costs/limits/{limitId}:
+    put:
+      tags:
+      - AI costs
+      summary: "Changes a limit's budgets, period or switch; who it applies to is\
+        \ fixed. Requires model management"
+      operationId: updateAiUsageLimit
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: limitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiUsageLimitRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid budget or period
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiUsageLimit"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - AI costs
+      summary: Removes a limit; requires model management
+      operationId: deleteAiUsageLimit
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: limitId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid budget or period
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: Removed
       security:
       - bearerAuth: []
       - browserSession: []
@@ -11184,6 +11161,83 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/ai-costs/limits:
+    get:
+      tags:
+      - AI costs
+      summary: The Tenant's AI spending limits; requires model management
+      operationId: listAiUsageLimits
+      responses:
+        "400":
+          description: Invalid budget or period
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiUsageLimit"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - AI costs
+      summary: "Sets a spending limit for the Tenant, a Group or each person; requires\
+        \ model management"
+      operationId: createAiUsageLimit
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiUsageLimitRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid budget or period
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiUsageLimit"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/voice/settings:
     get:
       tags:
@@ -13075,57 +13129,6 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
-  /api/chat/settings/retention/preview:
-    get:
-      tags:
-      - Chat Settings
-      summary: How many conversations a retention policy would delete now
-      operationId: previewChatRetention
-      parameters:
-      - name: days
-        in: query
-        required: false
-        schema:
-          type: integer
-          format: int32
-          maximum: 3650
-          minimum: 1
-      responses:
-        "400":
-          description: Invalid Chat settings
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "403":
-          description: Management authority or CSRF required
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Chat unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Chat settings changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "200":
-          description: What the policy would delete
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ChatRetentionPreview"
-      security:
-      - bearerAuth: []
-      - browserSession: []
   /api/chat/sessions/{sessionId}:
     get:
       tags:
@@ -13467,6 +13470,51 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChatSessionSearchPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/retention/preview:
+    get:
+      tags:
+      - Chat
+      summary: How many of your conversations a retention policy would delete now
+      operationId: previewChatRetention
+      parameters:
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          maximum: 3650
+          minimum: 1
+      responses:
+        "400":
+          description: The number of days is outside 1 to 3650
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat is unavailable or the person is not a member
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: What the policy would delete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatRetentionPreview"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -14552,6 +14600,17 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: variant
+        in: query
+        description: Which rendering to read; a thumbnail is what the file library
+          shows
+        required: false
+        schema:
+          type: string
+          default: ORIGINAL
+          enum:
+          - ORIGINAL
+          - THUMBNAIL
       responses:
         "400":
           description: Invalid image request
@@ -15984,6 +16043,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AiCostDetail"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/ai-costs/limits/mine:
+    get:
+      tags:
+      - AI costs
+      summary: The budget that binds the caller and what they have spent against it;
+        any member
+      operationId: getMyAiUsageStanding
+      responses:
+        "400":
+          description: Invalid budget or period
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: "The binding budget, or nothing when the Tenant sets no limit"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiUsageStanding"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -18145,49 +18235,6 @@ components:
       - sttModel
       - ttsModel
       - ttsVoice
-    ChatStorageQuotaInput:
-      type: object
-      properties:
-        maxBytes:
-          type:
-          - integer
-          - "null"
-          format: int64
-          description: "Bytes, 1 to 1 TiB; null removes the limit"
-    ChatStoragePersonQuota:
-      type: object
-      properties:
-        actorId:
-          type: string
-          format: uuid
-        name:
-          type:
-          - string
-          - "null"
-        maxBytes:
-          type: integer
-          format: int64
-      required:
-      - actorId
-      - maxBytes
-      - name
-    ChatStorageQuota:
-      type: object
-      properties:
-        tenantLimitBytes:
-          type:
-          - integer
-          - "null"
-          format: int64
-          description: The Tenant's limit per person; null means no limit
-        people:
-          type: array
-          description: People with their own limit
-          items:
-            $ref: "#/components/schemas/ChatStoragePersonQuota"
-      required:
-      - people
-      - tenantLimitBytes
     ChatSettingsRequest:
       type: object
       properties:
@@ -18206,34 +18253,12 @@ components:
           type: boolean
           description: "Deep research: agentic research across the web and connected\
             \ sources; uses significantly more tokens per query."
-        chatRetentionDays:
-          type:
-          - integer
-          - "null"
-          format: int32
-          description: Days of inactivity after which a conversation is deleted; null
-            is no policy
         revision:
           type: integer
           format: int64
       required:
-      - chatRetentionDays
       - deepResearchEnabled
       - revision
-    ChatRetentionRequest:
-      type: object
-      properties:
-        chatRetentionDays:
-          type: integer
-          format: int32
-          description: Days of inactivity after which a conversation is deleted; leave
-            it out to clear the policy
-          maximum: 3650
-          minimum: 1
-        revision:
-          type: integer
-          format: int64
-          minimum: 0
     Title:
       type: object
       properties:
@@ -18393,6 +18418,28 @@ components:
           - type: "null"
       required:
       - messageId
+    ChatRetentionInput:
+      type: object
+      properties:
+        days:
+          type: integer
+          format: int32
+          description: "Days of inactivity, 1 to 3650; leave it out to keep conversations\
+            \ until you delete them"
+          maximum: 3650
+          minimum: 1
+    ChatRetentionPolicy:
+      type: object
+      properties:
+        days:
+          type:
+          - integer
+          - "null"
+          format: int32
+          description: Days of inactivity after which one of your conversations is
+            deleted; null keeps them until you delete them
+      required:
+      - days
     Change:
       type: object
       properties:
@@ -19405,6 +19452,75 @@ components:
           items:
             type: string
             format: uuid
+    AiUsageLimitRequest:
+      type: object
+      properties:
+        scope:
+          type: string
+          enum:
+          - TENANT
+          - GROUP
+          - PERSON
+        groupId:
+          type: string
+          format: uuid
+        tokenBudget:
+          type: integer
+          format: int64
+        costBudgetUsd:
+          type: number
+        periodDays:
+          type: integer
+          format: int32
+        enabled:
+          type: boolean
+      required:
+      - enabled
+      - periodDays
+      - scope
+    AiUsageLimit:
+      type: object
+      description: "A cap on AI spending. A model without a price adds tokens but\
+        \ no cost, so only a token budget binds it"
+      properties:
+        id:
+          type: string
+          format: uuid
+        scope:
+          type: string
+          enum:
+          - TENANT
+          - GROUP
+          - PERSON
+        groupId:
+          type: string
+          format: uuid
+        groupName:
+          type: string
+        tokenBudget:
+          type: integer
+          format: int64
+        costBudgetUsd:
+          type: number
+        periodDays:
+          type: integer
+          format: int32
+        enabled:
+          type: boolean
+        tokensUsed:
+          type: integer
+          format: int64
+          description: "Spent against this limit in its own window; for a per-person\
+            \ limit, the busiest person's spend"
+        costUsed:
+          type: number
+      required:
+      - costUsed
+      - enabled
+      - id
+      - periodDays
+      - scope
+      - tokensUsed
     ReplaceUserGroupsRequest:
       type: object
       additionalProperties: false
@@ -23365,21 +23481,6 @@ components:
         retrievedAt:
           type: string
           format: date-time
-    ChatRetentionPreview:
-      type: object
-      properties:
-        days:
-          type:
-          - integer
-          - "null"
-          format: int32
-        affected:
-          type: integer
-          format: int64
-          description: How many conversations this policy would delete now
-      required:
-      - affected
-      - days
     TextDeltaEvent:
       type: object
       properties:
@@ -23783,6 +23884,21 @@ components:
       required:
       - hasMore
       - items
+    ChatRetentionPreview:
+      type: object
+      properties:
+        days:
+          type:
+          - integer
+          - "null"
+          format: int32
+        affected:
+          type: integer
+          format: int64
+          description: How many of your conversations this policy would delete now
+      required:
+      - affected
+      - days
     Descriptor:
       type: object
       properties:
@@ -24411,6 +24527,41 @@ components:
       - label
       - outputTokens
       - unknownCostCalls
+    AiUsageStanding:
+      type: object
+      description: "The budget that binds the caller, and what they have spent against\
+        \ it"
+      properties:
+        scope:
+          type: string
+          enum:
+          - TENANT
+          - GROUP
+          - PERSON
+        groupName:
+          type: string
+        tokenBudget:
+          type: integer
+          format: int64
+        tokensUsed:
+          type: integer
+          format: int64
+        costBudgetUsd:
+          type: number
+        costUsed:
+          type: number
+        periodDays:
+          type: integer
+          format: int32
+        resetsAt:
+          type: string
+          format: date-time
+      required:
+      - costUsed
+      - periodDays
+      - resetsAt
+      - scope
+      - tokensUsed
     ApiProblem:
       type: object
       additionalProperties: false

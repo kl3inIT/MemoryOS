@@ -24,9 +24,13 @@ export function parseGeneratedImages(value: unknown): GeneratedImage[] {
     .parse(value ?? []);
 }
 
+/** Which rendering of a generated image to read; the library shows thumbnails, a preview the original. */
+export type ImageVariant = "original" | "thumbnail";
+
 /** Authorized serving URL for a generated image; the backend enforces ownership. */
-export function imageArtifactUrl(id: string): string {
-  return `/api/chat/image-artifacts/${id}/content`;
+export function imageArtifactUrl(id: string, variant: ImageVariant = "original"): string {
+  const url = `/api/chat/image-artifacts/${id}/content`;
+  return variant === "thumbnail" ? `${url}?variant=THUMBNAIL` : url;
 }
 
 /** Browser preference only; the API independently authorizes every command. No messages or keys. */

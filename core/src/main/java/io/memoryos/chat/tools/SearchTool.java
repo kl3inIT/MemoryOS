@@ -165,7 +165,8 @@ public final class SearchTool implements AutoCloseable {
     public enum Expansion { NOT_RELEVANT, MAIN_SECTION_ONLY, INCLUDE_ADJACENT_SECTIONS, FULL_DOCUMENT }
     private record QueryExpansion(String semantic, List<String> keywords) {}
     private record SearchCycle(int cycleNumber, List<String> queries, List<SourceType> searchedSources) {}
-    private record Preparation(QueryExpansion expansion, SearchFilters filters, boolean reuseExpansion, boolean beforeCutoff) {}
+    private record Preparation(QueryExpansion expansion, SearchFilters filters, boolean reuseExpansion,
+            boolean beforeCutoff, SearchFilters explicitFilters, boolean inferredTime) {}
 
     @LlmTool(name = "search_knowledge", description = "Search authorized organization documents. Returns evidence with citation numbers; empty evidence means no grounded answer is available.")
     @SuppressWarnings("unused") // Invoked by the native Embabel method tool, verified through Chat HTTP tests.
@@ -205,8 +206,21 @@ public final class SearchTool implements AutoCloseable {
                     new ChatToolEvent.QueryPlan(requests.values().stream().map(SearchQuery::text).distinct().toList(), filters)));
             scopeNote = scopeNote(filters.sources(), requests.values().stream().map(SearchQuery::text).distinct().toList());
             if (preparation.beforeCutoff()) return "No authorized evidence found. Do not invent an organization-specific answer.";
-            var result = search.ranked(scope, List.copyOf(requests.values()), filters, checkActive);
+            var ranked = search.ranked(scope, List.copyOf(requests.values()), filters, checkActive);
             checkActive.run();
+            String droppedWindow = "";
+            if (ranked.hits().isEmpty() && preparation.inferredTime()) {
+                // An inferred window that removes every document is wrong by construction: the corpus may
+                // carry no dates at all. Ask again without it rather than report an empty knowledge base.
+                ranked = search.ranked(scope, List.copyOf(requests.values()), preparation.explicitFilters(), checkActive);
+                checkActive.run();
+                droppedWindow = " (The inferred date range matched nothing and was dropped, so this evidence"
+                        + " is not restricted to that period.)";
+            }
+            // Recorded before the empty check: a turn that found nothing after dropping the window must still
+            // say the window was dropped, or the model reports an empty knowledge base instead of an empty period.
+            scopeNote = scopeNote + droppedWindow;
+            final var result = ranked;
             if (result.hits().isEmpty()) return "No authorized evidence found. Do not invent an organization-specific answer.";
             progress(ChatToolEvent.Stage.SELECTING);
             var candidates = new ArrayList<SearchSection>();
@@ -352,7 +366,13 @@ public final class SearchTool implements AutoCloseable {
         searchCycles.forEach(cycle -> searched.addAll(cycle.searchedSources()));
         boolean reuseExpansion = searchCycles.isEmpty() || resolved.stream().anyMatch(source -> !searched.contains(source));
         searchCycles.add(new SearchCycle(searchCycles.size() + 1, List.copyOf(queries), resolved.stream().sorted().toList()));
-        return new Preparation(queryExpansion, filters, reuseExpansion, beforeFloor(requestedUpdated, knowledgeFloor));
+        var withoutInference = new SearchFilters(resolved, explicit.created(),
+                floor(explicit.updated(), knowledgeFloor));
+        // Only an inference that narrows the effective filters can be dropped. When the explicit restriction
+        // already swallows it, the retry would repeat the same search and claim a window was dropped.
+        boolean inferredTime = !filters.equals(withoutInference);
+        return new Preparation(queryExpansion, filters, reuseExpansion,
+                beforeFloor(requestedUpdated, knowledgeFloor), withoutInference, inferredTime);
     }
 
     private SourceChoice sourceChoice(List<String> queries, Set<SourceType> candidates) {

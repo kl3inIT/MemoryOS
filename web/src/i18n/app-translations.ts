@@ -250,25 +250,8 @@ export const vietnameseUi: Record<string, string> = {
   "Đã dùng {{used}} / {{limit}}": "{{used}} of {{limit}} used",
   "Đã dùng {{used}} · không giới hạn": "{{used}} used · no limit",
   "Tệp lớn nhất": "Largest files",
-  "Dung lượng tệp": "File storage",
-  "Dung lượng thư viện tệp": "File library storage",
-  "Giới hạn dung lượng thư viện tệp của mỗi người. Để trống là không giới hạn, như trước đây.":
-    "Bound how much each person's file library holds. Empty means no limit, as before.",
-  "Không tải được hạn mức dung lượng.": "The storage limits could not be loaded.",
-  "Hạn mức của tổ chức": "The organization's limit",
-  "Hạn mức mỗi người (MiB)": "Limit per person (MiB)",
-  "Lưu hạn mức": "Save the limit",
-  "Đang áp dụng {{size}} mỗi người": "{{size}} per person is in force",
-  "Hiện không giới hạn": "No limit is in force",
-  "Hạn mức riêng": "Individual limits",
-  "Hạn mức riêng theo người": "Individual limits per person",
   "Actor ID": "Actor ID",
-  "Hạn mức (MiB)": "Limit (MiB)",
-  "Đặt hạn mức riêng": "Set an individual limit",
-  "Chưa có ai được đặt hạn mức riêng.": "Nobody has an individual limit yet.",
   "Người dùng": "Person",
-  "Hạn mức": "Limit",
-  "Bỏ hạn mức riêng của {{name}}": "Remove the individual limit of {{name}}",
   "Không giới hạn": "No limit",
   // MEM-153 phase 3: taking one's own conversations and files out
   "Dữ liệu của tôi": "My data",
@@ -284,21 +267,50 @@ export const vietnameseUi: Record<string, string> = {
   "Không đưa vào {{count}} tệp: {{names}}": "{{count}} files were left out: {{names}}",
   "Tải bản xuất": "Download the export",
   "Không đóng gói được bản xuất.": "The export could not be packed.",
+  // Chat limits belong to the person: their storage page and their own retention window
+  "Bộ nhớ lưu trữ": "Storage",
+  // The library's own settings panel: what is stored, and how long conversations are kept
+  "Cài đặt thư viện": "Library settings",
+  "Dung lượng bạn đang dùng và cách hội thoại của bạn được lưu giữ.":
+    "What you are storing, and how long your conversations are kept.",
+  "Chọn một loại tệp để xem và xoá bớt.": "Pick a kind of file to look through and clear.",
+  "Xoá gần nhất": "Deleted most recently",
+  "Tuỳ chọn cho các tệp của bạn.": "Preferences for your files.",
+  "Không tải được dung lượng đã dùng.": "The storage used could not be loaded.",
+  "Đã dùng {{used}}": "{{used}} used",
+  "Triển khai này không đặt giới hạn dung lượng.": "This deployment sets no storage limit.",
+  "Gần hết dung lượng · {{percent}}% · hãy xoá bớt tệp":
+    "Nearly full · {{percent}}% · delete some files",
+  "Đã dùng {{percent}}% · {{count}} tệp": "{{percent}}% used · {{count}} files",
+  "Quản lý bộ nhớ lưu trữ": "Manage storage",
+  "Mở thư viện để giải phóng dung lượng.": "Open the library to free up space.",
+  "Thư viện của bạn chưa có tệp nào.": "Your library holds no files yet.",
+  "Mở thư viện tệp": "Open the file library",
+  "Tệp đã xoá vẫn chiếm dung lượng cho tới khi thùng rác được dọn.":
+    "A deleted file still takes space until the trash lets it go.",
+  "Tự xoá hội thoại": "Delete conversations on their own",
+  "Không tải được thiết lập tự xoá.": "The self-deletion setting could not be loaded.",
+  "Xoá hội thoại sau": "Delete conversations after",
+  "Tính từ lần cuối bạn nhắn trong hội thoại đó. Tệp trong thư viện giữ vòng đời riêng.":
+    "Counted from the last time you wrote in it. Files in your library keep their own lifecycle.",
+  "Không tự xoá": "Never",
+  "{{count}} ngày": "{{count}} days",
+  "Số ngày khác…": "Another number of days…",
+  "Đã lưu thiết lập tự xoá.": "The self-deletion setting was saved.",
+  "Lưu thiết lập": "Save the setting",
+  "Tắt tự xoá hội thoại?": "Stop deleting conversations on their own?",
+  "Bật tự xoá hội thoại?": "Delete conversations on their own?",
+  "{{count}} hội thoại đã quá hạn sẽ bị xoá ngay khi lưu. Không thể hoàn tác.":
+    "{{count}} conversations are already past it and are deleted as soon as this is saved. This cannot be undone.",
+  "Từ giờ hội thoại không có hoạt động quá số ngày này sẽ bị xoá.":
+    "From now on a conversation with no activity for longer than this is deleted.",
   // MEM-153 phase 2: the Tenant's chat retention policy
   "Lưu giữ hội thoại": "Conversation retention",
-  "Hội thoại không có hoạt động nào trong số ngày này sẽ bị xoá như chính người sở hữu xoá nó. Tệp tải lên giữ vòng đời riêng.":
-    "A conversation with no activity for this many days is deleted as its owner deleting it would. Uploads keep their own lifecycle.",
-  "Không tải được cài đặt hội thoại.": "The conversation settings could not be loaded.",
-  "Bật chính sách lưu giữ": "Enforce a retention policy",
-  "Khi tắt, hội thoại được giữ cho tới khi người sở hữu xoá.":
-    "With it off, a conversation is kept until its owner deletes it.",
   "Số ngày không hoạt động": "Days of inactivity",
   "Số ngày phải từ 1 đến {{max}}.": "The number of days must be between 1 and {{max}}.",
   "{{count}} hội thoại sẽ bị xoá khi lưu.":
     "{{count}} conversations will be deleted when this is saved.",
   "Không có hội thoại nào bị xoá ngay.": "No conversation is deleted right away.",
-  "Đã lưu chính sách lưu giữ.": "The retention policy was saved.",
-  "Lưu chính sách": "Save the policy",
   // MEM-153 phase 2: temporary conversations
   "Chat tạm thời": "Temporary chat",
   "Bật chat tạm thời": "Turn on temporary chat",
@@ -3420,6 +3432,38 @@ Object.assign(englishUi, {
   "Edit, share, publish, feature, restore and transfer every custom agent, edit the default agent, and administer agent labels and public prompt shortcuts within the Tenant.":
     "Sửa, chia sẻ, công khai, đánh dấu nổi bật, khôi phục và chuyển quyền sở hữu mọi trợ lý, sửa trợ lý mặc định, quản lý nhãn trợ lý và lệnh tắt dùng chung trong tổ chức.",
   "View audit log": "Xem nhật ký audit",
+  "Spending limit": "Hạn mức chi tiêu",
+  "Spending limits": "Hạn mức chi tiêu",
+  "Budget: {{whose}}": "Hạn mức: {{whose}}",
+  "The budget is spent. It frees again on {{when}}.": "Đã dùng hết hạn mức. Mở lại vào {{when}}.",
+  "Counted over {{days}} days. It frees again on {{when}}.":
+    "Tính trong {{days}} ngày. Mở lại vào {{when}}.",
+  "Cap what the organization, a group or each person may spend on AI. A chat turn is refused once its budget is spent.":
+    "Giới hạn mức chi cho AI của tổ chức, một nhóm hoặc từng người. Lượt chat bị từ chối khi hết hạn mức.",
+  "Add a limit": "Thêm hạn mức",
+  "Loading spending limits…": "Đang tải hạn mức…",
+  "Failed to load spending limits.": "Không tải được hạn mức.",
+  "No limit is set.": "Chưa đặt hạn mức nào.",
+  "Nothing caps AI spending until you add a limit.":
+    "Chưa có gì giới hạn mức chi cho AI cho tới khi bạn thêm hạn mức.",
+  "Applies to": "Áp dụng cho",
+  "Used of budget": "Đã dùng / hạn mức",
+  Enforced: "Đang áp dụng",
+  "{{days}} days": "{{days}} ngày",
+  "The person who spent the most": "Người dùng nhiều nhất",
+  "Set a token budget, a cost budget, or both. A model with no price adds token usage but no cost, so only a token budget caps it.":
+    "Đặt hạn mức theo token, theo chi phí, hoặc cả hai. Model chưa có giá chỉ cộng token chứ không cộng chi phí, nên chỉ hạn mức token mới chặn được.",
+  "Choose a group": "Chọn nhóm",
+  "Token budget": "Hạn mức token",
+  "No limit": "Không giới hạn",
+  "Cost budget (USD)": "Hạn mức chi phí (USD)",
+  "The limit could not be saved. Check the budget and try again.":
+    "Không lưu được hạn mức. Kiểm tra lại rồi thử lại.",
+  "{{used}} / {{budget}} token": "{{used}} / {{budget}} token",
+  "{{used}} of {{budget}}": "{{used}} trên {{budget}}",
+  "The whole organization": "Toàn tổ chức",
+  "A group": "Một nhóm",
+  "Each person": "Từng người",
   "Scrollable audit log": "Bảng nhật ký audit cuộn được",
   "Audit log pages": "Các trang nhật ký audit",
   "History of administrative changes in your organization. Events are kept for 365 days.":
