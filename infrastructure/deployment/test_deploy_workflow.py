@@ -188,8 +188,10 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertRegex(interpreter, r"cap_add:\n\s+- DAC_OVERRIDE")
         self.assertIn("MEMORYOS_INTERPRETER_API_KEY_FILE: /run/secrets/interpreter_api_key", api)
         self.assertIn("- interpreter_api_key", api)
+        # The launcher reads any MEMORYOS_<NAME>_FILE rather than naming this key; that behaviour is
+        # exercised in test_launcher_secret_files.py.
         launcher = (ROOT / "api/src/main/docker/application-launcher.sh").read_text(encoding="utf-8")
-        self.assertIn('MEMORYOS_INTERPRETER_API_KEY=$(cat "$MEMORYOS_INTERPRETER_API_KEY_FILE")', launcher)
+        self.assertIn('export "${secret_variable%_FILE}=$secret_value"', launcher)
 
 
 @unittest.skipUnless(os.name == "posix" and all(shutil.which(tool) for tool in ("bash", "flock", "jq")),
