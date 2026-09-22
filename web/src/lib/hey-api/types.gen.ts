@@ -473,7 +473,16 @@ export type ChatSettingsResponse = {
      * Deep research: agentic research across the web and connected sources; uses significantly more tokens per query.
      */
     deepResearchEnabled: boolean;
+    /**
+     * Who in the organization may read other people's conversations: NORMAL names the asker, ANONYMIZED hides only their name and e-mail, DISABLED refuses every read
+     */
+    chatHistoryVisibility: 'NORMAL' | 'ANONYMIZED' | 'DISABLED';
     revision: number;
+};
+
+export type ChatHistoryVisibilityRequest = {
+    visibility: 'NORMAL' | 'ANONYMIZED' | 'DISABLED';
+    revision?: number;
 };
 
 export type Title = {
@@ -4000,6 +4009,53 @@ export type SaveChatSettingsResponses = {
 };
 
 export type SaveChatSettingsResponse = SaveChatSettingsResponses[keyof SaveChatSettingsResponses];
+
+export type SaveChatHistoryVisibilityData = {
+    body: ChatHistoryVisibilityRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/settings/history-visibility';
+};
+
+export type SaveChatHistoryVisibilityErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type SaveChatHistoryVisibilityError = SaveChatHistoryVisibilityErrors[keyof SaveChatHistoryVisibilityErrors];
+
+export type SaveChatHistoryVisibilityResponses = {
+    /**
+     * Saved Tenant Chat settings
+     */
+    200: ChatSettingsResponse;
+};
+
+export type SaveChatHistoryVisibilityResponse = SaveChatHistoryVisibilityResponses[keyof SaveChatHistoryVisibilityResponses];
 
 export type GenerateChatTitleData = {
     body?: never;

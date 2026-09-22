@@ -176,6 +176,7 @@ class OpenApiContractTest {
             "/api/chat/retention",
             "/api/chat/retention/preview",
             "/api/chat/history",
+            "/api/chat/settings/history-visibility",
             "/api/chat/history/{sessionId}",
             "/api/chat/history/export",
             "/api/chat/exports",

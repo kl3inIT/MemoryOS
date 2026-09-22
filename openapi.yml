@@ -1614,6 +1614,63 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/settings/history-visibility:
+    put:
+      tags:
+      - Chat Settings
+      summary: Choose who may read other people's conversations; requires model management
+      operationId: saveChatHistoryVisibility
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatHistoryVisibilityRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved Tenant Chat settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions/{sessionId}/title:
     put:
       tags:
@@ -17288,12 +17345,37 @@ components:
           type: boolean
           description: "Deep research: agentic research across the web and connected\
             \ sources; uses significantly more tokens per query."
+        chatHistoryVisibility:
+          type: string
+          description: "Who in the organization may read other people's conversations:\
+            \ NORMAL names the asker, ANONYMIZED hides only their name and e-mail,\
+            \ DISABLED refuses every read"
+          enum:
+          - NORMAL
+          - ANONYMIZED
+          - DISABLED
         revision:
           type: integer
           format: int64
       required:
+      - chatHistoryVisibility
       - deepResearchEnabled
       - revision
+    ChatHistoryVisibilityRequest:
+      type: object
+      properties:
+        visibility:
+          type: string
+          enum:
+          - NORMAL
+          - ANONYMIZED
+          - DISABLED
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - visibility
     Title:
       type: object
       properties:

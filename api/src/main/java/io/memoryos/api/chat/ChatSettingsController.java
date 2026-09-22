@@ -50,4 +50,17 @@ class ChatSettingsController {
         return ChatSettingsResponse.from(settings.save(identity.actorId(), request.deepResearchEnabled(), request.revision()));
     }
 
+    @Schema(name = "ChatHistoryVisibilityRequest")
+    record VisibilityRequest(@jakarta.validation.constraints.NotNull io.memoryos.chat.history.ChatHistoryVisibility visibility,
+                             @jakarta.validation.constraints.Min(0) long revision) {}
+
+    @PutMapping("/history-visibility")
+    @ApiResponse(responseCode = "200", description = "Saved Tenant Chat settings", useReturnTypeSchema = true)
+    @Operation(operationId = "saveChatHistoryVisibility", summary = "Choose who may read other people's conversations; requires model management")
+    ChatSettingsResponse saveHistoryVisibility(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @Valid @RequestBody VisibilityRequest request) {
+        return ChatSettingsResponse.from(
+                settings.saveHistoryVisibility(identity.actorId(), request.visibility(), request.revision()));
+    }
+
 }

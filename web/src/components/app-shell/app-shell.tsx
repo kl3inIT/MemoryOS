@@ -18,6 +18,7 @@ import {
   PanelLeftOpen,
   Plug,
   ReceiptText,
+  MessagesSquare,
   ScrollText,
   Settings,
   Sparkles,
@@ -43,6 +44,7 @@ export type AppShellArea = "app" | "admin" | "settings";
 /** Personal settings tabs, as Onyx Settings (MEM-145). */
 export type SettingsPage = "general" | "chat" | "storage" | "connections" | "usage";
 export type AdminPage =
+  | "chatHistory"
   | "sources"
   | "addSource"
   | "documentSets"
@@ -155,6 +157,7 @@ function SidebarContents({
     canManageMcp,
     canManageAgents,
     canReadAudit,
+    canReadChatHistory,
     canAccessAdmin,
     adminEntryPath,
   } = useAdminAccess();
@@ -429,7 +432,7 @@ function SidebarContents({
                 ) : null}
               </SidebarSection>
             ) : null}
-            {canManageModels || canReadAudit ? (
+            {canManageModels || canReadAudit || canReadChatHistory ? (
               <SidebarSection title={ui("Monitoring")} collapsed={collapsed}>
                 {canManageModels ? (
                   <SidebarTab
@@ -440,6 +443,17 @@ function SidebarContents({
                     onClick={onNavigate}
                   >
                     {ui("AI costs")}
+                  </SidebarTab>
+                ) : null}
+                {canReadChatHistory ? (
+                  <SidebarTab
+                    to="/admin/chat-history"
+                    icon={<MessagesSquare className="size-4" />}
+                    selected={adminPage === "chatHistory"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    {ui("Conversation history")}
                   </SidebarTab>
                 ) : null}
                 {canReadAudit ? (

@@ -35,6 +35,7 @@ export function useAdminAccess() {
   const canManageMcp = useGlobalCapability("MCP_MANAGE");
   const canManageAgents = useGlobalCapability("AGENTS_MANAGE");
   const canReadAudit = useGlobalCapability("AUDIT_READ");
+  const canReadChatHistory = useGlobalCapability("CHAT_HISTORY_READ");
   return {
     canManageUsers,
     canReadGroups,
@@ -44,6 +45,7 @@ export function useAdminAccess() {
     canManageMcp,
     canManageAgents,
     canReadAudit,
+    canReadChatHistory,
     canAccessAdmin:
       canManageUsers ||
       canReadGroups ||
@@ -52,7 +54,8 @@ export function useAdminAccess() {
       canManageProviders ||
       canManageMcp ||
       canManageAgents ||
-      canReadAudit,
+      canReadAudit ||
+      canReadChatHistory,
     adminEntryPath: canReadSources
       ? "/admin"
       : canReadGroups
