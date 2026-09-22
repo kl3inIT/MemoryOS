@@ -1,10 +1,10 @@
-import { Minus, Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { captureWorkflowFailure } from "@/lib/sentry";
+import { PreviewCanvas, PreviewSkeleton } from "./preview-surface";
+import { PageField, PreviewToolbar, ToolbarGroup, ZoomControl } from "./preview-toolbar";
 import {
   formatPages,
   mostVisiblePage,
@@ -127,16 +127,16 @@ export function PdfView({
     }
   }, [pageCount, anchor, anchorView, renderedWidth]);
 
+  const goToPage = (page: number) => {
+    figures.current.get(page)?.scrollIntoView({ block: "start", inline: "nearest" });
+  };
+
   const returnToCitation = () => {
     const target = firstBox.current ?? figures.current.get(anchor);
     target?.scrollIntoView({ block: firstBox.current ? "center" : "start", inline: "nearest" });
   };
 
-  const status = (text: string) => (
-    <p role="status" className="py-12 text-center font-main-ui-body text-content-secondary">
-      {text}
-    </p>
-  );
+  const loadingPages = <PreviewSkeleton width={renderedWidth} />;
   const failed = (
     <p role="alert" className="rounded-xl bg-status-danger-surface p-4 text-status-danger-content">
       {ui("Không mở được bản PDF gốc. Hãy xem đoạn trích.")}
@@ -146,63 +146,15 @@ export function PdfView({
   const fallbackView = anchorView ?? Object.values(pageViews)[0];
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border-subtle px-4 py-1.5 sm:px-5">
-        <div className="flex min-w-0 items-center gap-2">
-          <p
-            aria-live="polite"
-            className="min-w-0 truncate font-secondary-body text-content-muted tabular-nums"
-          >
-            {pageCount
-              ? ui("Trang {{pages}} / {{total}}", { pages: currentPage, total: pageCount })
-              : ui("Trang {{pages}}", { pages: formatPages(cited) })}
-          </p>
-          {pageCount && !cited.includes(currentPage) ? (
-            <Button size="sm" prominence="internal" className="shrink-0" onClick={returnToCitation}>
-              {ui("Về đoạn trích dẫn")}
-            </Button>
-          ) : null}
-        </div>
-        <div role="group" aria-label={ui("Thu phóng")} className="flex shrink-0 items-center gap-1">
-          <IconButton
-            prominence="internal"
-            size="sm"
-            aria-label={ui("Thu nhỏ")}
-            disabled={zoom === 0}
-            onClick={() => setZoom((value) => Math.max(0, value - 1))}
-          >
-            <Minus />
-          </IconButton>
-          <span
-            aria-live="polite"
-            className="min-w-16 text-center font-secondary-action text-content-secondary tabular-nums"
-          >
-            {zoom === 0
-              ? ui("Vừa khung")
-              : ui("{{percent}}%", { percent: ZOOM_STEPS[zoom]! * 100 })}
-          </span>
-          <IconButton
-            prominence="internal"
-            size="sm"
-            aria-label={ui("Phóng to")}
-            disabled={zoom === ZOOM_STEPS.length - 1}
-            onClick={() => setZoom((value) => Math.min(ZOOM_STEPS.length - 1, value + 1))}
-          >
-            <Plus />
-          </IconButton>
-        </div>
-      </div>
-      <div
-        ref={container}
-        className="min-h-0 flex-1 overflow-auto overscroll-contain bg-surface-sunken p-4 [scrollbar-gutter:stable] sm:px-5"
-      >
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <PreviewCanvas ref={container} className="pb-16">
         <Document
           key={wholeFile ? "whole" : "range"}
           file={file}
           options={wholeFile ? WHOLE_OPTIONS : RANGE_OPTIONS}
           suspense={false}
-          loading={status(ui("Đang tải trang PDF…"))}
-          error={wholeFile ? failed : status(ui("Đang tải trang PDF…"))}
+          loading={loadingPages}
+          error={wholeFile ? failed : loadingPages}
           onLoadError={(error) => {
             captureWorkflowFailure(error, {
               workflow: "pdf-view",
@@ -284,6 +236,37 @@ export function PdfView({
             );
           })}
         </Document>
+      </PreviewCanvas>
+      <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4">
+        <PreviewToolbar>
+          {pageCount ? (
+            <PageField page={currentPage} total={pageCount} onPage={goToPage} />
+          ) : (
+            <ToolbarGroup>
+              <span className="px-1.5 font-secondary-body text-content-muted tabular-nums">
+                {ui("Trang {{pages}}", { pages: formatPages(cited) })}
+              </span>
+            </ToolbarGroup>
+          )}
+          {pageCount && !cited.includes(currentPage) ? (
+            <ToolbarGroup>
+              <Button size="sm" prominence="internal" onClick={returnToCitation}>
+                {ui("Về đoạn trích dẫn")}
+              </Button>
+            </ToolbarGroup>
+          ) : null}
+          <ZoomControl
+            label={
+              zoom === 0
+                ? ui("Vừa khung")
+                : ui("{{percent}}%", { percent: ZOOM_STEPS[zoom]! * 100 })
+            }
+            onOut={() => setZoom((value) => Math.max(0, value - 1))}
+            onIn={() => setZoom((value) => Math.min(ZOOM_STEPS.length - 1, value + 1))}
+            outDisabled={zoom === 0}
+            inDisabled={zoom === ZOOM_STEPS.length - 1}
+          />
+        </PreviewToolbar>
       </div>
     </div>
   );
