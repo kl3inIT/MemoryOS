@@ -2369,9 +2369,7 @@ Object.assign(englishUi, {
   "Linked document · Not selected in draft": "Tài liệu liên kết · Chưa chọn trong bản nháp",
   "Linked document · Not selected for sync": "Tài liệu liên kết · Chưa chọn đồng bộ",
   "Sync {{v1}}": "Đồng bộ {{v1}}",
-  "Select for sync": "Chọn để đồng bộ",
-  "{{v1}} {{v2}} for sync": "{{v1}} {{v2}} để đồng bộ",
-  "Deselect for sync": "Bỏ chọn đồng bộ",
+  "Sync all links in {{v1}}": "Đồng bộ tất cả liên kết trong {{v1}}",
   "Add a source": "Thêm nguồn",
   "Connect the content you want to keep in MemoryOS.":
     "Kết nối nội dung bạn muốn lưu trong MemoryOS.",

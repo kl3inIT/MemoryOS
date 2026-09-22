@@ -1,7 +1,6 @@
 import { uiLocale } from "@/i18n/format";
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { statusLabel } from "@/i18n/status-copy";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderTree, Search, SearchX, SlidersHorizontal } from "lucide-react";
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -31,6 +30,7 @@ import {
 import {
   discoverGoogleDriveLinkedDocuments,
   getGoogleDriveSelection,
+  getGoogleDriveSelectionTree,
   getGoogleDriveSelectionDraft,
   replaceGoogleDriveRoots,
 } from "@/lib/hey-api/sdk.gen";
@@ -226,8 +226,10 @@ export function GoogleDriveSelectionPanel({
           : [
               ...(panel.current?.querySelectorAll<HTMLElement>("[data-selection-control]") ?? []),
             ].find((element) => element.dataset.selectionControl === selectionItem.current);
-      const select = control?.querySelector<HTMLButtonElement>('button:not([role="checkbox"])');
-      if (select) select.focus();
+      const select = control?.querySelector<HTMLElement>('[role="checkbox"]');
+      const usable =
+        select && !select.matches(':disabled, [aria-disabled="true"], [data-disabled]');
+      if (usable) select.focus();
       else editButton.current?.focus();
       selectionControl.current = null;
       selectionItem.current = null;
@@ -350,6 +352,73 @@ export function GoogleDriveSelectionPanel({
       await client.invalidateQueries({
         queryKey: getGoogleDriveConfigurationQueryKey({ path: { sourceId } }),
       });
+    });
+  }
+  function approveBranch(parentId: string, selectAll: boolean) {
+    void perform("load", async (signal) => {
+      const ids = new Set<string>();
+      let cursor: string | undefined;
+      do {
+        const { data } = await getGoogleDriveSelectionTree({
+          path: { sourceId },
+          query: { parentId, size: 100, cursor },
+          signal,
+          throwOnError: true,
+        });
+        signal.throwIfAborted();
+        if (
+          data.revision !== configuration.revision ||
+          data.discoveryRevision !== configuration.discoveryRevision ||
+          data.credentialRevision !== configuration.credentialRevision
+        ) {
+          await onActivated();
+          setError("The selection changed. Select the documents again from the refreshed content.");
+          return;
+        }
+        for (const item of data.items) {
+          if (item.kind === "LINKED" && !item.coveredByRoots) ids.add(item.id);
+        }
+        cursor = data.nextCursor ?? undefined;
+      } while (cursor);
+      const approved = new Set(draft?.approved ?? []);
+      for (const id of ids) {
+        if (selectAll) approved.add(id);
+        else approved.delete(id);
+      }
+      await applyApprovals(approved, signal);
+    });
+  }
+  async function applyApprovals(approved: Set<string>, signal: AbortSignal) {
+    let saved = draft?.saved ?? null;
+    if (!saved) {
+      const { data } = await getGoogleDriveSelectionDraft({
+        path: { sourceId },
+        signal,
+        throwOnError: true,
+      });
+      signal.throwIfAborted();
+      if (
+        data.revision !== configuration.revision ||
+        data.discoveryRevision !== configuration.discoveryRevision ||
+        data.credentialRevision !== configuration.credentialRevision
+      ) {
+        await onActivated();
+        setError("The selection changed. Select the documents again from the refreshed content.");
+        return;
+      }
+      saved = data;
+    }
+    tracking.forget();
+    setRevisionConflict(false);
+    setDraft({
+      saved,
+      links: draft?.links ?? saved.links.join("\n"),
+      approved,
+      actorId: session.actorId,
+      editingRoots: draft?.editingRoots ?? false,
+    });
+    await client.invalidateQueries({
+      queryKey: getGoogleDriveConfigurationQueryKey({ path: { sourceId } }),
     });
   }
   function save() {
@@ -629,9 +698,6 @@ export function GoogleDriveSelectionPanel({
                         "The saved selection is shown below. Revision details are available in Selected content help.",
                       )}
                 </p>
-                <p className="break-all text-xs text-content-muted">
-                  {ui("Operation")} {operation.id} · {ui(statusLabel(operation.status))}
-                </p>
               </div>
             </>
           ) : null}
@@ -761,7 +827,7 @@ export function GoogleDriveSelectionPanel({
       ) : null}
       {filtered ? null : (
         <GoogleDriveSelectionTree
-          key={authority}
+          key={`${sourceId}:${session.actorId}`}
           sourceId={sourceId}
           actorId={session.actorId}
           configuration={configuration}
@@ -769,6 +835,7 @@ export function GoogleDriveSelectionPanel({
           disabled={controlsDisabled || conflicted}
           allowSelection={configuration.scopeMode === "SPECIFIC"}
           onApprove={approve}
+          onApproveBranch={approveBranch}
           onSelect={loadDraft}
           onRefresh={async () => {
             await onActivated().catch(() =>
@@ -816,6 +883,7 @@ export function GoogleDriveSelectionPanel({
                         disabled={controlsDisabled || conflicted}
                         allowSelection={configuration.scopeMode === "SPECIFIC"}
                         onApprove={approve}
+                        onApproveBranch={approveBranch}
                         onSelect={loadDraft}
                       />
                     </li>

@@ -34,6 +34,7 @@ type SelectionControls = {
   disabled: boolean;
   allowSelection: boolean;
   onApprove: (id: string, checked: boolean) => void;
+  onApproveBranch: (parentId: string, checked: boolean) => void;
   onSelect: (item: GoogleDriveSelectionItemResponse, control: HTMLElement) => void;
 };
 type TreeProps = SelectionControls & {
@@ -327,6 +328,7 @@ const SelectionTreeNode = memo(function SelectionTreeNode({
     if (!expandable || expanded) return;
     void client.prefetchInfiniteQuery(branchQuery(props, item.id));
   }, [client, expandable, expanded, item.id, props]);
+  const branchControl = expandable && item.kind === "FILE" && props.allowSelection;
   return (
     <li className="min-w-0">
       <div className="flex min-w-0 items-center gap-1 rounded-md pr-1 hover:bg-surface-subtle">
@@ -373,6 +375,7 @@ const SelectionTreeNode = memo(function SelectionTreeNode({
             <ChevronsDown aria-hidden="true" />
           </Button>
         ) : null}
+        {branchControl ? <BranchSelectionControl {...props} item={item} /> : null}
       </div>
       {expanded ? (
         <div
@@ -419,7 +422,7 @@ export function GoogleDriveSelectionRow({
       <StatusBadge tone="neutral">{ui("Linked")}</StatusBadge>
     ) : null;
   return (
-    <div className="flex min-w-0 items-center gap-2 py-1.5">
+    <div className="flex min-w-0 items-center gap-2 py-1">
       <FileTypeIcon name={item.name} mimeType={item.mimeType} />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
@@ -429,34 +432,64 @@ export function GoogleDriveSelectionRow({
           </div>
           {canSelect ? (
             <div className="min-w-0" data-selection-control={item.id}>
-              {approved ? (
-                <label className="flex min-h-11 items-center gap-2 text-xs">
-                  <Checkbox
-                    aria-label={ui("Sync {{v1}}", { v1: item.name })}
-                    checked={included}
-                    disabled={disabled || (!included && item.status !== "AVAILABLE")}
-                    onCheckedChange={(event) => onApprove(item.id, event === true)}
-                  />
-                  {ui("Select for sync")}
-                </label>
-              ) : (
-                <Button
-                  prominence="secondary"
-                  className="h-auto min-h-11 max-w-full whitespace-normal text-left"
+              <label className="flex min-h-8 cursor-pointer items-center text-xs">
+                <Checkbox
+                  aria-label={ui("Sync {{v1}}", { v1: item.name })}
+                  checked={included}
                   disabled={disabled || (!included && item.status !== "AVAILABLE")}
-                  aria-label={ui("{{v1}} {{v2}} for sync", {
-                    v1: ui(included ? "Deselect" : "Select"),
-                    v2: item.name,
-                  })}
-                  onClick={(event) => onSelect(item, event.currentTarget.parentElement!)}
-                >
-                  {included ? ui("Deselect for sync") : ui("Select for sync")}
-                </Button>
-              )}
+                  onClick={(event) => {
+                    // Before a draft exists, checking loads the complete draft and approves this
+                    // target; the checkbox itself stays unchecked until the draft arrives.
+                    if (!approved)
+                      onSelect(
+                        item,
+                        event.currentTarget.closest<HTMLElement>("[data-selection-control]")!,
+                      );
+                  }}
+                  onCheckedChange={(event) => {
+                    if (approved) onApprove(item.id, event === true);
+                  }}
+                />
+              </label>
             </div>
           ) : null}
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * One checkbox on an expandable file row approves or clears every recorded linked child of that
+ * file. Its state reflects the linked children already loaded for the branch; clicking pages the
+ * whole branch on the server before the draft changes.
+ */
+function BranchSelectionControl({
+  item,
+  approved,
+  disabled,
+  onApproveBranch,
+  ...props
+}: BranchProps & { item: GoogleDriveSelectionTreeItemResponse }) {
+  const ui = useAppTranslation();
+  // enabled: false subscribes to the branch cache without fetching; the row only reflects children
+  // the user already expanded or warmed.
+  const branch = useInfiniteQuery({ ...branchQuery(props, item.id), enabled: false });
+  const children = branch.data?.pages.flatMap((page) => page.items) ?? [];
+  const linked = children.filter((child) => child.kind === "LINKED" && !child.coveredByRoots);
+  const selected = linked.filter((child) => (approved ? approved.has(child.id) : child.selected));
+  const checked =
+    linked.length === 0 || selected.length === 0
+      ? false
+      : selected.length >= linked.length
+        ? true
+        : "indeterminate";
+  return (
+    <Checkbox
+      aria-label={ui("Sync all links in {{v1}}", { v1: item.name })}
+      checked={checked}
+      disabled={disabled || linked.length === 0}
+      onCheckedChange={(event) => onApproveBranch(item.id, event === true)}
+    />
   );
 }

@@ -695,14 +695,9 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   await expect(selection.getByText(/No discovered links are recorded for this file/)).toBeVisible();
   await selection.getByRole("button", { name: "Expand Archive index", exact: true }).click();
   await selection.getByRole("button", { name: "Expand Project index", exact: true }).click();
-  const select = selection.getByRole("button", {
-    name: "Select Project budget for sync",
-    exact: true,
-  });
-  await expect(select).toHaveCount(2);
-  await select.first().click();
   const checkboxes = selection.getByRole("checkbox", { name: "Sync Project budget", exact: true });
   await expect(checkboxes).toHaveCount(2);
+  await checkboxes.first().click();
   await expect(checkboxes.first()).toBeFocused();
   await expect(checkboxes.first()).toBeChecked();
   await expect(checkboxes.last()).toBeChecked();
@@ -713,14 +708,14 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   await expect(
     selection.getByRole("button", { name: "Save selection", exact: true }),
   ).toBeVisible();
-  await checkboxes.first().uncheck();
+  await checkboxes.first().click();
   await expect(checkboxes.first()).not.toBeChecked();
   await expect(edit).toBeVisible();
   await expect(rootLinks).toHaveCount(0);
-  await checkboxes.first().check();
-  await checkboxes.first().uncheck();
+  await checkboxes.first().click();
+  await checkboxes.first().click();
   await expect(checkboxes.last()).not.toBeChecked();
-  await checkboxes.last().check();
+  await checkboxes.last().click();
   await expect(checkboxes.first()).toBeChecked();
   // A choice made on one page reaches the linked occurrence loaded with a later one.
   await expect(
@@ -741,10 +736,10 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
     });
   }
   await selection.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(select.first()).toBeFocused();
-  await expect(select).toHaveCount(2);
+  await expect(checkboxes.first()).toBeFocused();
+  await expect(checkboxes).toHaveCount(2);
   expect(server.requestBodies).toHaveLength(0);
-  await select.last().click();
+  await checkboxes.last().click();
   await expect(rootLinks).toHaveCount(0);
   await edit.click();
   await expect(rootLinks).toBeFocused();
@@ -756,7 +751,7 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   await selection.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(edit).toBeFocused();
   expect(server.requestBodies).toHaveLength(0);
-  await select.last().click();
+  await checkboxes.last().click();
   await selection.getByRole("button", { name: "Save selection", exact: true }).click();
   await expect(selection.getByText("Pending validation", { exact: true })).toBeVisible();
   expect(server.requestBodies).toEqual([
@@ -770,29 +765,26 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
     0,
   );
   await expect(rootLinks).toHaveCount(0);
-  await selection.getByRole("button", { name: "Expand Project index", exact: true }).click();
-  await selection.getByRole("button", { name: "Expand Project budget", exact: true }).click();
+  // Project index stays expanded across activation; only the linked budget needs expanding.
+  await selection
+    .getByRole("list", { name: "Contents of Project index", exact: true })
+    .getByRole("button", { name: "Expand Project budget", exact: true })
+    .click();
   const cycle = selection.getByRole("list", { name: "Contents of Project budget", exact: true });
   await expect(cycle.getByText("Project index", { exact: true })).toBeVisible();
   await expect(cycle.getByText(/Already shown earlier in this branch/)).toBeVisible();
   await expect(
     cycle.getByRole("button", { name: "Expand Project index", exact: true }),
   ).toHaveCount(0);
-  await expect(
-    cycle.getByRole("button", { name: /(?:Select|Deselect) Project index for sync/ }),
-  ).toHaveCount(0);
-  const deselect = selection.getByRole("button", {
-    name: "Deselect Project budget for sync",
-    exact: true,
-  });
-  await deselect.click();
-  await expect(checkboxes).not.toBeChecked();
-  await expect(checkboxes).toBeFocused();
+  await expect(cycle.getByRole("checkbox", { name: "Sync Project index" })).toHaveCount(0);
+  await checkboxes.first().click();
+  await expect(checkboxes.first()).not.toBeChecked();
+  await expect(checkboxes.first()).toBeFocused();
   await selection.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(deselect).toBeFocused();
+  await expect(checkboxes.first()).toBeFocused();
   expect(server.requestBodies).toHaveLength(1);
   expect(server.saved.get(source.id)!.draft.linkedDocumentIds).toEqual(["retained", "budget"]);
-  await deselect.click();
+  await checkboxes.first().click();
   await selection.getByRole("button", { name: "Save selection", exact: true }).click();
   await expect(selection.getByText("Pending validation", { exact: true })).toBeVisible();
   expect(server.requestBodies[1]).toEqual(
@@ -802,8 +794,8 @@ test("tree pages actual files and shares one unsaved sync choice across linked o
   await expect(selection.getByRole("button", { name: "Save selection", exact: true })).toHaveCount(
     0,
   );
-  await selection.getByRole("button", { name: "Expand Project index", exact: true }).click();
-  await expect(select).toBeVisible();
+  // Project index stays expanded across activation.
+  await expect(checkboxes.first()).toBeVisible();
 });
 
 test("the credentials disclosure shows Close and turns its chevron while open", async ({
@@ -845,22 +837,18 @@ test("unavailable approved documents can be deselected but not approved again", 
   await page.getByRole("option", { name: "Linked documents" }).click();
   await page.keyboard.press("Escape");
   await selection.getByRole("button", { name: "Next selection page" }).click();
-  const deselect = selection.getByRole("button", {
-    name: "Deselect Retained project notes for sync",
-    exact: true,
-  });
-  await expect(deselect).toBeEnabled();
-  await deselect.click();
   const checkbox = selection.getByRole("checkbox", { name: "Sync Retained project notes" });
+  await expect(checkbox).toBeEnabled();
+  await checkbox.click();
   await expect(checkbox).not.toBeChecked();
   await expect(checkbox).toBeDisabled();
   const cancel = selection.getByRole("button", { name: "Cancel", exact: true });
   await expect(cancel).toBeFocused();
   await cancel.click();
-  await expect(deselect).toBeFocused();
+  await expect(checkbox).toBeFocused();
   expect(server.requestBodies).toHaveLength(0);
   expect(server.saved.get(source.id)!.draft.linkedDocumentIds).toEqual(["retained"]);
-  await deselect.click();
+  await checkbox.click();
   await selection.getByRole("button", { name: "Save selection", exact: true }).click();
   await expect(selection.getByText("Pending validation", { exact: true })).toBeVisible();
   expect(server.requestBodies).toEqual([
@@ -871,9 +859,7 @@ test("unavailable approved documents can be deselected but not approved again", 
     0,
   );
   await selection.getByRole("button", { name: "Next selection page" }).click();
-  await expect(
-    selection.getByRole("button", { name: "Select Retained project notes for sync", exact: true }),
-  ).toBeDisabled();
+  await expect(checkbox).toBeDisabled();
 });
 
 test("tree distinguishes failed branches from empty files and rejects stale authority pages", async ({
