@@ -48,6 +48,7 @@ import {
 } from "./meeting-capture";
 import type { MeetingRecorder, RecorderSnapshot } from "./meeting-recorder";
 import { ExportMinutesDialog } from "./export-minutes-dialog";
+import { MeetingShareField, type MeetingAudience } from "./meeting-share-field";
 import { startRecording, stopRecording, useActiveMeeting } from "./meeting-session";
 import type { MeetingTrack } from "./meeting-socket";
 import {
@@ -61,6 +62,7 @@ import {
   nameSpeaker,
   removeMeeting,
   rerunMinutes,
+  shareMeeting,
   saveMeetingNotes,
   trackOffsets,
   type MeetingDetail,
@@ -193,6 +195,8 @@ export function MeetingPage({
       snapshot.phase === "paused" ||
       snapshot.phase === "stopping");
   const transcribing = data.status === "TRANSCRIBING";
+  // Everything that changes the meeting belongs to whoever recorded it; a reader reads.
+  const owned = data.owned;
 
   async function resume() {
     setPending(true);
@@ -301,7 +305,7 @@ export function MeetingPage({
             </span>
           }
           actions={
-            data.status === "RECORDING" && !recording ? (
+            !owned ? null : data.status === "RECORDING" && !recording ? (
               <>
                 <Button
                   pending={pending}
@@ -381,7 +385,7 @@ export function MeetingPage({
             {ui("Không nhận dạng được bản ghi. File đã được xoá.")}
           </p>
         )}
-        {data.status === "RECORDING" && !recording && !pending && (
+        {owned && data.status === "RECORDING" && !recording && !pending && (
           <p
             role="status"
             className="rounded-xl border border-border-default bg-surface-sunken px-4 py-3 text-sm text-content-secondary"
@@ -464,7 +468,7 @@ export function MeetingPage({
               </TabsTrigger>
             )}
             <TabsTrigger value="transcript">{ui("Transcript")}</TabsTrigger>
-            <TabsTrigger value="notes">{ui("Ghi chú của tôi")}</TabsTrigger>
+            {owned && <TabsTrigger value="notes">{ui("Ghi chú của tôi")}</TabsTrigger>}
           </TabsList>
           {data.minutes.status !== "NONE" && (
             <TabsContent value="summary" className="pt-4">
@@ -480,12 +484,16 @@ export function MeetingPage({
           <TabsContent value="transcript" className="pt-4">
             <Transcript meeting={data} snapshot={recording ? snapshot : idle} ui={ui} />
           </TabsContent>
-          <TabsContent value="notes" className="pt-4">
-            <Notes meeting={data} ui={ui} />
-          </TabsContent>
+          {owned && (
+            <TabsContent value="notes" className="pt-4">
+              <Notes meeting={data} ui={ui} />
+            </TabsContent>
+          )}
         </Tabs>
 
-        {data.status === "ENDED" && (
+        {owned && <Sharing meeting={data} ui={ui} />}
+
+        {owned && data.status === "ENDED" && (
           <DangerZone
             icon={<Trash2 />}
             title={ui("Xoá cuộc họp này")}
@@ -516,6 +524,47 @@ export function MeetingPage({
         )}
       </SettingsLayout>
     </AppShell>
+  );
+}
+
+/** Who else reads this meeting. Only its owner sees, or changes, this list. */
+function Sharing({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
+  const cache = useQueryClient();
+  const [pending, setPending] = useState(false);
+  const audience = {
+    people: meeting.readers
+      .filter((reader) => reader.kind === "MEMBER")
+      .map((reader) => ({ actorId: reader.id, name: reader.name, email: null })),
+    groups: meeting.readers
+      .filter((reader) => reader.kind === "GROUP")
+      .map((reader) => ({ id: reader.id, name: reader.name })),
+  };
+
+  async function save(next: MeetingAudience) {
+    setPending(true);
+    try {
+      cache.setQueryData(
+        meetingKey(meeting.id),
+        await shareMeeting(
+          meeting.id,
+          next.people.map((person) => person.actorId),
+          next.groups.map((group) => group.id),
+        ),
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <section className="grid gap-2 rounded-xl border border-border-subtle px-4 py-4">
+      <MeetingShareField
+        label={ui("Chia sẻ")}
+        value={audience}
+        disabled={pending}
+        onChange={(next) => void save(next)}
+      />
+    </section>
   );
 }
 
@@ -565,10 +614,12 @@ function MinutesSummary({ meeting, ui }: { meeting: MeetingDetail; ui: Translate
         {generatedAt && (
           <span>{ui("Viết lúc {{when}}", { when: formatWhen(generatedAt, i18n.language) })}</span>
         )}
-        <Button size="sm" prominence="tertiary" pending={pending} onClick={() => void rerun()}>
-          <RefreshCw aria-hidden="true" />
-          {ui("Viết lại")}
-        </Button>
+        {meeting.owned && (
+          <Button size="sm" prominence="tertiary" pending={pending} onClick={() => void rerun()}>
+            <RefreshCw aria-hidden="true" />
+            {ui("Viết lại")}
+          </Button>
+        )}
         <Button size="sm" prominence="tertiary" onClick={() => setExporting(true)}>
           <FileDown aria-hidden="true" />
           {ui("Xuất biên bản")}
@@ -633,6 +684,7 @@ function MinutesItems({
                 className="mt-1"
                 checked={item.done}
                 aria-label={ui("Đánh dấu xong: {{text}}", { text: item.text })}
+                disabled={!meeting.owned}
                 onCheckedChange={(checked) => void toggle(item, checked === true)}
               />
             ) : (
@@ -941,11 +993,12 @@ function SpeakerChip({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+      <PopoverTrigger asChild disabled={!meeting.owned}>
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 rounded text-sm font-medium text-content-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-          aria-label={ui("Đặt tên cho {{name}}", { name: display })}
+          className="inline-flex items-center gap-1.5 rounded text-sm font-medium text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring enabled:hover:underline"
+          disabled={!meeting.owned}
+          aria-label={meeting.owned ? ui("Đặt tên cho {{name}}", { name: display }) : display}
         >
           {dot}
           {display}

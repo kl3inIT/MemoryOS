@@ -29,6 +29,7 @@ const earlier: MeetingSummary[] = [
     title: "Họp dự án Vinaconex 9 Tower 3",
     kind: "ONLINE",
     status: "ENDED",
+    owned: true,
     participants: 3,
     durationMs: 2_268_000,
     createdAt: new Date(now - 3 * 86_400_000).toISOString(),
@@ -39,6 +40,7 @@ const earlier: MeetingSummary[] = [
     title: "Review OKR quý 3 · Khối Kinh doanh",
     kind: "IN_PERSON",
     status: "ENDED",
+    owned: true,
     participants: 7,
     durationMs: 4_320_000,
     createdAt: new Date(now - 12 * 86_400_000).toISOString(),
@@ -90,6 +92,8 @@ async function mockMeetings(page: Page) {
           actions: [],
         },
         audio: { status: "NONE", failure: null, filename: null, sizeBytes: 0, provider: null },
+        owned: true,
+        readers: [],
       };
       await route.fulfill({ status: 201, json: meeting });
       return;
@@ -101,6 +105,7 @@ async function mockMeetings(page: Page) {
             title: meeting.title,
             kind: meeting.kind,
             status: meeting.status,
+            owned: true,
             participants: meeting.participants.length,
             durationMs: 0,
             createdAt: meeting.createdAt,

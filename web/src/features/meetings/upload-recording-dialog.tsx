@@ -18,10 +18,12 @@ import { Select } from "@/components/ui/select";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
+import { MeetingShareField, type MeetingAudience } from "./meeting-share-field";
 import {
   loadTranscribers,
   meetingKey,
   meetingsKey,
+  shareMeeting,
   startMeeting,
   transcribersKey,
   uploadRecording,
@@ -72,6 +74,7 @@ export function UploadRecordingDialog({
   const [title, setTitle] = useState("");
   const [participants, setParticipants] = useState("");
   const [provider, setProvider] = useState<MeetingTranscriber["provider"]>();
+  const [audience, setAudience] = useState<MeetingAudience>({ people: [], groups: [] });
   const [consent, setConsent] = useState(false);
   const [percent, setPercent] = useState<number>();
   const [error, setError] = useState<string>();
@@ -110,7 +113,15 @@ export function UploadRecordingDialog({
         controller.signal,
         setPercent,
       );
-      cache.setQueryData(meetingKey(uploaded.id), uploaded);
+      const shared =
+        audience.people.length > 0 || audience.groups.length > 0
+          ? await shareMeeting(
+              uploaded.id,
+              audience.people.map((person) => person.actorId),
+              audience.groups.map((group) => group.id),
+            )
+          : uploaded;
+      cache.setQueryData(meetingKey(shared.id), shared);
       void cache.invalidateQueries({ queryKey: meetingsKey, exact: true });
       onOpenChange(false);
       await navigate({ to: "/meetings/$meetingId", params: { meetingId: uploaded.id } });
@@ -194,6 +205,12 @@ export function UploadRecordingDialog({
                 onChange={(event) => setParticipants(event.target.value)}
               />
             </div>
+            <MeetingShareField
+              label={ui("Chia sẻ với")}
+              value={audience}
+              disabled={pending}
+              onChange={setAudience}
+            />
             {transcribers.data && transcribers.data.length > 1 && (
               <div className="grid gap-1.5">
                 <Label htmlFor={`${id}-provider`}>{ui("Nhận dạng bằng")}</Label>

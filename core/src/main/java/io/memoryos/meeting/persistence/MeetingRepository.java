@@ -34,7 +34,7 @@ public class MeetingRepository {
                       @Nullable String minutesFailure, String minutesSummary, String minutesKind,
                       @Nullable Instant minutesGeneratedAt, Meeting.AudioStatus audioStatus,
                       @Nullable String audioFailure, @Nullable String audioFilename, long audioSizeBytes,
-                      @Nullable String audioProvider) {}
+                      @Nullable String audioProvider, boolean owned) {}
 
     /** One meeting this replica leased to write minutes for. */
     public record MinutesClaim(UUID tenant, UUID id, UUID owner, int attempts) {}
@@ -57,9 +57,20 @@ public class MeetingRepository {
         return jdbc.sql("""
                 SELECT id, title, kind, language, participants, terms, notes, status, provider, diarized, created_at,
                        ended_at, revision, minutes_status, minutes_failure, minutes_summary, minutes_kind, minutes_generated_at,
-                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider
-                FROM meeting WHERE tenant_id = :tenant AND owner_actor_id = :owner AND id = :id
+                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider, TRUE AS owned
+                FROM meeting m WHERE tenant_id = :tenant AND owner_actor_id = :owner AND id = :id
                 """).param("tenant", tenant).param("owner", owner).param("id", id).query(MeetingRepository::row).optional();
+    }
+
+    /** The meeting as a reader sees it: their own, or one its owner shared with them or with a Group of theirs. */
+    public Optional<Row> read(UUID tenant, UUID actor, UUID id) {
+        return jdbc.sql("""
+                SELECT id, title, kind, language, participants, terms, notes, status, provider, diarized, created_at,
+                       ended_at, revision, minutes_status, minutes_failure, minutes_summary, minutes_kind, minutes_generated_at,
+                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider, (m.owner_actor_id = :actor) AS owned
+                FROM meeting m WHERE m.tenant_id = :tenant AND m.id = :id AND %s
+                """.formatted(MeetingAccessSql.READS))
+                .param("tenant", tenant).param("actor", actor).param("id", id).query(MeetingRepository::row).optional();
     }
 
     /** Locks an owned meeting for a state change in the caller's transaction. */
@@ -67,25 +78,83 @@ public class MeetingRepository {
         return jdbc.sql("""
                 SELECT id, title, kind, language, participants, terms, notes, status, provider, diarized, created_at,
                        ended_at, revision, minutes_status, minutes_failure, minutes_summary, minutes_kind, minutes_generated_at,
-                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider
-                FROM meeting WHERE tenant_id = :tenant AND owner_actor_id = :owner AND id = :id FOR UPDATE
+                       audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider, TRUE AS owned
+                FROM meeting m WHERE tenant_id = :tenant AND owner_actor_id = :owner AND id = :id FOR UPDATE
                 """).param("tenant", tenant).param("owner", owner).param("id", id).query(MeetingRepository::row).optional();
     }
 
-    /** Newest first, with the duration covered by utterances. */
-    public List<Meeting.Summary> list(UUID tenant, UUID owner, int limit) {
+/** The member's own meetings and the ones shared with them, newest first, with the duration covered by utterances. */
+    public List<Meeting.Summary> list(UUID tenant, UUID actor, int limit) {
         return jdbc.sql("""
                 SELECT m.id, m.title, m.kind, m.status, jsonb_array_length(m.participants) AS participants,
                        COALESCE((SELECT max(u.end_ms) FROM meeting_utterance u
                                  WHERE u.tenant_id = m.tenant_id AND u.meeting_id = m.id), 0) AS duration_ms,
-                       m.created_at, m.ended_at
-                FROM meeting m WHERE m.tenant_id = :tenant AND m.owner_actor_id = :owner
+                       m.created_at, m.ended_at, (m.owner_actor_id = :actor) AS owned
+                FROM meeting m WHERE m.tenant_id = :tenant AND %s
                 ORDER BY m.created_at DESC, m.id LIMIT :limit
-                """).param("tenant", tenant).param("owner", owner).param("limit", limit)
+                """.formatted(MeetingAccessSql.READS)).param("tenant", tenant).param("actor", actor).param("limit", limit)
                 .query((r, ignored) -> new Meeting.Summary(r.getObject("id", UUID.class), r.getString("title"),
                         Meeting.Kind.valueOf(r.getString("kind")), Meeting.Status.valueOf(r.getString("status")),
-                        r.getInt("participants"), r.getLong("duration_ms"), instant(r, "created_at"), instant(r, "ended_at")))
+                        r.getInt("participants"), r.getLong("duration_ms"), instant(r, "created_at"),
+                        instant(r, "ended_at"), r.getBoolean("owned")))
                 .list();
+    }
+
+    /** Everyone this meeting is shared with, by name, for the owner's "shared with" list. */
+    public List<Meeting.Reader> readers(UUID tenant, UUID meeting) {
+        var readers = new java.util.ArrayList<Meeting.Reader>();
+        readers.addAll(jdbc.sql("""
+                SELECT s.actor_id AS id, COALESCE(NULLIF(p.display_name, ''), p.email, '') AS name
+                FROM meeting_user_share s
+                LEFT JOIN actor_profiles p ON p.actor_id = s.actor_id
+                WHERE s.tenant_id = :tenant AND s.meeting_id = :meeting ORDER BY name, s.actor_id
+                """).param("tenant", tenant).param("meeting", meeting)
+                .query((r, ignored) -> new Meeting.Reader(Meeting.ReaderKind.MEMBER, r.getObject("id", UUID.class),
+                        r.getString("name"))).list());
+        readers.addAll(jdbc.sql("""
+                SELECT s.group_id AS id, g.name FROM meeting_group_share s
+                JOIN iam_groups g ON g.tenant_id = s.tenant_id AND g.id = s.group_id
+                WHERE s.tenant_id = :tenant AND s.meeting_id = :meeting ORDER BY g.name, s.group_id
+                """).param("tenant", tenant).param("meeting", meeting)
+                .query((r, ignored) -> new Meeting.Reader(Meeting.ReaderKind.GROUP, r.getObject("id", UUID.class),
+                        r.getString("name"))).list());
+        return List.copyOf(readers);
+    }
+
+    /** Replaces who a meeting is shared with. Members and Groups must already belong to the Tenant. */
+    public void share(UUID tenant, UUID meeting, List<UUID> members, List<UUID> groups) {
+        jdbc.sql("DELETE FROM meeting_user_share WHERE tenant_id = :tenant AND meeting_id = :meeting")
+                .param("tenant", tenant).param("meeting", meeting).update();
+        jdbc.sql("DELETE FROM meeting_group_share WHERE tenant_id = :tenant AND meeting_id = :meeting")
+                .param("tenant", tenant).param("meeting", meeting).update();
+        for (var member : members)
+            jdbc.sql("""
+                    INSERT INTO meeting_user_share(tenant_id, meeting_id, actor_id) VALUES (:tenant, :meeting, :actor)
+                    """).param("tenant", tenant).param("meeting", meeting).param("actor", member).update();
+        for (var group : groups)
+            jdbc.sql("""
+                    INSERT INTO meeting_group_share(tenant_id, meeting_id, group_id) VALUES (:tenant, :meeting, :group)
+                    """).param("tenant", tenant).param("meeting", meeting).param("group", group).update();
+    }
+
+    /** The Tenant members among the given actors, so a share never names somebody who is not one. */
+    public List<UUID> members(UUID tenant, List<UUID> actors) {
+        if (actors.isEmpty()) return List.of();
+        return jdbc.sql("""
+                SELECT actor_id FROM tenant_memberships
+                WHERE tenant_id = :tenant AND actor_id IN (:actors) AND status = 'ACTIVE'
+                """).param("tenant", tenant).param("actors", actors)
+                .query((r, ignored) -> r.getObject("actor_id", UUID.class)).list();
+    }
+
+    /** The Tenant's Groups among the given ids. */
+    public List<UUID> groups(UUID tenant, List<UUID> groups) {
+        if (groups.isEmpty()) return List.of();
+        return jdbc.sql("""
+                SELECT id FROM iam_groups WHERE tenant_id = :tenant AND id IN (:groups) AND system_key IS NULL
+                """)
+                .param("tenant", tenant).param("groups", groups)
+                .query((r, ignored) -> r.getObject("id", UUID.class)).list();
     }
 
     public List<Meeting.Speaker> speakers(UUID tenant, UUID meeting) {
@@ -343,7 +412,8 @@ public class MeetingRepository {
                 Meeting.MinutesStatus.valueOf(r.getString("minutes_status")), r.getString("minutes_failure"),
                 r.getString("minutes_summary"), r.getString("minutes_kind"), instant(r, "minutes_generated_at"),
                 Meeting.AudioStatus.valueOf(r.getString("audio_status")), r.getString("audio_failure"),
-                r.getString("audio_filename"), r.getLong("audio_size_bytes"), r.getString("audio_provider"));
+                r.getString("audio_filename"), r.getLong("audio_size_bytes"), r.getString("audio_provider"),
+                r.getBoolean("owned"));
     }
 
     private static List<String> strings(String json) {

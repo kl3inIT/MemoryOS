@@ -74,6 +74,19 @@ class MeetingController {
     record NotesRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, maxLength = 50000) String notes,
                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long revision) {}
 
+    @Schema(name = "MeetingShareRequest", description = "Everyone who may read this meeting, replacing the current list")
+    record ShareRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<UUID> members,
+                        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<UUID> groups) {}
+
+    @Schema(name = "MeetingReader", description = "One member, or one Group, the meeting is shared with")
+    record ReaderResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Meeting.ReaderKind kind,
+                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name) {
+        static ReaderResponse from(Meeting.Reader reader) {
+            return new ReaderResponse(reader.kind(), reader.id(), reader.name());
+        }
+    }
+
     @Schema(name = "MeetingRecordingRequest", description = "Declared before the bytes are uploaded and checked against them afterwards")
     record RecordingRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String filename,
                             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String mediaType,
@@ -197,10 +210,13 @@ class MeetingController {
                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "End of the last utterance")
                            long durationMs,
                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
-                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable Instant endedAt) {
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable Instant endedAt,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                   description = "Whether the member recorded it, as opposed to being shared it")
+                           boolean owned) {
         static SummaryResponse from(Meeting.Summary summary) {
             return new SummaryResponse(summary.id(), summary.title(), summary.kind(), summary.status(), summary.participants(),
-                    summary.durationMs(), summary.createdAt(), summary.endedAt());
+                    summary.durationMs(), summary.createdAt(), summary.endedAt(), summary.owned());
         }
     }
 
@@ -241,14 +257,21 @@ class MeetingController {
                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<SpeakerResponse> speakers,
                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<UtteranceResponse> utterances,
                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) MinutesResponse minutes,
-                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED) AudioResponse audio) {
+                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED) AudioResponse audio,
+                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                  description = "Whether the reader recorded this meeting; only its owner may edit it")
+                          boolean owned,
+                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                  description = "Who the meeting is shared with; empty for anyone but its owner")
+                          List<ReaderResponse> readers) {
         static DetailResponse from(Meeting.Detail detail) {
             return new DetailResponse(detail.id(), detail.title(), detail.kind(), detail.language(), detail.participants(),
                     detail.terms(), detail.notes(), detail.status(), detail.provider(), detail.diarized(), detail.createdAt(),
                     detail.endedAt(), detail.revision(),
                     detail.speakers().stream().map(s -> new SpeakerResponse(s.track(), s.label(), s.name())).toList(),
                     detail.utterances().stream().map(UtteranceResponse::from).toList(),
-                    MinutesResponse.from(detail.minutes()), AudioResponse.from(detail.audio()));
+                    MinutesResponse.from(detail.minutes()), AudioResponse.from(detail.audio()), detail.owned(),
+                    detail.readers().stream().map(ReaderResponse::from).toList());
         }
     }
 
@@ -323,6 +346,15 @@ class MeetingController {
     DetailResponse item(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
                         @PathVariable UUID meetingId, @PathVariable UUID itemId, @RequestBody ItemRequest body) {
         return DetailResponse.from(meetings.markItem(identity.actorId(), meetingId, itemId, body.done()));
+    }
+
+    @PutMapping(value = "/{meetingId}/shares", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "shareMeeting", summary = "Say who else may read this meeting")
+    @ApiResponse(responseCode = "200", description = "The meeting, with its readers", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse share(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                         @PathVariable UUID meetingId, @RequestBody ShareRequest body) {
+        return DetailResponse.from(meetings.share(identity.actorId(), meetingId, body.members(), body.groups()));
     }
 
     @GetMapping("/transcribers")

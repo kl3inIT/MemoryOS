@@ -13,6 +13,7 @@ import {
   nameMeetingSpeaker,
   rerunMeetingMinutes,
   reserveMeetingRecording,
+  shareMeeting as shareMeetingRequest,
   updateMeetingNotes,
 } from "@/lib/hey-api/sdk.gen";
 import type {
@@ -22,6 +23,7 @@ import type {
   MeetingDetail,
   MeetingMinutes,
   MeetingMinutesItem,
+  MeetingReader,
   MeetingSummary,
   MeetingTranscriber,
   MeetingUtterance,
@@ -35,6 +37,7 @@ export type {
   MeetingHeadingRequest,
   MeetingMinutes,
   MeetingMinutesItem,
+  MeetingReader,
   MeetingSummary,
   MeetingTranscriber,
   MeetingUtterance,
@@ -184,6 +187,17 @@ export async function uploadRecording(
   );
   const { data } = await finalizeMeetingRecording({
     path: { meetingId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+/** Replaces who else may read the meeting; the server rechecks every member and Group. */
+export async function shareMeeting(meetingId: string, members: string[], groups: string[]) {
+  const { data } = await shareMeetingRequest({
+    path: { meetingId },
+    body: { members, groups },
     headers: sameOriginMutationHeaders,
     throwOnError: true,
   });

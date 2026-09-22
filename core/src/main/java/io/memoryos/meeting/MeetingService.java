@@ -19,8 +19,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Owner-private meetings. Recording, reading and editing need Chat write access in the active Tenant; a meeting is
- * visible to its owner only, and another member's meeting answers as if it did not exist.
+ * Meetings. Recording, reading and editing need Chat write access in the active Tenant. A meeting belongs to the
+ * member who recorded it: only they rename a speaker, write notes, end it, rerun its minutes, share it or delete it.
+ * Everyone they shared it with reads the transcript, the minutes and the biên bản, and nothing else. A meeting that
+ * reaches neither answers as if it did not exist.
  */
 @Service
 public class MeetingService {
@@ -32,6 +34,8 @@ public class MeetingService {
     static final int MAX_NAME = 200;
     static final int MAX_TERM = 100;
     static final int MAX_NOTES = 50_000;
+    /** A meeting is shared with people who were in it, not broadcast; the bound keeps the list readable. */
+    static final int MAX_READERS = 200;
     /** The subject line of a biên bản; long enough for a sentence, short enough to print. */
     static final int MAX_NOTES_LINE = 500;
     private static final Set<String> LANGUAGES = Set.of("vi", "en");
@@ -84,7 +88,7 @@ public class MeetingService {
 
     @Transactional(readOnly = true)
     public Meeting.Detail get(ActorId actor, UUID id) {
-        return detail(tenant(actor), actor, id);
+        return readable(tenant(actor), actor, id);
     }
 
     /** Names a diarized voice; a blank name restores the automatic label. */
@@ -139,7 +143,7 @@ public class MeetingService {
     @Transactional(readOnly = true)
     public byte[] exportMinutes(ActorId actor, UUID id, MeetingMinutesDocument.Heading heading) {
         UUID tenant = tenant(actor);
-        var meeting = detail(tenant, actor, id);
+        var meeting = readable(tenant, actor, id);
         if (meeting.minutes().status() != Meeting.MinutesStatus.READY)
             throw MeetingException.invalid("The minutes are not written yet.");
         return MeetingMinutesDocument.render(meeting, validate(heading));
@@ -169,6 +173,36 @@ public class MeetingService {
         String text = value == null ? "" : value.strip();
         if (text.length() > limit) throw MeetingException.invalid(what + " is too long.");
         return text;
+    }
+
+    /**
+     * Replaces who may read this meeting. Only its owner may say. A person who is not an active member, or a Group
+     * that is not the Tenant's, is refused rather than dropped: the owner must see that the meeting did not reach
+     * who they meant, as sharing an Agent or a Document Set does.
+     */
+    @Transactional
+    public Meeting.Detail share(ActorId actor, UUID id, List<UUID> members, List<UUID> groups) {
+        UUID tenant = tenant(actor);
+        meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        var people = distinct(members, "members");
+        var teams = distinct(groups, "Groups");
+        // The owner already reads their own meeting; naming themselves would be noise in the list.
+        people.remove(actor.value());
+        var named = meetings.members(tenant, List.copyOf(people));
+        if (named.size() != people.size())
+            throw MeetingException.invalid("A chosen person is not an active member.");
+        var teamsNamed = meetings.groups(tenant, List.copyOf(teams));
+        if (teamsNamed.size() != teams.size()) throw MeetingException.invalid("A chosen Group is unavailable.");
+        meetings.share(tenant, id, named, teamsNamed);
+        return detail(tenant, actor, id);
+    }
+
+    private static LinkedHashSet<UUID> distinct(@Nullable List<UUID> ids, String what) {
+        var unique = new LinkedHashSet<UUID>();
+        for (var id : ids == null ? List.<UUID>of() : ids) if (id != null) unique.add(id);
+        if (unique.size() > MAX_READERS)
+            throw MeetingException.invalid("A meeting is shared with at most 200 " + what + ".");
+        return unique;
     }
 
     /** Ticks off a task the minutes found. */
@@ -260,18 +294,37 @@ public class MeetingService {
             throw MeetingException.invalid("An in-person meeting records the microphone only.");
     }
 
+    /** Refuses anyone but the owner, and answers the meeting as they read it. */
+    @Transactional(readOnly = true)
+    public Meeting.Detail owned(ActorId actor, UUID id) {
+        return detail(tenant(actor), actor, id);
+    }
+
+    /** The meeting as its owner reads it. Commands use this after they have locked the row. */
     private Meeting.Detail detail(UUID tenant, ActorId actor, UUID id) {
-        var row = meetings.find(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        return present(tenant, id, meetings.find(tenant, actor.value(), id).orElseThrow(MeetingException::notFound));
+    }
+
+    /**
+     * The meeting as anyone it reaches reads it: its owner, or somebody the owner shared it with. A reader gets the
+     * transcript, the speakers and the minutes; the owner's private notes and the list of readers stay with the owner.
+     */
+    private Meeting.Detail readable(UUID tenant, ActorId actor, UUID id) {
+        return present(tenant, id, meetings.read(tenant, actor.value(), id).orElseThrow(MeetingException::notFound));
+    }
+
+    private Meeting.Detail present(UUID tenant, UUID id, MeetingRepository.Row row) {
         var items = row.minutesStatus() == Meeting.MinutesStatus.READY ? meetings.minutesItems(tenant, id) : List.<Meeting.MinutesItem>of();
         var minutes = new Meeting.Minutes(row.minutesStatus(), row.minutesFailure(), row.minutesSummary(), row.minutesKind(),
                 row.minutesGeneratedAt(),
                 items.stream().filter(item -> item.kind() == Meeting.ItemKind.DECISION).toList(),
                 items.stream().filter(item -> item.kind() == Meeting.ItemKind.ACTION).toList());
         return new Meeting.Detail(row.id(), row.title(), row.kind(), row.language(), row.participants(), row.terms(),
-                row.notes(), row.status(), row.provider(), row.diarized(), row.createdAt(), row.endedAt(), row.revision(),
-                meetings.speakers(tenant, id), meetings.utterances(tenant, id), minutes,
+                row.owned() ? row.notes() : "", row.status(), row.provider(), row.diarized(), row.createdAt(),
+                row.endedAt(), row.revision(), meetings.speakers(tenant, id), meetings.utterances(tenant, id), minutes,
                 new Meeting.Audio(row.audioStatus(), row.audioFailure(), row.audioFilename(), row.audioSizeBytes(),
-                        row.audioProvider()));
+                        row.audioProvider()),
+                row.owned(), row.owned() ? meetings.readers(tenant, id) : List.of());
     }
 
     private UUID tenant(ActorId actor) {

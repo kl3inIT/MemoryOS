@@ -299,6 +299,63 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}/shares:
+    put:
+      tags:
+      - Meetings
+      summary: Say who else may read this meeting
+      operationId: shareMeeting
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingShareRequest"
+        required: true
+      responses:
+        "200":
+          description: "The meeting, with its readers"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings/{meetingId}/notes:
     put:
       tags:
@@ -16933,6 +16990,15 @@ components:
           $ref: "#/components/schemas/MeetingMinutes"
         audio:
           $ref: "#/components/schemas/MeetingAudio"
+        owned:
+          type: boolean
+          description: Whether the reader recorded this meeting; only its owner may
+            edit it
+        readers:
+          type: array
+          description: Who the meeting is shared with; empty for anyone but its owner
+          items:
+            $ref: "#/components/schemas/MeetingReader"
       required:
       - audio
       - createdAt
@@ -16943,8 +17009,10 @@ components:
       - language
       - minutes
       - notes
+      - owned
       - participants
       - provider
+      - readers
       - revision
       - speakers
       - status
@@ -17030,6 +17098,24 @@ components:
       - quote
       - sourceUtteranceId
       - text
+    MeetingReader:
+      type: object
+      description: "One member, or one Group, the meeting is shared with"
+      properties:
+        kind:
+          type: string
+          enum:
+          - MEMBER
+          - GROUP
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - kind
+      - name
     MeetingSpeaker:
       type: object
       properties:
@@ -17080,6 +17166,23 @@ components:
       - startMs
       - text
       - track
+    MeetingShareRequest:
+      type: object
+      description: "Everyone who may read this meeting, replacing the current list"
+      properties:
+        members:
+          type: array
+          items:
+            type: string
+            format: uuid
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - groups
+      - members
     MeetingNotesRequest:
       type: object
       properties:
@@ -22237,12 +22340,17 @@ components:
           - string
           - "null"
           format: date-time
+        owned:
+          type: boolean
+          description: "Whether the member recorded it, as opposed to being shared\
+            \ it"
       required:
       - createdAt
       - durationMs
       - endedAt
       - id
       - kind
+      - owned
       - participants
       - status
       - title

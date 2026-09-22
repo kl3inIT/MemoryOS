@@ -96,6 +96,7 @@ export const vietnameseUi: Record<string, string> = {
   "Kết thúc": "End",
   "Xuất biên bản": "Export the minutes",
   "Tải file ghi âm": "Upload a recording",
+  "Chia sẻ với": "Share with",
   "Chọn file": "Choose a file",
   "{{name}} · {{size}}": "{{name}} · {{size}}",
   "Chưa chọn file nào": "No file chosen",

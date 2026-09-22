@@ -179,6 +179,14 @@ export type MeetingDetail = {
     utterances: Array<MeetingUtterance>;
     minutes: MeetingMinutes;
     audio: MeetingAudio;
+    /**
+     * Whether the reader recorded this meeting; only its owner may edit it
+     */
+    owned: boolean;
+    /**
+     * Who the meeting is shared with; empty for anyone but its owner
+     */
+    readers: Array<MeetingReader>;
 };
 
 /**
@@ -213,6 +221,15 @@ export type MeetingMinutesItem = {
     done: boolean;
 };
 
+/**
+ * One member, or one Group, the meeting is shared with
+ */
+export type MeetingReader = {
+    kind: 'MEMBER' | 'GROUP';
+    id: string;
+    name: string;
+};
+
 export type MeetingSpeaker = {
     track: 'MIC' | 'TAB';
     label: string;
@@ -227,6 +244,14 @@ export type MeetingUtterance = {
     endMs: number;
     text: string;
     confidence: number;
+};
+
+/**
+ * Everyone who may read this meeting, replacing the current list
+ */
+export type MeetingShareRequest = {
+    members: Array<string>;
+    groups: Array<string>;
 };
 
 export type MeetingNotesRequest = {
@@ -2166,6 +2191,10 @@ export type MeetingSummary = {
     durationMs: number;
     createdAt: string;
     endedAt: string | null;
+    /**
+     * Whether the member recorded it, as opposed to being shared it
+     */
+    owned: boolean;
 };
 
 /**
@@ -3135,6 +3164,51 @@ export type NameMeetingSpeakerResponses = {
 };
 
 export type NameMeetingSpeakerResponse = NameMeetingSpeakerResponses[keyof NameMeetingSpeakerResponses];
+
+export type ShareMeetingData = {
+    body: MeetingShareRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/shares';
+};
+
+export type ShareMeetingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type ShareMeetingError = ShareMeetingErrors[keyof ShareMeetingErrors];
+
+export type ShareMeetingResponses = {
+    /**
+     * The meeting, with its readers
+     */
+    200: MeetingDetail;
+};
+
+export type ShareMeetingResponse = ShareMeetingResponses[keyof ShareMeetingResponses];
 
 export type UpdateMeetingNotesData = {
     body: MeetingNotesRequest;

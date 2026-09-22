@@ -2,9 +2,15 @@
 
 Owner-private meetings recorded without a bot: the member's microphone and, online, the shared meeting tab stream to MemoryOS, which transcribes them and stores the finalized utterances. A recording made elsewhere can be uploaded instead. Audio is never stored, and an uploaded recording is deleted once it has been transcribed. Design and remaining phases: [MEM-92](../increments/active/meeting-notes/design.md).
 
-## Ownership and authorization
+## Ownership and sharing
 
-A meeting belongs to one actor in one Tenant. Every read, edit, ticket and socket requires `CHAT_WRITE` in the active Tenant and ownership; another member's meeting answers `MEETING_NOT_FOUND` exactly like a missing one. Deleting a meeting deletes its speakers and utterances.
+A meeting belongs to the member who recorded it, in one Tenant. Every route requires `CHAT_WRITE` in the active Tenant, and a meeting that reaches neither the owner nor a reader answers `MEETING_NOT_FOUND` exactly like a missing one. Deleting a meeting deletes its speakers, utterances, minutes and shares.
+
+Only the owner records, renames a speaker, writes notes, ends the meeting, reruns the minutes, ticks an action off, shares it or deletes it.
+
+`PUT /api/meetings/{id}/shares` replaces who else may read it, naming members and Groups (`meeting_user_share`, `meeting_group_share`, the shape Agents and Document Sets use, without their permission column because a reader only reads). A person who is not an active member, or a Group that is not the Tenant's, is refused rather than dropped; the owner is never listed, since they already read it. At most 200 of each.
+
+A reader opens the meeting while it records and after it ends: the transcript as it arrives, the speaker names, the minutes and the biên bản. They do not get the owner's private notes, which read as empty, nor the list of readers. `owned` on the meeting and on every list row says which of the two the caller is.
 
 ## Meeting
 

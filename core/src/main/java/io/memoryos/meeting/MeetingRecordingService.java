@@ -98,7 +98,7 @@ public class MeetingRecordingService {
     /** Accepts the uploaded bytes and queues the recording for transcription. */
     public Meeting.Detail finalizeUpload(ActorId actor, UUID id) {
         UUID tenant = tenant(actor);
-        var waiting = service.get(actor, id);
+        var waiting = service.owned(actor, id);
         if (waiting.audio().status() != Meeting.AudioStatus.WAITING)
             throw MeetingException.invalid("No recording is waiting for this meeting.");
         UUID uploadId = meetings.audioUpload(tenant, id).orElseThrow(MeetingException::notFound);
@@ -179,7 +179,7 @@ public class MeetingRecordingService {
     /** Deletes a meeting and the recording it still holds; the bytes never outlive the meeting. */
     public void delete(ActorId actor, UUID id) {
         UUID tenant = tenant(actor);
-        var meeting = service.get(actor, id);
+        var meeting = service.owned(actor, id);
         UUID upload = meetings.audioUpload(tenant, id).orElse(null);
         boolean adopted = meeting.audio().status() != Meeting.AudioStatus.NONE
                 && meeting.audio().status() != Meeting.AudioStatus.WAITING;

@@ -39,12 +39,18 @@ public final class Meeting {
                           @Nullable Instant generatedAt, List<MinutesItem> decisions, List<MinutesItem> actions) {}
 
     public record Summary(UUID id, String title, Kind kind, Status status, int participants, long durationMs,
-                          Instant createdAt, @Nullable Instant endedAt) {}
+                          Instant createdAt, @Nullable Instant endedAt, boolean owned) {}
+
+    /** Somebody the meeting is shared with: one member, or every member of one Group. */
+    public enum ReaderKind { MEMBER, GROUP }
+
+    public record Reader(ReaderKind kind, UUID id, String name) {}
 
     public record Detail(UUID id, String title, Kind kind, @Nullable String language, List<String> participants,
                          List<String> terms, String notes, Status status, @Nullable String provider, boolean diarized,
                          Instant createdAt, @Nullable Instant endedAt, long revision, List<Speaker> speakers,
-                         List<Utterance> utterances, Minutes minutes, Audio audio) {}
+                         List<Utterance> utterances, Minutes minutes, Audio audio, boolean owned,
+                         List<Reader> readers) {}
 
     public record Speaker(Track track, String label, @Nullable String name) {}
 

@@ -20,7 +20,14 @@ import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { captureSupport, openMeetingSources, ShareCancelledError } from "./meeting-capture";
 import { startRecording } from "./meeting-session";
-import { meetingKey, meetingsKey, startMeeting, type MeetingKind } from "./meetings-api";
+import { MeetingShareField, type MeetingAudience } from "./meeting-share-field";
+import {
+  meetingKey,
+  meetingsKey,
+  shareMeeting,
+  startMeeting,
+  type MeetingKind,
+} from "./meetings-api";
 
 /** Splits "Anh Thanh, Chị Lan" into names; the server trims and de-duplicates again. */
 function list(value: string) {
@@ -48,6 +55,7 @@ export function NewMeetingDialog({
   const [language, setLanguage] = useState<"vi" | "en" | "auto">("vi");
   const [participants, setParticipants] = useState("");
   const [terms, setTerms] = useState("");
+  const [audience, setAudience] = useState<MeetingAudience>({ people: [], groups: [] });
   const [consent, setConsent] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
@@ -72,7 +80,15 @@ export function NewMeetingDialog({
         participants: list(participants),
         terms: list(terms),
       });
-      cache.setQueryData(meetingKey(meeting.id), meeting);
+      const shared =
+        audience.people.length > 0 || audience.groups.length > 0
+          ? await shareMeeting(
+              meeting.id,
+              audience.people.map((person) => person.actorId),
+              audience.groups.map((group) => group.id),
+            )
+          : meeting;
+      cache.setQueryData(meetingKey(shared.id), shared);
       void cache.invalidateQueries({ queryKey: meetingsKey, exact: true });
       await startRecording(
         meeting.id,
@@ -151,6 +167,12 @@ export function NewMeetingDialog({
                 {ui("Cách nhau bằng dấu phẩy; dùng để gán tên người nói.")}
               </p>
             </div>
+            <MeetingShareField
+              label={ui("Chia sẻ với")}
+              value={audience}
+              disabled={pending}
+              onChange={setAudience}
+            />
             <div className="grid gap-2">
               <Label>{ui("Hình thức")}</Label>
               <RadioGroup

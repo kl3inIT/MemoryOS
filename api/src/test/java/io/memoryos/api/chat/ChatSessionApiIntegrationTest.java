@@ -3299,6 +3299,86 @@ class ChatSessionApiIntegrationTest {
         try (var output = exchange.getResponseBody()) { output.write(body); }
     }
 
+    @Test
+    void aSharedMeetingIsReadByItsReaderAndChangedByNobodyButItsOwner() throws Exception {
+        UUID meeting = UUID.randomUUID();
+        UUID reader = other.getPrincipal().actorId().value();
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, notes, status, ended_at)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'IN_PERSON', 'vi', '[]'::jsonb, 'Ghi chú riêng',
+                            'ENDED', CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label, name) VALUES (:tenant,:meeting,'MIC','1','Chị Lan')")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text, confidence)
+                    VALUES (:tenant, :id, :meeting, 'MIC', '1', 0, 4000, 'Chốt ngân sách quý 4.', 0.9)
+                    """).param("tenant", TENANT).param("id", UUID.randomUUID()).param("meeting", meeting).update();
+
+            // Before it is shared, the meeting does not exist as far as another member is concerned.
+            mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(other))).andExpect(status().isNotFound());
+            mockMvc.perform(get("/api/meetings").with(authentication(other))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(0));
+
+            String body = "{\"members\":[\"" + reader + "\"],\"groups\":[]}";
+            mockMvc.perform(put("/api/meetings/" + meeting + "/shares").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.owned").value(true))
+                    .andExpect(jsonPath("$.readers.length()").value(1))
+                    .andExpect(jsonPath("$.readers[0].kind").value("MEMBER"))
+                    .andExpect(jsonPath("$.readers[0].id").value(reader.toString()));
+
+            mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(other))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.title").value("Giao ban tuần"))
+                    .andExpect(jsonPath("$.utterances.length()").value(1))
+                    .andExpect(jsonPath("$.speakers[0].name").value("Chị Lan"))
+                    .andExpect(jsonPath("$.owned").value(false))
+                    // The owner's private notes, and the list of readers, stay with the owner.
+                    .andExpect(jsonPath("$.notes").value(""))
+                    .andExpect(jsonPath("$.readers.length()").value(0));
+            mockMvc.perform(get("/api/meetings").with(authentication(other))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].owned").value(false));
+
+            // A reader reads. Every change answers as if the meeting were not theirs, because it is not.
+            mockMvc.perform(put("/api/meetings/" + meeting + "/speakers/MIC/1").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Ai đó\"}"))
+                    .andExpect(status().isNotFound());
+            mockMvc.perform(put("/api/meetings/" + meeting + "/notes").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"notes\":\"x\",\"revision\":0}")).andExpect(status().isNotFound());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/minutes").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
+            mockMvc.perform(put("/api/meetings/" + meeting + "/shares").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"members\":[],\"groups\":[]}")).andExpect(status().isNotFound());
+            mockMvc.perform(delete("/api/meetings/" + meeting).with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/tickets").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"track\":\"MIC\"}"))
+                    .andExpect(status().isNotFound());
+
+            // Somebody who is not a member of this Tenant cannot be named at all.
+            mockMvc.perform(put("/api/meetings/" + meeting + "/shares").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"members\":[\"" + UUID.randomUUID() + "\"],\"groups\":[]}"))
+                    .andExpect(status().isBadRequest());
+            assertEquals(1, jdbc.sql("SELECT count(*) FROM meeting_user_share WHERE tenant_id=:tenant AND meeting_id=:meeting")
+                    .param("tenant", TENANT).param("meeting", meeting).query(Integer.class).single(),
+                    "a refused share leaves the readers as they were");
+
+            mockMvc.perform(put("/api/meetings/" + meeting + "/shares").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"members\":[],\"groups\":[]}")).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.readers.length()").value(0));
+            mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(other))).andExpect(status().isNotFound());
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
     private String voiceTicket(ActorAuthenticationToken authentication) throws Exception {
         var response = mockMvc.perform(post("/api/chat/voice/tickets").with(authentication(authentication)).with(csrf())
                 .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
