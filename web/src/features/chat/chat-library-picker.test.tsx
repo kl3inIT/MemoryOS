@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n";
 import type { ChatLibraryFile } from "@/lib/hey-api/types.gen";
 import { ChatLibraryPicker } from "./chat-library-picker";
+import { ApiError } from "@/lib/api";
 
 const listChatLibrary = vi.hoisted(() => vi.fn());
 const copyChatLibraryFile = vi.hoisted(() => vi.fn());
@@ -159,6 +160,29 @@ it("keeps the dialog open and says so when a copy fails", async () => {
   expect(
     await screen.findByText("Không chuẩn bị được tệp để đính kèm. Hãy thử lại."),
   ).toBeInTheDocument();
+  expect(onAttach).not.toHaveBeenCalled();
+});
+
+it("names a full library instead of a generic retry when the copy is refused", async () => {
+  const { onAttach } = show();
+  const user = userEvent.setup();
+  copyChatLibraryFile.mockRejectedValue(
+    new ApiError(409, {
+      code: "CHAT_STORAGE_FULL",
+      usedBytes: 2147483648,
+      limitBytes: 2147483648,
+    }),
+  );
+
+  await user.click(await screen.findByRole("checkbox", { name: `Chọn ${image.filename}` }));
+  await user.click(screen.getByRole("button", { name: "Đính kèm 1 tệp" }));
+
+  expect(
+    await screen.findByText("Thư viện tệp đã đầy. Xoá bớt tệp trong Thư viện rồi thử lại."),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByText("Không chuẩn bị được tệp để đính kèm. Hãy thử lại."),
+  ).not.toBeInTheDocument();
   expect(onAttach).not.toHaveBeenCalled();
 });
 

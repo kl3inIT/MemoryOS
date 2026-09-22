@@ -32,9 +32,24 @@ class GenerateImageToolTest {
     private final ImageConnectionService.Connection connection = new ImageConnectionService.Connection(
             UUID.randomUUID(), tenant.value(), ImageProvider.OPENAI_IMAGE, "", "gpt-image-1", "encrypted", 1);
 
+    @org.junit.jupiter.api.BeforeEach
+    void libraryHasRoom() {
+        when(artifacts.hasRoom(tenant, messageId)).thenReturn(true);
+    }
+
     private GenerateImageTool tool(int maxCalls) {
         return new GenerateImageTool(client, connection, artifacts, tenant, messageId, () -> {},
                 events::add, maxCalls);
+    }
+
+    @Test void aFullLibraryIsReadBeforeTheProviderIsPaid() {
+        when(artifacts.hasRoom(tenant, messageId)).thenReturn(false);
+
+        var reply = tool(4).generateImage("a red bicycle", null);
+
+        assertTrue(reply.contains("library is full"));
+        verifyNoInteractions(client);
+        assertEquals(ChatImageEvent.Stage.FAILED, events.getLast().stage());
     }
 
     @Test void successEmitsGeneratingThenCompletedAndReturnsArtifactId() throws Exception {

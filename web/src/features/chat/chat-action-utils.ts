@@ -1,8 +1,11 @@
-import { ApiError } from "@/lib/api";
+import { ApiError, problemCode } from "@/lib/api";
 import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
 
 export function chatActionProblem(error: unknown): ErrorMessage {
-  const problem = presentProblem(error, "mutation");
+  const problem = presentProblem(error, "mutation", {
+    CHAT_STORAGE_FULL: { key: "storageFull" },
+  });
+  if (problem.code === "CHAT_STORAGE_FULL") return problem.message;
   switch (problem.kind) {
     case "conflict":
       return { key: "chatConflict" };
@@ -24,6 +27,8 @@ export const chatField =
 
 export function chatActionError(error: unknown) {
   if (error instanceof ApiError) {
+    if (problemCode(error) === "CHAT_STORAGE_FULL")
+      return "Thư viện tệp đã đầy. Xoá bớt tệp trong Thư viện rồi thử lại.";
     if (error.status === 409)
       return "Dữ liệu đã thay đổi hoặc hội thoại đang trả lời. Tải lại rồi thử lại.";
     if ([401, 403, 404].includes(error.status ?? 0))

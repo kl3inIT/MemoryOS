@@ -143,6 +143,7 @@ export const vi = {
     attachmentProcessing: "Chưa đọc được tệp. Mở Tệp gần đây để kiểm tra trạng thái hoặc thử lại.",
     attachmentNotReady: "Chờ xử lý tệp xong hoặc gỡ tệp lỗi trước khi gửi.",
     attachmentUpload: "Không tải lên được tệp. Kiểm tra Tệp gần đây trước khi thử lại.",
+    storageFull: "Thư viện tệp đã đầy. Xoá bớt tệp trong Thư viện rồi thử lại.",
     chatConflict: "Dữ liệu đã thay đổi hoặc hội thoại đang trả lời. Tải lại rồi thử lại.",
     chatUnavailable: "Nội dung này không còn khả dụng hoặc bạn không có quyền truy cập.",
     chatInvalid:

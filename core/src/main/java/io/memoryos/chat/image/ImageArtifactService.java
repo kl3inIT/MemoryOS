@@ -25,6 +25,8 @@ public class ImageArtifactService {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ImageArtifactService.class);
     /** Same ceiling as vision input; an edit source is read fully into memory. */
     private static final int EDIT_SOURCE_LIMIT = 20 * 1024 * 1024;
+    /** No provider returns an image smaller than this, so a library without this much free space has none. */
+    private static final int SMALLEST_IMAGE_BYTES = 64 * 1024;
     private final ObjectWriteService writes;
     private final ObjectStorage storage;
     private final JdbcImageArtifactRepository artifacts;
@@ -98,6 +100,17 @@ public class ImageArtifactService {
         } catch (IOException failed) {
             throw ChatException.unavailable();
         }
+    }
+
+    /**
+     * Whether the conversation's owner has room for an image at all, read before the provider is called so a
+     * full library does not pay for an image that cannot be kept. It cannot know the size of an image nobody
+     * has generated yet, so it asks for the smallest one worth storing; the check in {@link #store} still
+     * refuses an image that turns out too large, and a write racing this one.
+     */
+    public boolean hasRoom(TenantId tenant, UUID messageId) {
+        var owner = artifacts.owner(tenant, messageId).map(io.memoryos.iam.identity.ActorId::new);
+        return owner.isEmpty() || quotas.hasRoom(tenant, owner.get(), SMALLEST_IMAGE_BYTES);
     }
 
     /** Persists a generated image against the assistant message; returns the artifact id. */

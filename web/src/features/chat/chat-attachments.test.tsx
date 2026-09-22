@@ -21,6 +21,7 @@ import {
 } from "./chat-files";
 import { ChatComposerRoot, ChatComposerSend } from "./chat-composer";
 import { ChatMessageAttachment } from "./chat-attachments";
+import { ApiError } from "@/lib/api";
 import { i18n } from "@/i18n";
 
 const backend = vi.hoisted(() => ({
@@ -272,5 +273,23 @@ describe("Chat attachments with assistant-ui runtime", () => {
     expect(onError).toHaveBeenCalledWith({ key: "attachmentUpload" });
     expect(backend.initiate).toHaveBeenCalledTimes(1);
     adapter.cancelPending();
+  });
+
+  it("says the library is full instead of the generic upload failure", async () => {
+    const full = new ApiError(409, {
+      code: "CHAT_STORAGE_FULL",
+      usedBytes: 2147483648,
+      limitBytes: 2147483648,
+    });
+    expect(chatAttachmentProblem(full)).toEqual({ key: "storageFull" });
+    backend.initiate.mockRejectedValueOnce(full);
+    const onError = vi.fn();
+    const failed = createChatAttachmentAdapter(onError).add({ file: new File(["x"], "test.txt") });
+    await expect(
+      (async () => {
+        if (Symbol.asyncIterator in failed) for await (const item of failed) void item;
+      })(),
+    ).rejects.toBe(full);
+    expect(onError).toHaveBeenCalledWith({ key: "storageFull" });
   });
 });

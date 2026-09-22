@@ -50,6 +50,11 @@ class EditImageToolTest {
     private final ImageConnectionService.Connection connection = new ImageConnectionService.Connection(
             UUID.randomUUID(), tenant.value(), ImageProvider.CLOUDFLARE_WORKERS_AI, "https://api.example/accounts/a", "", "encrypted", 1);
 
+    @org.junit.jupiter.api.BeforeEach
+    void libraryHasRoom() {
+        when(artifacts.hasRoom(tenant, messageId)).thenReturn(true);
+    }
+
     private EditImageTool tool(Set<UUID> attachments, Map<UUID, String> names, int maxCalls) {
         return new EditImageTool(client, connection, artifacts, files, actor, tenant, session, messageId, attachments, names,
                 () -> {}, events::add, maxCalls);

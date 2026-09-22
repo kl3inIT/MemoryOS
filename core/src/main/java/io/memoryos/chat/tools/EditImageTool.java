@@ -86,6 +86,12 @@ public final class EditImageTool {
         }
         if (++calls > maxCalls) return "The image editing limit for this reply has been reached.";
         String toolCallId = "image-" + UUID.randomUUID();
+        // A full library is read before the provider is paid for an image that could not be kept.
+        if (!artifacts.hasRoom(tenant, messageId)) {
+            events.accept(new ChatImageEvent(toolCallId, ChatImageEvent.Stage.FAILED, null, null, null));
+            return "No image was edited: the user's file library is full."
+                    + " Tell the user to free space in their library and try again.";
+        }
         events.accept(new ChatImageEvent(toolCallId, ChatImageEvent.Stage.GENERATING, null, null, null));
         try {
             active.run();
@@ -98,9 +104,8 @@ public final class EditImageTool {
             events.accept(new ChatImageEvent(toolCallId, ChatImageEvent.Stage.COMPLETED, id, result.mediaType(), result.revisedPrompt()));
             return "Edited image shown to the user (image_id=" + id + ")."
                     + (result.revisedPrompt() == null ? "" : " The instruction was refined to: " + result.revisedPrompt());
-        } catch (io.memoryos.chat.ChatException refused) {
+        } catch (io.memoryos.chat.ChatStorageFullException refused) {
             active.run();
-            if (!"CHAT_STORAGE_FULL".equals(refused.code())) throw refused;
             events.accept(new ChatImageEvent(toolCallId, ChatImageEvent.Stage.FAILED, null, null, null));
             return "The image was generated but not kept: the user's file library is full."
                     + " Tell the user to free space in their library and try again.";

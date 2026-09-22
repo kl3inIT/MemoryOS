@@ -20,7 +20,10 @@ class AttachmentFailure extends Error {
 
 export function chatAttachmentProblem(error: unknown): ErrorMessage {
   if (error instanceof AttachmentFailure) return error.presentation;
-  const problem = presentProblem(error, "mutation");
+  const problem = presentProblem(error, "mutation", {
+    CHAT_STORAGE_FULL: { key: "storageFull" },
+  });
+  if (problem.code === "CHAT_STORAGE_FULL") return problem.message;
   return ["unauthenticated", "forbidden", "throttled"].includes(problem.kind)
     ? problem.message
     : { key: "attachmentUpload" };

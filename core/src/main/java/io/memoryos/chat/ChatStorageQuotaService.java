@@ -29,16 +29,19 @@ public class ChatStorageQuotaService {
         this.tenants = tenants; this.storage = storage; this.library = library;
     }
 
-    /** What the caller's library holds and what it may hold; {@code limitBytes} absent means no limit. */
-    public record Usage(long usedBytes, long fileCount, @Nullable Long limitBytes,
+    /**
+     * What the caller's library holds and what it may hold; {@code limitBytes} absent means no limit.
+     * {@code trashedBytes} is the part of {@code usedBytes} they free by emptying the trash.
+     */
+    public record Usage(long usedBytes, long fileCount, long trashedBytes, @Nullable Long limitBytes,
                         Map<ChatLibraryFile.Category, Long> byCategory) {}
 
     @Transactional(readOnly = true)
     public Usage usage(ActorId actor) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         var used = library.usage(tenant, actor);
-        return new Usage(used.totalBytes(), used.fileCount(), storage.libraryLimit().orElse(null),
-                used.byCategory());
+        return new Usage(used.totalBytes(), used.fileCount(), used.trashedBytes(),
+                storage.libraryLimit().orElse(null), used.byCategory());
     }
 
     /**
@@ -51,7 +54,7 @@ public class ChatStorageQuotaService {
         var limit = storage.libraryLimit();
         if (limit.isEmpty()) return;
         long used = library.usage(tenant, actor).totalBytes();
-        if (used + additionalBytes > limit.get()) throw ChatException.storageFull(used, limit.get());
+        if (used + additionalBytes > limit.get()) throw new ChatStorageFullException(used, limit.get());
     }
 
     /** Whether there is room, for a write that must not fail the turn it belongs to. */
@@ -60,7 +63,7 @@ public class ChatStorageQuotaService {
         try {
             requireRoom(tenant, actor, additionalBytes);
             return true;
-        } catch (ChatException full) {
+        } catch (ChatStorageFullException full) {
             return false;
         }
     }

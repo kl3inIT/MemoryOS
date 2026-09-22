@@ -164,9 +164,8 @@ public final class RunPythonTool {
                         produced.add(new io.memoryos.chat.ChatCodeEvent.GeneratedFile(id, name, mediaType, bytes.length));
                 } catch (InterpreterClient.TooLargeException large) {
                     tooLarge.add(name);
-                } catch (io.memoryos.chat.ChatException refused) {
+                } catch (io.memoryos.chat.ChatStorageFullException refused) {
                     // A full file library is the owner's business, not a tool failure: the answer says so.
-                    if (!"CHAT_STORAGE_FULL".equals(refused.code())) throw refused;
                     noRoom.add(name);
                 } catch (IOException | RuntimeException failure) {
                     active.run();
@@ -179,6 +178,8 @@ public final class RunPythonTool {
                 active.run();
                 String png = chart.getValue().get("png");
                 String json = chart.getValue().get("json");
+                // The name the chart would have been stored under, so a refusal names what the user would see.
+                String name = safeName("chart-" + chart.getKey() + ".png");
                 try {
                     if (png == null) continue;
                     String data = json == null ? null : chartJson(client.download(json));
@@ -187,7 +188,7 @@ public final class RunPythonTool {
                     active.run();
                     var parsed = data == null ? null : JSON.readTree(data);
                     String title = parsed == null || !parsed.path("title").isString() ? "" : parsed.path("title").asString();
-                    String name = safeName((title.isBlank() ? "chart-" + chart.getKey() : title) + ".png");
+                    if (!title.isBlank()) name = safeName(title + ".png");
                     UUID id = artifacts.store(tenant, messageId, name, "image/png", bytes, data);
                     var entry = new LinkedHashMap<String, String>();
                     entry.put("title", title.isBlank() ? null : title);
@@ -196,6 +197,9 @@ public final class RunPythonTool {
                     charts.add(entry);
                     if (produced.size() < MAX_STAGED_FILES)
                         produced.add(new io.memoryos.chat.ChatCodeEvent.GeneratedFile(id, name, "image/png", bytes.length, data != null));
+                } catch (io.memoryos.chat.ChatStorageFullException refused) {
+                    // Same as a generated file: the answer says the chart was not kept, never a silent log.
+                    noRoom.add(name);
                 } catch (IOException | RuntimeException failure) {
                     active.run();
                     LOG.warn("Code Interpreter could not store a captured chart ({})", failure.getClass().getSimpleName());

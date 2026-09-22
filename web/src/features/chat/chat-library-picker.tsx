@@ -22,8 +22,10 @@ import { cn } from "@/lib/utils";
 import { ChatDialog } from "./chat-dialog";
 import { fileSize } from "./chat-code";
 import { LibraryCategoryFilter } from "./chat-library-toolbar";
-import type { ChatFile } from "./chat-files";
+import { chatAttachmentProblem, type ChatFile } from "./chat-files";
 import { imageArtifactUrl } from "./chat-image";
+import { useProblemMessage } from "@/lib/use-problem-message";
+import type { ErrorMessage } from "@/lib/problem-presentation";
 import {
   chatLibraryKey,
   libraryUpload,
@@ -83,6 +85,7 @@ function PickerBody({
   onAttach: (files: ChatFile[]) => void;
 }) {
   const ui = useAppTranslation();
+  const problemMessage = useProblemMessage();
   const { actorId, authorizationVersion } = useApplicationSession();
   const [search, setSearch] = useState("");
   const query = useDeferredValue(search.trim());
@@ -90,7 +93,7 @@ function PickerBody({
   const [categories, setCategories] = useState<LibraryCategory[]>([]);
   const [chosen, setChosen] = useState<LibraryFile[]>([]);
   const [preparing, setPreparing] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [error, setError] = useState<string | ErrorMessage>();
   const remaining = Math.max(0, 20 - selected.length);
 
   const filter = {
@@ -124,15 +127,21 @@ function PickerBody({
 
   const attach = async () => {
     setPreparing(true);
-    setFailed(false);
+    setError(undefined);
     try {
       const signal = AbortSignal.timeout(120_000);
       const ready: ChatFile[] = [];
       // One at a time: each copy is one server write, and a failure must name what is already attached.
       for (const file of chosen) ready.push(await libraryUpload(file, signal));
       onAttach(ready);
-    } catch {
-      setFailed(true);
+    } catch (cause) {
+      // A full library is a named refusal the person can act on, not "something went wrong".
+      const problem = chatAttachmentProblem(cause);
+      setError(
+        problem.key === "storageFull"
+          ? problem
+          : "Không chuẩn bị được tệp để đính kèm. Hãy thử lại.",
+      );
     } finally {
       setPreparing(false);
     }
@@ -300,9 +309,9 @@ function PickerBody({
           ))}
         </ul>
       )}
-      {failed && (
+      {error && (
         <Alert variant="destructive">
-          <AlertTitle>{ui("Không chuẩn bị được tệp để đính kèm. Hãy thử lại.")}</AlertTitle>
+          <AlertTitle>{typeof error === "object" ? problemMessage(error) : ui(error)}</AlertTitle>
         </Alert>
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">

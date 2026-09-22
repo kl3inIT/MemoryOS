@@ -63,6 +63,15 @@ final class ApiExceptionHandler {
         return problem;
     }
 
+    /** The same conflict, plus how full the library is, so the caller can say it in numbers the owner knows. */
+    @ExceptionHandler(io.memoryos.chat.ChatStorageFullException.class)
+    ProblemDetail handleChatStorageFull(io.memoryos.chat.ChatStorageFullException exception) {
+        ProblemDetail problem = handleBusinessException(exception);
+        problem.setProperty("usedBytes", exception.usedBytes());
+        problem.setProperty("limitBytes", exception.limitBytes());
+        return problem;
+    }
+
     @ExceptionHandler(GoogleDriveProviderException.class)
     ProblemDetail handleGoogleDriveFailure(GoogleDriveProviderException exception) {
         HttpStatus status = switch (exception.failure()) {

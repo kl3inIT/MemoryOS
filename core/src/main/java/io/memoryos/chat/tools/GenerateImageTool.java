@@ -51,6 +51,12 @@ public final class GenerateImageTool {
             return "Use shape square, portrait, or landscape, or omit it.";
         if (++calls > maxCalls) return "The image generation limit for this reply has been reached.";
         String toolCallId = "image-" + UUID.randomUUID();
+        // A full library is read before the provider is paid for an image that could not be kept.
+        if (!artifacts.hasRoom(tenant, messageId)) {
+            events.accept(new ChatImageEvent(toolCallId, ChatImageEvent.Stage.FAILED, null, null, null));
+            return "No image was generated: the user's file library is full."
+                    + " Tell the user to free space in their library and try again.";
+        }
         events.accept(new ChatImageEvent(toolCallId, ChatImageEvent.Stage.GENERATING, null, null, null));
         try {
             var result = client.generate(connection, prompt, shape);
@@ -60,9 +66,8 @@ public final class GenerateImageTool {
             events.accept(new ChatImageEvent(toolCallId, ChatImageEvent.Stage.COMPLETED, id, result.mediaType(), result.revisedPrompt()));
             return "Image generated and shown to the user (image_id=" + id + ")."
                     + (result.revisedPrompt() == null ? "" : " The prompt was refined to: " + result.revisedPrompt());
-        } catch (io.memoryos.chat.ChatException refused) {
+        } catch (io.memoryos.chat.ChatStorageFullException refused) {
             active.run();
-            if (!"CHAT_STORAGE_FULL".equals(refused.code())) throw refused;
             events.accept(new ChatImageEvent(toolCallId, ChatImageEvent.Stage.FAILED, null, null, null));
             return "The image was generated but not kept: the user's file library is full."
                     + " Tell the user to free space in their library and try again.";

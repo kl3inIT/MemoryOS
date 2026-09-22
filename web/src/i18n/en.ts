@@ -145,6 +145,7 @@ export const en = {
     attachmentNotReady:
       "Wait for files to finish processing or remove failed files before sending.",
     attachmentUpload: "The file could not be uploaded. Check recent files before trying again.",
+    storageFull: "The file library is full. Delete files in the library, then try again.",
     chatConflict:
       "The data changed or the conversation is generating an answer. Reload before trying again.",
     chatUnavailable: "This content is unavailable or you no longer have access.",
