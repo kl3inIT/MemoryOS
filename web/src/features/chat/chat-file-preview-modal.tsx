@@ -7,19 +7,19 @@ import {
   Crop,
   Download,
   Loader2,
-  MessageSquare,
+  RotateCcw,
   RotateCw,
+  Undo2,
   X,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
 import { Dialog } from "radix-ui";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { HighlightedCode } from "@/components/assistant-ui/elements/code-renderers.aui";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -42,6 +42,7 @@ import {
   previewChatFileSpreadsheet,
 } from "@/lib/hey-api/sdk.gen";
 import { cn } from "@/lib/utils";
+import { ChatFileAskComposer, type AskExtras } from "./chat-file-ask-composer";
 import { fileSize } from "./chat-code";
 import {
   codeLanguage,
@@ -71,6 +72,10 @@ type Sheets = z.infer<typeof spreadsheetSchema>["sheets"];
 
 /** Rows past this count are not rendered; the download holds the whole file. */
 const MAX_TABLE_ROWS = 1000;
+
+/** What the viewer may scale an image to, and the step its buttons take. */
+const ZOOM = { min: 25, max: 400, step: 25 } as const;
+const clampZoom = (value: number) => Math.min(ZOOM.max, Math.max(ZOOM.min, value));
 
 async function readBlob(target: PreviewTarget, signal: AbortSignal): Promise<Blob> {
   const { data } =
@@ -194,10 +199,18 @@ export function ChatFilePreviewModal({
   siblings?: readonly PreviewTarget[];
   onClose: () => void;
   onCloseAutoFocus?: (event: Event) => void;
-  /** Keeps a cropped image where the modal was opened from; without it a crop can only be downloaded. */
+  /** Keeps an edited image where the modal was opened from; without it an edit can only be downloaded. */
   onSaveImage?: (file: File) => void | Promise<void>;
-  /** Opens a conversation about this file. Surfaces inside Chat leave it out: they are already one. */
-  onAsk?: (target: PreviewTarget, question: string) => Promise<void>;
+  /**
+   * Opens a conversation about this file. `edited` is the image the viewer is currently showing when a crop
+   * has been applied, so the question is asked about what is on screen. Surfaces inside Chat leave it out:
+   * they are already a conversation.
+   */
+  onAsk?: (
+    target: PreviewTarget,
+    question: string,
+    extras: AskExtras & { edited?: File },
+  ) => Promise<void>;
 }) {
   const ui = useAppTranslation();
   const { actorId, authorizationVersion } = useApplicationSession();
@@ -209,6 +222,13 @@ export function ChatFilePreviewModal({
   const [natural, setNatural] = useState<{ width: number; height: number }>();
   const [cropFailed, setCropFailed] = useState(false);
   const [savingCrop, setSavingCrop] = useState(false);
+  /** The crop the owner applied: from here the viewer, the download, a save and a question all use it. */
+  const [edited, setEdited] = useState<{
+    blob: Blob;
+    filename: string;
+    type: string;
+    pixels: { width: number; height: number };
+  }>();
   const target = shown;
   const gallery = siblings ?? [];
   const at = gallery.findIndex((file) => file.source === target.source && file.id === target.id);
@@ -224,6 +244,7 @@ export function ChatFilePreviewModal({
     setShown(next);
     setCropping(false);
     setNatural(undefined);
+    setEdited(undefined);
     showUpright();
   };
   // Arrow keys step through the gallery, as an image viewer does; the dialog keeps Escape for closing.
@@ -247,39 +268,58 @@ export function ChatFilePreviewModal({
   const guessed = previewKind(target.filename, target.mediaType ?? "application/octet-stream");
   const kind: PreviewKind = loaded.data?.kind ?? guessed;
   const [docxWords, setDocxWords] = useState<{ words: number; text: string }>();
-  const view = loaded.data ? describe(loaded.data, target.filename, docxWords, ui) : undefined;
-  const image = loaded.data?.kind === "image" ? loaded.data.blob : undefined;
+  const original = loaded.data?.kind === "image" ? loaded.data.blob : undefined;
+  // Once a crop is applied the viewer shows it, so everything downstream reads one image.
+  const image = edited?.blob ?? original;
+  const override = edited && original ? ({ kind: "image", blob: edited.blob } as const) : undefined;
+  const filename = edited?.filename ?? target.filename;
+  const shownFile = override ?? loaded.data;
+  const view = shownFile ? describe(shownFile, filename, docxWords, ui) : undefined;
   // The cropper draws the same bytes the preview holds, so it shares the preview's object URL.
   const imageSource = useObjectUrl(image);
+  const editedSource = useObjectUrl(edited?.blob);
+  // A wheel over the picture scales it, as an image viewer does; the listener must stay identical to detach.
+  const zoomBy = useCallback(
+    (deltaY: number) => setZoom((current) => clampZoom(current - Math.sign(deltaY) * 10)),
+    [],
+  );
 
   /**
-   * The crop is encoded from the bytes the preview already holds, so nothing is uploaded until the owner
-   * keeps it: a download writes the file locally, saving hands it to whoever opened the modal.
+   * The crop is encoded from the bytes the preview already holds and replaces what the viewer shows, so it
+   * is usable in this session at once: cropped again, downloaded, saved as a new file or asked about.
    */
-  const keepCrop = async (destination: "download" | "library") => {
+  const applyCrop = async () => {
     if (!crop || !image) return;
     setSavingCrop(true);
     setCropFailed(false);
     try {
-      const type = cropType(target.mediaType ?? image.type);
+      const type = cropType(edited?.type ?? target.mediaType ?? image.type);
       const bitmap = await createImageBitmap(image);
       const cropped = await renderCrop(bitmap, crop, type);
+      const pixels = cropPixels(crop, { width: bitmap.width, height: bitmap.height });
       bitmap.close();
-      const filename = croppedFileName(target.filename, type);
-      if (destination === "library") await onSaveImage?.(new File([cropped], filename, { type }));
-      else {
-        const url = URL.createObjectURL(cropped);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = filename;
-        link.click();
-        // Revoking in the same task can cancel the download the click just started.
-        setTimeout(() => URL.revokeObjectURL(url), 0);
-      }
+      setEdited({
+        blob: cropped,
+        // A second crop refines the same file rather than naming it twice.
+        filename: edited?.filename ?? croppedFileName(target.filename, type),
+        type,
+        pixels,
+      });
       setCropping(false);
-      setCrop(undefined);
+      setNatural(undefined);
+      showUpright();
     } catch {
       setCropFailed(true);
+    } finally {
+      setSavingCrop(false);
+    }
+  };
+
+  const saveEdited = async () => {
+    if (!edited || !onSaveImage) return;
+    setSavingCrop(true);
+    try {
+      await onSaveImage(new File([edited.blob], edited.filename, { type: edited.type }));
     } finally {
       setSavingCrop(false);
     }
@@ -318,11 +358,8 @@ export function ChatFilePreviewModal({
               <span className="shrink-0 text-content-muted" aria-hidden="true">
                 /
               </span>
-              <Dialog.Title
-                className="min-w-0 truncate text-content-primary"
-                title={target.filename}
-              >
-                {target.filename}
+              <Dialog.Title className="min-w-0 truncate text-content-primary" title={filename}>
+                {filename}
               </Dialog.Title>
               {view?.description && (
                 <>
@@ -362,7 +399,8 @@ export function ChatFilePreviewModal({
               <div className="flex shrink-0 items-center gap-1">
                 {view?.copy !== undefined && <CopyButton text={view.copy} />}
                 <IconButton prominence="internal" size="sm" asChild aria-label={ui("Tải xuống")}>
-                  <a href={downloadUrl(target)} download={target.filename}>
+                  {/* A download takes what the viewer shows, so an applied crop is what lands on disk. */}
+                  <a href={editedSource ?? downloadUrl(target)} download={filename}>
                     <Download />
                   </a>
                 </IconButton>
@@ -392,24 +430,27 @@ export function ChatFilePreviewModal({
               <>
                 <div
                   className={cn(
-                    "flex min-h-0 flex-1 flex-col overflow-auto pb-4",
+                    "flex min-h-0 flex-1 flex-col overflow-auto",
                     kind === "image" || cropping ? "pt-14" : "pt-3",
+                    // The question floats over the file, so the file keeps room beneath it.
+                    onAsk && !cropping ? "pb-28" : "pb-4",
                   )}
                 >
                   {cropping && imageSource ? (
                     <ImageCropper
                       src={imageSource}
-                      alt={target.filename}
+                      alt={filename}
                       rect={crop}
                       onRect={setCrop}
                       onNatural={setNatural}
                     />
                   ) : (
                     <Content
-                      loaded={loaded.data}
+                      loaded={override ?? loaded.data}
                       target={target}
                       zoom={zoom}
                       rotation={rotation}
+                      onZoom={zoomBy}
                       onDocx={setDocxWords}
                     />
                   )}
@@ -429,7 +470,7 @@ export function ChatFilePreviewModal({
                             crop && { selected: true, ...(natural && cropPixels(crop, natural)) }
                           }
                           onZoom={setZoom}
-                          onRotate={() => setRotation((current) => (current + 90) % 360)}
+                          onRotate={(degrees) => setRotation((current) => current + degrees)}
                           onCrop={() => {
                             // A crop is drawn on the image as stored: upright, unzoomed and unrotated.
                             setCropping(!cropping);
@@ -437,44 +478,68 @@ export function ChatFilePreviewModal({
                           }}
                         />
                       )}
-                      {cropping && (
-                        <>
-                          {cropFailed && (
-                            <span
-                              role="alert"
-                              className="px-2 font-secondary-body text-content-danger"
-                            >
-                              {ui("Không cắt được ảnh.")}
+                      {cropFailed && (
+                        <span role="alert" className="px-2 font-secondary-body text-content-danger">
+                          {ui("Không cắt được ảnh.")}
+                        </span>
+                      )}
+                      {cropping ? (
+                        <Button
+                          size="sm"
+                          disabled={!crop || savingCrop}
+                          onClick={() => void applyCrop()}
+                        >
+                          {savingCrop ? ui("Đang cắt…") : ui("Cắt")}
+                        </Button>
+                      ) : (
+                        edited && (
+                          // The applied crop is what the viewer, a download, a save and a question now use.
+                          <>
+                            <span className="px-2 font-secondary-body tabular-nums text-content-muted">
+                              {ui("Đã cắt · {{width}} × {{height}} px", edited.pixels)}
                             </span>
-                          )}
-                          <Button
-                            size="sm"
-                            prominence="internal"
-                            disabled={!crop || savingCrop}
-                            onClick={() => void keepCrop("download")}
-                          >
-                            {ui("Tải ảnh đã cắt")}
-                          </Button>
-                          {onSaveImage && (
-                            <Button
+                            {onSaveImage && (
+                              <Button
+                                size="sm"
+                                disabled={savingCrop}
+                                onClick={() => void saveEdited()}
+                              >
+                                {savingCrop ? ui("Đang lưu…") : ui("Lưu thành tệp mới")}
+                              </Button>
+                            )}
+                            <IconButton
+                              prominence="internal"
                               size="sm"
-                              disabled={!crop || savingCrop}
-                              onClick={() => void keepCrop("library")}
+                              aria-label={ui("Về ảnh gốc")}
+                              onClick={() => {
+                                setEdited(undefined);
+                                setNatural(undefined);
+                                showUpright();
+                              }}
                             >
-                              {savingCrop ? ui("Đang lưu…") : ui("Lưu thành tệp mới")}
-                            </Button>
-                          )}
-                        </>
+                              <Undo2 />
+                            </IconButton>
+                          </>
+                        )
                       )}
                     </div>
                   </div>
                 )}
               </>
             )}
+            {onAsk && !cropping && (
+              <ChatFileAskComposer
+                name={filename}
+                onAsk={(question, extras) =>
+                  onAsk(target, question, {
+                    ...extras,
+                    edited:
+                      edited && new File([edited.blob], edited.filename, { type: edited.type }),
+                  })
+                }
+              />
+            )}
           </div>
-          {onAsk && !cropping && (
-            <AskAboutFile name={target.filename} onAsk={(text) => onAsk(target, text)} />
-          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -540,19 +605,28 @@ function Content({
   target,
   zoom,
   rotation,
+  onZoom,
   onDocx,
 }: {
   loaded: Loaded;
   target: PreviewTarget;
   zoom: number;
   rotation: number;
+  /** Wheel over the picture; the same callback on every render, so its listener is attached once. */
+  onZoom: (deltaY: number) => void;
   onDocx: (result: { words: number; text: string }) => void;
 }) {
   const ui = useAppTranslation();
   switch (loaded.kind) {
     case "image":
       return (
-        <ImagePreview blob={loaded.blob} alt={target.filename} zoom={zoom} rotation={rotation} />
+        <ImagePreview
+          blob={loaded.blob}
+          alt={target.filename}
+          zoom={zoom}
+          rotation={rotation}
+          onZoom={onZoom}
+        />
       );
     case "pdf":
       return <PdfPreview blob={loaded.blob} />;
@@ -626,12 +700,27 @@ function ImagePreview({
   alt,
   zoom,
   rotation,
+  onZoom,
 }: {
   blob: Blob;
   alt: string;
   zoom: number;
   rotation: number;
+  onZoom: (deltaY: number) => void;
 }) {
+  const frame = useRef<HTMLDivElement>(null);
+  // The page behind the viewer must not scroll while the picture is being scaled, so the wheel listener is
+  // registered directly and non-passively; React's own onWheel cannot call preventDefault.
+  useEffect(() => {
+    const node = frame.current;
+    if (!node) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      onZoom(event.deltaY);
+    };
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return () => node.removeEventListener("wheel", onWheel);
+  }, [onZoom]);
   const src = useObjectUrl(blob);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
@@ -641,6 +730,7 @@ function ImagePreview({
   const offset = pannable ? pan : { x: 0, y: 0 };
   return (
     <div
+      ref={frame}
       className={cn(
         "flex min-h-0 flex-1 items-center justify-center overflow-hidden p-4",
         pannable && (dragging ? "cursor-grabbing" : "cursor-grab"),
@@ -701,7 +791,7 @@ function ImageControls({
   /** Whether a region has been drawn, and its size in the image's own pixels once that is known. */
   crop?: { selected: boolean; width?: number; height?: number };
   onZoom: (zoom: number) => void;
-  onRotate: () => void;
+  onRotate: (degrees: number) => void;
   onCrop: () => void;
 }) {
   const ui = useAppTranslation();
@@ -722,8 +812,8 @@ function ImageControls({
             prominence="internal"
             size="sm"
             aria-label={ui("Thu nhỏ")}
-            disabled={zoom <= 25}
-            onClick={() => onZoom(Math.max(zoom - 25, 25))}
+            disabled={zoom <= ZOOM.min}
+            onClick={() => onZoom(clampZoom(zoom - ZOOM.step))}
           >
             <ZoomOut />
           </IconButton>
@@ -732,16 +822,28 @@ function ImageControls({
             prominence="internal"
             size="sm"
             aria-label={ui("Phóng to")}
-            disabled={zoom >= 200}
-            onClick={() => onZoom(Math.min(zoom + 25, 200))}
+            disabled={zoom >= ZOOM.max}
+            onClick={() => onZoom(clampZoom(zoom + ZOOM.step))}
           >
             <ZoomIn />
+          </IconButton>
+          {/*
+           * Each press turns a quarter further in the direction it names. The angle is never folded back to
+           * zero, so a fourth turn to the right keeps going right instead of spinning back.
+           */}
+          <IconButton
+            prominence="internal"
+            size="sm"
+            aria-label={ui("Xoay trái")}
+            onClick={() => onRotate(-90)}
+          >
+            <RotateCcw />
           </IconButton>
           <IconButton
             prominence="internal"
             size="sm"
-            aria-label={ui("Xoay ảnh")}
-            onClick={onRotate}
+            aria-label={ui("Xoay phải")}
+            onClick={() => onRotate(90)}
           >
             <RotateCw />
           </IconButton>
@@ -757,55 +859,6 @@ function ImageControls({
         <Crop />
       </IconButton>
     </div>
-  );
-}
-
-/**
- * A question about the file that is opened, asked where the file is read: it starts a conversation with the
- * file attached, so the answer is given by Chat itself rather than by a second chat surface here.
- */
-function AskAboutFile({
-  name,
-  onAsk,
-}: {
-  name: string;
-  onAsk: (question: string) => Promise<void>;
-}) {
-  const ui = useAppTranslation();
-  const [question, setQuestion] = useState("");
-  const [pending, setPending] = useState(false);
-  const [failed, setFailed] = useState(false);
-  return (
-    <form
-      className="flex shrink-0 items-center gap-2 border-t border-border-subtle px-4 py-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (pending) return;
-        setPending(true);
-        setFailed(false);
-        void onAsk(question.trim())
-          .catch(() => setFailed(true))
-          .finally(() => setPending(false));
-      }}
-    >
-      <Input
-        value={question}
-        onChange={(event) => setQuestion(event.target.value)}
-        disabled={pending}
-        maxLength={2000}
-        aria-label={ui("Hỏi về {{name}}", { name })}
-        placeholder={ui("Hỏi về tệp này…")}
-      />
-      <Button type="submit" size="sm" disabled={pending} className="shrink-0">
-        <MessageSquare />
-        {pending ? ui("Đang mở hội thoại…") : ui("Hỏi trong Chat")}
-      </Button>
-      {failed && (
-        <span role="alert" className="shrink-0 text-sm text-content-danger">
-          {ui("Không mở được hội thoại.")}
-        </span>
-      )}
-    </form>
   );
 }
 

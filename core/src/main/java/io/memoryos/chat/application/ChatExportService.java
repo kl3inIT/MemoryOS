@@ -261,7 +261,7 @@ public class ChatExportService {
     /** An upload's bytes come from its adopted upload, an artifact's from its own object. */
     private Optional<byte[]> read(TenantId tenant, ActorId owner, ChatLibraryFile file) {
         Optional<ObjectKey> key = file.source() == ChatLibraryFile.Source.UPLOAD
-                ? files.raw(tenant, owner, file.id()).map(io.memoryos.objectstorage.StoredObjectReference::key)
+                ? files.raw(tenant, owner, file.id()).map(row -> row.reference().key())
                 : library.artifact(tenant, owner, file.source(), file.id())
                         .map(JdbcChatLibraryRepository.Artifact::key);
         if (key.isEmpty()) return Optional.empty();

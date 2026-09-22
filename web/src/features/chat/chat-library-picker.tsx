@@ -1,10 +1,10 @@
 import { useDeferredValue, useState } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import { Check, FileText, Search, X } from "lucide-react";
-import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ClampedList } from "@/components/ui/clamped-list";
 import {
   Empty,
   EmptyDescription,
@@ -13,6 +13,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DocumentKindIcon } from "@/features/search/document-source-icon";
 import { useApplicationSession } from "@/features/identity/application-session-context";
@@ -22,11 +23,9 @@ import { cn } from "@/lib/utils";
 import { ChatDialog } from "./chat-dialog";
 import { fileSize } from "./chat-code";
 import { LibraryCategoryFilter } from "./chat-library-toolbar";
-import type { ChatFile } from "./chat-files";
-import { imageArtifactUrl } from "./chat-image";
 import {
   chatLibraryKey,
-  libraryUpload,
+  libraryThumbnailUrl,
   loadLibrary,
   LIBRARY_PAGE_SIZE,
   type LibraryCategory,
@@ -36,25 +35,29 @@ import {
 
 /**
  * "Choose an existing file" over the whole library (MEM-152): uploads, files a code run generated and generated
- * images, searchable and filtered like `/library`. Generated files are copied into uploads on Attach, and the
- * dialog stays open until each copy is ready, so the composer only ever receives files it can send.
+ * images, searchable and filtered like `/library`. The choice closes the dialog at once; anything Chat created
+ * is copied into an upload beside the draft's other files, where the composer shows that wait.
  */
 export function ChatLibraryPicker({
   open,
   onOpenChange,
   selected,
+  preparing = 0,
   onAttach,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Uploads already on the draft; they are shown as attached and count against the 20-file limit. */
   selected: string[];
-  onAttach: (files: ChatFile[]) => void;
+  /** Files the composer is still preparing; they hold their place in the same limit. */
+  preparing?: number;
+  onAttach: (files: LibraryFile[]) => void;
 }) {
   const ui = useAppTranslation();
   return (
     <ChatDialog
       wide
+      fill
       open={open}
       onOpenChange={onOpenChange}
       title={ui("Chọn tệp từ thư viện")}
@@ -65,6 +68,7 @@ export function ChatLibraryPicker({
       {open && (
         <PickerBody
           selected={selected}
+          preparing={preparing}
           onAttach={(files) => {
             onAttach(files);
             onOpenChange(false);
@@ -77,10 +81,12 @@ export function ChatLibraryPicker({
 
 function PickerBody({
   selected,
+  preparing,
   onAttach,
 }: {
   selected: string[];
-  onAttach: (files: ChatFile[]) => void;
+  preparing: number;
+  onAttach: (files: LibraryFile[]) => void;
 }) {
   const ui = useAppTranslation();
   const { actorId, authorizationVersion } = useApplicationSession();
@@ -89,9 +95,7 @@ function PickerBody({
   const [source, setSource] = useState<"ALL" | LibrarySource>("ALL");
   const [categories, setCategories] = useState<LibraryCategory[]>([]);
   const [chosen, setChosen] = useState<LibraryFile[]>([]);
-  const [preparing, setPreparing] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const remaining = Math.max(0, 20 - selected.length);
+  const remaining = Math.max(0, 20 - selected.length - preparing);
 
   const filter = {
     query,
@@ -104,8 +108,12 @@ function PickerBody({
     queryFn: ({ pageParam, signal }) => loadLibrary(filter, pageParam, signal),
     initialPageParam: 0,
     getNextPageParam: (last, all) => (last.hasMore ? all.length * LIBRARY_PAGE_SIZE : undefined),
+    // A filter or a search keeps the list that is being read on screen until the next one arrives, so the
+    // dialog dims instead of emptying and jumping.
+    placeholderData: keepPreviousData,
   });
   const files = pages.data?.pages.flatMap((page) => page.items) ?? [];
+  const busy = pages.isPlaceholderData;
 
   const sourceLabels: Record<LibrarySource, string> = {
     UPLOAD: ui("Đã tải lên"),
@@ -122,24 +130,8 @@ function PickerBody({
         : [...chosen, file],
     );
 
-  const attach = async () => {
-    setPreparing(true);
-    setFailed(false);
-    try {
-      const signal = AbortSignal.timeout(120_000);
-      const ready: ChatFile[] = [];
-      // One at a time: each copy is one server write, and a failure must name what is already attached.
-      for (const file of chosen) ready.push(await libraryUpload(file, signal));
-      onAttach(ready);
-    } catch {
-      setFailed(true);
-    } finally {
-      setPreparing(false);
-    }
-  };
-
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted" />
@@ -166,14 +158,30 @@ function PickerBody({
         </Tabs>
       </div>
       <div
-        className="max-h-[min(24rem,50dvh)] min-h-40 overflow-y-auto rounded-lg border border-border-default"
+        className={cn(
+          "min-h-0 flex-1 overflow-y-auto rounded-lg border border-border-default transition-opacity",
+          busy && "opacity-60",
+        )}
         role="list"
         aria-label={ui("Tệp trong thư viện")}
+        aria-busy={busy || undefined}
       >
         {pages.isPending && (
-          <p role="status" className="p-4 text-sm text-content-muted">
-            {ui("Đang tải thư viện…")}
-          </p>
+          <div
+            className="flex flex-col gap-2 p-3"
+            role="status"
+            aria-label={ui("Đang tải thư viện…")}
+          >
+            {[0, 1, 2, 3, 4].map((row) => (
+              <div key={row} className="flex items-center gap-3">
+                <Skeleton className="size-9 shrink-0 rounded-md" />
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <Skeleton className="h-3.5 w-1/2" />
+                  <Skeleton className="h-3 w-1/3" />
+                </div>
+              </div>
+            ))}
+          </div>
         )}
         {pages.isError && (
           <p role="alert" className="p-4 text-sm">
@@ -224,13 +232,13 @@ function PickerBody({
               <Checkbox
                 aria-label={ui("Chọn {{name}}", { name: file.filename })}
                 checked={checked}
-                disabled={attached || full || preparing}
+                disabled={attached || full}
                 onCheckedChange={() => toggle(file)}
               />
               <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-sunken">
-                {file.source === "IMAGE" ? (
+                {libraryThumbnailUrl(file) ? (
                   <img
-                    src={imageArtifactUrl(file.id, "thumbnail")}
+                    src={libraryThumbnailUrl(file)}
                     alt=""
                     loading="lazy"
                     decoding="async"
@@ -284,40 +292,28 @@ function PickerBody({
       </div>
 
       {chosen.length > 0 && (
-        <ul aria-label={ui("Tệp sẽ đính kèm")} className="flex flex-wrap items-center gap-1.5">
-          {chosen.map((file) => (
-            <li key={`${file.source}:${file.id}`}>
-              <button
-                type="button"
-                disabled={preparing}
-                onClick={() => toggle(file)}
-                aria-label={ui("Bỏ chọn {{name}}", { name: file.filename })}
-                className="flex h-7 max-w-56 items-center gap-1 rounded-full border border-border-subtle bg-surface-subtle px-2.5 font-secondary-body text-content-secondary outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40 disabled:opacity-50"
-              >
-                <span className="truncate">{file.filename}</span>
-                <X className="size-3.5 shrink-0" aria-hidden="true" />
-              </button>
-            </li>
+        <ClampedList
+          maxRows={2}
+          label={ui("Tệp sẽ đính kèm")}
+          items={chosen.map((file) => (
+            <button
+              key={`${file.source}:${file.id}`}
+              type="button"
+              onClick={() => toggle(file)}
+              aria-label={ui("Bỏ chọn {{name}}", { name: file.filename })}
+              className="flex h-7 max-w-56 items-center gap-1 rounded-full border border-border-subtle bg-surface-subtle px-2.5 font-secondary-body text-content-secondary outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
+            >
+              <span className="truncate">{file.filename}</span>
+              <X className="size-3.5 shrink-0" aria-hidden="true" />
+            </button>
           ))}
-        </ul>
-      )}
-      {failed && (
-        <Alert variant="destructive">
-          <AlertTitle>{ui("Không chuẩn bị được tệp để đính kèm. Hãy thử lại.")}</AlertTitle>
-        </Alert>
+        />
       )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm text-content-secondary" aria-live="polite">
-          {preparing
-            ? ui("Đang chuẩn bị tệp…")
-            : ui("Đã chọn {{count}}/{{max}} tệp", { count: chosen.length, max: remaining })}
+          {ui("Đã chọn {{count}}/{{max}} tệp", { count: chosen.length, max: remaining })}
         </span>
-        <Button
-          type="button"
-          disabled={chosen.length === 0}
-          pending={preparing}
-          onClick={() => void attach()}
-        >
+        <Button type="button" disabled={chosen.length === 0} onClick={() => onAttach(chosen)}>
           {ui("Đính kèm {{count}} tệp", { count: chosen.length })}
         </Button>
       </div>

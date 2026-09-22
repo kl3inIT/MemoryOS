@@ -242,7 +242,7 @@ it("deletes each selected file through its own route and reports a refusal", asy
   deleteChatFileArtifact.mockRejectedValue(new Error("refused"));
   deleteChatImageArtifact.mockResolvedValue({ data: undefined });
 
-  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả" }));
+  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả trên trang này" }));
   await user.click(screen.getByRole("button", { name: "Xoá" }));
   // The dialog's own confirm button, not the toolbar one that opened it.
   await user.click(
@@ -281,7 +281,7 @@ it("drops a selection made on another page, so paging cannot delete nothing sile
   await show([file()], true);
   const user = userEvent.setup();
 
-  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả" }));
+  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả trên trang này" }));
   expect(screen.getByText("Đã chọn 1 tệp")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Trang sau" }));
 
@@ -293,6 +293,35 @@ it("drops a selection made on another page, so paging cannot delete nothing sile
       expect.objectContaining({ query: expect.objectContaining({ offset: 50 }) }),
     ),
   );
+});
+
+it("chooses one day at its heading and leaves the other days alone", async () => {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const older = file({
+    id: "66666666-6666-4666-8666-666666666666",
+    filename: "bảng-lương.xlsx",
+    createdAt: yesterday.toISOString(),
+  });
+  await show([file(), upload, older]);
+  const user = userEvent.setup();
+
+  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả Hôm nay" }));
+
+  // Today holds the two files the server returned first; yesterday's file is untouched.
+  expect(screen.getByText("Đã chọn 2 tệp")).toBeInTheDocument();
+  expect(screen.getByRole("checkbox", { name: "Chọn tất cả Hôm qua" })).toHaveAttribute(
+    "data-state",
+    "unchecked",
+  );
+  // The page's own box says part of the page, not all of it.
+  expect(screen.getByRole("checkbox", { name: "Chọn tất cả trên trang này" })).toHaveAttribute(
+    "data-state",
+    "indeterminate",
+  );
+
+  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả Hôm nay" }));
+  await waitFor(() => expect(screen.queryByText("Đã chọn 2 tệp")).not.toBeInTheDocument());
 });
 
 const PROJECT = {
@@ -516,7 +545,7 @@ it("packs a selection into a ZIP, then downloads it and names what was skipped",
   });
   const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 
-  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả" }));
+  await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả trên trang này" }));
   await user.click(screen.getByRole("button", { name: "Tải về ZIP" }));
 
   expect(await screen.findByText(/Đang đóng gói 2 tệp/)).toBeInTheDocument();
@@ -747,7 +776,7 @@ it("asks Chat about the file being previewed, with the file attached to the ques
   );
   expect(router.state.location.search).toEqual({
     ask: "Sơ đồ này nói gì?",
-    attach: picture.id,
+    attach: [picture.id],
   });
   expect(createChatSession).toHaveBeenCalledWith(
     expect.objectContaining({ body: expect.objectContaining({ title: "Sơ đồ này nói gì?" }) }),

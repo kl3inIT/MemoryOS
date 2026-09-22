@@ -90,6 +90,23 @@ class ChatFileController {
         }
     }
 
+    @GetMapping(value="/{fileId}/thumbnail", produces={"image/jpeg","image/png","image/webp"})
+    @Operation(operationId="getChatFileThumbnail", summary="Read the file library's small rendering of an owner-private uploaded image")
+    @ApiResponse(responseCode="200",description="Thumbnail bytes, or the original image when no smaller rendering could be made",content=@Content(schema=@Schema(type="string",format="binary")))
+    void thumbnail(@Parameter(hidden=true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID fileId, HttpServletResponse response) throws IOException {
+        try (var served = content.thumbnail(identity.actorId(), fileId)) {
+            response.setContentType(served.mediaType());
+            // An upload's bytes never change under its id, and the route authorizes every read, so the owner's
+            // own browser may keep them. A shared cache must not: the response is owner-private.
+            response.setHeader("Cache-Control", "private, max-age=31536000, immutable");
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            response.setHeader("Content-Disposition", "inline");
+            response.setContentLengthLong(served.sizeBytes());
+            served.inputStream().transferTo(response.getOutputStream());
+        }
+    }
+
     @GetMapping("/policy")
     @Operation(operationId="getChatFilePolicy", summary="Get the active Chat file upload policy")
     @ApiResponse(responseCode="200",description="Active upload policy",useReturnTypeSchema=true)

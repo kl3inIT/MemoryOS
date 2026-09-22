@@ -4,13 +4,18 @@ import io.memoryos.chat.UserFile;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.objectstorage.ContentSha256;
+import io.memoryos.objectstorage.ObjectKey;
+import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.objectstorage.ObjectUploadId;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
+import io.memoryos.objectstorage.StoredObjectId;
+import io.memoryos.objectstorage.StoredObjectReference;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -82,17 +87,48 @@ public class JdbcUserFileRepository {
 
     public record TextWindow(String text, int offset, int totalCharacters) {}
 
-    public Optional<io.memoryos.objectstorage.StoredObjectReference> raw(TenantId tenant, ActorId actor, UUID id) {
+    /**
+     * What a serving read needs: the upload's own object, and the derived thumbnail once one has been written.
+     * A thumbnail is absent until the library first asks for one, and for an upload whose bytes this build
+     * cannot decode it stays absent.
+     */
+    public record Servable(StoredObjectReference reference, String mediaType, @Nullable ObjectKey thumbnailKey,
+                           @Nullable String thumbnailMediaType) {}
+
+    public Optional<Servable> raw(TenantId tenant, ActorId actor, UUID id) {
         return jdbc.sql("""
-                SELECT o.* FROM chat_user_file f JOIN object_uploads u ON u.tenant_id=f.tenant_id AND u.id=f.upload_id
+                SELECT o.*, f.media_type AS file_media_type, f.detected_media_type,
+                       f.thumbnail_object_key, f.thumbnail_media_type
+                FROM chat_user_file f JOIN object_uploads u ON u.tenant_id=f.tenant_id AND u.id=f.upload_id
                 JOIN stored_objects o ON o.tenant_id=u.tenant_id AND o.id=u.stored_object_id
                 WHERE f.tenant_id=:tenant AND f.id=:id AND f.status='READY' AND u.status='ADOPTED' AND
                 """ + READABLE).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
-                .query((row, ignored) -> new io.memoryos.objectstorage.StoredObjectReference(
-                        new io.memoryos.objectstorage.StoredObjectId(row.getObject("id", UUID.class)),
-                        new io.memoryos.objectstorage.ObjectKey(row.getString("object_key")), row.getString("filename"),
-                        new io.memoryos.objectstorage.ObjectMetadata(row.getLong("size_bytes"), row.getString("declared_media_type"),
-                                new ContentSha256(row.getString("content_sha256"))))).optional();
+                .query((row, ignored) -> {
+                    String detected = row.getString("detected_media_type");
+                    String thumbnailKey = row.getString("thumbnail_object_key");
+                    return new Servable(new StoredObjectReference(
+                            new StoredObjectId(row.getObject("id", UUID.class)),
+                            new ObjectKey(row.getString("object_key")), row.getString("filename"),
+                            new ObjectMetadata(row.getLong("size_bytes"), row.getString("declared_media_type"),
+                                    new ContentSha256(row.getString("content_sha256")))),
+                            detected == null ? row.getString("file_media_type") : detected,
+                            thumbnailKey == null ? null : new ObjectKey(thumbnailKey),
+                            row.getString("thumbnail_media_type"));
+                }).optional();
+    }
+
+    /**
+     * Records the thumbnail written for an upload. Answers false when the upload already has one, which is how
+     * two requests that rendered the same image at once settle: the loser releases the object it staged. A file
+     * on its way out is never given one, so the byte release cannot be raced into leaving bytes behind.
+     */
+    public boolean attachThumbnail(TenantId tenant, UUID id, UUID storedObjectId, ObjectKey key, String mediaType) {
+        return jdbc.sql("""
+                UPDATE chat_user_file SET thumbnail_stored_object_id = :object, thumbnail_object_key = :key,
+                    thumbnail_media_type = :type
+                WHERE tenant_id = :tenant AND id = :id AND thumbnail_object_key IS NULL AND status = 'READY'
+                """).param("tenant", tenant.value()).param("id", id).param("object", storedObjectId)
+                .param("key", key.value()).param("type", mediaType).update() == 1;
     }
 
     public java.util.Map<UUID, UUID> documents(TenantId tenant, ActorId actor, java.util.Set<UUID> ids) {

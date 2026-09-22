@@ -36,6 +36,8 @@ import {
 import { archiveContentUrl, useLibraryArchive, type LibraryArchive } from "./use-library-archive";
 import { useLibraryUploads } from "./use-library-uploads";
 import { ChatFilePreviewModal } from "./chat-file-preview-modal";
+import { type AskExtras } from "./chat-file-ask-composer";
+import { uploadChatFile } from "./chat-files";
 import { type PreviewTarget } from "./chat-file-preview";
 import {
   changeLibraryFile,
@@ -252,21 +254,33 @@ export function ChatLibraryPage() {
   /**
    * A question asked where the file is read (MEM-152): the file becomes an upload, a conversation is created
    * for it, and Chat attaches it and sends the question once the conversation is open. An empty question
-   * opens that conversation with the file attached and nothing sent.
+   * opens that conversation with the files attached and nothing sent. A crop applied in the preview is asked
+   * about as itself, so the question is about what was on screen rather than the untouched original.
    */
-  const askAboutFile = async (target: PreviewTarget, question: string) => {
+  const askAboutFile = async (
+    target: PreviewTarget,
+    question: string,
+    extras: AskExtras & { edited?: File },
+  ) => {
     const file =
       files.find((item) => item.id === target.id) ??
       (preview?.id === target.id ? preview : undefined);
-    if (!file) return;
     const signal = AbortSignal.timeout(120_000);
-    const upload = await libraryUpload(file, signal);
-    const session = await newChatSession(question || file.filename, signal);
+    const subject = extras.edited
+      ? await uploadChatFile(extras.edited, crypto.randomUUID(), signal, () => {})
+      : file && (await libraryUpload(file, signal));
+    if (!subject) return;
+    const attach = [subject.id];
+    for (const chosen of extras.library) attach.push((await libraryUpload(chosen, signal)).id);
+    for (const chosen of extras.uploads)
+      attach.push((await uploadChatFile(chosen, crypto.randomUUID(), signal, () => {})).id);
+    const session = await newChatSession(question || subject.filename, signal);
     await cache.invalidateQueries({ queryKey: chatSessionsKey });
+    await cache.invalidateQueries({ queryKey: chatLibraryKey });
     await navigate({
       to: "/chat/$sessionId",
       params: { sessionId: session.id },
-      search: { ask: question || undefined, attach: upload.id },
+      search: { ask: question || undefined, attach },
     });
   };
 
@@ -434,17 +448,26 @@ export function ChatLibraryPage() {
                         page.isPlaceholderData && "opacity-60",
                       )}
                     >
-                      <div className="flex items-center gap-2 px-3">
-                        <Checkbox
-                          aria-label={ui("Chọn tất cả")}
-                          checked={files.length > 0 && selected.length === files.length}
-                          onCheckedChange={(checked) =>
-                            setSelected(checked ? files.map((file) => file.id) : [])
-                          }
-                        />
-                        <span className="font-secondary-body text-content-muted">
-                          {ui("Chọn tất cả")}
-                        </span>
+                      {/* A list header, aligned to the rows' own checkbox column so the three checkbox
+                          gutters (page, day, file) read as one line down the page. */}
+                      <div className="flex items-center border-b border-border-subtle px-[13px] pb-2">
+                        <label className="flex cursor-pointer items-center gap-2 font-secondary-body text-content-muted">
+                          <Checkbox
+                            aria-label={ui("Chọn tất cả trên trang này")}
+                            checked={
+                              selected.length === 0
+                                ? false
+                                : selected.length === files.length
+                                  ? true
+                                  : "indeterminate"
+                            }
+                            onCheckedChange={(checked) =>
+                              setSelected(checked === true ? files.map((file) => file.id) : [])
+                            }
+                          />
+                          {/* The scope is on the label, because a selection never leaves its page. */}
+                          {ui("Chọn tất cả trên trang này")}
+                        </label>
                       </div>
                       <LibraryList
                         files={files}
@@ -460,6 +483,14 @@ export function ChatLibraryPage() {
                               : [...selected, file.id],
                           )
                         }
+                        onSelectDay={(day, pick) => {
+                          const ids = day.map((file) => file.id);
+                          setSelected(
+                            pick
+                              ? [...selected, ...ids.filter((id) => !selected.includes(id))]
+                              : selected.filter((id) => !ids.includes(id)),
+                          );
+                        }}
                       />
                     </div>
                   )}

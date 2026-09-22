@@ -1,4 +1,9 @@
-import { RESEARCH_MINIMUM_CONTEXT, useChatModels } from "./chat-models";
+import {
+  readChatModelPreference,
+  RESEARCH_MINIMUM_CONTEXT,
+  useChatModels,
+  writeChatModelPreference,
+} from "./chat-models";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAttachOnOpen } from "./use-attach-on-open";
 import { useAuiState } from "@assistant-ui/react";
@@ -576,7 +581,6 @@ type ModelChoice = { id?: string; fallback?: boolean };
 function useChatModelChoice(transport: MemoryOsChatTransport) {
   const { actorId, authorizationVersion } = useApplicationSession();
   const queryClient = useQueryClient();
-  const key = `memoryos.chat.model:${actorId}`;
   const [choice, setChoice] = useState<ModelChoice>(() => {
     // Keep the accepted-turn notice through the new-chat route transition,
     // using the in-memory query cache. A page reload retains only the model ID.
@@ -586,23 +590,12 @@ function useChatModelChoice(transport: MemoryOsChatTransport) {
       authorizationVersion,
       transport.session?.id,
     ]);
-    try {
-      const saved: unknown = JSON.parse(sessionStorage.getItem(key) ?? "{}");
-      if (
-        saved &&
-        typeof saved === "object" &&
-        "id" in saved &&
-        typeof saved.id === "string" &&
-        /^[0-9a-f-]{36}$/i.test(saved.id)
-      )
-        return {
-          id: saved.id,
-          fallback: accepted?.modelConfigurationId === saved.id && !!accepted.fallbackReason,
-        };
-    } catch {
-      /* Preference storage is optional. */
-    }
-    return {};
+    const saved = readChatModelPreference(actorId);
+    if (!saved) return {};
+    return {
+      id: saved,
+      fallback: accepted?.modelConfigurationId === saved && !!accepted.fallbackReason,
+    };
   });
   useEffect(() => {
     transport.selectModel(choice.id);
@@ -614,26 +607,17 @@ function useChatModelChoice(transport: MemoryOsChatTransport) {
       if (accepted.fallbackReason) {
         const next = { id: accepted.modelConfigurationId, fallback: true };
         transport.selectModel(next.id);
-        try {
-          if (next.id) sessionStorage.setItem(key, JSON.stringify({ id: next.id }));
-          else sessionStorage.removeItem(key);
-        } catch {
-          /* Optional preference. */
-        }
+        writeChatModelPreference(actorId, next.id);
         setChoice(next);
       } else {
         setChoice((current) => (current.fallback ? { id: current.id } : current));
       }
     });
-  }, [transport, key, choice.id, actorId, authorizationVersion, queryClient]);
+  }, [transport, choice.id, actorId, authorizationVersion, queryClient]);
   function select(id?: string) {
     transport.selectModel(id);
     setChoice({ id });
-    try {
-      sessionStorage.setItem(key, JSON.stringify({ id }));
-    } catch {
-      /* Optional preference. */
-    }
+    writeChatModelPreference(actorId, id);
   }
   return { choice, select };
 }

@@ -24,6 +24,7 @@ import type {
 import type { PreviewTarget } from "./chat-file-preview";
 import { chatFileSchema, waitForChatFile, type ChatFile } from "./chat-files";
 import { projectSchema } from "./chat-workspace-api";
+import { imageArtifactUrl } from "./chat-image";
 
 export type LibraryFile = ChatLibraryFile;
 export type LibrarySource = ChatLibraryFile["source"];
@@ -103,6 +104,17 @@ export function libraryPreviewTarget(file: LibraryFile): PreviewTarget {
     filename: file.filename,
     mediaType: file.mediaType,
   };
+}
+
+/**
+ * The small rendering a list shows for a file, or nothing where the file is not a picture. A generated image
+ * and an uploaded one are each served by their own route; both are owner-private and authorized per read.
+ */
+export function libraryThumbnailUrl(file: LibraryFile): string | undefined {
+  if (file.source === "IMAGE") return imageArtifactUrl(file.id, "thumbnail");
+  if (file.source === "UPLOAD" && file.mediaType?.startsWith("image/"))
+    return `/api/chat/files/${file.id}/thumbnail`;
+  return undefined;
 }
 
 /**

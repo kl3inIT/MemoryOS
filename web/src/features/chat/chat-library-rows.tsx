@@ -39,10 +39,10 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 import { retryChatFile } from "@/lib/hey-api/sdk.gen";
 import { fileSize } from "./chat-code";
 import { downloadUrl } from "./chat-file-preview";
-import { imageArtifactUrl } from "./chat-image";
 import {
   groupByDate,
   libraryPreviewTarget,
+  libraryThumbnailUrl,
   removeFromProject,
   usageLabel,
   type LibraryDayGroup,
@@ -77,6 +77,7 @@ export function LibraryList({
   grouped,
   actions,
   onSelect,
+  onSelectDay,
 }: {
   files: LibraryFile[];
   view: LibraryView;
@@ -86,6 +87,8 @@ export function LibraryList({
   grouped: boolean;
   actions: RowActions;
   onSelect: (file: LibraryFile) => void;
+  /** A whole day is chosen or dropped at its heading; without it a heading is only a heading. */
+  onSelectDay?: (files: readonly LibraryFile[], pick: boolean) => void;
 }) {
   const ui = useAppTranslation();
   const groups = grouped ? groupByDate(files) : [];
@@ -129,6 +132,7 @@ export function LibraryList({
           selected={selected}
           actions={actions}
           onSelect={onSelect}
+          onSelectDay={onSelectDay}
           label={heading(group)}
           showLabel
         />
@@ -145,6 +149,7 @@ function FileGroup({
   selected,
   actions,
   onSelect,
+  onSelectDay,
   label,
   showLabel = false,
 }: {
@@ -154,15 +159,33 @@ function FileGroup({
   selected: string[];
   actions: RowActions;
   onSelect: (file: LibraryFile) => void;
+  onSelectDay?: (files: readonly LibraryFile[], pick: boolean) => void;
   label: string;
   showLabel?: boolean;
 }) {
+  const ui = useAppTranslation();
+  const chosen = files.filter((file) => selected.includes(file.id)).length;
   return (
     <section aria-label={label}>
       {showLabel && (
-        <h2 className="mb-1.5 font-secondary-body text-content-muted first-letter:uppercase">
-          {label}
-        </h2>
+        <div className="mb-1.5 flex items-center gap-2 px-[13px]">
+          {onSelectDay ? (
+            <label className="flex cursor-pointer items-center gap-2">
+              <Checkbox
+                aria-label={ui("Chọn tất cả {{day}}", { day: label })}
+                checked={chosen === 0 ? false : chosen === files.length ? true : "indeterminate"}
+                onCheckedChange={(checked) => onSelectDay(files, checked === true)}
+              />
+              <h2 className="font-secondary-body text-content-muted first-letter:uppercase">
+                {label}
+              </h2>
+            </label>
+          ) : (
+            <h2 className="font-secondary-body text-content-muted first-letter:uppercase">
+              {label}
+            </h2>
+          )}
+        </div>
       )}
       {layout === "grid" ? (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
@@ -260,9 +283,9 @@ function LibraryRow({
 }
 
 /**
- * The picture of a file: a generated image shows itself, anything else shows what it is. A thumbnail that
- * cannot be fetched — still being written, or gone from storage — falls back to the same icon instead of the
- * browser's broken-image mark, which says nothing about the file.
+ * The picture of a file: an image shows itself, whether it was generated or uploaded, and anything else shows
+ * what it is. A thumbnail that cannot be fetched — still being written, or gone from storage — falls back to
+ * the same icon instead of the browser's broken-image mark, which says nothing about the file.
  */
 function LibraryThumbnail({
   file,
@@ -274,11 +297,11 @@ function LibraryThumbnail({
   icon?: string;
 }) {
   const [failed, setFailed] = useState(false);
-  if (file.source !== "IMAGE" || failed)
-    return categoryIcon(file, cn(icon ?? "size-4", "text-content-muted"));
+  const source = libraryThumbnailUrl(file);
+  if (!source || failed) return categoryIcon(file, cn(icon ?? "size-4", "text-content-muted"));
   return (
     <img
-      src={imageArtifactUrl(file.id, "thumbnail")}
+      src={source}
       alt=""
       loading="lazy"
       decoding="async"

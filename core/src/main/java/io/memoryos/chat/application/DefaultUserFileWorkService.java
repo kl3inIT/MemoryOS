@@ -8,7 +8,10 @@ import io.memoryos.document.DocumentContent;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.chat.ChatException;
+import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectUploadService;
+import io.memoryos.objectstorage.ObjectWriteService;
+import io.memoryos.objectstorage.StoredObjectRegistry;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,10 +25,14 @@ public class DefaultUserFileWorkService implements UserFileWorkPort {
     private final DocumentCommandPort documents;
     private final ObjectUploadService uploads;
     private final TenantAccessResolver tenants;
+    private final StoredObjectRegistry storedObjects;
+    private final ObjectWriteService writes;
+    private final ObjectStorage storage;
 
     public DefaultUserFileWorkService(JdbcUserFileWorkRepository work, DocumentCommandPort documents, ObjectUploadService uploads,
-            TenantAccessResolver tenants) {
+            TenantAccessResolver tenants, StoredObjectRegistry storedObjects, ObjectWriteService writes, ObjectStorage storage) {
         this.work = work; this.documents = documents; this.uploads = uploads; this.tenants = tenants;
+        this.storedObjects = storedObjects; this.writes = writes; this.storage = storage;
     }
 
     @Override @Transactional
@@ -56,7 +63,21 @@ public class DefaultUserFileWorkService implements UserFileWorkPort {
         if (refs.document() != null) documents.removeUnreferenced(claim.tenantId(), List.of(refs.document()));
         // Existing upload cleanup owns durable raw-object deletion and retries.
         uploads.retireAdopted(claim.tenantId(), refs.upload());
+        releaseThumbnail(claim.tenantId(), refs);
         return true;
+    }
+
+    /**
+     * Deletes the library thumbnail derived from this upload. It is an adopted write, which the generic
+     * reapers never select, so the capability that wrote it releases its bytes and its ownership here; the
+     * columns naming it were cleared in the same transaction, so a deleted upload leaves no unreferenced object.
+     */
+    private void releaseThumbnail(TenantId tenant, JdbcUserFileWorkRepository.DeletedReferences refs) {
+        if (refs.thumbnail() == null || refs.thumbnailKey() == null) return;
+        storedObjects.markDeletePending(tenant, refs.thumbnail());
+        storage.delete(refs.thumbnailKey());
+        writes.releaseAdopted(tenant, refs.thumbnail());
+        storedObjects.remove(tenant, refs.thumbnail());
     }
 
     @Override @Transactional

@@ -52,8 +52,18 @@ Two requests can render the same image at once. Both stage an object; `attachThu
 object it staged, and still serves the rendering it made. The `deleted_at` condition is what stops a
 request racing the deletion sweep into leaving bytes behind.
 
+## Uploaded images
+
+An uploaded image was drawn as an icon, so a photograph or a crop saved from the preview was listed with a
+generic file mark. `chat_user_file` now carries the same three columns (V115) and
+`GET /api/chat/files/{fileId}/thumbnail` serves the same 512 px JPEG under the same rules: rendered on first
+request, reused afterwards, and the original served whole where a rendering would not pay. A file that is
+not `image/png`, `image/jpeg` or `image/webp` is refused rather than rendered. The derived object is
+released with the upload's own bytes, in `DefaultUserFileWorkService.deleted`, so it cannot outlive what it
+was made from. `libraryThumbnailUrl` picks the route per source, so the library rows and cards, the library
+picker and the conversation file panel all show a picture wherever one exists.
+
 ## Excluded
 
-Uploaded images (`source = UPLOAD`) are drawn as icons in the library, so they need no thumbnail; giving
-uploads one is separate work. Presigned URLs that would take the API out of the byte path, and re-encoding
-generated images to WebP at generation time, are both larger changes and are not in this increment.
+Presigned URLs that would take the API out of the byte path, and re-encoding generated images to WebP at
+generation time, are both larger changes and are not in this increment.

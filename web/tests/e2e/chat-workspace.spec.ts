@@ -422,12 +422,25 @@ test("creates a project draft, sends once without remounting, edits instructions
   await input.fill("Draft only");
   expect(created).toHaveLength(0);
   await input.clear();
-  await page.getByRole("button", { name: /Hướng dẫn dự án/ }).click();
+  await page.getByRole("button", { name: "Thao tác dự án" }).click();
+  await page.getByRole("menuitem", { name: "Chỉnh sửa dự án", exact: true }).click();
   await page.getByLabel("Hướng dẫn dự án", { exact: true }).fill("Include effective dates.");
   await page.getByRole("dialog").getByRole("button", { name: "Lưu", exact: true }).click();
-  await expect(page.getByRole("button", { name: /Hướng dẫn dự án/ })).toContainText(
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // The page shows no instructions card; the saved text comes back through the editor alone.
+  expect(
+    (await (await page.request.get(`/api/chat/projects/${projectId}`)).json()).instructions,
+  ).toBe("Include effective dates.");
+  await expect(page.getByRole("button", { name: /Hướng dẫn dự án/ })).toHaveCount(0);
+  await page.reload();
+  await page.getByRole("button", { name: "Thao tác dự án" }).click();
+  await page.getByRole("menuitem", { name: "Chỉnh sửa dự án", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Chỉnh sửa dự án" });
+  await expect(editor.getByRole("textbox", { name: "Hướng dẫn dự án" })).toHaveValue(
     "Include effective dates.",
   );
+  await editor.getByRole("button", { name: "Đóng", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.screenshot({ path: "../.tmp/mem11-ui-project-empty-desktop.png", fullPage: true });
   const composer = await input.elementHandle();
   await input.fill("Project policy question");
@@ -496,29 +509,32 @@ test("moves and removes a conversation with keyboard menus and desktop drag and 
   expect(
     (await (await page.request.get(`/api/chat/sessions/${session.id}`)).json()).projectId,
   ).toBe(project.id);
-  await page.getByRole("button", { name: "Mở rộng dự án Move destination" }).click();
-  const folder = page.locator(`[data-project-id="${project.id}"]`);
+  await page.goto(`/projects/${project.id}`);
   await expect(
-    folder.getByRole("link", { name: "Movable conversation", exact: true }),
+    page.getByRole("main").getByRole("link", { name: /Movable conversation/ }),
   ).toBeVisible();
+  await page.goto(`/chat/${session.id}`);
   await headerMenu.click();
   await page.getByRole("menuitem", { name: "Chuyển vào dự án" }).click();
   await page.getByRole("radio", { name: "Ngoài dự án" }).check();
   await page.getByRole("dialog").getByRole("button", { name: "Chuyển", exact: true }).click();
-  await expect(folder.getByRole("link", { name: "Movable conversation", exact: true })).toHaveCount(
-    0,
-  );
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(
+    (await (await page.request.get(`/api/chat/sessions/${session.id}`)).json()).projectId,
+  ).toBeNull();
+  // The sidebar project row is a drop target and a link only; conversations live on the project page.
+  const folder = page.locator(`[data-project-id="${project.id}"]`);
   const row = page
     .getByRole("complementary")
     .locator('[data-slot="thread-list-row"]')
     .filter({ has: page.getByRole("link", { name: "Movable conversation", exact: true }) });
   await row.dragTo(folder.getByRole("link", { name: "Move destination", exact: true }));
-  await expect(
-    folder.getByRole("link", { name: "Movable conversation", exact: true }),
-  ).toBeVisible();
-  expect(
-    (await (await page.request.get(`/api/chat/sessions/${session.id}`)).json()).projectId,
-  ).toBe(project.id);
+  await expect
+    .poll(
+      async () =>
+        (await (await page.request.get(`/api/chat/sessions/${session.id}`)).json()).projectId,
+    )
+    .toBe(project.id);
   const stats = await (await page.request.get(`/api/chat/sessions/${session.id}/stats`)).json();
   expect(stats.sends).toBe(0);
   await page.request.delete(`/api/chat/projects/${project.id}?revision=0`);

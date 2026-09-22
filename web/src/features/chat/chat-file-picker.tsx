@@ -372,14 +372,16 @@ export function ChatFilePickerContent({
             {!compact && (
               <ConfirmDialog
                 trigger={
-                  <Button
+                  <IconButton
                     type="button"
                     size="sm"
                     prominence="internal"
                     disabled={selected.includes(file.id)}
+                    aria-label={ui("Xóa {{v1}}", { v1: file.filename })}
+                    title={ui("Xóa {{v1}}", { v1: file.filename })}
                   >
-                    {ui("Xóa")}
-                  </Button>
+                    <Trash2 />
+                  </IconButton>
                 }
                 title={ui("Xóa tệp {{v1}}?", { v1: file.filename })}
                 description={ui(
