@@ -57,6 +57,8 @@ export const vietnameseUi: Record<string, string> = {
     "Today's meeting is being transcribed in MemoryOS for the minutes. If you do not agree, please say so now.",
   "Câu thông báo": "Notice text",
   "Chỉ mình bạn": "Only you",
+  "Chia sẻ với {{count}} người và nhóm": "Shared with {{count}} people and Groups",
+  "Được chia sẻ với bạn": "Shared with you",
   "Chọn lại tab": "Choose the tab again",
   "Chọn tab họp": "Choose the meeting tab",
   "Chưa bật “Chia sẻ cả âm thanh của thẻ”, nên chỉ ghi giọng của bạn.":

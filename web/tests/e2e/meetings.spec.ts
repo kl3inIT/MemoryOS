@@ -55,6 +55,7 @@ async function mockMeetings(page: Page) {
   const audio = { bytes: 0, ended: false, offset: "" };
   const exported: { heading?: Record<string, unknown> } = {};
   const uploaded: { request?: Record<string, unknown>; bytes?: number } = {};
+  const shared: { request?: { members: string[]; groups: string[] } } = {};
   await page.route("**/api/identity/me", (route) => route.fulfill({ json: member }));
   await page.route("**/api/chat/sessions?*", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/chat/projects?*", (route) => route.fulfill({ json: [] }));
@@ -180,6 +181,37 @@ async function mockMeetings(page: Page) {
     };
     await route.fulfill({ json: meeting });
   });
+  await page.route("**/api/chat/persona-share-options*", (route) =>
+    route.fulfill({
+      json: {
+        people: [
+          {
+            actorId: "b1f0c4a2-3e5d-4a7b-9c81-2d6f8a0e4b73",
+            name: "Chị Lan",
+            email: "lan@tasco.vn",
+          },
+          {
+            actorId: "d4b8e2a6-7c19-4f35-b0d8-6e2a4c81f593",
+            name: "Anh Minh",
+            email: "minh@tasco.vn",
+          },
+        ],
+        groups: [{ id: "c9d3e7f1-5a2b-4c6d-8e90-1f3a5b7c9d02", name: "Khối Tài chính" }],
+      },
+    }),
+  );
+  await page.route(`**/api/meetings/${MEETING_ID}/shares`, async (route) => {
+    const body = route.request().postDataJSON() as { members: string[]; groups: string[] };
+    shared.request = body;
+    meeting = {
+      ...meeting!,
+      readers: [
+        ...body.members.map((id) => ({ kind: "MEMBER" as const, id, name: "Chị Lan" })),
+        ...body.groups.map((id) => ({ kind: "GROUP" as const, id, name: "Khối Tài chính" })),
+      ],
+    };
+    await route.fulfill({ json: meeting });
+  });
   await page.route("**/api/meetings/transcribers", (route) =>
     route.fulfill({
       json: [
@@ -302,7 +334,7 @@ async function mockMeetings(page: Page) {
       }
     });
   });
-  return { audio, exported, uploaded };
+  return { audio, exported, uploaded, shared };
 }
 
 test("a member uploads a recording and watches it being transcribed", async ({ page }) => {
@@ -357,7 +389,7 @@ for (const width of [1440, 390]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    const { audio, exported } = await mockMeetings(page);
+    const { audio, exported, shared } = await mockMeetings(page);
 
     await page.goto("/meetings");
     await expect(page.getByRole("heading", { name: "Cuộc họp", level: 1 })).toBeVisible({
@@ -377,6 +409,11 @@ for (const width of [1440, 390]) {
     await dialog.getByLabel("Tên cuộc họp").fill("Giao ban tuần · Khối Tài chính");
     await dialog.getByLabel("Thành phần").fill("Anh Thanh, Chị Lan, Anh Minh");
     await dialog.getByLabel("Thuật ngữ riêng").fill("Tasco, Vinaconex 9, OKR, KPI");
+    await dialog.getByPlaceholder("Thêm người hoặc Group").fill("Lan");
+    await dialog.getByRole("option", { name: /Chị Lan/ }).click();
+    await expect(
+      dialog.getByRole("list", { name: "Đã chia sẻ với" }).getByText("Chị Lan"),
+    ).toBeVisible();
     await dialog.getByText("Họp trực tiếp", { exact: true }).click();
     await expect(dialog.getByRole("button", { name: "Bắt đầu ghi" })).toBeDisabled();
     await dialog.getByLabel("Tôi đã thông báo cho mọi người rằng buổi họp được ghi lại.").check();
@@ -404,7 +441,8 @@ for (const width of [1440, 390]) {
     });
 
     await page.getByRole("button", { name: "Đặt tên cho Người nói 2" }).click();
-    await page.getByRole("button", { name: "Chị Lan" }).click();
+    // The meeting is already shared with Chị Lan, so her chip carries a button of her name too.
+    await page.getByRole("button", { name: "Chị Lan", exact: true }).click();
     await expect(page.getByRole("button", { name: "Đặt tên cho Chị Lan" })).toBeVisible();
 
     await page.getByRole("button", { name: "Dừng", exact: true }).click();
@@ -440,6 +478,17 @@ for (const width of [1440, 390]) {
       fullPage: true,
     });
     await page.getByRole("tab", { name: "Tóm tắt" }).click();
+    await expect(page.getByRole("button", { name: "Mở trong Chat" })).toBeVisible();
+    await page.getByPlaceholder("Thêm người hoặc Group").fill("Khối");
+    await page.getByRole("option", { name: /Khối Tài chính/ }).click();
+    await expect(
+      page.getByRole("list", { name: "Đã chia sẻ với" }).getByText("Khối Tài chính"),
+    ).toBeVisible();
+    expect(shared.request?.groups).toEqual(["c9d3e7f1-5a2b-4c6d-8e90-1f3a5b7c9d02"]);
+    await page.screenshot({
+      path: `../output/playwright/meetings-sharing-${width}.png`,
+      fullPage: true,
+    });
     await page.getByRole("button", { name: "Xuất biên bản" }).click();
     const bienBan = page.getByRole("dialog", { name: "Xuất biên bản" });
     // The heading the transcript cannot know is the owner's; the meeting fills the rest.

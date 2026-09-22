@@ -300,8 +300,19 @@ export function MeetingPage({
                 </span>
               )}
               <span className="inline-flex items-center gap-1">
-                <Lock className="size-3.5" aria-hidden="true" />
-                {ui("Chỉ mình bạn")}
+                {data.owned && data.readers.length === 0 ? (
+                  <>
+                    <Lock className="size-3.5" aria-hidden="true" />
+                    {ui("Chỉ mình bạn")}
+                  </>
+                ) : (
+                  <>
+                    <Users className="size-3.5" aria-hidden="true" />
+                    {data.owned
+                      ? ui("Chia sẻ với {{count}} người và nhóm", { count: data.readers.length })
+                      : ui("Được chia sẻ với bạn")}
+                  </>
+                )}
               </span>
             </span>
           }
