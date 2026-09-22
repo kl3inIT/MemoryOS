@@ -98,6 +98,20 @@ def test_a_broken_call_is_reported_rather_than_outvoted(monkeypatch: pytest.Monk
     assert verdict.reason == "judge call failed (502)"
 
 
+def test_the_rubric_scores_coverage_rather_than_resemblance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sent = replies(monkeypatch, Response('{"correct": true, "reason": "đủ ý"}'))
+
+    Judge(config(1)).score("hỏi", "vàng", "đáp")
+
+    system = sent[0]["messages"][0]["content"]
+    # The rule that marked 19 of 24 correct answers wrong on staging must not come back.
+    assert "KHÔNG bị trừ điểm" in system
+    assert "thêm thông tin không có trong đáp án chuẩn" not in system
+    assert "nêu đủ mọi ý và số liệu của đáp án chuẩn" in system
+
+
 def test_the_partial_prompt_does_not_require_announcing_the_missing_part(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
