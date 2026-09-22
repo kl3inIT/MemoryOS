@@ -101,7 +101,7 @@ Hệ quả phải ghi vào realm production cho người sau đọc được: **
 
 Còn lại:
 
-1. **Infisical** — environment `production` và machine identity; `MEMORYOS_INFISICAL_BOOTSTRAP_FILE` là bắt buộc trong `compose.base.yaml`.
+**Đã chốt 2026-09-22 — máy chủ không dùng Infisical.** Secret trên máy chủ là file sinh tại chỗ; Infisical chỉ còn phục vụ laptop lập trình viên. Xem [increment riêng](../server-secrets-as-files/design.md). Production vì vậy **không cần** environment `prod` hay machine identity nào, và không bao giờ có file bootstrap.
 2. **Phân vai node `serving`** — nó có một **RTX 4090 chưa cài driver**, nên câu hỏi rộng hơn mức OCR. Kiểm kê ngày 2026-09-21 ghi nhầm là không có GPU: lúc đó chỉ kết luận từ việc thiếu `nvidia-smi`, mà thiếu công cụ không chứng minh được thiếu phần cứng. `lspci` ngày 2026-09-22 cho thấy card nằm ở `00:06.0`, không module `nvidia` nào được nạp và không có `/dev/nvidia*`.
 
    Ba việc có thể đặt lên nó, không loại trừ nhau: Docling OCR chạy GPU (nhanh hơn nhiều so với CPU và không còn phụ thuộc `jmix-ocr` của cụm Jmix); sinh embedding tại chỗ thay vì gọi ra ngoài; và model serving tự host — thứ [MEM-66](mem-66-vllm-cpu-gateway-research/design.md) đã park ngày 2026-09-19 *"cho tới khi có một môi trường đủ điều kiện"*. Một 4090 24 GB có thể chính là môi trường đó, nên MEM-66 cần được xem lại chứ không giữ nguyên trạng thái park.
