@@ -55,6 +55,7 @@ flowchart TB
     RET[retrieval]
     CHAT[chat]
     MCP[mcp]
+    MEET[meeting]
 
     MCP --> IAM
     OBJ --> IAM
@@ -76,6 +77,9 @@ flowchart TB
     CHAT --> CON
     CHAT --> RET
     CHAT --> MCP
+    MEET --> IAM
+    MEET --> CHAT
+    MEET --> OBJ
 
     API[api composition root] --> IAM
     API --> OBJ
@@ -84,6 +88,7 @@ flowchart TB
     API --> RET
     API --> CHAT
     API --> MCP
+    API --> MEET
     WORKER[worker composition root] --> IAM
     WORKER --> OBJ
     WORKER --> CON
@@ -92,11 +97,11 @@ flowchart TB
     WORKER --> RET
 ```
 
-Arrows show allowed use of public capability contracts. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided.
+Arrows show allowed use of public capability contracts. `meeting` reaches `chat` only through its `voice` and `summary` named interfaces. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided.
 
 | Gradle module | Responsibility |
 | --- | --- |
-| `core` | Eight capability implementations and public contracts; no dependency on `connector` or a deployable |
+| `core` | Ten capability implementations and public contracts; no dependency on `connector` or a deployable |
 | `connector` | Shared provider integration and bounded content extraction bundle; depends only on public `core` APIs |
 | `api` | HTTP, security, migrations and interactive Chat composition |
 | `worker` | Redis/db-scheduler composition and durable background work |
@@ -111,6 +116,7 @@ Arrows show allowed use of public capability contracts. Capability internals, pe
 | `retrieval` | Embedding/OpenSearch adapters, authorized Search, document passages and original PDF readers | [Search](docs/specs/search.md) |
 | `chat` | Personas, shared Document Sets, projects, sessions, message trees, model catalog, files, sharing and feedback | [Chat](docs/specs/chat.md), [model catalog](docs/specs/chat-models.md) |
 | `mcp` | Tenant-registered remote MCP servers, their OAuth clients, tool snapshots, sealed credentials and the Streamable HTTP client (MEM-112, in progress) | [MEM-112 design](docs/increments/active/mem-112-chat-mcp-client/design.md) |
+| `meeting` | Owner-private meetings: live track recording or an uploaded recording through the `chat` voice named interface, stored utterances, speaker names and notes, and leased minutes written by the API from the transcript; audio is never stored, and an uploaded recording is deleted once it has been transcribed (MEM-92, in progress) | [Meetings](docs/specs/meeting.md) |
 | `usage` | Daily AI usage ledger for every AI flow, the AI costs report, and usage reports (a period's CSV and PDF export, built by the Worker and stored through `objectstorage`) | [AI usage and costs](docs/specs/ai-usage.md) |
 
 ## Durable ingestion and Search projection
@@ -195,7 +201,7 @@ No self-hosted model is deployed. MEM-77 managed serving (vLLM behind a private 
 
 Voice is a Chat-owned capability used by both the Chat composer and Search. Tenant voice connections and per-member settings live in PostgreSQL; encrypted credentials follow the same deployment-key contract as the other Chat tool connections. The browser obtains a one-use, purpose-bound in-memory ticket before opening a same-origin transcription or synthesis WebSocket. The handshake rechecks current membership and capability. Tickets are process-local, so a multi-replica API deployment requires sticky routing or a shared ticket store.
 
-The browser captures PCM16 mono audio at 24 kHz. For the public OpenAI provider, the API opens a provider-side Realtime transcription session with `gpt-live-transcribe`, forwards audio frames and relays cumulative transcript deltas. Manual Stop commits the provider buffer. The API retains the bounded recording only for the lifetime of the connection and replays it through the existing batch transcriber if Realtime setup or streaming fails. OpenAI-compatible, ElevenLabs and Azure connections use the bounded chunked/REST path because MemoryOS does not assume their Realtime protocols are compatible. Transcript messages carry a monotonically increasing connection revision plus separate committed-final and utterance-boundary signals; the current OpenAI session has turn detection disabled and therefore never invents a VAD boundary. Audio and provider text are not persisted or logged. The complete behavior and remaining live-provider acceptance are in the [Voice design](docs/increments/active/mem-91-chat-voice/design.md).
+The browser captures PCM16 mono audio at 24 kHz. For the public OpenAI provider, the API opens a provider-side Realtime transcription session with `gpt-live-transcribe`, forwards audio frames and relays cumulative transcript deltas. Manual Stop commits the provider buffer. The API retains the bounded recording only for the lifetime of the connection and replays it through the existing batch transcriber if Realtime setup or streaming fails. OpenAI-compatible, ElevenLabs and Azure connections use the bounded chunked/REST path because MemoryOS does not assume their Realtime protocols are compatible. Soniox, a speech-to-text-only provider, streams over its own realtime WebSocket and falls back to its async file API. Transcript messages carry a monotonically increasing connection revision plus separate committed-final and utterance-boundary signals; the current OpenAI session has turn detection disabled and therefore never invents a VAD boundary. Audio and provider text are not persisted or logged. The complete behavior and remaining live-provider acceptance are in the [Voice design](docs/increments/active/mem-91-chat-voice/design.md).
 
 ## Identity and authorization
 

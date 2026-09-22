@@ -268,6 +268,11 @@ export function TaskModels(catalog: Catalog) {
       description: ui("Names new conversations. A small, fast model keeps the chat model free."),
       ariaLabel: ui("Conversation naming model"),
     },
+    MEETING_MINUTES: {
+      title: ui("Meeting minutes"),
+      description: ui("Writes the summary, decisions and action items of a recorded meeting."),
+      ariaLabel: ui("Meeting minutes model"),
+    },
   };
   return flows.data.map((flow) => (
     <SelectionEditor

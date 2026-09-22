@@ -2233,9 +2233,10 @@ class ChatSessionApiIntegrationTest {
         grantModelManagement();
         var flows = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-flows").with(authentication(actor)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        assertEquals(1, flows.size());
+        assertEquals(2, flows.size(), "every task flow is listed");
         var naming = flows.get(0);
         assertEquals("CHAT_NAMING", naming.path("flow").asText());
+        assertEquals("MEETING_MINUTES", flows.get(1).path("flow").asText());
         assertTrue(naming.path("modelConfigurationId").isNull());
         assertTrue(naming.path("available").asBoolean());
         mockMvc.perform(get("/api/chat/model-flows").with(authentication(other))).andExpect(status().isForbidden());
@@ -2715,7 +2716,17 @@ class ChatSessionApiIntegrationTest {
                     .andExpect(jsonPath("$[0].provider").value("OPENAI")).andExpect(jsonPath("$[0].ttsModels[1]").value("tts-1-hd"))
                     .andExpect(jsonPath("$[1].requiresEndpoint").value(true))
                     .andExpect(jsonPath("$[2].provider").value("ELEVENLABS")).andExpect(jsonPath("$[2].sttModels[0]").value("scribe_v2"))
-                    .andExpect(jsonPath("$[3].provider").value("AZURE")).andExpect(jsonPath("$[3].requiresEndpoint").value(true));
+                    .andExpect(jsonPath("$[3].provider").value("AZURE")).andExpect(jsonPath("$[3].requiresEndpoint").value(true))
+                    .andExpect(jsonPath("$[0].speech").value(true))
+                    .andExpect(jsonPath("$[4].provider").value("SONIOX")).andExpect(jsonPath("$[4].speech").value(false))
+                    .andExpect(jsonPath("$[4].sttModels[0]").value("stt-rt-v5"));
+            // A speech-to-text-only provider refuses read-aloud settings before any provider is contacted.
+            var sonioxSpeech = Json.mapper().createObjectNode().put("endpoint", "").put("sttModel", "stt-rt-v5")
+                    .put("ttsModel", "tts-1").put("ttsVoice", "alloy").put("credentialAction", "REPLACE")
+                    .put("credentialValue", "soniox-secret").putNull("activate").put("revision", 0);
+            mockMvc.perform(put("/api/chat/voice/connections/SONIOX").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(sonioxSpeech.toString()))
+                    .andExpect(status().isBadRequest());
             var draft = Json.mapper().createObjectNode().put("endpoint", "http://localhost:" + server.getAddress().getPort() + "/v1")
                     .put("sttModel", "whisper-1").put("ttsModel", "kokoro").put("ttsVoice", "af_heart")
                     .put("credentialAction", "REPLACE").put("credentialValue", "wrong-secret").put("activate", "STT").put("revision", 0);
@@ -3013,6 +3024,472 @@ class ChatSessionApiIntegrationTest {
         } finally {
             server.stop(0);
             jdbc.sql("DELETE FROM chat_voice_connection WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void meetingsAreOwnerPrivateAndStoreUtterancesFromATicketedTrackSocket() throws Exception {
+        grantModelManagement();
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/v1/models", exchange -> {
+            byte[] body = "{\"data\":[]}".getBytes(UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var output = exchange.getResponseBody()) { output.write(body); }
+        });
+        server.createContext("/v1/audio/transcriptions", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            byte[] body = "{\"text\":\"Em sẽ gửi báo giá trước thứ Sáu.\"}".getBytes(UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length);
+            try (var output = exchange.getResponseBody()) { output.write(body); }
+        });
+        server.start();
+        try {
+            var connection = Json.mapper().createObjectNode().put("endpoint", "http://localhost:" + server.getAddress().getPort() + "/v1")
+                    .put("sttModel", "whisper-1").put("ttsModel", "").put("ttsVoice", "").put("credentialAction", "KEEP")
+                    .put("activate", "STT").put("revision", 0);
+            mockMvc.perform(put("/api/chat/voice/connections/OPENAI_COMPATIBLE").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(connection.toString()))
+                    .andExpect(status().isOk());
+            var created = Json.mapper().readTree(mockMvc.perform(post("/api/meetings").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"title\":\"  Giao ban tuần \",\"kind\":\"IN_PERSON\",\"language\":\"vi\","
+                            + "\"participants\":[\"Anh Thanh\",\"Anh Thanh\",\" \"],\"terms\":[\"Tasco\"]}"))
+                    .andExpect(status().isCreated()).andExpect(jsonPath("$.title").value("Giao ban tuần"))
+                    .andExpect(jsonPath("$.participants.length()").value(1)).andExpect(jsonPath("$.status").value("RECORDING"))
+                    .andReturn().getResponse().getContentAsString());
+            String id = created.path("id").asText();
+            mockMvc.perform(get("/api/meetings/" + id).with(authentication(other))).andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("MEETING_NOT_FOUND"));
+            mockMvc.perform(get("/api/meetings").with(authentication(other))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(0));
+            // An in-person meeting has no shared tab to record.
+            mockMvc.perform(post("/api/meetings/" + id + "/tickets").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"track\":\"TAB\"}"))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(post("/api/meetings/" + id + "/tickets").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"track\":\"MIC\"}"))
+                    .andExpect(status().isNotFound());
+            String ticket = Json.mapper().readTree(mockMvc.perform(post("/api/meetings/" + id + "/tickets")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"track\":\"MIC\"}")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                    .path("ticket").asText();
+
+            var client = new StandardWebSocketClient();
+            var headers = new WebSocketHttpHeaders();
+            headers.add("Authorization", "Bearer " + token(actor));
+            headers.add("Origin", "http://localhost:" + port);
+            var messages = new LinkedBlockingQueue<String>();
+            var closed = new CompletableFuture<CloseStatus>();
+            var listener = new AbstractWebSocketHandler() {
+                @Override
+                protected void handleTextMessage(WebSocketSession session, TextMessage message) {
+                    messages.add(message.getPayload());
+                }
+
+                @Override
+                public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+                    closed.complete(status);
+                }
+            };
+            String stream = "ws://localhost:" + port + "/api/meeting-stream?meeting=" + id + "&track=MIC&offset=60000&ticket=";
+            var session = client.execute(listener, headers, URI.create(stream + ticket)).get(10, TimeUnit.SECONDS);
+            assertEquals("ready", Json.mapper().readTree(messages.poll(10, TimeUnit.SECONDS)).path("type").asText());
+            byte[] speech = voiceTone(2);
+            for (int offset = 0; offset < speech.length; offset += 48_000)
+                session.sendMessage(new BinaryMessage(ByteBuffer.wrap(speech, offset, Math.min(48_000, speech.length - offset))));
+            session.sendMessage(new TextMessage("{\"type\":\"end\"}"));
+            var utterance = Json.mapper().readTree(messages.poll(10, TimeUnit.SECONDS));
+            assertEquals("utterance", utterance.path("type").asText());
+            assertEquals("Em sẽ gửi báo giá trước thứ Sáu.", utterance.path("utterance").path("text").asText());
+            assertEquals(60_000, utterance.path("utterance").path("startMs").asLong(), "the offset continues the meeting clock");
+            assertEquals("finished", Json.mapper().readTree(messages.poll(10, TimeUnit.SECONDS)).path("type").asText());
+            assertEquals(CloseStatus.NORMAL.getCode(), closed.get(10, TimeUnit.SECONDS).getCode());
+            assertThrows(ExecutionException.class, () -> client.execute(new AbstractWebSocketHandler() {}, headers,
+                    URI.create(stream + ticket)).get(10, TimeUnit.SECONDS), "a spent ticket is refused");
+
+            mockMvc.perform(put("/api/meetings/" + id + "/speakers/MIC/1").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Anh Thanh\"}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.speakers[0].name").value("Anh Thanh"))
+                    .andExpect(jsonPath("$.utterances[0].speaker").value("1"))
+                    .andExpect(jsonPath("$.provider").value("OPENAI_COMPATIBLE")).andExpect(jsonPath("$.diarized").value(false));
+            mockMvc.perform(put("/api/meetings/" + id + "/notes").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"notes\":\"Hỏi hạn mức\",\"revision\":7}")).andExpect(status().isConflict());
+            mockMvc.perform(put("/api/meetings/" + id + "/notes").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"notes\":\"Hỏi hạn mức\",\"revision\":0}")).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.notes").value("Hỏi hạn mức"));
+            mockMvc.perform(post("/api/meetings/" + id + "/end").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ENDED"));
+            mockMvc.perform(post("/api/meetings/" + id + "/tickets").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"track\":\"MIC\"}"))
+                    .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MEETING_ENDED"));
+            mockMvc.perform(get("/api/meetings").with(authentication(actor))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$[0].durationMs").value(62_000));
+            mockMvc.perform(delete("/api/meetings/" + id).with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isNotFound());
+            mockMvc.perform(delete("/api/meetings/" + id).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isNoContent());
+            assertEquals(0, jdbc.sql("SELECT count(*) FROM meeting_utterance WHERE tenant_id=:tenant").param("tenant", TENANT)
+                    .query(Integer.class).single());
+        } finally {
+            server.stop(0);
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+            jdbc.sql("DELETE FROM chat_voice_connection WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void endingAMeetingWritesItsMinutesFromTheTranscriptWithTheLinesTheyRestOn() throws Exception {
+        var prompts = new java.util.concurrent.LinkedBlockingQueue<String>();
+        when(model.call(any(Prompt.class))).thenAnswer(call -> {
+            String text = call.getArgument(0, Prompt.class).getInstructions().stream()
+                    .map(org.springframework.ai.chat.messages.Message::getText).collect(java.util.stream.Collectors.joining("\n"));
+            prompts.add(text);
+            return response("""
+                    {"summary":"Cuộc họp chốt ngân sách quý 4 trước thứ Năm.","kind":"Giao ban tuần",
+                     "decisions":[{"text":"Chốt ngân sách quý 4 trước thứ Năm","quote":"Chốt ngân sách quý 4 trước thứ Năm.","line":1}],
+                     "actions":[{"text":"Gửi bảng KPI tháng 9","owner":"Chị Lan","due":"chiều nay",
+                                 "quote":"Em gửi bảng KPI tháng 9 chiều nay.","line":2},
+                                {"text":"","owner":null,"due":null,"quote":null,"line":9}]}
+                    """, "stop", 40);
+        });
+        UUID meeting = UUID.randomUUID();
+        UUID[] utterances = {UUID.randomUUID(), UUID.randomUUID()};
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status, ended_at)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'IN_PERSON', 'vi', CAST(:people AS jsonb), 'RECORDING', NULL)
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value())
+                    .param("people", "[\"Anh Thanh\",\"Chị Lan\"]").update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label, name) VALUES (:tenant,:meeting,'MIC','1',NULL),(:tenant,:meeting,'MIC','2','Chị Lan')")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
+            String[] said = {"Chốt ngân sách quý 4 trước thứ Năm.", "Em gửi bảng KPI tháng 9 chiều nay."};
+            for (int i = 0; i < said.length; i++)
+                jdbc.sql("""
+                        INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text, confidence)
+                        VALUES (:tenant, :id, :meeting, 'MIC', :speaker, :start, :end, :text, 0.9)
+                        """).param("tenant", TENANT).param("id", utterances[i]).param("meeting", meeting)
+                        .param("speaker", String.valueOf(i + 1)).param("start", i * 5000).param("end", i * 5000 + 4000)
+                        .param("text", said[i]).update();
+
+            mockMvc.perform(post("/api/meetings/" + meeting + "/end").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.minutes.status").value("PENDING"));
+
+            var ready = new java.util.concurrent.atomic.AtomicReference<String>();
+            await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+                        var body = mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(actor)))
+                                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+                        assertEquals("READY", Json.mapper().readTree(body).path("minutes").path("status").asText());
+                        ready.set(body);
+                    });
+            var minutes = Json.mapper().readTree(ready.get()).path("minutes");
+            assertEquals("Cuộc họp chốt ngân sách quý 4 trước thứ Năm.", minutes.path("summary").asText());
+            assertEquals("Giao ban tuần", minutes.path("kind").asText());
+            assertEquals(1, minutes.path("decisions").size());
+            assertEquals(utterances[0].toString(), minutes.path("decisions").get(0).path("sourceUtteranceId").asText(),
+                    "a decision points at the line it rests on");
+            assertEquals(1, minutes.path("actions").size(), "an item with no text is dropped");
+            var action = minutes.path("actions").get(0);
+            assertEquals("Chị Lan", action.path("owner").asText());
+            assertEquals("chiều nay", action.path("due").asText());
+            assertEquals(utterances[1].toString(), action.path("sourceUtteranceId").asText());
+            assertFalse(action.path("done").asBoolean());
+
+            String prompt = prompts.poll(5, TimeUnit.SECONDS);
+            assertNotNull(prompt);
+            assertTrue(prompt.contains("[1] 00:00:00 Speaker 1: Chốt ngân sách quý 4 trước thứ Năm."));
+            assertTrue(prompt.contains("[2] 00:00:05 Chị Lan: Em gửi bảng KPI tháng 9 chiều nay."),
+                    "a named speaker reaches the model under that name");
+            assertTrue(prompt.contains("Never invent a decision"));
+
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/" + action.path("id").asText())
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"done\":true}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.minutes.actions[0].done").value(true));
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/" + UUID.randomUUID())
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"done\":true}")).andExpect(status().isNotFound());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/minutes").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
+
+            String heading = """
+                    {"organization":"CÔNG TY CỔ PHẦN TASCO","number":"12","about":"giao ban tuần",
+                     "place":"Phòng họp A","opened":"09 giờ 00","closed":"10 giờ 15","chair":"Nguyễn Văn An",
+                     "chairRole":"Giám đốc","secretary":"Trần Thị Bình","secretaryRole":"Chuyên viên",
+                     "attendees":["Anh Thanh","Chị Lan"]}
+                    """;
+            var exported = mockMvc.perform(post("/api/meetings/" + meeting + "/minutes/export")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(heading)).andExpect(status().isOk())
+                    .andExpect(header().string("Content-Type", org.hamcrest.Matchers.startsWith(
+                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document")))
+                    .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("attachment")))
+                    .andReturn().getResponse().getContentAsByteArray();
+            assertEquals('P', exported[0], "the biên bản is a Word package");
+            assertEquals('K', exported[1]);
+            // The endpoint answers a Word document, so its failures must still answer a problem document.
+            mockMvc.perform(post("/api/meetings/" + meeting + "/minutes/export").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(heading))
+                    .andExpect(status().isNotFound())
+                    .andExpect(header().string("Content-Type", org.hamcrest.Matchers.startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
+            UUID unwritten = UUID.randomUUID();
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status, ended_at)
+                    VALUES (:tenant, :id, :owner, 'Chưa có biên bản', 'IN_PERSON', 'vi', '[]'::jsonb, 'ENDED',
+                            CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", unwritten)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            mockMvc.perform(post("/api/meetings/" + unwritten + "/minutes/export").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(heading))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(header().string("Content-Type", org.hamcrest.Matchers.startsWith(MediaType.APPLICATION_PROBLEM_JSON_VALUE)));
+            assertEquals(1, jdbc.sql("SELECT count(*) FROM ai_usage WHERE tenant_id=:tenant AND flow='MEETING_MINUTES'")
+                    .param("tenant", TENANT).query(Integer.class).single(), "the call is billed to the owner's Tenant");
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+            jdbc.sql("DELETE FROM ai_usage WHERE tenant_id=:tenant AND flow='MEETING_MINUTES'").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void uploadingARecordingTranscribesItAndThenDeletesTheAudio() throws Exception {
+        grantModelManagement();
+        byte[] audio = "fake-mp3-bytes".getBytes(UTF_8);
+        String checksum = "a".repeat(64);
+        when(fileStorage.authorizeUpload(any(), any())).thenReturn(new io.memoryos.objectstorage.UploadAuthorization(
+                "PUT", URI.create("https://storage.invalid/recording"), Map.of("Content-Type", "audio/mpeg"),
+                Instant.now().plusSeconds(300)));
+        when(fileStorage.inspect(any())).thenReturn(new io.memoryos.objectstorage.ObjectMetadata(audio.length,
+                "audio/mpeg", new io.memoryos.objectstorage.ContentSha256(checksum)));
+        when(fileStorage.open(any())).thenAnswer(call -> new io.memoryos.objectstorage.ObjectContent() {
+            private final java.io.InputStream bytes = new java.io.ByteArrayInputStream(audio);
+            @Override public io.memoryos.objectstorage.ObjectMetadata metadata() {
+                return new io.memoryos.objectstorage.ObjectMetadata(audio.length, "audio/mpeg",
+                        new io.memoryos.objectstorage.ContentSha256(checksum));
+            }
+            @Override public java.io.InputStream inputStream() { return bytes; }
+            @Override public void close() {}
+        });
+
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/v1/models", exchange -> respond(exchange, "{\"data\":[]}"));
+        var sent = new java.util.concurrent.atomic.AtomicReference<String>();
+        server.createContext("/v1/audio/transcriptions", exchange -> {
+            sent.set(new String(exchange.getRequestBody().readAllBytes(), UTF_8));
+            respond(exchange, """
+                    {"text":"toàn bộ","segments":[
+                      {"start":1.0,"end":4.0,"text":" Chốt ngân sách quý 4 trước thứ Năm.","avg_logprob":-0.1},
+                      {"start":4.5,"end":8.0,"text":"Em gửi bảng KPI chiều nay.","avg_logprob":-0.4}]}
+                    """);
+        });
+        server.start();
+        String declared = """
+                {"filename":"giao-ban.mp3","mediaType":"audio/mpeg","sizeBytes":%d,"sha256":"%s"}
+                """.formatted(audio.length, checksum);
+        try {
+            var connection = Json.mapper().createObjectNode()
+                    .put("endpoint", "http://localhost:" + server.getAddress().getPort() + "/v1")
+                    .put("sttModel", "whisper-1").put("ttsModel", "").put("ttsVoice", "").put("credentialAction", "KEEP")
+                    .put("activate", "STT").put("revision", 0);
+            mockMvc.perform(put("/api/chat/voice/connections/OPENAI_COMPATIBLE").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(connection.toString()))
+                    .andExpect(status().isOk());
+            mockMvc.perform(get("/api/meetings/transcribers").with(authentication(actor)))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
+                    .andExpect(jsonPath("$[0].provider").value("OPENAI_COMPATIBLE"))
+                    .andExpect(jsonPath("$[0].diarizes").value(false))
+                    .andExpect(jsonPath("$[0].selected").value(true));
+
+            String meeting = Json.mapper().readTree(mockMvc.perform(post("/api/meetings").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"title\":\"Bản ghi điện thoại\",\"kind\":\"IN_PERSON\",\"language\":\"vi\","
+                            + "\"participants\":[],\"terms\":[]}"))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString())
+                    .path("id").asText();
+
+            mockMvc.perform(post("/api/meetings/" + meeting + "/recording").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(declared))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.method").value("PUT"))
+                    .andExpect(jsonPath("$.uploadUrl").isNotEmpty())
+                    .andExpect(jsonPath("$.meeting.status").value("TRANSCRIBING"))
+                    .andExpect(jsonPath("$.meeting.audio.status").value("WAITING"))
+                    .andExpect(jsonPath("$.meeting.audio.filename").value("giao-ban.mp3"));
+
+            // A meeting whose recording is still being read must not be ended, replaced or taken by another member.
+            mockMvc.perform(post("/api/meetings/" + meeting + "/end").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isBadRequest());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/recording").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(declared))
+                    .andExpect(status().isConflict());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/recording").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(declared))
+                    .andExpect(status().isNotFound());
+
+            mockMvc.perform(post("/api/meetings/" + meeting + "/recording/finalize").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.audio.status").value("PENDING"));
+
+            var transcribed = new java.util.concurrent.atomic.AtomicReference<String>();
+            await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+                        var body = mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(actor)))
+                                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+                        assertEquals("ENDED", Json.mapper().readTree(body).path("status").asText());
+                        transcribed.set(body);
+                    });
+            var read = Json.mapper().readTree(transcribed.get());
+            assertEquals("DONE", read.path("audio").path("status").asText());
+            assertEquals(2, read.path("utterances").size(), "each segment becomes one utterance");
+            assertEquals("Chốt ngân sách quý 4 trước thứ Năm.", read.path("utterances").get(0).path("text").asText());
+            assertEquals(1000, read.path("utterances").get(0).path("startMs").asLong());
+            assertEquals("MIC", read.path("utterances").get(0).path("track").asText());
+            assertEquals("1", read.path("utterances").get(1).path("speaker").asText(),
+                    "a provider that does not separate speakers gives one");
+            // Queued, and possibly already claimed by the minutes job: both mean the recording reached it.
+            assertNotEquals("NONE", read.path("minutes").path("status").asText(),
+                    "a transcribed recording queues its minutes like a live meeting");
+            assertTrue(sent.get().contains("verbose_json"), "the recording asks for timed segments");
+            assertTrue(sent.get().contains("giao-ban.mp3"), "and is sent under its own name");
+            assertEquals(0, jdbc.sql("""
+                    SELECT count(*) FROM meeting
+                    WHERE tenant_id = :tenant AND id = CAST(:id AS uuid)
+                      AND (audio_upload_id IS NOT NULL OR audio_key IS NOT NULL)
+                    """).param("tenant", TENANT).param("id", meeting).query(Integer.class).single(),
+                    "the recording is forgotten once its transcript is stored");
+        } finally {
+            server.stop(0);
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+            jdbc.sql("DELETE FROM chat_voice_connection WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void aRecordingIsRefusedBeforeItIsSentWhenNothingCanReadIt() throws Exception {
+        UUID meeting = UUID.randomUUID();
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status)
+                    VALUES (:tenant, :id, :owner, 'Bản ghi khác', 'IN_PERSON', 'vi', '[]'::jsonb, 'RECORDING')
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            String declared = """
+                    {"filename":"giao-ban.mp3","mediaType":"audio/mpeg","sizeBytes":4194304,"sha256":"%s"}
+                    """.formatted("a".repeat(64));
+            // No voice connection is configured, so there is nobody to transcribe with.
+            mockMvc.perform(post("/api/meetings/" + meeting + "/recording").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(declared))
+                    .andExpect(status().isBadRequest());
+            String wrongKind = """
+                    {"filename":"ke-hoach.pdf","mediaType":"application/pdf","sizeBytes":1024,"sha256":"%s"}
+                    """.formatted("b".repeat(64));
+            mockMvc.perform(post("/api/meetings/" + meeting + "/recording").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(wrongKind))
+                    .andExpect(status().isBadRequest());
+            String tooBig = """
+                    {"filename":"dai.wav","mediaType":"audio/wav","sizeBytes":1073741824,"sha256":"%s"}
+                    """.formatted("c".repeat(64));
+            mockMvc.perform(post("/api/meetings/" + meeting + "/recording").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(tooBig))
+                    .andExpect(status().isBadRequest());
+            assertEquals("RECORDING",
+                    jdbc.sql("SELECT status FROM meeting WHERE tenant_id=:tenant AND id=:id").param("tenant", TENANT)
+                            .param("id", meeting).query(String.class).single(),
+                    "a refused recording leaves the meeting as it was");
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    /** One JSON body from a loopback provider. */
+    private static void respond(com.sun.net.httpserver.HttpExchange exchange, String json) throws java.io.IOException {
+        byte[] body = json.getBytes(UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "application/json");
+        exchange.sendResponseHeaders(200, body.length);
+        try (var output = exchange.getResponseBody()) { output.write(body); }
+    }
+
+    @Test
+    void aSharedMeetingIsReadByItsReaderAndChangedByNobodyButItsOwner() throws Exception {
+        UUID meeting = UUID.randomUUID();
+        UUID reader = other.getPrincipal().actorId().value();
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, notes, status, ended_at)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'IN_PERSON', 'vi', '[]'::jsonb, 'Ghi chú riêng',
+                            'ENDED', CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label, name) VALUES (:tenant,:meeting,'MIC','1','Chị Lan')")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text, confidence)
+                    VALUES (:tenant, :id, :meeting, 'MIC', '1', 0, 4000, 'Chốt ngân sách quý 4.', 0.9)
+                    """).param("tenant", TENANT).param("id", UUID.randomUUID()).param("meeting", meeting).update();
+
+            // Before it is shared, the meeting does not exist as far as another member is concerned.
+            mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(other))).andExpect(status().isNotFound());
+            mockMvc.perform(get("/api/meetings").with(authentication(other))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(0));
+
+            String body = "{\"members\":[\"" + reader + "\"],\"groups\":[]}";
+            mockMvc.perform(put("/api/meetings/" + meeting + "/shares").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.owned").value(true))
+                    .andExpect(jsonPath("$.readers.length()").value(1))
+                    .andExpect(jsonPath("$.readers[0].kind").value("MEMBER"))
+                    .andExpect(jsonPath("$.readers[0].id").value(reader.toString()));
+
+            mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(other))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.title").value("Giao ban tuần"))
+                    .andExpect(jsonPath("$.utterances.length()").value(1))
+                    .andExpect(jsonPath("$.speakers[0].name").value("Chị Lan"))
+                    .andExpect(jsonPath("$.owned").value(false))
+                    // The owner's private notes, and the list of readers, stay with the owner.
+                    .andExpect(jsonPath("$.notes").value(""))
+                    .andExpect(jsonPath("$.readers.length()").value(0));
+            mockMvc.perform(get("/api/meetings").with(authentication(other))).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].owned").value(false));
+
+            // A reader reads. Every change answers as if the meeting were not theirs, because it is not.
+            mockMvc.perform(put("/api/meetings/" + meeting + "/speakers/MIC/1").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"Ai đó\"}"))
+                    .andExpect(status().isNotFound());
+            mockMvc.perform(put("/api/meetings/" + meeting + "/notes").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"notes\":\"x\",\"revision\":0}")).andExpect(status().isNotFound());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/minutes").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
+            mockMvc.perform(put("/api/meetings/" + meeting + "/shares").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"members\":[],\"groups\":[]}")).andExpect(status().isNotFound());
+            mockMvc.perform(delete("/api/meetings/" + meeting).with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/tickets").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content("{\"track\":\"MIC\"}"))
+                    .andExpect(status().isNotFound());
+
+            // Somebody who is not a member of this Tenant cannot be named at all.
+            mockMvc.perform(put("/api/meetings/" + meeting + "/shares").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"members\":[\"" + UUID.randomUUID() + "\"],\"groups\":[]}"))
+                    .andExpect(status().isBadRequest());
+            assertEquals(1, jdbc.sql("SELECT count(*) FROM meeting_user_share WHERE tenant_id=:tenant AND meeting_id=:meeting")
+                    .param("tenant", TENANT).param("meeting", meeting).query(Integer.class).single(),
+                    "a refused share leaves the readers as they were");
+
+            mockMvc.perform(put("/api/meetings/" + meeting + "/shares").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"members\":[],\"groups\":[]}")).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.readers.length()").value(0));
+            mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(other))).andExpect(status().isNotFound());
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
         }
     }
 

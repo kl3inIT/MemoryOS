@@ -1,5 +1,13 @@
 import { useState, type ReactNode } from "react";
-import { AudioWaveform, CheckCircle2, Cloud, Server, Settings2, Unplug } from "lucide-react";
+import {
+  AudioLines,
+  AudioWaveform,
+  CheckCircle2,
+  Cloud,
+  Server,
+  Settings2,
+  Unplug,
+} from "lucide-react";
 import { ProviderCard } from "@/components/provider-logos/provider-card";
 import { ProviderLogo } from "@/components/provider-logos/provider-logo";
 import { Button } from "@/components/ui/button";
@@ -31,6 +39,8 @@ function providerName(provider: VoiceProviderId, ui: Translate) {
       return "ElevenLabs";
     case "AZURE":
       return "Azure AI Speech";
+    case "SONIOX":
+      return "Soniox";
     default:
       return ui("Tương thích OpenAI");
   }
@@ -46,6 +56,8 @@ function providerSummary(provider: VoiceProviderId, fn: VoiceFunction, ui: Trans
       return fn === "STT"
         ? ui("Nhận dạng tiếng Việt và tiếng Anh qua REST")
         : ui("Giọng Neural tiếng Việt và tiếng Anh");
+    case "SONIOX":
+      return ui("Nhận dạng tiếng Việt theo thời gian thực, tách người nói");
     default:
       return ui("Máy chủ tự vận hành có API âm thanh tương thích OpenAI, ví dụ Speaches");
   }
@@ -64,7 +76,14 @@ function InUseBadge({ children }: { children: ReactNode }) {
 /** Only OpenAI has a brand mark in the application; other providers use a neutral icon. */
 function ProviderIcon({ provider }: { provider: VoiceProviderId }) {
   if (provider === "OPENAI") return <ProviderLogo mark="OPENAI" className="size-5" />;
-  const Icon = provider === "ELEVENLABS" ? AudioWaveform : provider === "AZURE" ? Cloud : Server;
+  const Icon =
+    provider === "ELEVENLABS"
+      ? AudioWaveform
+      : provider === "AZURE"
+        ? Cloud
+        : provider === "SONIOX"
+          ? AudioLines
+          : Server;
   return <Icon className="size-5 text-content-secondary" aria-hidden="true" />;
 }
 

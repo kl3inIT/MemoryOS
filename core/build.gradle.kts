@@ -12,8 +12,9 @@ tasks.withType<JavaCompile>().configureEach {
 tasks.withType<Test>().configureEach {
     // The full PostgreSQL/migration corpus and real OpenSearch startup exceed ten minutes on a cold host.
     timeout = Duration.ofMinutes(15)
-    // Modulith/ArchUnit metadata and the full persistence corpus exceed Gradle's 512 MiB test default.
-    maxHeapSize = "1g"
+    // Modulith/ArchUnit metadata, the full persistence corpus and the OOXML schema type system the biên bản
+    // renderer loads all live in one test JVM; a gigabyte stopped being enough once every capability had tests.
+    maxHeapSize = "1536m"
     // Core is the longest test task; two JVMs each own a PostgreSQL container and template (TestDatabase).
     maxParallelForks = 2
     // Opt-in measurement must rerun when enabled instead of reusing a skipped result.

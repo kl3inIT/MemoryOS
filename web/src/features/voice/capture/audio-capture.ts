@@ -43,6 +43,21 @@ export async function startAudioCapture(handlers: AudioCaptureHandlers): Promise
       (error.name === "NotAllowedError" || error.name === "SecurityError");
     throw new MicrophoneUnavailableError(denied, error);
   }
+  try {
+    return await startStreamCapture(stream, handlers);
+  } catch (error) {
+    throw new MicrophoneUnavailableError(false, error);
+  }
+}
+
+/**
+ * Captures any audio stream, such as a shared meeting tab, as PCM16 24 kHz mono chunks. Stopping the capture stops
+ * every track of the stream and closes the audio context; so does a setup failure.
+ */
+export async function startStreamCapture(
+  stream: MediaStream,
+  handlers: AudioCaptureHandlers,
+): Promise<AudioCapture> {
   const context = new AudioContext();
   try {
     // Permission prompts can outlast the click's activation, which leaves a new context suspended.
@@ -77,6 +92,6 @@ export async function startAudioCapture(handlers: AudioCaptureHandlers): Promise
   } catch (error) {
     for (const track of stream.getTracks()) track.stop();
     void context.close();
-    throw new MicrophoneUnavailableError(false, error);
+    throw error;
   }
 }

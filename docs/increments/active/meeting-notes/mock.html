@@ -1,0 +1,598 @@
+<title>MemoryOS Cuộc họp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --surface-canvas:#f0f0f1;--surface-base:#fafafa;--surface-raised:#ffffff;--surface-subtle:#f0f0f1;--surface-sunken:#e6e6e9;--surface-scrim:#00000066;
+  --content-primary:#000000e5;--content-secondary:#000000bf;--content-muted:#0000008c;--content-faint:#00000033;--content-inverse:#ffffff;
+  --border-subtle:#e6e6e6;--border-default:#cccccc;--border-strong:#a4a4a4;
+  --action-primary:#1c1c1c;--action-primary-hover:#333333;--action-selection:#286df8;--action-selection-surface:#e7effc;
+  --danger-strong:#dc2626;--danger-surface:#fceae7;--danger-content:#c12222;
+  --success-strong:#00a43f;--success-surface:#e6f2e7;--success-content:#007a2d;
+  --warning-strong:#ec5b13;--warning-surface:#fbeae4;--warning-content:#b54204;
+  --info-surface:#e7effc;--info-content:#245fda;
+  --lowconf:#ec5b1366;
+  --spk-1:#286df8;--spk-2:#d9480f;--spk-3:#0c8599;--spk-4:#9c36b5;--spk-me:#1c1c1c;
+  --radius:8px;--font:"Hanken Grotesk","Segoe UI Variable","Segoe UI",system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --surface-canvas:#26262b;--surface-base:#19191e;--surface-raised:#000000;--surface-subtle:#26262b;--surface-sunken:#323239;--surface-scrim:#000000a6;
+  --content-primary:#fffffff2;--content-secondary:#ffffffd9;--content-muted:#ffffff99;--content-faint:#ffffff33;--content-inverse:#000000;
+  --border-subtle:#333333;--border-default:#555555;--border-strong:#808080;
+  --action-primary:#f0f0f0;--action-primary-hover:#ffffff;--action-selection-surface:#091938;
+  --danger-surface:#330b09;--danger-content:#ff8276;--success-surface:#002207;--success-content:#48c775;
+  --warning-surface:#320d01;--warning-content:#fb945d;--info-surface:#091938;--info-content:#8cb4ff;
+  --spk-1:#6ea0ff;--spk-2:#ff8a4c;--spk-3:#3bc9db;--spk-4:#da77f2;--spk-me:#f0f0f0;
+}}
+:root[data-theme="dark"]{
+  --surface-canvas:#26262b;--surface-base:#19191e;--surface-raised:#000000;--surface-subtle:#26262b;--surface-sunken:#323239;--surface-scrim:#000000a6;
+  --content-primary:#fffffff2;--content-secondary:#ffffffd9;--content-muted:#ffffff99;--content-faint:#ffffff33;--content-inverse:#000000;
+  --border-subtle:#333333;--border-default:#555555;--border-strong:#808080;
+  --action-primary:#f0f0f0;--action-primary-hover:#ffffff;--action-selection-surface:#091938;
+  --danger-surface:#330b09;--danger-content:#ff8276;--success-surface:#002207;--success-content:#48c775;
+  --warning-surface:#320d01;--warning-content:#fb945d;--info-surface:#091938;--info-content:#8cb4ff;
+  --spk-1:#6ea0ff;--spk-2:#ff8a4c;--spk-3:#3bc9db;--spk-4:#da77f2;--spk-me:#f0f0f0;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--surface-canvas);color:var(--content-primary);font-family:var(--font);font-size:14px;line-height:1.5}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--action-selection);outline-offset:2px}
+svg.i{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* mock strip */
+.mockbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 16px;background:var(--surface-sunken);border-bottom:1px solid var(--border-subtle);font-size:12.5px;color:var(--content-secondary)}
+.mockbar b{color:var(--content-primary);font-weight:600}
+.mockbar .sp{flex:1}
+.chipbtn{border:1px solid var(--border-default);background:var(--surface-raised);border-radius:999px;padding:3px 10px;font-size:12.5px}
+.chipbtn[aria-pressed="true"]{background:var(--action-primary);color:var(--content-inverse);border-color:transparent}
+.chipbtn.toggle[aria-pressed="true"]{background:var(--warning-surface);color:var(--warning-content);border-color:var(--warning-strong)}
+
+.app{display:grid;grid-template-columns:240px 1fr;height:calc(100% - 41px);min-height:560px}
+/* sidebar */
+.side{background:var(--surface-canvas);padding:12px 8px;display:flex;flex-direction:column;gap:2px;border-right:1px solid var(--border-subtle);overflow-y:auto}
+.brand{display:flex;align-items:center;gap:8px;padding:6px 8px 14px;font-weight:700;letter-spacing:-.01em}
+.brand .logo{width:22px;height:22px;border-radius:6px;background:var(--action-primary);color:var(--content-inverse);display:grid;place-items:center;font-size:12px}
+.tab{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:6px;color:var(--content-secondary);border:0;background:none;text-align:left;width:100%}
+.tab:hover{background:var(--surface-raised);color:var(--content-primary)}
+.tab[aria-current="page"]{background:var(--surface-raised);color:var(--content-primary);font-weight:600;box-shadow:0 0 0 1px var(--border-subtle)}
+.tab .new{margin-left:auto;font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--action-selection);background:var(--action-selection-surface);padding:1px 6px;border-radius:4px}
+.tab .live{margin-left:auto;width:8px;height:8px;border-radius:50%;background:var(--danger-strong);animation:pulse 1.4s infinite}
+.side h4{margin:18px 8px 6px;font-size:12px;font-weight:500;color:var(--content-muted)}
+.side .hist{padding:5px 8px;color:var(--content-secondary);font-size:13px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side .hist:hover{background:var(--surface-raised)}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+main{background:var(--surface-base);overflow:auto;position:relative;display:flex;flex-direction:column;min-width:0}
+.page{padding:24px 32px 40px;max-width:1080px;width:100%;margin:0 auto}
+.head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.head h1{font-size:22px;margin:0;font-weight:600;letter-spacing:-.015em}
+.head .sp{flex:1}
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:8px;padding:8px 14px;border:1px solid var(--border-subtle);background:var(--surface-base);color:var(--content-secondary);font-weight:500}
+.btn:hover{border-color:var(--border-default);color:var(--content-primary)}
+.btn.primary{background:var(--action-primary);color:var(--content-inverse);border-color:transparent}
+.btn.primary:hover{background:var(--action-primary-hover)}
+.btn.primary:disabled{background:var(--surface-sunken);color:var(--content-muted);cursor:not-allowed}
+.btn.rec{background:var(--danger-strong);color:#fff;border-color:transparent}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn.ghost{border-color:transparent;background:none}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.input{border:1px solid var(--border-subtle);background:var(--surface-raised);border-radius:8px;padding:7px 10px;min-width:0}
+.filters .input{flex:1;max-width:320px}
+.group{margin:18px 0 6px;font-size:12px;font-weight:600;color:var(--content-muted);letter-spacing:.04em;text-transform:uppercase}
+.list{border:1px solid var(--border-subtle);border-radius:10px;background:var(--surface-raised);overflow:hidden}
+.row{display:grid;grid-template-columns:120px 1fr auto;gap:16px;align-items:center;padding:12px 16px;border-top:1px solid var(--border-subtle);cursor:pointer}
+.row:first-child{border-top:0}
+.row:hover{background:var(--surface-base)}
+.row .t{font-weight:600}
+.row .meta{color:var(--content-muted);font-size:12.5px;display:flex;gap:12px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.row .counts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:500;white-space:nowrap}
+.pill.live{background:var(--danger-surface);color:var(--danger-content)}
+.pill.live::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--danger-strong);animation:pulse 1.4s infinite}
+.pill.ok{background:var(--success-surface);color:var(--success-content)}
+.pill.proc{background:var(--info-surface);color:var(--info-content)}
+.pill.fail{background:var(--warning-surface);color:var(--warning-content)}
+.pill.soft{background:var(--surface-subtle);color:var(--content-secondary)}
+.lockline{display:flex;align-items:center;gap:8px;color:var(--content-muted);font-size:12.5px;margin-top:14px}
+
+/* recording bar */
+.recbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 20px;background:var(--surface-raised);border-bottom:1px solid var(--border-subtle)}
+.recbar .dot{width:10px;height:10px;border-radius:50%;background:var(--danger-strong);animation:pulse 1.4s infinite}
+.recbar .dot.paused{animation:none;background:var(--warning-strong)}
+.recbar .time{font-family:var(--mono);font-weight:500;font-variant-numeric:tabular-nums;font-size:15px}
+.recbar .lang{color:var(--content-muted);font-size:12.5px}
+.meter{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--content-secondary)}
+.bars{display:flex;align-items:flex-end;gap:2px;height:16px}
+.bars i{width:3px;border-radius:2px;background:var(--success-strong);height:3px;transition:height .12s}
+.bars.dead i{background:var(--content-faint)}
+.recbar .sp{flex:1}
+.banner{display:flex;gap:10px;align-items:flex-start;padding:10px 20px;background:var(--warning-surface);color:var(--warning-content);border-bottom:1px solid var(--warning-strong);font-size:13.5px}
+.banner b{font-weight:600}
+.banner .btn{margin-left:auto;flex:none}
+.banner.info{background:var(--info-surface);color:var(--info-content);border-color:var(--border-subtle)}
+
+/* meeting layout */
+.meet{display:grid;grid-template-columns:minmax(0,1fr) 340px;flex:1;min-height:0}
+.meet-main{padding:22px 28px 40px;min-width:0}
+.meet-side{border-left:1px solid var(--border-subtle);background:var(--surface-raised);display:flex;flex-direction:column;min-height:420px}
+.mtitle{font-size:22px;font-weight:600;margin:0 0 6px;letter-spacing:-.015em}
+.mmeta{display:flex;gap:14px;flex-wrap:wrap;color:var(--content-muted);font-size:13px;margin-bottom:14px;font-variant-numeric:tabular-nums}
+.mmeta span{display:inline-flex;gap:6px;align-items:center}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border-subtle);margin-bottom:16px;overflow-x:auto}
+.tabs button{border:0;background:none;padding:8px 12px;color:var(--content-muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;font-weight:500}
+.tabs button[aria-selected="true"]{color:var(--content-primary);border-color:var(--content-primary)}
+.tabs button:disabled{color:var(--content-faint);cursor:not-allowed}
+.tabs .n{font-size:11.5px;background:var(--surface-subtle);border-radius:999px;padding:0 6px;margin-left:4px}
+
+.line{display:grid;grid-template-columns:64px 1fr;gap:4px 12px;padding:8px 8px;border-radius:8px}
+.line.flash{background:var(--action-selection-surface);transition:background .6s}
+.ts{font-family:var(--mono);font-size:12px;color:var(--content-muted);padding-top:3px;border:0;background:none;text-align:left;padding-left:0}
+.ts:hover{color:var(--action-selection)}
+.spk{display:inline-flex;align-items:center;gap:6px;border:0;background:none;padding:0;font-weight:600;font-size:13px}
+.spk .av{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:700}
+.spk:hover .nm{text-decoration:underline}
+.spk .src{font-weight:400;color:var(--content-muted);font-size:12px}
+.txt{grid-column:2;color:var(--content-secondary)}
+.low{text-decoration:underline wavy var(--warning-strong);text-underline-offset:3px;text-decoration-thickness:1px}
+.partial{color:var(--content-muted);font-style:italic}
+.caret{display:inline-block;width:6px;height:14px;background:var(--content-muted);vertical-align:-2px;animation:pulse 1s infinite;margin-left:2px}
+
+/* side chat */
+.side-h{padding:14px 16px 10px;border-bottom:1px solid var(--border-subtle)}
+.side-h b{display:block;font-size:14px}
+.side-h small{color:var(--content-muted);font-size:12px}
+.msgs{flex:1;overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.q{align-self:flex-end;background:var(--surface-subtle);border-radius:12px 12px 2px 12px;padding:8px 12px;max-width:90%}
+.a{color:var(--content-secondary);font-size:13.5px}
+.a .cite{font-family:var(--mono);font-size:11.5px;color:var(--action-selection);border:0;background:var(--action-selection-surface);border-radius:4px;padding:0 5px;margin-left:2px}
+.suggest{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 10px}
+.suggest button{border:1px solid var(--border-subtle);background:var(--surface-base);border-radius:999px;padding:4px 10px;font-size:12.5px;color:var(--content-secondary)}
+.suggest button:hover{border-color:var(--border-default);color:var(--content-primary)}
+.suggest button:disabled{opacity:.45;cursor:not-allowed}
+.composer{margin:0 12px 12px;border:1px solid var(--border-subtle);border-radius:12px;display:flex;gap:6px;padding:6px 6px 6px 12px;background:var(--surface-base)}
+.composer input{flex:1;border:0;background:none;outline:none;min-width:0}
+.composer button{border:0;background:var(--action-primary);color:var(--content-inverse);border-radius:8px;width:30px;height:30px;display:grid;place-items:center}
+.scope{padding:0 16px 8px;font-size:11.5px;color:var(--content-muted)}
+
+/* summary */
+.card{background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:10px;padding:16px 18px;margin-bottom:14px}
+.card h3{margin:0 0 8px;font-size:14px;font-weight:600}
+.card ul{margin:0;padding-left:18px;color:var(--content-secondary)}
+.card li{margin:4px 0}
+.edited{font-size:12px;color:var(--content-muted);display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.task{display:grid;grid-template-columns:22px 1fr 150px 110px;gap:10px;align-items:start;padding:12px 4px;border-top:1px solid var(--border-subtle)}
+.task:first-of-type{border-top:0}
+.task .what{font-weight:500}
+.task .quote{grid-column:2/-1;font-size:12.5px;color:var(--content-muted);display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}
+.task select,.task input[type=text]{border:1px solid var(--border-subtle);border-radius:6px;background:var(--surface-base);padding:4px 6px;font-size:13px;width:100%}
+.task.done .what{text-decoration:line-through;color:var(--content-muted)}
+.conf{font-size:11px;padding:0 6px;border-radius:4px;background:var(--warning-surface);color:var(--warning-content)}
+.th{display:grid;grid-template-columns:22px 1fr 150px 110px;gap:10px;font-size:12px;color:var(--content-muted);padding:0 4px 6px}
+.notes{width:100%;min-height:260px;border:1px solid var(--border-subtle);border-radius:10px;background:var(--surface-raised);padding:14px;resize:vertical;line-height:1.6}
+
+/* dialogs */
+.scrim{position:fixed;inset:0;background:var(--surface-scrim);display:grid;place-items:center;padding:16px;z-index:50}
+.dlg{background:var(--surface-raised);border-radius:14px;width:min(520px,100%);max-height:calc(100% - 32px);overflow:auto;box-shadow:0 20px 60px #0004;border:1px solid var(--border-subtle)}
+.dlg header{padding:18px 20px 4px;display:flex;align-items:center;gap:10px}
+.dlg header h2{margin:0;font-size:17px;font-weight:600;flex:1}
+.dlg .body{padding:10px 20px 4px;display:flex;flex-direction:column;gap:14px}
+.dlg footer{padding:14px 20px 18px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.field label{display:block;font-size:13px;font-weight:500;margin-bottom:5px}
+.field .input{width:100%}
+.field small{display:block;color:var(--content-muted);font-size:12px;margin-top:4px}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg label{border:1px solid var(--border-subtle);border-radius:10px;padding:10px 12px;display:flex;gap:10px;cursor:pointer;align-items:flex-start}
+.seg label:has(input:checked){border-color:var(--content-primary);box-shadow:0 0 0 1px var(--content-primary)}
+.seg input{margin-top:3px}
+.seg b{display:block;font-weight:600}
+.seg span{font-size:12.5px;color:var(--content-muted)}
+.tokens{display:flex;flex-wrap:wrap;gap:6px;border:1px solid var(--border-subtle);border-radius:8px;padding:6px;background:var(--surface-raised)}
+.tokens .tk{background:var(--surface-subtle);border-radius:6px;padding:2px 8px;font-size:13px}
+.tokens input{border:0;outline:none;background:none;flex:1;min-width:120px;padding:2px 4px}
+.consent{display:flex;gap:10px;background:var(--surface-base);border:1px solid var(--border-subtle);border-radius:10px;padding:10px 12px;align-items:flex-start}
+.consent input{margin-top:3px}
+.consent .copy{margin-left:auto;flex:none}
+.warnbox{display:flex;gap:8px;font-size:12.5px;color:var(--content-secondary);background:var(--surface-subtle);border-radius:8px;padding:8px 10px}
+.share-demo{border:1px solid var(--border-default);border-radius:10px;overflow:hidden;font-size:13px}
+.share-demo .bar{background:var(--surface-subtle);padding:8px 12px;font-weight:600;border-bottom:1px solid var(--border-subtle)}
+.share-demo .tabsx{display:flex;gap:14px;padding:8px 12px;color:var(--content-muted);border-bottom:1px solid var(--border-subtle)}
+.share-demo .tabsx b{color:var(--action-selection);border-bottom:2px solid var(--action-selection)}
+.share-demo .item{padding:8px 12px;display:flex;gap:8px;align-items:center}
+.share-demo .item.sel{background:var(--action-selection-surface)}
+.share-demo .foot{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--border-subtle)}
+.share-demo .hl{outline:2px dashed var(--warning-strong);outline-offset:3px;border-radius:4px;padding:2px 4px;font-weight:600}
+.pop{position:fixed;z-index:60;background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:10px;box-shadow:0 10px 30px #0003;width:240px;padding:6px}
+.pop input{width:100%;margin-bottom:4px}
+.pop button{display:flex;gap:8px;align-items:center;width:100%;border:0;background:none;padding:6px 8px;border-radius:6px;text-align:left}
+.pop button:hover{background:var(--surface-subtle)}
+.pop small{color:var(--content-muted);display:block;padding:4px 8px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:70;background:var(--action-primary);color:var(--content-inverse);border-radius:10px;padding:10px 14px;display:flex;gap:12px;align-items:center;max-width:calc(100% - 32px);box-shadow:0 10px 30px #0004}
+.toast button{border:0;background:none;color:inherit;text-decoration:underline;flex:none}
+.processing{display:flex;gap:12px;align-items:center;padding:14px 16px;border-radius:10px;background:var(--info-surface);color:var(--info-content);margin-bottom:14px}
+.spinner{width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.honest{font-size:12.5px;color:var(--content-muted);margin-top:4px}
+
+@media (max-width:900px){
+  .meet{grid-template-columns:1fr}
+  .meet-side{border-left:0;border-top:1px solid var(--border-subtle)}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr;grid-template-rows:auto 1fr;height:auto}
+  .side{flex-direction:row;overflow-x:auto;padding:8px 16px;border-right:0;border-bottom:1px solid var(--border-subtle)}
+  .side .brand,.side h4,.side .hist{display:none}
+  .tab{width:auto;white-space:nowrap}
+  .tab .new{display:none}
+  .page{padding:18px 16px 32px}
+  .meet-main{padding:18px 16px 28px}
+  .row{grid-template-columns:1fr;gap:6px}
+  .row .counts{justify-content:flex-start}
+  .task,.th{grid-template-columns:22px 1fr}
+  .task select,.task input[type=text]{grid-column:2}
+  .th span:nth-child(n+3){display:none}
+  .seg{grid-template-columns:1fr}
+  .recbar{padding:10px 16px}
+}
+</style>
+
+<div class="mockbar" role="navigation" aria-label="Điều khiển mock">
+  <b>Mock · dữ liệu mẫu</b>
+  <span>Xem màn:</span>
+  <button class="chipbtn" data-go="list">1 · Danh sách</button>
+  <button class="chipbtn" data-go="new">2 · Ghi mới</button>
+  <button class="chipbtn" data-go="live">3 · Đang họp</button>
+  <button class="chipbtn" data-go="done">4 · Sau họp</button>
+  <span class="sp"></span>
+  <button class="chipbtn toggle" id="simSilent" aria-pressed="false">Mô phỏng: tab không có tiếng</button>
+</div>
+
+<div class="app">
+  <nav class="side" aria-label="Điều hướng chính">
+    <div class="brand"><span class="logo">M</span>MemoryOS</div>
+    <button class="tab"><svg class="i" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg>Hội thoại mới</button>
+    <button class="tab"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Tìm tài liệu</button>
+    <button class="tab"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v3M9 15h.01M15 15h.01"/></svg>Trợ lý</button>
+    <button class="tab" id="navMeet" aria-current="page"><svg class="i" viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/></svg>Cuộc họp<span class="new" id="navBadge">Mới</span></button>
+    <button class="tab"><svg class="i" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>Thư viện</button>
+    <h4>Dự án</h4>
+    <div class="hist">Tasco · Báo cáo tài chính</div>
+    <div class="hist">MemoryOS roadmap Q4</div>
+    <h4>Gần đây</h4>
+    <div class="hist">So sánh KPI tháng 8 và 9</div>
+    <div class="hist">Tóm tắt quy chế lương 2026</div>
+  </nav>
+  <main id="main"></main>
+</div>
+
+<script>
+(function(){
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const I={
+  plus:'<path d="M5 12h14M12 5v14"/>',
+  mic:'<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/>',
+  monitor:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  pause:'<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>',
+  play:'<path d="M7 5v14l11-7Z"/>',
+  stop:'<rect x="6" y="6" width="12" height="12" rx="2"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  users:'<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 5a3 3 0 0 1 0 6M21 20a6 6 0 0 0-4-5.6"/>',
+  lock:'<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  warn:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/>',
+  send:'<path d="M5 12h14M13 6l6 6-6 6"/>',
+  down:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+  chat:'<path d="M21 14a2 2 0 0 1-2 2H8l-5 4V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/>',
+  pin:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/>',
+  wand:'<path d="m15 4 5 5L9 20H4v-5Z"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'
+};
+const ic=(n,extra='')=>`<svg class="i" ${extra} viewBox="0 0 24 24" aria-hidden="true">${I[n]}</svg>`;
+
+/* ---------- sample data ---------- */
+const people=[
+  {id:'thanh',name:'Anh Thanh',role:'Trưởng phòng CNTT'},
+  {id:'lan',name:'Chị Lan',role:'Phòng Nhân sự'},
+  {id:'minh',name:'Anh Minh',role:'Kế toán trưởng'},
+  {id:'huong',name:'Chị Hương',role:'Pháp chế'}
+];
+const speakers={
+  me:{name:'Bạn',src:'mic',color:'var(--spk-me)',fixed:true},
+  s1:{name:'Người nói 1',src:'tab',color:'var(--spk-1)'},
+  s2:{name:'Người nói 2',src:'tab',color:'var(--spk-2)'},
+  s3:{name:'Người nói 3',src:'tab',color:'var(--spk-3)'}
+};
+const seed=[
+  {id:'l1',t:602,s:'s1',x:'Tuần này bên mình phải chốt ngân sách quý 4 trước thứ Năm, không lùi nữa.'},
+  {id:'l2',t:620,s:'s2',x:'Bên nhân sự đã gửi bảng KPI tháng 9, còn thiếu số liệu của hai đơn vị là {Vinaconex 9} và Tower 3.'},
+  {id:'l3',t:640,s:'me',x:'Em sẽ gửi báo giá gói MemoryOS cho Tasco trước thứ Sáu tuần này.'},
+  {id:'l4',t:665,s:'s3',x:'Báo cáo tài chính quý 3 đã có bản scan, nhưng {OCR} còn lỗi ở mấy bảng cân đối.'},
+  {id:'l5',t:690,s:'s1',x:'Vậy anh Minh kiểm tra lại các bảng đó, xong trước thứ Tư nhé.'}
+];
+const incoming=[
+  {s:'s3',x:'Được anh, em sẽ đối chiếu với bản gốc rồi báo lại trong nhóm.'},
+  {s:'s2',x:'Còn chuyện quyền truy cập file nhân sự, em đề nghị chỉ mở cho nhóm HR thôi.'},
+  {s:'s1',x:'Đồng ý. Chốt là file nhân sự chỉ nhóm HR được xem, các phòng khác hỏi qua trợ lý.'},
+  {s:'me',x:'Em ghi nhận, em sẽ cấu hình lại {Group} cho Source Google Drive của HR.'},
+  {s:'s2',x:'Tuần sau mình họp lại để xem kết quả thử nghiệm với bộ phận kế toán.'}
+];
+const meetings=[
+  {g:'Hôm nay',time:'09:00',title:'Giao ban tuần · Khối Tài chính',dur:'đang ghi',n:4,st:'live'},
+  {g:'Hôm nay',time:'08:15',title:'Phỏng vấn ứng viên Data Engineer',dur:'38 phút',n:3,st:'proc'},
+  {g:'Tuần này',time:'T5 18/09',title:'Họp dự án Vinaconex 9 Tower 3',dur:'37 phút',n:3,st:'ok',tasks:4,dec:3},
+  {g:'Tuần này',time:'T4 17/09',title:'Review OKR quý 3 · Khối Kinh doanh',dur:'1 giờ 12 phút',n:7,st:'ok',tasks:6,dec:2},
+  {g:'Tuần này',time:'T2 15/09',title:'1-1 với chị Lan',dur:'22 phút',n:2,st:'ok',tasks:1,dec:0},
+  {g:'Tuần trước',time:'T6 12/09',title:'Họp trực tiếp phòng Pháp chế',dur:'54 phút',n:5,st:'fail'}
+];
+
+/* ---------- state ---------- */
+const S={view:'list',elapsed:724,paused:false,lines:seed.map(l=>({...l})),partial:'',queue:0,tab:'transcript',chat:[],silent:false,silentFor:0,doneTab:'summary',tasksDone:{},notes:'- Hỏi anh Thanh về hạn mức 500k/người\n- Nhắc chị Lan gửi lại file KPI bản cuối\n',flash:null,processing:false,newType:'online'};
+let timers=[];
+const clearTimers=()=>{timers.forEach(t=>clearInterval(t));timers=[]};
+
+const fmt=s=>{const h=Math.floor(s/3600),m=Math.floor(s%3600/60),ss=s%60;return (h?String(h).padStart(2,'0')+':':'00:')+String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0')};
+const mm=s=>fmt(s);
+const txt=x=>esc(x).replace(/\{([^}]+)\}/g,'<span class="low" title="Độ tin cậy thấp. Bấm để sửa">$1</span>');
+
+/* ---------- views ---------- */
+function render(){
+  document.querySelectorAll('[data-go]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.go===S.view||(S.view==='new'&&b.dataset.go==='new'))));
+  $('#navBadge').className=S.view==='live'?'live':'new';$('#navBadge').textContent=S.view==='live'?'':'Mới';
+  const m=$('#main');
+  if(S.view==='list'||S.view==='new'){m.innerHTML=listView();bindList();if(S.view==='new')openNew();}
+  else if(S.view==='live'){m.innerHTML=meetView(true);bindMeet(true);}
+  else {m.innerHTML=meetView(false);bindMeet(false);}
+}
+
+function listView(){
+  let html=`<div class="page"><div class="head"><h1>Cuộc họp</h1><span class="sp"></span>
+  <button class="btn primary" id="btnNew">${ic('mic')}Ghi cuộc họp mới</button></div>
+  <div class="filters"><input class="input" id="q" placeholder="Tìm theo tên, người tham gia, nội dung…" aria-label="Tìm cuộc họp">
+  <select class="input" aria-label="Trạng thái" id="fst"><option>Mọi trạng thái</option><option>Đang ghi</option><option>Sẵn sàng</option><option>Đang xử lý</option></select>
+  <select class="input" aria-label="Thời gian"><option>30 ngày qua</option><option>Tháng này</option></select></div>`;
+  let g='';
+  meetings.forEach((x,i)=>{
+    if(x.g!==g){if(g)html+='</div>';g=x.g;html+=`<div class="group">${g}</div><div class="list">`;}
+    const pill={live:'<span class="pill live">Đang ghi</span>',proc:'<span class="pill proc">Đang tạo tóm tắt</span>',ok:'<span class="pill ok">Sẵn sàng</span>',fail:'<span class="pill fail">Transcript thiếu đoạn</span>'}[x.st];
+    const counts=x.st==='ok'?`<span class="pill soft">${x.tasks} việc</span><span class="pill soft">${x.dec} quyết định</span>`:'';
+    html+=`<div class="row" tabindex="0" data-open="${x.st==='live'?'live':'done'}"><div class="meta">${esc(x.time)}</div>
+      <div><div class="t">${esc(x.title)}</div><div class="meta"><span>${ic('clock')} ${esc(x.dur)}</span><span>${ic('users')} ${x.n} người</span></div></div>
+      <div class="counts">${pill}${counts}</div></div>`;
+  });
+  html+=`</div><div class="lockline">${ic('lock')} Chỉ bạn xem được các cuộc họp này. Không lưu audio, chỉ lưu văn bản.</div></div>`;
+  return html;
+}
+function bindList(){
+  $('#btnNew').onclick=()=>{S.view='new';render();};
+  document.querySelectorAll('.row').forEach(r=>{const go=()=>{S.view=r.dataset.open;if(S.view==='live')startLive();else render();};r.onclick=go;r.onkeydown=e=>{if(e.key==='Enter')go();};});
+}
+
+/* ---------- new meeting dialog ---------- */
+function openNew(){
+  const d=document.createElement('div');d.className='scrim';d.id='dlgNew';
+  d.innerHTML=`<div class="dlg" role="dialog" aria-modal="true" aria-labelledby="nt">
+  <header><h2 id="nt">Ghi cuộc họp mới</h2><button class="btn ghost sm" id="xNew" aria-label="Đóng">${ic('x')}</button></header>
+  <div class="body">
+    <div class="field"><label for="fTitle">Tên cuộc họp</label><input class="input" id="fTitle" value="Giao ban tuần · Khối Tài chính"></div>
+    <div class="field"><label>Thành phần</label><div class="tokens"><span class="tk">Anh Thanh</span><span class="tk">Chị Lan</span><span class="tk">Anh Minh</span><input id="fPeople" placeholder="Thêm người…" aria-label="Thêm người"></div>
+      <small>Dùng để gán tên người nói trong transcript.</small></div>
+    <div class="field"><label>Hình thức</label><div class="seg">
+      <label><input type="radio" name="kind" value="online" ${S.newType==='online'?'checked':''}><div><b>Họp online</b><span>Mic của bạn + âm thanh tab Meet/Zoom/Teams</span></div></label>
+      <label><input type="radio" name="kind" value="offline" ${S.newType==='offline'?'checked':''}><div><b>Họp trực tiếp</b><span>Chỉ dùng mic, được cả trên điện thoại</span></div></label>
+    </div></div>
+    <div class="warnbox" id="browserNote">${ic('monitor')}<span>Họp online cần Chrome hoặc Edge trên máy tính. Nên đeo tai nghe để tiếng loa không lọt vào mic.</span></div>
+    <div class="field"><label for="fLang">Ngôn ngữ</label><select class="input" id="fLang"><option>Tiếng Việt</option><option>Tiếng Việt + tiếng Anh xen kẽ</option><option>Tiếng Anh</option></select>
+      <small>Không đổi được sau khi bắt đầu ghi.</small></div>
+    <div class="field"><label for="fTerms">Thuật ngữ riêng</label><input class="input" id="fTerms" value="Tasco, MemoryOS, Vinaconex 9, OKR, KPI, OCR">
+      <small>Giúp nhận dạng đúng tên riêng và từ chuyên ngành.</small></div>
+    <div class="consent"><input type="checkbox" id="fConsent"><label for="fConsent">Tôi đã thông báo cho mọi người trong cuộc họp rằng buổi họp được ghi lại thành văn bản.</label>
+      <button class="btn sm copy" id="copyNotice">${ic('copy')}Câu thông báo</button></div>
+  </div>
+  <footer><button class="btn" id="cNew">Huỷ</button><button class="btn primary" id="goNew" disabled>${ic('mic')}Bắt đầu ghi</button></footer></div>`;
+  document.body.appendChild(d);
+  const close=()=>{d.remove();S.view='list';render();};
+  $('#xNew').onclick=close;$('#cNew').onclick=close;
+  d.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
+  $('#fConsent').onchange=e=>{$('#goNew').disabled=!e.target.checked;};
+  d.querySelectorAll('input[name=kind]').forEach(r=>r.onchange=()=>{S.newType=r.value;$('#browserNote').hidden=r.value!=='online';});
+  $('#browserNote').hidden=S.newType!=='online';
+  $('#copyNotice').onclick=()=>toast('Đã sao chép: “Buổi họp hôm nay được ghi lại thành văn bản trên MemoryOS để làm biên bản. Ai không đồng ý xin báo ngay.”');
+  $('#goNew').onclick=()=>{d.remove();if(S.newType==='online')openShare();else{S.view='live';startLive();toast('Đang ghi bằng mic. Nhớ nhắc mọi người rằng buổi họp được ghi lại.');}};
+  $('#fTitle').focus();
+}
+function openShare(){
+  const d=document.createElement('div');d.className='scrim';
+  d.innerHTML=`<div class="dlg" role="dialog" aria-modal="true" aria-labelledby="st">
+  <header><h2 id="st">Chọn tab cuộc họp</h2></header>
+  <div class="body"><p style="margin:0;color:var(--content-secondary)">Trình duyệt sẽ mở hộp chia sẻ. Chọn tab đang họp và <b>bật “Chia sẻ cả âm thanh của thẻ”</b>. Nếu không bật, MemoryOS chỉ nghe được giọng của bạn.</p>
+  <div class="share-demo" aria-hidden="true"><div class="bar">Chia sẻ thẻ Chrome với MemoryOS</div>
+    <div class="tabsx"><b>Thẻ Chrome</b><span>Cửa sổ</span><span>Toàn bộ màn hình</span></div>
+    <div class="item sel">${ic('monitor')} Google Meet · Giao ban tuần</div><div class="item">${ic('monitor')} Gmail · Hộp thư</div>
+    <div class="foot"><input type="checkbox" checked disabled><span class="hl">Chia sẻ cả âm thanh của thẻ</span></div></div>
+  <small style="color:var(--content-muted)">Hình minh hoạ, chỉ hiện ở lần ghi đầu tiên.</small></div>
+  <footer><button class="btn" id="sBack">Quay lại</button><button class="btn primary" id="sGo">Mở hộp chia sẻ</button></footer></div>`;
+  document.body.appendChild(d);
+  $('#sBack').onclick=()=>{d.remove();S.view='new';render();};
+  $('#sGo').onclick=()=>{d.remove();S.view='live';startLive();toast('Đang ghi. Hãy nói với mọi người rằng buổi họp được ghi lại.','Sao chép câu thông báo');};
+}
+
+/* ---------- meeting page ---------- */
+function speakerChip(sid){
+  const sp=speakers[sid];const ini=sp.fixed?'B':(sp.name.startsWith('Người')?sp.name.slice(-1):sp.name.split(' ').pop()[0]);
+  return `<button class="spk" data-spk="${sid}" ${sp.fixed?'disabled':''} title="${sp.fixed?'Giọng từ mic của bạn':'Bấm để gán tên'}"><span class="av" style="background:${sp.color}">${esc(ini)}</span><span class="nm">${esc(sp.name)}</span><span class="src">· ${sp.src==='mic'?'mic':'tab'}</span></button>`;
+}
+function transcriptHtml(live){
+  let h=S.lines.map(l=>`<div class="line${S.flash===l.id?' flash':''}" id="${l.id}"><button class="ts" data-jump="${l.id}">${mm(l.t)}</button><div>${speakerChip(l.s)}</div><div class="txt">${txt(l.x)}</div></div>`).join('');
+  if(live&&S.partial){const p=incoming[S.queue%incoming.length];h+=`<div class="line"><span class="ts">${mm(S.elapsed)}</span><div>${speakerChip(p.s)}</div><div class="txt partial">${esc(S.partial)}<span class="caret"></span></div></div>`;}
+  return h;
+}
+function meetView(live){
+  const done=!live;
+  const tabs=live?[['transcript','Transcript'],['notes','Ghi chú của tôi'],['summary','Tóm tắt',true]]:[['summary','Tóm tắt'],['tasks','Việc cần làm',0,3],['decisions','Quyết định',0,2],['transcript','Transcript'],['notes','Ghi chú của tôi']];
+  const cur=live?S.tab:S.doneTab;
+  const rec=live?`<div class="recbar" role="status" aria-live="off">
+    <span class="dot ${S.paused?'paused':''}"></span><span class="time" id="clock">${fmt(S.elapsed)}</span><span class="lang">${S.paused?'Tạm dừng':'Đang ghi'} · Tiếng Việt</span>
+    <span class="meter">${ic('mic')} Bạn <span class="bars" id="mMic">${'<i></i>'.repeat(6)}</span></span>
+    <span class="meter">${ic('monitor')} Tab Meet <span class="bars ${S.silent?'dead':''}" id="mTab">${'<i></i>'.repeat(6)}</span></span>
+    <span class="sp"></span>
+    <button class="btn sm" id="bPause">${ic(S.paused?'play':'pause')}${S.paused?'Tiếp tục':'Tạm dừng'}</button>
+    <button class="btn sm rec" id="bStop">${ic('stop')}Dừng</button></div>
+    <div class="banner" id="silentBanner" ${S.silent&&S.silentFor>=3?'':'hidden'}>${ic('warn')}<div><b>Không nhận được âm thanh từ tab Meet hơn 20 giây.</b> Có thể bạn chưa bật “Chia sẻ cả âm thanh của thẻ”, hoặc cuộc họp đang im lặng. Giọng của bạn vẫn được ghi.</div><button class="btn sm" id="reshare">Chọn lại tab</button></div>`:'';
+  const title=`<h1 class="mtitle">Giao ban tuần · Khối Tài chính</h1>
+    <div class="mmeta"><span>${ic('clock')} Hôm nay, 09:00${done?' · 46 phút':''}</span><span>${ic('users')} Anh Thanh, Chị Lan, Anh Minh, Bạn</span><span>${ic('lock')} Chỉ mình bạn</span></div>`;
+  const tabbar=`<div class="tabs" role="tablist">${tabs.map(([k,l,dis,n])=>`<button role="tab" data-tab="${k}" aria-selected="${cur===k}" ${dis?'disabled title="Có sau khi họp xong"':''}>${l}${n?`<span class="n">${n}</span>`:''}</button>`).join('')}</div>`;
+  let body='';
+  if(cur==='transcript')body=`<div id="tr">${transcriptHtml(live)}</div>${live?'':'<div class="honest">Từ gạch sóng là chỗ nhận dạng kém chắc chắn. <button class="btn sm" style="margin-left:6px">'+ic('wand')+'Gợi ý sửa lỗi</button></div>'}`;
+  else if(cur==='notes')body=`<label for="myNotes" style="display:block;color:var(--content-muted);font-size:12.5px;margin-bottom:6px">Ghi chú riêng. AI dùng những dòng này để tóm tắt đúng ý bạn.</label><textarea class="notes" id="myNotes">${esc(S.notes)}</textarea>`;
+  else if(cur==='summary')body=summaryHtml();
+  else if(cur==='tasks')body=tasksHtml();
+  else if(cur==='decisions')body=decisionsHtml();
+  const headBtns=done?`<div class="head" style="margin-bottom:6px"><span class="sp"></span><button class="btn sm">${ic('down')}Xuất Word</button><button class="btn sm">${ic('chat')}Mở trong Chat</button></div>`:'';
+  const suggestions=live?['Catch me up: 2 phút vừa rồi','Đã chốt những gì?','Tôi có được nhắc tới không?']:['Liệt kê việc cần làm','Viết email tổng kết','Ai phản đối điều gì?'];
+  const side=`<aside class="meet-side" aria-label="Hỏi về cuộc họp"><div class="side-h"><b>Hỏi về cuộc họp này</b><small>${live?'Trả lời chỉ dựa trên transcript tính đến lúc hỏi':'Trả lời dựa trên transcript và ghi chú của cuộc họp'}</small></div>
+    <div class="msgs" id="msgs">${S.chat.map(c=>`<div class="q">${esc(c.q)}</div><div class="a">${c.a}</div>`).join('')||`<div class="a" style="color:var(--content-muted)">${live?'Vào muộn? Bấm “Catch me up” để xem 2 phút gần nhất mà không làm gián đoạn cuộc họp.':'Hỏi bất cứ điều gì về buổi họp. Mỗi câu trả lời có mốc thời gian để kiểm tra lại.'}</div>`}</div>
+    <div class="suggest">${suggestions.map((s,i)=>`<button data-sug="${i}" ${live&&i===0&&S.elapsed<120?'disabled':''}>${esc(s)}</button>`).join('')}</div>
+    <form class="composer" id="ask"><input id="askIn" placeholder="Hỏi về cuộc họp…" aria-label="Câu hỏi"><button aria-label="Gửi">${ic('send')}</button></form>
+    <div class="scope">Không dùng tài liệu công ty hay web trong khung này.</div></aside>`;
+  const proc=S.processing?`<div class="processing"><span class="spinner"></span><div><b>Đang tạo tóm tắt, quyết định và việc cần làm…</b><br><span style="font-size:12.5px">Transcript đã lưu đầy đủ. Bạn có thể rời trang, xong sẽ có thông báo.</span></div></div>`:'';
+  return `${rec}<div class="meet"><div class="meet-main">${headBtns}${title}${proc}${tabbar}<div id="pane">${body}</div></div>${side}</div>`;
+}
+function summaryHtml(){
+  if(S.processing)return `<div class="card" style="color:var(--content-muted)">Tóm tắt sẽ hiện ở đây sau khoảng 1 phút.</div>`;
+  return `<div class="edited"><span>Tạo lúc 09:47 · model GPT-5 mini</span><button class="btn sm">${ic('wand')}Viết lại theo yêu cầu</button><button class="btn sm">Sửa</button></div>
+  <div class="card"><h3>Tóm tắt</h3><ul>
+   <li>Ngân sách quý 4 phải chốt trước thứ Năm 25/09, không lùi thêm <button class="ts" data-jump="l1">00:10:02</button></li>
+   <li>KPI tháng 9 còn thiếu số liệu của Vinaconex 9 và Tower 3 <button class="ts" data-jump="l2">00:10:20</button></li>
+   <li>Bản scan báo cáo tài chính quý 3 có lỗi OCR ở bảng cân đối; anh Minh kiểm tra lại <button class="ts" data-jump="l4">00:11:05</button></li>
+   <li>File nhân sự chỉ mở cho nhóm HR; các phòng khác hỏi qua trợ lý</li></ul></div>
+  <div class="card"><h3>Từ ghi chú của bạn</h3><ul><li>Cần hỏi anh Thanh về hạn mức 500.000đ/người/tháng cho model ngoài</li><li>Nhắc chị Lan gửi lại file KPI bản cuối</li></ul></div>
+  <div class="honest">${ic('warn','style="vertical-align:-3px"')} Khoảng 00:31:10–00:31:40 âm thanh tab bị ngắt nên transcript thiếu đoạn này. Tóm tắt không suy đoán phần bị thiếu.</div>`;
+}
+function tasksHtml(){
+  const rows=[
+    {id:'t1',w:'Gửi báo giá gói MemoryOS cho Tasco',o:'me',d:'2026-09-26',q:'Em sẽ gửi báo giá gói MemoryOS cho Tasco trước thứ Sáu tuần này.',l:'l3',t:640},
+    {id:'t2',w:'Kiểm tra lại các bảng cân đối bị lỗi OCR trong BCTC quý 3',o:'minh',d:'2026-09-24',q:'Vậy anh Minh kiểm tra lại các bảng đó, xong trước thứ Tư nhé.',l:'l5',t:690},
+    {id:'t3',w:'Bổ sung số liệu KPI tháng 9 của Vinaconex 9 và Tower 3',o:'lan',d:'',q:'…còn thiếu số liệu của hai đơn vị là Vinaconex 9 và Tower 3.',l:'l2',t:620,guess:true}
+  ];
+  const opts=o=>['me',...people.map(p=>p.id)].map(id=>`<option value="${id}" ${id===o?'selected':''}>${id==='me'?'Bạn':esc(people.find(p=>p.id===id).name)}</option>`).join('');
+  return `<div class="card"><div class="th"><span></span><span>Việc</span><span>Người phụ trách</span><span>Hạn</span></div>
+  ${rows.map(r=>`<div class="task ${S.tasksDone[r.id]?'done':''}"><input type="checkbox" data-task="${r.id}" ${S.tasksDone[r.id]?'checked':''} aria-label="Đánh dấu xong"><div class="what">${esc(r.w)} ${r.guess?'<span class="conf" title="Không ai nói rõ người nhận việc">AI đoán</span>':''}</div>
+   <select aria-label="Người phụ trách">${opts(r.o)}</select><input type="text" aria-label="Hạn" value="${r.d?r.d.split('-').reverse().join('/'):''}" placeholder="Chưa có hạn">
+   <div class="quote"><button class="ts" data-jump="${r.l}">${mm(r.t)}</button><span>“${esc(r.q)}”</span></div></div>`).join('')}
+  </div><div class="honest">Chỉ lấy việc được giao rõ trong cuộc họp. Theo dõi việc qua nhiều cuộc họp sẽ có ở phase sau (MEM-92).</div>`;
+}
+function decisionsHtml(){
+  return `<div class="card"><ul>
+   <li><b>Chốt ngân sách quý 4 trước thứ Năm 25/09.</b> Người chốt: Anh Thanh <button class="ts" data-jump="l1">00:10:02</button></li>
+   <li><b>File nhân sự chỉ nhóm HR được xem;</b> các phòng khác hỏi qua trợ lý. Người chốt: Anh Thanh <button class="ts">00:13:40</button></li></ul></div>`;
+}
+function bindMeet(live){
+  document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{if(live)S.tab=b.dataset.tab;else S.doneTab=b.dataset.tab;render();});
+  document.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>jump(b.dataset.jump));
+  document.querySelectorAll('.spk[data-spk]').forEach(b=>b.onclick=e=>{e.stopPropagation();speakerPop(b);});
+  document.querySelectorAll('[data-task]').forEach(c=>c.onchange=()=>{S.tasksDone[c.dataset.task]=c.checked;render();});
+  const n=$('#myNotes');if(n)n.oninput=()=>{S.notes=n.value;};
+  document.querySelectorAll('[data-sug]').forEach(b=>b.onclick=()=>ask(b.textContent,live));
+  $('#ask').onsubmit=e=>{e.preventDefault();const v=$('#askIn').value.trim();if(v)ask(v,live);};
+  if(live){
+    $('#bStop').onclick=confirmStop;
+    $('#bPause').onclick=()=>{S.paused=!S.paused;render();};
+    const rs=$('#reshare');if(rs)rs.onclick=()=>{S.silent=false;S.silentFor=0;$('#simSilent').setAttribute('aria-pressed','false');toast('Đã nhận âm thanh từ tab Meet.');render();};
+  }
+  const tr=$('#tr');if(tr&&live){const mmn=$('.meet-main');/* keep newest visible */ const last=tr.lastElementChild;if(last&&!S.flash)last.scrollIntoView({block:'nearest'});}
+}
+function jump(id){
+  if(S.view==='live')S.tab='transcript';else S.doneTab='transcript';
+  S.flash=id;render();const el=document.getElementById(id);if(el)el.scrollIntoView({block:'center',behavior:'smooth'});
+  setTimeout(()=>{S.flash=null;const e=document.getElementById(id);if(e)e.classList.remove('flash');},1600);
+}
+function ask(q,live){
+  const map={
+    'Catch me up: 2 phút vừa rồi':`Trong 2 phút vừa rồi: anh Minh nhận kiểm tra lại các bảng cân đối lỗi OCR <button class="cite" data-jump="l5">00:11:30</button>; chị Lan đề nghị chỉ mở file nhân sự cho nhóm HR.`,
+    'Đã chốt những gì?':`Đã chốt: ngân sách quý 4 xong trước thứ Năm <button class="cite" data-jump="l1">00:10:02</button>. Chưa có quyết định về file nhân sự.`,
+    'Tôi có được nhắc tới không?':`Có. Bạn nhận gửi báo giá MemoryOS cho Tasco trước thứ Sáu <button class="cite" data-jump="l3">00:10:40</button>.`,
+    'Liệt kê việc cần làm':`3 việc: báo giá cho Tasco (Bạn, 26/09) <button class="cite" data-jump="l3">00:10:40</button>; kiểm tra bảng cân đối (Anh Minh, 24/09) <button class="cite" data-jump="l5">00:11:30</button>; bổ sung KPI (chưa rõ người nhận) <button class="cite" data-jump="l2">00:10:20</button>.`,
+    'Viết email tổng kết':`Tiêu đề: Tổng kết giao ban tuần 21/09<br>Kính gửi anh chị, buổi giao ban đã thống nhất chốt ngân sách quý 4 trước thứ Năm và chỉ mở file nhân sự cho nhóm HR…`,
+    'Ai phản đối điều gì?':`Không có ý kiến phản đối nào được ghi nhận trong transcript.`
+  };
+  S.chat.push({q,a:map[q]||`Theo transcript đến ${fmt(S.elapsed)}, chưa có đoạn nào nói về “${esc(q)}”.`});render();
+  const m=$('#msgs');if(m)m.scrollTop=m.scrollHeight;
+  document.querySelectorAll('.cite').forEach(b=>b.onclick=()=>jump(b.dataset.jump));
+}
+function speakerPop(btn){
+  closePop();const sid=btn.dataset.spk;const r=btn.getBoundingClientRect();
+  const p=document.createElement('div');p.className='pop';p.id='pop';
+  p.style.left=Math.min(r.left,innerWidth-250)+'px';p.style.top=(r.bottom+6)+'px';
+  p.innerHTML=`<input class="input" placeholder="Tìm người…" aria-label="Tìm người"><small>Thành phần cuộc họp</small>${people.map(x=>`<button data-p="${x.id}"><span class="spk"><span class="av" style="background:${speakers[sid].color}">${x.name.split(' ').pop()[0]}</span></span><span>${esc(x.name)}<br><span style="color:var(--content-muted);font-size:12px">${esc(x.role)}</span></span></button>`).join('')}<small>Áp dụng cho mọi câu của ${esc(speakers[sid].name)}</small>`;
+  document.body.appendChild(p);p.querySelector('input').focus();
+  p.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{const old=speakers[sid].name;speakers[sid].name=people.find(x=>x.id===b.dataset.p).name;closePop();render();toast(`Đã đổi “${old}” thành ${speakers[sid].name} ở mọi câu.`);});
+  setTimeout(()=>document.addEventListener('click',outside),0);
+}
+function outside(e){const p=$('#pop');if(p&&!p.contains(e.target))closePop();}
+function closePop(){const p=$('#pop');if(p)p.remove();document.removeEventListener('click',outside);}
+function confirmStop(){
+  const d=document.createElement('div');d.className='scrim';
+  d.innerHTML=`<div class="dlg" role="alertdialog" aria-modal="true" aria-labelledby="stt" style="width:min(420px,100%)"><header><h2 id="stt">Dừng ghi cuộc họp?</h2></header>
+  <div class="body"><p style="margin:0;color:var(--content-secondary)">Transcript đến ${fmt(S.elapsed)} đã được lưu. Sau khi dừng, MemoryOS sẽ tạo tóm tắt, quyết định và việc cần làm. Không ghi tiếp được vào cuộc họp này.</p></div>
+  <footer><button class="btn" id="keep">Tiếp tục ghi</button><button class="btn rec" id="stopSave">${ic('stop')}Dừng và tạo tóm tắt</button></footer></div>`;
+  document.body.appendChild(d);$('#keep').focus();
+  $('#keep').onclick=()=>d.remove();
+  $('#stopSave').onclick=()=>{d.remove();finishLive();};
+}
+function finishLive(){
+  clearTimers();S.view='done';S.doneTab='summary';S.processing=true;S.partial='';S.chat=[];render();
+  timers.push(setTimeout(()=>{S.processing=false;render();toast('Đã tạo xong tóm tắt: 3 việc cần làm, 2 quyết định.');},2600));
+}
+
+/* ---------- live simulation ---------- */
+function startLive(){
+  clearTimers();S.paused=false;S.tab='transcript';S.chat=[];S.lines=seed.map(l=>({...l}));S.queue=0;S.partial='';S.silentFor=0;render();
+  let wordIdx=0;
+  timers.push(setInterval(()=>{
+    if(S.view!=='live'||S.paused)return;
+    S.elapsed++;const c=$('#clock');if(c)c.textContent=fmt(S.elapsed);
+    if(S.silent){S.silentFor++;const b=$('#silentBanner');if(b&&S.silentFor>=3)b.hidden=false;}
+  },1000));
+  timers.push(setInterval(()=>{
+    if(S.view!=='live'||S.paused)return;
+    const cur=incoming[S.queue%incoming.length];
+    if(S.silent&&cur.s!=='me'){S.queue++;return;}
+    const words=cur.x.replace(/[{}]/g,'').split(' ');
+    wordIdx=Math.min(words.length,wordIdx+2);S.partial=words.slice(0,wordIdx).join(' ');
+    if(wordIdx>=words.length){S.lines.push({id:'n'+S.lines.length,t:S.elapsed,s:cur.s,x:cur.x});S.partial='';wordIdx=0;S.queue++;}
+    if(S.tab==='transcript'){const tr=$('#tr');if(tr){tr.innerHTML=transcriptHtml(true);tr.querySelectorAll('.spk[data-spk]').forEach(b=>b.onclick=e=>{e.stopPropagation();speakerPop(b);});tr.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>jump(b.dataset.jump));const l=tr.lastElementChild;if(l)l.scrollIntoView({block:'nearest'});}}
+  },420));
+  timers.push(setInterval(()=>{
+    if(S.view!=='live')return;
+    const set=(id,on)=>{const el=$(id);if(!el)return;el.querySelectorAll('i').forEach(i=>{i.style.height=(on&&!S.paused?3+Math.random()*13:3)+'px';});};
+    const cur=incoming[S.queue%incoming.length];
+    set('#mMic',cur.s==='me'||Math.random()<.2);set('#mTab',!S.silent&&cur.s!=='me');
+  },140));
+}
+
+/* ---------- misc ---------- */
+let toastT;
+function toast(msg,action){
+  const old=$('.toast');if(old)old.remove();clearTimeout(toastT);
+  const t=document.createElement('div');t.className='toast';t.setAttribute('role','status');
+  t.innerHTML=`<span>${esc(msg)}</span>${action?`<button>${esc(action)}</button>`:''}`;
+  document.body.appendChild(t);
+  if(action)t.querySelector('button').onclick=()=>{t.remove();toast('Đã sao chép câu thông báo.');};
+  toastT=setTimeout(()=>t.remove(),4200);
+}
+document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.scrim').forEach(s=>s.remove());closePop();
+  const v=b.dataset.go;clearTimers();S.processing=false;
+  if(v==='live'){S.view='live';startLive();}
+  else{S.view=v;render();}
+});
+$('#simSilent').onclick=e=>{S.silent=!S.silent;S.silentFor=0;e.currentTarget.setAttribute('aria-pressed',String(S.silent));if(S.view==='live')render();else toast('Mở màn “Đang họp” để xem cảnh báo.');};
+$('#navMeet').onclick=()=>{document.querySelectorAll('.scrim').forEach(s=>s.remove());clearTimers();S.view='list';render();};
+
+S.view='live';startLive();
+})();
+</script>

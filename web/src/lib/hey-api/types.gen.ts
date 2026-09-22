@@ -141,6 +141,129 @@ export type GoogleDriveSelectionReceiptResponse = {
 };
 
 /**
+ * A blank or absent name restores the automatic label
+ */
+export type MeetingSpeakerRequest = {
+    name?: string | null;
+};
+
+/**
+ * An uploaded recording being turned into a transcript
+ */
+export type MeetingAudio = {
+    status: 'NONE' | 'WAITING' | 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
+    failure: string | null;
+    filename: string | null;
+    sizeBytes: number;
+    provider: string | null;
+};
+
+export type MeetingDetail = {
+    id: string;
+    title: string;
+    kind: 'ONLINE' | 'IN_PERSON';
+    language: string | null;
+    participants: Array<string>;
+    terms: Array<string>;
+    notes: string;
+    status: 'RECORDING' | 'TRANSCRIBING' | 'ENDED';
+    provider: string | null;
+    /**
+     * Whether speaker labels distinguish people
+     */
+    diarized: boolean;
+    createdAt: string;
+    endedAt: string | null;
+    revision: number;
+    speakers: Array<MeetingSpeaker>;
+    utterances: Array<MeetingUtterance>;
+    minutes: MeetingMinutes;
+    audio: MeetingAudio;
+    /**
+     * Whether the reader recorded this meeting; only its owner may edit it
+     */
+    owned: boolean;
+    /**
+     * Who the meeting is shared with; empty for anyone but its owner
+     */
+    readers: Array<MeetingReader>;
+};
+
+/**
+ * What the model made of the meeting once it ended
+ */
+export type MeetingMinutes = {
+    status: 'NONE' | 'PENDING' | 'RUNNING' | 'READY' | 'FAILED';
+    failure: string | null;
+    summary: string;
+    /**
+     * What kind of meeting this was
+     */
+    kind: string;
+    generatedAt: string | null;
+    decisions: Array<MeetingMinutesItem>;
+    actions: Array<MeetingMinutesItem>;
+};
+
+/**
+ * A decision the meeting reached or work it handed out
+ */
+export type MeetingMinutesItem = {
+    id: string;
+    text: string;
+    owner: string | null;
+    due: string | null;
+    /**
+     * The transcript sentence the item rests on
+     */
+    quote: string | null;
+    sourceUtteranceId: string | null;
+    done: boolean;
+};
+
+/**
+ * One member, or one Group, the meeting is shared with
+ */
+export type MeetingReader = {
+    kind: 'MEMBER' | 'GROUP';
+    id: string;
+    name: string;
+};
+
+export type MeetingSpeaker = {
+    track: 'MIC' | 'TAB';
+    label: string;
+    name: string | null;
+};
+
+export type MeetingUtterance = {
+    id: string;
+    track: 'MIC' | 'TAB';
+    speaker: string;
+    startMs: number;
+    endMs: number;
+    text: string;
+    confidence: number;
+};
+
+/**
+ * Everyone who may read this meeting, replacing the current list
+ */
+export type MeetingShareRequest = {
+    members: Array<string>;
+    groups: Array<string>;
+};
+
+export type MeetingNotesRequest = {
+    notes: string;
+    revision: number;
+};
+
+export type MeetingItemRequest = {
+    done: boolean;
+};
+
+/**
  * Header values may contain secrets and are never returned; API-key servers place {api_key}
  */
 export type McpHeaderTemplateChange = {
@@ -436,7 +559,7 @@ export type WebConnectionResponse = {
 
 export type VoiceSelectionRequest = {
     function: 'STT' | 'TTS';
-    provider?: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+    provider?: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     model?: string;
 };
 
@@ -452,7 +575,7 @@ export type VoiceConnectionRequest = {
 };
 
 export type VoiceConnectionResponse = {
-    provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+    provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     endpoint: string;
     sttModel: string;
     ttsModel: string;
@@ -889,7 +1012,7 @@ export type Pricing = {
  * Tenant model for one task; no model uses the conversation model
  */
 export type ModelFlow = {
-    flow: 'CHAT_NAMING';
+    flow: 'CHAT_NAMING' | 'MEETING_MINUTES';
     modelConfigurationId: string | null;
     /**
      * False when the model is set but no longer eligible; the task then uses the conversation model
@@ -1234,6 +1357,95 @@ export type SourceFacets = {
 export type SourceTypeFacet = {
     type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
     count: number;
+};
+
+/**
+ * What the owner enters before recording
+ */
+export type MeetingCreateRequest = {
+    title: string;
+    kind: 'ONLINE' | 'IN_PERSON';
+    language?: 'vi' | 'en';
+    /**
+     * Participant names, at most 50
+     */
+    participants?: Array<string> | null;
+    /**
+     * Names and terms the speech provider should prefer, at most 100
+     */
+    terms?: Array<string> | null;
+};
+
+export type MeetingTicketRequest = {
+    track: 'MIC' | 'TAB';
+};
+
+/**
+ * A 60-second single-use ticket for one meeting track's WebSocket
+ */
+export type MeetingTicket = {
+    ticket: string;
+    expiresAt: string;
+};
+
+/**
+ * Declared before the bytes are uploaded and checked against them afterwards
+ */
+export type MeetingRecordingRequest = {
+    filename: string;
+    mediaType: string;
+    sizeBytes: number;
+    /**
+     * Hex SHA-256 of the file
+     */
+    sha256: string;
+    /**
+     * The speech provider to transcribe with; the Tenant's own is used when absent
+     */
+    provider?: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
+};
+
+/**
+ * Where to send the recording, and the meeting as it now reads
+ */
+export type MeetingRecordingReservation = {
+    meeting: MeetingDetail;
+    method: string;
+    uploadUrl: string;
+    requiredHeaders: {
+        [key: string]: string;
+    };
+    expiresAt: string;
+};
+
+/**
+ * The parts of a biên bản the transcript cannot supply; a blank field prints as an ellipsis
+ */
+export type MeetingHeadingRequest = {
+    organization?: string;
+    parentOrganization?: string;
+    number?: string;
+    about?: string;
+    place?: string;
+    opened?: string;
+    closed?: string;
+    chair?: string;
+    chairRole?: string;
+    secretary?: string;
+    secretaryRole?: string;
+    attendees?: Array<string>;
+};
+
+/**
+ * The minutes as a file in the caller's library
+ */
+export type MeetingLibraryFile = {
+    fileId: string;
+    filename: string;
+    /**
+     * READY when Chat can read it; PROCESSING while it is extracted
+     */
+    status: string;
 };
 
 export type McpToolRefresh = {
@@ -1994,6 +2206,44 @@ export type SearchDocument = {
     hasMore: boolean;
 };
 
+export type MeetingSummary = {
+    id: string;
+    title: string;
+    kind: 'ONLINE' | 'IN_PERSON';
+    status: 'RECORDING' | 'TRANSCRIBING' | 'ENDED';
+    participants: number;
+    /**
+     * End of the last utterance
+     */
+    durationMs: number;
+    createdAt: string;
+    endedAt: string | null;
+    /**
+     * Whether the member recorded it, as opposed to being shared it
+     */
+    owned: boolean;
+};
+
+/**
+ * A speech connection a recording may be transcribed with
+ */
+export type MeetingTranscriber = {
+    provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
+    model: string;
+    /**
+     * Whether it separates the speakers of a recording
+     */
+    diarizes: boolean;
+    /**
+     * The largest recording this provider accepts
+     */
+    maxBytes: number;
+    /**
+     * Whether it is the Tenant's own choice
+     */
+    selected: boolean;
+};
+
 export type ChatGroupOption = {
     id: string;
     name: string;
@@ -2122,10 +2372,14 @@ export type VoiceAvailabilityResponse = {
 };
 
 export type VoiceProviderResponse = {
-    provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+    provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     requiresKey: boolean;
     requiresEndpoint: boolean;
     defaultEndpoint: string;
+    /**
+     * Whether the provider can read text aloud.
+     */
+    speech: boolean;
     sttModels: Array<string>;
     ttsModels: Array<string>;
     voices: Array<string>;
@@ -2952,6 +3206,193 @@ export type ReplaceGoogleDriveRootsResponses = {
 };
 
 export type ReplaceGoogleDriveRootsResponse = ReplaceGoogleDriveRootsResponses[keyof ReplaceGoogleDriveRootsResponses];
+
+export type NameMeetingSpeakerData = {
+    body: MeetingSpeakerRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        track: 'MIC' | 'TAB';
+        label: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/speakers/{track}/{label}';
+};
+
+export type NameMeetingSpeakerErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or speaker not available
+     */
+    404: ApiProblem;
+};
+
+export type NameMeetingSpeakerError = NameMeetingSpeakerErrors[keyof NameMeetingSpeakerErrors];
+
+export type NameMeetingSpeakerResponses = {
+    /**
+     * The meeting
+     */
+    200: MeetingDetail;
+};
+
+export type NameMeetingSpeakerResponse = NameMeetingSpeakerResponses[keyof NameMeetingSpeakerResponses];
+
+export type ShareMeetingData = {
+    body: MeetingShareRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/shares';
+};
+
+export type ShareMeetingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type ShareMeetingError = ShareMeetingErrors[keyof ShareMeetingErrors];
+
+export type ShareMeetingResponses = {
+    /**
+     * The meeting, with its readers
+     */
+    200: MeetingDetail;
+};
+
+export type ShareMeetingResponse = ShareMeetingResponses[keyof ShareMeetingResponses];
+
+export type UpdateMeetingNotesData = {
+    body: MeetingNotesRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/notes';
+};
+
+export type UpdateMeetingNotesErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+    /**
+     * The meeting changed
+     */
+    409: ApiProblem;
+};
+
+export type UpdateMeetingNotesError = UpdateMeetingNotesErrors[keyof UpdateMeetingNotesErrors];
+
+export type UpdateMeetingNotesResponses = {
+    /**
+     * The meeting
+     */
+    200: MeetingDetail;
+};
+
+export type UpdateMeetingNotesResponse = UpdateMeetingNotesResponses[keyof UpdateMeetingNotesResponses];
+
+export type MarkMeetingMinutesItemData = {
+    body: MeetingItemRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        itemId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/minutes/{itemId}';
+};
+
+export type MarkMeetingMinutesItemErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or item not available
+     */
+    404: ApiProblem;
+};
+
+export type MarkMeetingMinutesItemError = MarkMeetingMinutesItemErrors[keyof MarkMeetingMinutesItemErrors];
+
+export type MarkMeetingMinutesItemResponses = {
+    /**
+     * The meeting
+     */
+    200: MeetingDetail;
+};
+
+export type MarkMeetingMinutesItemResponse = MarkMeetingMinutesItemResponses[keyof MarkMeetingMinutesItemResponses];
 
 export type DeleteMcpServerData = {
     body?: never;
@@ -3823,7 +4264,7 @@ export type DeleteChatVoiceConnectionData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     };
     query: {
         revision: number;
@@ -3878,7 +4319,7 @@ export type SaveChatVoiceConnectionData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     };
     query?: never;
     url: '/api/chat/voice/connections/{provider}';
@@ -6046,7 +6487,7 @@ export type SetChatModelFlowData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        flow: 'CHAT_NAMING';
+        flow: 'CHAT_NAMING' | 'MEETING_MINUTES';
     };
     query: {
         modelConfigurationId?: string;
@@ -7329,6 +7770,401 @@ export type SearchDocumentsResponses = {
 };
 
 export type SearchDocumentsResponse = SearchDocumentsResponses[keyof SearchDocumentsResponses];
+
+export type ListMeetingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/meetings';
+};
+
+export type ListMeetingsErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type ListMeetingsError = ListMeetingsErrors[keyof ListMeetingsErrors];
+
+export type ListMeetingsResponses = {
+    /**
+     * Meetings
+     */
+    200: Array<MeetingSummary>;
+};
+
+export type ListMeetingsResponse = ListMeetingsResponses[keyof ListMeetingsResponses];
+
+export type CreateMeetingData = {
+    body: MeetingCreateRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/meetings';
+};
+
+export type CreateMeetingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type CreateMeetingError = CreateMeetingErrors[keyof CreateMeetingErrors];
+
+export type CreateMeetingResponses = {
+    /**
+     * The new meeting
+     */
+    201: MeetingDetail;
+};
+
+export type CreateMeetingResponse = CreateMeetingResponses[keyof CreateMeetingResponses];
+
+export type CreateMeetingTicketData = {
+    body: MeetingTicketRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/tickets';
+};
+
+export type CreateMeetingTicketErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+    /**
+     * The meeting has ended
+     */
+    409: ApiProblem;
+};
+
+export type CreateMeetingTicketError = CreateMeetingTicketErrors[keyof CreateMeetingTicketErrors];
+
+export type CreateMeetingTicketResponses = {
+    /**
+     * Ticket
+     */
+    200: MeetingTicket;
+};
+
+export type CreateMeetingTicketResponse = CreateMeetingTicketResponses[keyof CreateMeetingTicketResponses];
+
+export type ReserveMeetingRecordingData = {
+    body: MeetingRecordingRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/recording';
+};
+
+export type ReserveMeetingRecordingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+    /**
+     * The meeting is no longer recording
+     */
+    409: ApiProblem;
+};
+
+export type ReserveMeetingRecordingError = ReserveMeetingRecordingErrors[keyof ReserveMeetingRecordingErrors];
+
+export type ReserveMeetingRecordingResponses = {
+    /**
+     * Where to send the recording
+     */
+    200: MeetingRecordingReservation;
+};
+
+export type ReserveMeetingRecordingResponse = ReserveMeetingRecordingResponses[keyof ReserveMeetingRecordingResponses];
+
+export type FinalizeMeetingRecordingData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/recording/finalize';
+};
+
+export type FinalizeMeetingRecordingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type FinalizeMeetingRecordingError = FinalizeMeetingRecordingErrors[keyof FinalizeMeetingRecordingErrors];
+
+export type FinalizeMeetingRecordingResponses = {
+    /**
+     * The meeting, with its recording queued
+     */
+    200: MeetingDetail;
+};
+
+export type FinalizeMeetingRecordingResponse = FinalizeMeetingRecordingResponses[keyof FinalizeMeetingRecordingResponses];
+
+export type RerunMeetingMinutesData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/minutes';
+};
+
+export type RerunMeetingMinutesErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type RerunMeetingMinutesError = RerunMeetingMinutesErrors[keyof RerunMeetingMinutesErrors];
+
+export type RerunMeetingMinutesResponses = {
+    /**
+     * The meeting, with its minutes queued
+     */
+    200: MeetingDetail;
+};
+
+export type RerunMeetingMinutesResponse = RerunMeetingMinutesResponses[keyof RerunMeetingMinutesResponses];
+
+export type ExportMeetingMinutesData = {
+    body: MeetingHeadingRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/minutes/export';
+};
+
+export type ExportMeetingMinutesErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type ExportMeetingMinutesError = ExportMeetingMinutesErrors[keyof ExportMeetingMinutesErrors];
+
+export type ExportMeetingMinutesResponses = {
+    /**
+     * The biên bản
+     */
+    200: Blob | File;
+};
+
+export type ExportMeetingMinutesResponse = ExportMeetingMinutesResponses[keyof ExportMeetingMinutesResponses];
+
+export type PublishMeetingMinutesData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/library';
+};
+
+export type PublishMeetingMinutesErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type PublishMeetingMinutesError = PublishMeetingMinutesErrors[keyof PublishMeetingMinutesErrors];
+
+export type PublishMeetingMinutesResponses = {
+    /**
+     * The file
+     */
+    200: MeetingLibraryFile;
+};
+
+export type PublishMeetingMinutesResponse = PublishMeetingMinutesResponses[keyof PublishMeetingMinutesResponses];
+
+export type EndMeetingData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/end';
+};
+
+export type EndMeetingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type EndMeetingError = EndMeetingErrors[keyof EndMeetingErrors];
+
+export type EndMeetingResponses = {
+    /**
+     * The ended meeting
+     */
+    200: MeetingDetail;
+};
+
+export type EndMeetingResponse = EndMeetingResponses[keyof EndMeetingResponses];
 
 export type ListMcpServersData = {
     body?: never;
@@ -8769,7 +9605,7 @@ export type TestChatVoiceConnectionData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE';
+        provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     };
     query?: never;
     url: '/api/chat/voice/connections/{provider}/test';
@@ -11883,6 +12719,123 @@ export type ReadSearchDocumentOriginalResponses = {
 
 export type ReadSearchDocumentOriginalResponse = ReadSearchDocumentOriginalResponses[keyof ReadSearchDocumentOriginalResponses];
 
+export type DeleteMeetingData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}';
+};
+
+export type DeleteMeetingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type DeleteMeetingError = DeleteMeetingErrors[keyof DeleteMeetingErrors];
+
+export type DeleteMeetingResponses = {
+    /**
+     * Deleted
+     */
+    204: void;
+};
+
+export type DeleteMeetingResponse = DeleteMeetingResponses[keyof DeleteMeetingResponses];
+
+export type GetMeetingData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}';
+};
+
+export type GetMeetingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type GetMeetingError = GetMeetingErrors[keyof GetMeetingErrors];
+
+export type GetMeetingResponses = {
+    /**
+     * The meeting
+     */
+    200: MeetingDetail;
+};
+
+export type GetMeetingResponse = GetMeetingResponses[keyof GetMeetingResponses];
+
+export type ListMeetingTranscribersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/meetings/transcribers';
+};
+
+export type ListMeetingTranscribersErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+};
+
+export type ListMeetingTranscribersError = ListMeetingTranscribersErrors[keyof ListMeetingTranscribersErrors];
+
+export type ListMeetingTranscribersResponses = {
+    /**
+     * Transcribers
+     */
+    200: Array<MeetingTranscriber>;
+};
+
+export type ListMeetingTranscribersResponse = ListMeetingTranscribersResponses[keyof ListMeetingTranscribersResponses];
+
 export type ListMcpServerToolsData = {
     body?: never;
     path: {
@@ -14784,7 +15737,7 @@ export type GetAiCostSummaryData = {
         from: string;
         to: string;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES';
     };
     url: '/api/ai-costs/summary';
 };
@@ -14969,7 +15922,7 @@ export type ListAiCostDaysData = {
         to: string;
         split?: 'BOUNDARY' | 'MODEL' | 'NONE';
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES';
     };
     url: '/api/ai-costs/daily';
 };
@@ -15009,7 +15962,7 @@ export type ListAiCostBreakdownData = {
         by: 'ACTOR' | 'GROUP' | 'MODEL' | 'FLOW' | 'PROVIDER';
         limit?: number;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES';
     };
     url: '/api/ai-costs/breakdown';
 };

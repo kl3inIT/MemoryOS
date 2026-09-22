@@ -120,6 +120,8 @@ public class VoiceConnectionService {
             audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.VOICE_CONNECTION_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant)).actor(actor).resource("VOICE_CONNECTION", null, null).detail("change", "DISABLE_" + function.name()).build());
             return;
         }
+        if (function == VoiceFunction.TTS && !provider.speech())
+            throw ChatException.invalid("This provider does not read text aloud.");
         var selected = connections.findByTenantIdAndProvider(tenant, provider).orElseThrow(ChatException::unavailable);
         if (model != null) selected.useTtsModel(model);
         if (!serves(selected, function)) throw ChatException.providerUnavailable();
@@ -141,6 +143,33 @@ public class VoiceConnectionService {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable).value();
         var all = connections.findByTenantIdOrderByProvider(tenant);
         return new Access(active(all, VoiceFunction.STT), active(all, VoiceFunction.TTS));
+    }
+
+    /**
+     * Every connection that can transcribe, with the Tenant's selected one first. Membership is enough to read it: a
+     * member choosing which provider transcribes their own recording must see what the Tenant configured, and the
+     * listing carries no endpoint or credential.
+     */
+    @Transactional(readOnly = true)
+    public List<Connection> transcribers(ActorId actor) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable).value();
+        var all = connections.findByTenantIdOrderByProvider(tenant);
+        var selected = active(all, VoiceFunction.STT);
+        return all.stream().filter(c -> serves(c, VoiceFunction.STT)).map(this::snapshot)
+                .sorted(java.util.Comparator.comparing(c -> selected != null && c.id().equals(selected.id()) ? 0 : 1))
+                .toList();
+    }
+
+    /** The connection a member asked to transcribe with, or the Tenant's selected one when they named none. */
+    @Transactional(readOnly = true)
+    public Connection transcriber(ActorId actor, @Nullable VoiceProvider provider) {
+        if (provider == null) {
+            var stt = resolve(actor).stt();
+            if (stt == null) throw ChatException.providerUnavailable();
+            return stt;
+        }
+        return transcribers(actor).stream().filter(c -> c.provider() == provider).findFirst()
+                .orElseThrow(ChatException::providerUnavailable);
     }
 
     public String key(Connection connection) {
@@ -181,6 +210,8 @@ public class VoiceConnectionService {
         if (replace ? credential.value() == null || credential.value().isBlank() || credential.value().length() > MAX_CREDENTIAL
                 : credential.value() != null)
             throw ChatException.invalid("Invalid provider credential.");
+        if (!provider.speech() && (!input.ttsModel().isEmpty() || !input.ttsVoice().isEmpty()))
+            throw ChatException.invalid("This provider does not read text aloud.");
         if (provider.requiresEndpoint() && input.endpoint().isEmpty())
             throw ChatException.invalid("This provider requires its own endpoint.");
         if (!input.endpoint().isEmpty()) ModelCatalogService.validateEndpoint(input.endpoint());

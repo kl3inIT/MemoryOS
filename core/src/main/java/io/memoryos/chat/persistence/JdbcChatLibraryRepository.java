@@ -199,6 +199,8 @@ public class JdbcChatLibraryRepository {
             case UPLOAD -> "chat_user_file";
             case GENERATED -> "chat_file_artifact";
             case IMAGE -> "chat_image_artifact";
+            // A meeting has no artifact table of its own: it is published straight into the library as an upload.
+            case MEETING -> throw new IllegalArgumentException("a meeting is published, not listed as an artifact");
         };
         String live = source == ChatLibraryFile.Source.UPLOAD
                 ? "f.status NOT IN ('DELETING','DELETED')"
@@ -253,6 +255,7 @@ public class JdbcChatLibraryRepository {
             case GENERATED -> "chat_file_artifact";
             case IMAGE -> "chat_image_artifact";
             case UPLOAD -> throw new IllegalArgumentException("an upload is not an artifact");
+            case MEETING -> throw new IllegalArgumentException("a meeting is published, not copied");
         };
         return jdbc.sql("""
                 SELECT a.object_key, a.filename, a.media_type, a.size_bytes FROM %s a

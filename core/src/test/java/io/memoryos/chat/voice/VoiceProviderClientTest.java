@@ -117,6 +117,24 @@ class VoiceProviderClientTest {
                 () -> client.verify(new VoiceConnectionService.Probe(VoiceProvider.AZURE, endpoint, "azure-secret")));
     }
 
+    @Test
+    void sonioxKeyIsVerifiedWithABearerTranscriptionListing() {
+        var listing = new AtomicReference<>("{\"transcriptions\":[]}");
+        var query = new AtomicReference<String>();
+        server.createContext("/v1/transcriptions", exchange -> {
+            authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            query.set(exchange.getRequestURI().getQuery());
+            respond(exchange, 200, listing.get());
+        });
+        String base = "http://127.0.0.1:" + server.getAddress().getPort() + "/v1";
+        client.verify(new VoiceConnectionService.Probe(VoiceProvider.SONIOX, base, "soniox-secret"));
+        assertEquals("Bearer soniox-secret", authorization.get());
+        assertEquals("limit=1", query.get());
+        listing.set("{\"data\":[]}");
+        assertThrows(ChatException.class,
+                () -> client.verify(new VoiceConnectionService.Probe(VoiceProvider.SONIOX, base, "soniox-secret")));
+    }
+
     private String serve(int status, String body) {
         server.createContext("/v1/models", exchange -> {
             authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));

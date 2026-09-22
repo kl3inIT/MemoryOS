@@ -166,22 +166,25 @@ function VoiceFunctionSection({
         </p>
       )}
       <ul className="space-y-3">
-        {providers.map((provider) => {
-          const connection = connections.find((item) => item.provider === provider.provider);
-          return (
-            <VoiceProviderCard
-              // Keyed by provider only, so a save keeps the card and returns focus to its trigger.
-              key={provider.provider}
-              fn={fn}
-              provider={provider}
-              connection={connection}
-              autoSelect={!active}
-              disabled={pending}
-              onSelect={select}
-              onChanged={onChanged}
-            />
-          );
-        })}
+        {/* A speech-to-text-only provider has no read-aloud card. */}
+        {providers
+          .filter((provider) => fn === "STT" || provider.speech)
+          .map((provider) => {
+            const connection = connections.find((item) => item.provider === provider.provider);
+            return (
+              <VoiceProviderCard
+                // Keyed by provider only, so a save keeps the card and returns focus to its trigger.
+                key={provider.provider}
+                fn={fn}
+                provider={provider}
+                connection={connection}
+                autoSelect={!active}
+                disabled={pending}
+                onSelect={select}
+                onChanged={onChanged}
+              />
+            );
+          })}
       </ul>
       {error && (
         <p role="alert" className="text-sm text-status-danger-content">
