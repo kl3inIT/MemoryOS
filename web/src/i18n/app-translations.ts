@@ -843,6 +843,7 @@ export const vietnameseUi: Record<string, string> = {
   "Đã lưu khóa; để trống để giữ nguyên": "Key saved; leave blank to keep it",
   "Kiểm tra kết nối": "Test connection",
   "Lấy danh sách": "Fetch list",
+  "{{size}} · {{columns}} cột · {{rows}} dòng": "{{size}} · {{columns}} columns · {{rows}} rows",
   "9Router có {{count}} engine: {{names}}": "9Router has {{count}} engines: {{names}}",
   "9Router chưa kết nối engine tìm kiếm nào. Thêm provider tìm kiếm trong 9Router rồi thử lại.":
     "9Router has no search engine connected. Add a search provider in 9Router, then try again.",

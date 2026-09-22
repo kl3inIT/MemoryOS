@@ -14,7 +14,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { Dialog } from "radix-ui";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { HighlightedCode } from "@/components/assistant-ui/elements/code-renderers.aui";
 import { Button } from "@/components/ui/button";
@@ -326,12 +326,10 @@ export function ChatFilePreviewModal({
               </Dialog.Title>
               {view?.description && (
                 <>
-                  <span className="hidden shrink-0 text-content-muted md:inline" aria-hidden="true">
+                  <span className="shrink-0 text-content-muted" aria-hidden="true">
                     ·
                   </span>
-                  <span className="hidden shrink-0 text-content-muted md:inline">
-                    {view.description}
-                  </span>
+                  <span className="shrink-0 truncate text-content-muted">{view.description}</span>
                 </>
               )}
             </nav>
@@ -392,7 +390,12 @@ export function ChatFilePreviewModal({
               />
             ) : (
               <>
-                <div className="flex min-h-0 flex-1 flex-col overflow-auto pt-14 pb-4">
+                <div
+                  className={cn(
+                    "flex min-h-0 flex-1 flex-col overflow-auto pb-4",
+                    kind === "image" || cropping ? "pt-14" : "pt-3",
+                  )}
+                >
                   {cropping && imageSource ? (
                     <ImageCropper
                       src={imageSource}
@@ -412,10 +415,10 @@ export function ChatFilePreviewModal({
                   )}
                 </div>
                 {/*
-                 * The tools float over the file rather than under it: one pill in the middle for what is done
-                 * to the picture, and what a crop or a document has to say is a quiet line beside it.
+                 * The picture's tools float over it rather than under it; what the file is is said once, in
+                 * the header, so a narrow window never reads it twice.
                  */}
-                {(kind === "image" || view?.footer || cropping) && (
+                {(kind === "image" || cropping) && (
                   <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-3">
                     <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-1 rounded-full border border-border-subtle bg-surface-overlay px-1.5 py-1 shadow-lg">
                       {kind === "image" && (
@@ -463,11 +466,6 @@ export function ChatFilePreviewModal({
                           )}
                         </>
                       )}
-                      {kind !== "image" && !cropping && view?.footer && (
-                        <span className="px-2 font-secondary-body text-content-secondary">
-                          {view.footer}
-                        </span>
-                      )}
                     </div>
                   </div>
                 )}
@@ -491,7 +489,7 @@ function describe(
   filename: string,
   docx: { words: number; text: string } | undefined,
   ui: Translate,
-): { description?: string; footer?: ReactNode; copy?: string } {
+): { description?: string; copy?: string } {
   const locale = uiLocale();
   switch (loaded.kind) {
     case "code":
@@ -507,7 +505,6 @@ function describe(
                 lines,
               })
             : ui("{{size}} · {{lines}} dòng", { size, lines }),
-        footer: ui("{{count}} dòng", { count: lines }),
         copy: loaded.text,
       };
     }
@@ -517,19 +514,16 @@ function describe(
       const [header = [], ...rows] = parseCsv(loaded.text);
       const columns = Math.max(header.length, ...rows.map((row) => row.length));
       return {
-        description: ui("{{size}} · {{rows}} dòng", {
+        description: ui("{{size}} · {{columns}} cột · {{rows}} dòng", {
           size: fileSize(loaded.bytes, locale),
+          columns,
           rows: rows.length,
         }),
-        footer: ui("{{columns}} cột · {{rows}} dòng", { columns, rows: rows.length }),
         copy: loaded.text,
       };
     }
     case "xlsx":
-      return {
-        description: ui("{{count}} trang tính", { count: loaded.sheets.length }),
-        footer: ui("{{count}} trang tính", { count: loaded.sheets.length }),
-      };
+      return { description: ui("{{count}} trang tính", { count: loaded.sheets.length }) };
     case "pdf":
       return loaded.converted ? { description: ui("Bản xem trước PDF của trình chiếu") } : {};
     case "docx":
