@@ -464,7 +464,7 @@ export function GoogleDriveSelectionPanel({
             </p>
             <p>
               {ui(
-                "References count unique locations within source documents. Opening a file's links reads stored evidence; it does not scan content or approve it. A file with no recorded links may not have been checked. Linked targets can appear in several branches; their sync selection is shared.",
+                "Opening a file's links reads stored evidence; it does not scan content or approve it. A file with no recorded links may not have been checked. Linked targets can appear in several branches; their sync selection is shared.",
               )}
             </p>
             {configuration.scopeMode === "SPECIFIC" ? (

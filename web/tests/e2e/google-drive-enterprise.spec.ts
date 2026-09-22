@@ -617,12 +617,6 @@ test("selection preserves hidden approvals across search and paging and restores
   await selection.getByRole("textbox", { name: "Search selected files" }).fill("budget");
   await selection.getByRole("button", { name: "Search", exact: true }).click();
   await expect(selection.getByRole("checkbox", { name: "Sync Project budget" })).toBeChecked();
-  await selection
-    .locator('[aria-label="References for Project budget"] [data-slot="collapsible-trigger"]')
-    .click();
-  const locations = selection.getByRole("list", { name: "Reference locations" });
-  await expect(locations.getByText("Overview!B2", { exact: true })).toHaveCount(1);
-  await expect(locations.getByText("Projects!D4", { exact: true })).toBeVisible();
   for (const viewport of [
     { label: "desktop", width: 1440, height: 1000 },
     { label: "mobile", width: 390, height: 844 },

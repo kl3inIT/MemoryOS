@@ -5,12 +5,10 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { getGoogleDriveSelectionTreeQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { getGoogleDriveSelectionTree } from "@/lib/hey-api/sdk.gen";
 import type {
   GetGoogleDriveConfigurationResponse,
-  GoogleDriveLinkOriginResponse,
   GoogleDriveSelectionItemResponse,
   GoogleDriveSelectionTreeItemResponse,
   GoogleDriveSelectionTreeResponse,
@@ -358,12 +356,7 @@ const SelectionTreeNode = memo(function SelectionTreeNode({
           <span aria-hidden="true" className="w-8 shrink-0" />
         )}
         <div className="min-w-0 flex-1">
-          <GoogleDriveSelectionRow
-            {...props}
-            item={item}
-            parentId={ancestors.at(-1)}
-            showScopeBadge={ancestors.length === 0}
-          />
+          <GoogleDriveSelectionRow {...props} item={item} showScopeBadge={ancestors.length === 0} />
           {repeated ? (
             <p className="pb-2 text-xs text-content-muted">
               {ui("Already shown earlier in this branch. Its sync selection is shared.")}
@@ -398,7 +391,6 @@ const SelectionTreeNode = memo(function SelectionTreeNode({
 
 export function GoogleDriveSelectionRow({
   item,
-  parentId,
   showScopeBadge = true,
   approved,
   disabled,
@@ -407,7 +399,6 @@ export function GoogleDriveSelectionRow({
   onSelect,
 }: SelectionControls & {
   item: GoogleDriveSelectionItemResponse;
-  parentId?: string;
   /** Descendants of a selected folder are in scope by construction, so the badge only adds noise there. */
   showScopeBadge?: boolean;
 }) {
@@ -415,10 +406,6 @@ export function GoogleDriveSelectionRow({
 
   const included = item.coveredByRoots || (approved ? approved.has(item.id) : item.selected);
   const canSelect = allowSelection && item.kind === "LINKED" && !item.coveredByRoots;
-  const origins = useMemo(
-    () => (parentId ? item.origins.filter((origin) => origin.parentId === parentId) : item.origins),
-    [item.origins, parentId],
-  );
   const statusChip =
     item.status !== "AVAILABLE" ? (
       <StatusBadge tone="warning">
@@ -469,59 +456,7 @@ export function GoogleDriveSelectionRow({
             </div>
           ) : null}
         </div>
-        {origins.length ? <SelectionProvenance origins={origins} name={item.name} /> : null}
       </div>
     </div>
-  );
-}
-
-function SelectionProvenance({
-  origins,
-  name,
-}: {
-  origins: GoogleDriveLinkOriginResponse[];
-  name: string;
-}) {
-  const ui = useAppTranslation();
-
-  const { parents, referenceCount } = useMemo(() => {
-    const grouped = new Map<string, { name: string; locations: Set<string> }>();
-    let referenceCount = 0;
-    for (const origin of origins) {
-      let parent = grouped.get(origin.parentId);
-      if (!parent) {
-        parent = { name: origin.parentName, locations: new Set() };
-        grouped.set(origin.parentId, parent);
-      }
-      if (!parent.locations.has(origin.location)) {
-        parent.locations.add(origin.location);
-        referenceCount++;
-      }
-    }
-    return { parents: [...grouped], referenceCount };
-  }, [origins]);
-  return (
-    <Collapsible aria-label={ui("References for {{v1}}", { v1: name })} className="min-w-0">
-      <CollapsibleTrigger className="min-h-11 cursor-pointer py-2 text-xs text-content-muted focus-visible:outline-2 focus-visible:outline-focus-ring">
-        {referenceCount} {referenceCount === 1 ? ui("reference") : ui("references")} ·{" "}
-        {parents.length} {parents.length === 1 ? ui("source document") : ui("source documents")}
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <ul className="space-y-2 border-l border-border-subtle pl-3 pb-2 text-xs text-content-muted">
-          {parents.map(([parentId, parent]) => (
-            <li key={parentId} className="min-w-0 space-y-1">
-              <p className="break-words font-medium text-content-primary">{parent.name}</p>
-              <ul aria-label={ui("Reference locations")} className="flex flex-wrap gap-x-3 gap-y-1">
-                {[...parent.locations].map((location) => (
-                  <li key={location} className="break-all">
-                    {location || ui("Location not recorded")}
-                  </li>
-                ))}
-              </ul>
-            </li>
-          ))}
-        </ul>
-      </CollapsibleContent>
-    </Collapsible>
   );
 }
