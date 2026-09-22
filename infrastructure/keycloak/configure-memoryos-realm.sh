@@ -13,17 +13,30 @@ KCADM=${KCADM:-/opt/keycloak/bin/kcadm.sh}
 : "${MEMORYOS_INITIAL_OWNER_EMAIL:?MEMORYOS_INITIAL_OWNER_EMAIL is required}"
 : "${MEMORYOS_BROWSER_CLIENT_SECRET:?MEMORYOS_BROWSER_CLIENT_SECRET is required}"
 : "${MEMORYOS_BROWSER_REDIRECT_URI:?MEMORYOS_BROWSER_REDIRECT_URI is required}"
-: "${MEMORYOS_MAILPIT_PUBLIC_URL:?MEMORYOS_MAILPIT_PUBLIC_URL is required}"
-: "${MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET:?MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET is required}"
+# Mail and the inspection surfaces are staging-shaped. An environment that does not run them leaves
+# their variables unset and the realm simply has no such client; half a pair is a mistake, not a choice.
+check_pair() {
+    if [ -n "$2" ] && [ -n "$3" ]; then
+        PAIR_ENABLED=true
+    elif [ -z "$2" ] && [ -z "$3" ]; then
+        PAIR_ENABLED=false
+    else
+        echo "$1 needs both its public URL and its client secret, or neither" >&2
+        exit 1
+    fi
+}
+check_pair mailpit "${MEMORYOS_MAILPIT_PUBLIC_URL:-}" "${MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET:-}"
+MAILPIT_ENABLED=$PAIR_ENABLED
 : "${MEMORYOS_KEYCLOAK_PROVISIONER_CLIENT_SECRET:?MEMORYOS_KEYCLOAK_PROVISIONER_CLIENT_SECRET is required}"
-: "${MEMORYOS_PGWEB_PUBLIC_URL:?MEMORYOS_PGWEB_PUBLIC_URL is required}"
-: "${MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET:?MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET is required}"
-: "${MEMORYOS_REDISINSIGHT_PUBLIC_URL:?MEMORYOS_REDISINSIGHT_PUBLIC_URL is required}"
-: "${MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET:?MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET is required}"
-: "${MEMORYOS_MINIO_CONSOLE_PUBLIC_URL:?MEMORYOS_MINIO_CONSOLE_PUBLIC_URL is required}"
-: "${MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET:?MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET is required}"
-: "${MEMORYOS_KEYCLOAK_SMTP_HOST:?MEMORYOS_KEYCLOAK_SMTP_HOST is required}"
-: "${MEMORYOS_KEYCLOAK_SMTP_FROM:?MEMORYOS_KEYCLOAK_SMTP_FROM is required}"
+check_pair pgweb "${MEMORYOS_PGWEB_PUBLIC_URL:-}" "${MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET:-}"
+PGWEB_ENABLED=$PAIR_ENABLED
+check_pair redisinsight "${MEMORYOS_REDISINSIGHT_PUBLIC_URL:-}" "${MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET:-}"
+REDISINSIGHT_ENABLED=$PAIR_ENABLED
+check_pair "minio console" "${MEMORYOS_MINIO_CONSOLE_PUBLIC_URL:-}" "${MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET:-}"
+MINIO_CONSOLE_ENABLED=$PAIR_ENABLED
+check_pair smtp "${MEMORYOS_KEYCLOAK_SMTP_HOST:-}" "${MEMORYOS_KEYCLOAK_SMTP_FROM:-}"
+SMTP_ENABLED=$PAIR_ENABLED
+if [ "$SMTP_ENABLED" = true ]; then
 MEMORYOS_KEYCLOAK_SMTP_PORT=${MEMORYOS_KEYCLOAK_SMTP_PORT:-587}
 MEMORYOS_KEYCLOAK_SMTP_AUTH=${MEMORYOS_KEYCLOAK_SMTP_AUTH:-true}
 MEMORYOS_KEYCLOAK_SMTP_STARTTLS=${MEMORYOS_KEYCLOAK_SMTP_STARTTLS:-true}
@@ -61,6 +74,8 @@ case "$MEMORYOS_KEYCLOAK_SMTP_PORT" in
         ;;
 esac
 
+fi
+
 export MEMORYOS_KEYCLOAK_SMTP_HOST
 export MEMORYOS_KEYCLOAK_SMTP_FROM
 export MEMORYOS_KEYCLOAK_SMTP_USERNAME
@@ -88,6 +103,7 @@ case "$MEMORYOS_BROWSER_REDIRECT_URI" in
 esac
 MEMORYOS_BROWSER_PUBLIC_URL=${MEMORYOS_BROWSER_REDIRECT_URI%/login/oauth2/code/memoryos}
 
+if [ "$MAILPIT_ENABLED" = true ]; then
 case "$MEMORYOS_MAILPIT_PUBLIC_URL" in
     https://*.nip.io)
         ;;
@@ -96,7 +112,12 @@ case "$MEMORYOS_MAILPIT_PUBLIC_URL" in
         exit 1
         ;;
 esac
-for inspector_url in "$MEMORYOS_PGWEB_PUBLIC_URL" "$MEMORYOS_REDISINSIGHT_PUBLIC_URL" "$MEMORYOS_MINIO_CONSOLE_PUBLIC_URL"; do
+fi
+inspector_urls=""
+if [ "$PGWEB_ENABLED" = true ]; then inspector_urls="$inspector_urls $MEMORYOS_PGWEB_PUBLIC_URL"; fi
+if [ "$REDISINSIGHT_ENABLED" = true ]; then inspector_urls="$inspector_urls $MEMORYOS_REDISINSIGHT_PUBLIC_URL"; fi
+if [ "$MINIO_CONSOLE_ENABLED" = true ]; then inspector_urls="$inspector_urls $MEMORYOS_MINIO_CONSOLE_PUBLIC_URL"; fi
+for inspector_url in $inspector_urls; do
     case "$inspector_url" in
         *'*'* | */oauth2/callback | */)
             echo "inspection public URLs must be exact HTTPS origins without wildcards, callbacks, or trailing slashes" >&2
@@ -194,6 +215,24 @@ require_memoryos_theme() {
 }
 
 configure_realm() {
+    # Without a mail server the realm is deliberately unable to send: no smtpServer, and no e-mail
+    # verification, which would otherwise block every new sign-in behind a message nobody can deliver.
+    if [ "$SMTP_ENABLED" != true ]; then
+        jq -cn '{
+            displayName: "MemoryOS",
+            displayNameHtml: "MemoryOS",
+            loginTheme: "memoryos",
+            registrationAllowed: false,
+            registrationEmailAsUsername: true,
+            loginWithEmailAllowed: true,
+            duplicateEmailsAllowed: false,
+            verifyEmail: false,
+            smtpServer: {}
+        }' |
+            "$KCADM" update "realms/$TARGET_REALM" \
+                --config "$CONFIG_FILE" \
+                -f - >/dev/null
+    else
     jq -cn '{
         displayName: "MemoryOS",
         displayNameHtml: "MemoryOS",
@@ -222,6 +261,7 @@ configure_realm() {
         "$KCADM" update "realms/$TARGET_REALM" \
             --config "$CONFIG_FILE" \
             -f - >/dev/null
+    fi
     configured_theme=$("$KCADM" get "realms/$TARGET_REALM" \
         --config "$CONFIG_FILE" \
         --fields loginTheme |
@@ -475,30 +515,38 @@ jq --arg redirectUri "$MEMORYOS_BROWSER_REDIRECT_URI" \
      | .webOrigins = [$publicUrl]
      | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
     "$SCRIPT_DIR/memoryos-browser-client.json" >"$BROWSER_CLIENT_FILE"
+if [ "$MAILPIT_ENABLED" = true ]; then
 jq --arg publicUrl "$MEMORYOS_MAILPIT_PUBLIC_URL" \
     '.rootUrl = $publicUrl
      | .redirectUris = [$publicUrl + "/oauth2/callback"]
      | .webOrigins = [$publicUrl]
      | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
     "$SCRIPT_DIR/memoryos-mailpit-client.json" >"$MAILPIT_CLIENT_FILE"
+fi
+if [ "$PGWEB_ENABLED" = true ]; then
 jq --arg publicUrl "$MEMORYOS_PGWEB_PUBLIC_URL" \
     '.rootUrl = $publicUrl
      | .redirectUris = [$publicUrl + "/oauth2/callback"]
      | .webOrigins = [$publicUrl]
      | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
     "$SCRIPT_DIR/memoryos-pgweb-client.json" >"$PGWEB_CLIENT_FILE"
+fi
+if [ "$REDISINSIGHT_ENABLED" = true ]; then
 jq --arg publicUrl "$MEMORYOS_REDISINSIGHT_PUBLIC_URL" \
     '.rootUrl = $publicUrl
      | .redirectUris = [$publicUrl + "/oauth2/callback"]
      | .webOrigins = [$publicUrl]
      | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
     "$SCRIPT_DIR/memoryos-redisinsight-client.json" >"$REDISINSIGHT_CLIENT_FILE"
+fi
+if [ "$MINIO_CONSOLE_ENABLED" = true ]; then
 jq --arg publicUrl "$MEMORYOS_MINIO_CONSOLE_PUBLIC_URL" \
     '.rootUrl = $publicUrl
      | .redirectUris = [$publicUrl + "/oauth_callback"]
      | .webOrigins = [$publicUrl]
      | .attributes["post.logout.redirect.uris"] = ($publicUrl + "/*")' \
     "$SCRIPT_DIR/memoryos-minio-console-client.json" >"$MINIO_CONSOLE_CLIENT_FILE"
+fi
 cp "$SCRIPT_DIR/memoryos-user-provisioner-client.json" "$PROVISIONER_CLIENT_FILE"
 
 
@@ -563,6 +611,7 @@ if [ "$PROVISIONER_ROLES" != '["manage-identity-providers","manage-users"]' ]; t
 fi
 echo "client=memoryos-user-provisioner secret=updated roles=manage-users,manage-identity-providers"
 
+if [ "$MAILPIT_ENABLED" = true ]; then
 upsert_client memoryos-mailpit "$MAILPIT_CLIENT_FILE"
 jq -cn '{secret: env.MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET}' |
     "$KCADM" update "clients/$CLIENT_UUID" \
@@ -570,7 +619,9 @@ jq -cn '{secret: env.MEMORYOS_MAILPIT_OAUTH2_CLIENT_SECRET}' |
         -r "$TARGET_REALM" \
         -f - >/dev/null
 echo "client=memoryos-mailpit secret=updated"
+fi
 
+if [ "$PGWEB_ENABLED" = true ]; then
 upsert_client memoryos-pgweb "$PGWEB_CLIENT_FILE"
 jq -cn '{secret: env.MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET}' |
     "$KCADM" update "clients/$CLIENT_UUID" \
@@ -579,7 +630,9 @@ jq -cn '{secret: env.MEMORYOS_PGWEB_OAUTH2_CLIENT_SECRET}' |
         -f - >/dev/null
 grant_inspector_role_to_client
 echo "client=memoryos-pgweb secret=updated role=memoryos-inspector"
+fi
 
+if [ "$REDISINSIGHT_ENABLED" = true ]; then
 upsert_client memoryos-redisinsight "$REDISINSIGHT_CLIENT_FILE"
 jq -cn '{secret: env.MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET}' |
     "$KCADM" update "clients/$CLIENT_UUID" \
@@ -588,7 +641,9 @@ jq -cn '{secret: env.MEMORYOS_REDISINSIGHT_OAUTH2_CLIENT_SECRET}' |
         -f - >/dev/null
 grant_inspector_role_to_client
 echo "client=memoryos-redisinsight secret=updated role=memoryos-inspector"
+fi
 
+if [ "$MINIO_CONSOLE_ENABLED" = true ]; then
 upsert_client memoryos-minio-console "$MINIO_CONSOLE_CLIENT_FILE"
 jq -cn '{secret: env.MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET}' |
     "$KCADM" update "clients/$CLIENT_UUID" \
@@ -598,3 +653,4 @@ jq -cn '{secret: env.MEMORYOS_MINIO_CONSOLE_OIDC_CLIENT_SECRET}' |
 grant_inspector_role_to_client
 upsert_mapper memoryos-minio-policy memoryos-minio-policy-mapper.json
 echo "client=memoryos-minio-console secret=updated role=memoryos-inspector mapper=policy"
+fi
