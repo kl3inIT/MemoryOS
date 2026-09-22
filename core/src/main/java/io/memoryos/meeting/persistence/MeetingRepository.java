@@ -415,11 +415,11 @@ public class MeetingRepository {
      */
     public boolean beginCorrection(UUID tenant, UUID owner, UUID meeting, Duration window) {
         return jdbc.sql("""
-                UPDATE meeting SET correction_running_until = CURRENT_TIMESTAMP + :window
+                UPDATE meeting SET correction_running_until = now() + make_interval(secs => :window)
                 WHERE tenant_id = :tenant AND id = :meeting AND owner_actor_id = :owner
                   AND (correction_running_until IS NULL OR correction_running_until < CURRENT_TIMESTAMP)
                 """).param("tenant", tenant).param("meeting", meeting).param("owner", owner)
-                .param("window", window).update() == 1;
+                .param("window", window.toSeconds()).update() == 1;
     }
 
     public void endCorrection(UUID tenant, UUID meeting) {
@@ -474,6 +474,15 @@ public class MeetingRepository {
                 ORDER BY created_at, id FOR UPDATE
                 """).param("tenant", tenant).param("meeting", meeting).param("run", run)
                 .query(MeetingRepository::correction).list();
+    }
+
+    /** Records the decision and the words that actually went in, which are the owner's when they rewrote them. */
+    public void accepted(UUID tenant, UUID id, UUID actor, String after) {
+        jdbc.sql("""
+                UPDATE meeting_correction
+                SET status = 'ACCEPTED', after = :after, decided_at = CURRENT_TIMESTAMP, decided_by = :actor
+                WHERE tenant_id = :tenant AND id = :id
+                """).param("tenant", tenant).param("id", id).param("after", after).param("actor", actor).update();
     }
 
     public void decide(UUID tenant, UUID id, Meeting.CorrectionStatus status, UUID actor) {

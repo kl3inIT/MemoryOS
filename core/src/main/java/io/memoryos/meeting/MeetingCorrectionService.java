@@ -166,11 +166,13 @@ public class MeetingCorrectionService {
             if (correction.status() != Meeting.CorrectionStatus.ACCEPTED) throw MeetingException.conflict();
             var utterance = meetings.lockUtterance(tenant, meetingId, correction.utteranceId())
                     .orElseThrow(MeetingException::notFound);
-            String applied = replaced(utterance.text(), correction.start(), correction.end(), correction.before());
-            // Only the text this proposal produced can be taken back; anything later has its own history.
-            if (!utterance.text().equals(replaced(applied, correction.start(),
-                    correction.start() + correction.before().length(), correction.after())))
+            // Only the words this proposal put in can be taken back; anything written over them since has its own
+            // history, and putting this line back would quietly discard it.
+            int end = correction.start() + correction.after().length();
+            if (end > utterance.text().length()
+                    || !utterance.text().substring(correction.start(), end).equals(correction.after()))
                 throw MeetingException.conflict();
+            String applied = replaced(utterance.text(), correction.start(), end, correction.before());
             meetings.rewrite(tenant, meetingId, utterance.id(), utterance.text(), applied,
                     restored(utterance.spans(), correction), source(tenant, utterance.id(), true), correction.runId(),
                     actor.value(), "REVERT");
@@ -197,7 +199,7 @@ public class MeetingCorrectionService {
                 shifted(utterance.spans(), start, end, chosen.length()),
                 own == null ? Meeting.EditSource.MODEL : Meeting.EditSource.HUMAN, correction.runId(), actor.value(),
                 own == null ? "MODEL" : "HUMAN");
-        meetings.decide(tenant, correction.id(), Meeting.CorrectionStatus.ACCEPTED, actor.value());
+        meetings.accepted(tenant, correction.id(), actor.value(), chosen);
     }
 
     private Meeting.@Nullable EditSource source(UUID tenant, UUID utterance, boolean reverting) {

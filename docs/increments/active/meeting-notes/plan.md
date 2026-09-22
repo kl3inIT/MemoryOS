@@ -35,7 +35,7 @@ Minutes to send:
 
 Vietnamese transcript quality:
 
-- [ ] Transcript correction suggestions with review and undo, using the span logic learned from ghiam-pro and the user glossary — [MEM-184](https://linear.app/memory-os/issue/MEM-184). It builds on the uncertain stretches MEM-183 stores, and adds the context around them a model needs to propose a fix.
+- [x] Transcript correction suggestions with review and undo, using the span logic learned from ghiam-pro and the user glossary — [MEM-183](https://linear.app/memory-os/issue/MEM-183). One button proposes for every marked stretch; the owner accepts, accepts in their own words or keeps what was heard, and anything applied can be undone. Accepting without review, behind the owner's own choice, is the follow-up.
 - [ ] Dialect mappings (local word to standard word) — [MEM-177](https://linear.app/memory-os/issue/MEM-177): a Tenant dictionary fed to the minutes prompt, never a rewrite of the transcript.
 
 Asking and finding:
