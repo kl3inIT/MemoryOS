@@ -13812,6 +13812,208 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/history:
+    get:
+      tags:
+      - Chat history
+      summary: "The Tenant's conversations, newest first; requires conversation history\
+        \ access"
+      operationId: listChatHistory
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: actorId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: feedback
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - POSITIVE
+          - NEGATIVE
+          - MIXED
+          - NONE
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 30
+      responses:
+        "400":
+          description: "Invalid filter, cursor or page size"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Conversation history requirement not met, or history is turned\
+            \ off for the Tenant"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No such conversation in this Tenant
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatHistoryPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/history/{sessionId}:
+    get:
+      tags:
+      - Chat history
+      summary: One conversation's transcript; the read is itself recorded in the audit
+        log
+      operationId: getChatHistoryTranscript
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: "Invalid filter, cursor or page size"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Conversation history requirement not met, or history is turned\
+            \ off for the Tenant"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No such conversation in this Tenant
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatHistoryTranscript"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/history/export:
+    get:
+      tags:
+      - Chat history
+      summary: "The conversations the filters select as CSV, at most 50,000 rows;\
+        \ the export is itself recorded"
+      operationId: exportChatHistory
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: actorId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: feedback
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - POSITIVE
+          - NEGATIVE
+          - MIXED
+          - NONE
+      responses:
+        "400":
+          description: "Invalid filter, cursor or page size"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Conversation history requirement not met, or history is turned\
+            \ off for the Tenant"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No such conversation in this Tenant
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/group-options:
     get:
       tags:
@@ -19310,6 +19512,7 @@ components:
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
+            - CHAT_HISTORY_READ
         permissions:
           $ref: "#/components/schemas/GroupPermissions"
       required:
@@ -19377,6 +19580,7 @@ components:
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
+            - CHAT_HISTORY_READ
           maxItems: 7
           maxLength: 7
           minItems: 0
@@ -21294,6 +21498,7 @@ components:
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
+            - CHAT_HISTORY_READ
         scopedCapabilities:
           type: array
           description: Eligible capabilities available only within resources managed
@@ -21319,6 +21524,7 @@ components:
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
+            - CHAT_HISTORY_READ
         authorizationVersion:
           type: integer
           format: int64
@@ -21504,6 +21710,7 @@ components:
           - AGENTS_CREATE
           - AGENTS_MANAGE
           - AUDIT_READ
+          - CHAT_HISTORY_READ
         label:
           type: string
         description:
@@ -21533,6 +21740,7 @@ components:
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
+            - CHAT_HISTORY_READ
       required:
       - description
       - editable
@@ -22812,6 +23020,119 @@ components:
       - endpointRequired
       - knownModels
       - provider
+    ChatHistoryEntry:
+      type: object
+      description: One conversation. The person is absent when the Tenant hides who
+        asked
+      properties:
+        id:
+          type: string
+          format: uuid
+        actorId:
+          type: string
+          format: uuid
+        person:
+          type: string
+        email:
+          type: string
+        title:
+          type: string
+        question:
+          type: string
+        answer:
+          type: string
+        modelName:
+          type: string
+        messages:
+          type: integer
+          format: int64
+        feedback:
+          type: string
+          enum:
+          - POSITIVE
+          - NEGATIVE
+          - MIXED
+          - NONE
+        deleted:
+          type: boolean
+          description: The owner deleted this conversation; it is kept until retention
+            removes it
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - deleted
+      - feedback
+      - id
+      - messages
+      - title
+      - updatedAt
+    ChatHistoryPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatHistoryEntry"
+        nextCursor:
+          type: string
+        conversations:
+          type: integer
+          format: int64
+        positive:
+          type: integer
+          format: int64
+        negative:
+          type: integer
+          format: int64
+      required:
+      - conversations
+      - items
+      - negative
+      - positive
+    ChatHistoryMessage:
+      type: object
+      description: "One message; citations are named, and opening one uses the reader's\
+        \ own Source authority"
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+        content:
+          type: string
+        modelName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        positive:
+          type: boolean
+        comment:
+          type: string
+        citations:
+          type: array
+          items:
+            type: string
+      required:
+      - citations
+      - content
+      - createdAt
+      - id
+      - role
+    ChatHistoryTranscript:
+      type: object
+      properties:
+        conversation:
+          $ref: "#/components/schemas/ChatHistoryEntry"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatHistoryMessage"
+      required:
+      - conversation
+      - messages
     ChatFileTextResponse:
       type: object
       properties:

@@ -38,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Chat history")
 @ApiResponse(responseCode = "400", description = "Invalid filter, cursor or page size", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
 @ApiResponse(responseCode = "403", description = "Conversation history requirement not met, or history is turned off for the Tenant", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "404", description = "No such conversation in this Tenant", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
 @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content)
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
@@ -107,7 +108,6 @@ class ChatHistoryController {
     }
 
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
-    @ApiResponse(responseCode = "404", description = "No such conversation in this Tenant", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
     @GetMapping("/{sessionId}")
     @Operation(operationId = "getChatHistoryTranscript", summary = "One conversation's transcript; the read is itself recorded in the audit log")
     Transcript transcript(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
