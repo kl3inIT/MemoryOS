@@ -66,7 +66,17 @@ public final class Meeting {
                          List<String> terms, String notes, Status status, @Nullable String provider, boolean diarized,
                          Instant createdAt, @Nullable Instant endedAt, long revision, List<Speaker> speakers,
                          List<Utterance> utterances, Minutes minutes, Audio audio, boolean owned,
-                         List<Reader> readers, List<UUID> starred, List<Bookmark> bookmarks) {
+                         List<Reader> readers, List<UUID> starred, List<Bookmark> bookmarks,
+                         boolean correcting) {
+
+        public Detail(UUID id, String title, Kind kind, @Nullable String language, List<String> participants,
+                List<String> terms, String notes, Status status, @Nullable String provider, boolean diarized,
+                Instant createdAt, @Nullable Instant endedAt, long revision, List<Speaker> speakers,
+                List<Utterance> utterances, Minutes minutes, Audio audio, boolean owned, List<Reader> readers,
+                List<UUID> starred, List<Bookmark> bookmarks) {
+            this(id, title, kind, language, participants, terms, notes, status, provider, diarized, createdAt,
+                    endedAt, revision, speakers, utterances, minutes, audio, owned, readers, starred, bookmarks, false);
+        }
 
         /** A meeting read for a document rather than for a person carries nobody's marks. */
         public Detail(UUID id, String title, Kind kind, @Nullable String language, List<String> participants,
@@ -74,7 +84,8 @@ public final class Meeting {
                 Instant createdAt, @Nullable Instant endedAt, long revision, List<Speaker> speakers,
                 List<Utterance> utterances, Minutes minutes, Audio audio, boolean owned, List<Reader> readers) {
             this(id, title, kind, language, participants, terms, notes, status, provider, diarized, createdAt,
-                    endedAt, revision, speakers, utterances, minutes, audio, owned, readers, List.of(), List.of());
+                    endedAt, revision, speakers, utterances, minutes, audio, owned, readers, List.of(), List.of(),
+                    false);
         }
     }
 

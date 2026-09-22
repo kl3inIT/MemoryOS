@@ -197,6 +197,10 @@ export type MeetingDetail = {
      * Moments the caller marked while the meeting was running
      */
     bookmarks: Array<MeetingBookmark>;
+    /**
+     * Whether a correction pass is running on this meeting right now
+     */
+    correcting: boolean;
 };
 
 /**

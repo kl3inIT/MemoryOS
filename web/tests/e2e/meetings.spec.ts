@@ -140,38 +140,41 @@ async function mockMeetings(page: Page) {
   });
   await page.route(`**/api/meetings/${MEETING_ID}/corrections`, (route) =>
     route.fulfill({
-      json: [
-        {
-          id: "c1",
-          utteranceId: "u2",
-          runId: "r1",
-          start: 59,
-          end: 70,
-          before: "Vinaconex 9",
-          after: "Vinaconex 09",
-          reason: "Mã dự án đọc rõ ở câu sau là 09.",
-          confidence: 0.82,
-          contextFit: 0.74,
-          meaningSafe: 0.96,
-          matchedGlossary: true,
-          status: "PENDING",
-        },
-        {
-          id: "c2",
-          utteranceId: "u1",
-          runId: "r1",
-          start: 26,
-          end: 31,
-          before: "quý 4",
-          after: "quý IV",
-          reason: "Văn bản của công ty viết số La Mã.",
-          confidence: 0.71,
-          contextFit: 0.8,
-          meaningSafe: 0.99,
-          matchedGlossary: false,
-          status: "ACCEPTED",
-        },
-      ],
+      json:
+        route.request().method() === "POST"
+          ? { runId: "r2", corrections: [PROPOSAL] }
+          : [
+              {
+                id: "c1",
+                utteranceId: "u2",
+                runId: "r1",
+                start: 59,
+                end: 70,
+                before: "Vinaconex 9",
+                after: "Vinaconex 09",
+                reason: "Mã dự án đọc rõ ở câu sau là 09.",
+                confidence: 0.82,
+                contextFit: 0.74,
+                meaningSafe: 0.96,
+                matchedGlossary: true,
+                status: "PENDING",
+              },
+              {
+                id: "c2",
+                utteranceId: "u1",
+                runId: "r1",
+                start: 26,
+                end: 31,
+                before: "quý 4",
+                after: "quý IV",
+                reason: "Văn bản của công ty viết số La Mã.",
+                confidence: 0.71,
+                contextFit: 0.8,
+                meaningSafe: 0.99,
+                matchedGlossary: false,
+                status: "ACCEPTED",
+              },
+            ],
     }),
   );
   await page.route(`**/api/meetings/${MEETING_ID}/tickets`, (route) =>
@@ -402,7 +405,11 @@ async function mockMeetings(page: Page) {
       }
     });
   });
-  return { audio, exported, uploaded, shared };
+  /** Whether the server says a correction pass holds the meeting, as a reopened page would find it. */
+  const correcting = (value: boolean) => {
+    meeting = { ...meeting!, correcting: value };
+  };
+  return { audio, exported, uploaded, shared, correcting };
 }
 
 test("a member uploads a recording and watches it being transcribed", async ({ page }) => {
@@ -457,7 +464,7 @@ for (const width of [1440, 390]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    const { audio, exported, shared } = await mockMeetings(page);
+    const { audio, exported, shared, correcting } = await mockMeetings(page);
 
     await page.goto("/meetings");
     await expect(page.getByRole("heading", { name: "Cuộc họp", level: 1 })).toBeVisible({
@@ -606,6 +613,20 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: "Câu đã đánh dấu (1)" }).click();
 
     await expect(page.getByText("Mã dự án đọc rõ ở câu sau là 09.")).toBeVisible();
+    // The button says what it does to what: one stretch was marked unclear on this transcript.
+    await page.getByRole("button", { name: "Hiệu chỉnh 1 đoạn khó nghe" }).click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "Tìm được 1 chỗ cần sửa." }),
+    ).toBeVisible();
+    // A pass started before the page was reopened is still running on the server: the button stays shut.
+    correcting(true);
+    await page.reload();
+    await page.getByRole("tab", { name: "Transcript" }).click();
+    await expect(page.getByRole("button", { name: "Đang hiệu chỉnh…" })).toBeDisabled();
+    correcting(false);
+    await expect(page.getByRole("button", { name: "Hiệu chỉnh 1 đoạn khó nghe" })).toBeEnabled({
+      timeout: 10_000,
+    });
     await expect(page.getByRole("button", { name: "Nhận", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Hoàn tác", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Hoàn tác cả lượt (1)" })).toBeVisible();
@@ -638,3 +659,20 @@ function topic(id: string, text: string, sourceUtteranceId: string) {
     edited: false,
   };
 }
+
+/** A proposal one pass would answer, for the pass the flow starts itself. */
+const PROPOSAL = {
+  id: "c3",
+  utteranceId: "u2",
+  runId: "r2",
+  start: 59,
+  end: 70,
+  before: "Vinaconex 9",
+  after: "Vinaconex 09",
+  reason: "Mã dự án đọc rõ ở câu sau là 09.",
+  confidence: 0.82,
+  contextFit: 0.74,
+  meaningSafe: 0.96,
+  matchedGlossary: true,
+  status: "PENDING",
+};

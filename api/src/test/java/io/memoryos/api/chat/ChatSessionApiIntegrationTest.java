@@ -3367,6 +3367,20 @@ class ChatSessionApiIntegrationTest {
                     .path("utterances").get(0).path("text").asText();
             assertEquals(said, beforeAnything, "proposing changes nothing");
 
+            assertFalse(Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting)
+                    .with(authentication(actor))).andReturn().getResponse().getContentAsString())
+                    .path("correcting").asBoolean(), "a finished pass lets go of the meeting");
+
+            // A pass still running, from a page that was closed or another tab, is visible and holds the meeting.
+            jdbc.sql("UPDATE meeting SET correction_running_until = now() + interval '5 minutes' WHERE id = :id")
+                    .param("id", meeting).update();
+            assertTrue(Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting)
+                    .with(authentication(actor))).andReturn().getResponse().getContentAsString())
+                    .path("correcting").asBoolean());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/corrections").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isConflict());
+            jdbc.sql("UPDATE meeting SET correction_running_until = NULL WHERE id = :id").param("id", meeting).update();
+
             // A reader of a shared meeting never reaches any of this.
             mockMvc.perform(post("/api/meetings/" + meeting + "/corrections").with(authentication(other))
                     .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
