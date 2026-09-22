@@ -168,7 +168,9 @@ class CertificateRenewalTest(unittest.TestCase):
         self.directory = Path(self.temporary.name)
         provision.run("openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", str(self.directory / "ca.key"),
                       "-out", str(self.directory / "ca.crt"), "-sha256", "-days", "3650", "-subj", "/CN=Renewal Test CA")
-        for name, definition in provision.LEAF_CERTIFICATES.items():
+        # A deployment on disk has every certificate it was provisioned with, Dashboards included; which of them
+        # renewal looks at is what the environment decides, and that is what these cases are about.
+        for name, definition in {**provision.LEAF_CERTIFICATES, **provision.DASHBOARDS_CERTIFICATE}.items():
             provision.certificate(self.directory, name, *definition)
         (self.directory / "service-password.txt").write_text("test-only-service-password")
 
@@ -198,12 +200,13 @@ class CertificateRenewalTest(unittest.TestCase):
                       "-verify_hostname", "memoryos-opensearch-dashboards", str(self.directory / "dashboards.crt"))
 
     def test_leaves_dashboards_alone_where_it_is_not_published(self):
+        before = self.snapshot()
         with patch.object(provision, "restart_and_wait") as restart,                 patch.dict(os.environ, {"MEMORYOS_OPENSEARCH_DASHBOARDS_PUBLIC_URL": ""}):
             self.assertEqual(["node", "admin"],
                              provision.renew_certificates(self.directory, provision.LEAF_VALIDITY_DAYS + 1))
             self.assertEqual([("memoryos-opensearch",)], [call.args for call in restart.call_args_list])
-        self.assertFalse((self.directory / "dashboards.crt").exists(),
-                         "a deployment without Dashboards has no certificate to renew for it")
+        self.assertEqual(before["dashboards.crt"], self.snapshot()["dashboards.crt"],
+                         "the certificate on disk is left exactly as it was")
 
     def test_restores_original_leaf_pairs_when_runtime_reload_fails(self):
         before = self.snapshot()
