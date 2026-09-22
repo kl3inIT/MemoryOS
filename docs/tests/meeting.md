@@ -20,5 +20,6 @@
 | A member uploads a recording, sees the chosen provider's speaker separation and size limit before sending it, cannot send it without the consent statement, and the meeting then says it is being transcribed with no stop control | `tests/e2e/meetings.spec.ts` |
 | A member creates an in-person meeting with consent, records with Chromium's fake microphone through the real AudioWorklet, sees stored utterances and the live preview, names a speaker, stops and ends the meeting, exports the biên bản with the heading the meeting pre-filled, at 1440 and 390 px without horizontal overflow | `tests/e2e/meetings.spec.ts` with a mocked API and WebSocket |
 | Meeting routes are documented and CSRF-protected in the committed OpenAPI | `OpenApiContractTest` |
+| Every WebSocket path the browser opens lands in an nginx location that forwards the upgrade, resolved the way nginx resolves it (exact `=` first, then regex) | `web/scripts/nginx-websocket-routes.test.mjs`: parses the shipped `nginx.conf` |
 
 Live Soniox acceptance with real meetings, real microphones and shared tabs remains open, as for MEM-91.
