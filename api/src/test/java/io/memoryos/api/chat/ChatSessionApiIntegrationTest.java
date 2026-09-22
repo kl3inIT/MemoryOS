@@ -2236,10 +2236,13 @@ class ChatSessionApiIntegrationTest {
         grantModelManagement();
         var flows = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-flows").with(authentication(actor)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        assertEquals(2, flows.size(), "every task flow is listed");
+        assertEquals(io.memoryos.chat.catalog.ModelFlow.values().length, flows.size(), "every task flow is listed");
+        var listed = new java.util.TreeSet<String>();
+        flows.forEach(flow -> listed.add(flow.path("flow").asText()));
+        assertEquals(java.util.Arrays.stream(io.memoryos.chat.catalog.ModelFlow.values())
+                .map(Enum::name).collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new)), listed);
         var naming = flows.get(0);
         assertEquals("CHAT_NAMING", naming.path("flow").asText());
-        assertEquals("MEETING_MINUTES", flows.get(1).path("flow").asText());
         assertTrue(naming.path("modelConfigurationId").isNull());
         assertTrue(naming.path("available").asBoolean());
         mockMvc.perform(get("/api/chat/model-flows").with(authentication(other))).andExpect(status().isForbidden());
