@@ -13,20 +13,24 @@ import {
 } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { z } from "zod";
-import { HighlightedCode } from "@/components/assistant-ui/elements/code-renderers.aui";
-import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useApplicationSession } from "@/features/identity/application-session-context";
+import { CsvView } from "@/features/preview/csv-view";
+import { DownloadView } from "@/features/preview/download-view";
+import {
+  codeLanguage,
+  lineCount,
+  MAX_TEXT_PREVIEW_BYTES,
+  parseCsv,
+  previewKind,
+  previewSize,
+  sanitizeDocxHtml,
+  sheetsSchema,
+  type PreviewKind,
+  type Sheets,
+} from "@/features/preview/preview-kind";
+import { SheetView } from "@/features/preview/sheet-view";
+import { TextView } from "@/features/preview/text-view";
 import { DocumentPdfView } from "@/features/search/document-pdf-view";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -39,24 +43,8 @@ import {
   previewChatFileSpreadsheet,
 } from "@/lib/hey-api/sdk.gen";
 import { cn } from "@/lib/utils";
-import {
-  codeLanguage,
-  lineCount,
-  MAX_TABLE_ROWS,
-  MAX_TEXT_PREVIEW_BYTES,
-  parseCsv,
-  previewKind,
-  previewSize,
-  sanitizeDocxHtml,
-  type PreviewKind,
-} from "@/features/preview/preview-kind";
 import { fileSize } from "./chat-code";
 import { downloadUrl, type PreviewTarget } from "./chat-file-preview";
-
-const spreadsheetSchema = z.object({
-  sheets: z.array(z.object({ name: z.string(), csv: z.string(), truncated: z.boolean() })),
-});
-type Sheets = z.infer<typeof spreadsheetSchema>["sheets"];
 
 async function readBlob(target: PreviewTarget, signal: AbortSignal): Promise<Blob> {
   const { data } =
@@ -97,7 +85,7 @@ async function readSheets(target: PreviewTarget, signal: AbortSignal): Promise<S
           signal,
           throwOnError: true,
         });
-  return spreadsheetSchema.parse(data).sheets;
+  return sheetsSchema.parse(data).sheets;
 }
 
 type Loaded =
@@ -419,38 +407,26 @@ function Content({
     case "pdf":
       return <PdfPreview blob={loaded.blob} />;
     case "xlsx":
-      return <SheetsPreview sheets={loaded.sheets} />;
+      return <SheetView sheets={loaded.sheets} />;
     case "csv":
       return (
         <div className="p-4">
-          <CsvTable csv={loaded.text} truncated={loaded.truncated} />
+          <CsvView csv={loaded.text} truncated={loaded.truncated} />
         </div>
       );
     case "docx":
       return <DocxPreview blob={loaded.blob} onLoad={onDocx} />;
     case "code":
     case "text":
-    case "markdown": {
-      const language = codeLanguage(target.filename, loaded.kind);
-      let shown = loaded.text;
-      if (language === "json" && !loaded.truncated) {
-        try {
-          shown = JSON.stringify(JSON.parse(loaded.text), null, 2);
-        } catch {
-          shown = loaded.text;
-        }
-      }
+    case "markdown":
       return (
-        <div className="min-h-full bg-surface-sunken p-4 text-sm">
-          <HighlightedCode code={shown} language={language} />
-          {loaded.truncated && (
-            <p className="mt-3 text-xs text-content-muted">
-              {ui("Chỉ hiển thị 1 MB đầu của tệp.")}
-            </p>
-          )}
-        </div>
+        <TextView
+          text={loaded.text}
+          filename={target.filename}
+          kind={loaded.kind}
+          truncated={loaded.truncated}
+        />
       );
-    }
     case "doc":
       return (
         <Unavailable
@@ -469,17 +445,7 @@ function Content({
 }
 
 function Unavailable({ target, message }: { target: PreviewTarget; message: string }) {
-  const ui = useAppTranslation();
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
-      <p className="text-sm text-content-secondary">{message}</p>
-      <Button asChild size="sm" prominence="secondary">
-        <a href={downloadUrl(target)} download={target.filename}>
-          {ui("Tải xuống")}
-        </a>
-      </Button>
-    </div>
-  );
+  return <DownloadView href={downloadUrl(target)} filename={target.filename} message={message} />;
 }
 
 /** Zoomed images are dragged rather than scrolled, as an image viewer does; at 100% there is nothing to pan. */
@@ -605,85 +571,6 @@ function CopyButton({ text }: { text: string }) {
     >
       {copied ? <Check /> : <Copy />}
     </IconButton>
-  );
-}
-
-function CsvTable({ csv, truncated = false }: { csv: string; truncated?: boolean }) {
-  const ui = useAppTranslation();
-  const [header = [], ...rows] = parseCsv(csv);
-  const columns = Math.max(header.length, ...rows.map((row) => row.length));
-  if (!columns) return <p className="text-sm text-content-secondary">{ui("Trang tính trống")}</p>;
-  const shown = rows.slice(0, MAX_TABLE_ROWS);
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="overflow-auto rounded-lg border border-border-subtle bg-surface-base">
-        <Table>
-          <TableHeader className="sticky top-0 bg-surface-subtle">
-            <TableRow>
-              {Array.from({ length: columns }, (_, index) => (
-                <TableHead
-                  key={index}
-                  className={cn(
-                    "whitespace-nowrap",
-                    index === 0 && "sticky left-0 bg-surface-subtle",
-                  )}
-                >
-                  {header[index] ?? ""}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {shown.map((row, rowIndex) => (
-              <TableRow key={rowIndex}>
-                {Array.from({ length: columns }, (_, index) => (
-                  <TableCell
-                    key={index}
-                    title={row[index] || undefined}
-                    className={cn(
-                      "max-w-80 truncate whitespace-nowrap",
-                      index === 0 && "sticky left-0 bg-surface-base font-medium",
-                    )}
-                  >
-                    {row[index] ?? ""}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      {(truncated || rows.length > MAX_TABLE_ROWS) && (
-        <p className="text-xs text-content-muted">{ui("Bản xem trước bị cắt bớt")}</p>
-      )}
-    </div>
-  );
-}
-
-function SheetsPreview({ sheets }: { sheets: Sheets }) {
-  const ui = useAppTranslation();
-  if (!sheets.length)
-    return <p className="p-4 text-sm text-content-secondary">{ui("Không đọc được bảng tính.")}</p>;
-  return (
-    <Tabs defaultValue="0" className="p-4">
-      <TabsList className="w-full justify-start overflow-x-auto">
-        {sheets.map((sheet, index) => (
-          <TabsTrigger
-            key={index}
-            value={String(index)}
-            className="max-w-64 flex-none"
-            title={sheet.name}
-          >
-            <span className="truncate">{sheet.name}</span>
-          </TabsTrigger>
-        ))}
-      </TabsList>
-      {sheets.map((sheet, index) => (
-        <TabsContent key={index} value={String(index)}>
-          <CsvTable csv={sheet.csv} truncated={sheet.truncated} />
-        </TabsContent>
-      ))}
-    </Tabs>
   );
 }
 

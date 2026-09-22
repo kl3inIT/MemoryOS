@@ -1,4 +1,5 @@
 import DOMPurify from "dompurify";
+import { z } from "zod";
 
 /** The first matching preview, in the Onyx PreviewModal variant order; anything else downloads. */
 export type PreviewKind =
@@ -16,6 +17,16 @@ export type PreviewKind =
 
 /** Text-like previews read at most this many bytes. */
 export const MAX_TEXT_PREVIEW_BYTES = 1024 * 1024;
+
+/**
+ * The shape every spreadsheet route returns: each sheet already parsed to CSV text by the API, because the
+ * app ships no client-side workbook parser.
+ */
+export const sheetsSchema = z.object({
+  sheets: z.array(z.object({ name: z.string(), csv: z.string(), truncated: z.boolean() })),
+});
+
+export type Sheets = z.infer<typeof sheetsSchema>["sheets"];
 
 /** Rows past this count are not rendered; the download holds the whole file. */
 export const MAX_TABLE_ROWS = 1000;
