@@ -13,6 +13,11 @@ services:
     networks:
       memoryos-internal:
       memoryos-telemetry:
+      # Both other networks are internal: no route off the host and no public DNS. The api has to
+      # reach its identity provider by the issuer's public name to fetch its discovery document and
+      # keys, and the model provider for chat. Staging gets this from the network it shares with other
+      # services on its host; production shares nothing, so it has one of its own for these two alone.
+      egress:
     environment:
       SPRING_PROFILES_ACTIVE: production
       # Traces, logs and metrics leave through the collector of this node's own observability
@@ -26,6 +31,8 @@ services:
     networks:
       memoryos-internal:
       memoryos-telemetry:
+      # The embedding provider is outside the host, and so is every Source the worker reads.
+      egress:
     environment:
       SPRING_PROFILES_ACTIVE: production
       # The production profile states no default for this; db-scheduler refuses to start without it.
@@ -36,3 +43,7 @@ networks:
   memoryos-telemetry:
     name: ${MEMORYOS_TELEMETRY_NETWORK:-memoryos-telemetry}
     external: true
+  # Owned by this composition and created with it. Only the two services that must call out join
+  # it; the stores, the interpreter and its executors stay on internal networks alone.
+  egress:
+    name: ${MEMORYOS_EGRESS_NETWORK:-memoryos-egress}
