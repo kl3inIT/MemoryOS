@@ -3064,7 +3064,7 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(get("/api/chat/history").with(authentication(actor))).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/chat/history/export").with(authentication(actor))).andExpect(status().isForbidden());
         grantCapability("CHAT_HISTORY_READ");
-        mockMvc.perform(get("/api/chat/history").with(authentication(actor)))
+        mockMvc.perform(get("/api/chat/history").param("q", "=Nghỉ phép").with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].title").value("=Nghỉ phép"))
                 .andExpect(jsonPath("$.items[0].deleted").value(false));
 
@@ -3074,16 +3074,17 @@ class ChatSessionApiIntegrationTest {
         grantCapability("AUDIT_READ");
         mockMvc.perform(get("/api/audit/events").param("from", since).param("action", "chat_history.read")
                         .with(authentication(actor)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
-                .andExpect(jsonPath("$.items[0].resourceLabel").value("=Nghỉ phép"));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].resourceLabel").value("=Nghỉ phép"));
 
-        String csv = mockMvc.perform(get("/api/chat/history/export").with(authentication(actor)))
+        String csv = mockMvc.perform(get("/api/chat/history/export").param("q", "=Nghỉ phép").with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(header().string("Content-Type", "text/csv; charset=UTF-8"))
                 .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(csv.startsWith("﻿session_id,updated_at"), csv);
         assertTrue(csv.contains("'=Nghỉ phép"), "a formula in a title is neutralized");
         mockMvc.perform(get("/api/audit/events").param("from", since).param("action", "chat_history.export")
-                .with(authentication(actor))).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].details.rows").value(1));
+                .with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].details.rows").value(1))
+                .andExpect(jsonPath("$.items[0].details.q").doesNotExist());
 
         // Turning history off refuses every read, and the conversations stay where they are.
         grantModelManagement();
