@@ -34,6 +34,10 @@ Secret vào container dạng Docker secret file chứ không phải biến môi 
 
 Infisical `dev` cho lập trình viên giữ nguyên: dev chạy `infisical run` trên máy cá nhân, không qua entrypoint của container, nên thay đổi này không chạm vào họ.
 
+## Còn nợ sau bước này
+
+`postgres` và `keycloak` vẫn nhận mật khẩu database dạng biến môi trường, vì container database tự tạo role của nó lúc khởi tạo lần đầu và script bootstrap đọc biến đó. Chuyển chúng sang file cần sửa `bootstrap-shared-databases.sh` và cách Keycloak nhận `KC_DB_PASSWORD` — là một thay đổi riêng, không gộp vào đây. Giá trị vẫn nằm trong `.env.<environment>` mode `0600` của root, nên biên bảo vệ trên đĩa không đổi; khác biệt là chúng hiện trong `docker inspect` của hai container đó.
+
 ## Ngoài phạm vi
 
 * Đổi quy trình của lập trình viên.
