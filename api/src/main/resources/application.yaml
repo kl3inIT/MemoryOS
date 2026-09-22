@@ -142,6 +142,10 @@ memoryos:
       # Empty: Code Interpreter is absent. Staging sets both through Compose and the launcher.
       base-url: ${MEMORYOS_INTERPRETER_BASE_URL:}
       api-key: ${MEMORYOS_INTERPRETER_API_KEY:}
+    storage:
+      # How much one person's file library may hold; 0 means no limit. The deployment sets it, not an
+      # administrator: 512 MiB by default, changed by the environment and read when the API starts.
+      library-bytes: ${MEMORYOS_CHAT_STORAGE_LIBRARY_BYTES:536870912}
   identity:
     audience: ${MEMORYOS_IDENTITY_AUDIENCE}
     jit:
