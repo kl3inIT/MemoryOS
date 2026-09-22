@@ -1,5 +1,5 @@
-import { RotateCw, ZoomIn, ZoomOut } from "lucide-react";
-import { useRef, useState } from "react";
+import { Crop, RotateCcw, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
@@ -11,12 +11,15 @@ export function ImageView({
   alt,
   zoom,
   rotation,
+  onZoom,
 }: {
   blob: Blob;
   alt: string;
   zoom: number;
   rotation: number;
+  onZoom?: (deltaY: number) => void;
 }) {
+  const frame = useRef<HTMLDivElement>(null);
   const src = useObjectUrl(blob);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
@@ -24,8 +27,19 @@ export function ImageView({
   const pannable = zoom > 100;
   // At 100% there is nothing to pan, so the offset is derived away rather than reset in an effect.
   const offset = pannable ? pan : { x: 0, y: 0 };
+  useEffect(() => {
+    const node = frame.current;
+    if (!node || !onZoom) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      onZoom(event.deltaY);
+    };
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return () => node.removeEventListener("wheel", onWheel);
+  }, [onZoom]);
   return (
     <div
+      ref={frame}
       className={cn(
         "flex min-h-0 flex-1 items-center justify-center overflow-hidden p-4",
         pannable && (dragging ? "cursor-grabbing" : "cursor-grab"),
@@ -66,38 +80,106 @@ export function ImageView({
 
 export function ImageControls({
   zoom,
+  cropping = false,
+  crop,
+  minZoom = 25,
+  maxZoom = 200,
+  zoomStep = 25,
+  bare = false,
   onZoom,
   onRotate,
+  onCrop,
 }: {
   zoom: number;
+  cropping?: boolean;
+  crop?: { selected: boolean; width?: number; height?: number };
+  minZoom?: number;
+  maxZoom?: number;
+  zoomStep?: number;
+  bare?: boolean;
   onZoom: (zoom: number) => void;
-  onRotate: () => void;
+  onRotate: (degrees: number) => void;
+  onCrop?: () => void;
 }) {
   const ui = useAppTranslation();
   return (
-    <div className="flex items-center gap-1 rounded-xl border border-border-subtle bg-surface-base p-1 shadow-lg">
-      <IconButton
-        prominence="internal"
-        size="sm"
-        aria-label={ui("Thu nhỏ")}
-        disabled={zoom <= 25}
-        onClick={() => onZoom(Math.max(zoom - 25, 25))}
-      >
-        <ZoomOut />
-      </IconButton>
-      <span className="w-12 text-center font-mono text-xs tabular-nums">{zoom}%</span>
-      <IconButton
-        prominence="internal"
-        size="sm"
-        aria-label={ui("Phóng to")}
-        disabled={zoom >= 200}
-        onClick={() => onZoom(Math.min(zoom + 25, 200))}
-      >
-        <ZoomIn />
-      </IconButton>
-      <IconButton prominence="internal" size="sm" aria-label={ui("Xoay ảnh")} onClick={onRotate}>
-        <RotateCw />
-      </IconButton>
+    <div
+      className={cn(
+        "flex items-center gap-1",
+        !bare && "rounded-xl border border-border-subtle bg-surface-base p-1 shadow-lg",
+      )}
+    >
+      {cropping ? (
+        <span className="px-2 font-secondary-body tabular-nums">
+          {!crop?.selected
+            ? ui("Chưa chọn vùng")
+            : crop.width && crop.height
+              ? ui("{{width}} × {{height}} px", { width: crop.width, height: crop.height })
+              : ui("Đã chọn vùng")}
+        </span>
+      ) : (
+        <>
+          <IconButton
+            prominence="internal"
+            size="sm"
+            aria-label={ui("Thu nhỏ")}
+            disabled={zoom <= minZoom}
+            onClick={() => onZoom(Math.max(zoom - zoomStep, minZoom))}
+          >
+            <ZoomOut />
+          </IconButton>
+          <span className="w-12 text-center font-secondary-body tabular-nums">{zoom}%</span>
+          <IconButton
+            prominence="internal"
+            size="sm"
+            aria-label={ui("Phóng to")}
+            disabled={zoom >= maxZoom}
+            onClick={() => onZoom(Math.min(zoom + zoomStep, maxZoom))}
+          >
+            <ZoomIn />
+          </IconButton>
+          {onCrop ? (
+            <>
+              <IconButton
+                prominence="internal"
+                size="sm"
+                aria-label={ui("Xoay trái")}
+                onClick={() => onRotate(-90)}
+              >
+                <RotateCcw />
+              </IconButton>
+              <IconButton
+                prominence="internal"
+                size="sm"
+                aria-label={ui("Xoay phải")}
+                onClick={() => onRotate(90)}
+              >
+                <RotateCw />
+              </IconButton>
+            </>
+          ) : (
+            <IconButton
+              prominence="internal"
+              size="sm"
+              aria-label={ui("Xoay phải")}
+              onClick={() => onRotate(90)}
+            >
+              <RotateCw />
+            </IconButton>
+          )}
+        </>
+      )}
+      {onCrop && (
+        <IconButton
+          prominence="internal"
+          size="sm"
+          aria-pressed={cropping}
+          aria-label={cropping ? ui("Thoát cắt ảnh") : ui("Cắt ảnh")}
+          onClick={onCrop}
+        >
+          <Crop />
+        </IconButton>
+      )}
     </div>
   );
 }

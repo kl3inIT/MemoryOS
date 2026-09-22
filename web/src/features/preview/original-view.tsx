@@ -161,7 +161,7 @@ export function OriginalView({
               <ImageControls
                 zoom={zoom}
                 onZoom={setZoom}
-                onRotate={() => setRotation((turn) => (turn + 90) % 360)}
+                onRotate={(degrees) => setRotation((turn) => (turn + degrees + 360) % 360)}
               />
             </div>
           </div>
