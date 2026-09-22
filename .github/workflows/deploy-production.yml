@@ -31,10 +31,6 @@ jobs:
     uses: ./.github/workflows/deploy.yml
     with:
       environment: production
-      host: ${{ vars.PRODUCTION_HOST }}
-      user: ${{ vars.PRODUCTION_USER }}
-      known_hosts: ${{ vars.PRODUCTION_KNOWN_HOSTS }}
       ci_run_id: ${{ inputs.ci_run_id }}
       recovery_release: ${{ inputs.recovery_release }}
-    secrets:
-      ssh_key: ${{ secrets.PRODUCTION_SSH_KEY }}
+    secrets: inherit
