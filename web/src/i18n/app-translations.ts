@@ -38,7 +38,7 @@ export const vietnameseUi: Record<string, string> = {
   "Proposes what was said where the speech provider was unsure.":
     "Proposes what was said where the speech provider was unsure.",
   "Transcript correction model": "Transcript correction model",
-  "Nhận hết ({{count}})": "Accept all ({{count}})",
+  "Đề xuất ({{count}})": "Suggestions ({{count}})",
   "Hiệu chỉnh {{count}} đoạn khó nghe": "Correct {{count}} unclear stretches",
   "Đang hiệu chỉnh…": "Correcting…",
   "Tìm được {{count}} chỗ cần sửa.": "Found {{count}} places to correct.",
@@ -46,7 +46,7 @@ export const vietnameseUi: Record<string, string> = {
   "Transcript sẽ đổi ở {{count}} chỗ.": "The transcript changes in {{count}} places.",
   "Nhận hết": "Accept all",
   "Đang nhận…": "Accepting…",
-  "Hoàn tác cả lượt ({{count}})": "Undo the whole pass ({{count}})",
+  "Đã sửa ({{count}})": "Corrected ({{count}})",
   "Hoàn tác cả lượt?": "Undo the whole pass?",
   "{{count}} chỗ trở lại như máy nghe ban đầu.":
     "{{count}} places go back to the way they were heard.",

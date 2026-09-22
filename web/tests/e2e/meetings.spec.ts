@@ -634,7 +634,7 @@ for (const width of [1440, 390]) {
     });
     await expect(page.getByRole("button", { name: "Nhận", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Hoàn tác", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Hoàn tác cả lượt (1)" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Hoàn tác cả lượt" })).toBeVisible();
     await page.screenshot({
       path: `../output/playwright/meetings-corrections-${width}.png`,
       fullPage: true,

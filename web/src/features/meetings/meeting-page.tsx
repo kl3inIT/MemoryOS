@@ -209,6 +209,7 @@ export function MeetingPage({
   const transcribing = data.status === "TRANSCRIBING";
   // Everything that changes the meeting belongs to whoever recorded it; a reader reads.
   const owned = data.owned;
+  const shown = pane ?? (data.minutes.status === "READY" ? "summary" : "transcript");
 
   async function resume() {
     setPending(true);
@@ -492,63 +493,77 @@ export function MeetingPage({
         )}
 
         {/* The minutes take the reader's place as soon as they land, as ghiam-pro's conclusion tab does. */}
-        <Tabs
-          value={pane ?? (data.minutes.status === "READY" ? "summary" : "transcript")}
-          onValueChange={setPane}
+        <TranscriptCorrections
+          meeting={data}
+          enabled={data.owned && data.status === "ENDED" && data.utterances.length > 0}
         >
-          {/* Five tabs are wider than a phone: they scroll inside their own row, or choosing one scrolls the
-              whole page sideways to reveal it. */}
-          <TabsList className="max-w-full justify-start overflow-x-auto">
-            {data.minutes.status !== "NONE" && (
-              <TabsTrigger value="summary">{ui("Tóm tắt")}</TabsTrigger>
-            )}
-            {data.minutes.actions.length > 0 && (
-              <TabsTrigger value="actions">
-                {ui("Việc cần làm")}
-                <span className="ml-1.5 rounded-full bg-surface-subtle px-1.5 text-xs">
-                  {data.minutes.actions.length}
-                </span>
-              </TabsTrigger>
-            )}
-            {data.minutes.decisions.length > 0 && (
-              <TabsTrigger value="decisions">
-                {ui("Quyết định")}
-                <span className="ml-1.5 rounded-full bg-surface-subtle px-1.5 text-xs">
-                  {data.minutes.decisions.length}
-                </span>
-              </TabsTrigger>
-            )}
-            <TabsTrigger value="transcript">{ui("Transcript")}</TabsTrigger>
-            {owned && <TabsTrigger value="notes">{ui("Ghi chú của tôi")}</TabsTrigger>}
-          </TabsList>
-          {data.minutes.status !== "NONE" && (
-            <TabsContent value="summary" className="pt-4">
-              <MinutesSummary meeting={data} ui={ui} />
-            </TabsContent>
+          {(corrections) => (
+            <Tabs value={shown} onValueChange={setPane}>
+              {/* What acts on the open tab sits at the right of the tab row; on a phone it drops below the tabs. */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {/* Five tabs are wider than a phone: they scroll inside their own row, or choosing one
+                    scrolls the whole page sideways to reveal it. */}
+                <TabsList className="max-w-full min-w-0 justify-start overflow-x-auto">
+                  {data.minutes.status !== "NONE" && (
+                    <TabsTrigger value="summary">{ui("Tóm tắt")}</TabsTrigger>
+                  )}
+                  {data.minutes.actions.length > 0 && (
+                    <TabsTrigger value="actions">
+                      {ui("Việc cần làm")}
+                      <span className="ml-1 text-xs text-content-muted tabular-nums">
+                        {data.minutes.actions.length}
+                      </span>
+                    </TabsTrigger>
+                  )}
+                  {data.minutes.decisions.length > 0 && (
+                    <TabsTrigger value="decisions">
+                      {ui("Quyết định")}
+                      <span className="ml-1 text-xs text-content-muted tabular-nums">
+                        {data.minutes.decisions.length}
+                      </span>
+                    </TabsTrigger>
+                  )}
+                  <TabsTrigger value="transcript">{ui("Transcript")}</TabsTrigger>
+                  {owned && <TabsTrigger value="notes">{ui("Ghi chú của tôi")}</TabsTrigger>}
+                </TabsList>
+                {shown === "transcript" && corrections.trigger}
+                {shown !== "transcript" && shown !== "notes" && data.minutes.status === "READY" && (
+                  <MinutesActions meeting={data} ui={ui} />
+                )}
+              </div>
+              {data.minutes.status !== "NONE" && (
+                <TabsContent value="summary" className="pt-4">
+                  <MinutesSummary meeting={data} ui={ui} />
+                </TabsContent>
+              )}
+              <TabsContent value="actions" className="pt-4">
+                <MinutesItems meeting={data} items={data.minutes.actions} kind="ACTION" ui={ui} />
+              </TabsContent>
+              <TabsContent value="decisions" className="pt-4">
+                <MinutesItems
+                  meeting={data}
+                  items={data.minutes.decisions}
+                  kind="DECISION"
+                  ui={ui}
+                />
+              </TabsContent>
+              <TabsContent value="transcript" className="grid gap-4 pt-4">
+                {corrections.panel}
+                <Transcript
+                  meeting={data}
+                  snapshot={recording ? snapshot : idle}
+                  ui={ui}
+                  onStar={star}
+                />
+              </TabsContent>
+              {owned && (
+                <TabsContent value="notes" className="pt-4">
+                  <Notes meeting={data} ui={ui} />
+                </TabsContent>
+              )}
+            </Tabs>
           )}
-          <TabsContent value="actions" className="pt-4">
-            <MinutesItems meeting={data} items={data.minutes.actions} kind="ACTION" ui={ui} />
-          </TabsContent>
-          <TabsContent value="decisions" className="pt-4">
-            <MinutesItems meeting={data} items={data.minutes.decisions} kind="DECISION" ui={ui} />
-          </TabsContent>
-          <TabsContent value="transcript" className="grid gap-4 pt-4">
-            {data.owned && data.status === "ENDED" && data.utterances.length > 0 && (
-              <TranscriptCorrections meeting={data} />
-            )}
-            <Transcript
-              meeting={data}
-              snapshot={recording ? snapshot : idle}
-              ui={ui}
-              onStar={star}
-            />
-          </TabsContent>
-          {owned && (
-            <TabsContent value="notes" className="pt-4">
-              <Notes meeting={data} ui={ui} />
-            </TabsContent>
-          )}
-        </Tabs>
+        </TranscriptCorrections>
 
         {owned && <Sharing meeting={data} ui={ui} />}
 
@@ -627,14 +642,13 @@ function Sharing({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
   );
 }
 
-/** The model's account of the meeting, with what it is still doing or why it could not. */
-function MinutesSummary({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
+/** What acts on the whole minutes, beside the tabs that show them. */
+function MinutesActions({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
   const cache = useQueryClient();
   const [pending, setPending] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [opening, setOpening] = useState(false);
   const navigate = useNavigate();
-  const { status, generatedAt } = meeting.minutes;
 
   /** Publishes the minutes into the library, then opens a new conversation with them in the composer. */
   async function openInChat() {
@@ -651,6 +665,60 @@ function MinutesSummary({ meeting, ui }: { meeting: MeetingDetail; ui: Translate
     setPending(true);
     try {
       cache.setQueryData(meetingKey(meeting.id), await rerunMinutes(meeting.id, discardEdits));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {meeting.owned &&
+        (meeting.minutes.edited ? (
+          <ConfirmDialog
+            trigger={
+              <Button size="sm" prominence="tertiary" pending={pending}>
+                <RefreshCw aria-hidden="true" />
+                {ui("Viết lại")}
+              </Button>
+            }
+            title={ui("Viết lại tóm tắt?")}
+            description={ui("Những chỗ bạn đã sửa sẽ bị thay bằng bản mới.")}
+            confirmLabel={ui("Viết lại")}
+            pendingLabel={ui("Đang viết lại…")}
+            confirmTone="danger"
+            onConfirm={() => rerun(true)}
+          />
+        ) : (
+          <Button size="sm" prominence="tertiary" pending={pending} onClick={() => void rerun()}>
+            <RefreshCw aria-hidden="true" />
+            {ui("Viết lại")}
+          </Button>
+        ))}
+      <Button size="sm" prominence="tertiary" pending={opening} onClick={() => void openInChat()}>
+        <MessageSquareText aria-hidden="true" />
+        {ui("Mở trong Chat")}
+      </Button>
+      <Button size="sm" prominence="secondary" onClick={() => setExporting(true)}>
+        <FileDown aria-hidden="true" />
+        {ui("Xuất biên bản")}
+      </Button>
+      {exporting && (
+        <ExportMinutesDialog meeting={meeting} open onOpenChange={(next) => setExporting(next)} />
+      )}
+    </div>
+  );
+}
+
+/** The model's account of the meeting, with what it is still doing or why it could not. */
+function MinutesSummary({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
+  const cache = useQueryClient();
+  const [pending, setPending] = useState(false);
+  const { status, generatedAt } = meeting.minutes;
+
+  async function rerun() {
+    setPending(true);
+    try {
+      cache.setQueryData(meetingKey(meeting.id), await rerunMinutes(meeting.id, false));
     } finally {
       setPending(false);
     }
@@ -682,45 +750,12 @@ function MinutesSummary({ meeting, ui }: { meeting: MeetingDetail; ui: Translate
     );
   return (
     <div className="grid gap-3">
-      <div className="flex flex-wrap items-center gap-3 text-xs text-content-muted">
-        {generatedAt && (
-          <span>{ui("Viết lúc {{when}}", { when: formatWhen(generatedAt, i18n.language) })}</span>
-        )}
-        {meeting.owned &&
-          (meeting.minutes.edited ? (
-            <ConfirmDialog
-              trigger={
-                <Button size="sm" prominence="tertiary" pending={pending}>
-                  <RefreshCw aria-hidden="true" />
-                  {ui("Viết lại")}
-                </Button>
-              }
-              title={ui("Viết lại tóm tắt?")}
-              description={ui("Những chỗ bạn đã sửa sẽ bị thay bằng bản mới.")}
-              confirmLabel={ui("Viết lại")}
-              pendingLabel={ui("Đang viết lại…")}
-              confirmTone="danger"
-              onConfirm={() => rerun(true)}
-            />
-          ) : (
-            <Button size="sm" prominence="tertiary" pending={pending} onClick={() => void rerun()}>
-              <RefreshCw aria-hidden="true" />
-              {ui("Viết lại")}
-            </Button>
-          ))}
-        <Button size="sm" prominence="tertiary" onClick={() => setExporting(true)}>
-          <FileDown aria-hidden="true" />
-          {ui("Xuất biên bản")}
-        </Button>
-        <Button size="sm" prominence="tertiary" pending={opening} onClick={() => void openInChat()}>
-          <MessageSquareText aria-hidden="true" />
-          {ui("Mở trong Chat")}
-        </Button>
-      </div>
-      <EditableSummary meeting={meeting} />
-      {exporting && (
-        <ExportMinutesDialog meeting={meeting} open onOpenChange={(next) => setExporting(next)} />
+      {generatedAt && (
+        <p className="text-xs text-content-muted">
+          {ui("Viết lúc {{when}}", { when: formatWhen(generatedAt, i18n.language) })}
+        </p>
       )}
+      <EditableSummary meeting={meeting} />
     </div>
   );
 }
@@ -1074,14 +1109,6 @@ function Transcript({
           </>
         )}
       </div>
-      <Button prominence="tertiary" size="sm" onClick={() => void take("DOCX")}>
-        <FileDown aria-hidden="true" />
-        {ui("Tải Word")}
-      </Button>
-      <Button prominence="tertiary" size="sm" onClick={() => void take("PDF")}>
-        <FileDown aria-hidden="true" />
-        {ui("Tải PDF")}
-      </Button>
       {(starred.size > 0 || starredOnly) && (
         <Button
           prominence={starredOnly ? "secondary" : "tertiary"}
@@ -1093,6 +1120,16 @@ function Transcript({
           {ui("Câu đã đánh dấu ({{count}})", { count: starred.size })}
         </Button>
       )}
+      <div className="ml-auto flex items-center gap-1">
+        <Button prominence="tertiary" size="sm" onClick={() => void take("DOCX")}>
+          <FileDown aria-hidden="true" />
+          {ui("Tải Word")}
+        </Button>
+        <Button prominence="tertiary" size="sm" onClick={() => void take("PDF")}>
+          <FileDown aria-hidden="true" />
+          {ui("Tải PDF")}
+        </Button>
+      </div>
     </div>
   );
 
@@ -1120,6 +1157,9 @@ function Transcript({
           aria-label={ui("Dòng thời gian")}
           className="rounded-xl border border-border-default p-2"
         >
+          <h3 className="px-2 pt-1 pb-1.5 text-xs font-medium text-content-muted">
+            {ui("Dòng thời gian")}
+          </h3>
           <ol className="grid gap-0.5">
             {topics.map(({ topic, line }) => (
               <li key={topic.id}>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Undo2, WandSparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,8 +26,11 @@ import {
 /**
  * The owner asks a model about every stretch the speech provider was unsure of, then decides each answer. The
  * transcript changes only where they say so, and every change can be taken back.
+ *
+ * Returns the button that starts a pass, which the page puts beside the tabs as Otter puts its template picker, and
+ * the proposals, which stay above the transcript they change. Both are empty when {@code enabled} is false.
  */
-export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
+function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
   const problemMessage = useProblemMessage();
@@ -41,10 +44,12 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
     queryKey: meetingKey(meeting.id),
     queryFn: ({ signal }) => loadMeeting(meeting.id, signal),
     refetchInterval: running ? 3000 : false,
+    enabled,
   });
   const corrections = useQuery({
     queryKey: correctionsKey(meeting.id),
     queryFn: ({ signal }) => loadCorrections(meeting.id, signal),
+    enabled,
   });
   const wasRunning = useRef(running);
   useEffect(() => {
@@ -95,62 +100,29 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
   const unclear = meeting.utterances
     .filter((utterance) => utterance.editSource !== "HUMAN")
     .reduce((count, utterance) => count + utterance.spans.length, 0);
-  if (unclear === 0 && all.length === 0 && !running) return null;
+  if (!enabled || (unclear === 0 && all.length === 0 && !running))
+    return { trigger: null, panel: null };
   const runId = pending[0]?.runId;
   const appliedRun = applied.at(-1)?.runId;
 
-  return (
+  const trigger = (unclear > 0 || running) && (
+    <Button
+      prominence="secondary"
+      size="sm"
+      disabled={busy}
+      onClick={() => guard(() => run.mutateAsync())}
+    >
+      <WandSparkles aria-hidden="true" className={running ? "animate-pulse" : undefined} />
+      {running
+        ? ui("Đang hiệu chỉnh…")
+        : ui("Hiệu chỉnh {{count}} đoạn khó nghe", { count: unclear })}
+    </Button>
+  );
+  const panel = (error ||
+    (found !== null && !running) ||
+    pending.length > 0 ||
+    applied.length > 0) && (
     <section className="grid gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {(unclear > 0 || running) && (
-          <Button
-            prominence="secondary"
-            size="sm"
-            disabled={busy}
-            onClick={() => guard(() => run.mutateAsync())}
-          >
-            <WandSparkles aria-hidden="true" className={running ? "animate-pulse" : undefined} />
-            {running
-              ? ui("Đang hiệu chỉnh…")
-              : ui("Hiệu chỉnh {{count}} đoạn khó nghe", { count: unclear })}
-          </Button>
-        )}
-        {pending.length > 0 && runId && (
-          <ConfirmDialog
-            trigger={
-              <Button prominence="tertiary" size="sm" disabled={busy}>
-                {ui("Nhận hết ({{count}})", { count: pending.length })}
-              </Button>
-            }
-            title={ui("Nhận hết?")}
-            description={ui("Transcript sẽ đổi ở {{count}} chỗ.", { count: pending.length })}
-            confirmLabel={ui("Nhận hết")}
-            pendingLabel={ui("Đang nhận…")}
-            onConfirm={() =>
-              guard(() => decide.mutateAsync(() => acceptAllCorrections(meeting.id, runId)))
-            }
-          />
-        )}
-        {applied.length > 0 && appliedRun && (
-          <ConfirmDialog
-            trigger={
-              <Button prominence="tertiary" size="sm" disabled={busy}>
-                {ui("Hoàn tác cả lượt ({{count}})", { count: applied.length })}
-              </Button>
-            }
-            title={ui("Hoàn tác cả lượt?")}
-            description={ui("{{count}} chỗ trở lại như máy nghe ban đầu.", {
-              count: applied.length,
-            })}
-            confirmLabel={ui("Hoàn tác cả lượt")}
-            pendingLabel={ui("Đang hoàn tác…")}
-            onConfirm={() =>
-              guard(() => decide.mutateAsync(() => revertAllCorrections(meeting.id, appliedRun)))
-            }
-          />
-        )}
-      </div>
-
       {error && <p className="text-sm text-status-danger-content">{error}</p>}
 
       {found !== null && !running && (
@@ -161,6 +133,27 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
         </p>
       )}
 
+      {pending.length > 0 && runId && (
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-medium">
+            {ui("Đề xuất ({{count}})", { count: pending.length })}
+          </h3>
+          <ConfirmDialog
+            trigger={
+              <Button prominence="tertiary" size="sm" disabled={busy}>
+                {ui("Nhận hết")}
+              </Button>
+            }
+            title={ui("Nhận hết?")}
+            description={ui("Transcript sẽ đổi ở {{count}} chỗ.", { count: pending.length })}
+            confirmLabel={ui("Nhận hết")}
+            pendingLabel={ui("Đang nhận…")}
+            onConfirm={() =>
+              guard(() => decide.mutateAsync(() => acceptAllCorrections(meeting.id, runId)))
+            }
+          />
+        </div>
+      )}
       <ol className="grid gap-2">
         {pending.map((item) => (
           <li
@@ -231,6 +224,29 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
         ))}
       </ol>
 
+      {applied.length > 0 && appliedRun && (
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-medium">
+            {ui("Đã sửa ({{count}})", { count: applied.length })}
+          </h3>
+          <ConfirmDialog
+            trigger={
+              <Button prominence="tertiary" size="sm" disabled={busy}>
+                {ui("Hoàn tác cả lượt")}
+              </Button>
+            }
+            title={ui("Hoàn tác cả lượt?")}
+            description={ui("{{count}} chỗ trở lại như máy nghe ban đầu.", {
+              count: applied.length,
+            })}
+            confirmLabel={ui("Hoàn tác cả lượt")}
+            pendingLabel={ui("Đang hoàn tác…")}
+            onConfirm={() =>
+              guard(() => decide.mutateAsync(() => revertAllCorrections(meeting.id, appliedRun)))
+            }
+          />
+        </div>
+      )}
       {applied.length > 0 && (
         <ol className="grid gap-1">
           {applied.map((item) => (
@@ -261,6 +277,20 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
       )}
     </section>
   );
+  return { trigger, panel };
+}
+
+/** Lets a page that loads its meeting first place the button and the proposals where its layout wants them. */
+export function TranscriptCorrections({
+  meeting,
+  enabled,
+  children,
+}: {
+  meeting: MeetingDetail;
+  enabled: boolean;
+  children: (parts: { trigger: ReactNode; panel: ReactNode }) => ReactNode;
+}) {
+  return children(useTranscriptCorrections(meeting, enabled));
 }
 
 /** The sentence a proposal sits in. A few words cannot be judged without the ones around them. */
