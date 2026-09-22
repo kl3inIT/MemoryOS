@@ -67,10 +67,15 @@ Verification below.
 | An absent sheet row keeps its line, so a recorded row number addresses the same line of the preview | `SpreadsheetPreviewTest` |
 | The rendered sheet marks the cited rows and states which one is being read | `csv-view.test.tsx` |
 | A marked row keeps its colour under the pointer, and the expand control opens a true full screen | browser check in Orca on 2026-09-22 |
+| A sheet renders only the rows in view, so a wide workbook does not build thousands of cells | `csv-view.test.tsx` plus a browser measurement in Orca on 2026-09-22: the same workbook fell from 11,200 rendered cells to 577 |
 | PDF, DOCX and XLSX read correctly in light and dark | browser check in Orca — DOCX confirmed on the Tasco report on 2026-09-22 in dark and light; XLSX confirmed on an uploaded workbook; PDF is unchecked here because this machine has no Docling endpoint, so no PDF can be extracted or indexed |
 
 Not verified here: rendering fidelity of a real Tasco DOCX/XLSX corpus beyond the fixture files, and the
 `approximate` match rate against production documents — measured after the first live read, not asserted.
+
+Measured and left alone: a workbook still takes about 2.2 s to open. Virtualizing the table did not move
+that number, because the wait is reading and converting the workbook in the API, not building the rows.
+Shortening it belongs to the spreadsheet route, not to the reader.
 
 Not delivered: the four distinct unavailable-original panels the design asks for. The reader shows two —
 the original could not be opened, and this type cannot be shown here — because an oversized or missing
