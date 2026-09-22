@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
@@ -26,13 +27,16 @@ class TranscriptSummarizerTest {
 
     @Test
     void aTranscriptPastTheBudgetKeepsBothEndsAndSaysWhatIsMissing() {
-        String body = IntStream.rangeClosed(1, 20_000)
+        // Joined rather than folded: reducing with String::concat copies the whole accumulator on every line, which
+        // turns a transcript of this size into gigabytes of garbage and exhausts the one-gigabyte test heap.
+        String body = IntStream.rangeClosed(1, 3_000)
                 .mapToObj(line -> "[" + line + "] 00:00:00 Người nói 1: Một câu dài để vượt ngưỡng.\n")
-                .reduce("", String::concat);
+                .collect(Collectors.joining());
         String bounded = TranscriptSummarizer.bounded(body);
+        assertTrue(body.length() > 120_000, "the transcript has to pass the budget for this to mean anything");
         assertTrue(bounded.length() < body.length());
         assertTrue(bounded.startsWith("[1] "), "the opening is kept");
-        assertTrue(bounded.endsWith("[20000] 00:00:00 Người nói 1: Một câu dài để vượt ngưỡng.\n"), "the end is kept");
+        assertTrue(bounded.endsWith("[3000] 00:00:00 Người nói 1: Một câu dài để vượt ngưỡng.\n"), "the end is kept");
         assertTrue(bounded.contains("part of the meeting is missing"), "the model is told to say so");
     }
 
