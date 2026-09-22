@@ -41,6 +41,18 @@ Each track is one provider stream over the Tenant's default speech-to-text conne
 
 An utterance also carries `spans`: the stretches the provider was least sure of, as half-open character offsets into the stored text with the lowest confidence among the tokens each covers. A token below 0.6 — Soniox's own review threshold — is marked, neighbouring marked tokens become one stretch, and the threshold is applied once, when the utterance is built, so stored stretches reflect the threshold in force at transcription time. Only Soniox reports a confidence per token, live and for an uploaded recording; every other provider stores an empty list and nothing is marked. The transcript highlights those stretches and shows the percentage on hover.
 
+## Correcting what was misheard
+
+The owner asks a model what was probably said at each marked stretch: `POST /api/meetings/{id}/corrections` answers the run and its proposals, and changes nothing. Only the owner reaches any of this — a reader of a shared meeting gets 404 — and the call is billed to the owner's Tenant as `MEETING_CORRECTION`, a model flow an administrator selects like any other. One pass at a time per meeting; a second press while one is running answers 409.
+
+Neighbouring marks that read as one phrase are asked about together: joined when at most 5 characters and 8 words apart with no `.`, `!` or `?` between them. Each stretch is sent with 100 characters of context either side, the two lines before and after with the one being judged marked, the speaker, the meeting's terms, and the same words where they appear clearly elsewhere in the transcript. A line the owner has rewritten is never sent again.
+
+A proposal carries the model's reason and three scores — is this what was said, does it fit the sentences around it, does it leave the meaning alone. Naturalness is deliberately not asked for: people speak untidily, and tidying that is a change to what was said.
+
+`POST .../corrections/{id}/accept` puts the words in, either the model's or the owner's own; `/keep` declines and leaves the record showing what was offered; `/accept-all` takes everything a run still has undecided, applying later stretches of a line first so the earlier offsets still hold; `/revert` puts back what the line said before, and `/revert-all` takes back everything one pass put in — accepting in bulk is only safe if undoing in bulk costs the same one press. A stretch whose line moved since the run answers 409 rather than writing over words it never read.
+
+`meeting_utterance.text` is always what the reader sees. Every change to it is a row in `meeting_utterance_event` with its `before`, its `after`, who made it and which run it belonged to, so the words the provider first wrote stay recoverable. `edit_source` says who last changed a line (`MODEL`, `HUMAN`, or nothing at all) and is what locks a line the owner rewrote. Accepting shifts the line's remaining marks: one covering the replaced words is dropped, the rest move by the difference in length.
+
 Utterances are stored as they are committed, with their speaker row created on first use. Naming a speaker (`PUT /api/meetings/{id}/speakers/{track}/{label}`) applies to every utterance of that speaker; a blank name restores the automatic label.
 
 ## Uploading a recording

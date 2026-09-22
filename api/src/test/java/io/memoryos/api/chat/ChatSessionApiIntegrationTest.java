@@ -195,6 +195,9 @@ class ChatSessionApiIntegrationTest {
     private io.memoryos.usage.report.UsageReportService usageReports;
     @LocalServerPort
     private int port;
+    /** Which stretch the correction pass asked about, so the stubbed model can answer that one. */
+    private static final java.util.concurrent.atomic.AtomicReference<String> STRETCH =
+            new java.util.concurrent.atomic.AtomicReference<>("");
     @MockitoBean(name = "chatProviderModel")
     private ChatModel model;
     @MockitoSpyBean
@@ -2233,10 +2236,13 @@ class ChatSessionApiIntegrationTest {
         grantModelManagement();
         var flows = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-flows").with(authentication(actor)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        assertEquals(2, flows.size(), "every task flow is listed");
+        assertEquals(io.memoryos.chat.catalog.ModelFlow.values().length, flows.size(), "every task flow is listed");
+        var listed = new java.util.TreeSet<String>();
+        flows.forEach(flow -> listed.add(flow.path("flow").asText()));
+        assertEquals(java.util.Arrays.stream(io.memoryos.chat.catalog.ModelFlow.values())
+                .map(Enum::name).collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new)), listed);
         var naming = flows.get(0);
         assertEquals("CHAT_NAMING", naming.path("flow").asText());
-        assertEquals("MEETING_MINUTES", flows.get(1).path("flow").asText());
         assertTrue(naming.path("modelConfigurationId").isNull());
         assertTrue(naming.path("available").asBoolean());
         mockMvc.perform(get("/api/chat/model-flows").with(authentication(other))).andExpect(status().isForbidden());
@@ -3138,6 +3144,105 @@ class ChatSessionApiIntegrationTest {
             server.stop(0);
             jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
             jdbc.sql("DELETE FROM chat_voice_connection WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
+    void aProposalIsOnlyAnOfferUntilTheOwnerTakesItAndCanBeTakenBack() throws Exception {
+        var asked = new java.util.concurrent.atomic.AtomicReference<String>();
+        when(model.call(any(Prompt.class))).thenAnswer(call -> {
+            asked.set(call.getArgument(0, Prompt.class).getInstructions().stream()
+                    .map(org.springframework.ai.chat.messages.Message::getText)
+                    .collect(java.util.stream.Collectors.joining("\n")));
+            return response("""
+                    {"proposals":[
+                      {"id":"%s","replace":true,"text":"Tasco","reason":"Tên công ty nói rõ ở câu sau.",
+                       "confidence":0.93,"contextFit":0.9,"meaningSafe":0.95,"matchedGlossary":true},
+                      {"id":"unknown","replace":true,"text":"gì đó","reason":"","confidence":0.9,
+                       "contextFit":0.9,"meaningSafe":0.9,"matchedGlossary":false}]}
+                    """.formatted(STRETCH.get()), "stop", 40);
+        });
+        UUID meeting = UUID.randomUUID();
+        UUID line = UUID.randomUUID();
+        String said = "Bên Tát cô đã gửi bảng KPI.";
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, terms,
+                                        status, ended_at)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'IN_PERSON', 'vi', '[]'::jsonb,
+                            '["Tasco"]'::jsonb, 'ENDED', CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label) VALUES (:tenant,:meeting,'MIC','1')")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text,
+                                                  confidence, spans)
+                    VALUES (:tenant, :id, :meeting, 'MIC', '1', 0, 2000, :text, 0.55,
+                            '[{"start":4,"end":6,"confidence":0.4},{"start":7,"end":10,"confidence":0.35}]'::jsonb)
+                    """).param("tenant", TENANT).param("id", line).param("meeting", meeting).param("text", said)
+                    .update();
+            // The two marks read as one phrase, so the pass asks about "Tát cô" rather than about each half.
+            STRETCH.set(line + ":4");
+
+            var proposed = Json.mapper().readTree(mockMvc.perform(post("/api/meetings/" + meeting + "/corrections")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(1, proposed.path("corrections").size(), "a proposal for a stretch nobody asked about is dropped");
+            var proposal = proposed.path("corrections").get(0);
+            assertEquals("Tát cô", proposal.path("before").asText());
+            assertEquals("Tasco", proposal.path("after").asText());
+            assertEquals("PENDING", proposal.path("status").asText());
+            assertTrue(asked.get().contains("untrusted data"), "the prompt defends itself");
+
+            String beforeAnything = Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting)
+                    .with(authentication(actor))).andReturn().getResponse().getContentAsString())
+                    .path("utterances").get(0).path("text").asText();
+            assertEquals(said, beforeAnything, "proposing changes nothing");
+
+            // A reader of a shared meeting never reaches any of this.
+            mockMvc.perform(post("/api/meetings/" + meeting + "/corrections").with(authentication(other))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
+            mockMvc.perform(get("/api/meetings/" + meeting + "/corrections").with(authentication(other)))
+                    .andExpect(status().isNotFound());
+
+            String correction = proposal.path("id").asText();
+            var accepted = Json.mapper().readTree(mockMvc.perform(
+                    post("/api/meetings/" + meeting + "/corrections/" + correction + "/accept")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"text\":null}"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            var rewritten = accepted.path("utterances").get(0);
+            assertEquals("Bên Tasco đã gửi bảng KPI.", rewritten.path("text").asText());
+            assertEquals("MODEL", rewritten.path("editSource").asText());
+            assertEquals(0, rewritten.path("spans").size(),
+                    "the marks covered the words that were replaced, so they describe nothing now");
+            assertEquals(said, jdbc.sql("""
+                    SELECT before FROM meeting_utterance_event WHERE tenant_id = :tenant AND utterance_id = :line
+                    ORDER BY id LIMIT 1
+                    """).param("tenant", TENANT).param("line", line).query(String.class).single(),
+                    "the words the provider wrote are still on the record");
+
+            // Deciding the same proposal twice is a conflict, not a second rewrite.
+            mockMvc.perform(post("/api/meetings/" + meeting + "/corrections/" + correction + "/keep")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isConflict());
+
+            var reverted = Json.mapper().readTree(mockMvc.perform(
+                    post("/api/meetings/" + meeting + "/corrections/" + correction + "/revert")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(said, reverted.path("utterances").get(0).path("text").asText());
+            assertTrue(reverted.path("utterances").get(0).path("editSource").isNull(),
+                    "back at the provider's own words, so nobody has changed this line after all");
+            assertEquals("REVERTED", Json.mapper().readTree(mockMvc.perform(
+                    get("/api/meetings/" + meeting + "/corrections").with(authentication(actor)))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                    .get(0).path("status").asText());
+            assertEquals(1, reverted.path("utterances").get(0).path("spans").size(),
+                    "and the stretch is uncertain again");
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
         }
     }
 

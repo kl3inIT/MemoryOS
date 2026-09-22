@@ -74,6 +74,7 @@ export const flowLabels: Record<Flow, AppCopy> = {
   SPEECH_TO_TEXT: "Speech to text",
   TEXT_TO_SPEECH: "Read aloud",
   MEETING_MINUTES: "Meeting minutes",
+  MEETING_CORRECTION: "Transcript corrections",
 };
 
 export const dimensionLabels: Record<Dimension, AppCopy> = {

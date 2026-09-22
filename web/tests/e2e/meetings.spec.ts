@@ -117,6 +117,42 @@ async function mockMeetings(page: Page) {
     await route.fulfill({ json: [...current, ...earlier] });
   });
   await page.route(`**/api/meetings/${MEETING_ID}`, (route) => route.fulfill({ json: meeting }));
+  await page.route(`**/api/meetings/${MEETING_ID}/corrections`, (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "c1",
+          utteranceId: "u2",
+          runId: "r1",
+          start: 59,
+          end: 70,
+          before: "Vinaconex 9",
+          after: "Vinaconex 09",
+          reason: "Mã dự án đọc rõ ở câu sau là 09.",
+          confidence: 0.82,
+          contextFit: 0.74,
+          meaningSafe: 0.96,
+          matchedGlossary: true,
+          status: "PENDING",
+        },
+        {
+          id: "c2",
+          utteranceId: "u1",
+          runId: "r1",
+          start: 26,
+          end: 31,
+          before: "quý 4",
+          after: "quý IV",
+          reason: "Văn bản của công ty viết số La Mã.",
+          confidence: 0.71,
+          contextFit: 0.8,
+          meaningSafe: 0.99,
+          matchedGlossary: false,
+          status: "ACCEPTED",
+        },
+      ],
+    }),
+  );
   await page.route(`**/api/meetings/${MEETING_ID}/tickets`, (route) =>
     route.fulfill({
       json: { ticket: "synthetic-ticket", expiresAt: new Date(Date.now() + 60_000).toISOString() },
@@ -517,6 +553,17 @@ for (const width of [1440, 390]) {
       attendees: ["Anh Thanh", "Chị Lan", "Anh Minh"],
     });
     await expect(bienBan).toHaveCount(0);
+
+    // What the model would change, and what it already changed, both live above the transcript.
+    await page.getByRole("tab", { name: "Transcript" }).click();
+    await expect(page.getByText("Mã dự án đọc rõ ở câu sau là 09.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Nhận", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Hoàn tác", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Hoàn tác cả lượt (1)" })).toBeVisible();
+    await page.screenshot({
+      path: `../output/playwright/meetings-corrections-${width}.png`,
+      fullPage: true,
+    });
 
     expect(audio.ended).toBe(true);
     await expect(page.getByRole("timer")).toHaveCount(0);

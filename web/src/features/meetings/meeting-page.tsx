@@ -50,6 +50,7 @@ import { ExportMinutesDialog } from "./export-minutes-dialog";
 import { MeetingShareField, type MeetingAudience } from "./meeting-share-field";
 import { startRecording, stopRecording, useActiveMeeting } from "./meeting-session";
 import type { MeetingTrack } from "./meeting-socket";
+import { TranscriptCorrections } from "./transcript-corrections";
 import { Said } from "./transcript-text";
 import {
   finishMeeting,
@@ -492,7 +493,10 @@ export function MeetingPage({
           <TabsContent value="decisions" className="pt-4">
             <MinutesItems meeting={data} items={data.minutes.decisions} kind="DECISION" ui={ui} />
           </TabsContent>
-          <TabsContent value="transcript" className="pt-4">
+          <TabsContent value="transcript" className="grid gap-4 pt-4">
+            {data.owned && data.status === "ENDED" && data.utterances.length > 0 && (
+              <TranscriptCorrections meeting={data} />
+            )}
             <Transcript meeting={data} snapshot={recording ? snapshot : idle} ui={ui} />
           </TabsContent>
           {owned && (

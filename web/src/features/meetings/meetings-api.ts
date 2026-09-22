@@ -1,5 +1,7 @@
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
+  acceptAllMeetingCorrections,
+  acceptMeetingCorrection,
   createMeeting,
   createMeetingTicket,
   deleteMeeting,
@@ -7,18 +9,25 @@ import {
   exportMeetingMinutes,
   finalizeMeetingRecording,
   getMeeting,
+  keepMeetingWording,
+  listMeetingCorrections,
   listMeetings,
   listMeetingTranscribers,
   markMeetingMinutesItem,
   nameMeetingSpeaker,
+  proposeMeetingCorrections,
   publishMeetingMinutes,
   rerunMeetingMinutes,
   reserveMeetingRecording,
+  revertAllMeetingCorrections,
+  revertMeetingCorrection,
   shareMeeting as shareMeetingRequest,
   updateMeetingNotes,
 } from "@/lib/hey-api/sdk.gen";
 import type {
   MeetingAudio,
+  MeetingCorrection,
+  MeetingCorrectionRun,
   MeetingCreateRequest,
   MeetingHeadingRequest,
   MeetingDetail,
@@ -34,6 +43,8 @@ import type { MeetingTrack } from "./meeting-socket";
 
 export type {
   MeetingAudio,
+  MeetingCorrection,
+  MeetingCorrectionRun,
   MeetingDetail,
   MeetingHeadingRequest,
   MeetingMinutes,
@@ -105,6 +116,77 @@ export async function nameSpeaker(
 export async function finishMeeting(meetingId: string) {
   const { data } = await endMeeting({
     path: { meetingId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export const correctionsKey = (id: string) => [...meetingKey(id), "corrections"] as const;
+
+export async function loadCorrections(
+  id: string,
+  signal: AbortSignal,
+): Promise<MeetingCorrection[]> {
+  const { data } = await listMeetingCorrections({
+    path: { meetingId: id },
+    signal,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function proposeCorrections(meetingId: string): Promise<MeetingCorrectionRun> {
+  const { data } = await proposeMeetingCorrections({
+    path: { meetingId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function acceptCorrection(meetingId: string, correctionId: string, text?: string) {
+  const { data } = await acceptMeetingCorrection({
+    path: { meetingId, correctionId },
+    body: { text: text ?? null },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function keepWording(meetingId: string, correctionId: string) {
+  const { data } = await keepMeetingWording({
+    path: { meetingId, correctionId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function acceptAllCorrections(meetingId: string, runId: string) {
+  const { data } = await acceptAllMeetingCorrections({
+    path: { meetingId },
+    body: { runId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function revertAllCorrections(meetingId: string, runId: string) {
+  const { data } = await revertAllMeetingCorrections({
+    path: { meetingId },
+    body: { runId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function revertCorrection(meetingId: string, correctionId: string) {
+  const { data } = await revertMeetingCorrection({
+    path: { meetingId, correctionId },
     headers: sameOriginMutationHeaders,
     throwOnError: true,
   });
