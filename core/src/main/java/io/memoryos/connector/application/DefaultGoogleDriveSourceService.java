@@ -10,7 +10,6 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.connector.persistence.JdbcGoogleDriveSourceRepository;
 import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
-import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.persistence.JdbcSourceRepository;
 import io.memoryos.connector.persistence.JdbcSourceSyncRepository;
 import io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository;
@@ -58,7 +57,6 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     private final JdbcSourceRepository sources;
     private final JdbcSourceSyncRepository sync;
     private final JdbcIndexAttemptRepository indexing;
-    private final JdbcSourceDocumentRepository documents;
     private final TransactionTemplate transactions;
     private final JdbcGoogleDriveSelectionRepository selections;
     private final JdbcGoogleDriveCredentialRepository credentials;
@@ -69,7 +67,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
 
     public DefaultGoogleDriveSourceService(IamAuthorization authorization, GoogleDriveConnectionService connections,
             JdbcGoogleDriveSourceRepository drive, JdbcSourceRepository sources, JdbcSourceSyncRepository sync,
-            JdbcIndexAttemptRepository indexing, JdbcSourceDocumentRepository documents,
+            JdbcIndexAttemptRepository indexing,
             GoogleDriveLinkReader linkReader, PlatformTransactionManager transactionManager,
             JdbcGoogleDriveSelectionRepository selections, JdbcGoogleDriveCredentialRepository credentials,
             GoogleDriveSelectionPolicy policy, JdbcSourceGroupRepository sourceGroups, SourceAccessPolicy sourceAccess,
@@ -82,7 +80,6 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         this.sources = sources;
         this.sync = sync;
         this.indexing = indexing;
-        this.documents = documents;
         this.transactions = new TransactionTemplate(transactionManager);
         this.selections = selections;
         this.credentials = credentials;
@@ -528,13 +525,10 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
             sourceGroups.replace(tenant, source, creation.groupIds());
             sync.enqueue(tenant, source, intent.credentialRevision(), SourceRunTrigger.INITIAL, intent.actorId());
         } else {
-            boolean changed = !Set.copyOf(drive.roots(tenant, source).stream().map(Root::id).toList())
-                    .equals(Set.copyOf(roots.stream().map(Root::id).toList()));
             sync.cancel(tenant, source);
-            drive.replace(tenant, source, intent.scopeRevision(), intent.scopeMode(), roots);
-            drive.replaceApprovals(tenant, source, approvals.stream().map(LinkedDocument::id).toList(), approvals, changed);
+            drive.replace(tenant, source, intent.scopeRevision(), intent.credentialRevision(), intent.scopeMode(),
+                    roots, approvals);
             indexing.cancelForSource(tenant, source);
-            documents.invalidateSource(tenant, source);
             sources.recomputeStatus(tenant, source, false);
         }
         selections.finish(work, "SUCCEEDED", null);

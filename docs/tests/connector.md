@@ -449,3 +449,9 @@ Source-level pause/resume (V79) blocks new sync/index work for a `PAUSED` Source
 | `POST /api/sources/{sourceId}/pause` and `POST /api/sources/{sourceId}/resume` require `SOURCES_MANAGE`, return updated `SourceSummary`, appear in `openapi.yml` | `SourceController.pauseSource`/`resumeSource`; `OpenApiContractTest` |
 | UI shows Pause/Resume menu items, `Pausing`/`Paused` badges and banner, disables Sync/Reindex while paused | `source-actions-menu.tsx`, `source-status-presentation.ts`, `source-detail-page.tsx`; `pnpm check` |
 | Run history labels pause cancellation distinctly from failure | `source-errors.ts` `SOURCE_PAUSED` message; `source-run-history.tsx` `RESUMED` trigger |
+
+## Selection edits retain indexed content
+
+`PostgresGoogleDriveSyncTest.selectionShrinkKeepsIndexedRootsDescendantsAndRetainedApprovedLinksReady` covers a saved selection during synchronization: retained direct roots, folder descendants and approved linked files stay `READY`, retain their indexing time and readable Documents, and create no new acquisition or indexing attempt on the next unchanged run. Removed roots and links lose read authority immediately; old sync work is superseded.
+
+`selectionEditCancelsPendingInputWithoutLosingItsPreviousPublishedDocumentOrStrandingRetry` covers a selection edit during extraction: the previous published Document remains readable, the old attempt cannot publish, and the next sync can finish the replacement. `selectionEditDoesNotRestoreStaleOrRevokedIndexedAuthority` covers stale scope/credential, unproven membership, revoked mapping and excluded-item boundaries. `coveredTargetsAreDeduplicatedAndRemovingApprovalDoesNotExcludeFolderContent` covers removing an approval from an already-indexed file still covered by a selected folder without re-extraction.

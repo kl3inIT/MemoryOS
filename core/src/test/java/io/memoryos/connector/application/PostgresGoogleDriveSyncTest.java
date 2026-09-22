@@ -606,9 +606,142 @@ class PostgresGoogleDriveSyncTest {
     }
 
     @Test
+    void selectionShrinkKeepsIndexedRootsDescendantsAndRetainedApprovedLinksReady() {
+        jdbc.sql("UPDATE connector_credential_pairs SET access_type='PUBLIC' WHERE id=:source")
+                .param("source", source.value()).update();
+        listing(file("descendant", false, "1"));
+        for (String id : List.of("direct", "removed-root", "first-link", "second-link")) {
+            files.put(id, new GoogleDriveProvider.FileMetadata(id, id + ".txt", "text/plain", "1",
+                    null, null, false, List.of(), null, null));
+        }
+        var configuration = scheduleConfiguration();
+        replaceAndActivate(configuration, scheduleOwner, 2,
+                List.of(link("folder"), link("direct"), link("removed-root")), List.of());
+        links.put("direct", List.of(new GoogleDriveLinkReader.Link(link("first-link"), "Paragraph 1"),
+                new GoogleDriveLinkReader.Link(link("second-link"), "Paragraph 2")));
+        configuration.discoverLinkedDocuments(scheduleOwner, source, 3);
+        replaceAndActivate(configuration, scheduleOwner, 3,
+                List.of(link("folder"), link("direct"), link("removed-root")), List.of("first-link", "second-link"));
+        finish(enqueue());
+        for (int i = 0; i < 5; i++) assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
+        jdbc.sql("UPDATE documents SET searchable_generation=content_generation").update();
+        var queries = new JdbcSourceQueryRepository(jdbc);
+        var ready = queries.items(tenant, source, null, 100).items().stream()
+                .filter(item -> Set.of("descendant.txt", "direct.txt", "second-link.txt").contains(item.filename())).toList();
+        assertThat(ready).hasSize(3).allSatisfy(item -> {
+            assertThat(item.searchStatus()).isEqualTo("READY");
+            assertThat(item.lastIndexedAt()).isNotNull();
+        });
+        var retainedDocuments = jdbc.sql("""
+                SELECT m.document_id FROM documents_by_connector_credential_pair m
+                JOIN connector_items i ON i.tenant_id=m.tenant_id AND i.id=m.connector_item_id
+                WHERE i.provider_file_id IN ('descendant','direct','second-link')
+                """).query(UUID.class).list();
+        var removedDocuments = jdbc.sql("""
+                SELECT m.document_id FROM documents_by_connector_credential_pair m
+                JOIN connector_items i ON i.tenant_id=m.tenant_id AND i.id=m.connector_item_id
+                WHERE i.provider_file_id IN ('removed-root','first-link')
+                """).query(UUID.class).list();
+        assertThat(mappings.readableDocuments(tenant, scheduleOwner, retainedDocuments)).containsExactlyInAnyOrderElementsOf(retainedDocuments);
+        var documentsBefore = jdbc.sql("SELECT to_jsonb(d)::text FROM documents d ORDER BY id").query(String.class).list();
+        var versionsBefore = jdbc.sql("SELECT current_version_id FROM connector_items ORDER BY id").query(UUID.class).list();
+        var mappingTimesBefore = jdbc.sql("""
+                SELECT last_indexed_at FROM documents_by_connector_credential_pair
+                WHERE document_id IN (:documents) ORDER BY document_id
+                """).param("documents", retainedDocuments).query(java.time.OffsetDateTime.class).list();
+        var oldSync = claim(enqueue());
+        tx.executeWithoutResult(_ -> {
+            sources.lock(tenant, source);
+            syncRows.start(oldSync);
+        });
+
+        replaceAndActivate(configuration, scheduleOwner, 4,
+                List.of(link("folder"), link("direct")), List.of("second-link"));
+
+        ready.forEach(item -> assertThat(queries.item(tenant, source, item.id())).isEqualTo(item));
+        assertThat(mappings.readableDocuments(tenant, scheduleOwner, retainedDocuments)).containsExactlyInAnyOrderElementsOf(retainedDocuments);
+        assertThat(mappings.readableDocuments(tenant, scheduleOwner, removedDocuments)).isEmpty();
+        assertThat(jdbc.sql("""
+                SELECT last_indexed_at FROM documents_by_connector_credential_pair
+                WHERE document_id IN (:documents) ORDER BY document_id
+                """).param("documents", retainedDocuments).query(java.time.OffsetDateTime.class).list()).isEqualTo(mappingTimesBefore);
+        assertThat(service().execute(oldSync)).isEqualTo(ConnectorSyncPort.Result.SUPERSEDED);
+        org.mockito.Mockito.clearInvocations(session);
+        var next = enqueue();
+        finish(next);
+
+        assertThat(syncRows.find(tenant, next).orElseThrow().status()).isEqualTo(SourceOperationStatus.SUCCEEDED);
+        ready.forEach(item -> assertThat(queries.item(tenant, source, item.id())).isEqualTo(item));
+        assertThat(jdbc.sql("SELECT to_jsonb(d)::text FROM documents d ORDER BY id").query(String.class).list()).isEqualTo(documentsBefore);
+        assertThat(jdbc.sql("SELECT current_version_id FROM connector_items ORDER BY id").query(UUID.class).list()).isEqualTo(versionsBefore);
+        assertThat(scalar("SELECT COUNT(*) FROM index_attempts")).isEqualTo(5);
+        assertThat(mappings.readableDocuments(tenant, scheduleOwner, retainedDocuments)).containsExactlyInAnyOrderElementsOf(retainedDocuments);
+        assertThat(mappings.readableDocuments(tenant, scheduleOwner, removedDocuments)).isEmpty();
+        verify(session, never()).acquire(any());
+    }
+
+    @Test
+    void selectionEditCancelsPendingInputWithoutLosingItsPreviousPublishedDocumentOrStrandingRetry() {
+        jdbc.sql("UPDATE connector_credential_pairs SET access_type='PUBLIC' WHERE id=:source")
+                .param("source", source.value()).update();
+        listing(file("document", false, "1"));
+        finish(enqueue());
+        assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
+        var document = new DocumentId(jdbc.sql("SELECT id FROM documents").query(UUID.class).single());
+        var publishedBefore = jdbc.sql("SELECT to_jsonb(d)::text FROM documents d").query(String.class).single();
+        listing(file("document", false, "2"));
+        finish(enqueue());
+        var pendingVersion = jdbc.sql("SELECT current_version_id FROM connector_items").query(UUID.class).single();
+        duringExtraction = () -> replaceAndActivate(scheduleConfiguration(), scheduleOwner, 2, List.of(link("folder")), List.of());
+
+        assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.SKIPPED);
+        duringExtraction = () -> {};
+        assertThat(mappings.hasEligibleMapping(tenant, scheduleOwner, document)).isTrue();
+        assertThat(jdbc.sql("SELECT to_jsonb(d)::text FROM documents d").query(String.class).single()).isEqualTo(publishedBefore);
+        assertThat(scalar("SELECT scope_revision FROM connector_item_versions WHERE id='" + pendingVersion + "'")).isEqualTo(2);
+        assertThat(scalar("SELECT COUNT(*) FROM index_attempts WHERE status='CANCELLED'")).isEqualTo(1);
+
+        finish(enqueue());
+        assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
+        assertThat(jdbc.sql("SELECT current_version_id FROM connector_items").query(UUID.class).single()).isNotEqualTo(pendingVersion);
+        assertThat(jdbc.sql("SELECT metadata_json FROM documents").query(String.class).single()).contains("document:2");
+        assertThat(mappings.hasEligibleMapping(tenant, scheduleOwner, document)).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"credential", "scope", "membership", "mapping", "excluded"})
+    void selectionEditDoesNotRestoreStaleOrRevokedIndexedAuthority(String revoked) {
+        jdbc.sql("UPDATE connector_credential_pairs SET access_type='PUBLIC' WHERE id=:source")
+                .param("source", source.value()).update();
+        listing(file("document", false, "1"));
+        finish(enqueue());
+        assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
+        var document = new DocumentId(jdbc.sql("SELECT id FROM documents").query(UUID.class).single());
+        var version = jdbc.sql("SELECT current_version_id FROM connector_items").query(UUID.class).single();
+        switch (revoked) {
+            case "credential" -> {
+                jdbc.sql("UPDATE google_drive_credentials SET credential_revision=credential_revision+1").update();
+                revision.incrementAndGet();
+            }
+            case "scope" -> jdbc.sql("UPDATE connector_item_versions SET scope_revision=1").update();
+            case "membership" -> jdbc.sql("UPDATE google_drive_membership SET eligible=FALSE, root_id=NULL").update();
+            case "mapping" -> mappings.invalidateSource(tenant, source);
+            case "excluded" -> jdbc.sql("UPDATE google_drive_membership SET excluded=TRUE").update();
+            default -> throw new AssertionError(revoked);
+        }
+
+        replaceAndActivate(scheduleConfiguration(), scheduleOwner, 2, List.of(link("folder")), List.of());
+
+        assertThat(mappings.hasEligibleMapping(tenant, scheduleOwner, document)).isFalse();
+        assertThat(attempts.canReplay(tenant, source, version)).isFalse();
+        assertThat(scalar("SELECT COUNT(*) FROM connector_item_versions WHERE scope_revision=3")).isZero();
+        assertThat(scalar("SELECT COUNT(*) FROM index_attempts")).isEqualTo(1);
+    }
+
+    @Test
     void rejectsOverlappingAndUnsupportedRootsWithoutChangingTheAcceptedScope() {
         var owner = scheduleOwner;
-        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, mappings, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
+        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
         files.put("document", file("document", false, "1"));
         var overlap = finishSelection(configuration, submitSelection(configuration, owner, 2, ScopeMode.SPECIFIC, List.of(link("folder"), link("document")), List.of()));
         assertThat(overlap.status()).isEqualTo(SourceOperationStatus.FAILED);
@@ -649,7 +782,7 @@ class PostgresGoogleDriveSyncTest {
     @Test
     void rejectsDuplicateLinksAndWholeDriveRootsWithoutChangingSelection() {
         var owner = scheduleOwner;
-        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, mappings, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
+        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
         org.junit.jupiter.api.Assertions.assertThrows(SourceException.class,
                 () -> replaceAndActivate(configuration, owner, 2, List.of(link("folder"), "https://drive.google.com/open?id=folder"), List.of()));
         assertThat(calls).isEmpty();
@@ -668,9 +801,9 @@ class PostgresGoogleDriveSyncTest {
         files.put("my-drive", files.get("root"));
         files.put("workspace-drive", new GoogleDriveProvider.FileMetadata("workspace-drive", "Entire team drive",
                 "application/vnd.google-apps.folder", "1", null, null, false, List.of(), "workspace-drive", null));
-        tx.executeWithoutResult(_ -> roots.replace(tenant, source, 2, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(
+        tx.executeWithoutResult(_ -> roots.replace(tenant, source, 2, revision.get(), GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(
                 new GoogleDriveSourceService.Root("my-drive", "My Drive", "application/vnd.google-apps.folder"),
-                new GoogleDriveSourceService.Root("workspace-drive", "Team drive", "application/vnd.google-apps.folder"))));
+                new GoogleDriveSourceService.Root("workspace-drive", "Team drive", "application/vnd.google-apps.folder")), List.of()));
 
         var operation = enqueue();
         finish(operation);
@@ -687,7 +820,7 @@ class PostgresGoogleDriveSyncTest {
     @Test
     void acceptsAnExplicitSharedDriveFolderAndIndexesOnlyItsChildren() {
         var owner = scheduleOwner;
-        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, mappings, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
+        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
         files.put("shared-folder", new GoogleDriveProvider.FileMetadata("shared-folder", "Team folder",
                 "application/vnd.google-apps.folder", "1", null, null, false, List.of(), "workspace-drive", null));
         listing(new GoogleDriveProvider.FileMetadata("document", "Team document", "text/plain", "1",
@@ -702,7 +835,7 @@ class PostgresGoogleDriveSyncTest {
     @Test
     void unconfiguredSourceCannotScheduleAccountWideSynchronization() {
         var owner = scheduleOwner;
-        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, mappings, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
+        var configuration = new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, org.mockito.Mockito.mock(io.memoryos.connector.GoogleDriveLinkReader.class), manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
         jdbc.sql("DELETE FROM google_drive_roots").update();
         org.junit.jupiter.api.Assertions.assertThrows(SourceException.class,
                 () -> configuration.synchronize(owner, source));
@@ -855,7 +988,7 @@ class PostgresGoogleDriveSyncTest {
         var old = claim(operation);
         tx.executeWithoutResult(_ -> {
             sources.lock(tenant, source);
-            roots.replace(tenant, source, 2, GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(new GoogleDriveSourceService.Root("document", "document.txt", "text/plain")));
+            roots.replace(tenant, source, 2, revision.get(), GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(new GoogleDriveSourceService.Root("document", "document.txt", "text/plain")), List.of());
             syncRows.cancel(tenant, source);
         });
         assertThat(service().execute(old)).isEqualTo(ConnectorSyncPort.Result.SUPERSEDED);
@@ -1097,10 +1230,15 @@ class PostgresGoogleDriveSyncTest {
         finish(operation);
         assertThat(scalar("SELECT COUNT(*) FROM google_drive_frontier WHERE file_id='document' AND attempt_id='" + operation.value() + "'")).isEqualTo(1);
         assertThat(scalar("SELECT COUNT(*) FROM connector_item_versions")).isEqualTo(1);
+        assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
+        org.mockito.Mockito.clearInvocations(session);
         replaceAndActivate(configuration, scheduleOwner, 3, List.of(link("folder")), List.of());
         finish(enqueue());
         assertThat(scalar("SELECT COUNT(*) FROM connector_items WHERE status='DELETING'")).isZero();
         assertThat(scalar("SELECT COUNT(*) FROM google_drive_membership WHERE file_id='document' AND eligible AND NOT excluded")).isEqualTo(1);
+        assertThat(scalar("SELECT COUNT(*) FROM index_attempts")).isEqualTo(1);
+        assertThat(scalar("SELECT COUNT(*) FROM connector_item_versions")).isEqualTo(1);
+        verify(session, never()).acquire(any());
     }
 
     @Test
@@ -1180,7 +1318,7 @@ class PostgresGoogleDriveSyncTest {
     }
 
     private GoogleDriveSourceService scheduleConfiguration() {
-        return new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, mappings, linkReader, manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
+        return new DefaultGoogleDriveSourceService(authorization, connections, roots, sources, syncRows, attempts, linkReader, manager, new JdbcGoogleDriveSelectionRepository(jdbc), credentials, new GoogleDriveSelectionPolicy(1000, 3145728), new JdbcSourceGroupRepository(jdbc, event -> { }), new SourceAccessPolicy(authorization, sources, new io.memoryos.iam.group.DefaultGroupScopeService(new io.memoryos.iam.group.persistence.GroupInvariantRepository(jdbc), new io.memoryos.iam.group.persistence.GroupProjectionRepository(jdbc)), io.memoryos.TestDatabase.noAudit()), new GoogleDriveMetadataCache(), io.memoryos.TestDatabase.noAudit());
     }
 
     private SourceOperationView finishSelection(GoogleDriveSourceService configuration, GoogleDriveSourceService.SelectionReceipt receipt) {
