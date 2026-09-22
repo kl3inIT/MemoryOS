@@ -43,6 +43,8 @@ final class TikaExtractionProcess {
     private static final Set<String> SUPPORTED_MEDIA_TYPES = Set.of(
             "application/pdf",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            // The fallback for presentations when Docling is unavailable; never the first reader.
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "text/plain",
             "text/markdown"
     );
@@ -129,7 +131,10 @@ final class TikaExtractionProcess {
                 String mediaType = readString(input);
                 if (!file.isAbsolute() || !Files.isRegularFile(file) || Files.size(file) < 1 || Files.size(file) > 262144000
                         || !Set.of("text/html", "application/xhtml+xml", "message/rfc822", "application/epub+zip",
-                                "image/png", "image/jpeg", "image/webp").contains(mediaType))
+                                "image/png", "image/jpeg", "image/webp", "application/pdf",
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+                                .contains(mediaType))
                     throw new IOException("invalid Chat extraction request");
                 return new Request(filename, new byte[0], file, mediaType);
             }
