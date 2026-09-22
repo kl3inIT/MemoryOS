@@ -229,6 +229,119 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}/utterances/{utteranceId}/star:
+    put:
+      tags:
+      - Meetings
+      summary: Mark one line as one the caller cares about
+      operationId: starMeetingUtterance
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: utteranceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The meeting with the caller's marks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting or line not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Meetings
+      summary: Take the caller's mark off a line
+      operationId: unstarMeetingUtterance
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: utteranceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The meeting with the caller's marks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting or line not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings/{meetingId}/speakers/{track}/{label}:
     put:
       tags:
@@ -6882,6 +6995,63 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}/bookmarks:
+    post:
+      tags:
+      - Meetings
+      summary: "Mark the moment the caller is at, while the meeting is still running"
+      operationId: bookmarkMeetingMoment
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingBookmarkRequest"
+        required: true
+      responses:
+        "200":
+          description: The meeting with the caller's marks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/mcp/servers:
     get:
       tags:
@@ -12847,6 +13017,63 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}/transcript:
+    get:
+      tags:
+      - Meetings
+      summary: "Download what was said, with its times and speakers, as Word or PDF"
+      operationId: exportMeetingTranscript
+      parameters:
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: format
+        in: query
+        required: false
+        schema:
+          type: string
+          default: DOCX
+          enum:
+          - DOCX
+          - PDF
+      responses:
+        "200":
+          description: The transcript
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings/transcribers:
     get:
       tags:
@@ -16971,6 +17198,63 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}/bookmarks/{bookmarkId}:
+    delete:
+      tags:
+      - Meetings
+      summary: Take back one of the caller's own marks
+      operationId: removeMeetingBookmark
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: bookmarkId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The meeting with the caller's marks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting or mark not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/mcp/servers/{serverId}/oauth/connection:
     delete:
       tags:
@@ -17700,15 +17984,6 @@ components:
       required:
       - operation
       - sourceId
-    MeetingSpeakerRequest:
-      type: object
-      description: A blank or absent name restores the automatic label
-      properties:
-        name:
-          type:
-          - string
-          - "null"
-          maxLength: 200
     MeetingAudio:
       type: object
       description: An uploaded recording being turned into a transcript
@@ -17743,6 +18018,23 @@ components:
       - provider
       - sizeBytes
       - status
+    MeetingBookmark:
+      type: object
+      description: A moment the caller marked while the meeting was running. Only
+        they see it.
+      properties:
+        id:
+          type: string
+          format: uuid
+        atMs:
+          type: integer
+          format: int64
+        label:
+          type: string
+      required:
+      - atMs
+      - id
+      - label
     MeetingDetail:
       type: object
       properties:
@@ -17815,8 +18107,21 @@ components:
           description: Who the meeting is shared with; empty for anyone but its owner
           items:
             $ref: "#/components/schemas/MeetingReader"
+        starred:
+          type: array
+          description: Lines the caller starred; another reader's stars are their
+            own
+          items:
+            type: string
+            format: uuid
+        bookmarks:
+          type: array
+          description: Moments the caller marked while the meeting was running
+          items:
+            $ref: "#/components/schemas/MeetingBookmark"
       required:
       - audio
+      - bookmarks
       - createdAt
       - diarized
       - endedAt
@@ -17831,6 +18136,7 @@ components:
       - readers
       - revision
       - speakers
+      - starred
       - status
       - terms
       - title
@@ -18011,6 +18317,15 @@ components:
       - confidence
       - end
       - start
+    MeetingSpeakerRequest:
+      type: object
+      description: A blank or absent name restores the automatic label
+      properties:
+        name:
+          type:
+          - string
+          - "null"
+          maxLength: 200
     MeetingShareRequest:
       type: object
       description: "Everyone who may read this meeting, replacing the current list"
@@ -21133,6 +21448,22 @@ components:
           format: uuid
       required:
       - runId
+    MeetingBookmarkRequest:
+      type: object
+      properties:
+        atMs:
+          type: integer
+          format: int64
+          description: Milliseconds from the start of the recording
+        label:
+          type:
+          - string
+          - "null"
+          description: What to call it; a number is used when this is left out
+          maxLength: 200
+          minLength: 0
+      required:
+      - atMs
     McpToolRefresh:
       type: object
       properties:

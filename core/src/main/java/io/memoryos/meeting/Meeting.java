@@ -50,7 +50,23 @@ public final class Meeting {
                          List<String> terms, String notes, Status status, @Nullable String provider, boolean diarized,
                          Instant createdAt, @Nullable Instant endedAt, long revision, List<Speaker> speakers,
                          List<Utterance> utterances, Minutes minutes, Audio audio, boolean owned,
-                         List<Reader> readers) {}
+                         List<Reader> readers, List<UUID> starred, List<Bookmark> bookmarks) {
+
+        /** A meeting read for a document rather than for a person carries nobody's marks. */
+        public Detail(UUID id, String title, Kind kind, @Nullable String language, List<String> participants,
+                List<String> terms, String notes, Status status, @Nullable String provider, boolean diarized,
+                Instant createdAt, @Nullable Instant endedAt, long revision, List<Speaker> speakers,
+                List<Utterance> utterances, Minutes minutes, Audio audio, boolean owned, List<Reader> readers) {
+            this(id, title, kind, language, participants, terms, notes, status, provider, diarized, createdAt,
+                    endedAt, revision, speakers, utterances, minutes, audio, owned, readers, List.of(), List.of());
+        }
+    }
+
+    /**
+     * A moment somebody marked while the meeting was still running, when there was no line yet to star. Times are
+     * milliseconds from the start of the recording, the same clock the utterances are on.
+     */
+    public record Bookmark(UUID id, long atMs, String label) {}
 
     public record Speaker(Track track, String label, @Nullable String name) {}
 

@@ -141,13 +141,6 @@ export type GoogleDriveSelectionReceiptResponse = {
 };
 
 /**
- * A blank or absent name restores the automatic label
- */
-export type MeetingSpeakerRequest = {
-    name?: string | null;
-};
-
-/**
  * An uploaded recording being turned into a transcript
  */
 export type MeetingAudio = {
@@ -156,6 +149,15 @@ export type MeetingAudio = {
     filename: string | null;
     sizeBytes: number;
     provider: string | null;
+};
+
+/**
+ * A moment the caller marked while the meeting was running. Only they see it.
+ */
+export type MeetingBookmark = {
+    id: string;
+    atMs: number;
+    label: string;
 };
 
 export type MeetingDetail = {
@@ -187,6 +189,14 @@ export type MeetingDetail = {
      * Who the meeting is shared with; empty for anyone but its owner
      */
     readers: Array<MeetingReader>;
+    /**
+     * Lines the caller starred; another reader's stars are their own
+     */
+    starred: Array<string>;
+    /**
+     * Moments the caller marked while the meeting was running
+     */
+    bookmarks: Array<MeetingBookmark>;
 };
 
 /**
@@ -258,6 +268,13 @@ export type MeetingUtteranceSpan = {
     start: number;
     end: number;
     confidence: number;
+};
+
+/**
+ * A blank or absent name restores the automatic label
+ */
+export type MeetingSpeakerRequest = {
+    name?: string | null;
 };
 
 /**
@@ -1499,6 +1516,17 @@ export type AcceptMeetingCorrection = {
 
 export type MeetingCorrectionRunRef = {
     runId: string;
+};
+
+export type MeetingBookmarkRequest = {
+    /**
+     * Milliseconds from the start of the recording
+     */
+    atMs: number;
+    /**
+     * What to call it; a number is used when this is left out
+     */
+    label?: string | null;
 };
 
 export type McpToolRefresh = {
@@ -3259,6 +3287,98 @@ export type ReplaceGoogleDriveRootsResponses = {
 };
 
 export type ReplaceGoogleDriveRootsResponse = ReplaceGoogleDriveRootsResponses[keyof ReplaceGoogleDriveRootsResponses];
+
+export type UnstarMeetingUtteranceData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        utteranceId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/utterances/{utteranceId}/star';
+};
+
+export type UnstarMeetingUtteranceErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or line not available
+     */
+    404: ApiProblem;
+};
+
+export type UnstarMeetingUtteranceError = UnstarMeetingUtteranceErrors[keyof UnstarMeetingUtteranceErrors];
+
+export type UnstarMeetingUtteranceResponses = {
+    /**
+     * The meeting with the caller's marks
+     */
+    200: MeetingDetail;
+};
+
+export type UnstarMeetingUtteranceResponse = UnstarMeetingUtteranceResponses[keyof UnstarMeetingUtteranceResponses];
+
+export type StarMeetingUtteranceData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        utteranceId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/utterances/{utteranceId}/star';
+};
+
+export type StarMeetingUtteranceErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or line not available
+     */
+    404: ApiProblem;
+};
+
+export type StarMeetingUtteranceError = StarMeetingUtteranceErrors[keyof StarMeetingUtteranceErrors];
+
+export type StarMeetingUtteranceResponses = {
+    /**
+     * The meeting with the caller's marks
+     */
+    200: MeetingDetail;
+};
+
+export type StarMeetingUtteranceResponse = StarMeetingUtteranceResponses[keyof StarMeetingUtteranceResponses];
 
 export type NameMeetingSpeakerData = {
     body: MeetingSpeakerRequest;
@@ -8547,6 +8667,51 @@ export type AcceptAllMeetingCorrectionsResponses = {
 
 export type AcceptAllMeetingCorrectionsResponse = AcceptAllMeetingCorrectionsResponses[keyof AcceptAllMeetingCorrectionsResponses];
 
+export type BookmarkMeetingMomentData = {
+    body: MeetingBookmarkRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/bookmarks';
+};
+
+export type BookmarkMeetingMomentErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type BookmarkMeetingMomentError = BookmarkMeetingMomentErrors[keyof BookmarkMeetingMomentErrors];
+
+export type BookmarkMeetingMomentResponses = {
+    /**
+     * The meeting with the caller's marks
+     */
+    200: MeetingDetail;
+};
+
+export type BookmarkMeetingMomentResponse = BookmarkMeetingMomentResponses[keyof BookmarkMeetingMomentResponses];
+
 export type ListMcpServersData = {
     body?: never;
     path?: never;
@@ -13184,6 +13349,47 @@ export type GetMeetingResponses = {
 
 export type GetMeetingResponse = GetMeetingResponses[keyof GetMeetingResponses];
 
+export type ExportMeetingTranscriptData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: {
+        format?: 'DOCX' | 'PDF';
+    };
+    url: '/api/meetings/{meetingId}/transcript';
+};
+
+export type ExportMeetingTranscriptErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type ExportMeetingTranscriptError = ExportMeetingTranscriptErrors[keyof ExportMeetingTranscriptErrors];
+
+export type ExportMeetingTranscriptResponses = {
+    /**
+     * The transcript
+     */
+    200: Blob | File;
+};
+
+export type ExportMeetingTranscriptResponse = ExportMeetingTranscriptResponses[keyof ExportMeetingTranscriptResponses];
+
 export type ListMeetingTranscribersData = {
     body?: never;
     path?: never;
@@ -16373,6 +16579,52 @@ export type ListAiCostBreakdownResponses = {
 };
 
 export type ListAiCostBreakdownResponse = ListAiCostBreakdownResponses[keyof ListAiCostBreakdownResponses];
+
+export type RemoveMeetingBookmarkData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        bookmarkId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/bookmarks/{bookmarkId}';
+};
+
+export type RemoveMeetingBookmarkErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or mark not available
+     */
+    404: ApiProblem;
+};
+
+export type RemoveMeetingBookmarkError = RemoveMeetingBookmarkErrors[keyof RemoveMeetingBookmarkErrors];
+
+export type RemoveMeetingBookmarkResponses = {
+    /**
+     * The meeting with the caller's marks
+     */
+    200: MeetingDetail;
+};
+
+export type RemoveMeetingBookmarkResponse = RemoveMeetingBookmarkResponses[keyof RemoveMeetingBookmarkResponses];
 
 export type DisconnectMcpServerOAuthData = {
     body?: never;

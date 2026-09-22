@@ -22,6 +22,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -39,6 +40,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -265,6 +267,22 @@ class MeetingController {
         }
     }
 
+    @Schema(name = "MeetingBookmarkRequest")
+    record BookmarkRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                   description = "Milliseconds from the start of the recording") long atMs,
+                           @Schema(description = "What to call it; a number is used when this is left out",
+                                   nullable = true) @Size(max = 200) @Nullable String label) {}
+
+    @Schema(name = "MeetingBookmark",
+            description = "A moment the caller marked while the meeting was running. Only they see it.")
+    record BookmarkResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
+                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long atMs,
+                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String label) {
+        static BookmarkResponse from(Meeting.Bookmark bookmark) {
+            return new BookmarkResponse(bookmark.id(), bookmark.atMs(), bookmark.label());
+        }
+    }
+
     @Schema(name = "MeetingCorrectionRun")
     record RunResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID runId,
                        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<CorrectionResponse> corrections) {
@@ -338,7 +356,13 @@ class MeetingController {
                           boolean owned,
                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                                   description = "Who the meeting is shared with; empty for anyone but its owner")
-                          List<ReaderResponse> readers) {
+                          List<ReaderResponse> readers,
+                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                  description = "Lines the caller starred; another reader's stars are their own")
+                          List<UUID> starred,
+                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                  description = "Moments the caller marked while the meeting was running")
+                          List<BookmarkResponse> bookmarks) {
         static DetailResponse from(Meeting.Detail detail) {
             return new DetailResponse(detail.id(), detail.title(), detail.kind(), detail.language(), detail.participants(),
                     detail.terms(), detail.notes(), detail.status(), detail.provider(), detail.diarized(), detail.createdAt(),
@@ -346,7 +370,8 @@ class MeetingController {
                     detail.speakers().stream().map(s -> new SpeakerResponse(s.track(), s.label(), s.name())).toList(),
                     detail.utterances().stream().map(UtteranceResponse::from).toList(),
                     MinutesResponse.from(detail.minutes()), AudioResponse.from(detail.audio()), detail.owned(),
-                    detail.readers().stream().map(ReaderResponse::from).toList());
+                    detail.readers().stream().map(ReaderResponse::from).toList(), detail.starred(),
+                    detail.bookmarks().stream().map(BookmarkResponse::from).toList());
         }
     }
 
@@ -403,6 +428,43 @@ class MeetingController {
     DetailResponse end(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
                        @PathVariable UUID meetingId) {
         return DetailResponse.from(meetings.end(identity.actorId(), meetingId));
+    }
+
+    @PutMapping("/{meetingId}/utterances/{utteranceId}/star")
+    @Operation(operationId = "starMeetingUtterance", summary = "Mark one line as one the caller cares about")
+    @ApiResponse(responseCode = "200", description = "The meeting with the caller's marks", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting or line not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse star(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                        @PathVariable UUID meetingId, @PathVariable UUID utteranceId) {
+        return DetailResponse.from(meetings.star(identity.actorId(), meetingId, utteranceId, true));
+    }
+
+    @DeleteMapping("/{meetingId}/utterances/{utteranceId}/star")
+    @Operation(operationId = "unstarMeetingUtterance", summary = "Take the caller's mark off a line")
+    @ApiResponse(responseCode = "200", description = "The meeting with the caller's marks", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting or line not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse unstar(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                          @PathVariable UUID meetingId, @PathVariable UUID utteranceId) {
+        return DetailResponse.from(meetings.star(identity.actorId(), meetingId, utteranceId, false));
+    }
+
+    @PostMapping(value = "/{meetingId}/bookmarks", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "bookmarkMeetingMoment",
+            summary = "Mark the moment the caller is at, while the meeting is still running")
+    @ApiResponse(responseCode = "200", description = "The meeting with the caller's marks", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse bookmark(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                            @PathVariable UUID meetingId, @Valid @RequestBody BookmarkRequest body) {
+        return DetailResponse.from(meetings.bookmark(identity.actorId(), meetingId, body.atMs(), body.label()));
+    }
+
+    @DeleteMapping("/{meetingId}/bookmarks/{bookmarkId}")
+    @Operation(operationId = "removeMeetingBookmark", summary = "Take back one of the caller's own marks")
+    @ApiResponse(responseCode = "200", description = "The meeting with the caller's marks", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting or mark not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse removeBookmark(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                                  @PathVariable UUID meetingId, @PathVariable UUID bookmarkId) {
+        return DetailResponse.from(meetings.removeBookmark(identity.actorId(), meetingId, bookmarkId));
     }
 
     @PostMapping("/{meetingId}/corrections")
@@ -571,6 +633,26 @@ class MeetingController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename("bien-ban-" + meetingId + ".docx", StandardCharsets.UTF_8).build().toString())
                 .contentType(MediaType.parseMediaType(DOCX)).body(document);
+    }
+
+    @GetMapping("/{meetingId}/transcript")
+    @Operation(operationId = "exportMeetingTranscript",
+            summary = "Download what was said, with its times and speakers, as Word or PDF")
+    @ApiResponse(responseCode = "200", description = "The transcript",
+            content = {@Content(mediaType = DOCX, schema = @Schema(type = "string", format = "binary")),
+                    @Content(mediaType = MediaType.APPLICATION_PDF_VALUE, schema = @Schema(type = "string", format = "binary"))})
+    @ApiResponse(responseCode = "400", description = "The meeting has no transcript yet", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    ResponseEntity<byte[]> transcript(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                                      @PathVariable UUID meetingId,
+                                      @RequestParam(defaultValue = "DOCX") MeetingService.TranscriptFormat format) {
+        byte[] document = meetings.exportTranscript(identity.actorId(), meetingId, format);
+        boolean pdf = format == MeetingService.TranscriptFormat.PDF;
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename("transcript-" + meetingId + (pdf ? ".pdf" : ".docx"), StandardCharsets.UTF_8)
+                        .build().toString())
+                .contentType(pdf ? MediaType.APPLICATION_PDF : MediaType.parseMediaType(DOCX)).body(document);
     }
 
     @DeleteMapping("/{meetingId}")
