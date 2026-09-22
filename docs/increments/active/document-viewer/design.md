@@ -104,9 +104,12 @@ Text matching, in `preview-highlight.ts`:
    (node, offset).
 2. Normalise both that string and the passage: Unicode NFC, collapsed whitespace, soft hyphens removed,
    case folded.
-3. Try an exact normalised substring match.
+3. Try an exact normalised substring match, and accept it only when it is the document's **only**
+   occurrence. A repeated line — a table header on every page, a boilerplate footer — says nothing about
+   which one was cited.
 4. On a miss, anchor-match: the passage's first and last eight words, taking the span between them, and
-   accept only when its length is within 40% of the expected length. Otherwise `none`.
+   accept only when its length is within 40% of the expected length. Fewer than three anchor words on
+   either end is refused outright: two words are too common to identify a place. Otherwise `none`.
 5. Paint through the CSS Custom Highlight API — `CSS.highlights.set(…)` with a `::highlight()` rule using
    `--pdf-highlight`. Nothing is inserted into the DOM, so `docx-preview`'s layout and
    `sanitizeDocxHtml`'s guarantees are untouched. A browser without the API gets scroll-to-position and the

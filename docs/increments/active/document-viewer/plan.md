@@ -47,8 +47,8 @@ Steps 1–2 are a behaviour-preserving move; step 3 is the risky pure logic and 
 
 | What | Where |
 | --- | --- |
-| Citation locator: exact match, whitespace and soft-hyphen differences, flattened table row | `preview-highlight.test.ts` |
-| Locator returns `none` rather than a wrong range when the passage is absent or too short to anchor | `preview-highlight.test.ts` — the assertion the step exists for |
+| Citation locator: exact match, whitespace and soft-hyphen differences, capitals, Vietnamese combining marks, flattened table row, anchored match | `preview-highlight.test.ts` |
+| Locator returns `none` rather than a wrong range when the passage is absent, repeated, too short to anchor, or its anchors sit too far apart | `preview-highlight.test.ts` — the assertions the step exists for |
 | Chat file preview unchanged by the move | existing `chat-file-preview.test.ts`, `chat-file-preview-gallery.test.tsx` |
 | PDF page windowing unchanged by the move | existing `pdf-page-window.test.ts` |
 | Any-type original served with declared Content-Type, inline disposition, nosniff | `SearchDocumentApiIntegrationTest` / chat counterpart |
