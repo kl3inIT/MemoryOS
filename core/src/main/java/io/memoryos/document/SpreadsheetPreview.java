@@ -23,6 +23,9 @@ import org.xml.sax.SAXException;
  * boundary past {@link #MAX_CHARS_PER_SHEET}. Reads with POI's streaming reader, shows cached formula values and never
  * evaluates formulas.
  *
+ * <p>Unlike Onyx, an absent row keeps its own empty line: extraction records a cited row by its sheet row index,
+ * and the reader locates that citation by addressing the same line here.
+ *
  * <p>A workbook is never sent to the browser as bytes, because the app ships no client-side workbook parser.
  * Both an owner-private Chat file and a Document original are read through this, so it belongs to no one
  * capability.
@@ -94,11 +97,14 @@ public final class SpreadsheetPreview {
         private final StringBuilder row = new StringBuilder();
         private boolean truncated;
         private int column;
+        private int nextRow;
 
         CsvSheet(int maxChars) { this.maxChars = maxChars; }
 
         @Override public void startRow(int rowNum) {
             row.setLength(0);
+            // A row the sheet never stored still takes its line, so a cited row index addresses the same line here.
+            for (int absent = nextRow; absent < rowNum; absent++) row.append('\n');
             column = 0;
         }
 
@@ -109,6 +115,7 @@ public final class SpreadsheetPreview {
                 throw new Full();
             }
             text.append(row);
+            nextRow = rowNum + 1;
         }
 
         @Override public void cell(@Nullable String reference, @Nullable String value, @Nullable XSSFComment comment) {
