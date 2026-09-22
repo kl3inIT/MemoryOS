@@ -30,7 +30,7 @@ The repository is the system of record. Chat, Linear, pull-request comments, and
 ## Current active increments
 
 - [Tasco scanned-PDF OCR](docs/increments/active/tasco-scanned-pdf-ocr/design.md) owns OCR, extraction and indexing of the supplied financial reports, verified through Orca Sources; Search and Chat changes are excluded.
-- [MEM-60 — Google Drive ingestion](docs/increments/active/google-drive-structured-ingestion/design.md) coordinates the still-active MEM-9/MEM-10/MEM-60/MEM-63 provider and acceptance scope. MEM-76 is Done and the implementation is merged; live-provider acceptance remains open.
+- [MEM-60 — Google Drive ingestion](docs/increments/active/google-drive-structured-ingestion/design.md) coordinates the remaining live-provider and customer-data acceptance. MEM-9, MEM-10, MEM-63 and MEM-76 are Done and the implementation is merged; selection edits preserve retained indexes since PR #296.
 - [MEM-58 — Frontend observability](docs/increments/active/mem-58-frontend-observability/design.md) owns optional browser error monitoring and trace correlation.
 - [MEM-26 — Chat reply stream replay in Redis](docs/increments/active/mem-26-chat-stream-redis/design.md) owns moving the Chat reply replay buffer to Redis, the Onyx-style resume endpoint behavior and the browser recovery rule; several API replicas are excluded.
 - [Time filters and documents without dates](docs/increments/active/undated-documents-time-filters/design.md) owns the rule that a missing source date does not remove a document from a Chat time filter, and the single retry when an inferred window returns nothing. Capturing Google Drive source dates during ingestion is follow-up work.
