@@ -214,11 +214,15 @@ class MeetingController {
                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<MinutesItemResponse> actions,
                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                                    description = "Whether the words standing now are the owner's rather than the model's")
-                           boolean edited) {
+                           boolean edited,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                   description = "The subjects the meeting moved through, each at the line it began")
+                           List<MinutesItemResponse> topics) {
         static MinutesResponse from(Meeting.Minutes minutes) {
             return new MinutesResponse(minutes.status(), minutes.failure(), minutes.summary(), minutes.kind(),
                     minutes.generatedAt(), minutes.decisions().stream().map(MinutesItemResponse::from).toList(),
-                    minutes.actions().stream().map(MinutesItemResponse::from).toList(), minutes.edited());
+                    minutes.actions().stream().map(MinutesItemResponse::from).toList(), minutes.edited(),
+                    minutes.topics().stream().map(MinutesItemResponse::from).toList());
         }
     }
 

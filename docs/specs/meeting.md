@@ -47,6 +47,10 @@ Searching a transcript happens in the browser over what is already loaded; no ro
 
 Two marks belong to whoever left them, and nobody else sees them — a meeting five people read collects five sets. A **star** says a line matters and is left afterwards, while reading: `PUT` and `DELETE /api/meetings/{id}/utterances/{utteranceId}/star`, answered with the meeting as that reader sees it. A **bookmark** says to come back to a moment and is left during the meeting, when there is no line yet to star: `POST /api/meetings/{id}/bookmarks` takes milliseconds from the start of the recording and a label, numbering it `Đánh dấu N` when none is given, and `DELETE /api/meetings/{id}/bookmarks/{bookmarkId}` takes back one of the caller's own. At most 200 bookmarks per person per meeting, and a time outside the recording is refused. Anyone who reads the meeting may leave both; the meeting carries `starred` and `bookmarks` for the caller alone.
 
+## The timeline
+
+The same model call that writes the minutes also names the subjects the meeting moved through, each at the line it began on, stored as `TOPIC` items beside the decisions and the work and answered as `minutes.topics`. A topic on a line that does not exist, or on a line another topic already took, is dropped; the rest are kept in the order the meeting reached them, at most thirty. The transcript tab shows them as a table of contents, and choosing one scrolls to its line — every transcript line carries its utterance id as its element id, which is also what the quote beside each decision and action jumps to.
+
 ## Correcting the minutes
 
 The minutes are the owner's to correct: a model that misheard one conclusion costs one edit, not a rerun of the whole meeting. `PUT /api/meetings/{id}/minutes/summary` rewrites the summary; `PUT /api/meetings/{id}/minutes/items/{itemId}` rewrites one decision or one piece of work, its owner and its deadline. A decision belongs to the meeting rather than to a person, so giving one an owner or a deadline is refused. Only the owner reaches either — a reader of a shared meeting gets 404.

@@ -25,6 +25,7 @@ export const vietnameseUi: Record<string, string> = {
   "Bạn đã sửa": "You corrected this",
   "Soát lỗi nhận dạng": "Check what was misheard",
   "Tìm trong transcript": "Search the transcript",
+  "Dòng thời gian": "Timeline",
   "Tải Word": "Download Word",
   "Tải PDF": "Download PDF",
   "{{at}}/{{total}}": "{{at}}/{{total}}",
