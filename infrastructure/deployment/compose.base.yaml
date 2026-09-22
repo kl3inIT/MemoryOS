@@ -185,10 +185,12 @@ services:
     cap_drop:
       - ALL
 
-  shared-keycloak:
+  keycloak:
     <<: *service-defaults
-    image: ${MEMORYOS_SHARED_KEYCLOAK_IMAGE:?Set MEMORYOS_SHARED_KEYCLOAK_IMAGE}
-    container_name: memoryos-shared-keycloak
+    # The former MEMORYOS_SHARED_KEYCLOAK_IMAGE still resolves, so a server can be migrated
+    # without a coordinated edit of its environment file.
+    image: ${MEMORYOS_KEYCLOAK_IMAGE:-${MEMORYOS_SHARED_KEYCLOAK_IMAGE:?Set MEMORYOS_KEYCLOAK_IMAGE}}
+    container_name: memoryos-keycloak
     command:
       - start
       - --optimized
@@ -200,7 +202,7 @@ services:
       KC_DB_POOL_INITIAL_SIZE: "2"
       KC_DB_POOL_MIN_SIZE: "2"
       KC_DB_POOL_MAX_SIZE: "10"
-      KC_HOSTNAME: ${MEMORYOS_KEYCLOAK_HOSTNAME:-https://auth.kl3in.tech}
+      KC_HOSTNAME: ${MEMORYOS_KEYCLOAK_HOSTNAME:?Set MEMORYOS_KEYCLOAK_HOSTNAME}
       KC_HOSTNAME_STRICT: "true"
       KC_HTTP_ENABLED: "true"
       KC_HTTP_MANAGEMENT_SCHEME: http
@@ -221,12 +223,8 @@ services:
       memoryos-internal:
         aliases:
           - keycloak
-          - shared-keycloak
-      shared-infra:
-        aliases:
-          - keycloak
-          - orgmemory-keycloak
           - memoryos-keycloak
+          - shared-keycloak
       proxy:
         aliases:
           - keycloak
@@ -268,24 +266,42 @@ services:
       MEMORYOS_OBJECT_STORAGE_ACCESS_KEY: ${MEMORYOS_OBJECT_STORAGE_API_ACCESS_KEY:-memoryos-api}
       MEMORYOS_OBJECT_STORAGE_SECRET_KEY_FILE: /run/secrets/minio_api_secret_key
       MEMORYOS_OBJECT_STORAGE_READINESS_KEY: ${MEMORYOS_OBJECT_STORAGE_READINESS_KEY:-system/readiness}
+      MEMORYOS_TENANT_ID: ${MEMORYOS_TENANT_ID:?Set MEMORYOS_TENANT_ID}
+      MEMORYOS_TENANT_SLUG: ${MEMORYOS_TENANT_SLUG:?Set MEMORYOS_TENANT_SLUG}
+      MEMORYOS_TENANT_DISPLAY_NAME: ${MEMORYOS_TENANT_DISPLAY_NAME:?Set MEMORYOS_TENANT_DISPLAY_NAME}
+      MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE: ${MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE:?Set MEMORYOS_INITIAL_TENANT_CHANGE_REFERENCE}
+      MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
+      MEMORYOS_INTERPRETER_BASE_URL: http://memoryos-interpreter:8000
+      MEMORYOS_INTERPRETER_API_KEY_FILE: /run/secrets/interpreter_api_key
+      # MEM-26: Chat reply replay. The memoryos-api ACL user reaches only memoryos:chat:stream:* keys.
+      MEMORYOS_REDIS_HOST: redis
+      MEMORYOS_REDIS_PORT: "6379"
+      MEMORYOS_REDIS_USERNAME: memoryos-api
+      MEMORYOS_REDIS_SSL_ENABLED: "true"
+      MEMORYOS_REDIS_TLS_CA_FILE: /run/secrets/redis_tls_ca
+      MEMORYOS_REDIS_PASSWORD_FILE: /run/secrets/redis_api_password
+      MEMORYOS_REDIS_CONNECT_TIMEOUT: ${MEMORYOS_REDIS_CONNECT_TIMEOUT:-2s}
+      MEMORYOS_REDIS_COMMAND_TIMEOUT: ${MEMORYOS_REDIS_COMMAND_TIMEOUT:-2s}
     secrets:
       - source: memoryos_infisical_bootstrap
         target: memoryos_infisical_bootstrap
       - minio_api_secret_key
+      - interpreter_api_key
+      - redis_tls_ca
+      - redis_api_password
     depends_on:
       postgres:
         condition: service_healthy
-      shared-keycloak:
+      keycloak:
         condition: service_healthy
       minio-bootstrap:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     ports:
       - 127.0.0.1:${MEMORYOS_API_HOST_PORT:-18080}:8080
     networks:
       memoryos-internal:
-        aliases:
-          - memoryos-api
-      shared-infra:
         aliases:
           - memoryos-api
     healthcheck:
@@ -330,18 +346,32 @@ services:
       MEMORYOS_OBJECT_STORAGE_ACCESS_KEY: ${MEMORYOS_OBJECT_STORAGE_WORKER_ACCESS_KEY:-memoryos-worker}
       MEMORYOS_OBJECT_STORAGE_SECRET_KEY_FILE: /run/secrets/minio_worker_secret_key
       MEMORYOS_OBJECT_STORAGE_READINESS_KEY: ${MEMORYOS_OBJECT_STORAGE_READINESS_KEY:-system/readiness}
+      MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
+      MEMORYOS_REDIS_HOST: redis
+      MEMORYOS_REDIS_PORT: "6379"
+      MEMORYOS_REDIS_USERNAME: memoryos-worker
+      MEMORYOS_REDIS_SSL_ENABLED: "true"
+      MEMORYOS_REDIS_TLS_CA_FILE: /run/secrets/redis_tls_ca
+      MEMORYOS_REDIS_PASSWORD_FILE: /run/secrets/redis_worker_password
+      MEMORYOS_REDIS_CONNECT_TIMEOUT: ${MEMORYOS_REDIS_CONNECT_TIMEOUT:-2s}
+      MEMORYOS_REDIS_COMMAND_TIMEOUT: ${MEMORYOS_REDIS_COMMAND_TIMEOUT:-2s}
+      MEMORYOS_REDIS_POOL_MAX_ACTIVE: ${MEMORYOS_REDIS_POOL_MAX_ACTIVE:-8}
+      MEMORYOS_REDIS_POOL_MAX_IDLE: ${MEMORYOS_REDIS_POOL_MAX_IDLE:-8}
+      MEMORYOS_REDIS_POOL_MIN_IDLE: ${MEMORYOS_REDIS_POOL_MIN_IDLE:-0}
+      MEMORYOS_REDIS_POOL_MAX_WAIT: ${MEMORYOS_REDIS_POOL_MAX_WAIT:-2s}
     secrets:
       - source: memoryos_infisical_bootstrap
         target: memoryos_infisical_bootstrap
       - minio_worker_secret_key
+      - redis_tls_ca
+      - redis_worker_password
     depends_on:
       api:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       memoryos-internal:
-        aliases:
-          - memoryos-worker
-      shared-infra:
         aliases:
           - memoryos-worker
     healthcheck:
@@ -431,13 +461,108 @@ services:
       start_period: 180s
     stop_grace_period: 330s
 
+  # MEM-26/MEM-43: Chat replay and the worker dispatch plane. TLS only, ACL users per deployable.
+  redis:
+    <<: *service-defaults
+    image: ${MEMORYOS_REDIS_IMAGE:-redis:8.2.1-alpine@sha256:987c376c727652f99625c7d205a1cba3cb2c53b92b0b62aade2bd48ee1593232}
+    container_name: memoryos-redis
+    user: "0:0"
+    entrypoint:
+      - /bin/sh
+      - /redis-tools/start-redis.sh
+    cap_add:
+      - DAC_OVERRIDE
+      - CHOWN
+      - SETGID
+      - SETUID
+    secrets:
+      - redis_admin_password
+      - redis_worker_password
+      - redis_api_password
+      - redis_tls_ca
+      - redis_tls_certificate
+      - redis_tls_private_key
+    networks:
+      memoryos-internal:
+        aliases:
+          - redis
+          - memoryos-redis
+    volumes:
+      - memoryos_redis:/data
+      - ../redis/start-redis.sh:/redis-tools/start-redis.sh:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          REDISCLI_AUTH="$$(cat /run/secrets/redis_admin_password)"
+          redis-cli --tls --cacert /run/secrets/redis_tls_ca
+          --user memoryos-admin -h 127.0.0.1 ping | grep -q PONG
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 10s
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        reservations:
+          memory: 128m
+
+  # MEM-110: runs Python for the Chat run_python tool. It starts one executor container per run
+  # on the host daemon through the socket, which grants host-level Docker control: keep it on the
+  # internal network without a host port. See the interpreter section of docs/runbooks/ci-cd.md.
+  interpreter:
+    <<: *service-defaults
+    image: ${MEMORYOS_INTERPRETER_IMAGE:?Set MEMORYOS_INTERPRETER_IMAGE}
+    container_name: memoryos-interpreter
+    user: root
+    # Compose file secrets keep their host owner and mode (0600, owned by the operator), so root in this
+    # capability-dropped container needs DAC_OVERRIDE to read the API key, as the api service does.
+    cap_add:
+      - DAC_OVERRIDE
+    environment:
+      EXECUTOR_BACKEND: docker
+      PYTHON_EXECUTOR_DOCKER_IMAGE: ${MEMORYOS_INTERPRETER_EXECUTOR_IMAGE:?Set MEMORYOS_INTERPRETER_EXECUTOR_IMAGE}
+      PYTHON_EXECUTOR_DOCKER_NETWORK: none
+      LOG_FORMAT: json
+      # Each executor may use 1 GiB; this bounds executor memory on the host to about 4 GiB.
+      MAX_CONCURRENT_EXECUTIONS: ${MEMORYOS_INTERPRETER_MAX_CONCURRENT_EXECUTIONS:-4}
+      # deploy.sh pulls the executor with job-scoped registry credentials; the service has none.
+      PYTHON_EXECUTOR_DOCKER_IMAGE_WATCHDOG_INTERVAL_SEC: "0"
+      API_KEY_FILE: /run/secrets/interpreter_api_key
+      # A turn reuses its uploads for at most 2 minutes; expired files free the /tmp tmpfs.
+      FILE_TTL_SEC: "900"
+    secrets:
+      - interpreter_api_key
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      memoryos-internal:
+        aliases:
+          - memoryos-interpreter
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -fsS http://127.0.0.1:8000/health | grep -q '"status":"ok"'
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
+    stop_grace_period: 65s
+    deploy:
+      resources:
+        reservations:
+          memory: 128m
+
 networks:
   memoryos-internal:
     name: ${MEMORYOS_INTERNAL_NETWORK:-memoryos-internal}
     internal: true
-  shared-infra:
-    name: ${MEMORYOS_SHARED_INFRA_NETWORK:-shared-infra}
-    external: true
   proxy:
     name: ${MEMORYOS_PROXY_NETWORK:-proxy-network}
     external: true
@@ -451,9 +576,25 @@ secrets:
     file: ${MEMORYOS_MINIO_API_SECRET_KEY_FILE:-/apps/memoryos/secrets/minio/api-secret-key.txt}
   minio_worker_secret_key:
     file: ${MEMORYOS_MINIO_WORKER_SECRET_KEY_FILE:-/apps/memoryos/secrets/minio/worker-secret-key.txt}
+  interpreter_api_key:
+    file: ${MEMORYOS_INTERPRETER_API_KEY_SECRET_FILE:-/apps/memoryos/secrets/interpreter/api-key.txt}
+  redis_admin_password:
+    file: ${MEMORYOS_REDIS_ADMIN_PASSWORD_FILE:?Set MEMORYOS_REDIS_ADMIN_PASSWORD_FILE}
+  redis_worker_password:
+    file: ${MEMORYOS_REDIS_WORKER_PASSWORD_FILE:?Set MEMORYOS_REDIS_WORKER_PASSWORD_FILE}
+  redis_api_password:
+    file: ${MEMORYOS_REDIS_API_PASSWORD_FILE:?Set MEMORYOS_REDIS_API_PASSWORD_FILE}
+  redis_tls_ca:
+    file: ${MEMORYOS_REDIS_TLS_CA_FILE:?Set MEMORYOS_REDIS_TLS_CA_FILE}
+  redis_tls_certificate:
+    file: ${MEMORYOS_REDIS_TLS_CERTIFICATE_FILE:?Set MEMORYOS_REDIS_TLS_CERTIFICATE_FILE}
+  redis_tls_private_key:
+    file: ${MEMORYOS_REDIS_TLS_PRIVATE_KEY_FILE:?Set MEMORYOS_REDIS_TLS_PRIVATE_KEY_FILE}
 
 volumes:
   memoryos_postgres:
     name: ${MEMORYOS_POSTGRES_VOLUME:-memoryos-postgres-data}
   memoryos_minio:
     name: ${MEMORYOS_MINIO_VOLUME:-memoryos-minio-data}
+  memoryos_redis:
+    name: ${MEMORYOS_REDIS_VOLUME:-memoryos-redis-data}

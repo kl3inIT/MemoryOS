@@ -12,10 +12,20 @@ set -eu
 ADMIN_PASSWORD=$(cat "$MEMORYOS_REDIS_ADMIN_PASSWORD_FILE")
 WORKER_PASSWORD=$(cat "$MEMORYOS_REDIS_WORKER_PASSWORD_FILE")
 API_PASSWORD=$(cat "$MEMORYOS_REDIS_API_PASSWORD_FILE")
-INSPECTOR_PASSWORD=$(cat "$MEMORYOS_REDIS_INSPECTOR_PASSWORD_FILE")
-if [ -z "$ADMIN_PASSWORD" ] || [ -z "$WORKER_PASSWORD" ] || [ -z "$API_PASSWORD" ] || [ -z "$INSPECTOR_PASSWORD" ]; then
-    echo "Redis administrator, worker, API, and inspector passwords must be non-empty" >&2
+if [ -z "$ADMIN_PASSWORD" ] || [ -z "$WORKER_PASSWORD" ] || [ -z "$API_PASSWORD" ]; then
+    echo "Redis administrator, worker and API passwords must be non-empty" >&2
     exit 1
+fi
+
+# The read-only inspector exists only where an inspection tool does. Its secret is mounted by the
+# environment that runs one; elsewhere the user is simply absent rather than present and unused.
+INSPECTOR_PASSWORD=""
+if [ -f "$MEMORYOS_REDIS_INSPECTOR_PASSWORD_FILE" ]; then
+    INSPECTOR_PASSWORD=$(cat "$MEMORYOS_REDIS_INSPECTOR_PASSWORD_FILE")
+    if [ -z "$INSPECTOR_PASSWORD" ]; then
+        echo "The Redis inspector password file is mounted but empty" >&2
+        exit 1
+    fi
 fi
 
 hash_password() {
@@ -25,7 +35,10 @@ hash_password() {
 ADMIN_HASH=$(hash_password "$ADMIN_PASSWORD")
 WORKER_HASH=$(hash_password "$WORKER_PASSWORD")
 API_HASH=$(hash_password "$API_PASSWORD")
-INSPECTOR_HASH=$(hash_password "$INSPECTOR_PASSWORD")
+INSPECTOR_HASH=""
+if [ -n "$INSPECTOR_PASSWORD" ]; then
+    INSPECTOR_HASH=$(hash_password "$INSPECTOR_PASSWORD")
+fi
 unset ADMIN_PASSWORD WORKER_PASSWORD API_PASSWORD INSPECTOR_PASSWORD
 
 umask 077
@@ -38,8 +51,12 @@ user default off
 user memoryos-admin on #$ADMIN_HASH ~* &* +@all
 user memoryos-worker on #$WORKER_HASH ~memoryos:execution:* &* +ping +hello +info +client|setname +client|setinfo +xgroup +xinfo +xadd +xdel +xreadgroup +xack +xpending +xclaim +xautoclaim +xlen +xrange +del +exists
 user memoryos-api on #$API_HASH ~memoryos:chat:stream:* resetchannels +ping +hello +info +client|setname +client|setinfo +xadd +xrange +xrevrange +pexpire +del +exists
+EOF
+if [ -n "$INSPECTOR_HASH" ]; then
+    cat >>/tmp/memoryos-users.acl <<EOF
 user memoryos-inspector on #$INSPECTOR_HASH ~* &* -@all +@read +@connection +info +command +memory|usage +memory|stats +memory|doctor +memory|malloc-stats +config|get +slowlog|get +slowlog|len +client|list +client|info
 EOF
+fi
 cat >/tmp/memoryos-redis.conf <<EOF
 bind 0.0.0.0
 protected-mode yes

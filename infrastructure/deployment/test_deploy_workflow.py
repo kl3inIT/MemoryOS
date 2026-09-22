@@ -163,8 +163,8 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn("{manifest.json,configuration.tar,images.env,SHA256SUMS}", SCRIPT)
 
     def test_interpreter_is_reachable_only_on_the_internal_network(self):
-        compose = (ROOT / "infrastructure/deployment/compose.staging.yaml").read_text(encoding="utf-8")
-        service = compose.split("\n  interpreter:\n", 1)[1].split("\n  mailpit:\n", 1)[0]
+        compose = (ROOT / "infrastructure/deployment/compose.base.yaml").read_text(encoding="utf-8")
+        service = compose.split("\n  interpreter:\n", 1)[1].split("\nnetworks:\n", 1)[0]
         self.assertNotIn("ports:", service)
         self.assertIn("memoryos-internal:", service)
         for network in ("shared-infra", "proxy", "memoryos-telemetry"):
@@ -178,8 +178,8 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertLess(deploy.index("'.secrets // {} | .[].file // empty'"), deploy.index('> "$state/pending"'))
 
     def test_interpreter_and_api_share_one_key_secret(self):
-        compose = (ROOT / "infrastructure/deployment/compose.staging.yaml").read_text(encoding="utf-8")
-        interpreter = compose.split("\n  interpreter:\n", 1)[1].split("\n  mailpit:\n", 1)[0]
+        compose = (ROOT / "infrastructure/deployment/compose.base.yaml").read_text(encoding="utf-8")
+        interpreter = compose.split("\n  interpreter:\n", 1)[1].split("\nnetworks:\n", 1)[0]
         api = compose.split("\n  api:\n", 1)[1].split("\n  worker:\n", 1)[0]
         self.assertIn("API_KEY_FILE: /run/secrets/interpreter_api_key", interpreter)
         self.assertIn("- interpreter_api_key", interpreter)

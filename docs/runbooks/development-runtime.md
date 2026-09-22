@@ -143,7 +143,7 @@ After changing the theme, recreate shared Keycloak so its normal production cach
 docker compose \
   -f infrastructure/deployment/compose.base.yaml \
   -f infrastructure/deployment/compose.staging.yaml \
-  up -d --force-recreate --wait shared-keycloak
+  up -d --force-recreate --wait keycloak
 
 ./infrastructure/keycloak/configure-memoryos-realm.sh
 ```
@@ -152,7 +152,7 @@ Reconciliation first reads Keycloak `serverinfo` and requires exactly one login 
 
 Verify sign-in, forgot-password, invitation `VERIFY_EMAIL` and `UPDATE_PASSWORD`, success, invalid/expired action-token, and mobile layouts. Roll back by checking out the prior repository revision, recreating shared Keycloak, and rerunning the prior reconciliation script; do not edit the OrgMemory realm or change the public issuer.
 
-The script also selects the `memoryos` login theme. Its source is `infrastructure/keycloak/themes/memoryos/`, which compose bind-mounts read-only into `shared-keycloak`. Keycloak caches themes outside development mode, so after the mount is added or the theme changes, recreate the service (`docker compose ... up -d --no-deps --wait shared-keycloak`) before replaying the realm script. A missing theme falls back to the Keycloak default rather than breaking sign-in.
+The script also selects the `memoryos` login theme. Its source is `infrastructure/keycloak/themes/memoryos/`, which compose bind-mounts read-only into `keycloak`. Keycloak caches themes outside development mode, so after the mount is added or the theme changes, recreate the service (`docker compose ... up -d --no-deps --wait keycloak`) before replaying the realm script. A missing theme falls back to the Keycloak default rather than breaking sign-in.
 
 Required operator environment:
 
