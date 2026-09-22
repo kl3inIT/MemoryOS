@@ -263,6 +263,8 @@ test("Files paging preserves concurrent item operations and uploads return to th
   const files = page.getByRole("region", { name: "Files", exact: true });
   const row = (filename: string) =>
     files.getByRole("row").filter({ has: page.getByText(filename, { exact: true }) });
+  await files.getByRole("combobox", { name: "Files per page" }).click();
+  await page.getByRole("option", { name: "25", exact: true }).click();
   await expect(files.getByRole("row")).toHaveCount(26);
   await expect(files.getByRole("status")).toHaveText("1 / 3");
   await expect(files.getByRole("button", { name: "Previous files" })).toBeDisabled();
@@ -413,6 +415,8 @@ test("a failed later Files page recovers and shrinking totals return to a valid 
     Array.from({ length: 26 }, (_, index) => `File-${index + 1}.txt`),
   );
   const files = page.getByRole("region", { name: "Files", exact: true });
+  await files.getByRole("combobox", { name: "Files per page" }).click();
+  await page.getByRole("option", { name: "25", exact: true }).click();
   await expect(files.getByRole("row")).toHaveCount(26);
   server.failItemPage = true;
   await files.getByRole("button", { name: "Next files" }).click();
@@ -786,6 +790,8 @@ test("upload failures retain retry state and finalization acceptance never claim
     Array.from({ length: 26 }, (_, index) => `Stored-${index + 1}.txt`),
   );
   const files = page.getByRole("region", { name: "Files", exact: true });
+  await files.getByRole("combobox", { name: "Files per page" }).click();
+  await page.getByRole("option", { name: "25", exact: true }).click();
   await files.getByRole("button", { name: "Next files" }).click();
   await expect(files.getByRole("status")).toHaveText("2 / 2");
   let objectFailure = true;

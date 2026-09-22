@@ -2687,8 +2687,7 @@ Object.assign(englishUi, {
     "Đưa vào chỉ mục tìm kiếm gặp lỗi ngoài dự kiến. Thử lập chỉ mục lại.",
   "The extracted document could not be read for indexing. Upload the file again; if it still fails, the file may be corrupt.":
     "Không đọc được nội dung trích xuất để lập chỉ mục. Tải tệp lên lại; nếu vẫn lỗi, tệp có thể bị hỏng.",
-  "The file contains no searchable text.":
-    "Tệp không chứa văn bản nào có thể tìm kiếm.",
+  "The file contains no searchable text.": "Tệp không chứa văn bản nào có thể tìm kiếm.",
   "The extracted document exceeds the supported indexing size. Split the file and upload it again.":
     "Nội dung trích xuất vượt kích thước lập chỉ mục được hỗ trợ. Chia nhỏ tệp rồi tải lên lại.",
   "This configuration changed in another session. Reload the saved selection before trying again.":
