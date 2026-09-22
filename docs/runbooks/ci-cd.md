@@ -61,6 +61,22 @@ Do not add the deployment user to the `docker` group. Membership is root without
 
 Secrets live in files rather than environment variables because an environment variable is visible in `docker inspect`, in a crash log and in `/proc/<pid>/environ`. Their subdirectories follow the environment file: `minio/`, `redis/`, `opensearch/`, `interpreter/`.
 
+The database bootstrap runs once, at the first start of an empty data directory. Changing the
+connection limit or the memory settings in the repository therefore reaches a new host only.
+On a host that already holds data, recreate the `postgres` container to pick up the memory
+settings, and apply the limits by hand as the platform role:
+
+```sql
+ALTER ROLE memoryos_app CONNECTION LIMIT 40;
+ALTER ROLE memoryos_app SET idle_in_transaction_session_timeout = '60s';
+ALTER ROLE keycloak CONNECTION LIMIT 20;
+ALTER ROLE keycloak SET idle_in_transaction_session_timeout = '60s';
+```
+
+A role already at its limit answers `too many connections for role`, which reads as load rather
+than as a ceiling somebody chose; the pools hold their connections idle, so nothing appears to be
+running at the moment it refuses.
+
 The observability stack is a prerequisite, not a companion. The api and worker join
 `memoryos-telemetry`, which is declared external and owned by that stack, and they read
 `MEMORYOS_OTLP_BASE_URL` with no application default. A deployment onto a host where the stack has
