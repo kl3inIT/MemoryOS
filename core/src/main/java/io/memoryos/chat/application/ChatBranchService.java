@@ -48,16 +48,19 @@ public class ChatBranchService {
     private final JdbcChatLibraryRepository library;
     private final ObjectStorage storage;
     private final ObjectWriteService writes;
+    private final io.memoryos.chat.ChatStorageQuotaService quotas;
     private final TransactionTemplate tx;
 
     public ChatBranchService(TenantAccessResolver tenants, JdbcChatRepository chats,
                              JdbcChatLibraryRepository library, ObjectStorage storage, ObjectWriteService writes,
+                             io.memoryos.chat.ChatStorageQuotaService quotas,
                              PlatformTransactionManager transactionManager) {
         this.tenants = tenants;
         this.chats = chats;
         this.library = library;
         this.storage = storage;
         this.writes = writes;
+        this.quotas = quotas;
         this.tx = new TransactionTemplate(transactionManager);
     }
 
@@ -94,7 +97,7 @@ public class ChatBranchService {
         // Storage IO runs outside the transaction, and what it wrote is discarded when the copy cannot commit.
         var staged = new ArrayList<Staged>();
         try {
-            stage(tenant, path, copies, staged);
+            stage(actor, tenant, path, copies, staged);
             var branch = Objects.requireNonNull(tx.execute(ignored -> {
                 var created = chats.createBranch(tenant, actor, origin, messageId, title(origin.title(), title));
                 chats.copyMessages(origin.id(), created.id(), plan(path, copies, created.rootMessageId()));
@@ -156,21 +159,33 @@ public class ChatBranchService {
         return plan;
     }
 
-    /** Reads the bytes of every artifact along the path and writes them as the branch's own objects. */
-    private void stage(TenantId tenant, List<ChatMessage> path, Map<UUID, UUID> copies, List<Staged> staged) {
+    /**
+     * Reads the bytes of every artifact along the path and writes them as the branch's own objects. The copies
+     * are stored files of the caller's own, exactly as {@code ChatLibraryService.copy} makes one, so the whole
+     * branch is weighed against their storage limit before a single byte is written.
+     */
+    private void stage(ActorId actor, TenantId tenant, List<ChatMessage> path, Map<UUID, UUID> copies,
+                       List<Staged> staged) {
+        var planned = new ArrayList<JdbcChatLibraryRepository.MessageArtifact>();
+        var owners = new ArrayList<UUID>();
         long bytes = 0;
         for (var message : path) {
             for (var artifact : library.messageArtifacts(tenant, message.id())) {
-                if (staged.size() >= MAX_ARTIFACTS)
+                if (planned.size() >= MAX_ARTIFACTS)
                     throw ChatException.invalid("This conversation holds too many generated files to branch.");
                 if (artifact.sizeBytes() > MAX_ONE_ARTIFACT_BYTES || bytes + artifact.sizeBytes() > MAX_ARTIFACT_BYTES)
                     throw ChatException.invalid("This conversation's generated files are too large to branch.");
                 bytes += artifact.sizeBytes();
-                var specification =
-                        new ObjectWriteService.Specification(artifact.filename(), artifact.mediaType(), false);
-                var written = writes.stage(tenant, specification, read(artifact));
-                staged.add(new Staged(artifact, written, copies.get(message.id())));
+                planned.add(artifact);
+                owners.add(copies.get(message.id()));
             }
+        }
+        quotas.requireRoom(tenant, actor, bytes);
+        for (int index = 0; index < planned.size(); index++) {
+            var artifact = planned.get(index);
+            var specification =
+                    new ObjectWriteService.Specification(artifact.filename(), artifact.mediaType(), false);
+            staged.add(new Staged(artifact, writes.stage(tenant, specification, read(artifact)), owners.get(index)));
         }
     }
 

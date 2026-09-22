@@ -292,10 +292,15 @@ export function highlightParts(text: string, query: string): { text: string; mat
   return parts.length > 0 ? parts : [{ text, match: false }];
 }
 
-/** What the caller's library holds and the limit that applies to them (MEM-152). */
+/**
+ * What the caller's library holds and the limit that applies to them (MEM-152). `usedBytes` counts the trash
+ * and uploads still arriving, as ChatGPT does, and `trashedBytes` says how much of it the trash holds; the
+ * generated client predates that field, so a deployment that has not shipped it yet reads as an empty trash.
+ */
 export async function loadLibraryUsage(signal: AbortSignal) {
   const { data } = await getChatLibraryUsage({ signal, throwOnError: true });
-  return data;
+  const trashed = "trashedBytes" in data ? data.trashedBytes : undefined;
+  return { ...data, trashedBytes: typeof trashed === "number" ? trashed : 0 };
 }
 
 /** How many days a deleted file stays restorable in this deployment. */

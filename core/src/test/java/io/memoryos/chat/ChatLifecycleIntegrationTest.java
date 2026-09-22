@@ -145,7 +145,7 @@ class ChatLifecycleIntegrationTest {
                 jpa.transactionManager(), io.memoryos.TestDatabase.noAudit());
         // Constructed directly: the service owns its own transaction template, which is what the copy relies on.
         branches = new ChatBranchService(tenants, repository, new JdbcChatLibraryRepository(jdbc), storage, writes,
-                jpa.transactionManager());
+                quotas, jpa.transactionManager());
         seedTenant();
     }
 

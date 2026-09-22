@@ -52,6 +52,7 @@ it("shows what is used against the deployment limit, biggest kind first", async 
   loadLibraryUsage.mockResolvedValue({
     usedBytes: 20 * 1024 * 1024,
     fileCount: 81,
+    trashedBytes: 0,
     limitBytes: 512 * 1024 * 1024,
     byCategory: [
       { category: "DOCUMENT", usedBytes: 802 * 1024 },
@@ -77,6 +78,7 @@ it("warns when the library is nearly full", async () => {
   loadLibraryUsage.mockResolvedValue({
     usedBytes: 500 * 1024 * 1024,
     fileCount: 12,
+    trashedBytes: 0,
     limitBytes: 512 * 1024 * 1024,
     byCategory: [{ category: "IMAGE", usedBytes: 500 * 1024 * 1024 }],
   });
@@ -89,6 +91,7 @@ it("says there is no limit when the deployment sets none, and shows no meter wit
   loadLibraryUsage.mockResolvedValue({
     usedBytes: 1024,
     fileCount: 1,
+    trashedBytes: 0,
     limitBytes: null,
     byCategory: [],
   });
@@ -104,6 +107,7 @@ it("holds what the library's own panel holds: the trash window and the retention
   loadLibraryUsage.mockResolvedValue({
     usedBytes: 3072,
     fileCount: 2,
+    trashedBytes: 0,
     limitBytes: 10240,
     byCategory: [{ category: "DOCUMENT", usedBytes: 3072 }],
   });
@@ -115,6 +119,41 @@ it("holds what the library's own panel holds: the trash window and the retention
   // The one setting on this page belongs to the person, exactly as in the library panel.
   expect(await screen.findByRole("combobox", { name: "Xoá hội thoại sau" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Tự xoá hội thoại" })).toBeInTheDocument();
+});
+
+it("says deleted files still take up storage while the trash is empty", async () => {
+  loadLibraryUsage.mockResolvedValue({
+    usedBytes: 3072,
+    fileCount: 2,
+    trashedBytes: 0,
+    limitBytes: 10240,
+    byCategory: [{ category: "DOCUMENT", usedBytes: 3072 }],
+  });
+  show();
+
+  expect(
+    await screen.findByText("Tệp đã xoá vẫn chiếm dung lượng cho tới khi thùng rác được dọn."),
+  ).toBeInTheDocument();
+});
+
+it("names what the trash is holding, because those bytes count against the limit", async () => {
+  loadLibraryUsage.mockResolvedValue({
+    usedBytes: 6 * 1024 * 1024,
+    fileCount: 4,
+    trashedBytes: 2 * 1024 * 1024,
+    limitBytes: 512 * 1024 * 1024,
+    byCategory: [{ category: "DOCUMENT", usedBytes: 4 * 1024 * 1024 }],
+  });
+  show();
+
+  expect(
+    await screen.findByText("Thùng rác đang giữ 2 MB — dọn để giải phóng ngay."),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByText(
+      "Tệp trong thùng rác không còn tính vào dung lượng; bytes được giải phóng khi dọn.",
+    ),
+  ).not.toBeInTheDocument();
 });
 
 it("offers a way to try again when the usage cannot be read", async () => {

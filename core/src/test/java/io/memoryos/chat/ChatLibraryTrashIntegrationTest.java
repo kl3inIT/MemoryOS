@@ -79,6 +79,7 @@ class ChatLibraryTrashIntegrationTest {
     private ActorId owner;
     private ActorId other;
     private UUID messageId;
+    private TenantAccessResolver tenants;
 
     @BeforeEach
     void setup() throws Exception {
@@ -97,7 +98,7 @@ class ChatLibraryTrashIntegrationTest {
             return bytes == null ? null : new ObjectMetadata(bytes.length,
                     types.get(call.<ObjectKey>getArgument(0).value()), sha256(bytes));
         });
-        var tenants = TestDatabase.transactionalProxy(new JpaTenantAccessResolver(
+        tenants = TestDatabase.transactionalProxy(new JpaTenantAccessResolver(
                         new JpaTenantRepository(jpa.entityManager()), new IamLockRepository(jdbc)),
                 TenantAccessResolver.class, jpa.transactionManager());
         var objects = new JdbcStoredObjectRepository(jdbc);
@@ -117,7 +118,8 @@ class ChatLibraryTrashIntegrationTest {
         cleanup = new ChatArtifactCleanupService(new JdbcChatArtifactCleanupRepository(jdbc),
                 new DefaultStoredObjectRegistry(objects), writes, storage, jpa.transactionManager());
         trash = new ChatLibraryTrashService(tenants, new JdbcChatRepository(jdbc), files, artifacts,
-                new JdbcImageArtifactRepository(jdbc), new ChatRetentionProperties(false, WINDOW, java.time.Duration.ZERO,
+                new JdbcImageArtifactRepository(jdbc),
+                new ChatRetentionProperties(false, WINDOW, java.time.Duration.ZERO,
                         java.time.Duration.ofHours(24)),
                 jpa.transactionManager());
         seedConversation();
@@ -174,6 +176,33 @@ class ChatLibraryTrashIntegrationTest {
         assertEquals(List.of(), ids(library.page(tenant, other, new JdbcChatLibraryRepository.Filter("", Set.of(),
                 Set.of(), null, false, false, true, null), ChatLibraryFile.Sort.DELETED, 0, 50)));
         assertEquals(0, count("chat_file_work"));
+    }
+
+    @Test
+    void aDeletedFileKeepsCountingUntilItsBytesGoAndCannotOutrunTheSweep() {
+        var file = interpreter.store(tenant, messageId, "bao-cao.csv", "text/csv", "one".getBytes());
+        long stored = library.usage(tenant, owner).totalBytes();
+        assertEquals(0, library.usage(tenant, owner).trashedBytes());
+
+        // Deleting hides the file but keeps its bytes, so the storage it holds does not change.
+        interpreter.delete(owner, file);
+        assertEquals(stored, library.usage(tenant, owner).totalBytes(), "the trash still counts");
+        assertEquals(stored, library.usage(tenant, owner).trashedBytes());
+
+        // Once the sweep holds the row, its bytes are on their way out and it can no longer be taken back.
+        trash.purge(owner, ChatLibraryFile.Source.GENERATED, file);
+        jdbc.sql("""
+                UPDATE chat_file_artifact SET cleanup_token = :token,
+                    cleanup_until = CURRENT_TIMESTAMP + INTERVAL '2' MINUTE WHERE id = :id
+                """).param("token", java.util.UUID.randomUUID()).param("id", file).update();
+        assertThrows(ChatException.class, () -> trash.restore(owner, ChatLibraryFile.Source.GENERATED, file));
+
+        // Emptying is what frees the storage: the sweep releases the bytes and the count falls to nothing.
+        jdbc.sql("UPDATE chat_file_artifact SET cleanup_token = NULL, cleanup_until = NULL WHERE id = :id")
+                .param("id", file).update();
+        assertEquals(1, cleanup.cleanup());
+        assertEquals(0, library.usage(tenant, owner).totalBytes());
+        assertEquals(0, library.usage(tenant, owner).trashedBytes());
     }
 
     @Test

@@ -266,12 +266,15 @@ class ChatLibraryController {
     }
 
     @Schema(name = "ChatLibraryUsage")
-    record LibraryUsageResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) long usedBytes,
+    record LibraryUsageResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "Everything the caller stores, including what waits in the trash") long usedBytes,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long fileCount,
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "The part of usedBytes freed by emptying the trash") long trashedBytes,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"integer", "null"}, format = "int64",
                     description = "The storage limit that applies to the caller; null means no limit")
             @Nullable Long limitBytes,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Used bytes per category")
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Used bytes per category, trash aside")
             List<CategoryUsageResponse> byCategory) {}
 
     @Schema(name = "ChatLibraryCategoryUsage")
@@ -287,7 +290,7 @@ class ChatLibraryController {
     ResponseEntity<LibraryUsageResponse> usage(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
         var usage = quotas.usage(identity.actorId());
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(new LibraryUsageResponse(usage.usedBytes(),
-                usage.fileCount(), usage.limitBytes(),
+                usage.fileCount(), usage.trashedBytes(), usage.limitBytes(),
                 usage.byCategory().entrySet().stream()
                         .map(entry -> new CategoryUsageResponse(entry.getKey().name(), entry.getValue()))
                         .sorted(java.util.Comparator.comparing(CategoryUsageResponse::category)).toList()));

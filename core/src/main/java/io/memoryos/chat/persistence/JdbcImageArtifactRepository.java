@@ -99,6 +99,7 @@ public class JdbcImageArtifactRepository {
                 UPDATE chat_image_artifact SET deleted_at = NULL, purge_after = NULL, cleanup_token = NULL,
                     cleanup_until = NULL
                 WHERE tenant_id = :tenant AND id = :id AND owner_actor_id = :actor AND deleted_at IS NOT NULL AND purged_at IS NULL
+                  AND cleanup_token IS NULL
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id).update() == 1;
     }
 

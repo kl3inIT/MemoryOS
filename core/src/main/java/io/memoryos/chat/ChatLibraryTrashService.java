@@ -46,6 +46,11 @@ public class ChatLibraryTrashService {
     /** How long a deleted file stays restorable; zero means deletion releases the bytes at once. */
     public Duration window() { return retention.trashAfter(); }
 
+    /**
+     * Takes a file back out of the trash. A deleted file already counts against its owner's storage until its
+     * bytes are released, so restoring one adds nothing and needs no room; what it cannot do is outrun the
+     * sweep that is already releasing those bytes.
+     */
     public void restore(ActorId actor, ChatLibraryFile.Source source, UUID id) {
         boolean restored = Boolean.TRUE.equals(tx.execute(ignored -> {
             var tenant = write(actor);

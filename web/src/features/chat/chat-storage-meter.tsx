@@ -53,9 +53,13 @@ export function StorageMeter({
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
+      {/*
+       * The same surface every settings card uses, so the meter and the retention rows below it read as one
+       * page rather than two tones on the same background.
+       */}
       <section
         aria-label={ui("Dung lượng đã dùng")}
-        className="flex flex-col gap-2 rounded-xl border border-border-subtle p-4"
+        className="flex flex-col gap-2 rounded-xl border border-border-subtle bg-surface-raised p-4"
       >
         <p className="font-main-ui-action tabular-nums text-content-primary">
           {limit === null
@@ -129,7 +133,7 @@ export function StorageMeter({
               );
               return (
                 <li key={entry.category}>
-                  <Item asChild variant="outline" className="hover:bg-surface-subtle">
+                  <Item asChild variant="outline" className="bg-surface-raised hover:bg-surface-subtle">
                     {onCategory ? (
                       <button type="button" onClick={() => onCategory(category)}>
                         {row}
@@ -150,9 +154,18 @@ export function StorageMeter({
             <Link to="/library">{ui("Mở thư viện tệp")}</Link>
           </Button>
         )}
+        {/*
+         * The trash counts against the limit until it is emptied, so the line names what it holds rather than
+         * offering a link: `/library` takes a category, and its trash view is page state with no search param
+         * to address, so there is nothing to link to without inventing a route.
+         */}
         <p className="font-secondary-body text-content-muted">
           <Trash2 className="mr-1 inline size-3.5" aria-hidden="true" />
-          {ui("Tệp đã xoá vẫn chiếm dung lượng cho tới khi thùng rác được dọn.")}
+          {usage.trashedBytes > 0
+            ? ui("Thùng rác đang giữ {{size}} — dọn để giải phóng ngay.", {
+                size: fileSize(usage.trashedBytes, i18n.language),
+              })
+            : ui("Tệp đã xoá vẫn chiếm dung lượng cho tới khi thùng rác được dọn.")}
         </p>
       </section>
     </div>

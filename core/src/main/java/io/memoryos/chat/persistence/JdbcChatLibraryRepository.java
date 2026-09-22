@@ -220,8 +220,14 @@ public class JdbcChatLibraryRepository {
 
     private record Row(ChatLibraryFile file, long totalCount, long totalBytes) {}
 
-    /** What one person's library holds, in total and per category; the same rows the listing shows. */
-    public record Usage(long totalBytes, long fileCount, java.util.Map<ChatLibraryFile.Category, Long> byCategory) {}
+    /**
+     * What one person's library holds. {@code byCategory} and {@code fileCount} are the rows the listing shows;
+     * {@code totalBytes} is everything of theirs that occupies storage, which is those rows plus the trash and
+     * plus an upload still on its way, as ChatGPT counts a file until it is deleted for good rather than only
+     * until it leaves the listing. {@code trashedBytes} is the part a person frees by emptying the trash.
+     */
+    public record Usage(long totalBytes, long fileCount, long trashedBytes,
+                        java.util.Map<ChatLibraryFile.Category, Long> byCategory) {}
 
     public Usage usage(TenantId tenant, ActorId actor) {
         var byCategory = new java.util.EnumMap<ChatLibraryFile.Category, Long>(ChatLibraryFile.Category.class);
@@ -238,7 +244,40 @@ public class JdbcChatLibraryRepository {
                     totals[1] += row.getLong("files");
                     return true;
                 }).list();
-        return new Usage(totals[0], totals[1], java.util.Map.copyOf(byCategory));
+        long trashed = heldBytes(tenant, actor, TRASHED_BYTES);
+        return new Usage(totals[0] + trashed + heldBytes(tenant, actor, IN_FLIGHT_UPLOAD_BYTES), totals[1], trashed,
+                java.util.Map.copyOf(byCategory));
+    }
+
+    /**
+     * Bytes the owner still holds outside the listing: what they deleted and can still restore, and an upload
+     * whose object exists but is not usable yet. An abandoned upload the reaper already expired holds nothing,
+     * so it is left out; a temporary conversation's upload belongs to that conversation, never to the library.
+     */
+    private static final String TRASHED_BYTES = """
+            SELECT COALESCE((SELECT SUM(u.size_bytes) FROM chat_user_file u
+                             WHERE u.tenant_id = :tenant AND u.owner_actor_id = :actor
+                               AND u.temporary_session_id IS NULL AND u.status = 'DELETING'), 0)
+                 + COALESCE((SELECT SUM(a.size_bytes) FROM chat_file_artifact a
+                             JOIN chat_session s ON s.id = a.session_id AND s.tenant_id = a.tenant_id
+                             WHERE a.tenant_id = :tenant AND a.owner_actor_id = :actor AND NOT s.temporary
+                               AND s.deleted_at IS NULL AND a.deleted_at IS NOT NULL AND a.purged_at IS NULL), 0)
+                 + COALESCE((SELECT SUM(a.size_bytes) FROM chat_image_artifact a
+                             JOIN chat_session s ON s.id = a.session_id AND s.tenant_id = a.tenant_id
+                             WHERE a.tenant_id = :tenant AND a.owner_actor_id = :actor AND NOT s.temporary
+                               AND s.deleted_at IS NULL AND a.deleted_at IS NOT NULL AND a.purged_at IS NULL), 0)
+            """;
+
+    private static final String IN_FLIGHT_UPLOAD_BYTES = """
+            SELECT COALESCE(SUM(u.size_bytes), 0) FROM chat_user_file u
+            WHERE u.tenant_id = :tenant AND u.owner_actor_id = :actor AND u.temporary_session_id IS NULL
+              AND (u.status IN ('UPLOADING', 'PROCESSING')
+                   OR (u.status = 'FAILED' AND u.error_code IS DISTINCT FROM 'UPLOAD_EXPIRED'))
+            """;
+
+    private long heldBytes(TenantId tenant, ActorId actor, String sql) {
+        return jdbc.sql(sql).param("tenant", tenant.value()).param("actor", actor.value())
+                .query(Long.class).single();
     }
 
     /** The stored bytes of an artifact the caller may copy into an upload. */

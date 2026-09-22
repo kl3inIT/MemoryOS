@@ -107,13 +107,15 @@ export const vietnameseUi: Record<string, string> = {
   "Mở thư viện để giải phóng dung lượng.": "Open the library to free up space.",
   "Thư viện của bạn chưa có tệp nào.": "Your library holds no files yet.",
   "Mở thư viện tệp": "Open the file library",
+  "Thùng rác đang giữ {{size}} — dọn để giải phóng ngay.":
+    "The trash is holding {{size}} — empty it to free that up now.",
   "Tệp đã xoá vẫn chiếm dung lượng cho tới khi thùng rác được dọn.":
-    "A deleted file still takes space until the trash lets it go.",
+    "Deleted files keep taking up storage until the trash is emptied.",
   "Tự xoá hội thoại": "Delete conversations on their own",
   "Không tải được thiết lập tự xoá.": "The self-deletion setting could not be loaded.",
   "Xoá hội thoại sau": "Delete conversations after",
-  "Tính từ lần cuối bạn nhắn trong hội thoại đó. Tệp trong thư viện giữ vòng đời riêng.":
-    "Counted from the last time you wrote in it. Files in your library keep their own lifecycle.",
+  "Tính từ lần hoạt động cuối trong hội thoại đó, kể cả hội thoại đã lưu trữ. Tệp trong thư viện giữ vòng đời riêng.":
+    "Counted from the last activity in it, archived conversations included. Files in your library keep their own lifecycle.",
   "Không tự xoá": "Never",
   "{{count}} ngày": "{{count}} days",
   "Số ngày khác…": "Another number of days…",
@@ -3099,6 +3101,8 @@ Object.assign(vietnameseUi, {
 Object.assign(vietnameseUi, {
   "Dữ liệu đã thay đổi hoặc hội thoại đang trả lời. Tải lại rồi thử lại.":
     "The data changed or the conversation is running. Reload and try again.",
+  "Thư viện tệp đã đầy. Xoá bớt tệp trong Thư viện rồi thử lại.":
+    "The file library is full. Delete files in the library, then try again.",
   "Nội dung này không còn khả dụng hoặc bạn không có quyền truy cập.":
     "This content is unavailable or you do not have access.",
   "Thông tin chưa hợp lệ. Kiểm tra các giới hạn và quyền truy cập model, nguồn tài liệu.":

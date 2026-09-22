@@ -143,7 +143,7 @@ beforeEach(async () => {
   await i18n.changeLanguage("vi");
   vi.clearAllMocks();
   getChatLibraryUsage.mockResolvedValue({
-    data: { usedBytes: 3072, fileCount: 2, limitBytes: 10240, byCategory: [] },
+    data: { usedBytes: 3072, fileCount: 2, trashedBytes: 0, limitBytes: 10240, byCategory: [] },
   });
   getChatLibraryTrashWindow.mockResolvedValue({ data: { days: 30 } });
   getChatRetention.mockResolvedValue({ data: { days: null } });
@@ -637,6 +637,7 @@ it("keeps the library's own settings on the library: what is stored and how long
     data: {
       usedBytes: 3072,
       fileCount: 2,
+      trashedBytes: 0,
       limitBytes: 10240,
       byCategory: [
         { category: "IMAGE", usedBytes: 2048 },
