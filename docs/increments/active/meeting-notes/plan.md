@@ -16,12 +16,12 @@ Design: [design.md](design.md). Each phase is its own pull request.
 - [x] **Share a meeting.** The participants field picks real members and Groups beside free-text names for people outside MemoryOS; `meeting_user_share` and `meeting_group_share` follow the shape used by Agents and Document Sets. A reader opens the meeting, watches the transcript arrive, reads the minutes and downloads the biên bản; only the owner edits or deletes.
 - [x] **Publish to the library.** The owner takes the minutes into their library as Markdown on demand — never the transcript — and *Open in Chat* opens a new conversation with the file in the composer. Rewriting the minutes drops the published file so the next use republishes. A reader's own copy waits on MEM-179, where a Group's knowledge base answers without anyone attaching anything.
 - [x] **Minutes job.** `ModelFlow.MEETING_MINUTES`, `AiUsageFlow.MEETING_MINUTES` and their CHECK migrations; session-less model resolution; an API job with lease and attempts; structured summary, decisions and action items with source utterances, plus the meeting type and a summary depth; prompts learned from ghiam-pro (explicit assignments only, a source quote per task, administrative wording), Nojoin (never invent, one named owner or unassigned) and silent-notetaker (an action without an owner becomes a key point).
-- [ ] **Tests.** Owner isolation (404 for a foreign meeting), utterance persistence across reconnect, silent-track detection, minutes job retry and failure, usage recording, web tests for capture states and speaker naming.
+- [x] **Tests.** Owner isolation, ticketed sockets and utterance persistence, the upload job and its refusals, sharing, the minutes job and its billing, the biên bản bytes, the published Markdown, browser capture, recorder and socket, two Playwright flows, and the nginx WebSocket routes. Listed one by one in [docs/tests/meeting.md](../../../tests/meeting.md).
 - [x] **Docs.** `docs/specs/meeting.md`, `docs/tests/meeting.md`, `ARCHITECTURE.md` module graph and table, `AGENTS.md` module list and active increment entry.
 
 ## Phase 2 — minutes quality, export and search
 
-Reading the transcript back:
+Reading the transcript back — [MEM-183](https://linear.app/memory-os/issue/MEM-183):
 
 - [ ] Search inside a transcript: highlighted matches and a match count, with next/previous.
 - [ ] Star a line and filter to starred lines only (ghiam-pro's highlight, which also scopes what the AI reads).
@@ -35,14 +35,14 @@ Minutes to send:
 
 Vietnamese transcript quality:
 
-- [ ] Transcript correction suggestions with review and undo, using the span logic learned from ghiam-pro and the user glossary.
+- [ ] Transcript correction suggestions with review and undo, using the span logic learned from ghiam-pro and the user glossary — [MEM-184](https://linear.app/memory-os/issue/MEM-184). It builds on the uncertain stretches MEM-183 stores, and adds the context around them a model needs to propose a fix.
 - [ ] Dialect mappings (local word to standard word) — [MEM-177](https://linear.app/memory-os/issue/MEM-177): a Tenant dictionary fed to the minutes prompt, never a rewrite of the transcript.
 
 Asking and finding:
 
-- [ ] *Catch me up* and meeting-scoped questions during and after the meeting (own model flow, answers from the transcript only, with timestamps).
+- [ ] *Catch me up* and meeting-scoped questions during and after the meeting (own model flow, answers from the transcript only, with timestamps) — [MEM-185](https://linear.app/memory-os/issue/MEM-185).
 - [ ] Owner filter in retrieval so meeting notes appear in the owner's Search and `search_knowledge`.
-- [ ] Speaker-name suggestions from participants and self-introductions, offered for confirmation with the evidence quote, never applied silently.
+- [ ] Speaker-name suggestions from participants and self-introductions, offered for confirmation with the evidence quote, never applied silently — [MEM-186](https://linear.app/memory-os/issue/MEM-186), which also carries ghiam-pro's voice profiles as a second tier behind consent and deletion.
 
 ## Phase 3 — tasks and desktop
 
