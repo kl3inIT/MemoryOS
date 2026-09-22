@@ -4,8 +4,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
+  Crop,
   Download,
   Loader2,
+  MessageSquare,
   RotateCw,
   X,
   ZoomIn,
@@ -17,6 +19,7 @@ import { z } from "zod";
 import { HighlightedCode } from "@/components/assistant-ui/elements/code-renderers.aui";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -52,6 +55,14 @@ import {
   type PreviewKind,
   type PreviewTarget,
 } from "./chat-file-preview";
+import { ImageCropper } from "./chat-image-cropper";
+import {
+  croppedFileName,
+  cropPixels,
+  cropType,
+  renderCrop,
+  type CropRect,
+} from "./chat-image-crop";
 
 const spreadsheetSchema = z.object({
   sheets: z.array(z.object({ name: z.string(), csv: z.string(), truncated: z.boolean() })),
@@ -175,33 +186,51 @@ export function ChatFilePreviewModal({
   siblings,
   onClose,
   onCloseAutoFocus,
+  onSaveImage,
+  onAsk,
 }: {
   target: PreviewTarget;
   /** The files shown beside this one, in the order the page lists them; enables previous/next. */
   siblings?: readonly PreviewTarget[];
   onClose: () => void;
   onCloseAutoFocus?: (event: Event) => void;
+  /** Keeps a cropped image where the modal was opened from; without it a crop can only be downloaded. */
+  onSaveImage?: (file: File) => void | Promise<void>;
+  /** Opens a conversation about this file. Surfaces inside Chat leave it out: they are already one. */
+  onAsk?: (target: PreviewTarget, question: string) => Promise<void>;
 }) {
   const ui = useAppTranslation();
   const { actorId, authorizationVersion } = useApplicationSession();
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
   const [shown, setShown] = useState(opened);
+  const [cropping, setCropping] = useState(false);
+  const [crop, setCrop] = useState<CropRect>();
+  const [natural, setNatural] = useState<{ width: number; height: number }>();
+  const [cropFailed, setCropFailed] = useState(false);
+  const [savingCrop, setSavingCrop] = useState(false);
   const target = shown;
   const gallery = siblings ?? [];
   const at = gallery.findIndex((file) => file.source === target.source && file.id === target.id);
+  const showUpright = () => {
+    setZoom(100);
+    setRotation(0);
+    setCrop(undefined);
+    setCropFailed(false);
+  };
   const step = (delta: number) => {
     const next = gallery[at + delta];
     if (at < 0 || !next) return;
     setShown(next);
-    setZoom(100);
-    setRotation(0);
+    setCropping(false);
+    setNatural(undefined);
+    showUpright();
   };
   // Arrow keys step through the gallery, as an image viewer does; the dialog keeps Escape for closing.
   useEffect(() => {
     if (at < 0) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.altKey || event.ctrlKey || event.metaKey || cropping) return;
       if (event.key === "ArrowLeft") step(-1);
       else if (event.key === "ArrowRight") step(1);
     };
@@ -219,6 +248,42 @@ export function ChatFilePreviewModal({
   const kind: PreviewKind = loaded.data?.kind ?? guessed;
   const [docxWords, setDocxWords] = useState<{ words: number; text: string }>();
   const view = loaded.data ? describe(loaded.data, target.filename, docxWords, ui) : undefined;
+  const image = loaded.data?.kind === "image" ? loaded.data.blob : undefined;
+  // The cropper draws the same bytes the preview holds, so it shares the preview's object URL.
+  const imageSource = useObjectUrl(image);
+
+  /**
+   * The crop is encoded from the bytes the preview already holds, so nothing is uploaded until the owner
+   * keeps it: a download writes the file locally, saving hands it to whoever opened the modal.
+   */
+  const keepCrop = async (destination: "download" | "library") => {
+    if (!crop || !image) return;
+    setSavingCrop(true);
+    setCropFailed(false);
+    try {
+      const type = cropType(target.mediaType ?? image.type);
+      const bitmap = await createImageBitmap(image);
+      const cropped = await renderCrop(bitmap, crop, type);
+      bitmap.close();
+      const filename = croppedFileName(target.filename, type);
+      if (destination === "library") await onSaveImage?.(new File([cropped], filename, { type }));
+      else {
+        const url = URL.createObjectURL(cropped);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.click();
+        // Revoking in the same task can cancel the download the click just started.
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+      }
+      setCropping(false);
+      setCrop(undefined);
+    } catch {
+      setCropFailed(true);
+    } finally {
+      setSavingCrop(false);
+    }
+  };
 
   return (
     <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
@@ -235,15 +300,36 @@ export function ChatFilePreviewModal({
             SIZES[previewSize(kind)],
           )}
         >
-          <header className="flex shrink-0 items-start gap-3 border-b border-border-subtle px-5 py-3">
-            <div className="min-w-0 flex-1">
-              <Dialog.Title className="truncate font-main-ui-action" title={target.filename}>
+          {/*
+           * The viewer's own chrome: the way out first, then where the file is and what it is called, then the
+           * things done to it. Nothing sits on the file itself, so the picture is read on an empty surface.
+           */}
+          <header className="flex shrink-0 items-center gap-2 px-3 py-2">
+            <Dialog.Close asChild>
+              <IconButton prominence="internal" size="sm" aria-label={ui("Đóng xem trước")}>
+                <X />
+              </IconButton>
+            </Dialog.Close>
+            <nav
+              aria-label={ui("Đường dẫn tệp")}
+              className="flex min-w-0 flex-1 items-center gap-1.5 font-secondary-body"
+            >
+              <span className="shrink-0 text-content-muted">{ui("Thư viện")}</span>
+              <span className="shrink-0 text-content-muted" aria-hidden="true">
+                /
+              </span>
+              <Dialog.Title
+                className="min-w-0 truncate text-content-primary"
+                title={target.filename}
+              >
                 {target.filename}
               </Dialog.Title>
               {view?.description && (
-                <p className="mt-0.5 truncate text-xs text-content-muted">{view.description}</p>
+                <span className="hidden shrink-0 text-content-muted md:inline">
+                  · {view.description}
+                </span>
               )}
-            </div>
+            </nav>
             {at >= 0 && gallery.length > 1 && (
               <div className="flex shrink-0 items-center gap-1">
                 <IconButton
@@ -255,7 +341,7 @@ export function ChatFilePreviewModal({
                 >
                   <ChevronLeft />
                 </IconButton>
-                <span className="text-xs text-content-muted tabular-nums">
+                <span className="font-secondary-body tabular-nums text-content-muted">
                   {ui("{{position}}/{{total}}", { position: at + 1, total: gallery.length })}
                 </span>
                 <IconButton
@@ -269,11 +355,16 @@ export function ChatFilePreviewModal({
                 </IconButton>
               </div>
             )}
-            <Dialog.Close asChild>
-              <IconButton prominence="internal" size="sm" aria-label={ui("Đóng xem trước")}>
-                <X />
-              </IconButton>
-            </Dialog.Close>
+            {!cropping && (
+              <div className="flex shrink-0 items-center gap-1">
+                {view?.copy !== undefined && <CopyButton text={view.copy} />}
+                <IconButton prominence="internal" size="sm" asChild aria-label={ui("Tải xuống")}>
+                  <a href={downloadUrl(target)} download={target.filename}>
+                    <Download />
+                  </a>
+                </IconButton>
+              </div>
+            )}
           </header>
           <div className="relative flex min-h-0 flex-1 flex-col bg-surface-subtle">
             {loaded.isPending ? (
@@ -296,46 +387,91 @@ export function ChatFilePreviewModal({
               />
             ) : (
               <>
-                <div className="flex min-h-0 flex-1 flex-col overflow-auto pb-20">
-                  <Content
-                    loaded={loaded.data}
-                    target={target}
-                    zoom={zoom}
-                    rotation={rotation}
-                    onDocx={setDocxWords}
-                  />
+                <div className="flex min-h-0 flex-1 flex-col overflow-auto pt-14 pb-4">
+                  {cropping && imageSource ? (
+                    <ImageCropper
+                      src={imageSource}
+                      alt={target.filename}
+                      rect={crop}
+                      onRect={setCrop}
+                      onNatural={setNatural}
+                    />
+                  ) : (
+                    <Content
+                      loaded={loaded.data}
+                      target={target}
+                      zoom={zoom}
+                      rotation={rotation}
+                      onDocx={setDocxWords}
+                    />
+                  )}
                 </div>
-                <footer className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-linear-to-t from-surface-subtle from-40% to-transparent p-4">
-                  <div className="pointer-events-auto text-sm text-content-secondary">
-                    {kind === "image" ? (
-                      <ImageControls
-                        zoom={zoom}
-                        onZoom={setZoom}
-                        onRotate={() => setRotation((current) => (current + 90) % 360)}
-                      />
-                    ) : view?.footer ? (
-                      <span className="rounded-lg bg-surface-base/90 px-2 py-1 shadow-sm">
-                        {view.footer}
-                      </span>
-                    ) : null}
+                {/*
+                 * The tools float over the file rather than under it: one pill in the middle for what is done
+                 * to the picture, and what a crop or a document has to say is a quiet line beside it.
+                 */}
+                {(kind === "image" || view?.footer || cropping) && (
+                  <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-3">
+                    <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-1 rounded-full border border-border-subtle bg-surface-overlay px-1.5 py-1 shadow-lg">
+                      {kind === "image" && (
+                        <ImageControls
+                          zoom={zoom}
+                          cropping={cropping}
+                          crop={
+                            crop && { selected: true, ...(natural && cropPixels(crop, natural)) }
+                          }
+                          onZoom={setZoom}
+                          onRotate={() => setRotation((current) => (current + 90) % 360)}
+                          onCrop={() => {
+                            // A crop is drawn on the image as stored: upright, unzoomed and unrotated.
+                            setCropping(!cropping);
+                            showUpright();
+                          }}
+                        />
+                      )}
+                      {cropping && (
+                        <>
+                          {cropFailed && (
+                            <span
+                              role="alert"
+                              className="px-2 font-secondary-body text-content-danger"
+                            >
+                              {ui("Không cắt được ảnh.")}
+                            </span>
+                          )}
+                          <Button
+                            size="sm"
+                            prominence="internal"
+                            disabled={!crop || savingCrop}
+                            onClick={() => void keepCrop("download")}
+                          >
+                            {ui("Tải ảnh đã cắt")}
+                          </Button>
+                          {onSaveImage && (
+                            <Button
+                              size="sm"
+                              disabled={!crop || savingCrop}
+                              onClick={() => void keepCrop("library")}
+                            >
+                              {savingCrop ? ui("Đang lưu…") : ui("Lưu thành tệp mới")}
+                            </Button>
+                          )}
+                        </>
+                      )}
+                      {kind !== "image" && !cropping && view?.footer && (
+                        <span className="px-2 font-secondary-body text-content-secondary">
+                          {view.footer}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="pointer-events-auto flex items-center gap-0.5 rounded-xl border border-border-subtle bg-surface-base p-1 shadow-lg">
-                    {view?.copy !== undefined && <CopyButton text={view.copy} />}
-                    <IconButton
-                      prominence="internal"
-                      size="sm"
-                      asChild
-                      aria-label={ui("Tải xuống")}
-                    >
-                      <a href={downloadUrl(target)} download={target.filename}>
-                        <Download />
-                      </a>
-                    </IconButton>
-                  </div>
-                </footer>
+                )}
               </>
             )}
           </div>
+          {onAsk && !cropping && (
+            <AskAboutFile name={target.filename} onAsk={(text) => onAsk(target, text)} />
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -555,39 +691,122 @@ function PdfPreview({ blob }: { blob: Blob }) {
 
 function ImageControls({
   zoom,
+  cropping,
+  crop,
   onZoom,
   onRotate,
+  onCrop,
 }: {
   zoom: number;
+  cropping: boolean;
+  /** Whether a region has been drawn, and its size in the image's own pixels once that is known. */
+  crop?: { selected: boolean; width?: number; height?: number };
   onZoom: (zoom: number) => void;
   onRotate: () => void;
+  onCrop: () => void;
 }) {
   const ui = useAppTranslation();
   return (
-    <div className="flex items-center gap-1 rounded-xl border border-border-subtle bg-surface-base p-1 shadow-lg">
+    // The pill around these is the viewer's, so the controls are bare buttons in a row.
+    <div className="flex items-center gap-1">
+      {cropping ? (
+        <span className="px-2 font-secondary-body tabular-nums">
+          {!crop?.selected
+            ? ui("Chưa chọn vùng")
+            : crop.width && crop.height
+              ? ui("{{width}} × {{height}} px", { width: crop.width, height: crop.height })
+              : ui("Đã chọn vùng")}
+        </span>
+      ) : (
+        <>
+          <IconButton
+            prominence="internal"
+            size="sm"
+            aria-label={ui("Thu nhỏ")}
+            disabled={zoom <= 25}
+            onClick={() => onZoom(Math.max(zoom - 25, 25))}
+          >
+            <ZoomOut />
+          </IconButton>
+          <span className="w-12 text-center font-secondary-body tabular-nums">{zoom}%</span>
+          <IconButton
+            prominence="internal"
+            size="sm"
+            aria-label={ui("Phóng to")}
+            disabled={zoom >= 200}
+            onClick={() => onZoom(Math.min(zoom + 25, 200))}
+          >
+            <ZoomIn />
+          </IconButton>
+          <IconButton
+            prominence="internal"
+            size="sm"
+            aria-label={ui("Xoay ảnh")}
+            onClick={onRotate}
+          >
+            <RotateCw />
+          </IconButton>
+        </>
+      )}
       <IconButton
         prominence="internal"
         size="sm"
-        aria-label={ui("Thu nhỏ")}
-        disabled={zoom <= 25}
-        onClick={() => onZoom(Math.max(zoom - 25, 25))}
+        aria-pressed={cropping}
+        aria-label={cropping ? ui("Thoát cắt ảnh") : ui("Cắt ảnh")}
+        onClick={onCrop}
       >
-        <ZoomOut />
-      </IconButton>
-      <span className="w-12 text-center font-mono text-xs tabular-nums">{zoom}%</span>
-      <IconButton
-        prominence="internal"
-        size="sm"
-        aria-label={ui("Phóng to")}
-        disabled={zoom >= 200}
-        onClick={() => onZoom(Math.min(zoom + 25, 200))}
-      >
-        <ZoomIn />
-      </IconButton>
-      <IconButton prominence="internal" size="sm" aria-label={ui("Xoay ảnh")} onClick={onRotate}>
-        <RotateCw />
+        <Crop />
       </IconButton>
     </div>
+  );
+}
+
+/**
+ * A question about the file that is opened, asked where the file is read: it starts a conversation with the
+ * file attached, so the answer is given by Chat itself rather than by a second chat surface here.
+ */
+function AskAboutFile({
+  name,
+  onAsk,
+}: {
+  name: string;
+  onAsk: (question: string) => Promise<void>;
+}) {
+  const ui = useAppTranslation();
+  const [question, setQuestion] = useState("");
+  const [pending, setPending] = useState(false);
+  const [failed, setFailed] = useState(false);
+  return (
+    <form
+      className="flex shrink-0 items-center gap-2 border-t border-border-subtle px-4 py-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (pending) return;
+        setPending(true);
+        setFailed(false);
+        void onAsk(question.trim())
+          .catch(() => setFailed(true))
+          .finally(() => setPending(false));
+      }}
+    >
+      <Input
+        value={question}
+        onChange={(event) => setQuestion(event.target.value)}
+        disabled={pending}
+        maxLength={2000}
+        aria-label={ui("Hỏi về {{name}}", { name })}
+        placeholder={ui("Hỏi về tệp này…")}
+      />
+      <Button type="submit" size="sm" disabled={pending} className="shrink-0">
+        <MessageSquare />
+        {pending ? ui("Đang mở hội thoại…") : ui("Hỏi trong Chat")}
+      </Button>
+      {failed && (
+        <span role="alert" className="shrink-0 text-sm text-content-danger">
+          {ui("Không mở được hội thoại.")}
+        </span>
+      )}
+    </form>
   );
 }
 

@@ -71,6 +71,7 @@ public class JdbcChatLibraryRepository {
               AND (CASE WHEN :trash THEN u.status = 'DELETING'
                         WHEN :pending THEN u.status IN ('UPLOADING', 'PROCESSING', 'FAILED')
                         ELSE u.status = 'READY' END)
+              AND (NOT :trash OR u.purge_after IS NULL OR u.purge_after > CURRENT_TIMESTAMP)
               AND (:allSessions OR EXISTS (
                     SELECT 1 FROM chat_message m
                     JOIN chat_session cs ON cs.id = m.session_id AND cs.tenant_id = u.tenant_id
@@ -84,6 +85,7 @@ public class JdbcChatLibraryRepository {
             WHERE NOT :pending AND a.tenant_id = :tenant AND a.owner_actor_id = :actor AND s.deleted_at IS NULL
               AND NOT s.temporary AND a.purged_at IS NULL
               AND (CASE WHEN :trash THEN a.deleted_at IS NOT NULL ELSE a.deleted_at IS NULL END)
+              AND (NOT :trash OR a.purge_after IS NULL OR a.purge_after > CURRENT_TIMESTAMP)
               AND (:allSessions OR a.session_id = :session)
             UNION ALL
             SELECT 'IMAGE', a.id, a.filename, a.media_type, a.size_bytes, a.created_at, s.id, s.title, a.revised_prompt,
@@ -92,6 +94,7 @@ public class JdbcChatLibraryRepository {
             WHERE NOT :pending AND a.tenant_id = :tenant AND a.owner_actor_id = :actor AND s.deleted_at IS NULL
               AND NOT s.temporary AND a.purged_at IS NULL
               AND (CASE WHEN :trash THEN a.deleted_at IS NOT NULL ELSE a.deleted_at IS NULL END)
+              AND (NOT :trash OR a.purge_after IS NULL OR a.purge_after > CURRENT_TIMESTAMP)
               AND (:allSessions OR a.session_id = :session)
             """;
 

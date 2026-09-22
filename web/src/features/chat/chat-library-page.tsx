@@ -1,18 +1,23 @@
-import { useDeferredValue, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearch } from "@tanstack/react-router";
-import { Download, Trash2 } from "lucide-react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useSearch } from "@tanstack/react-router";
+import { Download, Trash2, X } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useActionNotifications } from "@/components/ui/action-notifications";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { cn } from "@/lib/utils";
+import { chatSessionsKey, newChatSession } from "./chat-api";
 import { chatActionError } from "./chat-action-utils";
 import { ChatAddToProjectDialog } from "./chat-add-to-project";
 import { ChatDialog } from "./chat-dialog";
@@ -28,7 +33,7 @@ import {
   type LibraryLayout,
   type LibrarySearchMode,
 } from "./chat-library-toolbar";
-import { archiveContentUrl, useLibraryArchive } from "./use-library-archive";
+import { archiveContentUrl, useLibraryArchive, type LibraryArchive } from "./use-library-archive";
 import { useLibraryUploads } from "./use-library-uploads";
 import { ChatFilePreviewModal } from "./chat-file-preview-modal";
 import { type PreviewTarget } from "./chat-file-preview";
@@ -36,6 +41,7 @@ import {
   changeLibraryFile,
   chatLibraryKey,
   deleteLibraryFile,
+  libraryUpload,
   emptyLibraryTrash,
   loadLibraryUsage,
   loadTrashWindow,
@@ -46,6 +52,7 @@ import {
   refusedBy,
   searchLibraryContent,
   LIBRARY_PAGE_SIZE,
+  LIBRARY_PAGE_SIZES,
   type ContentMatch,
   type LibraryCategory,
   type LibraryFile,
@@ -56,6 +63,7 @@ import {
 /** The file library: uploads, files run_python generated and generated images in one owner-private list. */
 export function ChatLibraryPage() {
   const ui = useAppTranslation();
+  const navigate = useNavigate();
   const cache = useQueryClient();
   const { actorId, authorizationVersion } = useApplicationSession();
   const [search, setSearch] = useState("");
@@ -73,12 +81,14 @@ export function ChatLibraryPage() {
   const [renaming, setRenaming] = useState<LibraryFile>();
   const [layout, setLayout] = useState<LibraryLayout>("list");
   const [offset, setOffset] = useState(0);
+  const [size, setSize] = useState<number>(LIBRARY_PAGE_SIZE);
   const [selected, setSelected] = useState<string[]>([]);
-  const [preview, setPreview] = useState<PreviewTarget>();
+  const [preview, setPreview] = useState<LibraryFile>();
   const [confirming, setConfirming] = useState<LibraryFile[]>();
   const [refusals, setRefusals] = useState<string[]>([]);
   const [projectFiles, setProjectFiles] = useState<LibraryFile[]>();
-  const [notice, setNotice] = useState<string>();
+  const notify = useActionNotifications();
+  const [purging, setPurging] = useState<LibraryFile[]>();
 
   /** A selection belongs to the page it was made on, so leaving that page drops it. */
   const showPage = (next: number) => {
@@ -114,12 +124,32 @@ export function ChatLibraryPage() {
     [mode, query, sources, categories, sort, view],
   );
   const page = useQuery({
-    queryKey: [...chatLibraryKey, actorId, authorizationVersion, filter, offset],
-    queryFn: ({ signal }) => loadLibrary(filter, offset, signal),
+    queryKey: [...chatLibraryKey, actorId, authorizationVersion, filter, offset, size],
+    queryFn: ({ signal }) => loadLibrary(filter, offset, signal, size),
+    // Paging keeps the page being read on screen until the next one arrives, instead of emptying the list.
+    placeholderData: keepPreviousData,
     // An upload being processed becomes usable on its own; the view follows without a manual refresh.
     refetchInterval: (current) =>
       current.state.data?.items.some((file) => file.status === "PROCESSING") ? 3000 : false,
   });
+  // The next page is fetched while this one is read, so *Tiếp* shows it without a wait.
+  useEffect(() => {
+    if (!page.data?.hasMore || page.isPlaceholderData) return;
+    void cache.prefetchQuery({
+      queryKey: [...chatLibraryKey, actorId, authorizationVersion, filter, offset + size, size],
+      queryFn: ({ signal }) => loadLibrary(filter, offset + size, signal, size),
+      staleTime: 30_000,
+    });
+  }, [
+    cache,
+    actorId,
+    authorizationVersion,
+    filter,
+    offset,
+    size,
+    page.data?.hasMore,
+    page.isPlaceholderData,
+  ]);
   const usage = useQuery({
     queryKey: [...chatLibraryKey, actorId, authorizationVersion, "usage"],
     queryFn: ({ signal }) => loadLibraryUsage(signal),
@@ -146,10 +176,12 @@ export function ChatLibraryPage() {
    */
   const removeAll = async (targets: LibraryFile[]) => {
     const next: string[] = [];
+    let deleted = 0;
     try {
       for (const file of targets) {
         try {
           await deleteLibraryFile(file, AbortSignal.timeout(30000));
+          deleted += 1;
         } catch (failure) {
           const holders = refusedBy(failure);
           next.push(
@@ -159,10 +191,44 @@ export function ChatLibraryPage() {
       }
     } finally {
       setRefusals(next);
+      if (deleted > 0)
+        notify({
+          title:
+            trashWindow.data === 0
+              ? ui("Đã xoá vĩnh viễn {{count}} tệp.", { count: deleted })
+              : ui("Đã chuyển {{count}} tệp vào thùng rác.", { count: deleted }),
+          tone: "success",
+        });
       // Deleting can empty the current page, so the list restarts where the remaining files are.
       showFirstPage();
       await cache.invalidateQueries({ queryKey: chatLibraryKey });
     }
+  };
+
+  /**
+   * The same command over a selection: a trash command is refused per file like a delete, so one failure is
+   * reported rather than deciding the rest.
+   */
+  const eachChosen = async (
+    targets: LibraryFile[],
+    run: (file: LibraryFile) => Promise<void>,
+    done: (count: number) => string,
+  ) => {
+    const failures: string[] = [];
+    let succeeded = 0;
+    for (const file of targets) {
+      try {
+        await run(file);
+        succeeded += 1;
+      } catch (failure) {
+        failures.push(`${file.filename}: ${chatActionError(failure)}`);
+      }
+    }
+    setRefusals(failures);
+    if (succeeded > 0) notify({ title: done(succeeded), tone: "success" });
+    setSelected([]);
+    showFirstPage();
+    await cache.invalidateQueries({ queryKey: chatLibraryKey });
   };
 
   /** One trash command: what it says when it worked, or the failure it names. */
@@ -170,7 +236,7 @@ export function ChatLibraryPage() {
     setRefusals([]);
     try {
       const said = await run();
-      setNotice(typeof said === "string" ? said : done);
+      notify({ title: typeof said === "string" ? said : done, tone: "success" });
     } catch (failure) {
       setRefusals([chatActionError(failure)]);
     } finally {
@@ -183,8 +249,29 @@ export function ChatLibraryPage() {
     await cache.invalidateQueries({ queryKey: chatLibraryKey });
   };
 
+  /**
+   * A question asked where the file is read (MEM-152): the file becomes an upload, a conversation is created
+   * for it, and Chat attaches it and sends the question once the conversation is open. An empty question
+   * opens that conversation with the file attached and nothing sent.
+   */
+  const askAboutFile = async (target: PreviewTarget, question: string) => {
+    const file =
+      files.find((item) => item.id === target.id) ??
+      (preview?.id === target.id ? preview : undefined);
+    if (!file) return;
+    const signal = AbortSignal.timeout(120_000);
+    const upload = await libraryUpload(file, signal);
+    const session = await newChatSession(question || file.filename, signal);
+    await cache.invalidateQueries({ queryKey: chatSessionsKey });
+    await navigate({
+      to: "/chat/$sessionId",
+      params: { sessionId: session.id },
+      search: { ask: question || undefined, attach: upload.id },
+    });
+  };
+
   const rowActions = {
-    onPreview: (file: LibraryFile) => setPreview(libraryPreviewTarget(file)),
+    onPreview: setPreview,
     onDelete: (file: LibraryFile) => setConfirming([file]),
     onAddToProject: (file: LibraryFile) => setProjectFiles([file]),
     onRename: (file: LibraryFile) => setRenaming(file),
@@ -201,7 +288,7 @@ export function ChatLibraryPage() {
       ),
     onRetried: () => cache.invalidateQueries({ queryKey: chatLibraryKey }),
     onRemovedFromProject: async (name: string) => {
-      setNotice(ui("Đã gỡ khỏi dự án {{name}}.", { name }));
+      notify({ title: ui("Đã gỡ khỏi dự án {{name}}.", { name }), tone: "success" });
       await cache.invalidateQueries({ queryKey: chatLibraryKey });
     },
   };
@@ -241,7 +328,6 @@ export function ChatLibraryPage() {
               onView={(next) => {
                 fromTheFirstPage(setView)(next);
                 setRefusals([]);
-                setNotice(undefined);
               }}
               onShowLargest={() => {
                 fromTheFirstPage(setView)("ready");
@@ -274,25 +360,29 @@ export function ChatLibraryPage() {
                 }}
               />
 
-              {selected.length > 0 && (
-                <LibrarySelectionBar
-                  count={selected.length}
-                  packing={archive.state.phase === "packing"}
-                  onDownload={() => void archive.start(chosen)}
-                  onAddToProject={() => setProjectFiles(chosen)}
-                  onDelete={() => setConfirming(chosen)}
-                  onClear={() => setSelected([])}
-                />
-              )}
+              {/* Always rendered: an empty selection is the bar leaving, which it animates itself. */}
+              <LibrarySelectionBar
+                count={selected.length}
+                packing={archive.state.phase === "packing"}
+                trash={view === "trash"}
+                onDownload={() => void archive.start(chosen)}
+                onAddToProject={() => setProjectFiles(chosen)}
+                onDelete={() => setConfirming(chosen)}
+                onRestore={() =>
+                  void eachChosen(
+                    chosen,
+                    (file) => restoreLibraryFile(file, AbortSignal.timeout(30000)),
+                    (count) => ui("Đã khôi phục {{count}} tệp.", { count }),
+                  )
+                }
+                onPurge={() => setPurging(chosen)}
+                onClear={() => setSelected([])}
+              />
 
               <LibraryNotices
                 archive={archive}
-                notice={notice}
                 refusals={refusals}
-                onDismiss={() => {
-                  setNotice(undefined);
-                  setRefusals([]);
-                }}
+                onDismiss={() => setRefusals([])}
               />
 
               {view === "trash" && (
@@ -311,7 +401,7 @@ export function ChatLibraryPage() {
                 <ContentResults
                   query={query}
                   matches={matches}
-                  onOpen={(file) => setPreview(libraryPreviewTarget(file))}
+                  onOpen={setPreview}
                   actions={rowActions}
                 />
               ) : (
@@ -336,7 +426,14 @@ export function ChatLibraryPage() {
                     />
                   )}
                   {files.length > 0 && (
-                    <>
+                    // While the next page is on its way the one being read stays, dimmed rather than gone.
+                    <div
+                      aria-busy={page.isPlaceholderData}
+                      className={cn(
+                        "flex flex-col gap-4 transition-opacity",
+                        page.isPlaceholderData && "opacity-60",
+                      )}
+                    >
                       <div className="flex items-center gap-2 px-3">
                         <Checkbox
                           aria-label={ui("Chọn tất cả")}
@@ -364,22 +461,40 @@ export function ChatLibraryPage() {
                           )
                         }
                       />
-                    </>
+                    </div>
                   )}
-                  {(offset > 0 || page.data?.hasMore) && (
+                  {/* The bar stays while there are files, because it also carries the page size. */}
+                  {page.data && page.data.totalCount > 0 && (
                     <TablePagination
                       label={ui("Phân trang thư viện")}
-                      page={Math.floor(offset / LIBRARY_PAGE_SIZE)}
-                      totalPages={
-                        page.data ? Math.ceil(page.data.totalCount / LIBRARY_PAGE_SIZE) : undefined
-                      }
+                      className="px-0"
+                      page={Math.floor(offset / size)}
+                      totalPages={Math.ceil(page.data.totalCount / size)}
+                      summary={ui("Hiển thị {{first}}–{{last}} trên {{total}} tệp", {
+                        first: offset + 1,
+                        last: Math.min(offset + size, page.data.totalCount),
+                        total: page.data.totalCount,
+                      })}
                       previousDisabled={offset === 0}
-                      nextDisabled={!page.data?.hasMore}
+                      nextDisabled={!page.data.hasMore}
                       previousLabel={ui("Trang trước")}
                       nextLabel={ui("Trang sau")}
-                      onPrevious={() => showPage(Math.max(0, offset - LIBRARY_PAGE_SIZE))}
-                      onNext={() => showPage(offset + LIBRARY_PAGE_SIZE)}
-                    />
+                      onPrevious={() => showPage(Math.max(0, offset - size))}
+                      onNext={() => showPage(offset + size)}
+                    >
+                      <PageSizeSelect
+                        label={ui("Số tệp mỗi trang")}
+                        rowsLabel={ui("Số tệp")}
+                        value={size}
+                        sizes={LIBRARY_PAGE_SIZES}
+                        disabled={page.isPlaceholderData}
+                        // A page size change re-cuts the list, so it restarts at its first page.
+                        onSizeChange={(next) => {
+                          setSize(next);
+                          showFirstPage();
+                        }}
+                      />
+                    </TablePagination>
                   )}
                 </>
               )}
@@ -390,9 +505,11 @@ export function ChatLibraryPage() {
 
       {preview && (
         <ChatFilePreviewModal
-          target={preview}
+          target={libraryPreviewTarget(preview)}
           siblings={files.map(libraryPreviewTarget)}
           onClose={() => setPreview(undefined)}
+          onSaveImage={(file) => uploads.start([file])}
+          onAsk={askAboutFile}
         />
       )}
       <LibraryUploadTray
@@ -415,7 +532,7 @@ export function ChatLibraryPage() {
         onOpenChange={(open) => !open && setProjectFiles(undefined)}
         onAdded={(name) => {
           setSelected([]);
-          setNotice(ui("Đã thêm vào dự án {{name}}.", { name }));
+          notify({ title: ui("Đã thêm vào dự án {{name}}.", { name }), tone: "success" });
         }}
       />
       <ConfirmDialog
@@ -438,19 +555,40 @@ export function ChatLibraryPage() {
         confirmTone="danger"
         onConfirm={() => removeAll(confirming ?? [])}
       />
+      <ConfirmDialog
+        open={purging !== undefined}
+        onOpenChange={(open) => !open && setPurging(undefined)}
+        title={ui("Xoá vĩnh viễn?")}
+        description={ui("Tệp sẽ bị xoá vĩnh viễn và không thể khôi phục. Đã chọn {{count}} tệp.", {
+          count: purging?.length ?? 0,
+        })}
+        confirmLabel={ui("Xoá vĩnh viễn")}
+        pendingLabel={ui("Đang xoá…")}
+        confirmTone="danger"
+        onConfirm={async () => {
+          await eachChosen(
+            purging ?? [],
+            (file) => purgeLibraryFile(file, AbortSignal.timeout(30000)),
+            (count) => ui("Đã xoá vĩnh viễn {{count}} tệp.", { count }),
+          );
+          setPurging(undefined);
+        }}
+      />
     </AppShell>
   );
 }
 
-/** Everything the page has to say about the last command, in one place instead of five stacked paragraphs. */
+/**
+ * What the page itself must keep on screen: the ZIP a selection is waiting for, and the files a command
+ * refused one by one. What simply succeeded is said by the application's own notifications instead, as every
+ * other page says it.
+ */
 function LibraryNotices({
   archive,
-  notice,
   refusals,
   onDismiss,
 }: {
-  archive: ReturnType<typeof useLibraryArchive>;
-  notice?: string;
+  archive: LibraryArchive;
   refusals: string[];
   onDismiss: () => void;
 }) {
@@ -495,19 +633,14 @@ function LibraryNotices({
           </AlertTitle>
         </Alert>
       )}
-      {notice && (
-        <Alert variant="success">
-          <AlertTitle>{notice}</AlertTitle>
-          <AlertDescription>
-            <Button size="sm" prominence="internal" onClick={onDismiss}>
-              {ui("Đóng")}
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
       {refusals.length > 0 && (
         <Alert variant="destructive">
           <AlertTitle>{ui("Một số tệp không xoá được")}</AlertTitle>
+          <AlertAction>
+            <IconButton size="sm" prominence="internal" aria-label={ui("Đóng")} onClick={onDismiss}>
+              <X />
+            </IconButton>
+          </AlertAction>
           <AlertDescription>
             <ul className="flex flex-col gap-1">
               {refusals.map((refusal) => (

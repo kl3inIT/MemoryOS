@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { TextButton } from "@/components/ui/text-button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { sameOriginMutationHeaders } from "@/lib/api";
+import { createChatProject } from "@/lib/hey-api/sdk.gen";
 import { ChatDialog } from "./chat-dialog";
 import {
   addToProject,
@@ -11,7 +15,7 @@ import {
   PROJECT_FILE_LIMIT,
   type LibraryFile,
 } from "./chat-library";
-import { loadProjects } from "./chat-workspace-api";
+import { loadProjects, projectSchema } from "./chat-workspace-api";
 
 /**
  * Adds library files to one of the caller's Projects (MEM-152). The Project's own update admits them, so the
@@ -32,6 +36,8 @@ export function ChatAddToProjectDialog({
   const { actorId, authorizationVersion } = useApplicationSession();
   const open = files !== undefined;
   const [projectId, setProjectId] = useState("");
+  const [name, setName] = useState("");
+  const [newProject, setNewProject] = useState(false);
   const [full, setFull] = useState(false);
   const projects = useQuery({
     queryKey: ["chat-projects", actorId, authorizationVersion],
@@ -39,6 +45,8 @@ export function ChatAddToProjectDialog({
     enabled: open,
   });
   const chosen = projects.data?.find((project) => project.id === projectId) ?? projects.data?.[0];
+  // With no Project yet there is nothing to choose, so the dialog starts on making one.
+  const creating = name.length > 0 || newProject || projects.data?.length === 0;
 
   return (
     <ChatDialog
@@ -51,14 +59,28 @@ export function ChatAddToProjectDialog({
       description={ui(
         "Tệp được dùng trong mọi hội thoại của dự án. Gỡ khỏi dự án không xoá tệp khỏi thư viện.",
       )}
-      submitLabel={ui("Thêm vào dự án")}
-      submitDisabled={!chosen}
+      submitLabel={creating ? ui("Tạo và thêm tệp") : ui("Thêm vào dự án")}
+      submitDisabled={creating ? name.trim().length === 0 : !chosen}
       closeOnSuccess={false}
       onSubmit={async () => {
-        if (!chosen || !files) return;
+        if (!files) return;
         setFull(false);
+        // A first Project is made here rather than sending the person away to make one and come back.
+        const project = creating
+          ? projectSchema.parse(
+              (
+                await createChatProject({
+                  body: { name: name.trim(), description: "", instructions: "", fileIds: [] },
+                  headers: sameOriginMutationHeaders,
+                  signal: AbortSignal.timeout(30000),
+                  throwOnError: true,
+                })
+              ).data,
+            )
+          : chosen;
+        if (!project) return;
         try {
-          await addToProject(chosen.id, files, AbortSignal.timeout(120_000));
+          await addToProject(project.id, files, AbortSignal.timeout(120_000));
         } catch (failure) {
           // A full Project is named here; any other failure is the dialog's generic error.
           if (failure instanceof ProjectFull) return setFull(true);
@@ -68,18 +90,25 @@ export function ChatAddToProjectDialog({
         }
         await cache.invalidateQueries({ queryKey: ["chat-projects"] });
         await cache.invalidateQueries({ queryKey: ["chat-project"] });
-        onAdded?.(chosen.name);
+        onAdded?.(project.name);
         onOpenChange(false);
       }}
     >
       {projects.isPending && open && <p role="status">{ui("Đang tải dự án…")}</p>}
       {projects.isError && <p role="alert">{ui("Không tải được danh sách dự án.")}</p>}
-      {projects.data?.length === 0 && (
-        <p role="status" className="text-content-muted">
-          {ui("Bạn chưa có dự án nào. Tạo dự án trong mục Dự án trước.")}
-        </p>
+      {projects.data && creating && (
+        <label className="block space-y-1">
+          <span>{ui("Tên dự án")}</span>
+          <Input
+            value={name}
+            autoFocus
+            maxLength={120}
+            placeholder={ui("Ví dụ: Báo cáo quý 4")}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </label>
       )}
-      {projects.data && projects.data.length > 0 && (
+      {projects.data && projects.data.length > 0 && !creating && (
         <label className="block space-y-1">
           <span>{ui("Dự án")}</span>
           <Select value={chosen?.id ?? ""} onChange={(event) => setProjectId(event.target.value)}>
@@ -90,6 +119,17 @@ export function ChatAddToProjectDialog({
             ))}
           </Select>
         </label>
+      )}
+      {projects.data && projects.data.length > 0 && (
+        <TextButton
+          size="sm"
+          onClick={() => {
+            setNewProject(!creating);
+            setName("");
+          }}
+        >
+          {creating ? ui("Chọn dự án có sẵn") : ui("Tạo dự án mới")}
+        </TextButton>
       )}
       <p className="text-sm text-content-secondary">
         {ui("Đã chọn {{count}} tệp", { count: files?.length ?? 0 })}

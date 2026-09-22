@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   ArrowDownUp,
   Download,
@@ -7,6 +8,7 @@ import {
   ListFilter,
   Search,
   Trash2,
+  Undo2,
   X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -156,7 +158,8 @@ export function LibraryToolbar({
 /**
  * How the list is ordered. It is the registry's own select rather than a native one: the browser draws a
  * native option list in the system's colours, which on this page reads as a foreign control beside the
- * filter, the search mode and the layout switch.
+ * filter, the search mode and the layout switch. The panel is anchored under the trigger rather than over
+ * it, because this trigger carries an icon and the item-aligned default then covers the control it belongs to.
  */
 function LibrarySortSelect({
   sort,
@@ -180,7 +183,7 @@ function LibrarySortSelect({
         <ArrowDownUp className="size-4 text-content-muted" aria-hidden="true" />
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent position="popper" align="end" sideOffset={4}>
         {SORTS.map((value) => (
           <SelectItem key={value} value={value}>
             {labels[value]}
@@ -332,53 +335,105 @@ function FilterChip({
   );
 }
 
+/** How long the bar takes to arrive and to leave; the unmount waits exactly that long. */
+const SELECTION_BAR_MS = 150;
+
 /**
  * What a selection can do, over the list rather than above the page, so the commands stay in reach while the
- * owner scrolls. It names how many files it acts on, because a refused delete reports per file.
+ * owner scrolls. It names how many files it acts on, because a refused delete reports per file. The trash
+ * offers its own two commands instead: a file already deleted is taken back or ended, never packed, filed in
+ * a project or deleted again. It floats over the page rather than taking a row of its own, so ticking a file
+ * never moves the list under the pointer.
+ *
+ * <p>{@code count} of zero is not a smaller bar but a leaving one: the bar plays its exit and only then stops
+ * rendering, and it keeps the last count on screen meanwhile so the words do not change under the animation.
  */
 export function LibrarySelectionBar({
   count,
   packing,
+  trash = false,
   onDownload,
   onAddToProject,
   onDelete,
+  onRestore,
+  onPurge,
   onClear,
 }: {
   count: number;
   packing: boolean;
+  trash?: boolean;
   onDownload: () => void;
   onAddToProject: () => void;
   onDelete: () => void;
+  onRestore: () => void;
+  onPurge: () => void;
   onClear: () => void;
 }) {
   const ui = useAppTranslation();
+  const leaving = count === 0;
+  const [rendered, setRendered] = useState(false);
+  // The count the bar shows is the last real one, so the words hold still while the bar leaves.
+  const [shown, setShown] = useState(count);
+  if (!leaving && count !== shown) setShown(count);
+  if (!leaving && !rendered) setRendered(true);
+  useEffect(() => {
+    if (!leaving) return;
+    const timer = setTimeout(() => setRendered(false), SELECTION_BAR_MS);
+    return () => clearTimeout(timer);
+  }, [leaving]);
+  if (!rendered) return null;
   return (
-    <div className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-xl border border-border-default bg-surface-raised px-3 py-2 shadow-sm">
-      <span className="font-main-ui-action tabular-nums">
-        {ui("Đã chọn {{count}} tệp", { count })}
-      </span>
-      <span className="mx-1 hidden h-5 w-px bg-border-subtle sm:block" aria-hidden="true" />
-      <Button size="sm" prominence="secondary" pending={packing} onClick={onDownload}>
-        <Download className="size-4" aria-hidden="true" />
-        {ui("Tải về ZIP")}
-      </Button>
-      <Button size="sm" prominence="secondary" onClick={onAddToProject}>
-        <FolderPlus className="size-4" aria-hidden="true" />
-        {ui("Thêm vào dự án")}
-      </Button>
-      <Button size="sm" tone="danger" prominence="secondary" onClick={onDelete}>
-        <Trash2 className="size-4" aria-hidden="true" />
-        {ui("Xoá")}
-      </Button>
-      <IconButton
-        size="sm"
-        prominence="internal"
-        className="ml-auto"
-        aria-label={ui("Bỏ chọn")}
-        onClick={onClear}
+    // The wrapper does the centring; the bar itself animates, because the enter keyframe owns `transform`.
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
+      <div
+        className={cn(
+          "pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-border-default bg-surface-overlay px-3 py-2 shadow-lg duration-150 motion-reduce:animate-none",
+          leaving
+            ? "pointer-events-none animate-out fill-mode-forwards fade-out slide-out-to-bottom-4"
+            : "animate-in fade-in slide-in-from-bottom-4",
+        )}
       >
-        <X />
-      </IconButton>
+        <span className="font-main-ui-action tabular-nums">
+          {ui("Đã chọn {{count}} tệp", { count: shown })}
+        </span>
+        <span className="mx-1 hidden h-5 w-px bg-border-subtle sm:block" aria-hidden="true" />
+        {trash ? (
+          <>
+            <Button size="sm" prominence="secondary" onClick={onRestore}>
+              <Undo2 className="size-4" aria-hidden="true" />
+              {ui("Khôi phục")}
+            </Button>
+            <Button size="sm" tone="danger" prominence="secondary" onClick={onPurge}>
+              <Trash2 className="size-4" aria-hidden="true" />
+              {ui("Xoá vĩnh viễn")}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button size="sm" prominence="secondary" pending={packing} onClick={onDownload}>
+              <Download className="size-4" aria-hidden="true" />
+              {ui("Tải về ZIP")}
+            </Button>
+            <Button size="sm" prominence="secondary" onClick={onAddToProject}>
+              <FolderPlus className="size-4" aria-hidden="true" />
+              {ui("Thêm vào dự án")}
+            </Button>
+            <Button size="sm" tone="danger" prominence="secondary" onClick={onDelete}>
+              <Trash2 className="size-4" aria-hidden="true" />
+              {ui("Xoá")}
+            </Button>
+          </>
+        )}
+        <IconButton
+          size="sm"
+          prominence="internal"
+          className="ml-auto"
+          aria-label={ui("Bỏ chọn")}
+          onClick={onClear}
+        >
+          <X />
+        </IconButton>
+      </div>
     </div>
   );
 }
