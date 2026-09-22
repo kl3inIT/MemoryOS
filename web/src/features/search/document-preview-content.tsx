@@ -9,11 +9,14 @@ export function DocumentPreviewContent({
   selection,
   variant = "search",
   reading,
+  hideMatches = false,
 }: {
   selection: DocumentSelection;
   variant?: "search" | "chat";
   /** Shared with the original view, so both show the same match and the highlight follows the citation. */
   reading: DocumentReading;
+  /** The citation rail already lists the matches, so the footer does not repeat them. */
+  hideMatches?: boolean;
 }) {
   const ui = useAppTranslation();
   const { activeMatchIndex, activeMatch, from, detail } = reading;
@@ -101,9 +104,10 @@ export function DocumentPreviewContent({
       )}
 
       {/* One footer row: match switcher (segmented, like the evidence tabs) and passage paging. */}
-      {selection.matches.length > 1 || (!detail.isPending && !detail.isError && detail.data) ? (
+      {(selection.matches.length > 1 && !hideMatches) ||
+      (!detail.isPending && !detail.isError && detail.data) ? (
         <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border-subtle px-5 pt-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:px-6">
-          {selection.matches.length > 1 ? (
+          {selection.matches.length > 1 && !hideMatches ? (
             <nav
               aria-label={ui("Các đoạn khớp")}
               className="inline-flex max-w-full gap-0.5 overflow-x-auto rounded-lg bg-surface-sunken p-0.5"

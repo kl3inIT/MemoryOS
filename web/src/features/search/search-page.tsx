@@ -351,11 +351,10 @@ function AuthorizedSearchPage() {
       mediaType: item.mediaType,
       sourceTypes: item.sourceTypes,
       providerUrl: item.providerUrl,
-      provenance:
-        (section ?? item.sections[0])?.provenance.map((entry) => entry.provenanceJson) ?? [],
       matches: item.sections.map((candidate) => ({
         matchingOrdinal: candidate.matchingOrdinal,
         from: Math.max(0, candidate.matchingOrdinal - 1),
+        provenance: candidate.provenance.map((entry) => entry.provenanceJson),
       })),
       activeMatchIndex,
     });

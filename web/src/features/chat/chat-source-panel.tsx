@@ -30,12 +30,12 @@ function citationSelection(source: ChatSource): DocumentSelection {
     mediaType: source.mediaType,
     sourceTypes: source.sourceTypes,
     providerUrl: source.providerUrl,
-    provenance: source.provenance.map((item) => item.provenanceJson),
     matches: [
       {
         from: Math.max(0, (ordinal ?? source.startOrdinal) - 2),
         matchingOrdinal: ordinal ?? source.startOrdinal,
         matchingEndOrdinal: ordinal ?? source.endOrdinal,
+        provenance: source.provenance.map((item) => item.provenanceJson),
       },
     ],
     activeMatchIndex: 0,
@@ -282,7 +282,6 @@ export function ChatSourcePanel({
               fileId={selected.fileId ?? undefined}
               selection={citationSelection(selected)}
               view={view}
-              onViewChange={changeView}
               returnFocusRef={expandRef}
               fallbackFocusRef={titleRef}
               onClose={() => setExpanded(false)}

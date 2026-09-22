@@ -2,7 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { clearCitations, paintCitations, placeCitations } from "./citation-highlight";
+import {
+  clearCitations,
+  paintCitations,
+  placeCitations,
+  type CitationPlacement,
+} from "./citation-highlight";
 import { CsvView } from "./csv-view";
 import { DocxView } from "./docx-view";
 import { DownloadView } from "./download-view";
@@ -14,6 +19,8 @@ import { PreviewCanvas, PreviewSkeleton } from "./preview-surface";
 import { SheetView } from "./sheet-view";
 import { TextView } from "./text-view";
 
+export type CitationConfidence = CitationPlacement["confidence"];
+
 /** The three ways a reader reaches one stored original; a surface supplies the routes its authority allows. */
 export type OriginalReader = {
   /** Same-origin URL of the original; pdf.js reads it by HTTP range and the download link points at it. */
@@ -22,6 +29,9 @@ export type OriginalReader = {
   /** A workbook is read as CSV per sheet, because the app ships no client-side workbook parser. */
   sheets: (signal: AbortSignal) => Promise<Sheets>;
 };
+
+/** What a view reports once it has rendered; `DocxView` measures its own text while it does. */
+type Rendered = (result: { words: number; text: string }) => void;
 
 type Loaded =
   | { kind: "pdf" }
@@ -64,6 +74,8 @@ export function OriginalView({
   boxes = [],
   citations,
   active = 0,
+  onPlaced,
+  thumbnails = false,
 }: {
   reader: OriginalReader;
   filename: string;
@@ -74,6 +86,13 @@ export function OriginalView({
   /** The cited passage text, in the order the citation rail lists it. */
   citations: readonly string[];
   active?: number;
+  /**
+   * Where each citation ended up, in citation order, so the rail can say which ones were located. A format
+   * with no text to search reports nothing, and the rail keeps saying it does not know.
+   */
+  onPlaced?: (confidence: readonly CitationConfidence[]) => void;
+  /** A page rail beside a paged original, for a reader wide enough to hold one. */
+  thumbnails?: boolean;
 }) {
   const ui = useAppTranslation();
   const { actorId, authorizationVersion } = useApplicationSession();
@@ -104,9 +123,20 @@ export function OriginalView({
     );
 
   const data = loaded.data;
+  const highlighted = (children: (onRendered: Rendered) => ReactNode, rendered?: boolean) => (
+    <HighlightedOriginal
+      citations={citations}
+      active={active}
+      onPlaced={onPlaced}
+      rendered={rendered}
+    >
+      {children}
+    </HighlightedOriginal>
+  );
+
   switch (data.kind) {
     case "pdf":
-      return <PdfView url={reader.url} pages={pages} boxes={boxes} />;
+      return <PdfView url={reader.url} pages={pages} boxes={boxes} thumbnails={thumbnails} />;
     case "image":
       return (
         <div className="relative flex min-h-0 flex-1 flex-col bg-surface-sunken">
@@ -123,45 +153,38 @@ export function OriginalView({
         </div>
       );
     case "docx":
-      return (
-        <HighlightedOriginal citations={citations} active={active}>
-          {(onRendered) => <DocxView blob={data.blob} onLoad={onRendered} />}
-        </HighlightedOriginal>
-      );
+      return highlighted((onRendered) => <DocxView blob={data.blob} onLoad={onRendered} />);
     case "xlsx":
-      return (
-        <HighlightedOriginal citations={citations} active={active} rendered>
-          {() => (
-            <PreviewCanvas>
-              <SheetView sheets={data.sheets} />
-            </PreviewCanvas>
-          )}
-        </HighlightedOriginal>
+      return highlighted(
+        () => (
+          <PreviewCanvas>
+            <SheetView sheets={data.sheets} />
+          </PreviewCanvas>
+        ),
+        true,
       );
     case "csv":
-      return (
-        <HighlightedOriginal citations={citations} active={active} rendered>
-          {() => (
-            <PreviewCanvas>
-              <CsvView csv={data.text} truncated={data.truncated} />
-            </PreviewCanvas>
-          )}
-        </HighlightedOriginal>
+      return highlighted(
+        () => (
+          <PreviewCanvas>
+            <CsvView csv={data.text} truncated={data.truncated} />
+          </PreviewCanvas>
+        ),
+        true,
       );
     case "code":
     case "markdown":
     case "text":
-      return (
-        <HighlightedOriginal citations={citations} active={active} rendered>
-          {() => (
-            <TextView
-              text={data.text}
-              filename={filename}
-              kind={data.kind}
-              truncated={data.truncated}
-            />
-          )}
-        </HighlightedOriginal>
+      return highlighted(
+        () => (
+          <TextView
+            text={data.text}
+            filename={filename}
+            kind={data.kind}
+            truncated={data.truncated}
+          />
+        ),
+        true,
       );
     default:
       return (
@@ -184,22 +207,29 @@ function HighlightedOriginal({
   citations,
   active,
   rendered = false,
+  onPlaced,
   children,
 }: {
   citations: readonly string[];
   active: number;
   /** A view that renders synchronously is ready as soon as it is in the tree. */
   rendered?: boolean;
-  children: (onRendered: (result: { words: number; text: string }) => void) => ReactNode;
+  onPlaced?: (confidence: readonly CitationConfidence[]) => void;
+  children: (onRendered: Rendered) => ReactNode;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(rendered);
   const onRendered = useCallback(() => setReady(true), []);
+  const report = useRef(onPlaced);
+  useEffect(() => {
+    report.current = onPlaced;
+  }, [onPlaced]);
   useEffect(() => {
     const root = container.current;
     if (!root || !ready || !citations.length) return undefined;
     const placements = placeCitations(root, citations);
     paintCitations(placements, active);
+    report.current?.(placements.map((placement) => placement.confidence));
     const opened = placements[active]?.range ?? placements.find((found) => found.range)?.range;
     const anchor =
       opened?.startContainer.nodeType === Node.ELEMENT_NODE

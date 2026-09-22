@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { queryOptions, useQueries, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import {
   getSearchDocument,
@@ -17,13 +17,17 @@ export type PassageReader = {
   fileId?: string;
 };
 
+type Session = { actorId: string; authorizationVersion: number | string };
+
+type Match = DocumentSelection["matches"][number];
+
 /** One authorized window of a document's passages. Each reader has its own cache entry, never a shared one. */
-export function useDocumentPassages(
+function passageWindow(
   { variant, documentId, generation, fileId }: PassageReader,
   from: number,
+  session: Session,
 ) {
-  const { actorId, authorizationVersion } = useApplicationSession();
-  return useQuery({
+  return queryOptions({
     queryFn: async ({ signal }) =>
       (fileId
         ? await readChatFilePassages({
@@ -41,8 +45,8 @@ export function useDocumentPassages(
       ).data,
     queryKey: [
       "document-preview",
-      actorId,
-      authorizationVersion,
+      session.actorId,
+      session.authorizationVersion,
       // Each reader has its own authority, so they never share cache entries or in-flight requests.
       fileId ? "chat-file" : variant,
       fileId ?? documentId,
@@ -56,49 +60,58 @@ export function useDocumentPassages(
   });
 }
 
+/** The passages a match cites, joined; the locator collapses whitespace, so the join is one citation. */
+function citedText(data: Awaited<ReturnType<typeof getSearchDocument>>["data"], match: Match) {
+  if (!data) return "";
+  const last = match.matchingEndOrdinal ?? match.matchingOrdinal;
+  return data.passages
+    .filter((passage) => passage.ordinal >= match.matchingOrdinal && passage.ordinal <= last)
+    .map((passage) => passage.content)
+    .join("\n");
+}
+
 /**
- * What both views of one opened document share: which match is being read, which window of passages is shown,
- * and the cited text itself, which the original view locates and paints. The cited text is read at the match's
- * own window, so paging through the passages never moves the highlight off the citation.
+ * What both views of one opened document share: which citation is being read, which window of passages is
+ * shown, and the cited text itself, which the original view locates and paints. Every match's text is read
+ * at its own window, so paging through the passages never moves a highlight off its citation.
  */
 export function useDocumentReading(
   selection: DocumentSelection,
   variant: "search" | "chat",
   fileId?: string,
 ) {
+  const session = useApplicationSession();
   const reader: PassageReader = {
     variant,
     documentId: selection.documentId,
     generation: selection.generation,
     fileId,
   };
+  const matches = selection.matches;
   const [activeMatchIndex, setActiveMatchIndex] = useState(selection.activeMatchIndex);
-  const activeMatch = selection.matches[activeMatchIndex] ?? selection.matches[0];
+  const activeMatch = matches[activeMatchIndex] ?? matches[0];
   const [from, setFrom] = useState(activeMatch?.from ?? 0);
-  const detail = useDocumentPassages(reader, from);
-  const cited = useDocumentPassages(reader, activeMatch?.from ?? 0);
-  const first = activeMatch?.matchingOrdinal;
-  const last = activeMatch?.matchingEndOrdinal ?? first;
-  // Keyed on the ordinals rather than the match object: a caller that rebuilds its selection each render
-  // must not make the highlight repaint on every render.
-  const citations = useMemo(
-    () =>
-      first === undefined || !cited.data
-        ? []
-        : cited.data.passages
-            .filter((passage) => passage.ordinal >= first && passage.ordinal <= last!)
-            .map((passage) => passage.content),
-    [first, last, cited.data],
-  );
+  const detail = useQuery(passageWindow(reader, from, session));
+  // Each match reads its own window; several matches usually share one and so read it once. The combined
+  // list is structurally shared by react-query, which is what keeps the original from repainting and
+  // scrolling on every render.
+  const windows = [...new Set(matches.map((match) => match.from))];
+  const citations = useQueries({
+    queries: windows.map((window) => passageWindow(reader, window, session)),
+    combine: (results) =>
+      matches.map((match) => citedText(results[windows.indexOf(match.from)]?.data, match)),
+  });
+
   return {
     activeMatchIndex,
     activeMatch,
     from,
     detail,
+    /** One entry per match, in the order the citation rail lists them. */
     citations,
     select: (index: number) => {
       setActiveMatchIndex(index);
-      setFrom(selection.matches[index]?.from ?? 0);
+      setFrom(matches[index]?.from ?? 0);
     },
     page: setFrom,
   };

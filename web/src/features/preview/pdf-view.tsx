@@ -45,11 +45,14 @@ export function PdfView({
   url,
   pages,
   boxes,
+  thumbnails = false,
 }: {
   /** A same-origin URL, or the file itself: the CSP (connect-src 'self') does not let pdf.js fetch blob: URLs. */
   url: string | Blob;
   pages: readonly number[];
   boxes: readonly PdfHighlight[];
+  /** A page rail beside the document, for a reader wide enough to hold one. */
+  thumbnails?: boolean;
 }) {
   const ui = useAppTranslation();
   const container = useRef<HTMLDivElement>(null);
@@ -136,107 +139,121 @@ export function PdfView({
     target?.scrollIntoView({ block: firstBox.current ? "center" : "start", inline: "nearest" });
   };
 
-  const loadingPages = <PreviewSkeleton width={renderedWidth} />;
+  const loadingPages = (
+    <PreviewCanvas>
+      <PreviewSkeleton width={renderedWidth} />
+    </PreviewCanvas>
+  );
   const failed = (
-    <p role="alert" className="rounded-xl bg-status-danger-surface p-4 text-status-danger-content">
-      {ui("Không mở được bản PDF gốc. Hãy xem đoạn trích.")}
-    </p>
+    <PreviewCanvas>
+      <p
+        role="alert"
+        className="rounded-xl bg-status-danger-surface p-4 text-status-danger-content"
+      >
+        {ui("Không mở được bản PDF gốc. Hãy xem đoạn trích.")}
+      </p>
+    </PreviewCanvas>
   );
   const rendered = new Set(pageCount ? pagesToRender(nearPages, anchor, pageCount) : []);
   const fallbackView = anchorView ?? Object.values(pageViews)[0];
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      <PreviewCanvas ref={container} className="pb-16">
-        <Document
-          key={wholeFile ? "whole" : "range"}
-          file={file}
-          options={wholeFile ? WHOLE_OPTIONS : RANGE_OPTIONS}
-          suspense={false}
-          loading={loadingPages}
-          error={wholeFile ? failed : loadingPages}
-          onLoadError={(error) => {
-            captureWorkflowFailure(error, {
-              workflow: "pdf-view",
-              stage: wholeFile ? "whole-load" : "range-load",
-              failureKind: error.name,
-            });
-            setWholeFile(true);
-          }}
-          onLoadSuccess={(document) => setPageCount(document.numPages)}
-          className="w-fit min-w-full space-y-5"
-        >
-          {Array.from({ length: pageCount ?? 0 }, (_, index) => {
-            const pageNumber = index + 1;
-            const view = pageViews[pageNumber];
-            const show = rendered.has(pageNumber);
-            return (
-              <figure
-                key={pageNumber}
-                ref={(element) => {
-                  if (element) figures.current.set(pageNumber, element);
-                  else figures.current.delete(pageNumber);
-                }}
-                data-slot="pdf-page"
-                data-page={pageNumber}
-                data-rendered={show || undefined}
-                aria-label={ui("Trang {{pages}}", { pages: pageNumber })}
-                className="mx-auto w-fit"
-              >
-                {/* The canvas is always a white sheet, so the highlighter multiplies onto it in both themes. */}
-                <div
-                  className="relative isolate bg-surface-document shadow-md ring-1 ring-border-subtle"
-                  style={{
-                    width: renderedWidth,
-                    height: pageHeight(view, renderedWidth, fallbackView),
+      <Document
+        key={wholeFile ? "whole" : "range"}
+        file={file}
+        options={wholeFile ? WHOLE_OPTIONS : RANGE_OPTIONS}
+        suspense={false}
+        loading={loadingPages}
+        error={wholeFile ? failed : loadingPages}
+        onLoadError={(error) => {
+          captureWorkflowFailure(error, {
+            workflow: "pdf-view",
+            stage: wholeFile ? "whole-load" : "range-load",
+            failureKind: error.name,
+          });
+          setWholeFile(true);
+        }}
+        onLoadSuccess={(document) => setPageCount(document.numPages)}
+        className="flex min-h-0 flex-1"
+      >
+        {thumbnails && pageCount ? (
+          <PdfThumbnails total={pageCount} current={currentPage} onGo={goToPage} />
+        ) : null}
+        <PreviewCanvas ref={container} className="pb-16">
+          <div className="w-fit min-w-full space-y-5">
+            {Array.from({ length: pageCount ?? 0 }, (_, index) => {
+              const pageNumber = index + 1;
+              const view = pageViews[pageNumber];
+              const show = rendered.has(pageNumber);
+              return (
+                <figure
+                  key={pageNumber}
+                  ref={(element) => {
+                    if (element) figures.current.set(pageNumber, element);
+                    else figures.current.delete(pageNumber);
                   }}
+                  data-slot="pdf-page"
+                  data-page={pageNumber}
+                  data-rendered={show || undefined}
+                  aria-label={ui("Trang {{pages}}", { pages: pageNumber })}
+                  className="mx-auto w-fit"
                 >
-                  {show ? (
-                    <Page
-                      pageNumber={pageNumber}
-                      width={renderedWidth}
-                      loading=""
-                      renderTextLayer={false}
-                      renderAnnotationLayer={false}
-                      onLoadSuccess={(page) =>
-                        setPageViews((current) =>
-                          current[pageNumber]
-                            ? current
-                            : {
-                                ...current,
-                                [pageNumber]: { view: [...page.view], rotate: page.rotate },
-                              },
-                        )
-                      }
-                    />
-                  ) : null}
-                  {show && view
-                    ? boxes
-                        .filter((box) => box.page === pageNumber)
-                        .map((box, boxIndex) => {
-                          const rect = pdfBoxRect(box, view, renderedWidth);
-                          if (!rect) return null;
-                          return (
-                            <span
-                              key={`${box.left}:${box.top}:${boxIndex}`}
-                              ref={pageNumber === anchor && boxIndex === 0 ? firstBox : undefined}
-                              role="img"
-                              aria-label={ui("Vùng được trích dẫn trên trang {{page}}", {
-                                page: pageNumber,
-                              })}
-                              data-slot="pdf-citation-box"
-                              className="pointer-events-none absolute scroll-m-12 rounded-[3px] bg-pdf-highlight/55 mix-blend-multiply ring-1 ring-pdf-highlight-border/80"
-                              style={rect}
-                            />
-                          );
-                        })
-                    : null}
-                </div>
-              </figure>
-            );
-          })}
-        </Document>
-      </PreviewCanvas>
+                  {/* The canvas is always a white sheet, so the highlighter multiplies onto it in both themes. */}
+                  <div
+                    className="relative isolate bg-surface-document shadow-md ring-1 ring-border-subtle"
+                    style={{
+                      width: renderedWidth,
+                      height: pageHeight(view, renderedWidth, fallbackView),
+                    }}
+                  >
+                    {show ? (
+                      <Page
+                        pageNumber={pageNumber}
+                        width={renderedWidth}
+                        loading=""
+                        renderTextLayer={false}
+                        renderAnnotationLayer={false}
+                        onLoadSuccess={(page) =>
+                          setPageViews((current) =>
+                            current[pageNumber]
+                              ? current
+                              : {
+                                  ...current,
+                                  [pageNumber]: { view: [...page.view], rotate: page.rotate },
+                                },
+                          )
+                        }
+                      />
+                    ) : null}
+                    {show && view
+                      ? boxes
+                          .filter((box) => box.page === pageNumber)
+                          .map((box, boxIndex) => {
+                            const rect = pdfBoxRect(box, view, renderedWidth);
+                            if (!rect) return null;
+                            return (
+                              <span
+                                key={`${box.left}:${box.top}:${boxIndex}`}
+                                ref={pageNumber === anchor && boxIndex === 0 ? firstBox : undefined}
+                                role="img"
+                                aria-label={ui("Vùng được trích dẫn trên trang {{page}}", {
+                                  page: pageNumber,
+                                })}
+                                data-slot="pdf-citation-box"
+                                className="pointer-events-none absolute scroll-m-12 rounded-[3px] bg-pdf-highlight/55 mix-blend-multiply ring-1 ring-pdf-highlight-border/80"
+                                style={rect}
+                              />
+                            );
+                          })
+                      : null}
+                  </div>
+                </figure>
+              );
+            })}
+          </div>
+        </PreviewCanvas>
+      </Document>
       <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4">
         <PreviewToolbar>
           {pageCount ? (
@@ -269,6 +286,96 @@ export function PdfView({
         </PreviewToolbar>
       </div>
     </div>
+  );
+}
+
+const THUMBNAIL_WIDTH = 96;
+
+/**
+ * The page rail: every page as a button, but only the ones scrolled into the rail are drawn, so opening a
+ * long document does not render a hundred pages twice.
+ */
+function PdfThumbnails({
+  total,
+  current,
+  onGo,
+}: {
+  total: number;
+  current: number;
+  onGo: (page: number) => void;
+}) {
+  const ui = useAppTranslation();
+  const rail = useRef<HTMLDivElement>(null);
+  const buttons = useRef(new Map<number, HTMLElement>());
+  const [shown, setShown] = useState<ReadonlySet<number>>(() => new Set());
+  useEffect(() => {
+    const root = rail.current;
+    if (!root) return undefined;
+    const near = new Set<number>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const page = Number((entry.target as HTMLElement).dataset.page);
+          if (entry.isIntersecting) near.add(page);
+          else near.delete(page);
+        }
+        setShown(new Set(near));
+      },
+      { root, rootMargin: "200% 0px" },
+    );
+    for (const button of buttons.current.values()) observer.observe(button);
+    return () => observer.disconnect();
+  }, [total]);
+  // The rail follows the document, so the page being read stays visible in it.
+  useEffect(() => {
+    buttons.current.get(current)?.scrollIntoView({ block: "nearest" });
+  }, [current]);
+  return (
+    <nav
+      ref={rail}
+      aria-label={ui("Các trang")}
+      className="hidden w-32 shrink-0 overflow-y-auto overscroll-contain border-border-subtle border-r bg-surface-base p-2 lg:block"
+    >
+      <ol className="flex flex-col gap-2">
+        {Array.from({ length: total }, (_, index) => {
+          const page = index + 1;
+          return (
+            <li key={page}>
+              <button
+                type="button"
+                ref={(element) => {
+                  if (element) buttons.current.set(page, element);
+                  else buttons.current.delete(page);
+                }}
+                data-page={page}
+                aria-current={page === current ? "true" : undefined}
+                aria-label={ui("Trang {{pages}}", { pages: page })}
+                onClick={() => onGo(page)}
+                className="block w-full cursor-pointer rounded-md p-1 outline-none ring-1 ring-transparent transition-[box-shadow] focus-visible:ring-3 focus-visible:ring-focus-ring/40 aria-[current]:ring-pdf-highlight-border"
+              >
+                <span
+                  className="flex items-center justify-center overflow-hidden bg-surface-document shadow-sm"
+                  style={{ width: THUMBNAIL_WIDTH, height: Math.round(THUMBNAIL_WIDTH * 1.294) }}
+                >
+                  {shown.has(page) ? (
+                    <Page
+                      pageNumber={page}
+                      width={THUMBNAIL_WIDTH}
+                      loading=""
+                      renderTextLayer={false}
+                      renderAnnotationLayer={false}
+                    />
+                  ) : null}
+                </span>
+                <span className="mt-1 block text-center font-secondary-body text-content-muted tabular-nums">
+                  {page}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
   );
 }
 
