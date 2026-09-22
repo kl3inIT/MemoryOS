@@ -1,0 +1,204 @@
+name: Deploy
+
+# One delivery path for every environment. Callers name the environment and supply its host,
+# operator and trusted host key; nothing here defaults to a particular environment.
+
+"on":
+  workflow_call:
+    inputs:
+      environment:
+        description: Deployment environment; selects the GitHub environment, the server env file and the Compose overlays
+        required: true
+        type: string
+      host:
+        description: Server host name
+        required: true
+        type: string
+      user:
+        description: Dedicated deployment operator on that server
+        required: true
+        type: string
+      known_hosts:
+        description: Verified SSH host key for that server
+        required: true
+        type: string
+      ci_run_id:
+        description: Successful main CI run containing the verified release; empty resolves the triggering run
+        required: false
+        default: ''
+        type: string
+      recovery_release:
+        description: Optional exact healthy pending SHA-run-attempt to finish before deploying; never restores a database
+        required: false
+        default: ''
+        type: string
+    secrets:
+      ssh_key:
+        description: Private key of the dedicated deployment identity for that server
+        required: true
+
+permissions:
+  contents: read # Check out trusted main deployment code.
+  actions: read # Verify the source CI run and download its release bundle.
+  packages: read # Pull the verified private GHCR images on the server.
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: ${{ inputs.environment }}
+    env:
+      DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+      DEPLOY_HOST: ${{ inputs.host }}
+      DEPLOY_USER: ${{ inputs.user }}
+    steps:
+      - name: Check out trusted deployment code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve a successful main release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_RUN_ID: ${{ inputs.ci_run_id || github.event.workflow_run.id }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          [[ "$CI_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          base="repos/$GITHUB_REPOSITORY/actions/runs/$CI_RUN_ID"
+          gh api "$base" > "$RUNNER_TEMP/ci-run.json"
+          jq --exit-status --arg repo "$GITHUB_REPOSITORY" '
+            .repository.full_name == $repo and .head_repository.full_name == $repo
+            and .head_branch == "main" and .event == "push" and .status == "completed"
+            and .conclusion == "success" and .path == ".github/workflows/ci.yml"
+          ' "$RUNNER_TEMP/ci-run.json"
+          sha=$(jq --raw-output .head_sha "$RUNNER_TEMP/ci-run.json")
+          attempt=$(jq --raw-output .run_attempt "$RUNNER_TEMP/ci-run.json")
+          [[ "$sha" =~ ^[0-9a-f]{40}$ && "$attempt" =~ ^[1-9][0-9]*$ ]]
+          gh api "$base/attempts/$attempt/jobs?per_page=100" | jq --exit-status '
+            [.jobs[] | select(.name == "CI Gate" or .name == "Publish verified release")] |
+            length == 2 and (map(.name) | sort) == ["CI Gate", "Publish verified release"]
+            and all(.[]; .conclusion == "success")
+          '
+          git merge-base --is-ancestor "$sha" origin/main
+          # A newer main commit supersedes this release only when it changes a path CI verifies. Commits that CI
+          # ignores (docs, root Markdown, tools/visual-paradigm-mcp) never publish a newer release.
+          if [[ "$EVENT_NAME" == workflow_run ]] \
+            && git diff --name-only "$sha" origin/main | grep -Ev '^(docs/|tools/visual-paradigm-mcp/)|^[^/]*\.md$' | grep -q .; then
+            echo 'Stale automatic release skipped'
+            echo "Automatic release $sha skipped: main has newer CI-verified changes." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          printf 'sha=%s\nrun_id=%s\nattempt=%s\nready=true\n' "$sha" "$CI_RUN_ID" "$attempt" >> "$GITHUB_OUTPUT"
+          printf 'release=%s-%s-%s\n' "$sha" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+
+      - name: Download preserved release
+        if: steps.release.outputs.ready == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-${{ steps.release.outputs.sha }}-${{ steps.release.outputs.attempt }}
+          path: release
+          run-id: ${{ steps.release.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify bundle and required deployment configuration
+        if: steps.release.outputs.ready == 'true'
+        env:
+          SHA: ${{ steps.release.outputs.sha }}
+          CI_RUN: ${{ steps.release.outputs.run_id }}
+          ATTEMPT: ${{ steps.release.outputs.attempt }}
+        run: |
+          jq --exit-status --arg sha "$SHA" --arg run "$CI_RUN" --arg attempt "$ATTEMPT" '
+            .repository == "kl3inIT/MemoryOS" and .sha == $sha and .run == $run and .attempt == $attempt
+          ' release/manifest.json
+          (cd release && sha256sum --check --strict SHA256SUMS)
+          mkdir "$RUNNER_TEMP/release-config"
+          tar --extract --file release/configuration.tar --directory "$RUNNER_TEMP/release-config" --no-same-owner --no-same-permissions
+          [[ "$DEPLOY_ENVIRONMENT" =~ ^(staging|production)$ ]]
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]+$ ]]
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+
+      - name: Validate explicitly selected recovery
+        if: steps.release.outputs.ready == 'true' && inputs.recovery_release != ''
+        env:
+          RECOVERY_RELEASE: ${{ inputs.recovery_release }}
+        run: |
+          [[ "$RECOVERY_RELEASE" =~ ^[0-9a-f]{40}-[1-9][0-9]*-[1-9][0-9]*$ ]]
+          git merge-base --is-ancestor "${RECOVERY_RELEASE:0:40}" origin/main
+
+      - name: Prepare dedicated SSH identity and verified host trust
+        if: steps.release.outputs.ready == 'true'
+        env:
+          DEPLOY_KEY: ${{ secrets.ssh_key }}
+          KNOWN_HOSTS: ${{ inputs.known_hosts }}
+        run: |
+          test -n "$DEPLOY_KEY"
+          test -n "$KNOWN_HOSTS"
+          umask 077
+          mkdir "$RUNNER_TEMP/deploy-ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/deploy-ssh/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$RUNNER_TEMP/deploy-ssh/known_hosts"
+          cat > "$RUNNER_TEMP/deploy-ssh/config" <<EOF
+          Host deploy-target
+            HostName $DEPLOY_HOST
+            User $DEPLOY_USER
+            IdentityFile $RUNNER_TEMP/deploy-ssh/key
+            UserKnownHostsFile $RUNNER_TEMP/deploy-ssh/known_hosts
+            BatchMode yes
+            StrictHostKeyChecking yes
+            ConnectTimeout 15
+            ServerAliveInterval 15
+            ServerAliveCountMax 4
+          EOF
+
+      - name: Finish only the explicitly selected healthy recovery
+        if: steps.release.outputs.ready == 'true' && inputs.recovery_release != ''
+        env:
+          RECOVERY_RELEASE: ${{ inputs.recovery_release }}
+        run: |
+          [[ "$RECOVERY_RELEASE" =~ ^[0-9a-f]{40}-[1-9][0-9]*-[1-9][0-9]*$ ]]
+          # A release published before the script was renamed still carries deploy-staging.sh in its own
+          # incoming directory. That older finish mode ignores the extra argument, so one call serves both.
+          ssh -F "$RUNNER_TEMP/deploy-ssh/config" deploy-target \
+            "remote='/apps/memoryos/incoming/$RECOVERY_RELEASE'; script=\"\$remote/deploy.sh\"; [ -f \"\$script\" ] || script=\"\$remote/deploy-staging.sh\"; sudo -n bash \"\$script\" finish '$RECOVERY_RELEASE' '$DEPLOY_ENVIRONMENT'"
+
+      - name: Back up, migrate and wait for readiness
+        id: rollout
+        if: steps.release.outputs.ready == 'true'
+        env:
+          RELEASE: ${{ steps.release.outputs.release }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          remote="/apps/memoryos/incoming/$RELEASE"
+          ssh -F "$RUNNER_TEMP/deploy-ssh/config" deploy-target "umask 077; mkdir '$remote'"
+          cp "$RUNNER_TEMP/release-config/infrastructure/deployment/deploy.sh" release/
+          scp -F "$RUNNER_TEMP/deploy-ssh/config" release/* "deploy-target:$remote/"
+          printf '%s' "$REGISTRY_TOKEN" | ssh -F "$RUNNER_TEMP/deploy-ssh/config" deploy-target \
+            "sudo -n bash '$remote/deploy.sh' deploy '$RELEASE' '$DEPLOY_ENVIRONMENT' '$GITHUB_ACTOR'"
+
+      - name: Finalize the healthy deployment
+        if: steps.release.outputs.ready == 'true'
+        env:
+          RELEASE: ${{ steps.release.outputs.release }}
+        run: |
+          ssh -F "$RUNNER_TEMP/deploy-ssh/config" deploy-target \
+            "sudo -n bash '/apps/memoryos/incoming/$RELEASE/deploy.sh' finish '$RELEASE' '$DEPLOY_ENVIRONMENT'"
+          echo "Deployment health and revision verified on $DEPLOY_ENVIRONMENT; business acceptance belongs to the user." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report manual recovery after an interrupted deployment
+        if: ${{ (failure() || cancelled()) && steps.rollout.outcome != 'skipped' && steps.rollout.outcome != '' }}
+        env:
+          RELEASE: ${{ steps.release.outputs.release }}
+        run: |
+          echo "Deployment did not finish on $DEPLOY_ENVIRONMENT: $RELEASE. Inspect the server transaction and any pending reservation; follow docs/runbooks/ci-cd.md for manual recovery." >> "$GITHUB_STEP_SUMMARY"
+          echo 'No automatic rollback, database restore or reservation removal was attempted.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove ephemeral SSH credentials
+        if: ${{ always() }}
+        run: rm -f -- "$RUNNER_TEMP/deploy-ssh/key" "$RUNNER_TEMP/deploy-ssh/known_hosts" "$RUNNER_TEMP/deploy-ssh/config"

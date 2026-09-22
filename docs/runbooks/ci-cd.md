@@ -2,7 +2,7 @@
 
 > Delivery policy — 2026-09-12: the user owns business acceptance. CD verifies release provenance, backup/migration, deployed image identity and health/readiness. Login, upload, indexing, Search and reader are not deployment gates. Recovery is manual. A green deployment does not claim business acceptance or a successful restore rehearsal.
 
-The repository ships one GitHub Actions path: [CI](../../.github/workflows/ci.yml) verifies changes and publishes main releases; [Deploy staging](../../.github/workflows/deploy-staging.yml) promotes a verified release. Actions owns orchestration. The server runs [one Compose script](../../infrastructure/deployment/deploy.sh). Existing [Playwright acceptance tooling](../../web/tests/staging/search.spec.ts) remains optional for an operator; CD does not install or execute it.
+The repository ships one GitHub Actions path: [CI](../../.github/workflows/ci.yml) verifies changes and publishes main releases; [Deploy](../../.github/workflows/deploy.yml) promotes a verified release and is called by [Deploy staging](../../.github/workflows/deploy-staging.yml) and [Deploy production](../../.github/workflows/deploy-production.yml), which only decide when their environment runs and where it points. Actions owns orchestration. The server runs [one Compose script](../../infrastructure/deployment/deploy.sh). Existing [Playwright acceptance tooling](../../web/tests/staging/search.spec.ts) remains optional for an operator; CD does not install or execute it.
 
 ## Required verification and release identity
 
@@ -32,6 +32,8 @@ These are external prerequisites, not evidence that the workflow has already dep
 | Repository variable | `STAGING_AUTO_DEPLOY=true` enables promotion after successful main CI; leave unset for manual deployment only |
 | Server | Docker/Compose with `--wait`, Bash, jq, flock, coreutils, tar; the existing `/apps/memoryos/.env.staging` must be a root-only regular file with mode `0600` |
 | Server identity | SSH/SFTP access to its private `/apps/memoryos/incoming` directory and noninteractive sudo to run the reviewed deployment script; disable SSH forwarding and interactive terminals for this dedicated key |
+
+Production uses the same delivery workflow through [Deploy production](../../.github/workflows/deploy-production.yml), with `PRODUCTION_HOST`, `PRODUCTION_USER`, `PRODUCTION_KNOWN_HOSTS` and `PRODUCTION_SSH_KEY` on a GitHub `production` environment restricted to `main`, and `/apps/memoryos/.env.production` on its server. There is deliberately no `PRODUCTION_AUTO_DEPLOY`: an operator selects a CI run whose release is already accepted on staging. Each environment needs its own SSH identity; never reuse the staging key. The deployment script takes the environment as an argument and derives `.env.<environment>` and the `compose.base` / `compose.<environment>` / `compose.search.<environment>` overlays from it.
 
 No application login, smoke user, Actor variable or business-test credential is required by CD. The user tests the deployed application through normal identity and authorization paths. An optional operator-run acceptance script requires its own valid account and configuration; its result is separate from deployment status.
 

@@ -12,7 +12,10 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-WORKFLOW = (ROOT / ".github/workflows/deploy-staging.yml").read_text(encoding="utf-8")
+WORKFLOW = (ROOT / ".github/workflows/deploy.yml").read_text(encoding="utf-8")
+STAGING_CALLER = (ROOT / ".github/workflows/deploy-staging.yml").read_text(encoding="utf-8")
+PRODUCTION_CALLER = (ROOT / ".github/workflows/deploy-production.yml").read_text(encoding="utf-8")
+CALLERS = (STAGING_CALLER, PRODUCTION_CALLER)
 CI_WORKFLOW = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 SCRIPT = (ROOT / "infrastructure/deployment/deploy.sh").read_text(encoding="utf-8")
 
@@ -31,13 +34,14 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
 
     def test_delivery_does_not_require_business_test_tooling_or_accounts(self):
         for removed in ("STAGING_SMOKE", "MEMORYOS_SMOKE", "test:staging", "playwright", "setup-node", "corepack", "pnpm"):
-            self.assertNotIn(removed, WORKFLOW)
+            for text in (WORKFLOW, *CALLERS):
+                self.assertNotIn(removed, text, removed)
 
     def test_release_and_health_guards_are_preserved(self):
         for guard in (".event == \"push\"", ".head_branch == \"main\"", "Publish verified release", "sha256sum --check --strict", "git merge-base --is-ancestor", "StrictHostKeyChecking yes"):
             self.assertIn(guard, WORKFLOW)
         self.assertLess(
-            WORKFLOW.index("deploy '$RELEASE' 'staging' '$GITHUB_ACTOR'"),
+            WORKFLOW.index("deploy '$RELEASE' '$DEPLOY_ENVIRONMENT' '$GITHUB_ACTOR'"),
             WORKFLOW.index("finish '$RELEASE'"),
         )
         for guard in ("pg_dump", "pg_restore --list", "flock --nonblock", '--no-deps --pull never --wait', '.State.Health.Status == "healthy"', '.Image == $image', 'org.opencontainers.image.revision'):
@@ -49,7 +53,8 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertNotIn("ssh ", report)
         self.assertNotIn("rm ", report)
         self.assertNotIn("deploy.sh' rollback", WORKFLOW)
-        self.assertIn("cancel-in-progress: false", WORKFLOW)
+        for caller in CALLERS:
+            self.assertIn("cancel-in-progress: false", caller)
 
     def test_manual_finish_keeps_exact_selection_and_server_ownership_guard(self):
         rollout_id = WORKFLOW.index("id: rollout")
@@ -75,8 +80,37 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn('docker login ghcr.io --username "${4:?registry user}"', SCRIPT)
 
     def test_every_server_invocation_names_its_environment(self):
-        for call in ("deploy '$RELEASE' 'staging'", "finish '$RELEASE' 'staging'", "finish '$RECOVERY_RELEASE' 'staging'"):
+        for call in ("deploy '$RELEASE' '$DEPLOY_ENVIRONMENT'", "finish '$RELEASE' '$DEPLOY_ENVIRONMENT'", "finish '$RECOVERY_RELEASE' '$DEPLOY_ENVIRONMENT'"):
             self.assertIn(call, WORKFLOW, call)
+        self.assertIn('[[ "$DEPLOY_ENVIRONMENT" =~ ^(staging|production)$ ]]', WORKFLOW)
+
+    def test_both_environments_share_one_delivery_workflow(self):
+        # Forking the delivery logic per environment is what this split exists to prevent.
+        for caller in CALLERS:
+            self.assertIn("uses: ./.github/workflows/deploy.yml", caller)
+            self.assertNotIn("sudo -n bash", caller)
+            self.assertNotIn("sha256sum --check", caller)
+        self.assertIn("environment: staging", STAGING_CALLER)
+        self.assertIn("environment: production", PRODUCTION_CALLER)
+        self.assertIn("group: memoryos-staging", STAGING_CALLER)
+        self.assertIn("group: memoryos-production", PRODUCTION_CALLER)
+        self.assertIn("environment: ${{ inputs.environment }}", WORKFLOW)
+
+    def test_production_is_never_promoted_automatically(self):
+        # Read past the comments: only what the workflow executes decides whether it can self-trigger.
+        executable = "\n".join(line for line in PRODUCTION_CALLER.splitlines() if not line.lstrip().startswith("#"))
+        self.assertNotIn("workflow_run", executable)
+        self.assertNotIn("AUTO_DEPLOY", executable)
+        self.assertIn("workflow_dispatch", PRODUCTION_CALLER)
+        self.assertIn("github.ref == 'refs/heads/main'", PRODUCTION_CALLER)
+        # Staging keeps its existing automatic promotion.
+        self.assertIn("vars.STAGING_AUTO_DEPLOY == 'true'", STAGING_CALLER)
+
+    def test_each_environment_carries_its_own_identity_and_trust(self):
+        for caller, prefix in ((STAGING_CALLER, "STAGING"), (PRODUCTION_CALLER, "PRODUCTION")):
+            for name in ("HOST", "USER", "KNOWN_HOSTS"):
+                self.assertIn("vars.%s_%s" % (prefix, name), caller)
+            self.assertIn("secrets.%s_SSH_KEY" % prefix, caller)
 
     def test_manual_rollback_checks_schema_before_restoring_images(self):
         rollback = SCRIPT.split('elif [[ "$mode" == rollback ]]', 1)[1].split('elif [[ "$mode" == finish ]]', 1)[0]
