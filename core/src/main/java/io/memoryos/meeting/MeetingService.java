@@ -253,7 +253,20 @@ public class MeetingService {
                 field(heading.closed(), MAX_NAME, "The closing time"), field(heading.chair(), MAX_NAME, "The chair"),
                 field(heading.chairRole(), MAX_NAME, "The chair's role"),
                 field(heading.secretary(), MAX_NAME, "The secretary"),
-                field(heading.secretaryRole(), MAX_NAME, "The secretary's role"), List.copyOf(attendees));
+                field(heading.secretaryRole(), MAX_NAME, "The secretary's role"), List.copyOf(attendees),
+                typeface(heading.font()));
+    }
+
+    /**
+     * The typefaces a biên bản may be set in. Word only names the face and the reader's machine supplies it, so this
+     * is a list of faces every office machine has rather than a list of files; anything else falls back to the
+     * decree's own.
+     */
+    static final List<String> TYPEFACES = List.of("Times New Roman", "Arial", "Calibri", "Tahoma");
+
+    private static String typeface(@Nullable String font) {
+        String clean = font == null ? "" : font.strip();
+        return TYPEFACES.contains(clean) ? clean : "";
     }
 
     private static String field(@Nullable String value, int limit, String what) {

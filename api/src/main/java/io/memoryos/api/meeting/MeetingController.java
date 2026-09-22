@@ -166,13 +166,15 @@ class MeetingController {
             description = "The parts of a biên bản the transcript cannot supply; a blank field prints as an ellipsis")
     record HeadingRequest(String organization, String parentOrganization, String number, String about, String place,
                           String opened, String closed, String chair, String chairRole, String secretary,
-                          String secretaryRole, List<String> attendees) {
+                          String secretaryRole, List<String> attendees,
+                          @Schema(description = "Times New Roman, Arial, Calibri or Tahoma; anything else is set in "
+                                  + "Times New Roman, which the decree asks for") @Nullable String font) {
         MeetingMinutesDocument.Heading toHeading() {
             return new MeetingMinutesDocument.Heading(text(organization), text(parentOrganization), text(number),
                     text(about), text(place), text(opened), text(closed), text(chair), text(chairRole), text(secretary),
                     text(secretaryRole),
                     attendees == null ? List.of()
-                            : attendees.stream().map(HeadingRequest::text).toList());
+                            : attendees.stream().map(HeadingRequest::text).toList(), text(font));
         }
 
         private static String text(@Nullable String value) {

@@ -55,6 +55,10 @@ What the reader sees is the row, and the history is the events beside it: every 
 
 Rerunning writes the whole minutes again, which throws that work away, so `POST /api/meetings/{id}/minutes` answers 409 once anything was corrected unless it is called with `discardEdits=true`. A rerun starts from the model's own words again and clears the flag.
 
+## Choosing the typeface
+
+The export dialog offers Times New Roman, Arial, Calibri and Tahoma, with Times New Roman first because Nghị định 30 asks for it and a company follows the decree by convention. Word only names the face and the reader's machine supplies it, so these are faces every office machine has; a name outside the list is set in Times New Roman. The face is named on every run, the letterhead and signature tables included, because not every reader honours the document default and a biên bản that changes typeface when somebody else opens it is not the one that was signed. Nothing is remembered between exports: the heading is typed for each biên bản.
+
 ## Taking the transcript away
 
 `GET /api/meetings/{id}/transcript?format=DOCX|PDF` answers what was said — every line with its time and the name of whoever said it — to anybody who can read the meeting. It is not the biên bản: nothing is arranged around it, and no model runs, so the same meeting always produces the same file. A meeting with no transcript yet is refused.

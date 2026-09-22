@@ -141,6 +141,7 @@ export const vietnameseUi: Record<string, string> = {
   "Họp trực tiếp": "In-person meeting",
   "Kết thúc": "End",
   "Xuất biên bản": "Export the minutes",
+  "Phông chữ": "Typeface",
   "Mở trong Chat": "Open in Chat",
   "Tải file ghi âm": "Upload a recording",
   "Chia sẻ với": "Share with",

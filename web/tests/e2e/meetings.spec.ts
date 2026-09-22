@@ -563,6 +563,8 @@ for (const width of [1440, 390]) {
     await bienBan.getByLabel("Địa điểm").fill("Phòng họp A, Hà Nội");
     await bienBan.getByLabel("Chủ trì", { exact: true }).fill("Nguyễn Văn An");
     await page.screenshot({ path: `../output/playwright/meetings-export-${width}.png` });
+    await expect(bienBan.getByLabel("Phông chữ")).toHaveValue("Times New Roman");
+    await bienBan.getByLabel("Phông chữ").selectOption("Arial");
     const download = page.waitForEvent("download");
     await bienBan.getByRole("button", { name: "Tải về" }).click();
     expect((await download).suggestedFilename()).toBe("bien-ban-giao-ban-tuan-khoi-tai-chinh.docx");
@@ -571,6 +573,7 @@ for (const width of [1440, 390]) {
       place: "Phòng họp A, Hà Nội",
       chair: "Nguyễn Văn An",
       attendees: ["Anh Thanh", "Chị Lan", "Anh Minh"],
+      font: "Arial",
     });
     await expect(bienBan).toHaveCount(0);
 
