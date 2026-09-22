@@ -95,7 +95,7 @@ reason in the citation rail.
 | --- | --- |
 | PDF | Unchanged: `page_no` + `bbox` from provenance, drawn as today's `--pdf-highlight` overlay with `mix-blend-multiply` |
 | DOCX, Markdown, TXT, CSV | Text matching in the rendered DOM (below) |
-| XLSX | The sheet named in provenance is selected; the row whose joined cells match the passage is banded |
+| XLSX | The sheet and row recorded in provenance are selected and that row is banded. Matching the text was tried and abandoned: extraction and the preview format the same cell differently (`$   1,618.50` against `1618.5`), so no normalization can join them, while the recorded row is exact |
 | Images, PDFs without OCR text | Not located, and said so — there is no text layer to anchor to |
 
 Text matching, in `preview-highlight.ts`:

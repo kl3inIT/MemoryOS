@@ -52,6 +52,8 @@ Verification below.
 | --- | --- |
 | Citation locator: exact match, whitespace and soft-hyphen differences, capitals, Vietnamese combining marks, flattened table row, anchored match | `preview-highlight.test.ts` |
 | Locator returns `none` rather than a wrong range when the passage is absent, repeated, too short to anchor, or its anchors sit too far apart | `preview-highlight.test.ts` — the assertions the step exists for |
+| A repeated passage is placed under the most specific heading that occurs once, and stays `none` when no heading singles one out | `preview-highlight.test.ts` |
+| A section hands the reader the provenance of the chunk that matched, not of the section it starts in | `source-provenance.test.ts` |
 | Chat file preview unchanged by the move | existing `chat-file-preview.test.ts`, `chat-file-preview-gallery.test.tsx` |
 | PDF page windowing unchanged by the move | existing `pdf-page-window.test.ts` |
 | Any-type original served with declared Content-Type, inline disposition, nosniff | `DocumentOriginalResponsesTest` |
@@ -61,7 +63,11 @@ Verification below.
 | Inline source panel opens the original first for PDF/DOCX/XLSX/images and the passages first for Markdown and plain text | `evidence-order.test.ts` |
 | Citation rail entry hands the citation to the reader; an unlocated entry states so and draws nothing, and an original with no text layer says that instead of blaming the passage | `citation-rail.test.tsx` |
 | The chunk header never reaches the locator or the reader | `search-presentation.test.ts` |
-| PDF, DOCX and XLSX read correctly in light and dark | browser check in Orca — DOCX confirmed on the Tasco report on 2026-09-22 (dark); PDF, XLSX and light mode remain unchecked |
+| A workbook citation is placed on its recorded sheet row, and a row the preview did not render is left unplaced | `sheet-citations.test.ts` |
+| An absent sheet row keeps its line, so a recorded row number addresses the same line of the preview | `SpreadsheetPreviewTest` |
+| The rendered sheet marks the cited rows and states which one is being read | `csv-view.test.tsx` |
+| A marked row keeps its colour under the pointer, and the expand control opens a true full screen | browser check in Orca on 2026-09-22 |
+| PDF, DOCX and XLSX read correctly in light and dark | browser check in Orca — DOCX confirmed on the Tasco report on 2026-09-22 in dark and light; XLSX confirmed on an uploaded workbook; PDF is unchecked here because this machine has no Docling endpoint, so no PDF can be extracted or indexed |
 
 Not verified here: rendering fidelity of a real Tasco DOCX/XLSX corpus beyond the fixture files, and the
 `approximate` match rate against production documents — measured after the first live read, not asserted.

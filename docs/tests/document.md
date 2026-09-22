@@ -27,5 +27,9 @@ These are behavior-evidence pointers, not a live Google E2E or IDE-clean claim. 
 | A workbook original is read as CSV per sheet under the same authority, and a Document of another type is not readable as one; the object is closed either way | `DocumentOriginalServiceTest.aWorkbookOriginalIsReadAsSheetsAndAnythingElseIsNotReadableAsOne`, `SpreadsheetPreviewTest` |
 | A cited passage is located in the rendered original across whitespace, soft-hyphen, capital and Vietnamese combining-mark differences, and by its end anchors when it is not present verbatim | `preview-highlight.test.ts` |
 | A passage that is absent, repeated, too short to anchor or whose anchors sit too far apart is reported as `none`, so nothing is drawn and the rail states it | `preview-highlight.test.ts`, `citation-highlight.test.ts` |
+| A repeated passage is placed under the most specific heading that occurs once, and stays `none` when no heading singles one out | `preview-highlight.test.ts` |
 | The chunk header is removed before a citation is located and shown, and its heading trail is kept as context | `search-presentation.test.ts` |
+| A workbook citation is placed on the recorded sheet row rather than searched for, and a row the preview did not render is left unplaced | `sheet-citations.test.ts` |
+| An absent sheet row keeps its own line, so a recorded row number addresses the same line of the preview | `SpreadsheetPreviewTest.anAbsentRowKeepsItsLineSoACitedRowNumberStillAddressesItsLine` |
+| The cited rows are marked in the rendered sheet and the one being read is stated | `csv-view.test.tsx` |
 | A citation opens on the original for a laid-out file and on the passages for text whose original adds nothing | `evidence-order.test.ts` |
