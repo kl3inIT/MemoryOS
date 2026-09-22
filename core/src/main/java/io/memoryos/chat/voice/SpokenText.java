@@ -48,6 +48,12 @@ final class SpokenText {
         return text.length();
     }
 
+    /** The text exactly as the tokens wrote it, trailing space and all; the preview reads it before it is finished. */
+    @Override
+    public String toString() {
+        return text.toString();
+    }
+
     boolean isEmpty() {
         return text.toString().isBlank();
     }

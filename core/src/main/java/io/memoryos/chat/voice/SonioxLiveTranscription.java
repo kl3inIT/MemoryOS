@@ -334,7 +334,7 @@ final class SonioxLiveTranscription implements LiveTranscription {
                 current.endMs = Math.max(current.endMs, end);
             }
             String previewSpeaker = current != null ? current.speaker : pendingSpeaker;
-            String preview = ((current != null ? current.text.said() : "") + pending).strip();
+            String preview = ((current != null ? current.text.toString() : "") + pending).strip();
             listener.preview(previewSpeaker == null ? "" : previewSpeaker, preview);
             if (event.path("finished").asBoolean(false)) {
                 flush();
