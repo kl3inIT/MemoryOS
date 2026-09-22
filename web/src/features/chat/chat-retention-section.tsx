@@ -120,7 +120,7 @@ function RetentionForm({ saved }: { saved: number | null }) {
         icon={<CalendarClock />}
         title={ui("Xoá hội thoại sau")}
         description={ui(
-          "Tính từ lần cuối bạn nhắn trong hội thoại đó. Tệp trong thư viện giữ vòng đời riêng.",
+          "Tính từ lần hoạt động cuối trong hội thoại đó, kể cả hội thoại đã lưu trữ. Tệp trong thư viện giữ vòng đời riêng.",
         )}
         control={
           <Select

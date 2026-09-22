@@ -763,7 +763,10 @@ class ChatSessionApiIntegrationTest {
         org.mockito.Mockito.clearInvocations(fileStorage);
         mockMvc.perform(post("/api/chat/files/uploads").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF","1")
                         .contentType(MediaType.APPLICATION_JSON).content(tooBig))
-                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CHAT_STORAGE_FULL"));
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CHAT_STORAGE_FULL"))
+                // The numbers travel with the refusal, and an upload already on its way is part of them, so a
+                // person cannot authorize one upload after another without ever finishing them.
+                .andExpect(jsonPath("$.limitBytes").value(1048576)).andExpect(jsonPath("$.usedBytes").value(4));
         verify(fileStorage, never()).authorizeUpload(any(), any());
     }
 
@@ -798,6 +801,11 @@ class ChatSessionApiIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(90));
         mockMvc.perform(get("/api/chat/retention").with(authentication(actor)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(90));
+        // The confirmation said the overdue conversations go when the number is saved, so they are gone now.
+        mockMvc.perform(get("/api/chat/sessions/" + session).with(authentication(actor)))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/chat/retention/preview").param("days", "90").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.affected").value(0));
         // It is mine: nobody else's policy changed with it.
         mockMvc.perform(get("/api/chat/retention").with(authentication(other)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.days").value(org.hamcrest.Matchers.nullValue()));

@@ -22,16 +22,21 @@ public class JdbcChatSessionPurgeRepository {
      * transaction. A cancelled reply's terminal write can still be in flight, and a purge must never race that
      * writer. A temporary conversation waits for nothing: it deletes itself precisely so that it leaves no
      * trace, and the window exists for conversations someone might ask about.
+     *
+     * @param onlyTemporary the deployment keeps ordinary deletions soft, so only the conversations that were
+     *                      promised to leave no history are taken
      */
-    public List<UUID> claim(int limit, Duration deletedAfter) {
+    public List<UUID> claim(int limit, Duration deletedAfter, boolean onlyTemporary) {
         return jdbc.sql("""
                 SELECT s.id FROM chat_session s
                 WHERE s.deleted_at IS NOT NULL
+                  AND (NOT :onlyTemporary OR s.temporary)
                   AND (s.temporary OR s.deleted_at <= CURRENT_TIMESTAMP - make_interval(secs => :after))
                   AND NOT EXISTS (SELECT 1 FROM chat_message m WHERE m.session_id = s.id AND m.status = 'RUNNING')
                 ORDER BY s.deleted_at
                 LIMIT :limit FOR UPDATE OF s SKIP LOCKED
                 """).param("limit", limit).param("after", (double) deletedAfter.toMillis() / 1000)
+                .param("onlyTemporary", onlyTemporary)
                 .query(UUID.class).list();
     }
 
@@ -62,8 +67,9 @@ public class JdbcChatSessionPurgeRepository {
     }
 
     /**
-     * Deletes the conversations of one Tenant whose last activity is older than its retention policy, in
-     * batches; the purge then treats them exactly like a conversation someone deleted.
+     * Deletes the conversations of one owner whose last activity is older than their retention policy, in
+     * batches; the purge then treats them exactly like a conversation someone deleted. A temporary
+     * conversation is left to its own window, which is also why the preview does not count one.
      */
     public int applyRetention(java.util.UUID tenant, java.util.UUID owner, int days, int limit) {
         return jdbc.sql("""
@@ -71,6 +77,7 @@ public class JdbcChatSessionPurgeRepository {
                 WHERE id IN (
                     SELECT s.id FROM chat_session s
                     WHERE s.tenant_id = :tenant AND s.owner_actor_id = :owner AND s.deleted_at IS NULL
+                      AND NOT s.temporary
                       AND s.updated_at <= CURRENT_TIMESTAMP - make_interval(days => :days)
                       AND NOT EXISTS (SELECT 1 FROM chat_message m
                                       WHERE m.session_id = s.id AND m.status = 'RUNNING')
@@ -91,7 +98,8 @@ public class JdbcChatSessionPurgeRepository {
 
     /**
      * How many of this person's own conversations a policy of {@code days} would delete, so they see the size
-     * of the change before saving it. A temporary conversation is not counted: it deletes itself anyway.
+     * of the change before saving it. The count answers exactly what {@link #applyRetention} would take: a
+     * temporary conversation deletes itself anyway, and one still answering is left for the next sweep.
      */
     public long affectedByRetention(java.util.UUID tenant, java.util.UUID owner, int days) {
         return jdbc.sql("""
@@ -99,6 +107,8 @@ public class JdbcChatSessionPurgeRepository {
                 WHERE s.tenant_id = :tenant AND s.owner_actor_id = :owner AND s.deleted_at IS NULL
                   AND NOT s.temporary
                   AND s.updated_at <= CURRENT_TIMESTAMP - make_interval(days => :days)
+                  AND NOT EXISTS (SELECT 1 FROM chat_message m
+                                  WHERE m.session_id = s.id AND m.status = 'RUNNING')
                 """).param("tenant", tenant).param("owner", owner).param("days", days).query(Long.class).single();
     }
 

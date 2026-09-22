@@ -142,6 +142,22 @@ class ChatSessionPurgeIntegrationTest {
     }
 
     @Test
+    void aTemporaryConversationIsRemovedEvenWhereTheDeploymentKeepsDeletionsSoft() {
+        var temporary = conversation("Temporary", true, false);
+        var deleted = conversation("Deleted by its owner", true, false);
+        var sent = upload();
+        jdbc.sql("UPDATE chat_session SET temporary = TRUE WHERE id = :id").param("id", temporary.session()).update();
+        jdbc.sql("UPDATE chat_user_file SET temporary_session_id = :session, status = 'READY' WHERE id = :id")
+                .param("session", temporary.session()).param("id", sent).update();
+
+        // What was promised to leave no history cannot depend on an operator's switch; what its owner deleted can.
+        assertEquals(1, purge(false, java.time.Duration.ZERO));
+        assertEquals(0, count("chat_session WHERE id='" + temporary.session() + "'"));
+        assertEquals(1, count("chat_session WHERE id='" + deleted.session() + "'"));
+        assertEquals(1, count("chat_file_work WHERE file_id='" + sent + "' AND action='DELETE'"));
+    }
+
+    @Test
     void theOwnersRetentionPolicyDeletesWhatNobodyHasTouchedAndCountsItFirst() {
         var old = conversation("Untouched", false, false);
         var recent = conversation("Yesterday", false, false);

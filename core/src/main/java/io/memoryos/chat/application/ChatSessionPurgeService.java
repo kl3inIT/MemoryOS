@@ -38,12 +38,16 @@ public class ChatSessionPurgeService {
         this.tx = new TransactionTemplate(transactionManager);
     }
 
-    /** Returns how many conversations were purged; zero while the deployment keeps deletions soft. */
+    /**
+     * Returns how many conversations were purged. A temporary conversation is removed whatever the deployment
+     * decided, because it was promised to leave no history and that promise cannot depend on an operator's
+     * setting; a conversation its owner deleted is removed only where the deployment asks for hard deletion.
+     */
     public int purge() {
-        if (!retention.hardDelete()) return 0;
+        boolean onlyTemporary = !retention.hardDelete();
         int purged = Objects.requireNonNull(tx.execute(ignored -> {
             int count = 0;
-            for (var session : sessions.claim(retention.batchSize(), retention.deletedAfter())) {
+            for (var session : sessions.claim(retention.batchSize(), retention.deletedAfter(), onlyTemporary)) {
                 sessions.releaseArtifacts(session);
                 // Only a temporary conversation owns uploads; for any other this releases nothing.
                 sessions.releaseTemporaryUploads(session);

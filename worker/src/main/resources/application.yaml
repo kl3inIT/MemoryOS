@@ -73,8 +73,10 @@ management:
 memoryos:
   chat:
     retention:
-      # Onyx HARD_DELETE_CHATS: off keeps a deleted conversation and its generated files, on removes them.
-      hard-delete: ${MEMORYOS_CHAT_HARD_DELETE:false}
+      # ChatGPT deletes a conversation for good within thirty days of the person deleting it, with no operator
+      # switch; that is the default here. Onyx's HARD_DELETE_CHATS=off behaviour is available by turning it off,
+      # which keeps a deleted conversation and its generated files instead.
+      hard-delete: ${MEMORYOS_CHAT_HARD_DELETE:true}
   extraction:
     docling:
       endpoint: ${MEMORYOS_EXTRACTION_DOCLING_ENDPOINT:http://localhost:5001}
