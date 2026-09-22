@@ -61,8 +61,6 @@ ENV LANG=C.UTF-8 \
 COPY sitecustomize.py /opt/executor-venv/lib/python3.11/site-packages/sitecustomize.py
 # Chart extraction owned by MemoryOS, started from E2B's MIT e2b-charts (see NOTICE.md).
 COPY memoryos_charts /opt/executor-venv/lib/python3.11/site-packages/memoryos_charts
-# Deck authoring owned by MemoryOS (MEM-122): the corporate template behind render-deck and check-pptx.
-COPY memoryos_deck /opt/executor-venv/lib/python3.11/site-packages/memoryos_deck
 RUN mkdir -p /opt/matplotlib \
     && MPLCONFIGDIR=/opt/matplotlib python -c "import matplotlib.font_manager as fm; fm.fontManager.findfont('DejaVu Sans')" \
     && chmod -R a+rX /opt/matplotlib
@@ -77,12 +75,6 @@ RUN chmod 0755 /usr/local/bin/recalc-xlsx
 # check-docx: the formatting faults a model cannot see in the document it just wrote (python-docx, installed above).
 COPY check_docx.py /usr/local/bin/check-docx
 RUN chmod 0755 /usr/local/bin/check-docx
-# render-deck: a validated deck plan rendered onto the corporate template (python-pptx, installed above).
-COPY render_deck.py /usr/local/bin/render-deck
-RUN chmod 0755 /usr/local/bin/render-deck
-# check-pptx: the slide faults a model cannot see in the deck it just wrote.
-COPY check_pptx.py /usr/local/bin/check-pptx
-RUN chmod 0755 /usr/local/bin/check-pptx
 # pptx-to-pdf: the Chat preview of generated presentations (MEM-111, LibreOffice Impress, installed above).
 COPY pptx_to_pdf.py /usr/local/bin/pptx-to-pdf
 RUN chmod 0755 /usr/local/bin/pptx-to-pdf
