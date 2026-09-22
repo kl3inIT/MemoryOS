@@ -115,8 +115,8 @@ jobs:
       - name: Validate workflows and shell scripts
         run: |
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-          bash -n infrastructure/deployment/deploy-staging.sh
-          shellcheck -x infrastructure/deployment/deploy-staging.sh
+          bash -n infrastructure/deployment/deploy.sh
+          shellcheck -x infrastructure/deployment/deploy.sh
 
       - name: Verify deployment and monitoring configuration
         # Interpolation-only values; this step never starts application services.

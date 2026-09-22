@@ -1,5 +1,8 @@
 name: Deploy staging
 
+# Staging keeps automatic promotion after a successful main CI run. The delivery logic lives in
+# the shared deploy workflow; this file only decides when staging runs and where it points.
+
 "on":
   workflow_run:
     workflows: [CI]
@@ -22,10 +25,6 @@ permissions:
   actions: read # Verify the source CI run and download its release bundle.
   packages: read # Pull the verified private GHCR images on staging.
 
-defaults:
-  run:
-    shell: bash
-
 concurrency:
   group: memoryos-staging
   cancel-in-progress: false
@@ -39,153 +38,13 @@ jobs:
        github.event.workflow_run.event == 'push' &&
        github.event.workflow_run.head_repository.full_name == github.repository &&
        github.event.workflow_run.head_branch == 'main')
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    environment: staging
-    env:
-      STAGING_HOST: ${{ vars.STAGING_HOST }}
-      STAGING_USER: ${{ vars.STAGING_USER }}
-    steps:
-      - name: Check out trusted deployment code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: main
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Resolve a successful main release
-        id: release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CI_RUN_ID: ${{ inputs.ci_run_id || github.event.workflow_run.id }}
-          EVENT_NAME: ${{ github.event_name }}
-        run: |
-          [[ "$CI_RUN_ID" =~ ^[1-9][0-9]*$ ]]
-          base="repos/$GITHUB_REPOSITORY/actions/runs/$CI_RUN_ID"
-          gh api "$base" > "$RUNNER_TEMP/ci-run.json"
-          jq --exit-status --arg repo "$GITHUB_REPOSITORY" '
-            .repository.full_name == $repo and .head_repository.full_name == $repo
-            and .head_branch == "main" and .event == "push" and .status == "completed"
-            and .conclusion == "success" and .path == ".github/workflows/ci.yml"
-          ' "$RUNNER_TEMP/ci-run.json"
-          sha=$(jq --raw-output .head_sha "$RUNNER_TEMP/ci-run.json")
-          attempt=$(jq --raw-output .run_attempt "$RUNNER_TEMP/ci-run.json")
-          [[ "$sha" =~ ^[0-9a-f]{40}$ && "$attempt" =~ ^[1-9][0-9]*$ ]]
-          gh api "$base/attempts/$attempt/jobs?per_page=100" | jq --exit-status '
-            [.jobs[] | select(.name == "CI Gate" or .name == "Publish verified release")] |
-            length == 2 and (map(.name) | sort) == ["CI Gate", "Publish verified release"]
-            and all(.[]; .conclusion == "success")
-          '
-          git merge-base --is-ancestor "$sha" origin/main
-          # A newer main commit supersedes this release only when it changes a path CI verifies. Commits that CI
-          # ignores (docs, root Markdown, tools/visual-paradigm-mcp) never publish a newer release.
-          if [[ "$EVENT_NAME" == workflow_run ]] \
-            && git diff --name-only "$sha" origin/main | grep -Ev '^(docs/|tools/visual-paradigm-mcp/)|^[^/]*\.md$' | grep -q .; then
-            echo 'Stale automatic release skipped'
-            echo "Automatic release $sha skipped: main has newer CI-verified changes." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          printf 'sha=%s\nrun_id=%s\nattempt=%s\nready=true\n' "$sha" "$CI_RUN_ID" "$attempt" >> "$GITHUB_OUTPUT"
-          printf 'release=%s-%s-%s\n' "$sha" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
-
-      - name: Download preserved release
-        if: steps.release.outputs.ready == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: release-${{ steps.release.outputs.sha }}-${{ steps.release.outputs.attempt }}
-          path: release
-          run-id: ${{ steps.release.outputs.run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Verify bundle and required staging configuration
-        if: steps.release.outputs.ready == 'true'
-        env:
-          SHA: ${{ steps.release.outputs.sha }}
-          CI_RUN: ${{ steps.release.outputs.run_id }}
-          ATTEMPT: ${{ steps.release.outputs.attempt }}
-        run: |
-          jq --exit-status --arg sha "$SHA" --arg run "$CI_RUN" --arg attempt "$ATTEMPT" '
-            .repository == "kl3inIT/MemoryOS" and .sha == $sha and .run == $run and .attempt == $attempt
-          ' release/manifest.json
-          (cd release && sha256sum --check --strict SHA256SUMS)
-          mkdir "$RUNNER_TEMP/release-config"
-          tar --extract --file release/configuration.tar --directory "$RUNNER_TEMP/release-config" --no-same-owner --no-same-permissions
-          [[ "$STAGING_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]+$ ]]
-          [[ "$STAGING_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
-
-      - name: Validate explicitly selected recovery
-        if: steps.release.outputs.ready == 'true' && inputs.recovery_release != ''
-        env:
-          RECOVERY_RELEASE: ${{ inputs.recovery_release }}
-        run: |
-          [[ "$RECOVERY_RELEASE" =~ ^[0-9a-f]{40}-[1-9][0-9]*-[1-9][0-9]*$ ]]
-          git merge-base --is-ancestor "${RECOVERY_RELEASE:0:40}" origin/main
-
-      - name: Prepare dedicated SSH identity and verified host trust
-        if: steps.release.outputs.ready == 'true'
-        env:
-          STAGING_KEY: ${{ secrets.STAGING_SSH_KEY }}
-          KNOWN_HOSTS: ${{ vars.STAGING_KNOWN_HOSTS }}
-        run: |
-          test -n "$STAGING_KEY"
-          test -n "$KNOWN_HOSTS"
-          umask 077
-          mkdir "$RUNNER_TEMP/staging-ssh"
-          printf '%s\n' "$STAGING_KEY" > "$RUNNER_TEMP/staging-ssh/key"
-          printf '%s\n' "$KNOWN_HOSTS" > "$RUNNER_TEMP/staging-ssh/known_hosts"
-          cat > "$RUNNER_TEMP/staging-ssh/config" <<EOF
-          Host staging
-            HostName $STAGING_HOST
-            User $STAGING_USER
-            IdentityFile $RUNNER_TEMP/staging-ssh/key
-            UserKnownHostsFile $RUNNER_TEMP/staging-ssh/known_hosts
-            BatchMode yes
-            StrictHostKeyChecking yes
-            ConnectTimeout 15
-            ServerAliveInterval 15
-            ServerAliveCountMax 4
-          EOF
-
-      - name: Finish only the explicitly selected healthy recovery
-        if: steps.release.outputs.ready == 'true' && inputs.recovery_release != ''
-        env:
-          RECOVERY_RELEASE: ${{ inputs.recovery_release }}
-        run: |
-          [[ "$RECOVERY_RELEASE" =~ ^[0-9a-f]{40}-[1-9][0-9]*-[1-9][0-9]*$ ]]
-          ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
-            "sudo -n bash '/apps/memoryos/incoming/$RECOVERY_RELEASE/deploy-staging.sh' finish '$RECOVERY_RELEASE'"
-
-      - name: Back up, migrate and wait for readiness
-        id: rollout
-        if: steps.release.outputs.ready == 'true'
-        env:
-          RELEASE: ${{ steps.release.outputs.release }}
-          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          remote="/apps/memoryos/incoming/$RELEASE"
-          ssh -F "$RUNNER_TEMP/staging-ssh/config" staging "umask 077; mkdir '$remote'"
-          cp "$RUNNER_TEMP/release-config/infrastructure/deployment/deploy-staging.sh" release/
-          scp -F "$RUNNER_TEMP/staging-ssh/config" release/* "staging:$remote/"
-          printf '%s' "$REGISTRY_TOKEN" | ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
-            "sudo -n bash '$remote/deploy-staging.sh' deploy '$RELEASE' '$GITHUB_ACTOR'"
-
-      - name: Finalize the healthy deployment
-        if: steps.release.outputs.ready == 'true'
-        env:
-          RELEASE: ${{ steps.release.outputs.release }}
-        run: |
-          ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
-            "sudo -n bash '/apps/memoryos/incoming/$RELEASE/deploy-staging.sh' finish '$RELEASE'"
-          echo 'Deployment health and revision verified; business acceptance belongs to the user.' >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Report manual recovery after an interrupted deployment
-        if: ${{ (failure() || cancelled()) && steps.rollout.outcome != 'skipped' && steps.rollout.outcome != '' }}
-        env:
-          RELEASE: ${{ steps.release.outputs.release }}
-        run: |
-          echo "Deployment did not finish: $RELEASE. Inspect the server transaction and any pending reservation; follow docs/runbooks/ci-cd.md for manual recovery." >> "$GITHUB_STEP_SUMMARY"
-          echo 'No automatic rollback, database restore or reservation removal was attempted.' >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Remove ephemeral SSH credentials
-        if: ${{ always() }}
-        run: rm -f -- "$RUNNER_TEMP/staging-ssh/key" "$RUNNER_TEMP/staging-ssh/known_hosts" "$RUNNER_TEMP/staging-ssh/config"
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: staging
+      host: ${{ vars.STAGING_HOST }}
+      user: ${{ vars.STAGING_USER }}
+      known_hosts: ${{ vars.STAGING_KNOWN_HOSTS }}
+      ci_run_id: ${{ inputs.ci_run_id }}
+      recovery_release: ${{ inputs.recovery_release }}
+    secrets:
+      ssh_key: ${{ secrets.STAGING_SSH_KEY }}
