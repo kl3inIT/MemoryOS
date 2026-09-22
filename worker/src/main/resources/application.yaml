@@ -14,6 +14,25 @@ spring:
     url: ${MEMORYOS_DATABASE_URL}
     username: ${MEMORYOS_DATABASE_USERNAME}
     password: ${MEMORYOS_DATABASE_PASSWORD}
+    hikari:
+      # A fixed-size pool, which is what HikariCP recommends: creating a connection is slow and it
+      # would happen exactly when load arrives. Idle backends are cheap on the PostgreSQL side.
+      #
+      # The size follows the pool-sizing formula, (cores x 2) + effective spindles. The production
+      # node has 12 vCPU on SSD, so about 25 connections may usefully work at once against this
+      # database; api takes 15 and worker 10. Past that point throughput falls rather than rises,
+      # because the server spends its time switching between backends and contending for locks.
+      # Queueing in the application is the better place to wait.
+      pool-name: memoryos-worker
+      maximum-pool-size: ${MEMORYOS_DATABASE_POOL_SIZE:10}
+      minimum-idle: ${MEMORYOS_DATABASE_POOL_SIZE:10}
+      # Fail while a caller is still waiting rather than after it has given up.
+      connection-timeout: ${MEMORYOS_DATABASE_CONNECTION_TIMEOUT:10000}
+      # Retire a connection before anything between here and PostgreSQL decides to drop it.
+      max-lifetime: ${MEMORYOS_DATABASE_CONNECTION_LIFETIME:1500000}
+      # Prints the stack trace of whoever borrowed a connection and never gave it back. A leak is
+      # otherwise indistinguishable from load: the pool is empty and nothing is running.
+      leak-detection-threshold: ${MEMORYOS_DATABASE_LEAK_THRESHOLD:60000}
   jpa:
     open-in-view: false
     hibernate:

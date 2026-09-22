@@ -17,6 +17,23 @@ services:
   postgres:
     image: ${MEMORYOS_POSTGRES_IMAGE:-postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382}
     container_name: memoryos-postgres
+    # Every one of these was the stock default until now, on a machine that has far more memory
+    # than the defaults assume. The defaults here stay modest because one environment shares its
+    # host with unrelated services; an environment with room of its own raises them in its
+    # environment file. work_mem is charged per sort or hash within a query, not per connection,
+    # so the ceiling is the pool size times the operations one query can hold at once.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=${MEMORYOS_POSTGRES_SHARED_BUFFERS:-256MB}
+      - -c
+      - effective_cache_size=${MEMORYOS_POSTGRES_EFFECTIVE_CACHE_SIZE:-1GB}
+      - -c
+      - work_mem=${MEMORYOS_POSTGRES_WORK_MEM:-8MB}
+      - -c
+      - maintenance_work_mem=${MEMORYOS_POSTGRES_MAINTENANCE_WORK_MEM:-128MB}
+      - -c
+      - max_connections=${MEMORYOS_POSTGRES_MAX_CONNECTIONS:-100}
     restart: unless-stopped
     init: true
     security_opt:
@@ -31,6 +48,7 @@ services:
       MEMORYOS_DATABASE_NAME: ${MEMORYOS_DATABASE_NAME:-memoryos}
       MEMORYOS_DATABASE_USERNAME: ${MEMORYOS_DATABASE_USERNAME:-memoryos_app}
       MEMORYOS_DATABASE_PASSWORD: ${MEMORYOS_DATABASE_PASSWORD:?Set MEMORYOS_DATABASE_PASSWORD}
+      MEMORYOS_DATABASE_CONNECTION_LIMIT: ${MEMORYOS_DATABASE_CONNECTION_LIMIT:-40}
       MEMORYOS_KEYCLOAK_DATABASE_NAME: ${MEMORYOS_KEYCLOAK_DATABASE_NAME:-keycloak}
       MEMORYOS_KEYCLOAK_DATABASE_USERNAME: ${MEMORYOS_KEYCLOAK_DATABASE_USERNAME:-keycloak}
       MEMORYOS_KEYCLOAK_DATABASE_PASSWORD: ${MEMORYOS_KEYCLOAK_DATABASE_PASSWORD:?Set MEMORYOS_KEYCLOAK_DATABASE_PASSWORD}
@@ -290,6 +308,7 @@ services:
       # Addresses the composition itself decides, so the environment file cannot drift from them.
       MEMORYOS_DATABASE_URL: jdbc:postgresql://memoryos-postgres:5432/${MEMORYOS_DATABASE_NAME:-memoryos}
       MEMORYOS_DATABASE_USERNAME: ${MEMORYOS_DATABASE_USERNAME:-memoryos_app}
+      MEMORYOS_DATABASE_POOL_SIZE: ${MEMORYOS_API_DATABASE_POOL_SIZE:-15}
       MEMORYOS_KEYCLOAK_ADMIN_SERVER_URL: http://memoryos-keycloak:8080
       MEMORYOS_OPENSEARCH_ENDPOINT: https://opensearch:9200
       MEMORYOS_OPENSEARCH_USERNAME: ${MEMORYOS_OPENSEARCH_USERNAME:-memoryos-service}
@@ -406,6 +425,7 @@ services:
       # key version; identity and the redirect URIs belong to the browser-facing service alone.
       MEMORYOS_DATABASE_URL: jdbc:postgresql://memoryos-postgres:5432/${MEMORYOS_DATABASE_NAME:-memoryos}
       MEMORYOS_DATABASE_USERNAME: ${MEMORYOS_DATABASE_USERNAME:-memoryos_app}
+      MEMORYOS_DATABASE_POOL_SIZE: ${MEMORYOS_WORKER_DATABASE_POOL_SIZE:-10}
       MEMORYOS_OPENSEARCH_ENDPOINT: https://opensearch:9200
       MEMORYOS_OPENSEARCH_USERNAME: ${MEMORYOS_OPENSEARCH_USERNAME:-memoryos-service}
       MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION}
