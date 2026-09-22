@@ -556,11 +556,10 @@ export const vietnameseUi: Record<string, string> = {
   "Toàn bộ đoạn trích": "All passages",
   "Mở toàn màn hình": "Open full screen",
   "Thu nhỏ cửa sổ": "Shrink the window",
-  "Đã đánh dấu trong tệp gốc": "Highlighted in the original",
-  "Đã đánh dấu gần đúng": "Highlighted approximately",
-  "Không tìm thấy đoạn này trong tệp gốc": "This passage was not found in the original",
-  "Tệp gốc không có lớp văn bản để đánh dấu": "The original has no text layer to highlight",
-  "Đang tìm trong tệp gốc…": "Looking in the original…",
+  "Đã đánh dấu": "Highlighted",
+  "Gần đúng": "Approximate",
+  "Không tìm thấy": "Not found",
+  "Không có lớp văn bản": "No text layer",
   "Không mở được tệp gốc. Hãy tải xuống để xem toàn bộ tệp.":
     "This original could not be opened. Download it to see the whole file.",
   "Tệp này không xem trực tiếp được. Hãy tải xuống để mở bằng ứng dụng phù hợp.":

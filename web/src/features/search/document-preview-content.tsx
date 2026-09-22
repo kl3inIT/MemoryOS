@@ -2,7 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import type { DocumentReading } from "./document-reading";
-import { stripGeneratedTitlePrefix } from "./search-presentation";
+import { passageBody } from "./search-presentation";
 import type { DocumentSelection } from "./document-preview-dialog";
 
 export function DocumentPreviewContent({
@@ -86,7 +86,7 @@ export function DocumentPreviewContent({
                   <p
                     className={`whitespace-pre-wrap break-words text-content-primary ${variant === "chat" ? "text-sm leading-7" : "font-main-content-body"}`}
                   >
-                    {stripGeneratedTitlePrefix(passage.content, detail.data.title).trim()}
+                    {passageBody(passage.content).trim()}
                   </p>
                 </article>
               );

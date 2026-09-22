@@ -7,6 +7,7 @@ import {
   readChatFilePassages,
 } from "@/lib/hey-api/sdk.gen";
 import type { DocumentSelection } from "./document-preview-dialog";
+import { passageBody, passageSection } from "./search-presentation";
 
 export type PassageReader = {
   /** Chat citations read passages with Chat authority; the Search page keeps Search authority. */
@@ -60,14 +61,23 @@ function passageWindow(
   });
 }
 
-/** The passages a match cites, joined; the locator collapses whitespace, so the join is one citation. */
+/**
+ * The passages a match cites, without the chunk header and joined; the locator collapses whitespace, so the
+ * join is one citation.
+ */
 function citedText(data: Awaited<ReturnType<typeof getSearchDocument>>["data"], match: Match) {
   if (!data) return "";
   const last = match.matchingEndOrdinal ?? match.matchingOrdinal;
   return data.passages
     .filter((passage) => passage.ordinal >= match.matchingOrdinal && passage.ordinal <= last)
-    .map((passage) => passage.content)
+    .map((passage) => passageBody(passage.content))
     .join("\n");
+}
+
+/** The heading trail the first cited passage records, which is the context the citation is read in. */
+function citedSection(data: Awaited<ReturnType<typeof getSearchDocument>>["data"], match: Match) {
+  const first = data?.passages.find((passage) => passage.ordinal === match.matchingOrdinal);
+  return first ? passageSection(first.content) : undefined;
 }
 
 /**
@@ -96,10 +106,16 @@ export function useDocumentReading(
   // list is structurally shared by react-query, which is what keeps the original from repainting and
   // scrolling on every render.
   const windows = [...new Set(matches.map((match) => match.from))];
-  const citations = useQueries({
+  const cited = useQueries({
     queries: windows.map((window) => passageWindow(reader, window, session)),
-    combine: (results) =>
-      matches.map((match) => citedText(results[windows.indexOf(match.from)]?.data, match)),
+    combine: (results) => ({
+      citations: matches.map((match) =>
+        citedText(results[windows.indexOf(match.from)]?.data, match),
+      ),
+      sections: matches.map((match) =>
+        citedSection(results[windows.indexOf(match.from)]?.data, match),
+      ),
+    }),
   });
 
   return {
@@ -108,7 +124,9 @@ export function useDocumentReading(
     from,
     detail,
     /** One entry per match, in the order the citation rail lists them. */
-    citations,
+    citations: cited.citations,
+    /** The heading trail each citation sits under, shown beside it rather than searched for. */
+    sections: cited.sections,
     select: (index: number) => {
       setActiveMatchIndex(index);
       setFrom(matches[index]?.from ?? 0);

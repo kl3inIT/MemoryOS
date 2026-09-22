@@ -209,6 +209,7 @@ export function DocumentPreviewDialog({
               <CitationRail
                 entries={selection.matches.map((match, index) => ({
                   text: reading.citations[index] ?? "",
+                  section: reading.sections[index],
                   provenance: match.provenance,
                 }))}
                 confidence={confidence}
