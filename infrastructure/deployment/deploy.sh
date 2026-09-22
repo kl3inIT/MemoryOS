@@ -37,10 +37,20 @@ has_interpreter() {
   grep -q "^$(image_key interpreter)=" "$1"
 }
 
+# Empty before the first deployment: Flyway creates its history table when it first runs, and
+# selecting from a table that does not exist is an error rather than an empty result.
 schema() {
   docker exec memoryos-postgres sh -c \
     'exec psql -U "$POSTGRES_USER" -d memoryos -At -c "$1"' sh \
-    'SELECT version, checksum, success FROM flyway_schema_history ORDER BY installed_rank'
+    "SELECT version, checksum, success FROM flyway_schema_history ORDER BY installed_rank"
+}
+
+# True once Flyway has run here. Asked separately because the query above cannot name a table that
+# does not exist, and a first deployment has no history to compare against.
+has_schema_history() {
+  [[ "$(docker exec memoryos-postgres sh -c \
+    'exec psql -U "$POSTGRES_USER" -d memoryos -At -c "$1"' sh \
+    "SELECT to_regclass('public.flyway_schema_history') IS NOT NULL")" == t ]]
 }
 
 compose() {
@@ -107,50 +117,62 @@ if [[ "$mode" == deploy ]]; then
     printf '%s\n' "$tx/source/infrastructure/deployment/$file" >> "$tx/candidate.compose"
   done
 
-  # Capture actual image IDs and Compose files, including the previous SSH-built release.
-  previous_components=(api worker web)
-  if [[ -f "$state/current.env" ]] && has_interpreter "$state/current.env"; then
-    previous_components+=(interpreter)
+  # Nothing has ever run here when the api container is absent. Asked of the runtime rather than
+  # of current.env, because that file is also absent on a host whose runtime was built over SSH
+  # before this script existed, and that host does have something to roll back to.
+  #
+  # Recorded as a file: rollback and finish are separate invocations of this script.
+  if ! docker inspect memoryos-api > /dev/null 2>&1; then
+    touch "$tx/first-deployment"
+    echo 'First deployment on this host: nothing to capture, and rollback will have no target'
   fi
-  previous=$(docker inspect "${previous_components[@]/#/memoryos-}" | jq --exit-status --argjson count "${#previous_components[@]}" '
-    if length == $count and all(.[]; .State.Running and .State.Health.Status == "healthy")
-      and ([.[].Config.Labels["org.opencontainers.image.revision"]] | unique | length) == 1
-      and ([.[].Config.Labels["com.docker.compose.project.config_files"]] | unique | length) == 1
-    then map({name: .Name, image: .Image, labels: .Config.Labels}) else error("Unhealthy or mixed runtime") end
-  ')
-  previous_sha=$(jq --raw-output '.[0].labels["org.opencontainers.image.revision"]' <<< "$previous")
-  [[ "$previous_sha" =~ ^[0-9a-f]{40}$ ]]
-  for component in "${previous_components[@]}"; do
-    image=$(jq --raw-output --arg name "/memoryos-$component" '.[] | select(.name == $name) | .image' <<< "$previous")
-    [[ "$image" =~ ^sha256:[0-9a-f]{64}$ ]]
-    printf '%s=%s\n' "$(image_key "$component")" "$image" >> "$tx/previous.env"
-  done
-  if has_interpreter "$tx/previous.env"; then
-    # Executors are not containers between runs; the accepted record holds their image.
-    reference=$(image_reference interpreter-executor "$state/current.env")
-    [[ "$reference" =~ ^ghcr.io/kl3init/memoryos-interpreter-executor@sha256:[0-9a-f]{64}$ ]]
-    printf '%s=%s\n' "$(image_key interpreter-executor)" "$reference" >> "$tx/previous.env"
+
+  if [[ ! -f "$tx/first-deployment" ]]; then
+    # Capture actual image IDs and Compose files, including the previous SSH-built release.
+    previous_components=(api worker web)
+    if [[ -f "$state/current.env" ]] && has_interpreter "$state/current.env"; then
+      previous_components+=(interpreter)
+    fi
+    previous=$(docker inspect "${previous_components[@]/#/memoryos-}" | jq --exit-status --argjson count "${#previous_components[@]}" '
+      if length == $count and all(.[]; .State.Running and .State.Health.Status == "healthy")
+        and ([.[].Config.Labels["org.opencontainers.image.revision"]] | unique | length) == 1
+        and ([.[].Config.Labels["com.docker.compose.project.config_files"]] | unique | length) == 1
+      then map({name: .Name, image: .Image, labels: .Config.Labels}) else error("Unhealthy or mixed runtime") end
+    ')
+    previous_sha=$(jq --raw-output '.[0].labels["org.opencontainers.image.revision"]' <<< "$previous")
+    [[ "$previous_sha" =~ ^[0-9a-f]{40}$ ]]
+    for component in "${previous_components[@]}"; do
+      image=$(jq --raw-output --arg name "/memoryos-$component" '.[] | select(.name == $name) | .image' <<< "$previous")
+      [[ "$image" =~ ^sha256:[0-9a-f]{64}$ ]]
+      printf '%s=%s\n' "$(image_key "$component")" "$image" >> "$tx/previous.env"
+    done
+    if has_interpreter "$tx/previous.env"; then
+      # Executors are not containers between runs; the accepted record holds their image.
+      reference=$(image_reference interpreter-executor "$state/current.env")
+      [[ "$reference" =~ ^ghcr.io/kl3init/memoryos-interpreter-executor@sha256:[0-9a-f]{64}$ ]]
+      printf '%s=%s\n' "$(image_key interpreter-executor)" "$reference" >> "$tx/previous.env"
+    fi
+    printf 'MEMORYOS_RELEASE=%s\n' "$previous_sha" >> "$tx/previous.env"
+    jq --raw-output '.[0].labels["com.docker.compose.project.config_files"] | split(",")[]' <<< "$previous" > "$tx/previous.compose"
+    while IFS= read -r file; do
+      [[ -f "$file" && "$(realpath "$file")" == "$root/"* ]]
+    done < "$tx/previous.compose"
+    if [[ -f "$state/current.env" ]]; then
+      [[ "$(sed -n 's/^MEMORYOS_RELEASE=//p' "$state/current.env")" == "$previous_sha" ]]
+      cmp --silent "$state/current.compose" "$tx/previous.compose"
+      cp "$state/current.base.env" "$tx/previous.base.env"
+    else
+      # First promotion captures the existing operator-managed configuration.
+      cp "$environment_file" "$tx/previous.base.env"
+    fi
+    target=previous; compose config --quiet
   fi
-  printf 'MEMORYOS_RELEASE=%s\n' "$previous_sha" >> "$tx/previous.env"
-  jq --raw-output '.[0].labels["com.docker.compose.project.config_files"] | split(",")[]' <<< "$previous" > "$tx/previous.compose"
-  while IFS= read -r file; do
-    [[ -f "$file" && "$(realpath "$file")" == "$root/"* ]]
-  done < "$tx/previous.compose"
-  if [[ -f "$state/current.env" ]]; then
-    [[ "$(sed -n 's/^MEMORYOS_RELEASE=//p' "$state/current.env")" == "$previous_sha" ]]
-    cmp --silent "$state/current.compose" "$tx/previous.compose"
-    cp "$state/current.base.env" "$tx/previous.base.env"
-  else
-    # First promotion captures the existing operator-managed configuration.
-    cp "$environment_file" "$tx/previous.base.env"
-  fi
-  target=previous; compose config --quiet
   target=candidate; compose config --quiet
   # Compose config accepts a missing secret file, and rollout would then fail after the reservation.
   compose config --format json | jq --raw-output '.secrets // {} | .[].file // empty' | while IFS= read -r file; do
     [[ -f "$file" ]] || { echo "Missing Compose secret file: $file" >&2; exit 1; }
   done
-  schema > "$tx/schema.before"
+  if has_schema_history; then schema > "$tx/schema.before"; else : > "$tx/schema.before"; fi
   while IFS='|' read -r version _checksum success; do
     [[ "$success" == t && "$version" =~ ^[0-9]+$ ]]
     compgen -G "$tx/source/core/src/main/resources/db/migration/V${version}__*.sql" > /dev/null || {
@@ -179,7 +201,7 @@ if [[ "$mode" == deploy ]]; then
   # Keep this reservation until health/revision verification and finalization.
   printf '%s\n' "$release" > "$state/pending"
   touch "$tx/writers-changing"
-  target=previous; compose stop --timeout 45 worker api
+  if [[ ! -f "$tx/first-deployment" ]]; then target=previous; compose stop --timeout 45 worker api; fi
   # The database user expands inside the existing PostgreSQL container.
   # shellcheck disable=SC2016
   timeout 300 docker exec memoryos-postgres sh -c \
@@ -190,14 +212,24 @@ if [[ "$mode" == deploy ]]; then
   target=candidate; rollout; verify_runtime
   echo 'Candidate healthy; finish records deployment, not business acceptance'
 elif [[ "$mode" == rollback ]]; then
-  if [[ ! -f "$state/pending" ]]; then echo 'No runtime mutation was reserved'; exit 2; fi
-  [[ -f "$state/pending" && "$(cat "$state/pending")" == "$release" ]]
+  # Whether a reservation exists at all is answered before the modes divide; what reaches here has
+  # one, and only has to be the one this invocation names.
+  [[ "$(cat "$state/pending")" == "$release" ]]
   if [[ ! -f "$tx/writers-changing" ]]; then
     rm -- "$state/pending"
     echo 'No writers changed; prior admission restored'; exit 2
   fi
+  if [[ -f "$tx/first-deployment" ]]; then
+    # There is no earlier runtime to put back, and the reservation stays so the state on this host
+    # keeps saying that somebody has to look. The database was empty when this began, so recovery
+    # is to take the stack down, discard its volumes and deploy again, not to restore anything.
+    echo 'First deployment on this host: no previous runtime exists to restore.' >&2
+    echo 'Migrations may have applied to a database that was empty when this began.' >&2
+    echo 'Recover by taking the stack down with its volumes and deploying again; see the CI/CD runbook.' >&2
+    exit 1
+  fi
   target=candidate; compose stop --timeout 45 worker api
-  schema > "$tx/schema.after-failure"
+  if has_schema_history; then schema > "$tx/schema.after-failure"; else : > "$tx/schema.after-failure"; fi
   cmp --silent "$tx/schema.before" "$tx/schema.after-failure" || {
     echo 'Schema changed: writers stopped; operator recovery is required. No database restore was attempted.' >&2; exit 1;
   }
@@ -213,7 +245,7 @@ elif [[ "$mode" == finish ]]; then
   target=candidate
   if [[ -f "$tx/rolled-back" ]]; then target=previous; fi
   verify_runtime
-  schema > "$tx/schema.accepted"
+  if has_schema_history; then schema > "$tx/schema.accepted"; else : > "$tx/schema.accepted"; fi
   cp "$tx/$target.env" "$state/current.env.new"
   mv "$state/current.env.new" "$state/current.env"
   cp "$tx/$target.compose" "$state/current.compose.new"

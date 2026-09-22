@@ -77,6 +77,29 @@ A role already at its limit answers `too many connections for role`, which reads
 than as a ceiling somebody chose; the pools hold their connections idle, so nothing appears to be
 running at the moment it refuses.
 
+A host reaches its first deployment with more than directories. Three things the script does not
+do for itself, each of which stopped a first promotion before it was written down:
+
+* **`vm.max_map_count` at least 262144**, in `/etc/sysctl.d/`, not only `sysctl -w`. OpenSearch
+  memory-maps its Lucene segments and refuses to start below that, as a bootstrap check rather
+  than a warning. Setting it without a file leaves a host that works until it reboots.
+* **The supporting services started once**, from the release's own Compose files:
+  `up -d --wait minio minio-bootstrap redis opensearch docling`. The rollout uses `--no-deps`,
+  because those services belong to the operator rather than to a release, so a deployment onto a
+  host where they were never started brings up an api that cannot reach Redis and waits four
+  minutes for a health check that will not go green — after the reservation is taken.
+* **The Search security configuration loaded once**, with
+  `--profile ops run --rm search-security-bootstrap`. With
+  `plugins.security.allow_default_init_securityindex: false` the node answers 503 until
+  `securityadmin.sh` has run, so its health check stays red and nothing that depends on it starts.
+
+The first deployment on a host is recognised by the absence of a running `memoryos-api`, not by a
+missing `current.env`: a runtime built over SSH before this script existed also has no
+`current.env`, and it does have something to roll back to. On a first deployment there is nothing
+to capture, so `rollback` refuses rather than restoring nothing, and the reservation stays until
+an operator has looked. The database was empty when it began, so recovery is to take the stack
+down with its volumes and deploy again.
+
 The observability stack is a prerequisite, not a companion. The api and worker join
 `memoryos-telemetry`, which is declared external and owned by that stack, and they read
 `MEMORYOS_OTLP_BASE_URL` with no application default. A deployment onto a host where the stack has
