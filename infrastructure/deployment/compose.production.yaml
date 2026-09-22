@@ -10,11 +10,29 @@ services:
       MEMORYOS_RELEASE: ${MEMORYOS_RELEASE:?Set MEMORYOS_RELEASE}
 
   api:
+    networks:
+      memoryos-internal:
+      memoryos-telemetry:
     environment:
       SPRING_PROFILES_ACTIVE: production
+      # Traces, logs and metrics leave through the collector of this node's own observability
+      # stack. The application states no default for this, so without the line it stops while
+      # defining beans, long before anything explains why. Production keeps its telemetry on its
+      # own machine: sending it to the staging collector would put customer request paths on a
+      # host that is shared with unrelated services.
+      MEMORYOS_OTLP_BASE_URL: ${MEMORYOS_OTLP_BASE_URL:-http://memoryos-otel-collector:4318}
 
   worker:
+    networks:
+      memoryos-internal:
+      memoryos-telemetry:
     environment:
       SPRING_PROFILES_ACTIVE: production
       # The production profile states no default for this; db-scheduler refuses to start without it.
       MEMORYOS_SCHEDULER_NAME: ${MEMORYOS_SCHEDULER_NAME:-memoryos-worker-production-1}
+      MEMORYOS_OTLP_BASE_URL: ${MEMORYOS_OTLP_BASE_URL:-http://memoryos-otel-collector:4318}
+
+networks:
+  memoryos-telemetry:
+    name: ${MEMORYOS_TELEMETRY_NETWORK:-memoryos-telemetry}
+    external: true

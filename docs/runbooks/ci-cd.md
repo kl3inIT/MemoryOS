@@ -61,6 +61,13 @@ Do not add the deployment user to the `docker` group. Membership is root without
 
 Secrets live in files rather than environment variables because an environment variable is visible in `docker inspect`, in a crash log and in `/proc/<pid>/environ`. Their subdirectories follow the environment file: `minio/`, `redis/`, `opensearch/`, `interpreter/`.
 
+The observability stack is a prerequisite, not a companion. The api and worker join
+`memoryos-telemetry`, which is declared external and owned by that stack, and they read
+`MEMORYOS_OTLP_BASE_URL` with no application default. A deployment onto a host where the stack has
+never been started fails at `compose up` with a missing network; one where the address is absent
+fails later, while the application defines beans. Start
+`infrastructure/observability/compose.observability.yaml` before the first rollout on a new host.
+
 The environment file feeds Compose interpolation and nothing else. A value reaches a container only when the service block in `compose.base.yaml` names it, so adding a key here does not by itself make the application see it — that was how the first deployment without the vault failed. Addresses inside the composition (the database, Keycloak's admin API, OpenSearch) are written in Compose and must not be repeated here; a stale copy silently wins over the composition. `infrastructure/deployment/test_configuration_reaches_the_container.py` holds both rules.
 
 **Networks.** `docker network create proxy-network`. Compose declares it `external`, so it is not created on demand and the whole stack refuses to start without it. Production declares no other external network; `shared-infra` exists only on the host MemoryOS shares with OrgMemory.

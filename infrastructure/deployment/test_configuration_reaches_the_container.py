@@ -21,7 +21,7 @@ SERVICES = {
     "worker": ("worker/src/main/resources", "core/src/main/resources", "connector/src/main/resources"),
 }
 
-OVERLAYS = ("compose.base.yaml", "compose.staging.yaml", "compose.production.yaml")
+ENVIRONMENTS = ("staging", "production")
 
 # The launcher stages the Redis authority as a file reference rather than its contents, so the
 # name it exports does not follow the <NAME>_FILE rule the loop applies to every other secret.
@@ -54,9 +54,12 @@ def service_block(text, service):
     return match.group(1) if match else ""
 
 
-def named_by_compose(service):
+def named_by_compose(service, environment):
+    """What this service is given in this environment: the shared file plus that environment's
+    own overlays, and nothing from the other environment."""
     names = set()
-    for overlay in OVERLAYS:
+    for overlay in ("compose.base.yaml", "compose.%s.yaml" % environment,
+                    "compose.search.%s.yaml" % environment):
         path = DEPLOYMENT / overlay
         if path.exists():
             block = service_block(path.read_text(encoding="utf-8"), service)
@@ -65,16 +68,22 @@ def named_by_compose(service):
 
 
 class ConfigurationReachesTheContainerTest(unittest.TestCase):
-    def test_every_required_value_is_named_by_the_service(self):
-        for service, directories in SERVICES.items():
-            named = named_by_compose(service)
-            for name in sorted(required(directories)):
-                reached = (name in named
-                           or name + "_FILE" in named
-                           or DERIVED.get(name) in named)
-                self.assertTrue(reached, "%s reads %s but no %s service block names it, "
-                                         "%s_FILE or the file it is derived from"
-                                         % (service, name, service, name))
+    def test_every_required_value_is_named_by_the_service_in_every_environment(self):
+        # Per environment, not across all of them. Reading the overlays together let a value that
+        # only staging sets count as one production had: MEMORYOS_OTLP_BASE_URL was set in the
+        # staging overlay alone, and production would have stopped at bean definition, exactly as
+        # it did the first time the vault stopped supplying configuration.
+        for environment in ENVIRONMENTS:
+            for service, directories in SERVICES.items():
+                named = named_by_compose(service, environment)
+                for name in sorted(required(directories)):
+                    reached = (name in named
+                               or name + "_FILE" in named
+                               or DERIVED.get(name) in named)
+                    self.assertTrue(reached,
+                                    "on %s, %s reads %s but no %s block in the base file or that "
+                                    "environment's overlays names it, %s_FILE or the file it is "
+                                    "derived from" % (environment, service, name, service, name))
 
     def test_environment_specific_configuration_is_required_rather_than_defaulted(self):
         # A default for one of these is a value that differs per environment quietly taking the
