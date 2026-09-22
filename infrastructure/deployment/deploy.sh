@@ -1,17 +1,23 @@
 #!/usr/bin/env bash
 # CD deploys and finalizes healthy images. Operators explicitly select rollback.
+# Usage: deploy.sh <deploy|rollback|finish> <release> <environment> [registry-user]
+# The environment names the configuration this host runs: it selects the environment file and the
+# Compose overlays. One host runs one environment; the deployment state directory is shared.
 set -Eeuo pipefail
 umask 077
 mode=${1:?deploy, rollback or finish}
 release=${2:?verified SHA-workflowRun-workflowAttempt}
+environment=${3:?staging or production}
 [[ "$release" =~ ^[0-9a-f]{40}-[1-9][0-9]*-[1-9][0-9]*$ ]]
+[[ "$environment" =~ ^(staging|production)$ ]]
 [[ $EUID == 0 ]]
 root=/apps/memoryos
+environment_file=$root/.env.$environment
 state=$root/deployments
 tx=$state/$release
 mkdir -p "$state"
 exec 9>"$state/lock"
-flock --nonblock 9 || { echo 'Another staging operation owns the lock' >&2; exit 1; }
+flock --nonblock 9 || { echo "Another $environment operation owns the lock" >&2; exit 1; }
 
 # Release images in images.env order. The interpreter starts executor containers from the last one
 # on the host daemon, so it is pulled and verified here but is not a Compose service.
@@ -79,10 +85,10 @@ fi
 if [[ "$mode" == deploy ]]; then
   [[ ! -e "$state/pending" ]] || { echo 'Previous deployment requires recovery; see the CI/CD runbook' >&2; exit 1; }
   [[ ! -e "$tx" ]]
-  [[ -f "$root/.env.staging" && ! -L "$root/.env.staging" ]]
-  [[ "$(stat -c '%a' "$root/.env.staging")" == 600 ]]
+  [[ -f "$environment_file" && ! -L "$environment_file" ]]
+  [[ "$(stat -c '%a' "$environment_file")" == 600 ]]
   mkdir "$tx"
-  cp "$root/.env.staging" "$tx/candidate.base.env"
+  cp "$environment_file" "$tx/candidate.base.env"
   cp "$root/incoming/$release/"{manifest.json,configuration.tar,images.env,SHA256SUMS} "$tx/"
   (cd "$tx" && sha256sum --check --strict SHA256SUMS)
   jq --exit-status --arg sha "${release:0:40}" '
@@ -97,7 +103,7 @@ if [[ "$mode" == deploy ]]; then
   cp "$tx/images.env" "$tx/candidate.env"
   mkdir "$tx/source"
   tar --extract --file "$tx/configuration.tar" --directory "$tx/source" --no-same-owner --no-same-permissions
-  for file in compose.base.yaml compose.staging.yaml compose.search.staging.yaml; do
+  for file in compose.base.yaml "compose.$environment.yaml" "compose.search.$environment.yaml"; do
     printf '%s\n' "$tx/source/infrastructure/deployment/$file" >> "$tx/candidate.compose"
   done
 
@@ -136,7 +142,7 @@ if [[ "$mode" == deploy ]]; then
     cp "$state/current.base.env" "$tx/previous.base.env"
   else
     # First promotion captures the existing operator-managed configuration.
-    cp "$root/.env.staging" "$tx/previous.base.env"
+    cp "$environment_file" "$tx/previous.base.env"
   fi
   target=previous; compose config --quiet
   target=candidate; compose config --quiet
@@ -155,7 +161,7 @@ if [[ "$mode" == deploy ]]; then
   export DOCKER_CONFIG="$tx/registry"
   mkdir "$DOCKER_CONFIG"
   trap 'rm -f -- "$DOCKER_CONFIG/config.json"; rmdir -- "$DOCKER_CONFIG"' EXIT
-  docker login ghcr.io --username "${3:?registry user}" --password-stdin
+  docker login ghcr.io --username "${4:?registry user}" --password-stdin
   compose pull api worker web interpreter
   docker pull --quiet "$(image_reference interpreter-executor "$tx/candidate.env")" > /dev/null
   for component in "${images[@]}"; do

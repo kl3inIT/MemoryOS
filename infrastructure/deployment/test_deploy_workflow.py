@@ -14,7 +14,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = (ROOT / ".github/workflows/deploy-staging.yml").read_text(encoding="utf-8")
 CI_WORKFLOW = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-SCRIPT = (ROOT / "infrastructure/deployment/deploy-staging.sh").read_text(encoding="utf-8")
+SCRIPT = (ROOT / "infrastructure/deployment/deploy.sh").read_text(encoding="utf-8")
 
 
 class StagingDeploymentPolicyTest(unittest.TestCase):
@@ -37,7 +37,7 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         for guard in (".event == \"push\"", ".head_branch == \"main\"", "Publish verified release", "sha256sum --check --strict", "git merge-base --is-ancestor", "StrictHostKeyChecking yes"):
             self.assertIn(guard, WORKFLOW)
         self.assertLess(
-            WORKFLOW.index("deploy '$RELEASE' '$GITHUB_ACTOR'"),
+            WORKFLOW.index("deploy '$RELEASE' 'staging' '$GITHUB_ACTOR'"),
             WORKFLOW.index("finish '$RELEASE'"),
         )
         for guard in ("pg_dump", "pg_restore --list", "flock --nonblock", '--no-deps --pull never --wait', '.State.Health.Status == "healthy"', '.Image == $image', 'org.opencontainers.image.revision'):
@@ -48,7 +48,7 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn("failure() || cancelled()", report)
         self.assertNotIn("ssh ", report)
         self.assertNotIn("rm ", report)
-        self.assertNotIn("deploy-staging.sh' rollback", WORKFLOW)
+        self.assertNotIn("deploy.sh' rollback", WORKFLOW)
         self.assertIn("cancel-in-progress: false", WORKFLOW)
 
     def test_manual_finish_keeps_exact_selection_and_server_ownership_guard(self):
@@ -62,6 +62,21 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         finish = SCRIPT.split('elif [[ "$mode" == finish ]]', 1)[1]
         self.assertLess(finish.index('"$(cat "$state/pending")" == "$release"'), finish.index("verify_runtime"))
         self.assertLess(finish.index("verify_runtime"), finish.index('rm -- "$state/pending"'))
+
+    def test_environment_selects_configuration_instead_of_being_hardcoded(self):
+        # One script serves both environments; forking it would let the two drift apart.
+        self.assertIn('environment=${3:?staging or production}', SCRIPT)
+        self.assertIn('[[ "$environment" =~ ^(staging|production)$ ]]', SCRIPT)
+        self.assertIn('environment_file=$root/.env.$environment', SCRIPT)
+        self.assertIn('compose.base.yaml "compose.$environment.yaml" "compose.search.$environment.yaml"', SCRIPT)
+        for hardcoded in (".env.staging", "compose.staging.yaml", "compose.search.staging.yaml"):
+            self.assertNotIn(hardcoded, SCRIPT, hardcoded)
+        # The registry user moved behind the environment; a stale caller must not be read as one.
+        self.assertIn('docker login ghcr.io --username "${4:?registry user}"', SCRIPT)
+
+    def test_every_server_invocation_names_its_environment(self):
+        for call in ("deploy '$RELEASE' 'staging'", "finish '$RELEASE' 'staging'", "finish '$RECOVERY_RELEASE' 'staging'"):
+            self.assertIn(call, WORKFLOW, call)
 
     def test_manual_rollback_checks_schema_before_restoring_images(self):
         rollback = SCRIPT.split('elif [[ "$mode" == rollback ]]', 1)[1].split('elif [[ "$mode" == finish ]]', 1)[0]
@@ -166,7 +181,7 @@ class StagingDeploymentContractTest(unittest.TestCase):
             if source.count(original) != 1:
                 raise RuntimeError("Deployment sandbox precondition changed")
             source = source.replace(original, replacement, 1)
-        self.script = self.root / "deploy-staging.sh"
+        self.script = self.root / "deploy.sh"
         self.script.write_text(source)
         binaries = self.root / "bin"
         binaries.mkdir()
@@ -211,9 +226,15 @@ else:
             } for component in ("api", "worker", "web")
         }))
 
-    def operate(self, mode):
-        return subprocess.run(["bash", str(self.script), mode, self.release],
+    def operate(self, mode, environment="staging"):
+        return subprocess.run(["bash", str(self.script), mode, self.release, environment],
                               env=self.environment, capture_output=True, text=True, timeout=10)
+
+    def test_an_unknown_environment_is_refused_before_any_runtime_call(self):
+        result = self.operate("finish", environment="prod")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.docker_calls(), [])
+        self.assertTrue(self.pending.exists())
 
     def docker_calls(self):
         return [json.loads(line) for line in self.calls.read_text().splitlines()] if self.calls.exists() else []

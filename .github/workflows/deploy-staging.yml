@@ -153,7 +153,7 @@ jobs:
         run: |
           [[ "$RECOVERY_RELEASE" =~ ^[0-9a-f]{40}-[1-9][0-9]*-[1-9][0-9]*$ ]]
           ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
-            "sudo -n bash '/apps/memoryos/incoming/$RECOVERY_RELEASE/deploy-staging.sh' finish '$RECOVERY_RELEASE'"
+            "sudo -n bash '/apps/memoryos/incoming/$RECOVERY_RELEASE/deploy.sh' finish '$RECOVERY_RELEASE' 'staging'"
 
       - name: Back up, migrate and wait for readiness
         id: rollout
@@ -164,10 +164,10 @@ jobs:
         run: |
           remote="/apps/memoryos/incoming/$RELEASE"
           ssh -F "$RUNNER_TEMP/staging-ssh/config" staging "umask 077; mkdir '$remote'"
-          cp "$RUNNER_TEMP/release-config/infrastructure/deployment/deploy-staging.sh" release/
+          cp "$RUNNER_TEMP/release-config/infrastructure/deployment/deploy.sh" release/
           scp -F "$RUNNER_TEMP/staging-ssh/config" release/* "staging:$remote/"
           printf '%s' "$REGISTRY_TOKEN" | ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
-            "sudo -n bash '$remote/deploy-staging.sh' deploy '$RELEASE' '$GITHUB_ACTOR'"
+            "sudo -n bash '$remote/deploy.sh' deploy '$RELEASE' 'staging' '$GITHUB_ACTOR'"
 
       - name: Finalize the healthy deployment
         if: steps.release.outputs.ready == 'true'
@@ -175,7 +175,7 @@ jobs:
           RELEASE: ${{ steps.release.outputs.release }}
         run: |
           ssh -F "$RUNNER_TEMP/staging-ssh/config" staging \
-            "sudo -n bash '/apps/memoryos/incoming/$RELEASE/deploy-staging.sh' finish '$RELEASE'"
+            "sudo -n bash '/apps/memoryos/incoming/$RELEASE/deploy.sh' finish '$RELEASE' 'staging'"
           echo 'Deployment health and revision verified; business acceptance belongs to the user.' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Report manual recovery after an interrupted deployment
