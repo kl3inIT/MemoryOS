@@ -39,10 +39,10 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 import { retryChatFile } from "@/lib/hey-api/sdk.gen";
 import { fileSize } from "./chat-code";
 import { downloadUrl } from "./chat-file-preview";
-import { imageArtifactUrl } from "./chat-image";
 import {
   groupByDate,
   libraryPreviewTarget,
+  libraryThumbnailUrl,
   removeFromProject,
   usageLabel,
   type LibraryDayGroup,
@@ -260,9 +260,9 @@ function LibraryRow({
 }
 
 /**
- * The picture of a file: a generated image shows itself, anything else shows what it is. A thumbnail that
- * cannot be fetched — still being written, or gone from storage — falls back to the same icon instead of the
- * browser's broken-image mark, which says nothing about the file.
+ * The picture of a file: an image shows itself, whether it was generated or uploaded, and anything else shows
+ * what it is. A thumbnail that cannot be fetched — still being written, or gone from storage — falls back to
+ * the same icon instead of the browser's broken-image mark, which says nothing about the file.
  */
 function LibraryThumbnail({
   file,
@@ -274,11 +274,11 @@ function LibraryThumbnail({
   icon?: string;
 }) {
   const [failed, setFailed] = useState(false);
-  if (file.source !== "IMAGE" || failed)
-    return categoryIcon(file, cn(icon ?? "size-4", "text-content-muted"));
+  const source = libraryThumbnailUrl(file);
+  if (!source || failed) return categoryIcon(file, cn(icon ?? "size-4", "text-content-muted"));
   return (
     <img
-      src={imageArtifactUrl(file.id, "thumbnail")}
+      src={source}
       alt=""
       loading="lazy"
       decoding="async"

@@ -47,11 +47,11 @@ import { fileSize } from "./chat-code";
 import { fileIdFromReference } from "./chat-files";
 import { ChatFilePreviewModal } from "./chat-file-preview-modal";
 import { downloadUrl, type PreviewTarget } from "./chat-file-preview";
-import { imageArtifactUrl } from "./chat-image";
 import {
   chatLibraryKey,
   deleteLibraryFile,
   libraryPreviewTarget,
+  libraryThumbnailUrl,
   libraryUpload,
   loadLibrary,
   refusedBy,
@@ -275,20 +275,15 @@ export function ChatSessionFiles({
                 size="sm"
                 className="hover:bg-surface-subtle"
               >
-                <ItemMedia variant={file.source === "IMAGE" ? "image" : "icon"}>
+                <ItemMedia variant={libraryThumbnailUrl(file) ? "image" : "icon"}>
                   <button
                     type="button"
                     className="grid size-full place-items-center overflow-hidden rounded-sm bg-surface-sunken outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40"
                     aria-label={ui("Xem trước {{name}}", { name: file.filename })}
                     onClick={() => setPreview(libraryPreviewTarget(file))}
                   >
-                    {file.source === "IMAGE" ? (
-                      <img
-                        src={imageArtifactUrl(file.id, "thumbnail")}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                      />
+                    {libraryThumbnailUrl(file) ? (
+                      <img src={libraryThumbnailUrl(file)} alt="" loading="lazy" decoding="async" />
                     ) : (
                       <DocumentKindIcon
                         mediaType={file.mediaType}
