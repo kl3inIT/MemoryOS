@@ -105,8 +105,8 @@ public class JdbcChatHistoryRepository {
 
     /** One conversation, whether or not its owner deleted it, so the detail view can say which it is. */
     public java.util.Optional<Entry> conversation(UUID tenant, UUID session) {
-        return bind(jdbc.sql(PAGE.replace("LIMIT :limit", "") + " AND s.id = :session"), tenant,
-                new Query(null, null, null, null, null))
+        return bind(jdbc.sql(PAGE.replace("ORDER BY s.updated_at DESC, s.id DESC", "AND s.id = :session ORDER BY s.updated_at DESC, s.id DESC")
+                        .replace("LIMIT :limit", "")), tenant, new Query(null, null, null, null, null))
                 .param("cursorAt", null, Types.TIMESTAMP).param("cursorId", null, Types.OTHER)
                 .param("session", session)
                 .query(JdbcChatHistoryRepository::entry).optional();
