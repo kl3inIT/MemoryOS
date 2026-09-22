@@ -21,7 +21,7 @@ export const vietnameseUi: Record<string, string> = {
   "Đang viết lại…": "Writing again…",
   "Sửa tóm tắt": "Edit the summary",
   "Người nhận": "Owner",
-  "Hạn": "Due",
+  Hạn: "Due",
   "Bạn đã sửa": "You corrected this",
   "Soát lỗi nhận dạng": "Check what was misheard",
   "Tìm trong transcript": "Search the transcript",
