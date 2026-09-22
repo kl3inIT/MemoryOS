@@ -8341,7 +8341,9 @@ export type ExportMeetingMinutesData = {
     path: {
         meetingId: string;
     };
-    query?: never;
+    query?: {
+        format?: 'DOCX' | 'PDF';
+    };
     url: '/api/meetings/{meetingId}/minutes/export';
 };
 

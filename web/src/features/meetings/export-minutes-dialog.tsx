@@ -80,13 +80,16 @@ export function ExportMinutesDialog({
     };
   }
 
-  async function download(event: FormEvent) {
+  async function download(event: FormEvent, format: "DOCX" | "PDF" = "DOCX") {
     event.preventDefault();
     if (pending) return;
     setPending(true);
     setError(undefined);
     try {
-      save(await exportMinutes(meeting.id, heading), `bien-ban-${slug(meeting.title)}.docx`);
+      save(
+        await exportMinutes(meeting.id, heading, format),
+        `bien-ban-${slug(meeting.title)}.${format === "PDF" ? "pdf" : "docx"}`,
+      );
       onOpenChange(false);
     } catch (failed) {
       setError(problemMessage(presentProblem(failed, "mutation").message));
@@ -173,8 +176,16 @@ export function ExportMinutesDialog({
             <Button type="button" prominence="tertiary" onClick={() => onOpenChange(false)}>
               {ui("Huỷ")}
             </Button>
+            <Button
+              type="button"
+              prominence="secondary"
+              disabled={pending}
+              onClick={(event) => void download(event, "PDF")}
+            >
+              {ui("Tải PDF")}
+            </Button>
             <Button type="submit" pending={pending}>
-              {ui("Tải về")}
+              {ui("Tải Word")}
             </Button>
           </DialogFooter>
         </form>

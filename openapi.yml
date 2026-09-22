@@ -6562,7 +6562,7 @@ paths:
     post:
       tags:
       - Meetings
-      summary: Download the minutes as a Vietnamese biên bản in Word format
+      summary: "Download the minutes as a Vietnamese biên bản, in Word or as a PDF"
       operationId: exportMeetingMinutes
       parameters:
       - name: X-MemoryOS-CSRF
@@ -6579,6 +6579,15 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: format
+        in: query
+        required: false
+        schema:
+          type: string
+          default: DOCX
+          enum:
+          - DOCX
+          - PDF
       requestBody:
         content:
           application/json:
@@ -6590,6 +6599,10 @@ paths:
           description: The biên bản
           content:
             application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
               schema:
                 type: string
                 format: binary

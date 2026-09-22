@@ -3511,6 +3511,13 @@ class ChatSessionApiIntegrationTest {
                     .andReturn().getResponse().getContentAsByteArray();
             assertEquals('P', exported[0], "the biên bản is a Word package");
             assertEquals('K', exported[1]);
+            var printed = mockMvc.perform(post("/api/meetings/" + meeting + "/minutes/export?format=PDF")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(heading)).andExpect(status().isOk())
+                    .andExpect(header().string("Content-Type", org.hamcrest.Matchers.startsWith("application/pdf")))
+                    .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString(".pdf")))
+                    .andReturn().getResponse().getContentAsByteArray();
+            assertEquals("%PDF", new String(printed, 0, 4, UTF_8), "and the same biên bản prints as a PDF");
             // The endpoint answers a Word document, so its failures must still answer a problem document.
             mockMvc.perform(post("/api/meetings/" + meeting + "/minutes/export").with(authentication(other)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(heading))
