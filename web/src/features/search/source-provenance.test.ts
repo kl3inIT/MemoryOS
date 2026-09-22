@@ -1,5 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { readSourceLocation } from "./source-provenance";
+import { matchingProvenance, readSourceLocation } from "./source-provenance";
+
+describe("matchingProvenance", () => {
+  const chunks = [
+    { ordinal: 8, provenanceJson: "eight" },
+    { ordinal: 9, provenanceJson: "nine" },
+    { ordinal: 10, provenanceJson: "ten" },
+  ];
+
+  it("leads with the chunk that matched, because that is the passage the reader was shown", () => {
+    expect(matchingProvenance(chunks, 10)).toEqual(["ten", "eight", "nine"]);
+  });
+
+  it("keeps the recorded order when the matching chunk is not among them", () => {
+    expect(matchingProvenance(chunks, 42)).toEqual(["eight", "nine", "ten"]);
+  });
+});
 
 describe("readSourceLocation", () => {
   it("reads Docling pages and boxes, including table rows wrapping block provenance", () => {
@@ -25,6 +41,16 @@ describe("readSourceLocation", () => {
       ...empty,
       pages: [5],
     });
+  });
+
+  it("reads the sheet row a workbook citation sits on, so the reader can mark that row", () => {
+    const location = readSourceLocation([
+      '{"source":{"sheetIndex":0,"sheetName":"Sheet1","visibility":"VISIBLE"},"tableRow":226}',
+    ]);
+    expect(location.sheet).toBe("Sheet1");
+    expect(location.row).toBe(226);
+    // A row without a sheet belongs to a document table, which is located by its text, not by a row number.
+    expect(readSourceLocation(['{"source":[{"page_no":5}],"tableRow":2}']).row).toBeUndefined();
   });
 
   it("reads spreadsheet sheet names and ignores malformed or unrelated provenance", () => {

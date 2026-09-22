@@ -6,6 +6,8 @@ export type ProvenanceBox = PdfHighlight;
 export type SourceLocation = {
   pages: number[];
   sheet?: string;
+  /** The sheet row a workbook citation sits on, which the reader marks instead of searching for its text. */
+  row?: number;
   boxes: ProvenanceBox[];
   /** A cited passage is a table row, whose page keeps the columns that the passage text flattens. */
   table: boolean;
@@ -22,8 +24,10 @@ export function readSourceLocation(provenanceJson: readonly string[]): SourceLoc
   const pages = new Set<number>();
   const boxes: ProvenanceBox[] = [];
   let sheet: string | undefined;
+  let row: number | undefined;
   let table = false;
   let pagesFound = 0;
+  let sheetsFound = 0;
   for (const json of provenanceJson) {
     let value: unknown;
     try {
@@ -33,7 +37,7 @@ export function readSourceLocation(provenanceJson: readonly string[]): SourceLoc
     }
     visit(value, 0);
   }
-  return { pages: [...pages].sort((a, b) => a - b), sheet, boxes, table };
+  return { pages: [...pages].sort((a, b) => a - b), sheet, row, boxes, table };
 
   function visit(value: unknown, depth: number) {
     if (depth > 4 || value === null || typeof value !== "object") return;
@@ -49,13 +53,19 @@ export function readSourceLocation(provenanceJson: readonly string[]): SourceLoc
       const box = readBox(page as number, record.bbox);
       if (box && boxes.length < MAX_BOXES) boxes.push(box);
     }
-    if (!sheet && typeof record.sheetName === "string" && record.sheetName.trim())
-      sheet = record.sheetName.trim().slice(0, 120);
+    if (typeof record.sheetName === "string" && record.sheetName.trim()) {
+      sheetsFound++;
+      if (!sheet) sheet = record.sheetName.trim().slice(0, 120);
+    }
     if ("source" in record) {
-      const before = pagesFound;
+      const pagesBefore = pagesFound;
+      const sheetsBefore = sheetsFound;
       visit(record.source, depth + 1);
+      if (!Number.isInteger(record.tableRow)) return;
       // A table row counts only when its wrapped block provenance records a page.
-      if (Number.isInteger(record.tableRow) && pagesFound > before) table = true;
+      if (pagesFound > pagesBefore) table = true;
+      // A workbook row is recorded against a sheet instead, and is located by that row rather than its text.
+      if (row === undefined && sheetsFound > sheetsBefore) row = record.tableRow as number;
     }
   }
 }
@@ -72,4 +82,19 @@ function readBox(page: number, value: unknown): ProvenanceBox | undefined {
     bottom: b as number,
     origin: origin === "TOPLEFT" ? "TOPLEFT" : "BOTTOMLEFT",
   };
+}
+
+/**
+ * The provenance of a section's chunks, led by the chunk that actually matched. A section can span several
+ * chunks — consecutive rows of a sheet, consecutive paragraphs of a page — and the reader is shown the
+ * matched one, so its own location must be the one a reader reads first.
+ */
+export function matchingProvenance(
+  chunks: readonly { ordinal: number; provenanceJson: string }[],
+  matchingOrdinal: number,
+): string[] {
+  const matched = chunks.filter((chunk) => chunk.ordinal === matchingOrdinal);
+  return [...matched, ...chunks.filter((chunk) => chunk.ordinal !== matchingOrdinal)].map(
+    (chunk) => chunk.provenanceJson,
+  );
 }

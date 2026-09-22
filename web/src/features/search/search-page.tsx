@@ -47,6 +47,7 @@ import { captureWorkflowFailure } from "@/lib/sentry";
 import { cn } from "@/lib/utils";
 import { searchDocuments } from "@/lib/hey-api/sdk.gen";
 import { uiLanguage } from "@/i18n";
+import { matchingProvenance } from "./source-provenance";
 import { useVoiceAvailability } from "@/features/voice/use-voice-availability";
 import { startVoiceDictation, type VoiceDictation } from "@/features/voice/voice-dictation";
 import { requestVoiceTicket, voiceFailureCopy } from "@/features/voice/voice-failure";
@@ -354,7 +355,7 @@ function AuthorizedSearchPage() {
       matches: item.sections.map((candidate) => ({
         matchingOrdinal: candidate.matchingOrdinal,
         from: Math.max(0, candidate.matchingOrdinal - 1),
-        provenance: candidate.provenance.map((entry) => entry.provenanceJson),
+        provenance: matchingProvenance(candidate.provenance, candidate.matchingOrdinal),
       })),
       activeMatchIndex,
     });

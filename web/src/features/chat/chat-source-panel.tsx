@@ -13,7 +13,7 @@ import { documentOriginalReader } from "@/features/search/document-original-read
 import { useDocumentReading } from "@/features/search/document-reading";
 import { firstEvidenceView, type EvidenceView } from "@/features/search/evidence-order";
 import { EvidenceViewSwitch } from "@/features/search/evidence-view-switch";
-import { readSourceLocation } from "@/features/search/source-provenance";
+import { matchingProvenance, readSourceLocation } from "@/features/search/source-provenance";
 import {
   DocumentPreviewDialog,
   type DocumentSelection,
@@ -35,7 +35,7 @@ function citationSelection(source: ChatSource): DocumentSelection {
         from: Math.max(0, (ordinal ?? source.startOrdinal) - 2),
         matchingOrdinal: ordinal ?? source.startOrdinal,
         matchingEndOrdinal: ordinal ?? source.endOrdinal,
-        provenance: source.provenance.map((item) => item.provenanceJson),
+        provenance: matchingProvenance(source.provenance, ordinal ?? source.startOrdinal),
       },
     ],
     activeMatchIndex: 0,
@@ -57,7 +57,7 @@ function ChatDocumentEvidence({
 }) {
   const selection = citationSelection(source);
   const reading = useDocumentReading(selection, "chat", source.fileId ?? undefined);
-  const location = readSourceLocation(source.provenance.map((item) => item.provenanceJson));
+  const location = readSourceLocation(selection.matches[0]!.provenance ?? []);
   const original =
     source.documentId && source.generation
       ? {
