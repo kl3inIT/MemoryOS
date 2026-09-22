@@ -28,7 +28,8 @@ public final class Meeting {
     /** Where a meeting's generated minutes are: never asked for, queued, running, written or given up on. */
     public enum MinutesStatus { NONE, PENDING, RUNNING, READY, FAILED }
 
-    public enum ItemKind { DECISION, ACTION }
+    /** A decision the meeting reached, work it handed out, or a subject it moved on to. */
+    public enum ItemKind { DECISION, ACTION, TOPIC }
 
     /** A decision the meeting reached or work it handed out, with the line it rests on. */
     public record MinutesItem(UUID id, ItemKind kind, String text, @Nullable String owner, @Nullable String due,
@@ -43,10 +44,10 @@ public final class Meeting {
     /** What a run of the minutes job produced, as the owner reads it. */
     public record Minutes(MinutesStatus status, @Nullable String failure, String summary, String kind,
                           @Nullable Instant generatedAt, List<MinutesItem> decisions, List<MinutesItem> actions,
-                          boolean edited) {
+                          boolean edited, List<MinutesItem> topics) {
         public Minutes(MinutesStatus status, @Nullable String failure, String summary, String kind,
                 @Nullable Instant generatedAt, List<MinutesItem> decisions, List<MinutesItem> actions) {
-            this(status, failure, summary, kind, generatedAt, decisions, actions, false);
+            this(status, failure, summary, kind, generatedAt, decisions, actions, false, List.of());
         }
     }
 

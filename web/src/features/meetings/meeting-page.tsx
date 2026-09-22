@@ -1104,8 +1104,42 @@ function Transcript({
             : ui("Cuộc họp này chưa có transcript.")}
       </p>
     );
+  const topics = meeting.minutes.topics
+    .map((topic) => ({
+      topic,
+      line: meeting.utterances.find((utterance) => utterance.id === topic.sourceUtteranceId),
+    }))
+    .filter((entry) => entry.line !== undefined);
+
   return (
     <div className="grid gap-3">
+      {topics.length > 0 && !starredOnly && (
+        <nav
+          aria-label={ui("Dòng thời gian")}
+          className="rounded-xl border border-border-default p-2"
+        >
+          <ol className="grid gap-0.5">
+            {topics.map(({ topic, line }) => (
+              <li key={topic.id}>
+                <button
+                  type="button"
+                  className="grid w-full grid-cols-[4.5rem_1fr] gap-x-3 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-surface-base"
+                  onClick={() =>
+                    document
+                      .getElementById(line!.id)
+                      ?.scrollIntoView({ block: "start", behavior: "smooth" })
+                  }
+                >
+                  <span className="font-mono text-xs text-content-muted tabular-nums">
+                    {formatClock(line!.startMs)}
+                  </span>
+                  <span className="text-content-primary">{topic.text}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )}
       {tools}
       {shown.length === 0 && (
         <p className="text-sm text-content-muted">{ui("Chưa đánh dấu câu nào.")}</p>
@@ -1114,7 +1148,8 @@ function Transcript({
         {shown.map((utterance) => (
           <li
             key={utterance.id}
-            className="grid grid-cols-[4.5rem_1fr_auto] gap-x-3 rounded-lg px-2 py-2 hover:bg-surface-base"
+            id={utterance.id}
+            className="grid scroll-mt-24 grid-cols-[4.5rem_1fr_auto] gap-x-3 rounded-lg px-2 py-2 hover:bg-surface-base"
           >
             <span className="pt-0.5 font-mono text-xs text-content-muted tabular-nums">
               {formatClock(utterance.startMs)}

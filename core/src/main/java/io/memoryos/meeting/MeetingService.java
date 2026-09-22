@@ -174,7 +174,7 @@ public class MeetingService {
         String cleanOwner = optional(owner, MAX_NAME, "An owner");
         String cleanDue = optional(due, MAX_DUE, "A deadline");
         // A decision belongs to the meeting, not to a person, so it carries neither an owner nor a deadline.
-        if (item.kind() == Meeting.ItemKind.DECISION && (cleanOwner != null || cleanDue != null))
+        if (item.kind() != Meeting.ItemKind.ACTION && (cleanOwner != null || cleanDue != null))
             throw MeetingException.invalid("A decision has no owner and no deadline.");
         record Change(Meeting.MinutesField field, String before, String after) {}
         var changes = new ArrayList<Change>(3);
@@ -458,7 +458,8 @@ public class MeetingService {
         var minutes = new Meeting.Minutes(row.minutesStatus(), row.minutesFailure(), row.minutesSummary(), row.minutesKind(),
                 row.minutesGeneratedAt(),
                 items.stream().filter(item -> item.kind() == Meeting.ItemKind.DECISION).toList(),
-                items.stream().filter(item -> item.kind() == Meeting.ItemKind.ACTION).toList(), row.minutesEdited());
+                items.stream().filter(item -> item.kind() == Meeting.ItemKind.ACTION).toList(), row.minutesEdited(),
+                items.stream().filter(item -> item.kind() == Meeting.ItemKind.TOPIC).toList());
         return new Meeting.Detail(row.id(), row.title(), row.kind(), row.language(), row.participants(), row.terms(),
                 row.owned() ? row.notes() : "", row.status(), row.provider(), row.diarized(), row.createdAt(),
                 row.endedAt(), row.revision(), meetings.speakers(tenant, id), meetings.utterances(tenant, id), minutes,

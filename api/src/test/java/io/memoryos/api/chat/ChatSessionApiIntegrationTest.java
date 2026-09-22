@@ -3425,7 +3425,9 @@ class ChatSessionApiIntegrationTest {
                      "decisions":[{"text":"Chốt ngân sách quý 4 trước thứ Năm","quote":"Chốt ngân sách quý 4 trước thứ Năm.","line":1}],
                      "actions":[{"text":"Gửi bảng KPI tháng 9","owner":"Chị Lan","due":"chiều nay",
                                  "quote":"Em gửi bảng KPI tháng 9 chiều nay.","line":2},
-                                {"text":"","owner":null,"due":null,"quote":null,"line":9}]}
+                                {"text":"","owner":null,"due":null,"quote":null,"line":9}],
+                     "topics":[{"title":"Số liệu KPI","line":2},{"title":"Ngân sách quý 4","line":1},
+                               {"title":"Trùng dòng","line":1},{"title":"Không có dòng này","line":9}]}
                     """, "stop", 40);
         });
         UUID meeting = UUID.randomUUID();
@@ -3466,6 +3468,11 @@ class ChatSessionApiIntegrationTest {
             assertEquals(utterances[0].toString(), minutes.path("decisions").get(0).path("sourceUtteranceId").asText(),
                     "a decision points at the line it rests on");
             assertEquals(1, minutes.path("actions").size(), "an item with no text is dropped");
+            var topics = minutes.path("topics");
+            assertEquals(2, topics.size(), "a topic on a line that is not there, or on a line already taken, is dropped");
+            assertEquals("Ngân sách quý 4", topics.get(0).path("text").asText(), "in the order the meeting reached them");
+            assertEquals(utterances[0].toString(), topics.get(0).path("sourceUtteranceId").asText());
+            assertEquals("Số liệu KPI", topics.get(1).path("text").asText());
             var action = minutes.path("actions").get(0);
             assertEquals("Chị Lan", action.path("owner").asText());
             assertEquals("chiều nay", action.path("due").asText());

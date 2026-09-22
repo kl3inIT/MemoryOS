@@ -18380,6 +18380,12 @@ components:
           type: boolean
           description: Whether the words standing now are the owner's rather than
             the model's
+        topics:
+          type: array
+          description: "The subjects the meeting moved through, each at the line it\
+            \ began"
+          items:
+            $ref: "#/components/schemas/MeetingMinutesItem"
       required:
       - actions
       - decisions
@@ -18389,6 +18395,7 @@ components:
       - kind
       - status
       - summary
+      - topics
     MeetingMinutesItem:
       type: object
       description: A decision the meeting reached or work it handed out

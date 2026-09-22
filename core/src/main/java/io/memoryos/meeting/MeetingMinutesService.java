@@ -91,6 +91,9 @@ public class MeetingMinutesService {
             items.add(new Meeting.MinutesItem(UUID.randomUUID(), Meeting.ItemKind.ACTION, bounded(action.text()),
                     shortText(action.owner()), shortText(action.due()), bounded(action.quote()),
                     source(action.line(), utterances), false));
+        for (var topic : summary.topics())
+            items.add(new Meeting.MinutesItem(UUID.randomUUID(), Meeting.ItemKind.TOPIC, bounded(topic.title()), null,
+                    null, null, source(topic.line(), utterances), false));
         return items;
     }
 

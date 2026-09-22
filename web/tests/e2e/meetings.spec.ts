@@ -92,6 +92,7 @@ async function mockMeetings(page: Page) {
           decisions: [],
           actions: [],
           edited: false,
+          topics: [],
         },
         audio: { status: "NONE", failure: null, filename: null, sizeBytes: 0, provider: null },
         owned: true,
@@ -209,6 +210,7 @@ async function mockMeetings(page: Page) {
             quote: "Tuần này bên mình phải chốt ngân sách quý 4 trước thứ Năm, không lùi nữa.",
             sourceUtteranceId: "u1",
             done: false,
+            edited: false,
           },
         ],
         actions: [
@@ -220,8 +222,11 @@ async function mockMeetings(page: Page) {
             quote: "Vậy anh Minh kiểm tra lại các bảng cân đối, xong trước thứ Tư nhé.",
             sourceUtteranceId: "u3",
             done: false,
+            edited: false,
           },
         ],
+        edited: false,
+        topics: [topic("t1", "Ngân sách quý 4", "u1"), topic("t2", "Số liệu KPI tháng 9", "u2")],
       },
     };
     await route.fulfill({ json: meeting });
@@ -579,6 +584,12 @@ for (const width of [1440, 390]) {
 
     // What the model would change, and what it already changed, both live above the transcript.
     await page.getByRole("tab", { name: "Transcript" }).click();
+    // The timeline is a table of contents: each subject jumps to the line it began on.
+    const timeline = page.getByRole("navigation", { name: "Dòng thời gian" });
+    await expect(timeline.getByRole("button", { name: /Ngân sách quý 4/ })).toBeVisible();
+    await timeline.getByRole("button", { name: /Số liệu KPI tháng 9/ }).click();
+    await expect(page.locator("#u2")).toBeInViewport();
+
     // Searching the transcript, and keeping one line for later.
     const find = page.getByRole("textbox", { name: "Tìm trong transcript" });
     await find.fill("KPI");
@@ -613,4 +624,17 @@ for (const width of [1440, 390]) {
       fullPage: true,
     });
   });
+}
+
+function topic(id: string, text: string, sourceUtteranceId: string) {
+  return {
+    id,
+    text,
+    owner: null,
+    due: null,
+    quote: null,
+    sourceUtteranceId,
+    done: false,
+    edited: false,
+  };
 }

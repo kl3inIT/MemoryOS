@@ -7,11 +7,20 @@ import org.jspecify.annotations.Nullable;
  * What a model made of one transcript. Every decision and action cites the line it rests on, so a reader can check it;
  * an item without a quote is dropped rather than shown unsupported.
  */
-public record TranscriptSummary(String summary, String kind, List<Decision> decisions, List<Action> actions) {
+public record TranscriptSummary(String summary, String kind, List<Decision> decisions, List<Action> actions,
+                                List<Topic> topics) {
     public TranscriptSummary {
         decisions = List.copyOf(decisions);
         actions = List.copyOf(actions);
+        topics = topics == null ? List.of() : List.copyOf(topics);
     }
+
+    public TranscriptSummary(String summary, String kind, List<Decision> decisions, List<Action> actions) {
+        this(summary, kind, decisions, actions, List.of());
+    }
+
+    /** Where the meeting moved on to something else: a few words for it, and the line it began on. */
+    public record Topic(String title, int line) {}
 
     /** A choice the meeting settled on. */
     public record Decision(String text, @Nullable String quote, int line) {}

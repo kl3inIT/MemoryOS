@@ -217,6 +217,10 @@ export type MeetingMinutes = {
      * Whether the words standing now are the owner's rather than the model's
      */
     edited: boolean;
+    /**
+     * The subjects the meeting moved through, each at the line it began
+     */
+    topics: Array<MeetingMinutesItem>;
 };
 
 /**
