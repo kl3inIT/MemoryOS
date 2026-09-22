@@ -177,10 +177,21 @@ jobs:
         run: |
           remote="/apps/memoryos/incoming/$RELEASE"
           ssh -F "$RUNNER_TEMP/deploy-ssh/config" deploy-target "umask 077; mkdir '$remote'"
-          cp "$RUNNER_TEMP/release-config/infrastructure/deployment/deploy.sh" release/
+          # A release published before the rename carries deploy-staging.sh, which takes no environment
+          # argument and resolves staging paths only. Such a release can still be deployed, to staging
+          # alone; production must select one published after the rename.
+          script="$RUNNER_TEMP/release-config/infrastructure/deployment/deploy.sh"
+          if [[ -f "$script" ]]; then
+            cp "$script" release/deploy.sh
+            call="deploy '$RELEASE' '$DEPLOY_ENVIRONMENT' '$GITHUB_ACTOR'"
+          else
+            [[ "$DEPLOY_ENVIRONMENT" == staging ]]
+            cp "${script%/*}/deploy-staging.sh" release/deploy.sh
+            call="deploy '$RELEASE' '$GITHUB_ACTOR'"
+          fi
           scp -F "$RUNNER_TEMP/deploy-ssh/config" release/* "deploy-target:$remote/"
           printf '%s' "$REGISTRY_TOKEN" | ssh -F "$RUNNER_TEMP/deploy-ssh/config" deploy-target \
-            "sudo -n bash '$remote/deploy.sh' deploy '$RELEASE' '$DEPLOY_ENVIRONMENT' '$GITHUB_ACTOR'"
+            "sudo -n bash '$remote/deploy.sh' $call"
 
       - name: Finalize the healthy deployment
         if: steps.release.outputs.ready == 'true'

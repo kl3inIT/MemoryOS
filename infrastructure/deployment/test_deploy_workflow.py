@@ -84,6 +84,16 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
             self.assertIn(call, WORKFLOW, call)
         self.assertIn('[[ "$DEPLOY_ENVIRONMENT" =~ ^(staging|production)$ ]]', WORKFLOW)
 
+    def test_a_release_predating_the_rename_can_only_reach_staging(self):
+        # Its script resolves staging paths and takes no environment argument, so production must
+        # select a newer release rather than silently deploy staging configuration.
+        rollout = WORKFLOW.split("- name: Back up, migrate and wait for readiness", 1)[1].split("- name: Finalize", 1)[0]
+        fallback = 'cp "${script%/*}/deploy-staging.sh" release/deploy.sh'
+        self.assertIn(fallback, rollout)
+        self.assertIn('[[ "$DEPLOY_ENVIRONMENT" == staging ]]', rollout)
+        self.assertLess(rollout.index('[[ "$DEPLOY_ENVIRONMENT" == staging ]]'), rollout.index(fallback))
+        self.assertIn("""call="deploy '$RELEASE' '$GITHUB_ACTOR'\"""", rollout)
+
     def test_both_environments_share_one_delivery_workflow(self):
         # Forking the delivery logic per environment is what this split exists to prevent.
         for caller in CALLERS:
