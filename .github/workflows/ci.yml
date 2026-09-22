@@ -23,9 +23,12 @@ defaults:
   run:
     shell: bash
 
+# One run per branch, and the newest commit wins. Keying main by its commit let three of them verify at once,
+# each publishing a release, so the deploys that followed took turns calling one another stale. A commit that
+# supersedes another already contains it, so finishing the older run proves nothing worth waiting for.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   changes:
