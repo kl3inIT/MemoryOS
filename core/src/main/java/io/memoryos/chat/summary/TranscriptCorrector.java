@@ -39,6 +39,13 @@ public class TranscriptCorrector {
     static final int MAX_OUTPUT_TOKENS = 4096;
     /** Stretches per model call. Smaller than ghiam-pro's 45, so one batch's answer fits in the output budget. */
     static final int BATCH = 25;
+    /**
+     * Stretches one pass will look at. It bounds how long the pass can take, and the meeting that holds it: at
+     * {@link #BATCH} per call and {@link #TIMEOUT} per call the worst case must stay inside
+     * {@code MeetingCorrectionService.WINDOW}, or a second press could start a pass beside the first. ghiam-pro
+     * stops at 600, and a meeting with more uncertain stretches than this has a microphone problem, not a wording one.
+     */
+    public static final int MAX_STRETCHES = 300;
     /** Characters of the speaker's own words on either side of the stretch. */
     static final int CONTEXT_CHARS = 100;
     /** Lines shown either side of the one being looked at, as ghiam-pro shows two. */
@@ -82,6 +89,7 @@ public class TranscriptCorrector {
     public TranscriptCorrections propose(ActorId actor, UUID tenant, Subject subject, List<Line> lines,
                                          List<Stretch> stretches) {
         if (stretches.isEmpty()) return new TranscriptCorrections(List.of());
+        if (stretches.size() > MAX_STRETCHES) stretches = stretches.subList(0, MAX_STRETCHES);
         var byId = new LinkedHashMap<String, Line>();
         for (var line : lines) byId.put(line.id(), line);
         var proposals = new ArrayList<TranscriptCorrections.Proposal>(stretches.size());

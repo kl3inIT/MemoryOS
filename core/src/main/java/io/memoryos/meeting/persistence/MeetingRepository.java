@@ -527,10 +527,17 @@ public class MeetingRepository {
                 .param("before", before).param("after", after).update();
     }
 
-    /** Whether this line has ever been changed, which is what makes its current text no longer the provider's. */
-    public boolean everChanged(UUID tenant, UUID utterance) {
-        return jdbc.sql("SELECT count(*) FROM meeting_utterance_event WHERE tenant_id = :tenant AND utterance_id = :utterance")
-                .param("tenant", tenant).param("utterance", utterance).query(Integer.class).single() > 0;
+    /**
+     * Who owns the words a line is about to be left with: the source of the newest change that produced exactly this
+     * text, or nothing at all when it is back to what the provider first wrote.
+     */
+    public Meeting.@Nullable EditSource standingEdit(UUID tenant, UUID utterance, String text) {
+        return jdbc.sql("""
+                SELECT source FROM meeting_utterance_event
+                WHERE tenant_id = :tenant AND utterance_id = :utterance AND after = :text AND source <> 'REVERT'
+                ORDER BY id DESC LIMIT 1
+                """).param("tenant", tenant).param("utterance", utterance).param("text", text)
+                .query(String.class).optional().map(Meeting.EditSource::valueOf).orElse(null);
     }
 
     private static Meeting.Correction correction(ResultSet r, int ignored) throws SQLException {

@@ -7,6 +7,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { uiLocale } from "@/i18n/format";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
+import { Said } from "./transcript-text";
 import {
   acceptAllCorrections,
   acceptCorrection,
@@ -65,7 +66,7 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
     <section className="grid gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <Button
-          variant="outline"
+          prominence="secondary"
           size="sm"
           disabled={busy}
           onClick={() => guard(() => run.mutateAsync())}
@@ -75,7 +76,7 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
         </Button>
         {pending.length > 0 && runId && (
           <Button
-            variant="ghost"
+            prominence="tertiary"
             size="sm"
             disabled={busy}
             onClick={() =>
@@ -89,7 +90,7 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
 
       {error && <p className="text-sm text-status-danger-content">{error}</p>}
 
-      {run.isSuccess && pending.length === 0 && applied.length === 0 && (
+      {run.isSuccess && run.data.corrections.length === 0 && (
         <p className="text-sm text-content-muted">{ui("Không có chỗ nào cần sửa.")}</p>
       )}
 
@@ -99,13 +100,19 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
             key={item.id}
             className="grid gap-2 rounded-xl border border-border-default px-3 py-3"
           >
+            <p className="text-sm text-content-muted">
+              <Said
+                text={said(meeting, item.utteranceId)}
+                spans={[{ start: item.start, end: item.end, confidence: item.confidence }]}
+              />
+            </p>
             <div className="flex flex-wrap items-baseline gap-2 text-sm">
               <s className="text-content-muted">{item.before}</s>
               <span aria-hidden="true" className="text-content-muted">
                 →
               </span>
               <Input
-                className="h-8 w-auto min-w-40 flex-1"
+                className="h-8 w-auto max-w-xs min-w-40"
                 value={wording[item.id] ?? item.after}
                 aria-label={ui("Chữ thay thế")}
                 onChange={(event) =>
@@ -142,7 +149,7 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
                 {ui("Nhận")}
               </Button>
               <Button
-                variant="ghost"
+                prominence="secondary"
                 size="sm"
                 disabled={busy}
                 onClick={() =>
@@ -170,7 +177,7 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
               </span>
               <span>{item.after}</span>
               <Button
-                variant="ghost"
+                prominence="tertiary"
                 size="sm"
                 className="ml-auto"
                 disabled={busy}
@@ -187,6 +194,11 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
       )}
     </section>
   );
+}
+
+/** The sentence a proposal sits in. A few words cannot be judged without the ones around them. */
+function said(meeting: MeetingDetail, utteranceId: string) {
+  return meeting.utterances.find((utterance) => utterance.id === utteranceId)?.text ?? "";
 }
 
 function Score({ label, value }: { label: string; value: number }) {

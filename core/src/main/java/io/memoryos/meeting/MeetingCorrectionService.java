@@ -24,8 +24,12 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class MeetingCorrectionService {
-    /** How long one pass may hold the meeting before another press may start again. */
-    static final Duration WINDOW = Duration.ofMinutes(10);
+    /**
+     * How long one pass may hold the meeting before another press may start again. It has to outlast the worst run
+     * the corrector allows itself — {@code MAX_STRETCHES / BATCH} calls of {@code TIMEOUT} each — or two passes
+     * could write proposals for the same meeting at once.
+     */
+    static final Duration WINDOW = Duration.ofMinutes(30);
     /** A line nobody could read is not worth a model call. */
     private static final int MIN_STRETCH = 2;
 
@@ -174,8 +178,8 @@ public class MeetingCorrectionService {
                 throw MeetingException.conflict();
             String applied = replaced(utterance.text(), correction.start(), end, correction.before());
             meetings.rewrite(tenant, meetingId, utterance.id(), utterance.text(), applied,
-                    restored(utterance.spans(), correction), source(tenant, utterance.id(), true), correction.runId(),
-                    actor.value(), "REVERT");
+                    restored(utterance.spans(), correction), reverted(tenant, utterance.id(), applied),
+                    correction.runId(), actor.value(), "REVERT");
             meetings.decide(tenant, correctionId, Meeting.CorrectionStatus.REVERTED, actor.value());
         });
         return details.get(actor, meetingId);
@@ -202,9 +206,12 @@ public class MeetingCorrectionService {
         meetings.accepted(tenant, correction.id(), actor.value(), chosen);
     }
 
-    private Meeting.@Nullable EditSource source(UUID tenant, UUID utterance, boolean reverting) {
-        // After a revert the line may be back to the provider's own words, and then nobody has changed it after all.
-        return reverting && !meetings.everChanged(tenant, utterance) ? null : Meeting.EditSource.MODEL;
+    /**
+     * Who a reverted line belongs to now. Back at the provider's own words means nobody has changed it after all,
+     * which also unlocks it for a later pass; otherwise it keeps whoever made the change still standing.
+     */
+    private Meeting.@Nullable EditSource reverted(UUID tenant, UUID utterance, String text) {
+        return meetings.standingEdit(tenant, utterance, text);
     }
 
     private static List<TranscriptCorrector.Range> merged(Meeting.Utterance utterance) {

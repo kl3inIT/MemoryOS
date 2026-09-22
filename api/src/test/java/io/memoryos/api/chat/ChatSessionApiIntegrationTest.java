@@ -3233,6 +3233,8 @@ class ChatSessionApiIntegrationTest {
                             .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
             assertEquals(said, reverted.path("utterances").get(0).path("text").asText());
+            assertTrue(reverted.path("utterances").get(0).path("editSource").isNull(),
+                    "back at the provider's own words, so nobody has changed this line after all");
             assertEquals("REVERTED", Json.mapper().readTree(mockMvc.perform(
                     get("/api/meetings/" + meeting + "/corrections").with(authentication(actor)))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
