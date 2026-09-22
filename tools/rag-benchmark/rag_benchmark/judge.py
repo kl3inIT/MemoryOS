@@ -12,9 +12,9 @@ import httpx
 
 from .config import Config
 
-# Coverage, not resemblance: the reply must carry what the gold answer carries and contradict none of
-# it. The first rubric also failed any reply that said more, which marked correct, better-cited answers
-# wrong — 19 of 24 failures in the first staging run were that rule alone.
+# Coverage, not resemblance: the reply must carry what the gold answer carries and contradict
+# none of it. The first rubric also failed any reply that said more, which marked correct,
+# better-cited answers wrong — 19 of 24 failures in the first staging run were that rule alone.
 SYSTEM = (
     "Bạn chấm câu trả lời của một trợ lý nội bộ. So sánh câu trả lời với đáp án chuẩn. "
     'Trả về JSON {"correct": true|false, "reason": "..."}. '
