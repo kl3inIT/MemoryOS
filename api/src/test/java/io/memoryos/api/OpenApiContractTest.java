@@ -119,6 +119,7 @@ class OpenApiContractTest {
             "/api/meetings/{meetingId}/tickets",
             "/api/meetings/{meetingId}/bookmarks",
             "/api/meetings/{meetingId}/bookmarks/{bookmarkId}",
+            "/api/meetings/{meetingId}/transcript",
             "/api/meetings/{meetingId}/corrections",
             "/api/meetings/{meetingId}/corrections/accept-all",
             "/api/meetings/{meetingId}/corrections/revert-all",

@@ -33,6 +33,8 @@ Minutes to send:
 - [x] Vietnamese administrative minutes (*biên bản*) and Word export, built in Java with Apache POI XWPF, which the repository already carries for spreadsheets. The export is deterministic, testable and free of a model call; `run_python` stays for one-off formats a person asks Chat for. Layout follows Nghị định 30/2020 Mẫu 1.9 (Quốc hiệu/Tiêu ngữ, tên cơ quan, thời gian và địa điểm, I. Thành phần, II. Nội dung, III. Kết luận, IV. Nhiệm vụ, chữ ký chủ tọa and thư ký), which binds state bodies only — a private company such as Tasco follows it by convention, so the fields stay editable before export. A second template for *giao ban* and one for HĐQT/ĐHĐCĐ (Luật Doanh nghiệp 2020 điều 150/158 require the vote tallies and percentages) come only if asked for.
 - [ ] Uploading a company's own `.docx` template is deferred: no notetaker ships it (0 of 20 surveyed; Glean states its format is fixed), and it needs Word content controls plus office-stamper or docx4j to survive Word splitting a placeholder across runs. Revisit when Tasco supplies a real ISO biểu mẫu.
 
+- [x] Download the transcript as Word or PDF, for sending to somebody who was not there.
+
 Vietnamese transcript quality:
 
 - [x] Transcript correction suggestions with review and undo, using the span logic learned from ghiam-pro and the user glossary — [MEM-183](https://linear.app/memory-os/issue/MEM-183). One button proposes for every marked stretch; the owner accepts, accepts in their own words or keeps what was heard, and anything applied can be undone. Accepting the sure ones without review, behind the owner's own choice, is PR B and comes next.

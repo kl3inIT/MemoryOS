@@ -17,6 +17,8 @@ export const vietnameseUi: Record<string, string> = {
   "Viết lại": "Write again",
   "Soát lỗi nhận dạng": "Check what was misheard",
   "Tìm trong transcript": "Search the transcript",
+  "Tải Word": "Download Word",
+  "Tải PDF": "Download PDF",
   "{{at}}/{{total}}": "{{at}}/{{total}}",
   "Không thấy": "No hits",
   "Kết quả sau": "Next hit",

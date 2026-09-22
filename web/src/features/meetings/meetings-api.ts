@@ -17,6 +17,7 @@ import {
   markMeetingMinutesItem,
   nameMeetingSpeaker,
   proposeMeetingCorrections,
+  exportMeetingTranscript,
   publishMeetingMinutes,
   removeMeetingBookmark,
   rerunMeetingMinutes,
@@ -254,6 +255,16 @@ export async function exportMinutes(
     path: { meetingId },
     body: heading,
     headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data as Blob;
+}
+
+/** Downloads what was said, for reading elsewhere or for sending to somebody who was not there. */
+export async function exportTranscript(meetingId: string, format: "DOCX" | "PDF"): Promise<Blob> {
+  const { data } = await exportMeetingTranscript({
+    path: { meetingId },
+    query: { format },
     throwOnError: true,
   });
   return data as Blob;

@@ -47,6 +47,12 @@ Searching a transcript happens in the browser over what is already loaded; no ro
 
 Two marks belong to whoever left them, and nobody else sees them — a meeting five people read collects five sets. A **star** says a line matters and is left afterwards, while reading: `PUT` and `DELETE /api/meetings/{id}/utterances/{utteranceId}/star`, answered with the meeting as that reader sees it. A **bookmark** says to come back to a moment and is left during the meeting, when there is no line yet to star: `POST /api/meetings/{id}/bookmarks` takes milliseconds from the start of the recording and a label, numbering it `Đánh dấu N` when none is given, and `DELETE /api/meetings/{id}/bookmarks/{bookmarkId}` takes back one of the caller's own. At most 200 bookmarks per person per meeting, and a time outside the recording is refused. Anyone who reads the meeting may leave both; the meeting carries `starred` and `bookmarks` for the caller alone.
 
+## Taking the transcript away
+
+`GET /api/meetings/{id}/transcript?format=DOCX|PDF` answers what was said — every line with its time and the name of whoever said it — to anybody who can read the meeting. It is not the biên bản: nothing is arranged around it, and no model runs, so the same meeting always produces the same file. A meeting with no transcript yet is refused.
+
+Both files are built from one list of lines, so they say exactly the same thing. Word uses Times New Roman as the minutes do. The PDF embeds the bundled Hanken Grotesk, because the built-in PDF typefaces cannot draw Vietnamese; text is composed to NFC so its marks land on the font's own glyphs, and a character the typeface lacks becomes a question mark rather than failing the download. A speaker nobody named reads as `Người nói 1`, or `Speaker 1` in an English meeting.
+
 ## Correcting what was misheard
 
 The owner asks a model what was probably said at each marked stretch: `POST /api/meetings/{id}/corrections` answers the run and its proposals, and changes nothing. Only the owner reaches any of this — a reader of a shared meeting gets 404 — and the call is billed to the owner's Tenant as `MEETING_CORRECTION`, a model flow an administrator selects like any other. One pass at a time per meeting; a second press while one is running answers 409.

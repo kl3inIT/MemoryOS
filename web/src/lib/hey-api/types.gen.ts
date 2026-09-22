@@ -13349,6 +13349,47 @@ export type GetMeetingResponses = {
 
 export type GetMeetingResponse = GetMeetingResponses[keyof GetMeetingResponses];
 
+export type ExportMeetingTranscriptData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: {
+        format?: 'DOCX' | 'PDF';
+    };
+    url: '/api/meetings/{meetingId}/transcript';
+};
+
+export type ExportMeetingTranscriptErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type ExportMeetingTranscriptError = ExportMeetingTranscriptErrors[keyof ExportMeetingTranscriptErrors];
+
+export type ExportMeetingTranscriptResponses = {
+    /**
+     * The transcript
+     */
+    200: Blob | File;
+};
+
+export type ExportMeetingTranscriptResponse = ExportMeetingTranscriptResponses[keyof ExportMeetingTranscriptResponses];
+
 export type ListMeetingTranscribersData = {
     body?: never;
     path?: never;

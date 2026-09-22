@@ -29,6 +29,7 @@
 | Accepting moves the line's remaining marks: one covering the replaced words is dropped, one before it stays and one after it lands on the same word | `MeetingCorrectionSpansTest` |
 | A star and a bookmark belong to the reader who left them: the owner reading the same meeting sees neither, an unnamed bookmark is numbered, a time outside the recording is refused, a line of another meeting cannot be starred through this one, and one reader cannot take back another's mark | `ChatSessionApiIntegrationTest.starsAndBookmarksBelongToWhoeverLeftThemAndNobodyElseSeesThem` |
 | Searching the transcript counts its hits and filtering to starred lines hides the rest | `tests/e2e/meetings.spec.ts` |
+| The Word file and the PDF carry every line with its time and speaker, a named speaker keeps their name, an unnamed one is numbered in the meeting's language, the clock grows an hour only past an hour, and Vietnamese marks survive into the PDF page | `MeetingTranscriptExportTest`: the bytes are read back with `XWPFDocument` and `PDFTextStripper` |
 | Meeting routes are documented and CSRF-protected in the committed OpenAPI | `OpenApiContractTest` |
 | Every WebSocket path the browser opens lands in an nginx location that forwards the upgrade, resolved the way nginx resolves it (exact `=` first, then regex) | `web/scripts/nginx-websocket-routes.test.mjs`: parses the shipped `nginx.conf` |
 

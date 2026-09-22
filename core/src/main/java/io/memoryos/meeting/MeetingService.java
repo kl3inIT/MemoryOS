@@ -143,6 +143,22 @@ public class MeetingService {
 
     /** Renders the minutes as a Vietnamese biên bản in Word format. Nothing is stored; the heading comes with the call. */
     @Transactional(readOnly = true)
+    /** What the transcript is downloaded as. Both say the same thing; one is for editing and one for reading. */
+    public enum TranscriptFormat { DOCX, PDF }
+
+    /**
+     * The transcript itself, for anybody who can read the meeting. This is not the biên bản: it is what was said,
+     * with the time and the speaker, and nothing arranged around it.
+     */
+    @Transactional(readOnly = true)
+    public byte[] exportTranscript(ActorId actor, UUID id, TranscriptFormat format) {
+        var meeting = readable(tenant(actor), actor, id);
+        if (meeting.utterances().isEmpty()) throw MeetingException.invalid("This meeting has no transcript yet.");
+        return format == TranscriptFormat.PDF
+                ? MeetingTranscriptPdf.render(meeting)
+                : MeetingTranscriptDocument.render(meeting);
+    }
+
     public byte[] exportMinutes(ActorId actor, UUID id, MeetingMinutesDocument.Heading heading) {
         UUID tenant = tenant(actor);
         var meeting = readable(tenant, actor, id);

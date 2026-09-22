@@ -40,6 +40,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -632,6 +633,26 @@ class MeetingController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
                         .filename("bien-ban-" + meetingId + ".docx", StandardCharsets.UTF_8).build().toString())
                 .contentType(MediaType.parseMediaType(DOCX)).body(document);
+    }
+
+    @GetMapping("/{meetingId}/transcript")
+    @Operation(operationId = "exportMeetingTranscript",
+            summary = "Download what was said, with its times and speakers, as Word or PDF")
+    @ApiResponse(responseCode = "200", description = "The transcript",
+            content = {@Content(mediaType = DOCX, schema = @Schema(type = "string", format = "binary")),
+                    @Content(mediaType = MediaType.APPLICATION_PDF_VALUE, schema = @Schema(type = "string", format = "binary"))})
+    @ApiResponse(responseCode = "400", description = "The meeting has no transcript yet", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    ResponseEntity<byte[]> transcript(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                                      @PathVariable UUID meetingId,
+                                      @RequestParam(defaultValue = "DOCX") MeetingService.TranscriptFormat format) {
+        byte[] document = meetings.exportTranscript(identity.actorId(), meetingId, format);
+        boolean pdf = format == MeetingService.TranscriptFormat.PDF;
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename("transcript-" + meetingId + (pdf ? ".pdf" : ".docx"), StandardCharsets.UTF_8)
+                        .build().toString())
+                .contentType(pdf ? MediaType.APPLICATION_PDF : MediaType.parseMediaType(DOCX)).body(document);
     }
 
     @DeleteMapping("/{meetingId}")

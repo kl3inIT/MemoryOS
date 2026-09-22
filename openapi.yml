@@ -13017,6 +13017,63 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}/transcript:
+    get:
+      tags:
+      - Meetings
+      summary: "Download what was said, with its times and speakers, as Word or PDF"
+      operationId: exportMeetingTranscript
+      parameters:
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: format
+        in: query
+        required: false
+        schema:
+          type: string
+          default: DOCX
+          enum:
+          - DOCX
+          - PDF
+      responses:
+        "200":
+          description: The transcript
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings/transcribers:
     get:
       tags:

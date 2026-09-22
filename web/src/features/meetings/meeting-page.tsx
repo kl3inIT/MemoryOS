@@ -54,11 +54,13 @@ import { ExportMinutesDialog } from "./export-minutes-dialog";
 import { MeetingShareField, type MeetingAudience } from "./meeting-share-field";
 import { startRecording, stopRecording, useActiveMeeting } from "./meeting-session";
 import type { MeetingTrack } from "./meeting-socket";
+import { slug } from "./meeting-file-name";
 import { TranscriptCorrections } from "./transcript-corrections";
 import { matches } from "./transcript-search";
 import { Said } from "./transcript-text";
 import {
   addBookmark,
+  exportTranscript,
   finishMeeting,
   formatClock,
   formatWhen,
@@ -983,6 +985,20 @@ function Transcript({
   const total = counted;
   const current = total === 0 ? -1 : ((at % total) + total) % total;
 
+  /** The file is named after the meeting, so a folder of them reads as a folder of meetings. */
+  async function take(format: "DOCX" | "PDF") {
+    const file = await exportTranscript(meeting.id, format);
+    const url = URL.createObjectURL(file);
+    const link = Object.assign(window.document.createElement("a"), {
+      href: url,
+      download: `transcript-${slug(meeting.title)}.${format === "PDF" ? "pdf" : "docx"}`,
+    });
+    window.document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   function jump(step: number) {
     if (total === 0) return;
     const next = (((at + step) % total) + total) % total;
@@ -1037,6 +1053,14 @@ function Transcript({
           </>
         )}
       </div>
+      <Button prominence="tertiary" size="sm" onClick={() => void take("DOCX")}>
+        <FileDown aria-hidden="true" />
+        {ui("Tải Word")}
+      </Button>
+      <Button prominence="tertiary" size="sm" onClick={() => void take("PDF")}>
+        <FileDown aria-hidden="true" />
+        {ui("Tải PDF")}
+      </Button>
       {(starred.size > 0 || starredOnly) && (
         <Button
           prominence={starredOnly ? "secondary" : "tertiary"}
