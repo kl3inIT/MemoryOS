@@ -25,7 +25,7 @@ Reading the transcript back — [MEM-183](https://linear.app/memory-os/issue/MEM
 
 - [ ] Search inside a transcript: highlighted matches and a match count, with next/previous.
 - [ ] Star a line and filter to starred lines only (ghiam-pro's highlight, which also scopes what the AI reads).
-- [ ] Show the provider's low confidence: a wavy underline on the span and a percentage, from the confidence already stored.
+- [x] Show the provider's low confidence: the uncertain stretches are highlighted in the transcript, with the percentage on hover. Soniox reports a confidence per token, so the mark is the word rather than the line; every other provider reports none and marks nothing.
 - [ ] A topic timeline that jumps to its utterance.
 
 Minutes to send:

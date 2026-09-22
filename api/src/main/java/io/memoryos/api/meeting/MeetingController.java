@@ -250,10 +250,22 @@ class MeetingController {
                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long startMs,
                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long endMs,
                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String text,
-                             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) double confidence) {
+                             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) double confidence,
+                             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<SpanResponse> spans) {
         static UtteranceResponse from(Meeting.Utterance utterance) {
             return new UtteranceResponse(utterance.id(), utterance.track(), utterance.speaker(), utterance.startMs(),
-                    utterance.endMs(), utterance.text(), utterance.confidence());
+                    utterance.endMs(), utterance.text(), utterance.confidence(),
+                    utterance.spans().stream().map(SpanResponse::from).toList());
+        }
+    }
+
+    @Schema(name = "MeetingUtteranceSpan",
+            description = "A stretch of the utterance the provider was unsure of, by character offset, half-open.")
+    record SpanResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int start,
+                        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int end,
+                        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) double confidence) {
+        static SpanResponse from(Meeting.Span span) {
+            return new SpanResponse(span.start(), span.end(), span.confidence());
         }
     }
 

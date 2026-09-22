@@ -21,6 +21,7 @@ import tools.jackson.databind.ObjectMapper;
 public class MeetingRepository {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final TypeReference<List<String>> STRINGS = new TypeReference<>() {};
+    private static final TypeReference<List<Meeting.Span>> SPANS = new TypeReference<>() {};
     private final JdbcClient jdbc;
 
     public MeetingRepository(JdbcClient jdbc) {
@@ -168,12 +169,13 @@ public class MeetingRepository {
 
     public List<Meeting.Utterance> utterances(UUID tenant, UUID meeting) {
         return jdbc.sql("""
-                SELECT id, track, speaker, start_ms, end_ms, text, confidence FROM meeting_utterance
+                SELECT id, track, speaker, start_ms, end_ms, text, confidence, spans FROM meeting_utterance
                 WHERE tenant_id = :tenant AND meeting_id = :meeting ORDER BY start_ms, end_ms, id
                 """).param("tenant", tenant).param("meeting", meeting)
                 .query((r, ignored) -> new Meeting.Utterance(r.getObject("id", UUID.class),
                         Meeting.Track.valueOf(r.getString("track")), r.getString("speaker"), r.getLong("start_ms"),
-                        r.getLong("end_ms"), r.getString("text"), r.getDouble("confidence"))).list();
+                        r.getLong("end_ms"), r.getString("text"), r.getDouble("confidence"),
+                        JSON.readValue(r.getString("spans"), SPANS))).list();
     }
 
     /** Stores one finalized utterance, creating its speaker row on first use. */
@@ -184,12 +186,14 @@ public class MeetingRepository {
                 """).param("tenant", tenant).param("meeting", meeting).param("track", utterance.track().name())
                 .param("label", utterance.speaker()).update();
         jdbc.sql("""
-                INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text, confidence)
-                VALUES (:tenant, :id, :meeting, :track, :speaker, :start, :end, :text, :confidence)
+                INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text,
+                                              confidence, spans)
+                VALUES (:tenant, :id, :meeting, :track, :speaker, :start, :end, :text, :confidence, CAST(:spans AS jsonb))
                 """).param("tenant", tenant).param("id", utterance.id()).param("meeting", meeting)
                 .param("track", utterance.track().name()).param("speaker", utterance.speaker())
                 .param("start", utterance.startMs()).param("end", utterance.endMs()).param("text", utterance.text())
-                .param("confidence", (float) utterance.confidence()).update();
+                .param("confidence", (float) utterance.confidence())
+                .param("spans", JSON.writeValueAsString(utterance.spans())).update();
     }
 
     public void recordProvider(UUID tenant, UUID meeting, String provider, String model, boolean diarized) {

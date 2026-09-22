@@ -299,6 +299,8 @@ async function mockMeetings(page: Page) {
               startMs: 7_100,
               endMs: 12_300,
               text: "Bên nhân sự đã gửi bảng KPI tháng 9, còn thiếu số liệu của Vinaconex 9 và Tower 3.",
+              // Soniox was unsure of the company name; the transcript marks exactly those characters.
+              spans: [{ start: 59, end: 70, confidence: 0.41 }],
             },
             {
               id: "u3",
@@ -312,7 +314,12 @@ async function mockMeetings(page: Page) {
             const speaker = { track: "MIC" as const, label: utterance.speaker, name: null };
             if (!meeting!.speakers.some((item) => item.label === utterance.speaker))
               meeting = { ...meeting!, speakers: [...meeting!.speakers, speaker] };
-            const stored = { ...utterance, track: "MIC" as const, confidence: 0.92 };
+            const stored = {
+              spans: [] as { start: number; end: number; confidence: number }[],
+              ...utterance,
+              track: "MIC" as const,
+              confidence: 0.92,
+            };
             meeting = { ...meeting!, utterances: [...meeting!.utterances, stored] };
             socket.send(JSON.stringify({ type: "utterance", utterance: stored }));
           }

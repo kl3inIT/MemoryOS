@@ -249,7 +249,7 @@ public class MeetingService {
                 if (segment.text().isBlank()) return;
                 var utterance = new Meeting.Utterance(UUID.randomUUID(), track, speaker(segment.speaker()),
                         segment.startMs(), Math.max(segment.startMs(), segment.endMs()), trim(segment.text()),
-                        Math.clamp(segment.confidence(), 0, 1));
+                        Math.clamp(segment.confidence(), 0, 1), spans(segment));
                 try {
                     meetings.insertUtterance(tenant, id, utterance);
                 } catch (RuntimeException gone) {
@@ -362,6 +362,11 @@ public class MeetingService {
     /** Provider labels are short tokens; anything else is folded into one safe label. */
     private static String speaker(String label) {
         return label.matches("[0-9A-Za-z_-]{1,16}") ? label : "1";
+    }
+
+    private static List<Meeting.Span> spans(LiveTranscription.Segment segment) {
+        return segment.spans().stream()
+                .map(span -> new Meeting.Span(span.start(), span.end(), Math.clamp(span.confidence(), 0, 1))).toList();
     }
 
     private static String trim(String text) {

@@ -244,6 +244,16 @@ export type MeetingUtterance = {
     endMs: number;
     text: string;
     confidence: number;
+    spans: Array<MeetingUtteranceSpan>;
+};
+
+/**
+ * A stretch of the utterance the provider was unsure of, by character offset, half-open.
+ */
+export type MeetingUtteranceSpan = {
+    start: number;
+    end: number;
+    confidence: number;
 };
 
 /**

@@ -96,11 +96,9 @@ final class SonioxAsync {
     static List<LiveTranscription.Segment> group(JsonNode transcript) {
         var segments = new ArrayList<LiveTranscription.Segment>();
         String speaker = null;
-        var text = new StringBuilder();
+        var text = new SpokenText();
         long startMs = 0;
         long endMs = 0;
-        double confidence = 0;
-        int tokens = 0;
         for (JsonNode token : transcript.path("tokens")) {
             String word = token.path("text").asString("");
             if (word.isEmpty() || "<fin>".equals(word) || "<end>".equals(word)) continue;
@@ -113,31 +111,26 @@ final class SonioxAsync {
             boolean broken = speaker != null
                     && (!speaker.equals(at) || start - endMs > SEGMENT_GAP_MS || text.length() > MAX_SEGMENT_CHARS);
             if (broken) {
-                add(segments, speaker, startMs, endMs, text, confidence, tokens);
-                text.setLength(0);
-                confidence = 0;
-                tokens = 0;
+                add(segments, speaker, startMs, endMs, text);
+                text.reset();
                 speaker = null;
             }
             if (speaker == null) {
                 speaker = at;
                 startMs = start;
             }
-            text.append(word);
+            text.append(word, token.path("confidence").asDouble(1.0));
             endMs = Math.max(endMs, end);
-            confidence += token.path("confidence").asDouble(1.0);
-            tokens++;
         }
-        if (speaker != null) add(segments, speaker, startMs, endMs, text, confidence, tokens);
+        if (speaker != null) add(segments, speaker, startMs, endMs, text);
         return List.copyOf(segments);
     }
 
     private static void add(List<LiveTranscription.Segment> segments, String speaker, long startMs, long endMs,
-            StringBuilder text, double confidence, int tokens) {
-        String said = text.toString().strip();
-        if (said.isEmpty()) return;
-        segments.add(new LiveTranscription.Segment(speaker, startMs, Math.max(endMs, startMs), said,
-                tokens == 0 ? 0 : confidence / tokens));
+            SpokenText text) {
+        if (text.isEmpty()) return;
+        segments.add(new LiveTranscription.Segment(speaker, startMs, Math.max(endMs, startMs), text.said(),
+                text.confidence(), text.spans()));
     }
 
     /** The connection holds the realtime model; its async sibling has the same version ({@code stt-rt-v5} → {@code stt-async-v5}). */

@@ -17559,14 +17559,37 @@ components:
         confidence:
           type: number
           format: double
+        spans:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingUtteranceSpan"
       required:
       - confidence
       - endMs
       - id
+      - spans
       - speaker
       - startMs
       - text
       - track
+    MeetingUtteranceSpan:
+      type: object
+      description: "A stretch of the utterance the provider was unsure of, by character\
+        \ offset, half-open."
+      properties:
+        start:
+          type: integer
+          format: int32
+        end:
+          type: integer
+          format: int32
+        confidence:
+          type: number
+          format: double
+      required:
+      - confidence
+      - end
+      - start
     MeetingShareRequest:
       type: object
       description: "Everyone who may read this meeting, replacing the current list"
