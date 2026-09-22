@@ -21,7 +21,7 @@ Design: [design.md](design.md). Each phase is its own pull request.
 
 ## Phase 2 — minutes quality, export and search
 
-Reading the transcript back:
+Reading the transcript back — [MEM-183](https://linear.app/memory-os/issue/MEM-183):
 
 - [ ] Search inside a transcript: highlighted matches and a match count, with next/previous.
 - [ ] Star a line and filter to starred lines only (ghiam-pro's highlight, which also scopes what the AI reads).
@@ -35,14 +35,14 @@ Minutes to send:
 
 Vietnamese transcript quality:
 
-- [ ] Transcript correction suggestions with review and undo, using the span logic learned from ghiam-pro and the user glossary.
+- [ ] Transcript correction suggestions with review and undo, using the span logic learned from ghiam-pro and the user glossary — [MEM-184](https://linear.app/memory-os/issue/MEM-184), which also owns storing per-token confidence that MEM-183 defers to it.
 - [ ] Dialect mappings (local word to standard word) — [MEM-177](https://linear.app/memory-os/issue/MEM-177): a Tenant dictionary fed to the minutes prompt, never a rewrite of the transcript.
 
 Asking and finding:
 
-- [ ] *Catch me up* and meeting-scoped questions during and after the meeting (own model flow, answers from the transcript only, with timestamps).
+- [ ] *Catch me up* and meeting-scoped questions during and after the meeting (own model flow, answers from the transcript only, with timestamps) — [MEM-185](https://linear.app/memory-os/issue/MEM-185).
 - [ ] Owner filter in retrieval so meeting notes appear in the owner's Search and `search_knowledge`.
-- [ ] Speaker-name suggestions from participants and self-introductions, offered for confirmation with the evidence quote, never applied silently.
+- [ ] Speaker-name suggestions from participants and self-introductions, offered for confirmation with the evidence quote, never applied silently — [MEM-186](https://linear.app/memory-os/issue/MEM-186), which also carries ghiam-pro's voice profiles as a second tier behind consent and deletion.
 
 ## Phase 3 — tasks and desktop
 
