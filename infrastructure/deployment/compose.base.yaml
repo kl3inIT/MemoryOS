@@ -283,6 +283,31 @@ services:
       MEMORYOS_REDIS_PASSWORD_FILE: /run/secrets/redis_api_password
       MEMORYOS_REDIS_CONNECT_TIMEOUT: ${MEMORYOS_REDIS_CONNECT_TIMEOUT:-2s}
       MEMORYOS_REDIS_COMMAND_TIMEOUT: ${MEMORYOS_REDIS_COMMAND_TIMEOUT:-2s}
+      # Configuration the vault used to inject into the process. Compose interpolation fills the
+      # composition file only; a value reaches the container when a service names it here.
+      #
+      # Addresses the composition itself decides, so the environment file cannot drift from them.
+      MEMORYOS_DATABASE_URL: jdbc:postgresql://memoryos-postgres:5432/${MEMORYOS_DATABASE_NAME:-memoryos}
+      MEMORYOS_DATABASE_USERNAME: ${MEMORYOS_DATABASE_USERNAME:-memoryos_app}
+      MEMORYOS_KEYCLOAK_ADMIN_SERVER_URL: http://memoryos-keycloak:8080
+      MEMORYOS_OPENSEARCH_ENDPOINT: https://opensearch:9200
+      MEMORYOS_OPENSEARCH_USERNAME: ${MEMORYOS_OPENSEARCH_USERNAME:-memoryos-service}
+      #
+      # Values that differ between environments. Required rather than defaulted: a wrong issuer or
+      # a search index built for the other environment fails quietly, and quiet is the failure
+      # that reaches customers.
+      MEMORYOS_IDENTITY_ISSUER: ${MEMORYOS_IDENTITY_ISSUER:?Set MEMORYOS_IDENTITY_ISSUER}
+      MEMORYOS_IDENTITY_JWK_SET_URI: ${MEMORYOS_IDENTITY_JWK_SET_URI:?Set MEMORYOS_IDENTITY_JWK_SET_URI}
+      MEMORYOS_IDENTITY_AUDIENCE: ${MEMORYOS_IDENTITY_AUDIENCE:?Set MEMORYOS_IDENTITY_AUDIENCE}
+      MEMORYOS_INITIAL_OWNER_SUBJECT: ${MEMORYOS_INITIAL_OWNER_SUBJECT:?Set MEMORYOS_INITIAL_OWNER_SUBJECT}
+      MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI: ${MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI:?Set MEMORYOS_INVITATION_ACTIVATION_REDIRECT_URI}
+      MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI: ${MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI:?Set MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI}
+      MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION}
+      MEMORYOS_MCP_REDIRECT_URI: ${MEMORYOS_MCP_REDIRECT_URI:?Set MEMORYOS_MCP_REDIRECT_URI}
+      MEMORYOS_SESSION_COOKIE_SECURE: ${MEMORYOS_SESSION_COOKIE_SECURE:?Set MEMORYOS_SESSION_COOKIE_SECURE}
+      MEMORYOS_SEARCH_REPLICAS: ${MEMORYOS_SEARCH_REPLICAS:?Set MEMORYOS_SEARCH_REPLICAS}
+      # An empty list admits nobody, which is the safe reading of an absent setting.
+      MEMORYOS_JIT_ALLOWED_PROVIDER_ALIASES: ${MEMORYOS_JIT_ALLOWED_PROVIDER_ALIASES:-}
       MEMORYOS_DATABASE_PASSWORD_FILE: /run/secrets/database_password
       MEMORYOS_BROWSER_CLIENT_SECRET_FILE: /run/secrets/browser_client_secret
       MEMORYOS_KEYCLOAK_ADMIN_CLIENT_SECRET_FILE: /run/secrets/keycloak_admin_client_secret
@@ -376,6 +401,14 @@ services:
       MEMORYOS_REDIS_POOL_MAX_IDLE: ${MEMORYOS_REDIS_POOL_MAX_IDLE:-8}
       MEMORYOS_REDIS_POOL_MIN_IDLE: ${MEMORYOS_REDIS_POOL_MIN_IDLE:-0}
       MEMORYOS_REDIS_POOL_MAX_WAIT: ${MEMORYOS_REDIS_POOL_MAX_WAIT:-2s}
+      # See the api service. The Worker reads the database, the search cluster and the Google Drive
+      # key version; identity and the redirect URIs belong to the browser-facing service alone.
+      MEMORYOS_DATABASE_URL: jdbc:postgresql://memoryos-postgres:5432/${MEMORYOS_DATABASE_NAME:-memoryos}
+      MEMORYOS_DATABASE_USERNAME: ${MEMORYOS_DATABASE_USERNAME:-memoryos_app}
+      MEMORYOS_OPENSEARCH_ENDPOINT: https://opensearch:9200
+      MEMORYOS_OPENSEARCH_USERNAME: ${MEMORYOS_OPENSEARCH_USERNAME:-memoryos-service}
+      MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION:?Set MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_KEY_VERSION}
+      MEMORYOS_SEARCH_REPLICAS: ${MEMORYOS_SEARCH_REPLICAS:?Set MEMORYOS_SEARCH_REPLICAS}
       MEMORYOS_DATABASE_PASSWORD_FILE: /run/secrets/database_password
       MEMORYOS_OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_password
       MEMORYOS_EXTRACTION_DOCLING_API_KEY_FILE: /run/secrets/docling_api_key
