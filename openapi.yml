@@ -12301,6 +12301,35 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/search/documents/{documentId}/spreadsheet:
+    get:
+      tags:
+      - Search
+      summary: Read the workbook original of a search result as CSV text per sheet
+      operationId: readSearchDocumentSpreadsheet
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: generation
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Sheets in workbook order
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DocumentSpreadsheet"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/search/documents/{documentId}/original:
     get:
       tags:
@@ -15825,6 +15854,55 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SearchDocument"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/documents/{documentId}/spreadsheet:
+    get:
+      tags:
+      - Chat
+      summary: Read the workbook original of a cited document as CSV text per sheet
+      operationId: readChatDocumentSpreadsheet
+      parameters:
+      - name: documentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: generation
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid passage window
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Document generation not readable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Sheets in workbook order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentSpreadsheet"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -22784,6 +22862,28 @@ components:
       - passages
       - title
       - totalChunks
+    DocumentSpreadsheet:
+      type: object
+      properties:
+        sheets:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentSpreadsheetSheet"
+      required:
+      - sheets
+    DocumentSpreadsheetSheet:
+      type: object
+      properties:
+        name:
+          type: string
+        csv:
+          type: string
+        truncated:
+          type: boolean
+      required:
+      - csv
+      - name
+      - truncated
     MeetingSummary:
       type: object
       properties:

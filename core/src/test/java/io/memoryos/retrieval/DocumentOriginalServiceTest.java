@@ -19,6 +19,7 @@ import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentId;
+import io.memoryos.document.SpreadsheetPreview;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.identity.ActorId;
@@ -44,6 +45,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class DocumentOriginalServiceTest {
+    private static final String XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     private static final byte[] PDF = "%PDF-1.4\n%fixture".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
 
     private final TenantAccessResolver tenants = mock(TenantAccessResolver.class);
@@ -104,6 +106,40 @@ class DocumentOriginalServiceTest {
         when(storage.open(sheet.key())).thenReturn(content(sheet.metadata(), bytes, new AtomicBoolean()));
         try (var original = service.citationOriginal(actor, document, generation)) {
             assertArrayEquals(bytes, original.inputStream().readAllBytes());
+        }
+    }
+
+    @Test
+    void aWorkbookOriginalIsReadAsSheetsAndAnythingElseIsNotReadableAsOne() throws Exception {
+        byte[] xlsx = workbook();
+        var book = new StoredObjectReference(new StoredObjectId(UUID.randomUUID()), new ObjectKey("raw/tenant/book"),
+                "bao-cao.xlsx", new ObjectMetadata(xlsx.length, XLSX, new ContentSha256("b".repeat(64))));
+        when(sources.originals(tenant, actor, java.util.Set.of(document))).thenReturn(java.util.Map.of(document, book));
+        var closed = new AtomicBoolean();
+        when(storage.open(book.key())).thenReturn(content(book.metadata(), xlsx, closed));
+
+        assertEquals(java.util.List.of(new SpreadsheetPreview.Sheet("Doanh thu", "Hà Nội,3\n", false)),
+                service.searchWorkbook(actor, document, generation));
+        assertTrue(closed.get());
+        verify(authorization, times(2)).require(actor, IamCapability.SEARCH_READ, false);
+
+        // A Document of another type is not readable as a workbook, and its object does not stay open.
+        var refused = new AtomicBoolean();
+        when(sources.originals(tenant, actor, java.util.Set.of(document))).thenReturn(java.util.Map.of(document, reference));
+        when(storage.open(reference.key())).thenReturn(content(reference.metadata(), PDF, refused));
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.citationWorkbook(actor, document, generation));
+        assertTrue(refused.get());
+    }
+
+    /** One sheet with one row, enough to prove the bytes reached the reader unchanged. */
+    private static byte[] workbook() throws Exception {
+        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook();
+                var out = new java.io.ByteArrayOutputStream()) {
+            var row = workbook.createSheet("Doanh thu").createRow(0);
+            row.createCell(0).setCellValue("Hà Nội");
+            row.createCell(1).setCellValue(3);
+            workbook.write(out);
+            return out.toByteArray();
         }
     }
 

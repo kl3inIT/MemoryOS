@@ -4,6 +4,7 @@ import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentId;
+import io.memoryos.document.SpreadsheetPreview;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.identity.ActorId;
@@ -33,6 +34,7 @@ import org.springframework.stereotype.Service;
 public class DocumentOriginalService {
     public static final long MAX_BYTES = 64L * 1024 * 1024;
     private static final byte[] PDF_MAGIC = {'%', 'P', 'D', 'F', '-'};
+    private static final String WORKBOOK = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     private final TenantAccessResolver tenants;
     private final IamAuthorization authorization;
@@ -106,6 +108,29 @@ public class DocumentOriginalService {
         return open(actor, null, id, generation, range);
     }
 
+    /**
+     * The sheets of a workbook original, read under Search authority. A workbook is served as text per sheet
+     * rather than as bytes, because the app ships no client-side workbook parser.
+     */
+    public java.util.List<SpreadsheetPreview.Sheet> searchWorkbook(ActorId actor, UUID id, UUID generation) {
+        return sheets(searchOriginal(actor, id, generation, null));
+    }
+
+    /** The same sheets under the Chat citation authority. */
+    public java.util.List<SpreadsheetPreview.Sheet> citationWorkbook(ActorId actor, UUID id, UUID generation) {
+        return sheets(citationOriginal(actor, id, generation, null));
+    }
+
+    /** Reads an authorized original as a workbook, and closes the object whether or not it is one. */
+    private static java.util.List<SpreadsheetPreview.Sheet> sheets(Original original) {
+        try (var open = original) {
+            if (!WORKBOOK.equals(baseType(open.reference()))) throw new SearchDocumentUnavailableException();
+            return SpreadsheetPreview.parse(open.inputStream());
+        } catch (IOException unreadable) {
+            throw new SearchDocumentUnavailableException();
+        }
+    }
+
     private Original open(ActorId actor, @Nullable IamCapability capability, UUID id, UUID generation,
                           @Nullable ByteRange requested) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(SearchDocumentUnavailableException::new);
@@ -153,9 +178,14 @@ public class DocumentOriginalService {
     }
 
     private static boolean declaresPdf(StoredObjectReference reference) {
+        return "application/pdf".equals(baseType(reference));
+    }
+
+    /** The declared media type without its parameters, lowercased, as the checks above compare it. */
+    private static String baseType(StoredObjectReference reference) {
         var declared = reference.metadata().mediaType();
         int parameters = declared.indexOf(';');
-        return "application/pdf".equalsIgnoreCase((parameters < 0 ? declared : declared.substring(0, parameters)).strip());
+        return (parameters < 0 ? declared : declared.substring(0, parameters)).strip().toLowerCase(java.util.Locale.ROOT);
     }
 
     private record Opened(@Nullable ByteRange range, InputStream input, Runnable closer) {

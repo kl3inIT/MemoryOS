@@ -2210,6 +2210,16 @@ export type SearchDocument = {
     hasMore: boolean;
 };
 
+export type DocumentSpreadsheet = {
+    sheets: Array<DocumentSpreadsheetSheet>;
+};
+
+export type DocumentSpreadsheetSheet = {
+    name: string;
+    csv: string;
+    truncated: boolean;
+};
+
 export type MeetingSummary = {
     id: string;
     title: string;
@@ -12686,6 +12696,26 @@ export type GetSearchDocumentResponses = {
 
 export type GetSearchDocumentResponse = GetSearchDocumentResponses[keyof GetSearchDocumentResponses];
 
+export type ReadSearchDocumentSpreadsheetData = {
+    body?: never;
+    path: {
+        documentId: string;
+    };
+    query: {
+        generation: string;
+    };
+    url: '/api/search/documents/{documentId}/spreadsheet';
+};
+
+export type ReadSearchDocumentSpreadsheetResponses = {
+    /**
+     * Sheets in workbook order
+     */
+    200: DocumentSpreadsheet;
+};
+
+export type ReadSearchDocumentSpreadsheetResponse = ReadSearchDocumentSpreadsheetResponses[keyof ReadSearchDocumentSpreadsheetResponses];
+
 export type ReadSearchDocumentOriginalData = {
     body?: never;
     headers?: {
@@ -15520,6 +15550,47 @@ export type ReadChatDocumentPassagesResponses = {
 };
 
 export type ReadChatDocumentPassagesResponse = ReadChatDocumentPassagesResponses[keyof ReadChatDocumentPassagesResponses];
+
+export type ReadChatDocumentSpreadsheetData = {
+    body?: never;
+    path: {
+        documentId: string;
+    };
+    query: {
+        generation: string;
+    };
+    url: '/api/chat/documents/{documentId}/spreadsheet';
+};
+
+export type ReadChatDocumentSpreadsheetErrors = {
+    /**
+     * Invalid passage window
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Document generation not readable
+     */
+    404: ApiProblem;
+};
+
+export type ReadChatDocumentSpreadsheetError = ReadChatDocumentSpreadsheetErrors[keyof ReadChatDocumentSpreadsheetErrors];
+
+export type ReadChatDocumentSpreadsheetResponses = {
+    /**
+     * Sheets in workbook order
+     */
+    200: DocumentSpreadsheet;
+};
+
+export type ReadChatDocumentSpreadsheetResponse = ReadChatDocumentSpreadsheetResponses[keyof ReadChatDocumentSpreadsheetResponses];
 
 export type ReadChatDocumentOriginalData = {
     body?: never;

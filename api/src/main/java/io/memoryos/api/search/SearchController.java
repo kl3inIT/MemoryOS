@@ -1,6 +1,7 @@
 package io.memoryos.api.search;
 
 import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.api.search.contract.DocumentSpreadsheetResponse;
 import io.memoryos.api.search.contract.SearchDocumentResponse;
 import io.memoryos.api.search.contract.SearchPageResponse;
 import io.memoryos.retrieval.SearchRequest;
@@ -48,6 +49,16 @@ class SearchController {
             jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
         DocumentOriginalResponses.write(range, response,
                 requested -> originals.searchOriginal(identity.actorId(), documentId, generation, requested));
+    }
+
+    @GetMapping("/documents/{documentId}/spreadsheet")
+    @Operation(operationId = "readSearchDocumentSpreadsheet", summary = "Read the workbook original of a search result as CSV text per sheet")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Sheets in workbook order", useReturnTypeSchema = true)
+    org.springframework.http.ResponseEntity<DocumentSpreadsheetResponse> spreadsheet(
+            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID documentId, @RequestParam UUID generation) {
+        return org.springframework.http.ResponseEntity.ok().header("Cache-Control", "no-store")
+                .body(DocumentSpreadsheetResponse.from(originals.searchWorkbook(identity.actorId(), documentId, generation)));
     }
 
     @PostMapping

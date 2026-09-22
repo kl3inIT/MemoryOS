@@ -1,6 +1,7 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.api.search.DocumentOriginalResponses;
+import io.memoryos.api.search.contract.DocumentSpreadsheetResponse;
 import io.memoryos.api.search.contract.SearchDocumentResponse;
 import io.memoryos.iam.identity.IdentityContext;
 import io.memoryos.retrieval.DocumentOriginalService;
@@ -58,6 +59,15 @@ class ChatDocumentController {
             HttpServletResponse response) throws IOException {
         DocumentOriginalResponses.write(range, response,
                 requested -> originals.citationOriginal(identity.actorId(), documentId, generation, requested));
+    }
+
+    @GetMapping("/{documentId}/spreadsheet")
+    @Operation(operationId = "readChatDocumentSpreadsheet", summary = "Read the workbook original of a cited document as CSV text per sheet")
+    @ApiResponse(responseCode = "200", description = "Sheets in workbook order", useReturnTypeSchema = true)
+    ResponseEntity<DocumentSpreadsheetResponse> spreadsheet(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID documentId, @RequestParam UUID generation) {
+        return ResponseEntity.ok().header("Cache-Control", "no-store")
+                .body(DocumentSpreadsheetResponse.from(originals.citationWorkbook(identity.actorId(), documentId, generation)));
     }
 
     @GetMapping("/{documentId}")
