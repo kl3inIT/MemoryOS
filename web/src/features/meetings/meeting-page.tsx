@@ -50,6 +50,7 @@ import { ExportMinutesDialog } from "./export-minutes-dialog";
 import { MeetingShareField, type MeetingAudience } from "./meeting-share-field";
 import { startRecording, stopRecording, useActiveMeeting } from "./meeting-session";
 import type { MeetingTrack } from "./meeting-socket";
+import { Said } from "./transcript-text";
 import {
   finishMeeting,
   formatClock,
@@ -942,7 +943,9 @@ function Transcript({
               label={utterance.speaker}
               ui={ui}
             />
-            <p className="mt-0.5 text-content-secondary">{utterance.text}</p>
+            <p className="mt-0.5 text-content-secondary">
+              <Said text={utterance.text} spans={utterance.spans} />
+            </p>
           </div>
         </li>
       ))}

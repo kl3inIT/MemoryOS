@@ -102,6 +102,13 @@ class MeetingStreamWebSocketHandler extends AbstractWebSocketHandler implements 
                     value.put("endMs", utterance.endMs());
                     value.put("text", utterance.text());
                     value.put("confidence", utterance.confidence());
+                    value.put("spans", utterance.spans().stream().map(span -> {
+                        var marked = new LinkedHashMap<String, Object>();
+                        marked.put("start", span.start());
+                        marked.put("end", span.end());
+                        marked.put("confidence", span.confidence());
+                        return marked;
+                    }).toList());
                     body.put("utterance", value);
                     write(socket, body);
                 }

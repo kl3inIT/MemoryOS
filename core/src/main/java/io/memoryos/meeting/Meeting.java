@@ -54,7 +54,23 @@ public final class Meeting {
 
     public record Speaker(Track track, String label, @Nullable String name) {}
 
-    public record Utterance(UUID id, Track track, String speaker, long startMs, long endMs, String text, double confidence) {}
+    public record Utterance(UUID id, Track track, String speaker, long startMs, long endMs, String text,
+                            double confidence, List<Span> spans) {
+        public Utterance {
+            // The text is trimmed and capped after the provider wrote it, so a stretch can fall outside; drop it
+            // rather than store an offset that points past the line a reader sees.
+            spans = spans.stream().filter(span -> span.start() >= 0 && span.end() <= text.length()
+                    && span.start() < span.end()).toList();
+        }
+
+        public Utterance(UUID id, Track track, String speaker, long startMs, long endMs, String text,
+                double confidence) {
+            this(id, track, speaker, startMs, endMs, text, confidence, List.of());
+        }
+    }
+
+    /** A stretch of an utterance the provider was unsure of, by character offset, half-open. */
+    public record Span(int start, int end, double confidence) {}
 
     /** What the owner enters before recording. */
     public record Draft(String title, Kind kind, @Nullable String language, List<String> participants, List<String> terms) {}

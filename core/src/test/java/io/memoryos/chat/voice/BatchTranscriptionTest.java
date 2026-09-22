@@ -32,6 +32,23 @@ class BatchTranscriptionTest {
     }
 
     @Test
+    void sonioxMarksTheStretchesItWasUnsureOf() {
+        var segments = SonioxAsync.group(JSON.readTree("""
+                {"tokens":[
+                  {"text":"Nó ","speaker":"1","start_ms":0,"end_ms":200,"confidence":0.95},
+                  {"text":"ra ","speaker":"1","start_ms":200,"end_ms":400,"confidence":0.41},
+                  {"text":"tiếng ","speaker":"1","start_ms":400,"end_ms":700,"confidence":0.52},
+                  {"text":"nước ngoài.","speaker":"1","start_ms":700,"end_ms":1200,"confidence":0.99}]}
+                """));
+        var segment = segments.getFirst();
+        assertEquals("Nó ra tiếng nước ngoài.", segment.text());
+        assertEquals(1, segment.spans().size(), "two uncertain tokens in a row are one stretch");
+        var span = segment.spans().getFirst();
+        assertEquals("ra tiếng", segment.text().substring(span.start(), span.end()));
+        assertEquals(0.41, span.confidence(), 0.001, "the stretch carries the worst of them");
+    }
+
+    @Test
     void aPauseEndsASegmentEvenWhenTheSpeakerKeepsTalking() {
         var segments = SonioxAsync.group(JSON.readTree("""
                 {"tokens":[

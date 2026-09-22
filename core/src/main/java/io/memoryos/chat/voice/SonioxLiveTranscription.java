@@ -70,11 +70,9 @@ final class SonioxLiveTranscription implements LiveTranscription {
     /** The segment being assembled from final tokens of one speaker. */
     private static final class Current {
         private final String speaker;
-        private final StringBuilder text = new StringBuilder();
+        private final SpokenText text = new SpokenText();
         private final long startMs;
         private long endMs;
-        private double confidence;
-        private int tokens;
 
         private Current(String speaker, long startMs) {
             this.speaker = speaker;
@@ -290,10 +288,9 @@ final class SonioxLiveTranscription implements LiveTranscription {
         var segment = current;
         current = null;
         if (segment == null) return;
-        String text = segment.text.toString().strip();
-        if (text.isEmpty()) return;
-        listener.segment(new Segment(segment.speaker, segment.startMs, segment.endMs, text,
-                segment.tokens == 0 ? 0 : segment.confidence / segment.tokens));
+        if (segment.text.isEmpty()) return;
+        listener.segment(new Segment(segment.speaker, segment.startMs, segment.endMs, segment.text.said(),
+                segment.text.confidence(), segment.text.spans()));
     }
 
     private void providerMessage(int messageGeneration, String message) {
@@ -333,13 +330,11 @@ final class SonioxLiveTranscription implements LiveTranscription {
                 long end = streamBaseMs + token.path("end_ms").asLong(0);
                 if (current != null && !current.speaker.equals(speaker)) flush();
                 if (current == null) current = new Current(speaker, start);
-                current.text.append(text);
+                current.text.append(text, token.path("confidence").asDouble(1.0));
                 current.endMs = Math.max(current.endMs, end);
-                current.confidence += token.path("confidence").asDouble(1.0);
-                current.tokens++;
             }
             String previewSpeaker = current != null ? current.speaker : pendingSpeaker;
-            String preview = ((current != null ? current.text.toString() : "") + pending).strip();
+            String preview = ((current != null ? current.text.said() : "") + pending).strip();
             listener.preview(previewSpeaker == null ? "" : previewSpeaker, preview);
             if (event.path("finished").asBoolean(false)) {
                 flush();

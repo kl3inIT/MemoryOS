@@ -137,6 +137,23 @@ class SonioxLiveTranscriptionTest {
         }
     }
 
+    @Test
+    void aTokenTheProviderWasUnsureOfIsMarkedInTheSegmentItLandsIn() throws Exception {
+        try (var ignored = open(0, true)) {
+            receive(0, "{\"tokens\":[{\"text\":\"Ông\",\"start_ms\":0,\"end_ms\":200,\"is_final\":true,\"speaker\":\"1\",\"confidence\":0.95},"
+                    + "{\"text\":\" khê\",\"start_ms\":200,\"end_ms\":600,\"is_final\":true,\"speaker\":\"1\",\"confidence\":0.31},"
+                    + "{\"text\":\" rồi.\",\"start_ms\":600,\"end_ms\":900,\"is_final\":true,\"speaker\":\"1\",\"confidence\":0.9},"
+                    + "{\"text\":\"<end>\",\"is_final\":true}]}");
+            var segment = segments.poll(1, TimeUnit.SECONDS);
+            assertEquals("Ông khê rồi.", segment.text());
+            assertEquals(1, segment.spans().size());
+            var span = segment.spans().getFirst();
+            assertEquals("khê", segment.text().substring(span.start(), span.end()),
+                    "the mark is an offset into the text the meeting stores");
+            assertEquals(0.31, span.confidence(), 0.001);
+        }
+    }
+
     private void receive(int stream, String message) {
         var socket = mock(WebSocket.class);
         providers.get(stream).onText(socket, message, true);

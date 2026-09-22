@@ -3369,6 +3369,97 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void aStretchSonioxWasUnsureOfReachesTheTranscriptAtTheRightCharacters() throws Exception {
+        grantModelManagement();
+        byte[] audio = "fake-mp3-bytes".getBytes(UTF_8);
+        String checksum = "d".repeat(64);
+        when(fileStorage.authorizeUpload(any(), any())).thenReturn(new io.memoryos.objectstorage.UploadAuthorization(
+                "PUT", URI.create("https://storage.invalid/recording"), Map.of("Content-Type", "audio/mpeg"),
+                Instant.now().plusSeconds(300)));
+        when(fileStorage.inspect(any())).thenReturn(new io.memoryos.objectstorage.ObjectMetadata(audio.length,
+                "audio/mpeg", new io.memoryos.objectstorage.ContentSha256(checksum)));
+        when(fileStorage.open(any())).thenAnswer(call -> new io.memoryos.objectstorage.ObjectContent() {
+            private final java.io.InputStream bytes = new java.io.ByteArrayInputStream(audio);
+            @Override public io.memoryos.objectstorage.ObjectMetadata metadata() {
+                return new io.memoryos.objectstorage.ObjectMetadata(audio.length, "audio/mpeg",
+                        new io.memoryos.objectstorage.ContentSha256(checksum));
+            }
+            @Override public java.io.InputStream inputStream() { return bytes; }
+            @Override public void close() {}
+        });
+
+        var server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/v1/files", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            respond(exchange, "{\"id\":\"file-1\"}");
+        });
+        // One context serves the transcription's whole life: create, poll, read and the deletes that follow.
+        server.createContext("/v1/transcriptions", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            String path = exchange.getRequestURI().getPath();
+            if ("DELETE".equals(exchange.getRequestMethod())) respond(exchange, "{}");
+            // The key check lists transcriptions before anything is stored.
+            else if ("/v1/transcriptions".equals(path) && "GET".equals(exchange.getRequestMethod()))
+                respond(exchange, "{\"transcriptions\":[]}");
+            else if (path.endsWith("/transcript")) respond(exchange, """
+                    {"tokens":[
+                      {"text":"Nó ","speaker":"1","start_ms":0,"end_ms":200,"confidence":0.95},
+                      {"text":"ra ","speaker":"1","start_ms":200,"end_ms":400,"confidence":0.41},
+                      {"text":"tiếng ","speaker":"1","start_ms":400,"end_ms":700,"confidence":0.52},
+                      {"text":"nước ngoài.","speaker":"1","start_ms":700,"end_ms":1200,"confidence":0.99}]}
+                    """);
+            else if ("/v1/transcriptions".equals(path)) respond(exchange, "{\"id\":\"tr-1\"}");
+            else respond(exchange, "{\"status\":\"completed\"}");
+        });
+        server.start();
+        try {
+            var connection = Json.mapper().createObjectNode()
+                    .put("endpoint", "http://localhost:" + server.getAddress().getPort() + "/v1")
+                    .put("sttModel", "stt-rt-v5").put("ttsModel", "").put("ttsVoice", "")
+                    .put("credentialAction", "REPLACE").put("credentialValue", "soniox-secret")
+                    .put("activate", "STT").put("revision", 0);
+            mockMvc.perform(put("/api/chat/voice/connections/SONIOX").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(connection.toString()))
+                    .andExpect(status().isOk());
+
+            String meeting = Json.mapper().readTree(mockMvc.perform(post("/api/meetings").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"title\":\"Bản ghi khó nghe\",\"kind\":\"IN_PERSON\",\"language\":\"vi\","
+                            + "\"participants\":[],\"terms\":[]}"))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString())
+                    .path("id").asText();
+            String declared = """
+                    {"filename":"kho-nghe.mp3","mediaType":"audio/mpeg","sizeBytes":%d,"sha256":"%s"}
+                    """.formatted(audio.length, checksum);
+            mockMvc.perform(post("/api/meetings/" + meeting + "/recording").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(declared))
+                    .andExpect(status().isOk());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/recording/finalize").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
+
+            var transcribed = new java.util.concurrent.atomic.AtomicReference<String>();
+            await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+                        var body = mockMvc.perform(get("/api/meetings/" + meeting).with(authentication(actor)))
+                                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+                        assertEquals("ENDED", Json.mapper().readTree(body).path("status").asText());
+                        transcribed.set(body);
+                    });
+            var utterance = Json.mapper().readTree(transcribed.get()).path("utterances").get(0);
+            String text = utterance.path("text").asText();
+            assertEquals("Nó ra tiếng nước ngoài.", text);
+            assertEquals(1, utterance.path("spans").size(), "the two uncertain tokens are one stretch");
+            var span = utterance.path("spans").get(0);
+            assertEquals("ra tiếng", text.substring(span.path("start").asInt(), span.path("end").asInt()),
+                    "the offsets index the stored line, through jsonb and back");
+            assertEquals(0.41, span.path("confidence").asDouble(), 0.001);
+        } finally {
+            server.stop(0);
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+            jdbc.sql("DELETE FROM chat_voice_connection WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
     void aRecordingIsRefusedBeforeItIsSentWhenNothingCanReadIt() throws Exception {
         UUID meeting = UUID.randomUUID();
         try {
