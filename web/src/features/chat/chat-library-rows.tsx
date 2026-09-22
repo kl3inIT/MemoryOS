@@ -1,4 +1,4 @@
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   Download,
@@ -41,10 +41,11 @@ import { fileSize } from "./chat-code";
 import { downloadUrl } from "./chat-file-preview";
 import { imageArtifactUrl } from "./chat-image";
 import {
-  groupByDay,
+  groupByDate,
   libraryPreviewTarget,
   removeFromProject,
   usageLabel,
+  type LibraryDayGroup,
   type LibraryFile,
 } from "./chat-library";
 import { categoryIcon, categoryLabels, sourceLabels, statusLabel } from "./chat-library-labels";
@@ -87,54 +88,112 @@ export function LibraryList({
   onSelect: (file: LibraryFile) => void;
 }) {
   const ui = useAppTranslation();
-  const groups = grouped ? groupByDay(files) : [{ label: "all" as const, items: files }];
-  const groupLabels: Record<string, string> = {
-    today: ui("Hôm nay"),
-    yesterday: ui("Hôm qua"),
-    earlier: ui("Trước đó"),
-    all: ui("Tệp"),
+  const groups = grouped ? groupByDate(files) : [];
+  /**
+   * Today and yesterday read as words; any other day reads as its date, with the year only when it is not
+   * this one, because a year repeated on every heading says nothing.
+   */
+  const heading = (group: LibraryDayGroup) => {
+    if (group.when === "today") return ui("Hôm nay");
+    if (group.when === "yesterday") return ui("Hôm qua");
+    const date = new Date(`${group.day}T00:00:00`);
+    return date.toLocaleDateString(i18n.language, {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
+    });
   };
+  if (!grouped)
+    return (
+      <div className="flex flex-col gap-6">
+        <FileGroup
+          files={files}
+          view={view}
+          layout={layout}
+          selected={selected}
+          actions={actions}
+          onSelect={onSelect}
+          label={ui("Tệp")}
+        />
+      </div>
+    );
   return (
     <div className="flex flex-col gap-6">
       {groups.map((group) => (
-        <section key={group.label} aria-label={groupLabels[group.label]}>
-          {grouped && (
-            <h2 className="mb-1.5 font-secondary-body text-content-muted">
-              {groupLabels[group.label]}
-            </h2>
-          )}
-          {layout === "grid" ? (
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-              {group.items.map((file) => (
-                <li key={file.id}>
-                  <LibraryCard
-                    file={file}
-                    view={view}
-                    selected={selected.includes(file.id)}
-                    actions={actions}
-                    onSelect={onSelect}
-                  />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <ul role="list" className="flex flex-col gap-2">
-              {group.items.map((file) => (
-                <li key={file.id}>
-                  <LibraryRow
-                    file={file}
-                    view={view}
-                    selected={selected.includes(file.id)}
-                    actions={actions}
-                    onSelect={onSelect}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <FileGroup
+          key={group.day}
+          files={group.items}
+          view={view}
+          layout={layout}
+          selected={selected}
+          actions={actions}
+          onSelect={onSelect}
+          label={heading(group)}
+          showLabel
+        />
       ))}
     </div>
+  );
+}
+
+/** One day's files, laid out as rows or as cards. */
+function FileGroup({
+  files,
+  view,
+  layout,
+  selected,
+  actions,
+  onSelect,
+  label,
+  showLabel = false,
+}: {
+  files: readonly LibraryFile[];
+  view: LibraryView;
+  layout: LibraryLayout;
+  selected: string[];
+  actions: RowActions;
+  onSelect: (file: LibraryFile) => void;
+  label: string;
+  showLabel?: boolean;
+}) {
+  return (
+    <section aria-label={label}>
+      {showLabel && (
+        <h2 className="mb-1.5 font-secondary-body text-content-muted first-letter:uppercase">
+          {label}
+        </h2>
+      )}
+      {layout === "grid" ? (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+          {files.map((file) => (
+            <li key={file.id}>
+              <LibraryCard
+                file={file}
+                view={view}
+                selected={selected.includes(file.id)}
+                actions={actions}
+                onSelect={onSelect}
+              />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <ul role="list" className="flex flex-col gap-2">
+          {files.map((file) => (
+            <li key={file.id}>
+              <LibraryRow
+                file={file}
+                view={view}
+                selected={selected.includes(file.id)}
+                actions={actions}
+                onSelect={onSelect}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -157,7 +216,10 @@ function LibraryRow({
       variant="outline"
       className={cn(
         "transition-colors hover:border-border-default hover:bg-surface-subtle",
-        selected && "border-border-default bg-surface-subtle",
+        // An open menu takes the pointer off the row, so the row keeps saying which file the menu acts on.
+        "has-[[data-state=open]]:border-border-default has-[[data-state=open]]:bg-surface-subtle",
+        // A chosen row is read at a glance while the eye scans the list, so its edge is the strong one.
+        selected && "border-border-strong bg-surface-subtle ring-1 ring-border-strong",
       )}
     >
       <Checkbox
@@ -165,22 +227,15 @@ function LibraryRow({
         checked={selected}
         onCheckedChange={() => onSelect(file)}
       />
-      <ItemMedia variant={file.source === "IMAGE" ? "image" : "icon"}>
-        {file.source === "IMAGE" ? (
-          <img
-            src={imageArtifactUrl(file.id, "thumbnail")}
-            alt=""
-            loading="lazy"
-            decoding="async"
-          />
-        ) : (
-          categoryIcon(file)
-        )}
+      {/* One box whatever the file is: a picture fills it, anything else centres its icon in it, so the
+          names below each other start at the same place. */}
+      <ItemMedia variant="image" className="bg-surface-sunken">
+        <LibraryThumbnail file={file} className="size-full object-cover" />
       </ItemMedia>
       <ItemContent className="min-w-0">
         <button
           type="button"
-          className="flex min-w-0 items-center gap-2 text-left font-main-ui-action hover:underline"
+          className="flex min-w-0 items-center gap-2 rounded-sm text-left font-main-ui-action outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40"
           onClick={() => actions.onPreview(file)}
         >
           <span className="truncate">{file.filename}</span>
@@ -197,10 +252,39 @@ function LibraryRow({
         </ItemDescription>
         <FileUsage file={file} onRemoved={actions.onRemovedFromProject} />
       </ItemContent>
-      <ItemActions className="opacity-100 transition-opacity md:opacity-0 md:group-hover/item:opacity-100 md:group-focus-within/item:opacity-100">
+      <ItemActions className="opacity-100 transition-opacity md:opacity-0 md:group-hover/item:opacity-100 md:group-focus-within/item:opacity-100 md:has-[[data-state=open]]:opacity-100">
         <RowActionButtons file={file} view={view} actions={actions} />
       </ItemActions>
     </Item>
+  );
+}
+
+/**
+ * The picture of a file: a generated image shows itself, anything else shows what it is. A thumbnail that
+ * cannot be fetched — still being written, or gone from storage — falls back to the same icon instead of the
+ * browser's broken-image mark, which says nothing about the file.
+ */
+function LibraryThumbnail({
+  file,
+  className,
+  icon,
+}: {
+  file: LibraryFile;
+  className?: string;
+  icon?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (file.source !== "IMAGE" || failed)
+    return categoryIcon(file, cn(icon ?? "size-4", "text-content-muted"));
+  return (
+    <img
+      src={imageArtifactUrl(file.id, "thumbnail")}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      className={className}
+      onError={() => setFailed(true)}
+    />
   );
 }
 
@@ -256,17 +340,23 @@ function LibraryCard({
     <div
       className={cn(
         "group/card relative flex flex-col gap-2 rounded-xl border border-border-subtle p-2 transition-colors hover:border-border-default",
-        selected && "border-border-default bg-surface-subtle",
+        // An open menu takes the pointer off the card, so the card keeps saying which file the menu acts on.
+        "has-[[data-state=open]]:border-border-default has-[[data-state=open]]:bg-surface-subtle",
+        selected && "border-border-strong bg-surface-subtle ring-1 ring-border-strong",
       )}
     >
-      <div className="absolute top-3 left-3 z-10 opacity-100 transition-opacity md:opacity-0 md:group-hover/card:opacity-100 md:group-focus-within/card:opacity-100 data-[shown=true]:md:opacity-100">
-        <span data-shown={selected} className="rounded-sm bg-surface-raised p-0.5 shadow-xs">
-          <Checkbox
-            aria-label={ui("Chọn {{name}}", { name: file.filename })}
-            checked={selected}
-            onCheckedChange={() => onSelect(file)}
-          />
-        </span>
+      {/*
+       * The same checkbox as every list on the page wears; a card adds no chrome of its own around it. It
+       * stays out of the picture until the pointer reaches the card or the keyboard lands on it — a chosen
+       * card is already read by its edge. Clicking leaves focus behind, so the keyboard rule is
+       * focus-visible rather than focus-within, and a touch screen, which has no hover, keeps it on screen.
+       */}
+      <div className="absolute top-4 left-4 z-10 opacity-100 transition-opacity md:opacity-0 md:group-hover/card:opacity-100 md:group-has-[:focus-visible]/card:opacity-100 md:group-has-[[data-state=open]]/card:opacity-100">
+        <Checkbox
+          aria-label={ui("Chọn {{name}}", { name: file.filename })}
+          checked={selected}
+          onCheckedChange={() => onSelect(file)}
+        />
       </div>
       <button
         type="button"
@@ -274,31 +364,13 @@ function LibraryCard({
         onClick={() => actions.onPreview(file)}
         aria-label={ui("Xem trước {{name}}", { name: file.filename })}
       >
-        {file.source === "IMAGE" ? (
-          <img
-            src={imageArtifactUrl(file.id, "thumbnail")}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="size-full object-cover"
-          />
-        ) : (
-          categoryIcon(file, "size-7 text-content-muted")
-        )}
+        <LibraryThumbnail file={file} className="size-full object-cover" icon="size-7" />
       </button>
       <div className="flex min-w-0 items-start justify-between gap-1">
         <div className="min-w-0">
-          <p className="flex items-center gap-1.5 font-main-ui-action">
-            <span className="truncate" title={file.filename}>
-              {file.filename}
-            </span>
-            {file.favorite && (
-              <Star
-                role="img"
-                className="size-3.5 shrink-0 fill-current text-status-warning-content"
-                aria-label={ui("Yêu thích")}
-              />
-            )}
+          {/* No favourite badge here: the card keeps its star button on screen, so a badge would say it twice. */}
+          <p className="truncate font-main-ui-action" title={file.filename}>
+            {file.filename}
           </p>
           <p className="font-secondary-body text-content-muted">
             {fileSize(file.sizeBytes, i18n.language)}
@@ -353,6 +425,7 @@ export function FileActions({
   compact?: boolean;
 }) {
   const ui = useAppTranslation();
+  const byPointer = useRef(false);
   return (
     <div className="flex shrink-0 items-center gap-0.5">
       {!compact && (
@@ -387,11 +460,22 @@ export function FileActions({
             size="sm"
             prominence="internal"
             aria-label={ui("Thao tác với {{name}}", { name: file.filename })}
+            onPointerDown={() => (byPointer.current = true)}
           >
             <MoreHorizontal />
           </IconButton>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent
+          align="end"
+          className="w-auto min-w-48"
+          onCloseAutoFocus={(event) => {
+            // Closing hands focus back to the trigger, which the browser then rings as if the keyboard had
+            // reached it. A menu opened with the pointer keeps that ring off; the keyboard still gets it back.
+            if (!byPointer.current) return;
+            byPointer.current = false;
+            event.preventDefault();
+          }}
+        >
           <DropdownMenuItem onSelect={() => actions.onRename(file)}>
             <Pencil />
             {ui("Đổi tên")}
@@ -584,7 +668,11 @@ export function FileUsage({
             {ui("Gỡ khỏi {{name}}", { name: usage.name })}
           </button>
         ))}
-      {failed && <span role="alert">{ui("Không gỡ được. Hãy thử lại.")}</span>}
+      {failed && (
+        <span role="alert" className="text-content-danger">
+          {ui("Không gỡ được. Hãy thử lại.")}
+        </span>
+      )}
     </span>
   );
 }

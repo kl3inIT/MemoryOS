@@ -42,6 +42,8 @@ export const LIBRARY_CATEGORIES = [
   "OTHER",
 ] as const satisfies readonly LibraryCategory[];
 export const LIBRARY_PAGE_SIZE = 50;
+/** How many files a page may hold; the server admits at most 100 rows in one listing. */
+export const LIBRARY_PAGE_SIZES = [12, 24, 50, 100] as const;
 
 export type LibraryFilter = {
   query: string;
@@ -63,6 +65,7 @@ export async function loadLibrary(
   filter: LibraryFilter,
   offset: number,
   signal: AbortSignal,
+  limit: number = LIBRARY_PAGE_SIZE,
 ): Promise<ChatLibraryPage> {
   const { data } = await listChatLibrary({
     query: {
@@ -74,7 +77,7 @@ export async function loadLibrary(
       status: filter.status,
       sort: filter.sort,
       offset,
-      limit: LIBRARY_PAGE_SIZE,
+      limit,
     },
     signal,
     throwOnError: true,
@@ -102,22 +105,31 @@ export function libraryPreviewTarget(file: LibraryFile): PreviewTarget {
   };
 }
 
-export type LibraryGroup = { label: "today" | "yesterday" | "earlier"; items: LibraryFile[] };
-
 /**
- * Day buckets in the order the server returned, unlike `groupThreadTitles`, which re-sorts by time and so
- * cannot group a list sorted by size.
+ * One bucket per calendar day the files were made on, in the order the server returned them. The two days a
+ * person names rather than dates — today and yesterday — keep their names; every other day is its own group
+ * carrying that day, so the page can write the date in the reader's own locale.
  */
-export function groupByDay(items: readonly LibraryFile[], now = new Date()): LibraryGroup[] {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).getTime();
-  const groups: LibraryGroup[] = [];
+export type LibraryDayGroup = {
+  /** The local calendar day as `YYYY-MM-DD`, which is also what keeps the group stable across renders. */
+  day: string;
+  when: "today" | "yesterday" | "date";
+  items: LibraryFile[];
+};
+
+export function groupByDate(items: readonly LibraryFile[], now = new Date()): LibraryDayGroup[] {
+  const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const key = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const today = key(startOfDay(now));
+  const yesterday = key(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
+  const groups: LibraryDayGroup[] = [];
   for (const item of items) {
-    const time = Date.parse(item.createdAt);
-    const label = time >= today ? "today" : time >= yesterday ? "yesterday" : "earlier";
+    const day = key(startOfDay(new Date(item.createdAt)));
+    const when = day === today ? "today" : day === yesterday ? "yesterday" : "date";
     const last = groups.at(-1);
-    if (last?.label === label) last.items.push(item);
-    else groups.push({ label, items: [item] });
+    if (last?.day === day) last.items.push(item);
+    else groups.push({ day, when, items: [item] });
   }
   return groups;
 }

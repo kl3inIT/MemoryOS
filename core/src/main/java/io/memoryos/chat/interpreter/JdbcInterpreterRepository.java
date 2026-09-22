@@ -109,12 +109,13 @@ public class JdbcInterpreterRepository {
                 .param("id", id).query(Long.class).single() == 0;
     }
 
-    /** Takes a generated file out of the trash while its bytes are still there. */
+    /** Takes a generated file out of the trash while its bytes are still there and no purge is due. */
     public boolean restoreArtifact(TenantId tenant, ActorId actor, UUID id) {
         return jdbc.sql("""
                 UPDATE chat_file_artifact SET deleted_at = NULL, purge_after = NULL, cleanup_token = NULL,
                     cleanup_until = NULL
                 WHERE tenant_id = :tenant AND id = :id AND owner_actor_id = :actor AND deleted_at IS NOT NULL AND purged_at IS NULL
+                  AND (purge_after IS NULL OR purge_after > CURRENT_TIMESTAMP)
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id).update() == 1;
     }
 

@@ -21,7 +21,8 @@ const NEARLY_FULL = 90;
 
 /**
  * The library's own navigation, beside the list rather than stacked above it: the four slices a file can be in,
- * and what the account has stored. Above the page's rail breakpoint the views read as a column; below it they
+ * and what the account has stored. Above the page's rail breakpoint the views read as a column that stays in
+ * place while the list scrolls, and scroll on their own when the window is too short to hold them; below it they
  * scroll as one row, so a phone keeps the list in view.
  */
 export function LibraryRail({
@@ -45,7 +46,7 @@ export function LibraryRail({
     { value: "trash", label: ui("Thùng rác"), icon: <Trash2 /> },
   ];
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-6rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain">
       <nav
         aria-label={ui("Phần của thư viện")}
         className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0"

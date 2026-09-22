@@ -246,6 +246,11 @@ export const vietnameseUi: Record<string, string> = {
   "Xoá vĩnh viễn": "Delete for good",
   "Tệp sẽ rời khỏi mọi cuộc hội thoại và nằm trong thùng rác {{days}} ngày, khôi phục được trong thời gian đó. Đã chọn {{count}} tệp.":
     "The files leave every conversation and stay in the trash for {{days}} days, restorable until then. {{count}} files selected.",
+  "Đã khôi phục {{count}} tệp.": "{{count}} files were restored.",
+  "Đã chuyển {{count}} tệp vào thùng rác.": "{{count}} files were moved to the trash.",
+  "Hiển thị {{first}}–{{last}} trên {{total}} tệp": "Showing {{first}}–{{last}} of {{total}} files",
+  "Tệp sẽ bị xoá vĩnh viễn và không thể khôi phục. Đã chọn {{count}} tệp.":
+    "The files are deleted for good and cannot be restored. {{count}} files selected.",
   "Dung lượng đã dùng": "Storage used",
   "Đã dùng {{used}} / {{limit}}": "{{used}} of {{limit}} used",
   "Đã dùng {{used}} · không giới hạn": "{{used}} used · no limit",
@@ -279,6 +284,9 @@ export const vietnameseUi: Record<string, string> = {
   "Không tải được dung lượng đã dùng.": "The storage used could not be loaded.",
   "Đã dùng {{used}}": "{{used}} used",
   "Triển khai này không đặt giới hạn dung lượng.": "This deployment sets no storage limit.",
+  "Triển khai này không đặt giới hạn dung lượng · {{count}} tệp":
+    "This deployment sets no storage limit · {{count}} files",
+  "{{name}}: {{size}}": "{{name}}: {{size}}",
   "Gần hết dung lượng · {{percent}}% · hãy xoá bớt tệp":
     "Nearly full · {{percent}}% · delete some files",
   "Đã dùng {{percent}}% · {{count}} tệp": "{{percent}}% used · {{count}} files",
@@ -377,6 +385,22 @@ export const vietnameseUi: Record<string, string> = {
   "Tệp sau": "Next file",
   "{{position}}/{{total}}": "{{position}}/{{total}}",
   "Xoay ảnh": "Rotate the image",
+  // The file detail: cropping an image, asking Chat about the file, and the page size of the library
+  "Cắt ảnh": "Crop the image",
+  "Thoát cắt ảnh": "Leave cropping",
+  "Kéo trên ảnh để chọn vùng cắt": "Drag on the image to select what to keep",
+  "Chưa chọn vùng": "Nothing selected",
+  "Đã chọn vùng": "Region selected",
+  "Tải ảnh đã cắt": "Download the crop",
+  "Lưu thành tệp mới": "Save as a new file",
+  "Không cắt được ảnh.": "The image could not be cropped.",
+  "Hỏi về {{name}}": "Ask about {{name}}",
+  "Hỏi về tệp này…": "Ask about this file…",
+  "Hỏi trong Chat": "Ask in Chat",
+  "Đang mở hội thoại…": "Opening the conversation…",
+  "Không mở được hội thoại.": "The conversation could not be opened.",
+  "Số tệp mỗi trang": "Files per page",
+  "Số tệp": "Files",
   // MEM-152 file library v2, phase 2: direct upload, content search, rename and favourites
   "Khớp nội dung tệp.": "Matches the file's contents.",
   "Tìm trong nội dung tệp": "Search inside files",
@@ -649,6 +673,7 @@ export const vietnameseUi: Record<string, string> = {
   "Không đọc được bảng tính.": "The workbook could not be read.",
   "Không đọc được tài liệu Word này.": "This Word document could not be read.",
   "Kiểu hiển thị biểu đồ": "Chart view",
+  "Đường dẫn tệp": "File path",
   "Tương tác": "Interactive",
   "Ảnh tĩnh": "Static image",
   "Tải xuống": "Download",
@@ -818,6 +843,7 @@ export const vietnameseUi: Record<string, string> = {
   "Đã lưu khóa; để trống để giữ nguyên": "Key saved; leave blank to keep it",
   "Kiểm tra kết nối": "Test connection",
   "Lấy danh sách": "Fetch list",
+  "{{size}} · {{columns}} cột · {{rows}} dòng": "{{size}} · {{columns}} columns · {{rows}} rows",
   "9Router có {{count}} engine: {{names}}": "9Router has {{count}} engines: {{names}}",
   "9Router chưa kết nối engine tìm kiếm nào. Thêm provider tìm kiếm trong 9Router rồi thử lại.":
     "9Router has no search engine connected. Add a search provider in 9Router, then try again.",
@@ -1158,6 +1184,9 @@ export const vietnameseUi: Record<string, string> = {
   "Đang tải dự án…": "Loading projects…",
   "Tải lại dự án": "Reload projects",
   "Tạo dự án mới": "Create new project",
+  "Tạo và thêm tệp": "Create and add the files",
+  "Chọn dự án có sẵn": "Choose an existing project",
+  "Ví dụ: Báo cáo quý 4": "For example: Fourth-quarter report",
   "Hội thoại gần đây": "Recent conversations",
   "Đang tải hội thoại…": "Loading conversations…",
   "Tải lại hội thoại": "Reload conversations",
@@ -4306,6 +4335,7 @@ const unchanged = [
   " ({{v1}})",
   " +{{v1}}",
   "{{percent}}%",
+  "{{width}} × {{height}} px",
   "*/Archive/*",
   "https://contoso.sharepoint.com/sites/Archive*",
 ];

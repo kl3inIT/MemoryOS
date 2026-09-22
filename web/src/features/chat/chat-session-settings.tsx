@@ -16,6 +16,8 @@ import { ChatSessionFiles } from "./chat-session-files";
 import { ChatSessionMenu } from "./chat-session-menu";
 import { SharingDialog } from "./chat-sharing-dialog";
 import { chatSessionsKey } from "./chat-api";
+import { waitForChatFile } from "./chat-files";
+import { composerAttachment } from "./use-composer-file-selection";
 
 export function ChatSessionSettings({
   session,
@@ -146,7 +148,7 @@ export function ChatSessionSettings({
   );
 }
 
-const askedSessions = new Set<string>();
+const seededSessions = new Set<string>();
 
 export function ChatStarterPrompts({
   personaId,
@@ -166,18 +168,33 @@ export function ChatStarterPrompts({
     : personas.data?.find((p) => p.builtin);
   const navigate = useNavigate();
   const { sessionId } = useParams({ strict: false });
-  const { ask } = useSearch({ strict: false });
-  // A question asked from an agent's detail view is sent once into the new, still empty conversation.
+  const { ask, attach } = useSearch({ strict: false });
+  /**
+   * What a new conversation was opened with: a question from an agent's detail view, and the library file a
+   * question in the file preview was about. The file is attached before the question is sent, so the answer
+   * is given about it; dropping both search values keeps a reload from asking twice.
+   */
   useEffect(() => {
-    if (!ask || !sessionId || disabled || askedSessions.has(sessionId)) return;
-    askedSessions.add(sessionId);
+    if ((!ask && !attach) || !sessionId || disabled || seededSessions.has(sessionId)) return;
+    seededSessions.add(sessionId);
     const composer = aui.thread.composer();
-    composer.setText(ask);
-    // send() appends the question to the thread at once; from here the thread's own error and retry handle it, and
-    // dropping `ask` keeps a reload from sending it twice.
-    composer.send();
-    void navigate({ to: "/chat/$sessionId", params: { sessionId }, replace: true });
-  }, [ask, sessionId, disabled, aui, navigate]);
+    void (async () => {
+      let attached = true;
+      if (attach)
+        try {
+          const file = await waitForChatFile(attach, AbortSignal.timeout(120_000));
+          await composer.addAttachment(composerAttachment(file));
+        } catch {
+          attached = false;
+        }
+      if (!ask) return;
+      composer.setText(ask);
+      // send() appends the question to the thread at once; from here the thread's own error and retry handle
+      // it. A file that never arrived leaves the question in the composer instead, so it is not asked about
+      // nothing.
+      if (attached) composer.send();
+    })().finally(() => navigate({ to: "/chat/$sessionId", params: { sessionId }, replace: true }));
+  }, [ask, attach, sessionId, disabled, aui, navigate]);
   return (
     <div className="mt-5 flex flex-wrap justify-center gap-2">
       {persona?.starterPrompts.map((text, index) => (

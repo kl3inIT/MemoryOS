@@ -149,10 +149,12 @@ class ChatLibraryTrashIntegrationTest {
         assertEquals(List.of(), ids(page(true)));
         assertThrows(ChatException.class, () -> trash.restore(owner, ChatLibraryFile.Source.UPLOAD, id));
 
-        // Ending the window queues the release; the window itself does the same once it passes.
+        // Ending the window queues the release; the window itself does the same once it passes. The file leaves
+        // the trash at that moment rather than when the release runs: there is nothing left to take back.
         files.delete(tenant, id, false, WINDOW);
         trash.purge(owner, ChatLibraryFile.Source.UPLOAD, id);
         assertEquals(1, count("chat_file_work"));
+        assertEquals(List.of(), ids(page(true)), "a file whose release is queued is out of the trash");
         assertFalse(files.restore(tenant, owner, id), "a file whose release is queued cannot come back");
 
         var second = readyFile();
@@ -191,17 +193,18 @@ class ChatLibraryTrashIntegrationTest {
         assertEquals(List.of(file), ids(page(false)));
         assertEquals(0, cleanup.cleanup());
 
-        // Emptying the trash ends every window the owner has, and the sweep then releases the bytes.
+        // Emptying the trash ends every window the owner has: the file leaves the trash and refuses to come
+        // back at once, and the sweep then releases the bytes.
         interpreter.delete(owner, file);
         assertEquals(1, trash.empty(owner));
-        assertEquals(1, cleanup.cleanup());
-        assertEquals(0, count("stored_objects"));
-        // The row survives as a tombstone so the answer keeps explaining itself, and the trash drops it:
-        // there is nothing left to restore.
-        assertEquals(1, count("chat_file_artifact WHERE purged_at IS NOT NULL"));
-        assertEquals(List.of(), ids(page(true)));
+        assertEquals(List.of(), ids(page(true)), "an ended window is not a file waiting in the trash");
         assertThrows(ChatException.class,
                 () -> trash.restore(owner, ChatLibraryFile.Source.GENERATED, file));
+        assertEquals(1, cleanup.cleanup());
+        assertEquals(0, count("stored_objects"));
+        // The row survives as a tombstone so the answer keeps explaining itself.
+        assertEquals(1, count("chat_file_artifact WHERE purged_at IS NOT NULL"));
+        assertEquals(List.of(), ids(page(true)));
     }
 
     private JdbcChatLibraryRepository.Page page(boolean trashed) {
