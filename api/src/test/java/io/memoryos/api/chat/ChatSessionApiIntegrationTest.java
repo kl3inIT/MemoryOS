@@ -2243,7 +2243,11 @@ class ChatSessionApiIntegrationTest {
                 .map(Enum::name).collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new)), listed);
         var naming = flows.get(0);
         assertEquals("CHAT_NAMING", naming.path("flow").asText());
-        assertTrue(naming.path("modelConfigurationId").isNull());
+        String chatModel = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-default")
+                .with(authentication(actor))).andReturn().getResponse().getContentAsString())
+                .path("modelConfigurationId").asText();
+        flows.forEach(flow -> assertEquals(chatModel, flow.path("modelConfigurationId").asText(),
+                flow.path("flow").asText() + " names the model that runs it, the Chat model to begin with"));
         assertTrue(naming.path("available").asBoolean());
         mockMvc.perform(get("/api/chat/model-flows").with(authentication(other))).andExpect(status().isForbidden());
         var internal = providerBody("http://flow.internal/v1", true).put("dataBoundary", "INTERNAL");

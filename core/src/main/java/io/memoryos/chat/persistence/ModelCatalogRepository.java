@@ -65,11 +65,17 @@ public class ModelCatalogRepository {
         return jdbc.sql("INSERT INTO chat_model_default(tenant_id) VALUES (:tenant) ON CONFLICT DO NOTHING")
                 .param("tenant", tenant).update() == 1;
     }
-    /** Seeds one unset row per flow; existing Tenants were backfilled by migration. */
+    /**
+     * Seeds one row per flow naming the Tenant's Chat model, so every task names the model that runs it rather than
+     * following whatever the conversation model becomes. Call it after the Chat default is set.
+     */
     public void initializeFlows(UUID tenant) {
         for (var flow : ModelFlow.values())
-            jdbc.sql("INSERT INTO model_flow_default(tenant_id, flow) VALUES (:tenant, :flow) ON CONFLICT DO NOTHING")
-                    .param("tenant", tenant).param("flow", flow.name()).update();
+            jdbc.sql("""
+                    INSERT INTO model_flow_default(tenant_id, flow, model_configuration_id)
+                    SELECT :tenant, :flow, model_configuration_id FROM chat_model_default WHERE tenant_id = :tenant
+                    ON CONFLICT DO NOTHING
+                    """).param("tenant", tenant).param("flow", flow.name()).update();
     }
     public List<FlowDefault> flowDefaults(UUID tenant) {
         return jdbc.sql("SELECT flow, model_configuration_id, revision FROM model_flow_default WHERE tenant_id=:tenant ORDER BY flow")
