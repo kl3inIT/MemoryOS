@@ -23,6 +23,7 @@
 | Both Soniox adapters mark the same way: the live stream marks within the segment a token lands in, and an uploaded recording marks within its grouped segment | `SonioxLiveTranscriptionTest`, `BatchTranscriptionTest` |
 | A stretch survives the whole way — Soniox tokens, the transcription job, `jsonb`, the REST read — and still indexes the characters the reader sees | `ChatSessionApiIntegrationTest.aStretchSonioxWasUnsureOfReachesTheTranscriptAtTheRightCharacters`: real PostgreSQL and a loopback Soniox |
 | The transcript marks exactly those characters and nothing else, reads whole with or without marks, and ignores a stretch that falls outside the line | `transcript-text.test.tsx` |
+| A quiet recording is pinged every 20 seconds so no proxy in front reads it as dead, and a track whose audio stops altogether is still closed rather than pinged back to life | `MeetingStreamWatchdogTest` |
 | Meeting routes are documented and CSRF-protected in the committed OpenAPI | `OpenApiContractTest` |
 
 Live Soniox acceptance with real meetings, real microphones and shared tabs remains open, as for MEM-91.
