@@ -25,6 +25,7 @@ export function CitationRail({
   active,
   onActivate,
   located,
+  variant = "search",
   children,
 }: {
   entries: readonly CitationEntry[];
@@ -34,22 +35,36 @@ export function CitationRail({
   onActivate: (index: number) => void;
   /** False for an original with no text to search, such as an image or a PDF without OCR text. */
   located: boolean;
+  /**
+   * Where the passages came from. A Chat answer cited exactly these; a search ranked the document's
+   * passages and kept only the strongest, so the rail must not let its count read as a total.
+   */
+  variant?: "search" | "chat";
   /** The rail's own actions, such as opening the whole extraction. */
   children?: ReactNode;
 }) {
   const ui = useAppTranslation();
+  const heading =
+    variant === "chat"
+      ? ui("Các đoạn được trích dẫn")
+      : entries.length === 1
+        ? ui("Đoạn khớp nhất")
+        : ui("{{count}} đoạn khớp nhất", { count: entries.length });
   return (
     <aside
-      aria-label={ui("Các đoạn được trích dẫn")}
+      aria-label={heading}
       data-slot="citation-rail"
       className="flex max-h-72 shrink-0 flex-col border-border-subtle border-t bg-surface-base lg:max-h-none lg:w-[22rem] lg:border-t-0 lg:border-l"
     >
       <div className="flex shrink-0 items-center justify-between gap-3 px-5 pt-4 pb-3">
         <h3 className="flex items-center gap-2 font-secondary-action text-content-primary">
-          {ui("Các đoạn được trích dẫn")}
-          <span className="rounded-full bg-surface-sunken px-1.5 py-0.5 font-secondary-body text-content-muted tabular-nums">
-            {entries.length}
-          </span>
+          {heading}
+          {/* A ranked heading already carries its number; repeating it in a badge reads as a total. */}
+          {variant === "chat" ? (
+            <span className="rounded-full bg-surface-sunken px-1.5 py-0.5 font-secondary-body text-content-muted tabular-nums">
+              {entries.length}
+            </span>
+          ) : null}
         </h3>
         {children}
       </div>

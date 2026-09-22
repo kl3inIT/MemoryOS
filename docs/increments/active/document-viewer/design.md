@@ -153,7 +153,12 @@ same job:
 
 - **Citation rail** replaces the footer's segmented match switcher. One card per entry in
   `selection.matches`, carrying the passage text, its page when known, and its location confidence.
-  Activating a card scrolls the document to its highlight.
+  Activating a card scrolls the document to its highlight. Its heading says where the passages came from,
+  because the two surfaces mean different things by them: a Chat answer cited exactly the passages listed,
+  while Search ranked the document's passages and kept only the strongest three. The search heading
+  therefore reads "3 đoạn khớp nhất" and carries no separate count badge — a bare number beside "Các đoạn
+  được trích dẫn" reads as every match in the document, which is what sent readers looking for marks that
+  were never claimed. The "Toàn bộ đoạn trích" tab sits beside it as the way to see the rest.
 - **Thumbnail rail** renders only for paged originals (PDF), lazily, and is absent for every other format
   rather than faked.
 - **Floating toolbar**, bottom-centre: zoom out / level / zoom in, a page field with total, and previous /

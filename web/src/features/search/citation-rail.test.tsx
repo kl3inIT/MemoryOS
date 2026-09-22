@@ -9,21 +9,49 @@ const entries = [
   { text: "Lợi nhuận sau thuế đạt 87 tỷ đồng." },
 ];
 
-function rail(confidence: Array<"exact" | "approximate" | "none">, located = true) {
+function rail(
+  confidence: Array<"exact" | "approximate" | "none">,
+  located = true,
+  variant: "search" | "chat" = "search",
+  shown = entries,
+) {
   const onActivate = vi.fn();
   render(
     <CitationRail
-      entries={entries}
+      entries={shown}
       confidence={confidence}
       active={0}
       onActivate={onActivate}
       located={located}
+      variant={variant}
     />,
   );
   return onActivate;
 }
 
 describe("CitationRail", () => {
+  it("counts the passages of a search as the best matches, not as every match in the document", async () => {
+    await i18n.changeLanguage("vi");
+    rail(["exact", "exact"]);
+
+    // Search ranks passages and keeps only the strongest, so a bare count would read as a total.
+    expect(screen.getByRole("heading")).toHaveTextContent("2 đoạn khớp nhất");
+  });
+
+  it("reads a single ranked passage without a number in front of it", async () => {
+    await i18n.changeLanguage("vi");
+    rail(["exact"], true, "search", entries.slice(0, 1));
+
+    expect(screen.getByRole("heading")).toHaveTextContent("Đoạn khớp nhất");
+  });
+
+  it("still calls a Chat answer's passages cited, because the answer did cite exactly those", async () => {
+    await i18n.changeLanguage("vi");
+    rail(["exact", "exact"], true, "chat");
+
+    expect(screen.getByRole("heading")).toHaveTextContent("Các đoạn được trích dẫn");
+  });
+
   it("says which citations are marked in the original and which are not", async () => {
     await i18n.changeLanguage("vi");
     rail(["exact", "none"]);

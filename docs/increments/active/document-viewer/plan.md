@@ -67,6 +67,7 @@ Verification below.
 | An absent sheet row keeps its line, so a recorded row number addresses the same line of the preview | `SpreadsheetPreviewTest` |
 | The rendered sheet marks the cited rows and states which one is being read | `csv-view.test.tsx` |
 | A marked row keeps its colour under the pointer, and the expand control opens a true full screen | browser check in Orca on 2026-09-22 |
+| The rail counts a search's passages as the best matches and a Chat answer's passages as cited | `citation-rail.test.tsx` |
 | A sheet renders only the rows in view, so a wide workbook does not build thousands of cells | `csv-view.test.tsx` plus a browser measurement in Orca on 2026-09-22: the same workbook fell from 11,200 rendered cells to 577 |
 | PDF, DOCX and XLSX read correctly in light and dark | browser check in Orca — DOCX confirmed on the Tasco report on 2026-09-22 in dark and light; XLSX confirmed on an uploaded workbook; PDF is unchecked here because this machine has no Docling endpoint, so no PDF can be extracted or indexed |
 

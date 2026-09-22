@@ -234,6 +234,7 @@ export function DocumentPreviewDialog({
                 active={reading.activeMatchIndex}
                 onActivate={reading.select}
                 located={located}
+                variant={variant}
               >
                 <Button
                   size="sm"

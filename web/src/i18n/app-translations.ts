@@ -553,6 +553,8 @@ export const vietnameseUi: Record<string, string> = {
   "Tệp gốc": "Original file",
   "Các trang": "Pages",
   "Các đoạn được trích dẫn": "Cited passages",
+  "Đoạn khớp nhất": "Best-matching passage",
+  "{{count}} đoạn khớp nhất": "{{count}} best-matching passages",
   "Toàn bộ đoạn trích": "All passages",
   "Mở toàn màn hình": "Open full screen",
   "Thu nhỏ cửa sổ": "Shrink the window",
