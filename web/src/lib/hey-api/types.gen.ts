@@ -1421,6 +1421,18 @@ export type MeetingHeadingRequest = {
     attendees?: Array<string>;
 };
 
+/**
+ * The minutes as a file in the caller's library
+ */
+export type MeetingLibraryFile = {
+    fileId: string;
+    filename: string;
+    /**
+     * READY when Chat can read it; PROCESSING while it is extracted
+     */
+    status: string;
+};
+
 export type McpToolRefresh = {
     server: McpServerView;
     tools: Array<McpToolView>;
@@ -7949,6 +7961,51 @@ export type ExportMeetingMinutesResponses = {
 };
 
 export type ExportMeetingMinutesResponse = ExportMeetingMinutesResponses[keyof ExportMeetingMinutesResponses];
+
+export type PublishMeetingMinutesData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/library';
+};
+
+export type PublishMeetingMinutesErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type PublishMeetingMinutesError = PublishMeetingMinutesErrors[keyof PublishMeetingMinutesErrors];
+
+export type PublishMeetingMinutesResponses = {
+    /**
+     * The file
+     */
+    200: MeetingLibraryFile;
+};
+
+export type PublishMeetingMinutesResponse = PublishMeetingMinutesResponses[keyof PublishMeetingMinutesResponses];
 
 export type EndMeetingData = {
     body?: never;

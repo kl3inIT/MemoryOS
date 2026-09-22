@@ -173,6 +173,51 @@ public class ChatLibraryService {
      * it. The copy is independent: deleting or purging the artifact leaves it intact, and deleting the copy lets
      * the artifact be copied again.
      */
+    /**
+     * Takes bytes another capability produced into the caller's library, under the same rules a copy follows: the
+     * caller's quota, the caller's upload, the file worker's extraction. Asking twice for the same artifact returns
+     * the file already made, and deleting that file lets the artifact be taken again, so a rewritten artifact
+     * replaces rather than duplicates.
+     */
+    public UserFile publish(ActorId actor, ChatLibraryFile.Source source, UUID artifact, String filename,
+            String mediaType, byte[] bytes) {
+        if (source == ChatLibraryFile.Source.UPLOAD || source == ChatLibraryFile.Source.GENERATED
+                || source == ChatLibraryFile.Source.IMAGE)
+            throw ChatException.invalid("Those artifacts are taken with a copy.");
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        var existing = files.copy(tenant, actor, source.name(), artifact);
+        if (existing.isPresent()) return existing.get().file();
+        policy.validateSize(bytes.length);
+        if (bytes.length > MAX_COPY_BYTES) throw ChatException.invalid("File exceeds the configured Chat upload limit.");
+        quotas.requireRoom(tenant, actor, bytes.length);
+        var spec = new ObjectUploadSpecification(filename, mediaType, bytes.length, checksum(bytes),
+                ObjectUploadPurpose.CHAT_FILE);
+        VerifiedObject verified = uploads.write(tenant, spec, bytes);
+        var published = Objects.requireNonNull(tx.execute(ignored -> {
+            var current = write(actor);
+            if (!current.equals(tenant)) {
+                uploads.discard(tenant, verified.uploadId(), verified.token());
+                return java.util.Optional.<UserFile>empty();
+            }
+            var raced = files.copy(tenant, actor, source.name(), artifact);
+            if (raced.isPresent()) {
+                uploads.discard(tenant, verified.uploadId(), verified.token());
+                return java.util.Optional.of(raced.get().file());
+            }
+            var made = files.createCopy(tenant, actor, verified.uploadId(), spec, source.name(), artifact);
+            uploads.adopt(tenant, verified.uploadId(), verified.token());
+            files.finalized(tenant, made);
+            return java.util.Optional.of(files.owned(tenant, actor, made, false).orElseThrow().file());
+        }));
+        return published.orElseThrow(ChatException::unavailable);
+    }
+
+    /** The file this artifact was already taken into, if the caller still has it. */
+    public java.util.Optional<UserFile> published(ActorId actor, ChatLibraryFile.Source source, UUID artifact) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
+        return files.copy(tenant, actor, source.name(), artifact).map(row -> row.file());
+    }
+
     public UserFile copy(ActorId actor, ChatLibraryFile.Source source, UUID id) {
         if (source == ChatLibraryFile.Source.UPLOAD) throw ChatException.invalid("An upload is already usable as it is.");
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);

@@ -60,6 +60,7 @@ import {
   meetingKey,
   meetingsKey,
   nameSpeaker,
+  publishMinutes,
   removeMeeting,
   rerunMinutes,
   shareMeeting,
@@ -573,7 +574,20 @@ function MinutesSummary({ meeting, ui }: { meeting: MeetingDetail; ui: Translate
   const cache = useQueryClient();
   const [pending, setPending] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [opening, setOpening] = useState(false);
+  const navigate = useNavigate();
   const { status, summary, generatedAt } = meeting.minutes;
+
+  /** Publishes the minutes into the library, then opens a new conversation with them in the composer. */
+  async function openInChat() {
+    setOpening(true);
+    try {
+      const file = await publishMinutes(meeting.id);
+      await navigate({ to: "/", search: { attach: file.fileId } });
+    } finally {
+      setOpening(false);
+    }
+  }
 
   async function rerun() {
     setPending(true);
@@ -623,6 +637,10 @@ function MinutesSummary({ meeting, ui }: { meeting: MeetingDetail; ui: Translate
         <Button size="sm" prominence="tertiary" onClick={() => setExporting(true)}>
           <FileDown aria-hidden="true" />
           {ui("Xuất biên bản")}
+        </Button>
+        <Button size="sm" prominence="tertiary" pending={opening} onClick={() => void openInChat()}>
+          <MessageSquareText aria-hidden="true" />
+          {ui("Mở trong Chat")}
         </Button>
       </div>
       <p className="whitespace-pre-wrap text-content-secondary">{summary}</p>

@@ -126,6 +126,7 @@ class OpenApiContractTest {
             "/api/meetings/{meetingId}/recording",
             "/api/meetings/{meetingId}/recording/finalize",
             "/api/meetings/{meetingId}/shares",
+            "/api/meetings/{meetingId}/library",
             "/api/ai-costs/summary",
             "/api/ai-costs/daily",
             "/api/ai-costs/breakdown",

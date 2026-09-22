@@ -6333,6 +6333,58 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}/library:
+    post:
+      tags:
+      - Meetings
+      summary: Take the minutes into the caller's file library so a conversation can
+        use them
+      operationId: publishMeetingMinutes
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingLibraryFile"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings/{meetingId}/end:
     post:
       tags:
@@ -20125,6 +20177,22 @@ components:
           type: array
           items:
             type: string
+    MeetingLibraryFile:
+      type: object
+      description: The minutes as a file in the caller's library
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        status:
+          type: string
+          description: READY when Chat can read it; PROCESSING while it is extracted
+      required:
+      - fileId
+      - filename
+      - status
     McpToolRefresh:
       type: object
       properties:

@@ -71,6 +71,14 @@ Each item cites the line it rests on; that line number becomes the utterance id,
 
 `PUT /api/meetings/{id}/minutes/{itemId}` ticks an action off; an item that is not the owner's answers `MEETING_NOT_FOUND`.
 
+## Taking the minutes into Chat
+
+`POST /api/meetings/{id}/library` writes the minutes into the caller's file library as Markdown and answers the file, so a conversation can use them. It needs `READY` minutes, and asking twice returns the file already made (V92's live-copy index, with `MEETING` added to `copied_from_source` in V108). Rewriting the minutes deletes that file so the next call publishes what was rewritten; a file a Project or an Agent still holds is left alone.
+
+The file carries the summary, the decisions and the work with their owners, deadlines and the sentence each rests on. **It never carries the transcript.** A transcript is what people actually said, and the Delaware Chancery court in *ATG Capital v. Lane* read one back against the minutes it contradicted; counsel's advice since is that the approved minutes are the record while the transcript is working material kept close. The file says where the full wording lives.
+
+*Open in Chat* on the meeting page publishes the file and opens a new conversation with `?attach={fileId}`; the chat page waits for the file to be extracted, puts it in the composer and drops the parameter.
+
 ## Biên bản
 
 `POST /api/meetings/{id}/minutes/export` returns the minutes as a Vietnamese *biên bản* in Word format, built with Apache POI. It is deterministic: the same meeting and the same heading always produce the same document, and no model runs.

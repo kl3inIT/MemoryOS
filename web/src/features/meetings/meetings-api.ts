@@ -11,6 +11,7 @@ import {
   listMeetingTranscribers,
   markMeetingMinutesItem,
   nameMeetingSpeaker,
+  publishMeetingMinutes,
   rerunMeetingMinutes,
   reserveMeetingRecording,
   shareMeeting as shareMeetingRequest,
@@ -198,6 +199,16 @@ export async function shareMeeting(meetingId: string, members: string[], groups:
   const { data } = await shareMeetingRequest({
     path: { meetingId },
     body: { members, groups },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+/** Takes the minutes into the caller's library so a conversation can use them; asking twice returns the same file. */
+export async function publishMinutes(meetingId: string) {
+  const { data } = await publishMeetingMinutes({
+    path: { meetingId },
     headers: sameOriginMutationHeaders,
     throwOnError: true,
   });

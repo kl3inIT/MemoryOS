@@ -6,7 +6,12 @@ import io.memoryos.meeting.Meeting;
 import io.memoryos.meeting.MeetingException;
 import io.memoryos.chat.voice.BatchTranscriptionService;
 import io.memoryos.chat.voice.VoiceProvider;
+import io.memoryos.chat.ChatFileInUseException;
+import io.memoryos.chat.ChatFileService;
+import io.memoryos.chat.ChatLibraryFile;
+import io.memoryos.chat.ChatLibraryService;
 import io.memoryos.meeting.MeetingMinutesDocument;
+import io.memoryos.meeting.MeetingMinutesMarkdown;
 import io.memoryos.meeting.MeetingRecordingService;
 import io.memoryos.meeting.MeetingService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -47,15 +52,21 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
 class MeetingController {
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(MeetingController.class);
     static final String DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
     private final MeetingService meetings;
     private final MeetingRecordingService recordings;
+    private final ChatLibraryService library;
+    private final ChatFileService files;
     private final VoiceTicketStore tickets;
 
-    MeetingController(MeetingService meetings, MeetingRecordingService recordings, VoiceTicketStore tickets) {
+    MeetingController(MeetingService meetings, MeetingRecordingService recordings, ChatLibraryService library,
+                      ChatFileService files, VoiceTicketStore tickets) {
         this.meetings = meetings;
         this.recordings = recordings;
+        this.library = library;
+        this.files = files;
         this.tickets = tickets;
     }
 
@@ -73,6 +84,13 @@ class MeetingController {
     @Schema(name = "MeetingNotesRequest")
     record NotesRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, maxLength = 50000) String notes,
                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long revision) {}
+
+    @Schema(name = "MeetingLibraryFile", description = "The minutes as a file in the caller's library")
+    record LibraryFileResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID fileId,
+                               @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String filename,
+                               @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                       description = "READY when Chat can read it; PROCESSING while it is extracted")
+                               String status) {}
 
     @Schema(name = "MeetingShareRequest", description = "Everyone who may read this meeting, replacing the current list")
     record ShareRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<UUID> members,
@@ -336,7 +354,17 @@ class MeetingController {
     @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
     DetailResponse minutes(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
                            @PathVariable UUID meetingId) {
-        return DetailResponse.from(meetings.rerunMinutes(identity.actorId(), meetingId));
+        var meeting = DetailResponse.from(meetings.rerunMinutes(identity.actorId(), meetingId));
+        // The published minutes are about to be wrong. Drop them so the next use publishes what was rewritten; a
+        // file a Project or an Agent still holds is left alone rather than pulled out from under them.
+        library.published(identity.actorId(), ChatLibraryFile.Source.MEETING, meetingId).ifPresent(file -> {
+            try {
+                files.delete(identity.actorId(), file.id());
+            } catch (ChatFileInUseException inUse) {
+                LOG.info("Published meeting minutes kept because something still uses them");
+            }
+        });
+        return meeting;
     }
 
     @PutMapping(value = "/{meetingId}/minutes/{itemId}", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -355,6 +383,21 @@ class MeetingController {
     DetailResponse share(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
                          @PathVariable UUID meetingId, @RequestBody ShareRequest body) {
         return DetailResponse.from(meetings.share(identity.actorId(), meetingId, body.members(), body.groups()));
+    }
+
+    @PostMapping("/{meetingId}/library")
+    @Operation(operationId = "publishMeetingMinutes",
+            summary = "Take the minutes into the caller's file library so a conversation can use them")
+    @ApiResponse(responseCode = "200", description = "The file", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    LibraryFileResponse publish(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                                @PathVariable UUID meetingId) {
+        var meeting = meetings.get(identity.actorId(), meetingId);
+        if (meeting.minutes().status() != Meeting.MinutesStatus.READY)
+            throw MeetingException.invalid("The minutes are not written yet.");
+        var file = library.publish(identity.actorId(), ChatLibraryFile.Source.MEETING, meetingId,
+                MeetingMinutesMarkdown.filename(meeting), "text/markdown", MeetingMinutesMarkdown.render(meeting));
+        return new LibraryFileResponse(file.id(), file.filename(), file.status().name());
     }
 
     @GetMapping("/transcribers")

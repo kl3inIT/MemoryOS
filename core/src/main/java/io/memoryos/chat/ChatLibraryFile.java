@@ -18,8 +18,8 @@ public record ChatLibraryFile(Source source, UUID id, String filename, String me
                               @Nullable Instant purgeAfter, List<Usage> usedBy) {
     public ChatLibraryFile { usedBy = List.copyOf(usedBy); }
 
-    /** Where the file came from: an upload, a {@code run_python} result, or a generated image. */
-    public enum Source { UPLOAD, GENERATED, IMAGE }
+    /** Where the file came from: an upload, a {@code run_python} result, a generated image, or a meeting. */
+    public enum Source { UPLOAD, GENERATED, IMAGE, MEETING }
 
     public enum Category { DOCUMENT, SPREADSHEET, IMAGE, PRESENTATION, OTHER }
 

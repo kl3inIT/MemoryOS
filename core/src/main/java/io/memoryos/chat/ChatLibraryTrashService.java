@@ -50,7 +50,7 @@ public class ChatLibraryTrashService {
         boolean restored = Boolean.TRUE.equals(tx.execute(ignored -> {
             var tenant = write(actor);
             return switch (source) {
-                case UPLOAD -> files.restore(tenant, actor, id);
+                case UPLOAD, MEETING -> files.restore(tenant, actor, id);
                 case GENERATED -> generated.restoreArtifact(tenant, actor, id);
                 case IMAGE -> images.restore(tenant, actor, id);
             };
@@ -63,7 +63,7 @@ public class ChatLibraryTrashService {
         boolean purged = Boolean.TRUE.equals(tx.execute(ignored -> {
             var tenant = write(actor);
             return switch (source) {
-                case UPLOAD -> files.purgeNow(tenant, actor, id);
+                case UPLOAD, MEETING -> files.purgeNow(tenant, actor, id);
                 case GENERATED -> generated.purgeArtifactNow(tenant, actor, id);
                 case IMAGE -> images.purgeNow(tenant, actor, id);
             };
