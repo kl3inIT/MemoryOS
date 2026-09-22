@@ -3,6 +3,9 @@
 Steps 1–2 are a behaviour-preserving move; step 3 is the risky pure logic and is written test-first; steps
 4–9 build on both. Each step is one commit, with `clean check` green before the next.
 
+All nine steps are implemented and committed. The open work is live acceptance, recorded under
+Verification below.
+
 ## Steps
 
 1. **Extract the shared preview kit** — move `chat/chat-file-preview.ts` to `preview/preview-kind.ts` and the
@@ -51,17 +54,27 @@ Steps 1–2 are a behaviour-preserving move; step 3 is the risky pure logic and 
 | Locator returns `none` rather than a wrong range when the passage is absent, repeated, too short to anchor, or its anchors sit too far apart | `preview-highlight.test.ts` — the assertions the step exists for |
 | Chat file preview unchanged by the move | existing `chat-file-preview.test.ts`, `chat-file-preview-gallery.test.tsx` |
 | PDF page windowing unchanged by the move | existing `pdf-page-window.test.ts` |
-| Any-type original served with declared Content-Type, inline disposition, nosniff | `SearchDocumentApiIntegrationTest` / chat counterpart |
+| Any-type original served with declared Content-Type, inline disposition, nosniff | `DocumentOriginalResponsesTest` |
 | HTML/SVG served as attachment, not inline | same |
-| PDF path keeps magic-byte check and range behaviour | existing original-PDF tests stay green |
-| Spreadsheet route returns sheets under the same authority; unauthorized actor still 404/403 | new API integration test |
-| Inline source panel opens the original first for PDF/DOCX/XLSX/images and the passages first for Markdown and plain text | component test |
-| Citation rail entry scrolls the document to its highlight; unlocated entry states so and draws nothing | component test |
-| Unknown type, oversized, empty and unavailable originals each show their own panel with a download | component test |
-| PDF, DOCX and XLSX read correctly in light and dark | browser check in Orca |
+| PDF path keeps magic-byte check and range behaviour | `DocumentOriginalServiceTest`, `SourceOriginalQueryTest` |
+| Spreadsheet route returns sheets under the same authority; a Document of another type is not readable as one | `DocumentOriginalServiceTest.aWorkbookOriginalIsReadAsSheetsAndAnythingElseIsNotReadableAsOne`. The controllers delegate without logic of their own, so the authority is tested at the service, which is the narrowest useful boundary; no new Spring integration test was added |
+| Inline source panel opens the original first for PDF/DOCX/XLSX/images and the passages first for Markdown and plain text | `evidence-order.test.ts` |
+| Citation rail entry hands the citation to the reader; an unlocated entry states so and draws nothing, and an original with no text layer says that instead of blaming the passage | `citation-rail.test.tsx` |
+| The chunk header never reaches the locator or the reader | `search-presentation.test.ts` |
+| PDF, DOCX and XLSX read correctly in light and dark | browser check in Orca — DOCX confirmed on the Tasco report on 2026-09-22 (dark); PDF, XLSX and light mode remain unchecked |
 
 Not verified here: rendering fidelity of a real Tasco DOCX/XLSX corpus beyond the fixture files, and the
 `approximate` match rate against production documents — measured after the first live read, not asserted.
+
+Not delivered: the four distinct unavailable-original panels the design asks for. The reader shows two —
+the original could not be opened, and this type cannot be shown here — because an oversized or missing
+original both reach the browser as 404 today. Telling them apart needs a specific problem code from the
+API, which is separate work.
+
+Found while verifying, and not this increment's to fix: every indexed passage carries the chunker's
+`Title:`/`Section:` header in the text Search matches on, so a query hitting a section heading ranks every
+cell under that heading. The viewer now shows the passage without the header, which makes those weak
+matches visible; the ranking itself belongs to Search.
 
 ## Risks
 
