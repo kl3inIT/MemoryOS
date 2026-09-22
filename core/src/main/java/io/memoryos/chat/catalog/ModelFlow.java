@@ -4,5 +4,7 @@ package io.memoryos.chat.catalog;
 public enum ModelFlow {
     CHAT_NAMING,
     /** Summary, decisions and action items for a recorded meeting. */
-    MEETING_MINUTES
+    MEETING_MINUTES,
+    /** Proposals for the stretches of a transcript the speech provider was unsure of. */
+    MEETING_CORRECTION
 }

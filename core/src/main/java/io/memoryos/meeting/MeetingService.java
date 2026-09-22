@@ -327,6 +327,11 @@ public class MeetingService {
                 row.owned(), row.owned() ? meetings.readers(tenant, id) : List.of());
     }
 
+    /** The Tenant the actor is writing in; correction runs need it to bill the model call. */
+    public UUID tenantOf(ActorId actor) {
+        return tenant(actor);
+    }
+
     private UUID tenant(ActorId actor) {
         return authorization.require(actor, IamCapability.CHAT_WRITE, false).tenantId().value();
     }

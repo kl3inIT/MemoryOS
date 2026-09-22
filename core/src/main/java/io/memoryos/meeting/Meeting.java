@@ -55,7 +55,7 @@ public final class Meeting {
     public record Speaker(Track track, String label, @Nullable String name) {}
 
     public record Utterance(UUID id, Track track, String speaker, long startMs, long endMs, String text,
-                            double confidence, List<Span> spans) {
+                            double confidence, List<Span> spans, @Nullable EditSource editSource) {
         public Utterance {
             // The text is trimmed and capped after the provider wrote it, so a stretch can fall outside; drop it
             // rather than store an offset that points past the line a reader sees.
@@ -65,12 +65,31 @@ public final class Meeting {
 
         public Utterance(UUID id, Track track, String speaker, long startMs, long endMs, String text,
                 double confidence) {
-            this(id, track, speaker, startMs, endMs, text, confidence, List.of());
+            this(id, track, speaker, startMs, endMs, text, confidence, List.of(), null);
+        }
+
+        public Utterance(UUID id, Track track, String speaker, long startMs, long endMs, String text,
+                double confidence, List<Span> spans) {
+            this(id, track, speaker, startMs, endMs, text, confidence, spans, null);
         }
     }
 
     /** A stretch of an utterance the provider was unsure of, by character offset, half-open. */
     public record Span(int start, int end, double confidence) {}
+
+    /** Who last changed what an utterance says. Absent means nobody has: the provider's own words still stand. */
+    public enum EditSource { MODEL, HUMAN }
+
+    /** What became of a proposal. */
+    public enum CorrectionStatus { PENDING, ACCEPTED, KEPT, REVERTED }
+
+    /**
+     * One proposal for one uncertain stretch. It carries the model's own reasons and scores so the owner can weigh
+     * it; nothing in the transcript changes until the owner decides.
+     */
+    public record Correction(UUID id, UUID utteranceId, UUID runId, int start, int end, String before, String after,
+                             String reason, double confidence, double contextFit, double meaningSafe,
+                             boolean matchedGlossary, CorrectionStatus status) {}
 
     /** What the owner enters before recording. */
     public record Draft(String title, Kind kind, @Nullable String language, List<String> participants, List<String> terms) {}
