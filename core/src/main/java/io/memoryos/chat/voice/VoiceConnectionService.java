@@ -68,6 +68,7 @@ public class VoiceConnectionService {
     public Probe probe(ActorId actor, VoiceProvider provider, Input input) {
         var tenant = authorization.require(actor, IamCapability.MODELS_MANAGE, false).tenantId().value();
         validate(provider, input);
+        input = trimmed(input);
         var existing = connections.findByTenantIdAndProvider(tenant, provider);
         String key = switch (input.credential().action()) {
             case REPLACE -> input.credential().value();
@@ -81,6 +82,7 @@ public class VoiceConnectionService {
     public View save(ActorId actor, VoiceProvider provider, Input input) {
         var tenant = authorization.lockAndRequireExclusive(actor, IamCapability.MODELS_MANAGE).tenantId().value();
         validate(provider, input);
+        input = trimmed(input);
         var existing = connections.findByTenantIdAndProvider(tenant, provider);
         var entity = existing.orElseGet(() -> new VoiceConnectionEntity(tenant, provider));
         if (entity.revision() != input.revision()) throw ChatException.conflict();
@@ -215,6 +217,21 @@ public class VoiceConnectionService {
         if (provider.requiresEndpoint() && input.endpoint().isEmpty())
             throw ChatException.invalid("This provider requires its own endpoint.");
         if (!input.endpoint().isEmpty()) ModelCatalogService.validateEndpoint(input.endpoint());
+    }
+
+    /**
+     * A key arrives from a clipboard and often brings a newline with it. An HTTP header ignores that, so the
+     * saved-connection check passes, while Soniox reads its key from a JSON field and answers
+     * {@code error_code 401 unauthenticated} — a key that verifies and then cannot transcribe. It is stripped once,
+     * here, before anything stores or probes it.
+     */
+    static Input trimmed(Input input) {
+        var credential = input.credential();
+        if (credential.action() != ProviderCredentials.Action.REPLACE || credential.value() == null) return input;
+        String key = credential.value().strip();
+        if (key.equals(credential.value())) return input;
+        return new Input(input.endpoint(), input.sttModel(), input.ttsModel(), input.ttsVoice(),
+                new ProviderCredentials.Change(credential.action(), key), input.activate(), input.revision());
     }
 
     private static boolean validIdentifier(@Nullable String value) {

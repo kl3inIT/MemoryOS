@@ -27,6 +27,7 @@ import tools.jackson.databind.ObjectMapper;
  * stream's times so the recording clock stays continuous. Audio and text are never logged.
  */
 final class SonioxLiveTranscription implements LiveTranscription {
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(SonioxLiveTranscription.class);
     static final Duration REPLAY = Duration.ofSeconds(5);
     static final List<Duration> BACKOFF = List.of(Duration.ofSeconds(2), Duration.ofSeconds(5), Duration.ofSeconds(10),
             Duration.ofSeconds(20), Duration.ofSeconds(30));
@@ -209,7 +210,7 @@ final class SonioxLiveTranscription implements LiveTranscription {
         lastSendNanos = System.nanoTime();
         sends = sends.thenCompose(ignored -> live.sendBinary(ByteBuffer.wrap(frame), true));
         sends.whenComplete((ignored, failure) -> {
-            if (failure != null) providerFailed(sentGeneration);
+            if (failure != null) providerFailed(sentGeneration, "audio send failed");
         });
     }
 
@@ -223,12 +224,12 @@ final class SonioxLiveTranscription implements LiveTranscription {
             String message = JSON.writeValueAsString(Map.of("type", "keepalive"));
             sends = sends.thenCompose(ignored -> live.sendText(message, true));
             sends.whenComplete((ignored, failure) -> {
-                if (failure != null) providerFailed(sentGeneration);
+                if (failure != null) providerFailed(sentGeneration, "keepalive failed");
             });
         }
     }
 
-    private void providerFailed(int failedGeneration) {
+    private void providerFailed(int failedGeneration, String reason) {
         WebSocket broken;
         synchronized (this) {
             if (closed || failedGeneration != generation || socket == null) return;
@@ -240,8 +241,10 @@ final class SonioxLiveTranscription implements LiveTranscription {
             if (finishing) {
                 finished.complete(null);
             } else if (attempt >= backoff.size()) {
+                LOG.warn("Soniox stream gave up after {} attempts ({})", attempt, reason);
                 listener.failed();
             } else {
+                LOG.warn("Soniox stream failed ({}); reconnecting, attempt {}", reason, attempt + 1);
                 int reconnectGeneration = generation;
                 TIMERS.schedule(() -> reconnect(reconnectGeneration), backoff.get(attempt++).toMillis(),
                         TimeUnit.MILLISECONDS);
@@ -298,11 +301,14 @@ final class SonioxLiveTranscription implements LiveTranscription {
         try {
             event = JSON.readTree(message);
         } catch (RuntimeException malformed) {
-            providerFailed(messageGeneration);
+            providerFailed(messageGeneration, "unreadable message");
             return;
         }
-        if (!event.path("error_code").isMissingNode() && !event.path("error_code").isNull()) {
-            providerFailed(messageGeneration);
+        var code = event.path("error_code");
+        if (!code.isMissingNode() && !code.isNull()) {
+            // The code and the type say what to fix; the provider's own prose may carry account detail, so it stays out.
+            providerFailed(messageGeneration,
+                    "provider error " + code.asString("") + " " + event.path("error_type").asString(""));
             return;
         }
         synchronized (this) {
@@ -388,13 +394,13 @@ final class SonioxLiveTranscription implements LiveTranscription {
                     return CompletableFuture.completedFuture(null);
                 }
             }
-            providerFailed(listenerGeneration);
+            providerFailed(listenerGeneration, "closed by provider, status " + statusCode);
             return CompletableFuture.completedFuture(null);
         }
 
         @Override
         public void onError(WebSocket webSocket, Throwable error) {
-            providerFailed(listenerGeneration);
+            providerFailed(listenerGeneration, error.getClass().getSimpleName());
         }
     }
 }
