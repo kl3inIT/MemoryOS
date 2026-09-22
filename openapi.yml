@@ -15945,6 +15945,72 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/files/{fileId}/thumbnail:
+    get:
+      tags:
+      - Chat
+      summary: Read the file library's small rendering of an owner-private uploaded
+        image
+      operationId: getChatFileThumbnail
+      parameters:
+      - name: fileId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid file request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Tenant membership or CSRF requirement not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: File not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: File state or request identity conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: Storage unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: "Thumbnail bytes, or the original image when no smaller rendering\
+            \ could be made"
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/files/{fileId}/text:
     get:
       tags:

@@ -65,6 +65,7 @@ class OpenApiContractTest {
             "/api/chat/files/{fileId}/passages",
             "/api/chat/files/{fileId}/content",
             "/api/chat/files/{fileId}/preview",
+            "/api/chat/files/{fileId}/thumbnail",
             "/api/chat/files/{fileId}/finalize",
             "/api/chat/files/{fileId}/retry",
             "/api/chat/documents/{documentId}",

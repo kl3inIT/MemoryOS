@@ -278,6 +278,7 @@ Exact evidence, corpus counts, restrictions, cleanup and remaining image/live-ru
 | `generate_image` stages → adopts → records one artifact, enforces the per-turn limit, and streams GENERATING/COMPLETED/FAILED | `GenerateImageToolTest` |
 | Library thumbnails: a 512 px JPEG within the byte floor, no rendering for an undecodable or already-small source | `ImageThumbnailsTest` |
 | The first thumbnail request writes one rendering that later reads reuse, the artifact is served unchanged, an image with no thumbnail to make is served whole, and deletion releases both objects | `ChatArtifactCleanupIntegrationTest` |
+| An uploaded image renders one thumbnail that later reads reuse, a non-image upload is refused one, a non-owner is denied, and deletion releases the derived object | `ChatFileLifecycleIntegrationTest` |
 | Both renderings carry `private, max-age=31536000, immutable`, an unknown `variant` is refused, and the content route stays owner-only | `ChatSessionApiIntegrationTest.aGeneratedImageIsCopiedIntoOneReusableUploadThatOutlivesIt` |
 | Generated-image element reveals on load, opens a fullscreen viewer, and the composer toggles image mode | `image-generation.test.tsx`; `chat-image-options.test.tsx` |
 | Edit adapters: Cloudflare klein multipart (`prompt`, working `width`/`height`, `input_image_0`) and OpenAI `images/edits` with `input_fidelity=high`; the returned bytes decide the media type; failures disclose nothing; the timer is tagged `operation=edit` | `ImageProviderClientTest` |

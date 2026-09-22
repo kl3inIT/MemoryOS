@@ -86,17 +86,30 @@ public class JdbcUserFileWorkRepository {
         finish(work, "COMPLETED");
     }
 
-    public record DeletedReferences(ObjectUploadId upload, @Nullable DocumentId document) {}
+    /**
+     * What a released upload leaves behind: its adopted upload, its document, and the derived thumbnail the
+     * library wrote, if one was ever asked for. The thumbnail is an adopted write of this capability's own, so
+     * the caller releases it rather than the generic reapers.
+     */
+    public record DeletedReferences(ObjectUploadId upload, @Nullable DocumentId document,
+                                    @Nullable StoredObjectId thumbnail, @Nullable ObjectKey thumbnailKey) {}
 
     public DeletedReferences detach(UserFileWork work) {
-        var refs = jdbc.sql("SELECT upload_id,document_id FROM chat_user_file WHERE tenant_id=:tenant AND id=:file")
+        var refs = jdbc.sql("""
+                SELECT upload_id,document_id,thumbnail_stored_object_id,thumbnail_object_key
+                FROM chat_user_file WHERE tenant_id=:tenant AND id=:file
+                """)
                 .param("tenant", work.tenantId().value()).param("file", work.fileId()).query((r, ignored) -> {
                     var document = r.getObject("document_id", UUID.class);
+                    var thumbnail = r.getObject("thumbnail_stored_object_id", UUID.class);
                     return new DeletedReferences(new ObjectUploadId(r.getObject("upload_id", UUID.class)),
-                            document == null ? null : new DocumentId(document));
+                            document == null ? null : new DocumentId(document),
+                            thumbnail == null ? null : new StoredObjectId(thumbnail),
+                            thumbnail == null ? null : new ObjectKey(r.getString("thumbnail_object_key")));
                 }).single();
         jdbc.sql("""
-                UPDATE chat_user_file SET status='DELETED',document_id=NULL,plaintext=NULL,updated_at=CURRENT_TIMESTAMP
+                UPDATE chat_user_file SET status='DELETED',document_id=NULL,plaintext=NULL,updated_at=CURRENT_TIMESTAMP,
+                    thumbnail_stored_object_id=NULL,thumbnail_object_key=NULL,thumbnail_media_type=NULL
                 WHERE tenant_id=:tenant AND id=:file
                 """).param("tenant", work.tenantId().value()).param("file", work.fileId()).update();
         finish(work, "COMPLETED");

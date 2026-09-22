@@ -15677,6 +15677,53 @@ export type GetChatFileResponses = {
 
 export type GetChatFileResponse = GetChatFileResponses[keyof GetChatFileResponses];
 
+export type GetChatFileThumbnailData = {
+    body?: never;
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/chat/files/{fileId}/thumbnail';
+};
+
+export type GetChatFileThumbnailErrors = {
+    /**
+     * Invalid file request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * File not accessible
+     */
+    404: ApiProblem;
+    /**
+     * File state or request identity conflict
+     */
+    409: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetChatFileThumbnailError = GetChatFileThumbnailErrors[keyof GetChatFileThumbnailErrors];
+
+export type GetChatFileThumbnailResponses = {
+    /**
+     * Thumbnail bytes, or the original image when no smaller rendering could be made
+     */
+    200: Blob | File;
+};
+
+export type GetChatFileThumbnailResponse = GetChatFileThumbnailResponses[keyof GetChatFileThumbnailResponses];
+
 export type ReadChatFileTextData = {
     body?: never;
     path: {
