@@ -39,27 +39,24 @@ import {
   previewChatFileSpreadsheet,
 } from "@/lib/hey-api/sdk.gen";
 import { cn } from "@/lib/utils";
-import { fileSize } from "./chat-code";
 import {
   codeLanguage,
-  downloadUrl,
   lineCount,
+  MAX_TABLE_ROWS,
   MAX_TEXT_PREVIEW_BYTES,
   parseCsv,
   previewKind,
   previewSize,
   sanitizeDocxHtml,
   type PreviewKind,
-  type PreviewTarget,
-} from "./chat-file-preview";
+} from "@/features/preview/preview-kind";
+import { fileSize } from "./chat-code";
+import { downloadUrl, type PreviewTarget } from "./chat-file-preview";
 
 const spreadsheetSchema = z.object({
   sheets: z.array(z.object({ name: z.string(), csv: z.string(), truncated: z.boolean() })),
 });
 type Sheets = z.infer<typeof spreadsheetSchema>["sheets"];
-
-/** Rows past this count are not rendered; the download holds the whole file. */
-const MAX_TABLE_ROWS = 1000;
 
 async function readBlob(target: PreviewTarget, signal: AbortSignal): Promise<Blob> {
   const { data } =
