@@ -8,7 +8,7 @@ Design: [design.md](design.md). Each phase is its own pull request.
 - [x] **Soniox provider.** `VoiceProvider.SONIOX` (STT only, `speech` flag on the provider response), V103 widening `ck_chat_voice_connection_provider`, realtime adapter for dictation, async adapter, key verification, `/admin/voice` card listed only under speech to text. Meeting diarization and `context` terms belong to the meeting adapter.
 - [x] **Evidence (Soniox provider).** 2026-09-21: `SonioxRealtimeTranscriberTest`, `SonioxAsyncTest`, the voice unit suite, `OpenApiContractTest`, the voice-connection API integration test and the voice web tests pass; typecheck, oxlint and oxfmt clean. A live probe with an invalid key confirmed the realtime URL, first-message format and the `error_code` error shape the adapter handles, and the REST 401 the key check maps.
 - [x] **Meeting module.** `io.memoryos.meeting` with V104 `meeting` (notes held on the meeting row), `meeting_speaker`, `meeting_utterance`; owner-only `MeetingService`; REST list, create, read, name speaker, notes, end, delete, tickets.
-- [ ] **Tenant setting** (all / administrators / off).
+- [ ] **Tenant setting** (all / administrators / off) — [MEM-178](https://linear.app/memory-os/issue/MEM-178).
 - [x] **Streaming.** Ticket scope `MEETING:{id}:{track}`; `/api/meeting-stream` per track with offset; utterances stored as committed; provider reconnect with replay; usage in seconds per track. Browser-side reconnect and resume after a closed tab belong to the capture slice.
 - [x] **Browser capture.** Microphone + `getDisplayMedia` tab audio as two PCM16 tracks through the existing worklet; per-track level meters; silent-tab and stopped-share warnings; unsupported-browser notice with microphone-only fallback; `beforeunload` confirmation.
 - [x] **Upload a recording.** Upload `.mp3`/`.wav`/`.m4a`/`.mp4` through the existing object-storage reservation, with the connection chosen per file from a member-readable listing of the Tenant's speech-to-text connections. A leased API job hands the file to the provider in its original container and stores the segments it answers as utterances, after which the minutes run as for a live meeting. Soniox separates speakers and accepts five hours; an OpenAI-compatible connection answers one speaker and caps the file, and the dialog says so before the file is sent. The stored object is deleted when the job finishes, when it gives up and when the meeting is deleted.
@@ -36,7 +36,7 @@ Minutes to send:
 Vietnamese transcript quality:
 
 - [ ] Transcript correction suggestions with review and undo, using the span logic learned from ghiam-pro and the user glossary.
-- [ ] Dialect mappings (local word to standard word), applied with the correction pass.
+- [ ] Dialect mappings (local word to standard word) — [MEM-177](https://linear.app/memory-os/issue/MEM-177): a Tenant dictionary fed to the minutes prompt, never a rewrite of the transcript.
 
 Asking and finding:
 
@@ -46,5 +46,5 @@ Asking and finding:
 
 ## Phase 3 — tasks and desktop
 
-- [ ] Cross-meeting action items (MEM-92).
-- [ ] Desktop companion: system-audio capture, meeting detection and calendar prompts, on the phase-1 protocol.
+- [ ] Cross-meeting action items — [MEM-180](https://linear.app/memory-os/issue/MEM-180). The original scope of MEM-92: one page gathering the work every meeting handed out, an owner who is an account rather than a string, a deadline that is a date, the history of every postponement, and a Chat tool to ask about it.
+- [ ] Desktop companion — [MEM-181](https://linear.app/memory-os/issue/MEM-181). System-audio capture, meeting detection and calendar prompts on the phase-1 protocol. Uploading a recording already covers most of the need; only live transcription and not having to remember are left.
