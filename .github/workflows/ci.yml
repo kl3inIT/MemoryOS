@@ -12,6 +12,9 @@ name: CI
       - 'docs/**'
       - '*.md'
       - 'tools/visual-paradigm-mcp/**'
+  # A merge that produced no run leaves main with nothing to deploy from, and an empty commit cannot start one
+  # because a push that changes no file matches every ignored path. This is the way back.
+  workflow_dispatch:
 
 permissions:
   contents: read
