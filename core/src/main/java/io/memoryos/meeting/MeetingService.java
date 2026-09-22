@@ -229,11 +229,20 @@ public class MeetingService {
     }
 
     public byte[] exportMinutes(ActorId actor, UUID id, MeetingMinutesDocument.Heading heading) {
+        return exportMinutes(actor, id, heading, TranscriptFormat.DOCX);
+    }
+
+    /** The biên bản as Word to edit or as PDF to read and print; both say exactly the same thing. */
+    public byte[] exportMinutes(ActorId actor, UUID id, MeetingMinutesDocument.Heading heading,
+            TranscriptFormat format) {
         UUID tenant = tenant(actor);
         var meeting = readable(tenant, actor, id);
         if (meeting.minutes().status() != Meeting.MinutesStatus.READY)
             throw MeetingException.invalid("The minutes are not written yet.");
-        return MeetingMinutesDocument.render(meeting, validate(heading));
+        var clean = validate(heading);
+        return format == TranscriptFormat.PDF
+                ? MeetingMinutesPdf.render(meeting, clean)
+                : MeetingMinutesDocument.render(meeting, clean);
     }
 
     /** The heading is printed, not stored, so it only has to fit on the page. */

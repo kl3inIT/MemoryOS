@@ -645,18 +645,22 @@ class MeetingController {
     }
 
     @PostMapping(value = "/{meetingId}/minutes/export", consumes = MediaType.APPLICATION_JSON_VALUE,
-            produces = DOCX)
-    @Operation(operationId = "exportMeetingMinutes", summary = "Download the minutes as a Vietnamese biên bản in Word format")
+            produces = {DOCX, MediaType.APPLICATION_PDF_VALUE})
+    @Operation(operationId = "exportMeetingMinutes", summary = "Download the minutes as a Vietnamese biên bản, in Word or as a PDF")
     @ApiResponse(responseCode = "200", description = "The biên bản",
-            content = @Content(mediaType = DOCX, schema = @Schema(type = "string", format = "binary")))
+            content = {@Content(mediaType = DOCX, schema = @Schema(type = "string", format = "binary")),
+                    @Content(mediaType = MediaType.APPLICATION_PDF_VALUE, schema = @Schema(type = "string", format = "binary"))})
     @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
     ResponseEntity<byte[]> export(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-                                  @PathVariable UUID meetingId, @RequestBody HeadingRequest body) {
-        byte[] document = meetings.exportMinutes(identity.actorId(), meetingId, body.toHeading());
+                                  @PathVariable UUID meetingId, @RequestBody HeadingRequest body,
+                                  @RequestParam(defaultValue = "DOCX") MeetingService.TranscriptFormat format) {
+        byte[] document = meetings.exportMinutes(identity.actorId(), meetingId, body.toHeading(), format);
+        boolean pdf = format == MeetingService.TranscriptFormat.PDF;
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
-                        .filename("bien-ban-" + meetingId + ".docx", StandardCharsets.UTF_8).build().toString())
-                .contentType(MediaType.parseMediaType(DOCX)).body(document);
+                        .filename("bien-ban-" + meetingId + (pdf ? ".pdf" : ".docx"), StandardCharsets.UTF_8)
+                        .build().toString())
+                .contentType(pdf ? MediaType.APPLICATION_PDF : MediaType.parseMediaType(DOCX)).body(document);
     }
 
     @PutMapping(value = "/{meetingId}/minutes/summary", consumes = MediaType.APPLICATION_JSON_VALUE)

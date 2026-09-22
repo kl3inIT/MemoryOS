@@ -2082,7 +2082,7 @@ export const rerunMeetingMinutesMutation = (options?: Partial<Options<RerunMeeti
 };
 
 /**
- * Download the minutes as a Vietnamese biên bản in Word format
+ * Download the minutes as a Vietnamese biên bản, in Word or as a PDF
  */
 export const exportMeetingMinutesMutation = (options?: Partial<Options<ExportMeetingMinutesData>>): UseMutationOptions<ExportMeetingMinutesResponse, ExportMeetingMinutesError, Options<ExportMeetingMinutesData>> => {
     const mutationOptions: UseMutationOptions<ExportMeetingMinutesResponse, ExportMeetingMinutesError, Options<ExportMeetingMinutesData>> = {

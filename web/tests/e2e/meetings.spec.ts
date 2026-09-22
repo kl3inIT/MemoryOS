@@ -328,7 +328,7 @@ async function mockMeetings(page: Page) {
     };
     await route.fulfill({ json: meeting });
   });
-  await page.route(`**/api/meetings/${MEETING_ID}/minutes/export`, async (route) => {
+  await page.route(`**/api/meetings/${MEETING_ID}/minutes/export?*`, async (route) => {
     exported.heading = route.request().postDataJSON() as Record<string, unknown>;
     await route.fulfill({
       // The real endpoint answers with a Word document; the browser only has to save it.
@@ -571,7 +571,7 @@ for (const width of [1440, 390]) {
     await expect(bienBan.getByLabel("Phông chữ")).toHaveValue("Times New Roman");
     await bienBan.getByLabel("Phông chữ").selectOption("Arial");
     const download = page.waitForEvent("download");
-    await bienBan.getByRole("button", { name: "Tải về" }).click();
+    await bienBan.getByRole("button", { name: "Tải Word" }).click();
     expect((await download).suggestedFilename()).toBe("bien-ban-giao-ban-tuan-khoi-tai-chinh.docx");
     expect(exported.heading).toMatchObject({
       organization: "CÔNG TY CỔ PHẦN TASCO",

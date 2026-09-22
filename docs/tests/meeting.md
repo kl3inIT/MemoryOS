@@ -34,6 +34,8 @@
 | The chosen typeface is named on every run of the biên bản, tables included, and a face nobody offered falls back to Times New Roman | `MeetingMinutesDocumentTest.theChosenFaceIsNamedOnEveryRunAndAnUnknownOneIsNot` |
 | Topics come back in the order the meeting reached them, and one on a missing line or on a line already taken is dropped | `ChatSessionApiIntegrationTest.endingAMeetingWritesItsMinutesFromTheTranscriptWithTheLinesTheyRestOn` |
 | Choosing a topic in the timeline scrolls its line into view | `tests/e2e/meetings.spec.ts` |
+| The PDF biên bản carries every section and every Vietnamese letter, embeds the open face that stands in for the one picked (Tinos, Arimo, Carlito, and Tinos for anything unknown), and never leaves the signatures alone on a page at any length from ten to forty actions | `MeetingMinutesPdfTest` |
+| Exporting with `format=PDF` answers `application/pdf` under a `.pdf` name | `ChatSessionApiIntegrationTest.endingAMeetingWritesItsMinutesFromTheTranscriptWithTheLinesTheyRestOn` |
 | Meeting routes are documented and CSRF-protected in the committed OpenAPI | `OpenApiContractTest` |
 | Every WebSocket path the browser opens lands in an nginx location that forwards the upgrade, resolved the way nginx resolves it (exact `=` first, then regex) | `web/scripts/nginx-websocket-routes.test.mjs`: parses the shipped `nginx.conf` |
 
