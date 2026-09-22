@@ -2442,6 +2442,7 @@ Object.assign(englishUi, {
     "Thông tin kết nối này cho phép nhập tệp. Nhóm của nguồn trong MemoryOS quyết định ai được tìm kiếm và đọc tài liệu đã nhập.",
   "Retry Save selection": "Thử lưu lựa chọn lại",
   "Expand everything in {{v1}}": "Mở tất cả bên trong {{v1}}",
+  "Expand everything": "Mở toàn bộ",
   "Load more": "Tải thêm",
   "Load more items in {{v1}}": "Tải thêm mục trong {{v1}}",
   "Load more selected content": "Tải thêm nội dung đã chọn",
@@ -2454,8 +2455,8 @@ Object.assign(englishUi, {
     "Phạm vi cụ thể gồm tệp được chọn trực tiếp, nội dung thư mục và tài liệu liên kết đã được duyệt. Đây không phải trình duyệt toàn bộ tài khoản.",
   "Expand folders to browse actual accessible files, then expand a file to see its recorded linked documents. Folder and file counts describe directly selected roots, not folder descendants. Search and type filters show unique results instead of the tree, including files inside selected folders once the source has synced.":
     "Mở rộng thư mục để xem tệp thực tế có quyền truy cập, rồi mở rộng tệp để xem tài liệu liên kết đã ghi nhận. Số thư mục và tệp là số mục gốc được chọn trực tiếp, không phải mục con. Tìm kiếm và lọc loại hiển thị kết quả không trùng thay cho cây, gồm cả tệp bên trong thư mục đã chọn sau khi nguồn đồng bộ.",
-  "References count unique locations within source documents. Opening a file's links reads stored evidence; it does not scan content or approve it. A file with no recorded links may not have been checked. Linked targets can appear in several branches; their sync selection is shared.":
-    "Tham chiếu đếm các vị trí riêng biệt trong tài liệu nguồn. Mở liên kết của tệp chỉ đọc bằng chứng đã lưu, không quét hoặc phê duyệt nội dung. Tệp chưa có liên kết ghi nhận có thể chưa được kiểm tra. Đích liên kết có thể xuất hiện ở nhiều nhánh nhưng dùng chung lựa chọn đồng bộ.",
+  "Opening a file's links reads stored evidence; it does not scan content or approve it. A file with no recorded links may not have been checked. Linked targets can appear in several branches; their sync selection is shared.":
+    "Mở liên kết của tệp chỉ đọc bằng chứng đã lưu, không quét hoặc phê duyệt nội dung. Tệp chưa có liên kết ghi nhận có thể chưa được kiểm tra. Đích liên kết có thể xuất hiện ở nhiều nhánh nhưng dùng chung lựa chọn đồng bộ.",
   "Use Edit selection to paste file or folder links, one per line or separated by commas. Choose a folder or its descendants, not both. Links and Google access are checked when you save; OAuth permissions may be broader than this selection.":
     "Dùng Sửa lựa chọn để dán liên kết tệp hoặc thư mục, mỗi dòng một liên kết hoặc phân cách bằng dấu phẩy. Chọn thư mục hoặc mục con, không chọn cả hai. Liên kết và quyền Google được kiểm tra khi lưu; quyền OAuth có thể rộng hơn lựa chọn này.",
   "Select for sync changes linked-document approvals in a draft without editing the root links. Save selection submits it for verification; Cancel discards unsaved changes.":
@@ -2548,16 +2549,10 @@ Object.assign(englishUi, {
   "Linked document · Not selected in draft": "Tài liệu liên kết · Chưa chọn trong bản nháp",
   "Linked document · Not selected for sync": "Tài liệu liên kết · Chưa chọn đồng bộ",
   "Sync {{v1}}": "Đồng bộ {{v1}}",
+  "Sync all links in {{v1}}": "Đồng bộ tất cả liên kết trong {{v1}}",
   "Select for sync": "Chọn để đồng bộ",
-  "{{v1}} {{v2}} for sync": "{{v1}} {{v2}} để đồng bộ",
-  "Deselect for sync": "Bỏ chọn đồng bộ",
-  "References for {{v1}}": "Tham chiếu cho {{v1}}",
-  reference: "tham chiếu",
-  references: "tham chiếu",
-  "source document": "tài liệu nguồn",
-  "source documents": "tài liệu nguồn",
-  "Reference locations": "Vị trí tham chiếu",
-  "Location not recorded": "Chưa ghi nhận vị trí",
+  "{{v1}} linked documents selected. Save selection applies the checked documents on the next sync.":
+    "Đã chọn {{v1}} tài liệu liên kết. Lưu lựa chọn để áp dụng các tài liệu đã tick vào lần đồng bộ tiếp theo.",
   "Add a source": "Thêm nguồn",
   "Connect the content you want to keep in MemoryOS.":
     "Kết nối nội dung bạn muốn lưu trong MemoryOS.",

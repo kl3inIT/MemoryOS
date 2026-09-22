@@ -341,3 +341,9 @@ Không gọi một cơ chế sai chỉ vì nó được viết cho FILE. Phân b
 | Tách nhiều Gradle modules hoặc generic provider registry ngay | Chưa có bằng chứng cần; giữ provider folders và explicit composition theo ADR 0006 | Luồng gọi và owner dễ tìm; không thêm interface/factory chỉ để chuyển tiếp | API chấp nhận dependency cost của bundle có Google; đo image/SDK conflicts trước khi tách |
 
 Các invariant đã được triển khai và kiểm bằng regression coverage: native admission không nới FILE; raw writes giữ late-write tombstones và atomic adoption; Drive không được FILE PUBLIC grant; refresh rotation không làm mất publication authority; reconciliation deferral không tiêu retry budget. Đây không phải benchmark hoặc chứng minh đã chạy toàn bộ corpus Google thật. Identity-linking/ACL vẫn ngoài delivery.
+
+### Selection edits preserve retained indexes — 2026-09-22
+
+Saving a selection changes synchronization authority, not the contents of every retained file. Activation must preserve an already-authorized, successfully indexed file when its existing membership is still covered by a retained selected root or an explicit retained approval under the same credential revision. Carry its current input version to the new scope revision atomically without replacing its Document, search generation or successful indexing timestamp. The next unchanged synchronization must not create another extraction attempt.
+
+Removed, excluded, credential-stale or unproven memberships remain fail-closed. Existing work is still cancelled/fenced by scope revision; unfinished versions are not promoted into successful indexed state. A later provider content change continues through the normal acquisition and indexing path. This replaces blanket invalidation for selection edits only; credential replacement and Source deletion retain their existing invalidation behavior.

@@ -633,3 +633,9 @@ Frontend check passed 60 tests and all gates; browser suites passed 34 scenarios
 - [x] Treat a newer provider version with identical adopted bytes and filename as unchanged, refreshing the provider version in place.
 - [x] Keep the current Document retrievable while a changed version is processed; failure leaves it available.
 - [x] Serve the previous search generation until the new chunks are ready, removing the short publication gap ([search generation handover](../../completed/search-generation-handover/design.md)).
+
+### Selection edits preserve retained indexes — 2026-09-22
+
+- [x] Replace whole-Source invalidation on selection activation with retained-membership reconciliation: carry forward already-authorized, successfully indexed files still covered by a retained root or explicit approval.
+- [x] Preserve the current content version, Document and Search readiness for retained files; continue fencing cancelled work and revoking removed, excluded or credential-stale inputs.
+- [x] Verify selection shrink, unchanged synchronization and authority boundaries in PostgreSQL-backed regression checks; consolidate the behavior and evidence in the connector contract and verification matrix.

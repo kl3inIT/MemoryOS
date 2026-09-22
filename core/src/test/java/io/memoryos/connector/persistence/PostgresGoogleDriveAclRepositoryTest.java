@@ -253,8 +253,8 @@ class PostgresGoogleDriveAclRepositoryTest {
     @Test
     void replacingSelectionInvalidatesEvidenceEvenWhenTheSameRootRemains() {
         success(fixture, List.of());
-        tx.executeWithoutResult(_ -> drive.replace(fixture.tenant(), fixture.source(), 1, ScopeMode.SPECIFIC,
-                List.of(new Root(ROOT, "Folder", "application/vnd.google-apps.folder"))));
+        tx.executeWithoutResult(_ -> drive.replace(fixture.tenant(), fixture.source(), 1, 1, ScopeMode.SPECIFIC,
+                List.of(new Root(ROOT, "Folder", "application/vnd.google-apps.folder")), List.of()));
         var replaced = read(fixture);
         assertThat(replaced.currentContext().selected()).isTrue();
         assertThat(replaced.currentContext().scopeRevision()).isEqualTo(2);

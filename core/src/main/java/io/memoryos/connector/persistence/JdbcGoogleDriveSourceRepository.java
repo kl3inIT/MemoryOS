@@ -421,24 +421,102 @@ public class JdbcGoogleDriveSourceRepository {
     }
 
 
-    public void replace(TenantId tenant, SourceId source, long expected, ScopeMode scopeMode, List<Root> roots) {
+    public void replace(TenantId tenant, SourceId source, long expected, long credentialRevision, ScopeMode scopeMode,
+            List<Root> roots, List<LinkedDocument> approvals) {
         if (scopeMode(tenant, source) != scopeMode) {
             throw SourceException.invalid("Google Drive scope mode is chosen when the Source is created and cannot be changed.",
                     "attempt to change creation-only Drive scope mode");
         }
+        var rootIds = roots.stream().map(Root::id).toList();
+        var approvedIds = approvals.stream().map(LinkedDocument::id).toList();
+        boolean rootsChanged = !Set.copyOf(roots(tenant, source).stream().map(Root::id).toList()).equals(Set.copyOf(rootIds));
         if (jdbc.sql("""
                 UPDATE google_drive_sources SET revision = revision + 1,
                   error_code = NULL, next_sync_at = CURRENT_TIMESTAMP
                 WHERE tenant_id = :tenant AND source_id = :source AND revision = :revision AND scope_mode = :scopeMode
                 """).param("tenant", tenant.value()).param("source", source.value())
                 .param("scopeMode", scopeMode.name()).param("revision", expected).update() != 1) throw SourceException.staleConfiguration();
+        retainSelectionMembership(tenant, source, expected, credentialRevision, rootIds, approvedIds, rootsChanged);
+        carryForwardIndexedVersions(tenant, source, expected, credentialRevision);
         jdbc.sql("DELETE FROM google_drive_roots WHERE tenant_id = :tenant AND source_id = :source")
                 .param("tenant", tenant.value()).param("source", source.value()).update();
+
         insertRoots(tenant, source, roots);
+        replaceApprovals(tenant, source, approvedIds, approvals, rootsChanged);
+        revokeUncoveredMappings(tenant, source);
+    }
+
+    /** Mappings follow retained membership: only files still covered keep their Document retrieval eligibility. */
+    private void revokeUncoveredMappings(TenantId tenant, SourceId source) {
         jdbc.sql("""
-                UPDATE google_drive_membership SET eligible = FALSE
-                WHERE tenant_id = :tenant AND source_id = :source
+                UPDATE documents_by_connector_credential_pair map
+                SET retrieval_eligible = FALSE, last_indexed_at = CURRENT_TIMESTAMP
+                WHERE map.tenant_id = :tenant AND map.connector_credential_pair_id = :source
+                  AND map.retrieval_eligible
+                  AND NOT EXISTS (SELECT 1 FROM connector_items i
+                    JOIN google_drive_membership m ON m.tenant_id = i.tenant_id AND m.source_id = :source
+                      AND m.file_id = i.provider_file_id AND m.eligible AND NOT m.excluded
+                    WHERE i.tenant_id = map.tenant_id AND i.id = map.connector_item_id AND i.status <> 'DELETING')
                 """).param("tenant", tenant.value()).param("source", source.value()).update();
+    }
+
+    private void retainSelectionMembership(TenantId tenant, SourceId source, long scopeRevision, long credentialRevision,
+            List<String> roots, List<String> approvals, boolean rootsChanged) {
+        // Reconciliation temporarily clears eligibility; a still-readable publication remains authority evidence.
+        var update = jdbc.sql("""
+                UPDATE google_drive_membership m SET eligible = NOT m.excluded AND m.root_id IS NOT NULL
+                  AND EXISTS (
+                    SELECT 1 FROM connector_credential_pairs p
+                    JOIN connector_items i ON i.tenant_id=p.tenant_id AND i.connector_id=p.connector_id
+                    JOIN connector_item_versions v ON v.tenant_id=i.tenant_id AND v.id=i.current_version_id
+                    WHERE p.tenant_id=m.tenant_id AND p.id=m.source_id AND i.provider_file_id=m.file_id
+                      AND i.status<>'DELETING' AND v.scope_revision=:scope AND v.credential_revision=:credential
+                      AND (m.eligible OR EXISTS (
+                        SELECT 1 FROM documents_by_connector_credential_pair mapping
+                        JOIN documents d ON d.tenant_id=mapping.tenant_id AND d.id=mapping.document_id
+                        WHERE mapping.tenant_id=i.tenant_id AND mapping.connector_credential_pair_id=p.id
+                          AND mapping.connector_item_id=i.id AND mapping.retrieval_eligible AND d.status='ELIGIBLE')))
+                  AND (
+                    EXISTS (SELECT 1 FROM google_drive_roots r
+                      WHERE r.tenant_id=m.tenant_id AND r.source_id=m.source_id AND r.file_id=m.root_id AND %s)
+                    OR EXISTS (SELECT 1 FROM google_drive_link_approvals a
+                      WHERE a.tenant_id=m.tenant_id AND a.source_id=m.source_id AND a.file_id=m.file_id AND %s)
+                    OR (NOT :rootsChanged AND m.root_id=m.file_id AND EXISTS (
+                      SELECT 1 FROM google_drive_linked_documents d
+                      JOIN google_drive_sources s ON s.tenant_id=d.tenant_id AND s.source_id=d.source_id
+                      WHERE d.tenant_id=m.tenant_id AND d.source_id=m.source_id AND d.file_id=m.file_id
+                        AND d.covered_by_roots AND d.status='AVAILABLE'
+                        AND s.discovery_scope_revision=:scope AND s.discovery_credential_revision=:credential)))
+                WHERE m.tenant_id=:tenant AND m.source_id=:source
+                """.formatted(roots.isEmpty() ? "FALSE" : "r.file_id IN (:roots)",
+                        approvals.isEmpty() ? "FALSE" : "a.file_id IN (:approvals)"))
+                .param("tenant", tenant.value()).param("source", source.value())
+                .param("scope", scopeRevision).param("credential", credentialRevision).param("rootsChanged", rootsChanged);
+        if (!roots.isEmpty()) update.param("roots", roots);
+        if (!approvals.isEmpty()) update.param("approvals", approvals);
+        update.update();
+    }
+
+    private void carryForwardIndexedVersions(TenantId tenant, SourceId source, long scopeRevision, long credentialRevision) {
+        // A previous Document may survive a failed newer input, but that unfinished input must be reacquired.
+        jdbc.sql("""
+                UPDATE connector_item_versions v SET scope_revision=:scope+1
+                FROM connector_items i
+                JOIN connector_credential_pairs p ON p.tenant_id=i.tenant_id AND p.connector_id=i.connector_id
+                JOIN google_drive_membership m ON m.tenant_id=p.tenant_id AND m.source_id=p.id AND m.file_id=i.provider_file_id
+                JOIN documents_by_connector_credential_pair mapping ON mapping.tenant_id=i.tenant_id
+                  AND mapping.connector_credential_pair_id=p.id AND mapping.connector_item_id=i.id
+                JOIN documents d ON d.tenant_id=mapping.tenant_id AND d.id=mapping.document_id
+                WHERE p.tenant_id=:tenant AND p.id=:source AND i.status='INDEXED'
+                  AND v.tenant_id=i.tenant_id AND v.id=i.current_version_id
+                  AND v.scope_revision=:scope AND v.credential_revision=:credential
+                  AND m.eligible AND NOT m.excluded AND mapping.retrieval_eligible
+                  AND d.status='ELIGIBLE' AND d.source_content_sha256=v.content_sha256
+                  AND EXISTS (SELECT 1 FROM index_attempts a
+                    WHERE a.tenant_id=i.tenant_id AND a.connector_credential_pair_id=p.id
+                      AND a.connector_item_id=i.id AND a.connector_item_version_id=v.id AND a.status='SUCCEEDED')
+                """).param("tenant", tenant.value()).param("source", source.value())
+                .param("scope", scopeRevision).param("credential", credentialRevision).update();
     }
 
     public void updateSchedule(TenantId tenant, SourceId source, long expectedRevision, int syncIntervalMinutes) {
