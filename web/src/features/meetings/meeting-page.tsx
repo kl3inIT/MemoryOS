@@ -2,7 +2,10 @@ import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
+  Bookmark,
   CheckSquare,
+  ChevronDown,
+  ChevronUp,
   Clock,
   FileAudio,
   FileDown,
@@ -15,6 +18,7 @@ import {
   RefreshCw,
   Play,
   Square,
+  Star,
   Trash2,
   Users,
   WifiOff,
@@ -51,8 +55,10 @@ import { MeetingShareField, type MeetingAudience } from "./meeting-share-field";
 import { startRecording, stopRecording, useActiveMeeting } from "./meeting-session";
 import type { MeetingTrack } from "./meeting-socket";
 import { TranscriptCorrections } from "./transcript-corrections";
+import { matches } from "./transcript-search";
 import { Said } from "./transcript-text";
 import {
+  addBookmark,
   finishMeeting,
   formatClock,
   formatWhen,
@@ -66,6 +72,7 @@ import {
   rerunMinutes,
   shareMeeting,
   saveMeetingNotes,
+  setUtteranceStar,
   trackOffsets,
   type MeetingDetail,
   type MeetingMinutesItem,
@@ -230,6 +237,32 @@ export function MeetingPage({
     }
   }
 
+  /** A mark is the reader's own, so it is applied straight away and the whole meeting comes back with it. */
+  function star(utteranceId: string, starred: boolean) {
+    void (async () => {
+      setActionError(undefined);
+      try {
+        cache.setQueryData(
+          meetingKey(meetingId),
+          await setUtteranceStar(meetingId, utteranceId, starred),
+        );
+      } catch (failed) {
+        setActionError(problemMessage(presentProblem(failed, "mutation").message));
+      }
+    })();
+  }
+
+  function bookmark(atMs: number) {
+    void (async () => {
+      setActionError(undefined);
+      try {
+        cache.setQueryData(meetingKey(meetingId), await addBookmark(meetingId, atMs));
+      } catch (failed) {
+        setActionError(problemMessage(presentProblem(failed, "mutation").message));
+      }
+    })();
+  }
+
   async function end() {
     await stopRecording();
     const ended = await finishMeeting(meetingId);
@@ -269,6 +302,7 @@ export function MeetingPage({
           onPause={() => void recorder.pause()}
           onResume={() => void recorder.resume()}
           onStop={end}
+          onBookmark={bookmark}
           ui={ui}
         />
       )}
@@ -497,7 +531,12 @@ export function MeetingPage({
             {data.owned && data.status === "ENDED" && data.utterances.length > 0 && (
               <TranscriptCorrections meeting={data} />
             )}
-            <Transcript meeting={data} snapshot={recording ? snapshot : idle} ui={ui} />
+            <Transcript
+              meeting={data}
+              snapshot={recording ? snapshot : idle}
+              ui={ui}
+              onStar={star}
+            />
           </TabsContent>
           {owned && (
             <TabsContent value="notes" className="pt-4">
@@ -823,6 +862,7 @@ function RecordingBar({
   onPause,
   onResume,
   onStop,
+  onBookmark,
   ui,
 }: {
   snapshot: RecorderSnapshot;
@@ -830,6 +870,7 @@ function RecordingBar({
   onPause: () => void;
   onResume: () => void;
   onStop: () => Promise<void>;
+  onBookmark: (atMs: number) => void;
   ui: Translate;
 }) {
   const paused = snapshot.phase === "paused";
@@ -855,6 +896,15 @@ function RecordingBar({
             ? ui("Tạm dừng")
             : ui("Đang ghi")}
       </span>
+      <Button
+        prominence="tertiary"
+        size="sm"
+        disabled={snapshot.phase === "stopping"}
+        onClick={() => onBookmark(snapshot.elapsedMs)}
+      >
+        <Bookmark aria-hidden="true" />
+        {ui("Đánh dấu")}
+      </Button>
       {snapshot.tracks.map((track) => (
         <Meter
           key={track.track}
@@ -909,17 +959,98 @@ function Transcript({
   meeting,
   snapshot,
   ui,
+  onStar,
 }: {
   meeting: MeetingDetail;
   snapshot: RecorderSnapshot;
   ui: Translate;
+  onStar: (utteranceId: string, starred: boolean) => void;
 }) {
+  const [query, setQuery] = useState("");
+  const [starredOnly, setStarredOnly] = useState(false);
+  const [at, setAt] = useState(0);
+  const starred = new Set(meeting.starred);
+  const shown = starredOnly
+    ? meeting.utterances.filter((utterance) => starred.has(utterance.id))
+    : meeting.utterances;
+  // Each hit is numbered across the whole transcript, so the arrows can walk them in reading order.
+  let counted = 0;
+  const firstMatch = new Map<string, number>();
+  for (const utterance of shown) {
+    firstMatch.set(utterance.id, counted);
+    counted += matches(utterance.text, query).length;
+  }
+  const total = counted;
+  const current = total === 0 ? -1 : ((at % total) + total) % total;
+
+  function jump(step: number) {
+    if (total === 0) return;
+    const next = (((at + step) % total) + total) % total;
+    setAt(next);
+    document
+      .getElementById(`meeting-match-${next}`)
+      ?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+
   const previews = (
     Object.entries(snapshot.previews) as [
       MeetingTrack,
       { speaker: string; text: string } | undefined,
     ][]
   ).filter((entry): entry is [MeetingTrack, { speaker: string; text: string }] => !!entry[1]?.text);
+  const tools = meeting.utterances.length > 0 && (
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-1">
+        <Input
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setAt(0);
+          }}
+          placeholder={ui("Tìm trong transcript")}
+          aria-label={ui("Tìm trong transcript")}
+          className="h-8 w-56"
+        />
+        {query.trim() !== "" && (
+          <>
+            <span className="text-xs text-content-muted tabular-nums">
+              {total === 0 ? ui("Không thấy") : ui("{{at}}/{{total}}", { at: current + 1, total })}
+            </span>
+            <Button
+              prominence="tertiary"
+              size="sm"
+              disabled={total === 0}
+              aria-label={ui("Kết quả trước")}
+              onClick={() => jump(-1)}
+            >
+              <ChevronUp aria-hidden="true" />
+            </Button>
+            <Button
+              prominence="tertiary"
+              size="sm"
+              disabled={total === 0}
+              aria-label={ui("Kết quả tiếp theo")}
+              onClick={() => jump(1)}
+            >
+              <ChevronDown aria-hidden="true" />
+            </Button>
+          </>
+        )}
+      </div>
+      {(starred.size > 0 || starredOnly) && (
+        <Button
+          prominence={starredOnly ? "secondary" : "tertiary"}
+          size="sm"
+          aria-pressed={starredOnly}
+          onClick={() => setStarredOnly((only) => !only)}
+        >
+          <Star aria-hidden="true" className={starredOnly ? "fill-current" : undefined} />
+          {ui("Câu đã đánh dấu ({{count}})", { count: starred.size })}
+        </Button>
+      )}
+    </div>
+  );
+
   if (meeting.utterances.length === 0 && previews.length === 0)
     return (
       <p className="rounded-xl border border-dashed border-border-default px-4 py-8 text-center text-sm text-content-muted">
@@ -931,47 +1062,75 @@ function Transcript({
       </p>
     );
   return (
-    <ol className="grid gap-1" aria-live="polite" aria-relevant="additions">
-      {meeting.utterances.map((utterance) => (
-        <li
-          key={utterance.id}
-          className="grid grid-cols-[4.5rem_1fr] gap-x-3 rounded-lg px-2 py-2 hover:bg-surface-base"
-        >
-          <span className="pt-0.5 font-mono text-xs text-content-muted tabular-nums">
-            {formatClock(utterance.startMs)}
-          </span>
-          <div className="min-w-0">
-            <SpeakerChip
-              meeting={meeting}
-              track={utterance.track}
-              label={utterance.speaker}
-              ui={ui}
-            />
-            <p className="mt-0.5 text-content-secondary">
-              <Said text={utterance.text} spans={utterance.spans} />
-            </p>
-          </div>
-        </li>
-      ))}
-      {previews.map(([track, preview]) => (
-        <li key={`preview-${track}`} className="grid grid-cols-[4.5rem_1fr] gap-x-3 px-2 py-2">
-          <span className="pt-0.5 text-xs text-content-muted">{ui("đang nói")}</span>
-          <div className="min-w-0">
-            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-content-muted">
-              <span
-                className={cn(
-                  "size-2.5 rounded-full opacity-60",
-                  speakerColor(meeting, track, preview.speaker || "1"),
-                )}
-                aria-hidden="true"
-              />
-              {speakerName(meeting, track, preview.speaker || "1", ui)}
+    <div className="grid gap-3">
+      {tools}
+      {shown.length === 0 && (
+        <p className="text-sm text-content-muted">{ui("Chưa đánh dấu câu nào.")}</p>
+      )}
+      <ol className="grid gap-1" aria-live="polite" aria-relevant="additions">
+        {shown.map((utterance) => (
+          <li
+            key={utterance.id}
+            className="grid grid-cols-[4.5rem_1fr_auto] gap-x-3 rounded-lg px-2 py-2 hover:bg-surface-base"
+          >
+            <span className="pt-0.5 font-mono text-xs text-content-muted tabular-nums">
+              {formatClock(utterance.startMs)}
             </span>
-            <p className="mt-0.5 italic text-content-muted">{preview.text}…</p>
-          </div>
-        </li>
-      ))}
-    </ol>
+            <div className="min-w-0">
+              <SpeakerChip
+                meeting={meeting}
+                track={utterance.track}
+                label={utterance.speaker}
+                ui={ui}
+              />
+              <p className="mt-0.5 text-content-secondary">
+                <Said
+                  text={utterance.text}
+                  spans={utterance.spans}
+                  query={query}
+                  firstMatch={firstMatch.get(utterance.id) ?? 0}
+                  currentMatch={current}
+                />
+              </p>
+            </div>
+            <Button
+              prominence="tertiary"
+              size="sm"
+              className="self-start"
+              aria-pressed={starred.has(utterance.id)}
+              aria-label={ui("Đánh dấu câu này")}
+              onClick={() => onStar(utterance.id, !starred.has(utterance.id))}
+            >
+              <Star
+                aria-hidden="true"
+                className={starred.has(utterance.id) ? "fill-current" : "opacity-40"}
+              />
+            </Button>
+          </li>
+        ))}
+        {previews.map(([track, preview]) => (
+          <li
+            key={`preview-${track}`}
+            className="grid grid-cols-[4.5rem_1fr_auto] gap-x-3 px-2 py-2"
+          >
+            <span className="pt-0.5 text-xs text-content-muted">{ui("đang nói")}</span>
+            <div className="min-w-0">
+              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-content-muted">
+                <span
+                  className={cn(
+                    "size-2.5 rounded-full opacity-60",
+                    speakerColor(meeting, track, preview.speaker || "1"),
+                  )}
+                  aria-hidden="true"
+                />
+                {speakerName(meeting, track, preview.speaker || "1", ui)}
+              </span>
+              <p className="mt-0.5 italic text-content-muted">{preview.text}…</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 

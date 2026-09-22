@@ -2,6 +2,7 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   acceptAllMeetingCorrections,
   acceptMeetingCorrection,
+  bookmarkMeetingMoment,
   createMeeting,
   createMeetingTicket,
   deleteMeeting,
@@ -17,11 +18,14 @@ import {
   nameMeetingSpeaker,
   proposeMeetingCorrections,
   publishMeetingMinutes,
+  removeMeetingBookmark,
   rerunMeetingMinutes,
   reserveMeetingRecording,
   revertAllMeetingCorrections,
   revertMeetingCorrection,
   shareMeeting as shareMeetingRequest,
+  starMeetingUtterance,
+  unstarMeetingUtterance,
   updateMeetingNotes,
 } from "@/lib/hey-api/sdk.gen";
 import type {
@@ -116,6 +120,35 @@ export async function nameSpeaker(
 export async function finishMeeting(meetingId: string) {
   const { data } = await endMeeting({
     path: { meetingId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function setUtteranceStar(meetingId: string, utteranceId: string, starred: boolean) {
+  const request = starred ? starMeetingUtterance : unstarMeetingUtterance;
+  const { data } = await request({
+    path: { meetingId, utteranceId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function addBookmark(meetingId: string, atMs: number, label?: string) {
+  const { data } = await bookmarkMeetingMoment({
+    path: { meetingId },
+    body: { atMs, label: label ?? null },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function removeBookmark(meetingId: string, bookmarkId: string) {
+  const { data } = await removeMeetingBookmark({
+    path: { meetingId, bookmarkId },
     headers: sameOriginMutationHeaders,
     throwOnError: true,
   });

@@ -409,6 +409,65 @@ public class MeetingRepository {
                 """).param("tenant", tenant).param("meeting", meeting).update();
     }
 
+    /** The lines this reader starred, so a meeting five people read collects five sets of marks. */
+    public List<UUID> starred(UUID tenant, UUID meeting, UUID actor) {
+        return jdbc.sql("""
+                SELECT utterance_id FROM meeting_utterance_star
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND actor_id = :actor
+                """).param("tenant", tenant).param("meeting", meeting).param("actor", actor)
+                .query(UUID.class).list();
+    }
+
+    /** Stars a line for this reader; starring twice is starring once. */
+    public void star(UUID tenant, UUID meeting, UUID utterance, UUID actor) {
+        jdbc.sql("""
+                INSERT INTO meeting_utterance_star(tenant_id, meeting_id, utterance_id, actor_id)
+                VALUES (:tenant, :meeting, :utterance, :actor) ON CONFLICT DO NOTHING
+                """).param("tenant", tenant).param("meeting", meeting).param("utterance", utterance)
+                .param("actor", actor).update();
+    }
+
+    public void unstar(UUID tenant, UUID utterance, UUID actor) {
+        jdbc.sql("""
+                DELETE FROM meeting_utterance_star
+                WHERE tenant_id = :tenant AND utterance_id = :utterance AND actor_id = :actor
+                """).param("tenant", tenant).param("utterance", utterance).param("actor", actor).update();
+    }
+
+    /** Whether this line belongs to this meeting, which is what makes starring it meaningful. */
+    public boolean hasUtterance(UUID tenant, UUID meeting, UUID utterance) {
+        return jdbc.sql("""
+                SELECT count(*) FROM meeting_utterance
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :utterance
+                """).param("tenant", tenant).param("meeting", meeting).param("utterance", utterance)
+                .query(Integer.class).single() > 0;
+    }
+
+    public List<Meeting.Bookmark> bookmarks(UUID tenant, UUID meeting, UUID actor) {
+        return jdbc.sql("""
+                SELECT id, at_ms, label FROM meeting_bookmark
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND actor_id = :actor ORDER BY at_ms, id
+                """).param("tenant", tenant).param("meeting", meeting).param("actor", actor)
+                .query((r, ignored) -> new Meeting.Bookmark(r.getObject("id", UUID.class), r.getLong("at_ms"),
+                        r.getString("label"))).list();
+    }
+
+    public void addBookmark(UUID tenant, UUID meeting, UUID actor, Meeting.Bookmark bookmark) {
+        jdbc.sql("""
+                INSERT INTO meeting_bookmark(tenant_id, id, meeting_id, actor_id, at_ms, label)
+                VALUES (:tenant, :id, :meeting, :actor, :at, :label)
+                """).param("tenant", tenant).param("id", bookmark.id()).param("meeting", meeting)
+                .param("actor", actor).param("at", bookmark.atMs()).param("label", bookmark.label()).update();
+    }
+
+    public boolean deleteBookmark(UUID tenant, UUID meeting, UUID actor, UUID id) {
+        return jdbc.sql("""
+                DELETE FROM meeting_bookmark
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND actor_id = :actor AND id = :id
+                """).param("tenant", tenant).param("meeting", meeting).param("actor", actor).param("id", id)
+                .update() == 1;
+    }
+
     /**
      * Claims the right to run one correction pass over this meeting. The owner is watching the request, so this is a
      * window rather than a lease: a pass that outlives it is abandoned and the next press starts a new one.
