@@ -1240,10 +1240,8 @@ export const vietnameseUi: Record<string, string> = {
   "Đang tải hội thoại…": "Loading conversations…",
   "Tải lại hội thoại": "Reload conversations",
   "Xem thêm hội thoại": "Load more conversations",
-  "{{v1}} dự án {{v2}}": "{{v1}} project {{v2}}",
   "Thu gọn": "Collapse",
   "Xem thêm": "Show more",
-  "Mở rộng": "Expand",
   "Đang chuyển hội thoại…": "Moving conversation…",
   "Không tải được hội thoại.": "Could not load the conversation.",
   "Dự án không khả dụng.": "Project unavailable.",
@@ -1296,8 +1294,6 @@ export const vietnameseUi: Record<string, string> = {
   "Các hội thoại được chuyển ra ngoài dự án và vẫn giữ nguyên lịch sử.":
     "Conversations are moved out of the project and their history is preserved.",
   "Hướng dẫn dự án": "Project instructions",
-  "Thêm hướng dẫn để các cuộc trò chuyện hiểu công việc của bạn.":
-    "Add instructions to give conversations context about your work.",
   "Tệp dự án": "Project files",
   Tệp: "Files",
   "Thêm tệp": "Add files",

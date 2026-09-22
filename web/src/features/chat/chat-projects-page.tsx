@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { DropdownMenu } from "radix-ui";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Folder, MoreHorizontal, Pencil, Plus, Settings2, Trash2, X } from "lucide-react";
+import { Folder, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -173,20 +173,6 @@ export function ProjectContextPanel({ project }: { project: Project }) {
       {project.description && (
         <p className="whitespace-pre-wrap text-sm text-content-secondary">{project.description}</p>
       )}
-      <button
-        type="button"
-        className="flex w-full items-start gap-3 rounded-xl border border-border-subtle p-4 text-left hover:bg-surface-sunken focus-visible:ring-2 focus-visible:ring-ring"
-        onClick={() => setEditing(true)}
-      >
-        <Settings2 className="mt-0.5 size-4 shrink-0 text-content-muted" />
-        <span className="min-w-0">
-          <span className="block font-medium">{ui("Hướng dẫn dự án")}</span>
-          <span className="mt-1 block line-clamp-3 whitespace-pre-wrap text-sm text-content-secondary">
-            {project.instructions ||
-              ui("Thêm hướng dẫn để các cuộc trò chuyện hiểu công việc của bạn.")}
-          </span>
-        </span>
-      </button>
       <ProjectFiles project={project} />
       {editing && <ProjectEditor project={project} onClose={() => setEditing(false)} />}
     </div>
@@ -298,15 +284,7 @@ function ProjectFiles({ project }: { project: Project }) {
   );
 }
 
-export function ProjectConversationList({
-  projectId,
-  compact = false,
-  onNavigate,
-}: {
-  projectId: string;
-  compact?: boolean;
-  onNavigate?: () => void;
-}) {
+export function ProjectConversationList({ projectId }: { projectId: string }) {
   const ui = useAppTranslation();
 
   const { actorId, authorizationVersion } = useApplicationSession();
@@ -326,15 +304,8 @@ export function ProjectConversationList({
       last.length === 30 && pages.length * 30 <= 10000 ? pages.length * 30 : undefined,
   });
   return (
-    <section
-      className={compact ? "ml-4 border-l border-border-subtle pl-2" : "mt-6"}
-      aria-label={ui("Hội thoại trong dự án")}
-    >
-      {!compact && (
-        <h2 className="mb-3 text-sm font-medium text-content-secondary">
-          {ui("Hội thoại gần đây")}
-        </h2>
-      )}
+    <section className="mt-6" aria-label={ui("Hội thoại trong dự án")}>
+      <h2 className="mb-3 text-sm font-medium text-content-secondary">{ui("Hội thoại gần đây")}</h2>
       {sessions.isPending && (
         <p role="status" className="px-2 py-2 text-sm text-content-muted">
           {ui("Đang tải hội thoại…")}
@@ -350,18 +321,13 @@ export function ProjectConversationList({
       )}
       <ThreadList label={ui("Hội thoại dự án")}>
         {sessions.data?.pages.flat().map((session) => (
-          <ChatSessionRow
-            key={session.id}
-            session={session}
-            onNavigate={onNavigate}
-            showTime={!compact}
-          />
+          <ChatSessionRow key={session.id} session={session} showTime />
         ))}
       </ThreadList>
       {sessions.data?.pages[0]?.length === 0 && (
         <p className="px-2 py-3 text-sm text-content-muted">
           {ui("Chưa có hội thoại")}
-          {compact ? "." : ui(". Gửi câu hỏi ở trên để bắt đầu.")}
+          {ui(". Gửi câu hỏi ở trên để bắt đầu.")}
         </p>
       )}
       {sessions.hasNextPage && (
