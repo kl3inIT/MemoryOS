@@ -4,7 +4,7 @@ memoryos:
     username: ${MEMORYOS_OPENSEARCH_USERNAME:}
     password: ${MEMORYOS_OPENSEARCH_PASSWORD:}
     ca-certificate: ${MEMORYOS_OPENSEARCH_CA_CERTIFICATE:}
-    api-key: ${SPRING_AI_OPENAI_API_KEY:}
+    api-key: ${MEMORYOS_EMBEDDING_API_KEY:${SPRING_AI_OPENAI_API_KEY:}}
     embedding-endpoint: ${MEMORYOS_EMBEDDING_ENDPOINT:https://api.openai.com/v1}
     model: ${MEMORYOS_EMBEDDING_MODEL:text-embedding-3-large}
     dimensions: ${MEMORYOS_EMBEDDING_DIMENSIONS:3072}

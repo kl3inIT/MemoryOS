@@ -283,13 +283,29 @@ services:
       MEMORYOS_REDIS_PASSWORD_FILE: /run/secrets/redis_api_password
       MEMORYOS_REDIS_CONNECT_TIMEOUT: ${MEMORYOS_REDIS_CONNECT_TIMEOUT:-2s}
       MEMORYOS_REDIS_COMMAND_TIMEOUT: ${MEMORYOS_REDIS_COMMAND_TIMEOUT:-2s}
+      MEMORYOS_DATABASE_PASSWORD_FILE: /run/secrets/database_password
+      MEMORYOS_BROWSER_CLIENT_SECRET_FILE: /run/secrets/browser_client_secret
+      MEMORYOS_KEYCLOAK_ADMIN_CLIENT_SECRET_FILE: /run/secrets/keycloak_admin_client_secret
+      MEMORYOS_OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_password
+      MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_FILE: /run/secrets/chat_catalog_encryption_key
+      MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/google_drive_credential_encryption_key
+      MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/mcp_credential_encryption_key
+      # One key serves chat and embedding; the launcher exports both names from this file.
+      MEMORYOS_CHAT_API_KEY_FILE: /run/secrets/model_api_key
+      MEMORYOS_EMBEDDING_API_KEY_FILE: /run/secrets/model_api_key
     secrets:
-      - source: memoryos_infisical_bootstrap
-        target: memoryos_infisical_bootstrap
       - minio_api_secret_key
       - interpreter_api_key
       - redis_tls_ca
       - redis_api_password
+      - database_password
+      - browser_client_secret
+      - keycloak_admin_client_secret
+      - opensearch_password
+      - chat_catalog_encryption_key
+      - google_drive_credential_encryption_key
+      - mcp_credential_encryption_key
+      - model_api_key
     depends_on:
       postgres:
         condition: service_healthy
@@ -360,12 +376,20 @@ services:
       MEMORYOS_REDIS_POOL_MAX_IDLE: ${MEMORYOS_REDIS_POOL_MAX_IDLE:-8}
       MEMORYOS_REDIS_POOL_MIN_IDLE: ${MEMORYOS_REDIS_POOL_MIN_IDLE:-0}
       MEMORYOS_REDIS_POOL_MAX_WAIT: ${MEMORYOS_REDIS_POOL_MAX_WAIT:-2s}
+      MEMORYOS_DATABASE_PASSWORD_FILE: /run/secrets/database_password
+      MEMORYOS_OPENSEARCH_PASSWORD_FILE: /run/secrets/opensearch_password
+      MEMORYOS_EXTRACTION_DOCLING_API_KEY_FILE: /run/secrets/docling_api_key
+      MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/google_drive_credential_encryption_key
+      MEMORYOS_EMBEDDING_API_KEY_FILE: /run/secrets/model_api_key
     secrets:
-      - source: memoryos_infisical_bootstrap
-        target: memoryos_infisical_bootstrap
       - minio_worker_secret_key
       - redis_tls_ca
       - redis_worker_password
+      - database_password
+      - opensearch_password
+      - docling_api_key
+      - google_drive_credential_encryption_key
+      - model_api_key
     depends_on:
       api:
         condition: service_healthy
@@ -569,8 +593,27 @@ networks:
     external: true
 
 secrets:
-  memoryos_infisical_bootstrap:
-    file: ${MEMORYOS_INFISICAL_BOOTSTRAP_FILE:?Set MEMORYOS_INFISICAL_BOOTSTRAP_FILE}
+  # Generated on the server and never leaving it. A deployment refuses to reserve the environment
+  # when one of these files is missing, which is a clearer failure than a container that starts
+  # without a password. See docs/increments/active/server-secrets-as-files.
+  database_password:
+    file: ${MEMORYOS_DATABASE_PASSWORD_SECRET_FILE:-/apps/memoryos/secrets/database/app-password.txt}
+  browser_client_secret:
+    file: ${MEMORYOS_BROWSER_CLIENT_SECRET_SECRET_FILE:-/apps/memoryos/secrets/keycloak/browser-client-secret.txt}
+  keycloak_admin_client_secret:
+    file: ${MEMORYOS_KEYCLOAK_ADMIN_CLIENT_SECRET_SECRET_FILE:-/apps/memoryos/secrets/keycloak/admin-client-secret.txt}
+  opensearch_password:
+    file: ${MEMORYOS_OPENSEARCH_PASSWORD_SECRET_FILE:-/apps/memoryos/secrets/opensearch/service-password.txt}
+  docling_api_key:
+    file: ${MEMORYOS_EXTRACTION_DOCLING_API_KEY_SECRET_FILE:-/apps/memoryos/secrets/docling/api-key.txt}
+  chat_catalog_encryption_key:
+    file: ${MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/chat-catalog-key.txt}
+  google_drive_credential_encryption_key:
+    file: ${MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/google-drive-credential-key.txt}
+  mcp_credential_encryption_key:
+    file: ${MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY_SECRET_FILE:-/apps/memoryos/secrets/encryption/mcp-credential-key.txt}
+  model_api_key:
+    file: ${MEMORYOS_MODEL_API_KEY_SECRET_FILE:-/apps/memoryos/secrets/model/api-key.txt}
   minio_root_password:
     file: ${MEMORYOS_MINIO_ROOT_PASSWORD_FILE:-/apps/memoryos/secrets/minio/root-password.txt}
   minio_api_secret_key:
