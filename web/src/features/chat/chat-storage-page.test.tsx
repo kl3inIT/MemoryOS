@@ -61,10 +61,8 @@ it("shows what is used against the deployment limit, biggest kind first", async 
   show();
 
   expect(await screen.findByText("Đã dùng 20 MB / 512 MB")).toBeInTheDocument();
-  expect(screen.getByRole("progressbar", { name: "Dung lượng đã dùng" })).toHaveAttribute(
-    "aria-valuenow",
-    "4",
-  );
+  // The bar is one slice per kind rather than a single progress track, and names what each slice holds.
+  expect(screen.getByRole("img", { name: "Ảnh: 19 MB, Tài liệu: 802 KB" })).toBeInTheDocument();
   expect(screen.getByText("Đã dùng 4% · 81 tệp")).toBeInTheDocument();
   // The kind worth clearing comes first, and each row opens the library on that kind.
   const rows = screen.getAllByRole("listitem");
@@ -95,8 +93,9 @@ it("says there is no limit when the deployment sets none, and shows no meter wit
   show();
 
   expect(await screen.findByText("Đã dùng 1 KB")).toBeInTheDocument();
-  expect(screen.getByText("Triển khai này không đặt giới hạn dung lượng.")).toBeInTheDocument();
-  expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  expect(
+    screen.getByText("Triển khai này không đặt giới hạn dung lượng · 1 tệp"),
+  ).toBeInTheDocument();
   expect(screen.getByText("Thư viện của bạn chưa có tệp nào.")).toBeInTheDocument();
 });
 
