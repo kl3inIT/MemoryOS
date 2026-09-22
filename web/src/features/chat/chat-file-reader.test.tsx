@@ -10,6 +10,8 @@ import {
 import { ChatFileReader } from "./chat-file-reader";
 import { ChatFilePicker } from "./chat-file-picker";
 import { DocumentPreviewContent } from "../search/document-preview-content";
+import { useDocumentReading } from "../search/document-reading";
+import type { DocumentSelection } from "../search/document-preview-dialog";
 import { AssistantRuntimeProvider, ComposerPrimitive, useLocalRuntime } from "@assistant-ui/react";
 import { ChatSourcesWorkspace } from "./chat-sources";
 import { ChatFilePart } from "./chat-attachments";
@@ -152,6 +154,12 @@ describe("Private file reader", () => {
     });
   }
 
+  /** The dialog owns the reading state and hands it to both views; the test opens the same way. */
+  function CitedPassages({ selection, fileId }: { selection: DocumentSelection; fileId: string }) {
+    const reading = useDocumentReading(selection, "chat", fileId);
+    return <DocumentPreviewContent variant="chat" selection={selection} reading={reading} />;
+  }
+
   it("uses the private indexed reader and highlights the cited passage", async () => {
     await i18n.changeLanguage("vi");
     backend.passages.mockResolvedValue({
@@ -169,9 +177,8 @@ describe("Private file reader", () => {
       },
     });
     mount(
-      <DocumentPreviewContent
+      <CitedPassages
         fileId={id}
-        variant="chat"
         selection={{
           documentId: id,
           generation: missing2,

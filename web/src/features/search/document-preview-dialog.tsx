@@ -7,8 +7,10 @@ import type { RefObject } from "react";
 import { Dialog } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { DocumentPreviewContent } from "./document-preview-content";
-import { client } from "@/lib/hey-api/client.gen";
-import { EvidenceViewSwitch, type EvidenceView, type PdfEvidence } from "./evidence-view-switch";
+import { documentOriginalReader } from "./document-original-reader";
+import { useDocumentReading } from "./document-reading";
+import type { EvidenceView } from "./evidence-order";
+import { EvidenceViewSwitch, type OriginalEvidence } from "./evidence-view-switch";
 import { readSourceLocation } from "./source-provenance";
 
 export type DocumentSelection = {
@@ -50,26 +52,18 @@ export function DocumentPreviewDialog({
   const ui = useAppTranslation();
   const location = readSourceLocation(selection.provenance ?? []);
   const { documentId, generation } = selection;
-  const pdf: PdfEvidence | undefined =
-    !fileId && selection.mediaType === "application/pdf" && location.pages.length
-      ? {
-          url:
-            variant === "chat"
-              ? client.buildUrl({
-                  url: "/api/chat/documents/{documentId}/original",
-                  path: { documentId },
-                  query: { generation },
-                })
-              : client.buildUrl({
-                  url: "/api/search/documents/{documentId}/original",
-                  path: { documentId },
-                  query: { generation },
-                }),
-          pages: location.pages,
-          boxes: location.boxes,
-          table: location.table,
-        }
-      : undefined;
+  const reading = useDocumentReading(selection, variant, fileId);
+  // An owner-private Chat file is cited by its passages only; its bytes belong to the Chat file reader.
+  const original: OriginalEvidence | undefined = fileId
+    ? undefined
+    : {
+        reader: documentOriginalReader(variant, documentId, generation),
+        filename: selection.title,
+        mediaType: selection.mediaType,
+        pages: location.pages,
+        boxes: location.boxes,
+        citations: reading.citations,
+      };
 
   return (
     <Dialog.Root
@@ -124,14 +118,13 @@ export function DocumentPreviewDialog({
             </Dialog.Close>
           </header>
 
-          {/* Search opens PDF results on their pages: scanned originals are the reliable evidence. */}
           <EvidenceViewSwitch
-            pdf={pdf}
-            defaultView={variant === "search" ? "pdf" : undefined}
+            original={original}
+            table={location.table}
             view={view}
             onViewChange={onViewChange}
           >
-            <DocumentPreviewContent selection={selection} variant={variant} fileId={fileId} />
+            <DocumentPreviewContent selection={selection} variant={variant} reading={reading} />
           </EvidenceViewSwitch>
         </Dialog.Content>
       </Dialog.Portal>

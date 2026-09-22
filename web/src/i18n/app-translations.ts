@@ -550,9 +550,12 @@ export const vietnameseUi: Record<string, string> = {
   "Mở trong {{provider}}": "Open in {{provider}}",
   "Mở {{title}} trong {{provider}}": "Open {{title}} in {{provider}}",
   "Đoạn trích": "Passages",
-  "Trang PDF": "PDF pages",
+  "Tệp gốc": "Original file",
+  "Không mở được tệp gốc. Hãy tải xuống để xem toàn bộ tệp.":
+    "This original could not be opened. Download it to see the whole file.",
+  "Tệp này không xem trực tiếp được. Hãy tải xuống để mở bằng ứng dụng phù hợp.":
+    "This file cannot be shown here. Download it to open it in a suitable application.",
   "Cách xem bằng chứng": "Evidence view",
-  "Đang tải trang PDF…": "Loading PDF pages…",
   "Không mở được bản PDF gốc. Hãy xem đoạn trích.":
     "The original PDF could not be opened. Use the passages view.",
   "Vùng được trích dẫn trên trang {{page}}": "Cited region on page {{page}}",

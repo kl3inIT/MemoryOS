@@ -1,65 +1,24 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  getSearchDocument,
-  readChatDocumentPassages,
-  readChatFilePassages,
-} from "@/lib/hey-api/sdk.gen";
-import { useApplicationSession } from "@/features/identity/application-session-context";
+import type { DocumentReading } from "./document-reading";
 import { stripGeneratedTitlePrefix } from "./search-presentation";
 import type { DocumentSelection } from "./document-preview-dialog";
 
 export function DocumentPreviewContent({
   selection,
   variant = "search",
-  fileId,
+  reading,
 }: {
   selection: DocumentSelection;
   variant?: "search" | "chat";
-  fileId?: string;
+  /** Shared with the original view, so both show the same match and the highlight follows the citation. */
+  reading: DocumentReading;
 }) {
   const ui = useAppTranslation();
-
-  const { actorId, authorizationVersion } = useApplicationSession();
-  const [activeMatchIndex, setActiveMatchIndex] = useState(selection.activeMatchIndex);
-  const activeMatch = selection.matches[activeMatchIndex] ?? selection.matches[0];
-  const [from, setFrom] = useState(activeMatch?.from ?? 0);
+  const { activeMatchIndex, activeMatch, from, detail } = reading;
   const contentRef = useRef<HTMLDivElement>(null);
   const matchingPassageRef = useRef<HTMLElement | null>(null);
-  const detail = useQuery({
-    queryFn: async ({ signal }) =>
-      (fileId
-        ? await readChatFilePassages({
-            path: { fileId },
-            query: { generation: selection.generation, from },
-            signal,
-            throwOnError: true,
-          })
-        : // Chat citations open with Chat authority; the Search page keeps Search authority.
-          await (variant === "chat" ? readChatDocumentPassages : getSearchDocument)({
-            path: { documentId: selection.documentId },
-            query: { generation: selection.generation, from },
-            signal,
-            throwOnError: true,
-          })
-      ).data,
-    queryKey: [
-      "document-preview",
-      actorId,
-      authorizationVersion,
-      // Each reader has its own authority, so they never share cache entries or in-flight requests.
-      fileId ? "chat-file" : variant,
-      fileId ?? selection.documentId,
-      selection.generation,
-      from,
-    ],
-    retry: false,
-    // Each opening reads the requested generation from the authorized reader.
-    staleTime: 0,
-    gcTime: 0,
-  });
 
   useEffect(() => {
     if (detail.data && from === activeMatch?.from && matchingPassageRef.current) {
@@ -135,7 +94,7 @@ export function DocumentPreviewContent({
 
       {variant === "chat" && activeMatch && from !== activeMatch.from && (
         <div className="shrink-0 border-t border-border-subtle px-5 py-2">
-          <Button size="sm" prominence="internal" onClick={() => setFrom(activeMatch.from)}>
+          <Button size="sm" prominence="internal" onClick={() => reading.page(activeMatch.from)}>
             {ui("Về đoạn trích dẫn")}
           </Button>
         </div>
@@ -155,10 +114,7 @@ export function DocumentPreviewContent({
                   type="button"
                   aria-current={index === activeMatchIndex ? "true" : undefined}
                   className="inline-flex h-7 shrink-0 cursor-pointer items-center rounded-md px-2.5 font-secondary-action text-content-muted outline-none transition-[color,background-color,box-shadow] duration-150 hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40 aria-[current]:bg-surface-base aria-[current]:text-content-primary aria-[current]:shadow-xs motion-reduce:transition-none"
-                  onClick={() => {
-                    setActiveMatchIndex(index);
-                    setFrom(match.from);
-                  }}
+                  onClick={() => reading.select(index)}
                 >
                   {ui("Đoạn")} {index + 1}
                 </button>
@@ -173,7 +129,7 @@ export function DocumentPreviewContent({
                 size="sm"
                 prominence="secondary"
                 disabled={from === 0}
-                onClick={() => setFrom(Math.max(0, from - 20))}
+                onClick={() => reading.page(Math.max(0, from - 20))}
               >
                 {ui("Phần trước")}
               </Button>
@@ -181,7 +137,7 @@ export function DocumentPreviewContent({
                 size="sm"
                 prominence="secondary"
                 disabled={!detail.data.hasMore}
-                onClick={() => setFrom(from + 20)}
+                onClick={() => reading.page(from + 20)}
               >
                 {ui("Phần tiếp")}
               </Button>
