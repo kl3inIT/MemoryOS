@@ -160,6 +160,21 @@ public class MeetingCorrectionService {
         return details.get(actor, meetingId);
     }
 
+    /**
+     * Takes back everything one pass put in. Accepting in bulk is only safe if undoing in bulk is too: a pass the
+     * owner regrets should cost one press, not one press per line.
+     */
+    public Meeting.Detail revertAll(ActorId actor, UUID meetingId, UUID runId) {
+        UUID tenant = details.tenantOf(actor);
+        tx.executeWithoutResult(ignored -> {
+            meetings.lock(tenant, actor.value(), meetingId).orElseThrow(MeetingException::notFound);
+            // Newest first, so a line changed twice is unwound in the order it was written.
+            for (var correction : meetings.acceptedOfRun(tenant, meetingId, runId))
+                restore(tenant, meetingId, actor, correction);
+        });
+        return details.get(actor, meetingId);
+    }
+
     /** Puts back what the line said before this proposal was applied. */
     public Meeting.Detail revert(ActorId actor, UUID meetingId, UUID correctionId) {
         UUID tenant = details.tenantOf(actor);
@@ -167,22 +182,27 @@ public class MeetingCorrectionService {
             meetings.lock(tenant, actor.value(), meetingId).orElseThrow(MeetingException::notFound);
             var correction = meetings.lockCorrection(tenant, meetingId, correctionId)
                     .orElseThrow(MeetingException::notFound);
-            if (correction.status() != Meeting.CorrectionStatus.ACCEPTED) throw MeetingException.conflict();
-            var utterance = meetings.lockUtterance(tenant, meetingId, correction.utteranceId())
-                    .orElseThrow(MeetingException::notFound);
-            // Only the words this proposal put in can be taken back; anything written over them since has its own
-            // history, and putting this line back would quietly discard it.
-            int end = correction.start() + correction.after().length();
-            if (end > utterance.text().length()
-                    || !utterance.text().substring(correction.start(), end).equals(correction.after()))
-                throw MeetingException.conflict();
-            String applied = replaced(utterance.text(), correction.start(), end, correction.before());
-            meetings.rewrite(tenant, meetingId, utterance.id(), utterance.text(), applied,
-                    restored(utterance.spans(), correction), reverted(tenant, utterance.id(), applied),
-                    correction.runId(), actor.value(), "REVERT");
-            meetings.decide(tenant, correctionId, Meeting.CorrectionStatus.REVERTED, actor.value());
+            restore(tenant, meetingId, actor, correction);
         });
         return details.get(actor, meetingId);
+    }
+
+    /** Caller holds the meeting lock. */
+    private void restore(UUID tenant, UUID meetingId, ActorId actor, Meeting.Correction correction) {
+        if (correction.status() != Meeting.CorrectionStatus.ACCEPTED) throw MeetingException.conflict();
+        var utterance = meetings.lockUtterance(tenant, meetingId, correction.utteranceId())
+                .orElseThrow(MeetingException::notFound);
+        // Only the words this proposal put in can be taken back; anything written over them since has its own
+        // history, and putting this line back would quietly discard it.
+        int end = correction.start() + correction.after().length();
+        if (end > utterance.text().length()
+                || !utterance.text().substring(correction.start(), end).equals(correction.after()))
+            throw MeetingException.conflict();
+        String applied = replaced(utterance.text(), correction.start(), end, correction.before());
+        meetings.rewrite(tenant, meetingId, utterance.id(), utterance.text(), applied,
+                restored(utterance.spans(), correction), reverted(tenant, utterance.id(), applied),
+                correction.runId(), actor.value(), "REVERT");
+        meetings.decide(tenant, correction.id(), Meeting.CorrectionStatus.REVERTED, actor.value());
     }
 
     /** Caller holds the meeting lock. */

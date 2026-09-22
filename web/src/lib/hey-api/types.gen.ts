@@ -245,7 +245,10 @@ export type MeetingUtterance = {
     text: string;
     confidence: number;
     spans: Array<MeetingUtteranceSpan>;
-    editSource: 'MODEL' | 'HUMAN';
+    /**
+     * Who last changed what this line says; absent while nobody has
+     */
+    editSource?: 'MODEL' | 'HUMAN';
 };
 
 /**
@@ -8449,6 +8452,55 @@ export type AcceptMeetingCorrectionResponses = {
 };
 
 export type AcceptMeetingCorrectionResponse = AcceptMeetingCorrectionResponses[keyof AcceptMeetingCorrectionResponses];
+
+export type RevertAllMeetingCorrectionsData = {
+    body: MeetingCorrectionRunRef;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections/revert-all';
+};
+
+export type RevertAllMeetingCorrectionsErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+    /**
+     * A line changed again after the pass
+     */
+    409: ApiProblem;
+};
+
+export type RevertAllMeetingCorrectionsError = RevertAllMeetingCorrectionsErrors[keyof RevertAllMeetingCorrectionsErrors];
+
+export type RevertAllMeetingCorrectionsResponses = {
+    /**
+     * The meeting with every line of that pass restored
+     */
+    200: MeetingDetail;
+};
+
+export type RevertAllMeetingCorrectionsResponse = RevertAllMeetingCorrectionsResponses[keyof RevertAllMeetingCorrectionsResponses];
 
 export type AcceptAllMeetingCorrectionsData = {
     body: MeetingCorrectionRunRef;

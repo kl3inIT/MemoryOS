@@ -465,6 +465,18 @@ public class MeetingRepository {
                 .query(MeetingRepository::correction).optional();
     }
 
+    /** What one pass actually put into the transcript, newest first, so a whole pass can be taken back at once. */
+    public List<Meeting.Correction> acceptedOfRun(UUID tenant, UUID meeting, UUID run) {
+        return jdbc.sql("""
+                SELECT id, utterance_id, run_id, span_start, span_end, before, after, reason, confidence,
+                       context_fit, meaning_safe, matched_glossary, status
+                FROM meeting_correction
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND run_id = :run AND status = 'ACCEPTED'
+                ORDER BY decided_at DESC, id DESC FOR UPDATE
+                """).param("tenant", tenant).param("meeting", meeting).param("run", run)
+                .query(MeetingRepository::correction).list();
+    }
+
     public List<Meeting.Correction> pendingOfRun(UUID tenant, UUID meeting, UUID run) {
         return jdbc.sql("""
                 SELECT id, utterance_id, run_id, span_start, span_end, before, after, reason, confidence,

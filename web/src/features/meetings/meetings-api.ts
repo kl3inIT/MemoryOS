@@ -19,6 +19,7 @@ import {
   publishMeetingMinutes,
   rerunMeetingMinutes,
   reserveMeetingRecording,
+  revertAllMeetingCorrections,
   revertMeetingCorrection,
   shareMeeting as shareMeetingRequest,
   updateMeetingNotes,
@@ -165,6 +166,16 @@ export async function keepWording(meetingId: string, correctionId: string) {
 
 export async function acceptAllCorrections(meetingId: string, runId: string) {
   const { data } = await acceptAllMeetingCorrections({
+    path: { meetingId },
+    body: { runId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function revertAllCorrections(meetingId: string, runId: string) {
+  const { data } = await revertAllMeetingCorrections({
     path: { meetingId },
     body: { runId },
     headers: sameOriginMutationHeaders,

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Undo2, WandSparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { uiLocale } from "@/i18n/format";
@@ -16,6 +17,7 @@ import {
   loadCorrections,
   meetingKey,
   proposeCorrections,
+  revertAllCorrections,
   revertCorrection,
   type MeetingDetail,
 } from "./meetings-api";
@@ -61,6 +63,7 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
   const applied = all.filter((item) => item.status === "ACCEPTED");
   const busy = run.isPending || decide.isPending;
   const runId = pending[0]?.runId;
+  const appliedRun = applied.at(-1)?.runId;
 
   return (
     <section className="grid gap-3">
@@ -75,16 +78,38 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
           {run.isPending ? ui("Đang soát…") : ui("Soát lỗi nhận dạng")}
         </Button>
         {pending.length > 0 && runId && (
-          <Button
-            prominence="tertiary"
-            size="sm"
-            disabled={busy}
-            onClick={() =>
+          <ConfirmDialog
+            trigger={
+              <Button prominence="tertiary" size="sm" disabled={busy}>
+                {ui("Nhận hết ({{count}})", { count: pending.length })}
+              </Button>
+            }
+            title={ui("Nhận hết?")}
+            description={ui("Transcript sẽ đổi ở {{count}} chỗ.", { count: pending.length })}
+            confirmLabel={ui("Nhận hết")}
+            pendingLabel={ui("Đang nhận…")}
+            onConfirm={() =>
               guard(() => decide.mutateAsync(() => acceptAllCorrections(meeting.id, runId)))
             }
-          >
-            {ui("Nhận hết ({{count}})", { count: pending.length })}
-          </Button>
+          />
+        )}
+        {applied.length > 0 && appliedRun && (
+          <ConfirmDialog
+            trigger={
+              <Button prominence="tertiary" size="sm" disabled={busy}>
+                {ui("Hoàn tác cả lượt ({{count}})", { count: applied.length })}
+              </Button>
+            }
+            title={ui("Hoàn tác cả lượt?")}
+            description={ui("{{count}} chỗ trở lại như máy nghe ban đầu.", {
+              count: applied.length,
+            })}
+            confirmLabel={ui("Hoàn tác cả lượt")}
+            pendingLabel={ui("Đang hoàn tác…")}
+            onConfirm={() =>
+              guard(() => decide.mutateAsync(() => revertAllCorrections(meeting.id, appliedRun)))
+            }
+          />
         )}
       </div>
 

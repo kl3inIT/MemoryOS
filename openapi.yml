@@ -6762,6 +6762,69 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}/corrections/revert-all:
+    post:
+      tags:
+      - Meetings
+      summary: Take back everything one pass put in
+      operationId: revertAllMeetingCorrections
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingCorrectionRunRef"
+        required: true
+      responses:
+        "200":
+          description: The meeting with every line of that pass restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: A line changed again after the pass
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings/{meetingId}/corrections/accept-all:
     post:
       tags:
@@ -17916,15 +17979,13 @@ components:
           items:
             $ref: "#/components/schemas/MeetingUtteranceSpan"
         editSource:
-          type:
-          - string
-          - "null"
+          type: string
+          description: Who last changed what this line says; absent while nobody has
           enum:
           - MODEL
           - HUMAN
       required:
       - confidence
-      - editSource
       - endMs
       - id
       - spans

@@ -256,7 +256,7 @@ class MeetingController {
                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String text,
                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) double confidence,
                              @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<SpanResponse> spans,
-                             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
+                             @Schema(description = "Who last changed what this line says; absent while nobody has")
                              Meeting.@Nullable EditSource editSource) {
         static UtteranceResponse from(Meeting.Utterance utterance) {
             return new UtteranceResponse(utterance.id(), utterance.track(), utterance.speaker(), utterance.startMs(),
@@ -455,6 +455,16 @@ class MeetingController {
     DetailResponse acceptAll(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
                              @PathVariable UUID meetingId, @RequestBody RunRequest body) {
         return DetailResponse.from(corrections.acceptAll(identity.actorId(), meetingId, body.runId()));
+    }
+
+    @PostMapping(value = "/{meetingId}/corrections/revert-all", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "revertAllMeetingCorrections", summary = "Take back everything one pass put in")
+    @ApiResponse(responseCode = "200", description = "The meeting with every line of that pass restored", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    @ApiResponse(responseCode = "409", description = "A line changed again after the pass", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse revertAll(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                             @PathVariable UUID meetingId, @RequestBody RunRequest body) {
+        return DetailResponse.from(corrections.revertAll(identity.actorId(), meetingId, body.runId()));
     }
 
     @PostMapping("/{meetingId}/corrections/{correctionId}/revert")
