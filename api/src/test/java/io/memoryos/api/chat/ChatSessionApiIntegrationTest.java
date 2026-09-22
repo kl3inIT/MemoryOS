@@ -3052,6 +3052,53 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void conversationsAreReadOnlyWithHistoryAccessAndEveryTranscriptReadIsRecorded() throws Exception {
+        var since = java.time.Instant.now().minusSeconds(1).toString();
+        var created = mockMvc.perform(post("/api/chat/sessions").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"=Nghỉ phép\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        String session = Json.mapper().readTree(created.getResponse().getContentAsString()).path("id").asText();
+
+        // Reading other people's conversations is a capability of its own, held apart from every other power.
+        mockMvc.perform(get("/api/chat/history").with(authentication(actor))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/chat/history/export").with(authentication(actor))).andExpect(status().isForbidden());
+        grantCapability("CHAT_HISTORY_READ");
+        mockMvc.perform(get("/api/chat/history").param("q", "=Nghỉ phép").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].title").value("=Nghỉ phép"))
+                .andExpect(jsonPath("$.items[0].deleted").value(false));
+
+        // Opening a transcript is recorded; listing is not.
+        mockMvc.perform(get("/api/chat/history/" + session).with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.conversation.title").value("=Nghỉ phép"));
+        grantCapability("AUDIT_READ");
+        mockMvc.perform(get("/api/audit/events").param("from", since).param("action", "chat_history.read")
+                        .with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].resourceLabel").value("=Nghỉ phép"));
+
+        String csv = mockMvc.perform(get("/api/chat/history/export").param("q", "=Nghỉ phép").with(authentication(actor)))
+                .andExpect(status().isOk()).andExpect(header().string("Content-Type", "text/csv; charset=UTF-8"))
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(csv.startsWith("﻿session_id,updated_at"), csv);
+        assertTrue(csv.contains("'=Nghỉ phép"), "a formula in a title is neutralized");
+        mockMvc.perform(get("/api/audit/events").param("from", since).param("action", "chat_history.export")
+                .with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].details.rows").value(1))
+                .andExpect(jsonPath("$.items[0].details.q").doesNotExist());
+
+        // Turning history off refuses every read, and the conversations stay where they are.
+        grantModelManagement();
+        var settings = Json.mapper().readTree(mockMvc.perform(get("/api/chat/settings").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        mockMvc.perform(put("/api/chat/settings/history-visibility").with(authentication(actor)).with(csrf())
+                        .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"visibility\":\"DISABLED\",\"revision\":" + settings.path("revision").asLong() + "}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.chatHistoryVisibility").value("DISABLED"));
+        mockMvc.perform(get("/api/chat/history").with(authentication(actor))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/chat/history/" + session).with(authentication(actor))).andExpect(status().isForbidden());
+    }
+
+    @Test
     void theAuditLogIsReadAndExportedOnlyWithAuditRead() throws Exception {
         var since = java.time.Instant.now().minusSeconds(1).toString();
         // A recorded change to read back: a Group created by this member once they may manage Groups.

@@ -16,6 +16,11 @@ export const capabilityCopy: Record<GroupCapability["id"], { label: string; desc
       description:
         "Edit, share, publish, feature, restore and transfer every custom agent, edit the default agent, and administer agent labels and public prompt shortcuts within the Tenant.",
     },
+    CHAT_HISTORY_READ: {
+      label: "View conversation history",
+      description:
+        "Read and export the questions and answers of everyone in the Tenant. Every transcript read is itself recorded in the audit log.",
+    },
     AUDIT_READ: {
       label: "View audit log",
       description:

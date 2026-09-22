@@ -51,7 +51,7 @@ public enum AuditAction {
     VOICE_CONNECTION_CHANGE("voice_connection.change", AuditEventClass.API_ACTIVITY, "change", "credentialChange"),
     IMAGE_CONNECTION_CHANGE("image_connection.change", AuditEventClass.API_ACTIVITY, "change", "credentialChange"),
     INTERPRETER_CHANGE("interpreter.change", AuditEventClass.API_ACTIVITY, "enabled"),
-    CHAT_SETTINGS_CHANGE("chat_settings.change", AuditEventClass.API_ACTIVITY, "deepResearchEnabled"),
+    CHAT_SETTINGS_CHANGE("chat_settings.change", AuditEventClass.API_ACTIVITY, "deepResearchEnabled", "chatHistoryVisibility"),
     MCP_SERVER_CREATE("mcp_server.create", AuditEventClass.API_ACTIVITY, "after"),
     MCP_SERVER_UPDATE("mcp_server.update", AuditEventClass.API_ACTIVITY, "before", "after", "credentialChange"),
     MCP_SERVER_DELETE("mcp_server.delete", AuditEventClass.API_ACTIVITY, "url"),
@@ -80,6 +80,10 @@ public enum AuditAction {
     AI_LIMIT_CREATE("ai_limit.create", AuditEventClass.API_ACTIVITY, "scope", "group", "after"),
     AI_LIMIT_UPDATE("ai_limit.update", AuditEventClass.API_ACTIVITY, "scope", "group", "before", "after"),
     AI_LIMIT_DELETE("ai_limit.delete", AuditEventClass.API_ACTIVITY, "scope", "group", "before"),
+
+    // Reading other people's questions (MEM-125); Onyx records nothing here.
+    CHAT_HISTORY_READ("chat_history.read", AuditEventClass.API_ACTIVITY, "person", "email", "messages"),
+    CHAT_HISTORY_EXPORT("chat_history.export", AuditEventClass.API_ACTIVITY, "from", "to", "rows"),
 
     // The audit stream's own reads that leave the system, and refused authority.
     AUDIT_EXPORT("audit.export", AuditEventClass.API_ACTIVITY, "from", "to", "rows"),

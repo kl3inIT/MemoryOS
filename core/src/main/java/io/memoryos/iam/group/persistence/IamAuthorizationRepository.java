@@ -60,7 +60,7 @@ public class IamAuthorizationRepository {
                         authority_group.system_key IS NULL
                         AND capability.capability IN (
                             'USERS_MANAGE', 'GROUPS_MANAGE', 'SOURCES_MANAGE', 'MODELS_MANAGE', 'MCP_MANAGE',
-                                    'AGENTS_CREATE', 'AGENTS_MANAGE', 'AUDIT_READ'
+                                    'AGENTS_CREATE', 'AGENTS_MANAGE', 'AUDIT_READ', 'CHAT_HISTORY_READ'
                         )
                     )
              )

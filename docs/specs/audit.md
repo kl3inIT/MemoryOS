@@ -40,7 +40,7 @@ Rules on the table:
 | Account change | `user.invite`, `user.invite_rotate`, `user.invite_revoke`, `user.join`, `user.deactivate`, `user.reactivate` |
 | User access management | `user.group_change` |
 | Group management | `user_group.create`, `rename`, `delete`, `member_change`, `manager_change`, `permission_change` |
-| API activity | `llm_provider.create`, `update`, `delete`; `model.create`, `update`, `delete`; `model_default.change`; `model_flow.change`; `web_connection.change`; `voice_connection.change`; `image_connection.change`; `interpreter.change`; `chat_settings.change`; `mcp_server.create`, `update`, `delete`; `mcp_tool.change`; `mcp_oauth_client.change`; `mcp_connection.change`; `identity_provider.create`, `update`, `delete`; `source.create`, `update`, `delete`, `access_change`, `manager_change`, `group_change`, `pause`, `resume`, `item_remove`; `credential.create`, `update`, `delete`; `audit.export`; `permission.denied` |
+| API activity | `llm_provider.create`, `update`, `delete`; `model.create`, `update`, `delete`; `model_default.change`; `model_flow.change`; `web_connection.change`; `voice_connection.change`; `image_connection.change`; `interpreter.change`; `chat_settings.change`; `mcp_server.create`, `update`, `delete`; `mcp_tool.change`; `mcp_oauth_client.change`; `mcp_connection.change`; `identity_provider.create`, `update`, `delete`; `source.create`, `update`, `delete`, `access_change`, `manager_change`, `group_change`, `pause`, `resume`, `item_remove`; `credential.create`, `update`, `delete`; `chat_history.read`; `chat_history.export`; `audit.export`; `permission.denied` |
 
 ## Recording
 
@@ -66,6 +66,9 @@ is locked `FOR UPDATE`, and an insert in a second transaction would wait on that
 Coverage:
 
 - **Recorded:** every administrative configuration change.
+- **Also recorded:** an administrator reading or exporting somebody else's conversations
+  ([query history](chat.md#query-history-for-administrators)); listing them is not, since the list shows no message
+  body beyond the first question and answer.
 - **Not recorded:** a member's own actions (their MCP connection, their Chat preferences) and work that runs often or
   by itself (a Source sync, an MCP tool refresh).
 - **Drive and SharePoint Sources:** they are created and re-scoped by a request the Worker validates. The event
