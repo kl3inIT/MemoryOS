@@ -245,6 +245,7 @@ export type MeetingUtterance = {
     text: string;
     confidence: number;
     spans: Array<MeetingUtteranceSpan>;
+    editSource: 'MODEL' | 'HUMAN';
 };
 
 /**
@@ -1022,7 +1023,7 @@ export type Pricing = {
  * Tenant model for one task; no model uses the conversation model
  */
 export type ModelFlow = {
-    flow: 'CHAT_NAMING' | 'MEETING_MINUTES';
+    flow: 'CHAT_NAMING' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     modelConfigurationId: string | null;
     /**
      * False when the model is set but no longer eligible; the task then uses the conversation model
@@ -1460,6 +1461,41 @@ export type MeetingLibraryFile = {
      * READY when Chat can read it; PROCESSING while it is extracted
      */
     status: string;
+};
+
+/**
+ * One proposal for one uncertain stretch. Nothing changes until it is accepted.
+ */
+export type MeetingCorrection = {
+    id: string;
+    utteranceId: string;
+    runId: string;
+    start: number;
+    end: number;
+    before: string;
+    after: string;
+    reason: string;
+    confidence: number;
+    contextFit: number;
+    meaningSafe: number;
+    matchedGlossary: boolean;
+    status: 'PENDING' | 'ACCEPTED' | 'KEPT' | 'REVERTED';
+};
+
+export type MeetingCorrectionRun = {
+    runId: string;
+    corrections: Array<MeetingCorrection>;
+};
+
+export type AcceptMeetingCorrection = {
+    /**
+     * The caller's own wording instead of the model's
+     */
+    text?: string | null;
+};
+
+export type MeetingCorrectionRunRef = {
+    runId: string;
 };
 
 export type McpToolRefresh = {
@@ -6501,7 +6537,7 @@ export type SetChatModelFlowData = {
         'X-MemoryOS-CSRF': '1';
     };
     path: {
-        flow: 'CHAT_NAMING' | 'MEETING_MINUTES';
+        flow: 'CHAT_NAMING' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     query: {
         modelConfigurationId?: string;
@@ -8179,6 +8215,285 @@ export type EndMeetingResponses = {
 };
 
 export type EndMeetingResponse = EndMeetingResponses[keyof EndMeetingResponses];
+
+export type ListMeetingCorrectionsData = {
+    body?: never;
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections';
+};
+
+export type ListMeetingCorrectionsErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type ListMeetingCorrectionsError = ListMeetingCorrectionsErrors[keyof ListMeetingCorrectionsErrors];
+
+export type ListMeetingCorrectionsResponses = {
+    /**
+     * The proposals
+     */
+    200: Array<MeetingCorrection>;
+};
+
+export type ListMeetingCorrectionsResponse = ListMeetingCorrectionsResponses[keyof ListMeetingCorrectionsResponses];
+
+export type ProposeMeetingCorrectionsData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections';
+};
+
+export type ProposeMeetingCorrectionsErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+    /**
+     * A pass is already running
+     */
+    409: ApiProblem;
+};
+
+export type ProposeMeetingCorrectionsError = ProposeMeetingCorrectionsErrors[keyof ProposeMeetingCorrectionsErrors];
+
+export type ProposeMeetingCorrectionsResponses = {
+    /**
+     * What the pass proposed; the transcript is unchanged
+     */
+    200: MeetingCorrectionRun;
+};
+
+export type ProposeMeetingCorrectionsResponse = ProposeMeetingCorrectionsResponses[keyof ProposeMeetingCorrectionsResponses];
+
+export type RevertMeetingCorrectionData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        correctionId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections/{correctionId}/revert';
+};
+
+export type RevertMeetingCorrectionErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or proposal not available
+     */
+    404: ApiProblem;
+    /**
+     * The line changed again after this proposal
+     */
+    409: ApiProblem;
+};
+
+export type RevertMeetingCorrectionError = RevertMeetingCorrectionErrors[keyof RevertMeetingCorrectionErrors];
+
+export type RevertMeetingCorrectionResponses = {
+    /**
+     * The meeting with the line restored
+     */
+    200: MeetingDetail;
+};
+
+export type RevertMeetingCorrectionResponse = RevertMeetingCorrectionResponses[keyof RevertMeetingCorrectionResponses];
+
+export type KeepMeetingWordingData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        correctionId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections/{correctionId}/keep';
+};
+
+export type KeepMeetingWordingErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or proposal not available
+     */
+    404: ApiProblem;
+};
+
+export type KeepMeetingWordingError = KeepMeetingWordingErrors[keyof KeepMeetingWordingErrors];
+
+export type KeepMeetingWordingResponses = {
+    /**
+     * The meeting, unchanged
+     */
+    200: MeetingDetail;
+};
+
+export type KeepMeetingWordingResponse = KeepMeetingWordingResponses[keyof KeepMeetingWordingResponses];
+
+export type AcceptMeetingCorrectionData = {
+    body: AcceptMeetingCorrection;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        correctionId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections/{correctionId}/accept';
+};
+
+export type AcceptMeetingCorrectionErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or proposal not available
+     */
+    404: ApiProblem;
+    /**
+     * The line moved since the proposal was made
+     */
+    409: ApiProblem;
+};
+
+export type AcceptMeetingCorrectionError = AcceptMeetingCorrectionErrors[keyof AcceptMeetingCorrectionErrors];
+
+export type AcceptMeetingCorrectionResponses = {
+    /**
+     * The meeting with the line rewritten
+     */
+    200: MeetingDetail;
+};
+
+export type AcceptMeetingCorrectionResponse = AcceptMeetingCorrectionResponses[keyof AcceptMeetingCorrectionResponses];
+
+export type AcceptAllMeetingCorrectionsData = {
+    body: MeetingCorrectionRunRef;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/corrections/accept-all';
+};
+
+export type AcceptAllMeetingCorrectionsErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting not available
+     */
+    404: ApiProblem;
+};
+
+export type AcceptAllMeetingCorrectionsError = AcceptAllMeetingCorrectionsErrors[keyof AcceptAllMeetingCorrectionsErrors];
+
+export type AcceptAllMeetingCorrectionsResponses = {
+    /**
+     * The meeting with every accepted line rewritten
+     */
+    200: MeetingDetail;
+};
+
+export type AcceptAllMeetingCorrectionsResponse = AcceptAllMeetingCorrectionsResponses[keyof AcceptAllMeetingCorrectionsResponses];
 
 export type ListMcpServersData = {
     body?: never;
@@ -15751,7 +16066,7 @@ export type GetAiCostSummaryData = {
         from: string;
         to: string;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     url: '/api/ai-costs/summary';
 };
@@ -15936,7 +16251,7 @@ export type ListAiCostDaysData = {
         to: string;
         split?: 'BOUNDARY' | 'MODEL' | 'NONE';
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     url: '/api/ai-costs/daily';
 };
@@ -15976,7 +16291,7 @@ export type ListAiCostBreakdownData = {
         by: 'ACTOR' | 'GROUP' | 'MODEL' | 'FLOW' | 'PROVIDER';
         limit?: number;
         model?: string;
-        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES';
+        flow?: 'CHAT' | 'CHAT_NAMING' | 'DEEP_RESEARCH' | 'EMBEDDING_QUERY' | 'EMBEDDING_INDEXING' | 'IMAGE_GENERATION' | 'IMAGE_EDIT' | 'SPEECH_TO_TEXT' | 'TEXT_TO_SPEECH' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
     url: '/api/ai-costs/breakdown';
 };
