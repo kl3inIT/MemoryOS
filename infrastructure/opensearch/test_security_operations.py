@@ -168,7 +168,9 @@ class CertificateRenewalTest(unittest.TestCase):
         self.directory = Path(self.temporary.name)
         provision.run("openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", str(self.directory / "ca.key"),
                       "-out", str(self.directory / "ca.crt"), "-sha256", "-days", "3650", "-subj", "/CN=Renewal Test CA")
-        for name, definition in provision.LEAF_CERTIFICATES.items():
+        # A deployment on disk has every certificate it was provisioned with, Dashboards included; which of them
+        # renewal looks at is what the environment decides, and that is what these cases are about.
+        for name, definition in {**provision.LEAF_CERTIFICATES, **provision.DASHBOARDS_CERTIFICATE}.items():
             provision.certificate(self.directory, name, *definition)
         (self.directory / "service-password.txt").write_text("test-only-service-password")
 
@@ -177,11 +179,14 @@ class CertificateRenewalTest(unittest.TestCase):
 
     def test_preserves_fresh_certificates_and_rotates_due_leafs_without_changing_authority_or_credentials(self):
         before = self.snapshot()
-        with patch.object(provision, "restart_and_wait") as restart:
+        # A leaf lives five years, so "due" has to be asked for in terms of that life rather than in days; and
+        # Dashboards has a certificate only where it is published, so this case says which deployment it describes.
+        with patch.object(provision, "restart_and_wait") as restart,                 patch.dict(os.environ, {"MEMORYOS_OPENSEARCH_DASHBOARDS_PUBLIC_URL": "https://search.example"}):
             self.assertEqual([], provision.renew_certificates(self.directory, 30))
             restart.assert_not_called()
             self.assertEqual(before, self.snapshot())
-            self.assertEqual(["node", "admin", "dashboards"], provision.renew_certificates(self.directory, 366))
+            self.assertEqual(["node", "admin", "dashboards"],
+                             provision.renew_certificates(self.directory, provision.LEAF_VALIDITY_DAYS + 1))
             self.assertEqual([("memoryos-opensearch",), ("memoryos-opensearch-dashboards",)],
                              [call.args for call in restart.call_args_list])
         after = self.snapshot()
@@ -194,11 +199,20 @@ class CertificateRenewalTest(unittest.TestCase):
         provision.run("openssl", "verify", "-CAfile", str(self.directory / "ca.crt"),
                       "-verify_hostname", "memoryos-opensearch-dashboards", str(self.directory / "dashboards.crt"))
 
+    def test_leaves_dashboards_alone_where_it_is_not_published(self):
+        before = self.snapshot()
+        with patch.object(provision, "restart_and_wait") as restart,                 patch.dict(os.environ, {"MEMORYOS_OPENSEARCH_DASHBOARDS_PUBLIC_URL": ""}):
+            self.assertEqual(["node", "admin"],
+                             provision.renew_certificates(self.directory, provision.LEAF_VALIDITY_DAYS + 1))
+            self.assertEqual([("memoryos-opensearch",)], [call.args for call in restart.call_args_list])
+        self.assertEqual(before["dashboards.crt"], self.snapshot()["dashboards.crt"],
+                         "the certificate on disk is left exactly as it was")
+
     def test_restores_original_leaf_pairs_when_runtime_reload_fails(self):
         before = self.snapshot()
         with patch.object(provision, "restart_and_wait", side_effect=[RuntimeError("reload failed"), None, None]):
             with self.assertRaisesRegex(RuntimeError, "reload failed"):
-                provision.renew_certificates(self.directory, 366)
+                provision.renew_certificates(self.directory, provision.LEAF_VALIDITY_DAYS + 1)
         self.assertEqual(before, self.snapshot())
         self.assertEqual(1, len(list((self.directory / "certificate-backups").iterdir())))
 
