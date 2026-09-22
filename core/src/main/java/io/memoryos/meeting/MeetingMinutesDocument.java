@@ -40,21 +40,34 @@ public final class MeetingMinutesDocument {
      */
     public record Heading(String organization, String parentOrganization, String number, String about, String place,
                           String opened, String closed, String chair, String chairRole, String secretary,
-                          String secretaryRole, List<String> attendees) {
+                          String secretaryRole, List<String> attendees, String font) {
         public Heading {
             attendees = List.copyOf(attendees);
+        }
+
+        public Heading(String organization, String parentOrganization, String number, String about, String place,
+                String opened, String closed, String chair, String chairRole, String secretary, String secretaryRole,
+                List<String> attendees) {
+            this(organization, parentOrganization, number, about, place, opened, closed, chair, chairRole, secretary,
+                    secretaryRole, attendees, "");
+        }
+
+        /** What the document is set in. The decree asks for Times New Roman; a company is free to ask for its own. */
+        public String typeface() {
+            return font.isBlank() ? FONT : font;
         }
     }
 
     public static byte[] render(Meeting.Detail meeting, Heading heading) {
         try (var document = new XWPFDocument(); var bytes = new ByteArrayOutputStream()) {
-            defaultFont(document);
+            defaultFont(document, heading.typeface());
             letterhead(document, heading);
             title(document, heading);
             opening(document, heading);
             attendees(document, heading);
             content(document, meeting, heading);
             signatures(document, heading);
+            typeface(document, heading.typeface());
             document.write(bytes);
             return bytes.toByteArray();
         } catch (IOException failure) {
@@ -164,10 +177,10 @@ public final class MeetingMinutesDocument {
 
     // Paragraph and run plumbing. Every run goes through run(), so the decree's font and sizes live in one place.
 
-    private static void defaultFont(XWPFDocument document) {
+    private static void defaultFont(XWPFDocument document, String face) {
         var fonts = CTFonts.Factory.newInstance();
-        fonts.setAscii(FONT);
-        fonts.setHAnsi(FONT);
+        fonts.setAscii(face);
+        fonts.setHAnsi(face);
         document.createStyles().setDefaultFonts(fonts);
     }
 
@@ -208,9 +221,23 @@ public final class MeetingMinutesDocument {
         run(paragraph, text, bold, size);
     }
 
+    /**
+     * Names the chosen face on every run, including the ones inside the letterhead and signature tables. The document
+     * default already carries it, but not every reader honours that — LibreOffice falls back to its own — and a
+     * biên bản that changes typeface when somebody else opens it is not the one that was signed.
+     */
+    private static void typeface(XWPFDocument document, String face) {
+        for (var paragraph : document.getParagraphs()) paragraph.getRuns().forEach(run -> run.setFontFamily(face));
+        for (var table : document.getTables())
+            for (var row : table.getRows())
+                for (var cell : row.getTableCells())
+                    for (var paragraph : cell.getParagraphs())
+                        paragraph.getRuns().forEach(run -> run.setFontFamily(face));
+    }
+
     private static XWPFRun run(XWPFParagraph paragraph, String text, boolean bold, int size) {
         var run = paragraph.createRun();
-        run.setFontFamily(FONT);
+        // The face is named on every run once the document is built; see typeface().
         run.setFontSize(size / 2.0);
         run.setBold(bold);
         run.setText(text);

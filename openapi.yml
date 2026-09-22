@@ -21583,6 +21583,10 @@ components:
           type: array
           items:
             type: string
+        font:
+          type: string
+          description: "Times New Roman, Arial, Calibri or Tahoma; anything else is\
+            \ set in Times New Roman, which the decree asks for"
     MeetingLibraryFile:
       type: object
       description: The minutes as a file in the caller's library

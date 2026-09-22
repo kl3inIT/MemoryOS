@@ -1487,6 +1487,10 @@ export type MeetingHeadingRequest = {
     secretary?: string;
     secretaryRole?: string;
     attendees?: Array<string>;
+    /**
+     * Times New Roman, Arial, Calibri or Tahoma; anything else is set in Times New Roman, which the decree asks for
+     */
+    font?: string;
 };
 
 /**
