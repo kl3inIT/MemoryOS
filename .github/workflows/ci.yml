@@ -142,7 +142,8 @@ jobs:
             -f infrastructure/deployment/compose.search.staging.yaml config --quiet
           docker compose --env-file infrastructure/deployment/production.env.example \
             -f infrastructure/deployment/compose.base.yaml \
-            -f infrastructure/deployment/compose.production.yaml config --quiet
+            -f infrastructure/deployment/compose.production.yaml \
+            -f infrastructure/deployment/compose.search.production.yaml config --quiet
           docker compose --env-file infrastructure/observability/observability.env.example \
             -f infrastructure/observability/compose.observability.yaml config --quiet
           docker run --rm --network none --entrypoint promtool \

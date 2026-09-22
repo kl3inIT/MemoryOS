@@ -1,0 +1,90 @@
+name: memoryos
+
+# Search on production. The same pinned OpenSearch as staging, with native TLS and the security
+# bootstrap, but no Dashboards: production publishes no inspection surface, so nothing here needs a
+# public origin or an OIDC client. Reach the cluster through an SSH tunnel when one has to look.
+#
+# This is a single data node, so MEMORYOS_SEARCH_REPLICAS must be 0 in Infisical production. The
+# default is 1, which on one node leaves every replica shard unassigned, the cluster yellow, and the
+# health check below — which waits for green — failing until someone reads this comment.
+
+services:
+  opensearch:
+    image: opensearchproject/opensearch:3.8.0@sha256:bcc1797519726ceb6d651d4a3e60b7c30da91793914a8dfe75fd441d4f641509
+    container_name: memoryos-opensearch
+    environment:
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: ${MEMORYOS_OPENSEARCH_JAVA_OPTS:--Xms1g -Xmx1g}
+    volumes:
+      - ../opensearch/opensearch.yml:/usr/share/opensearch/config/opensearch.yml:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/node.crt:/usr/share/opensearch/config/tls/node.crt:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/node.key:/usr/share/opensearch/config/tls/node.key:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/ca.crt:/usr/share/opensearch/config/tls/ca.crt:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/health.curl:/run/secrets/opensearch-health:ro
+      - memoryos_search:/usr/share/opensearch/data
+    networks:
+      memoryos-internal:
+        aliases:
+          - opensearch
+          - memoryos-opensearch
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, --config, /run/secrets/opensearch-health, --cacert, /usr/share/opensearch/config/tls/ca.crt, "https://opensearch:9200/_cluster/health?wait_for_status=green&timeout=3s"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 90s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  search-security-bootstrap:
+    image: opensearchproject/opensearch:3.8.0@sha256:bcc1797519726ceb6d651d4a3e60b7c30da91793914a8dfe75fd441d4f641509
+    profiles: [ops]
+    entrypoint: [/bin/sh, /bootstrap/bootstrap-security.sh]
+    volumes:
+      - ../opensearch/bootstrap-security.sh:/bootstrap/bootstrap-security.sh:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/security:/bootstrap/security:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/ca.crt:/bootstrap/tls/ca.crt:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/admin.crt:/bootstrap/tls/admin.crt:ro
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/admin.key:/bootstrap/tls/admin.key:ro
+    networks:
+      - memoryos-internal
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: "no"
+
+  api:
+    environment:
+      MEMORYOS_OPENSEARCH_CA_CERTIFICATE: /run/secrets/opensearch-ca.crt
+    volumes:
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/ca.crt:/run/secrets/opensearch-ca.crt:ro
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+  worker:
+    environment:
+      MEMORYOS_OPENSEARCH_CA_CERTIFICATE: /run/secrets/opensearch-ca.crt
+    volumes:
+      - ${MEMORYOS_OPENSEARCH_SECRET_DIRECTORY:?Set MEMORYOS_OPENSEARCH_SECRET_DIRECTORY}/ca.crt:/run/secrets/opensearch-ca.crt:ro
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+volumes:
+  memoryos_search:
+    name: ${MEMORYOS_OPENSEARCH_VOLUME:-memoryos-opensearch-data}

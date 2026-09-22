@@ -53,6 +53,23 @@ class ComposeLayeringTest(unittest.TestCase):
         self.assertIn("KC_HOSTNAME: ${MEMORYOS_KEYCLOAK_HOSTNAME:?Set MEMORYOS_KEYCLOAK_HOSTNAME}", BASE)
         self.assertNotIn("MEMORYOS_KEYCLOAK_HOSTNAME:-", BASE)
 
+    def test_production_search_publishes_nothing_to_inspect(self):
+        staging_search = (DEPLOYMENT / "compose.search.staging.yaml").read_text(encoding="utf-8")
+        production_search = (DEPLOYMENT / "compose.search.production.yaml").read_text(encoding="utf-8")
+        self.assertIn("opensearch-dashboards", staging_search)
+        self.assertNotIn("opensearch-dashboards", production_search)
+        self.assertNotIn("shared-infra", production_search)
+        # One data node cannot allocate a replica, and the health check waits for a green cluster.
+        self.assertIn("MEMORYOS_SEARCH_REPLICAS must be 0", production_search)
+
+    def test_both_deployables_trust_the_redis_authority_under_the_production_profile(self):
+        # Compose enables Redis TLS for every environment, but the trust material lived only in the
+        # staging profile: production alone would enable TLS and trust nothing but the system store.
+        for module in ("api", "worker"):
+            profile = (ROOT / module / "src/main/resources/application-production.yaml").read_text(encoding="utf-8")
+            self.assertIn("bundle: memoryos-redis", profile, module)
+            self.assertIn("${MEMORYOS_REDIS_TLS_CA_CERTIFICATE}", profile, module)
+
     def test_no_nested_interpolation_because_compose_versions_disagree_about_it(self):
         # ${A:-${B:?...}} reads naturally but the Compose version on the CI runner evaluates the inner
         # expression even when A is set, so a fallback to an old variable name fails the build there.
