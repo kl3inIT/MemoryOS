@@ -102,6 +102,22 @@ remove `deployments/pending`. Do **not** take the stack down with its volumes: P
 Keycloak realm as well, and the migrations the failed attempt applied are carried by the next
 release too, so the next deployment's migration check passes against them.
 
+**Never run `docker image prune -a` on a deployment host.** The interpreter executor image is
+started only for a Python execution, so no container holds it between runs and prune deletes it;
+the interpreter then answers 503 and the next deployment refuses to replace a runtime it cannot
+call healthy. That happened on staging. Superseded release images are removed instead by
+`infrastructure/deployment/prune-release-images.sh`, which keeps every image named by the running
+release and by the one accepted before it — the rollback target — including the executor, and
+never considers an image outside `ghcr.io/kl3init/memoryos-*`. It does nothing while a deployment
+holds the lock or a reservation is pending. Install it once per host:
+
+```sh
+sudo install -m 0755 infrastructure/deployment/prune-release-images.sh /usr/local/sbin/memoryos-prune-release-images
+sudo install -m 0644 infrastructure/deployment/systemd/memoryos-prune-release-images.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now memoryos-prune-release-images.timer
+sudo /usr/local/sbin/memoryos-prune-release-images --dry-run
+```
+
 The observability stack is a prerequisite, not a companion. The api and worker join
 `memoryos-telemetry`, which is declared external and owned by that stack, and they read
 `MEMORYOS_OTLP_BASE_URL` with no application default. A deployment onto a host where the stack has

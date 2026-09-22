@@ -1,0 +1,11 @@
+# Removes MemoryOS release images no accepted release still names; see prune-release-images.sh.
+# The script is copied to a stable path when the unit is installed, because a release directory
+# is replaced by the next deployment. See docs/runbooks/ci-cd.md.
+[Unit]
+Description=Remove superseded MemoryOS release images
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/memoryos-prune-release-images
