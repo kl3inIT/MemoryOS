@@ -496,7 +496,9 @@ export function MeetingPage({
           value={pane ?? (data.minutes.status === "READY" ? "summary" : "transcript")}
           onValueChange={setPane}
         >
-          <TabsList>
+          {/* Five tabs are wider than a phone: they scroll inside their own row, or choosing one scrolls the
+              whole page sideways to reveal it. */}
+          <TabsList className="max-w-full justify-start overflow-x-auto">
             {data.minutes.status !== "NONE" && (
               <TabsTrigger value="summary">{ui("Tóm tắt")}</TabsTrigger>
             )}

@@ -623,6 +623,11 @@ for (const width of [1440, 390]) {
     await page.reload();
     await page.getByRole("tab", { name: "Transcript" }).click();
     await expect(page.getByRole("button", { name: "Đang hiệu chỉnh…" })).toBeDisabled();
+    await page.screenshot({ path: `../output/playwright/meetings-correcting-${width}.png` });
+    expect(
+      await page.evaluate(() => window.scrollX),
+      "choosing a tab never scrolls the whole page sideways",
+    ).toBe(0);
     correcting(false);
     await expect(page.getByRole("button", { name: "Hiệu chỉnh 1 đoạn khó nghe" })).toBeEnabled({
       timeout: 10_000,
