@@ -91,6 +91,7 @@ async function mockMeetings(page: Page) {
           generatedAt: null,
           decisions: [],
           actions: [],
+          edited: false,
         },
         audio: { status: "NONE", failure: null, filename: null, sizeBytes: 0, provider: null },
         owned: true,

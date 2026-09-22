@@ -595,6 +595,126 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}/minutes/summary:
+    put:
+      tags:
+      - Meetings
+      summary: Rewrite the summary in the owner's own words
+      operationId: editMeetingMinutesSummary
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingMinutesSummaryRequest"
+        required: true
+      responses:
+        "200":
+          description: The meeting with the summary as it now reads
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/minutes/items/{itemId}:
+    put:
+      tags:
+      - Meetings
+      summary: "Rewrite one decision or one piece of work, its owner and its deadline"
+      operationId: editMeetingMinutesItem
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingMinutesItemRequest"
+        required: true
+      responses:
+        "200":
+          description: The meeting with the item as it now reads
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Meeting or item not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/mcp/servers/{serverId}:
     get:
       tags:
@@ -6393,6 +6513,14 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: discardEdits
+        in: query
+        description: "Required once the minutes were corrected by hand, because a\
+          \ rerun writes them again and throws that work away"
+        required: false
+        schema:
+          type: boolean
+          default: false
       responses:
         "200":
           description: "The meeting, with its minutes queued"
@@ -6400,6 +6528,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MeetingDetail"
+        "409":
+          description: The minutes were corrected by hand; say so to discard that
+            work
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
         "404":
           description: Meeting not available
           content:
@@ -18175,9 +18310,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MeetingMinutesItem"
+        edited:
+          type: boolean
+          description: Whether the words standing now are the owner's rather than
+            the model's
       required:
       - actions
       - decisions
+      - edited
       - failure
       - generatedAt
       - kind
@@ -18212,9 +18352,13 @@ components:
           format: uuid
         done:
           type: boolean
+        edited:
+          type: boolean
+          description: Whether these words are the owner's rather than the model's
       required:
       - done
       - due
+      - edited
       - id
       - owner
       - quote
@@ -18362,6 +18506,36 @@ components:
           type: boolean
       required:
       - done
+    MeetingMinutesSummaryRequest:
+      type: object
+      properties:
+        summary:
+          type: string
+          maxLength: 20000
+          minLength: 0
+      required:
+      - summary
+    MeetingMinutesItemRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          maxLength: 2000
+          minLength: 0
+        owner:
+          type:
+          - string
+          - "null"
+          maxLength: 200
+          minLength: 0
+        due:
+          type:
+          - string
+          - "null"
+          maxLength: 100
+          minLength: 0
+      required:
+      - text
     McpHeaderTemplateChange:
       type: object
       description: "Header values may contain secrets and are never returned; API-key\

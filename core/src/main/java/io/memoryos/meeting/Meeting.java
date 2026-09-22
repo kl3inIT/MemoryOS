@@ -32,11 +32,26 @@ public final class Meeting {
 
     /** A decision the meeting reached or work it handed out, with the line it rests on. */
     public record MinutesItem(UUID id, ItemKind kind, String text, @Nullable String owner, @Nullable String due,
-                              @Nullable String quote, @Nullable UUID sourceUtteranceId, boolean done) {}
+                              @Nullable String quote, @Nullable UUID sourceUtteranceId, boolean done,
+                              boolean edited) {
+        public MinutesItem(UUID id, ItemKind kind, String text, @Nullable String owner, @Nullable String due,
+                @Nullable String quote, @Nullable UUID sourceUtteranceId, boolean done) {
+            this(id, kind, text, owner, due, quote, sourceUtteranceId, done, false);
+        }
+    }
 
     /** What a run of the minutes job produced, as the owner reads it. */
     public record Minutes(MinutesStatus status, @Nullable String failure, String summary, String kind,
-                          @Nullable Instant generatedAt, List<MinutesItem> decisions, List<MinutesItem> actions) {}
+                          @Nullable Instant generatedAt, List<MinutesItem> decisions, List<MinutesItem> actions,
+                          boolean edited) {
+        public Minutes(MinutesStatus status, @Nullable String failure, String summary, String kind,
+                @Nullable Instant generatedAt, List<MinutesItem> decisions, List<MinutesItem> actions) {
+            this(status, failure, summary, kind, generatedAt, decisions, actions, false);
+        }
+    }
+
+    /** What part of the minutes a change was made to. */
+    public enum MinutesField { SUMMARY, TEXT, OWNER, DUE }
 
     public record Summary(UUID id, String title, Kind kind, Status status, int participants, long durationMs,
                           Instant createdAt, @Nullable Instant endedAt, boolean owned) {}

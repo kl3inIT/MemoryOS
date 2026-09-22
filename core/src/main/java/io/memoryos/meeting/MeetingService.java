@@ -33,6 +33,9 @@ public class MeetingService {
     static final int MAX_TERMS = 100;
     static final int MAX_NAME = 200;
     static final int MAX_TERM = 100;
+    static final int MAX_SUMMARY = 20_000;
+    static final int MAX_ITEM = 2_000;
+    static final int MAX_DUE = 100;
     /** Marks a person leaves for themselves; past this many they are no longer marking anything out. */
     static final int MAX_BOOKMARKS = 200;
     static final int MAX_NOTES = 50_000;
@@ -132,13 +135,79 @@ public class MeetingService {
 
     /** Runs the minutes again, for a meeting whose transcript or notes changed after the first run. */
     @Transactional
-    public Meeting.Detail rerunMinutes(ActorId actor, UUID id) {
+    public Meeting.Detail rerunMinutes(ActorId actor, UUID id, boolean discardEdits) {
         UUID tenant = tenant(actor);
         var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         if (meeting.status() != Meeting.Status.ENDED) throw MeetingException.invalid("The meeting is still recording.");
         if (meetings.utterances(tenant, id).isEmpty()) throw MeetingException.invalid("This meeting has no transcript.");
+        // A rerun writes the whole minutes again, so it throws away whatever the owner corrected by hand. They have
+        // to say they mean that, rather than find their work gone.
+        if (meeting.minutesEdited() && !discardEdits) throw MeetingException.conflict();
         meetings.queueMinutes(tenant, id);
         return detail(tenant, actor, id);
+    }
+
+    /** Rewrites the summary in the owner's own words. What the model wrote stays in the events beside it. */
+    @Transactional
+    public Meeting.Detail editSummary(ActorId actor, UUID id, String summary) {
+        UUID tenant = tenant(actor);
+        var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        if (meeting.minutesStatus() != Meeting.MinutesStatus.READY)
+            throw MeetingException.invalid("The minutes are not written yet.");
+        String clean = text(summary, MAX_SUMMARY, "A summary");
+        if (!clean.equals(meeting.minutesSummary())) {
+            meetings.recordMinutesEdit(tenant, id, null, Meeting.MinutesField.SUMMARY, actor.value(),
+                    meeting.minutesSummary(), clean);
+            meetings.rewriteSummary(tenant, id, clean);
+        }
+        return detail(tenant, actor, id);
+    }
+
+    /** Rewrites one decision or one piece of work: what it says, who owns it, when it is due. */
+    @Transactional
+    public Meeting.Detail editItem(ActorId actor, UUID id, UUID itemId, String itemText, @Nullable String owner,
+            @Nullable String due) {
+        UUID tenant = tenant(actor);
+        meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        var item = meetings.lockItem(tenant, id, itemId).orElseThrow(MeetingException::notFound);
+        String cleanText = text(itemText, MAX_ITEM, "An item");
+        String cleanOwner = optional(owner, MAX_NAME, "An owner");
+        String cleanDue = optional(due, MAX_DUE, "A deadline");
+        // A decision belongs to the meeting, not to a person, so it carries neither an owner nor a deadline.
+        if (item.kind() == Meeting.ItemKind.DECISION && (cleanOwner != null || cleanDue != null))
+            throw MeetingException.invalid("A decision has no owner and no deadline.");
+        record Change(Meeting.MinutesField field, String before, String after) {}
+        var changes = new ArrayList<Change>(3);
+        if (!cleanText.equals(item.text()))
+            changes.add(new Change(Meeting.MinutesField.TEXT, item.text(), cleanText));
+        if (!java.util.Objects.equals(cleanOwner, item.owner()))
+            changes.add(new Change(Meeting.MinutesField.OWNER, item.owner() == null ? "" : item.owner(),
+                    cleanOwner == null ? "" : cleanOwner));
+        if (!java.util.Objects.equals(cleanDue, item.due()))
+            changes.add(new Change(Meeting.MinutesField.DUE, item.due() == null ? "" : item.due(),
+                    cleanDue == null ? "" : cleanDue));
+        if (changes.isEmpty()) return detail(tenant, actor, id);
+        for (var change : changes)
+            meetings.recordMinutesEdit(tenant, id, itemId, change.field(), actor.value(), change.before(),
+                    change.after());
+        meetings.rewriteItem(tenant, id, new Meeting.MinutesItem(item.id(), item.kind(), cleanText, cleanOwner,
+                cleanDue, item.quote(), item.sourceUtteranceId(), item.done(), true));
+        return detail(tenant, actor, id);
+    }
+
+    private static String text(@Nullable String value, int limit, String what) {
+        String clean = value == null ? "" : value.strip();
+        if (clean.isEmpty() || clean.length() > limit)
+            throw MeetingException.invalid(what + " has 1 to " + limit + " characters.");
+        return clean;
+    }
+
+    private static @Nullable String optional(@Nullable String value, int limit, String what) {
+        String clean = value == null ? "" : value.strip();
+        if (clean.isEmpty()) return null;
+        if (clean.length() > limit || clean.chars().anyMatch(Character::isISOControl))
+            throw MeetingException.invalid(what + " has at most " + limit + " characters.");
+        return clean;
     }
 
     /** Renders the minutes as a Vietnamese biên bản in Word format. Nothing is stored; the heading comes with the call. */
@@ -376,7 +445,7 @@ public class MeetingService {
         var minutes = new Meeting.Minutes(row.minutesStatus(), row.minutesFailure(), row.minutesSummary(), row.minutesKind(),
                 row.minutesGeneratedAt(),
                 items.stream().filter(item -> item.kind() == Meeting.ItemKind.DECISION).toList(),
-                items.stream().filter(item -> item.kind() == Meeting.ItemKind.ACTION).toList());
+                items.stream().filter(item -> item.kind() == Meeting.ItemKind.ACTION).toList(), row.minutesEdited());
         return new Meeting.Detail(row.id(), row.title(), row.kind(), row.language(), row.participants(), row.terms(),
                 row.owned() ? row.notes() : "", row.status(), row.provider(), row.diarized(), row.createdAt(),
                 row.endedAt(), row.revision(), meetings.speakers(tenant, id), meetings.utterances(tenant, id), minutes,
