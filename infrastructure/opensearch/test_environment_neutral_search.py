@@ -99,6 +99,15 @@ class DashboardsIsOptionalTest(unittest.TestCase):
                         clear=True):
             self.assertEqual(sorted(provision.leaf_certificates()), ["admin", "dashboards", "node"])
 
+    def test_a_leaf_outlives_the_renewal_window_by_a_wide_margin(self):
+        # Renewal replaces a leaf inside its last thirty days, but a deployment that never had
+        # the renewal installed still has to keep answering. The authority outlives the leaf so
+        # a renewed certificate is never signed by an expired signer.
+        self.assertGreaterEqual(provision.LEAF_VALIDITY_DAYS, 365 * 5)
+        self.assertGreater(provision.AUTHORITY_VALIDITY_DAYS, provision.LEAF_VALIDITY_DAYS)
+        script = (HERE / "provision-search.py").read_text(encoding="utf-8")
+        self.assertNotIn('"-days", "365"', script, "a hard-coded year is back")
+
     def test_an_issuer_without_dashboards_is_refused(self):
         # An issuer configured where no browser can reach Dashboards is a setting that does
         # nothing, and a setting that does nothing is read as one that does something.

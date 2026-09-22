@@ -19,6 +19,15 @@ import subprocess
 import tempfile
 import time
 
+# How long a leaf certificate is good for. Five years, against ten for the authority.
+#
+# These names live inside the deployment network and no public authority can issue for them, so
+# the exposure a short life limits is small, while an expiry stops OpenSearch answering at all:
+# search and ingestion fail, and the symptom points nowhere near a certificate. Renewal still runs
+# and still replaces a leaf inside its last thirty days; the long life is so that a deployment
+# whose renewal was never installed does not fall over on an anniversary nobody wrote down.
+LEAF_VALIDITY_DAYS = 1825
+AUTHORITY_VALIDITY_DAYS = 3650
 IMAGE = "opensearchproject/opensearch:3.8.0@sha256:bcc1797519726ceb6d651d4a3e60b7c30da91793914a8dfe75fd441d4f641509"
 SOURCE = Path(__file__).resolve().parent
 LEAF_CERTIFICATES = {
@@ -87,7 +96,7 @@ def certificate(directory, name, subject, extensions, authority=None):
     run("openssl", "req", "-new", "-key", str(directory / (name + ".key")), "-subj", subject, "-out", str(directory / (name + ".csr")))
     write(directory / (name + ".ext"), extensions)
     run("openssl", "x509", "-req", "-in", str(directory / (name + ".csr")), "-CA", str(authority / "ca.crt"),
-        "-CAkey", str(authority / "ca.key"), "-set_serial", "0x" + run("openssl", "rand", "-hex", "16").strip(), "-days", "365", "-sha256",
+        "-CAkey", str(authority / "ca.key"), "-set_serial", "0x" + run("openssl", "rand", "-hex", "16").strip(), "-days", str(LEAF_VALIDITY_DAYS), "-sha256",
         "-extfile", str(directory / (name + ".ext")), "-out", str(directory / (name + ".crt")))
 
 
@@ -214,7 +223,7 @@ def main():
         temporary = Path(tempfile.mkdtemp(prefix=".opensearch-init-", dir=directory.parent))
         try:
             run("openssl", "req", "-x509", "-newkey", "rsa:3072", "-nodes", "-keyout", str(temporary / "ca.key"),
-                "-out", str(temporary / "ca.crt"), "-sha256", "-days", "3650", "-subj", "/CN=MemoryOS Search CA")
+                "-out", str(temporary / "ca.crt"), "-sha256", "-days", str(AUTHORITY_VALIDITY_DAYS), "-subj", "/CN=MemoryOS Search CA")
             for leaf, definition in leaf_certificates().items():
                 certificate(temporary, leaf, *definition)
             secrets = ("service-password.txt", *DASHBOARDS_SECRETS) if publishes_dashboards() else ("service-password.txt",)
