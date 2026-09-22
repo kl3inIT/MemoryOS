@@ -5,8 +5,15 @@ import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { captureWorkflowFailure } from "@/lib/sentry";
-import { mostVisiblePage, pageHeight, pagesToRender } from "./pdf-page-window";
-import { formatPages, pdfBoxRect, type PdfPageView, type ProvenanceBox } from "./source-provenance";
+import {
+  formatPages,
+  mostVisiblePage,
+  pageHeight,
+  pagesToRender,
+  pdfBoxRect,
+  type PdfHighlight,
+  type PdfPageView,
+} from "./pdf-pages";
 
 // Self-hosted worker: the bundler emits it under the app origin, so `script-src 'self'` covers it.
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -34,7 +41,7 @@ const ZOOM_STEPS = [1, 1.5, 2, 3] as const;
  * Shows the whole authorized original PDF, opened at the first cited page with the cited regions highlighted
  * from extraction provenance. Only pages near the viewport are rendered; the rest are sized placeholders.
  */
-export function DocumentPdfView({
+export function PdfView({
   url,
   pages,
   boxes,
@@ -42,7 +49,7 @@ export function DocumentPdfView({
   /** A same-origin URL, or the file itself: the CSP (connect-src 'self') does not let pdf.js fetch blob: URLs. */
   url: string | Blob;
   pages: readonly number[];
-  boxes: readonly ProvenanceBox[];
+  boxes: readonly PdfHighlight[];
 }) {
   const ui = useAppTranslation();
   const container = useRef<HTMLDivElement>(null);

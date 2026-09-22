@@ -5,8 +5,8 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { ProvenanceBox } from "./source-provenance";
 
 // pdf.js loads only when a reader opens the page view.
-const DocumentPdfView = lazy(() =>
-  import("./document-pdf-view").then((module) => ({ default: module.DocumentPdfView })),
+const PdfView = lazy(() =>
+  import("@/features/preview/pdf-view").then((module) => ({ default: module.PdfView })),
 );
 
 export type PdfEvidence = {
@@ -86,7 +86,7 @@ export function EvidenceViewSwitch({
             </p>
           }
         >
-          <DocumentPdfView url={pdf.url} pages={pdf.pages} boxes={pdf.boxes} />
+          <PdfView url={pdf.url} pages={pdf.pages} boxes={pdf.boxes} />
         </Suspense>
       </Tabs.Content>
     </Tabs.Root>

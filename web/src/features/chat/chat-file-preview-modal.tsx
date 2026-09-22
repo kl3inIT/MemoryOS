@@ -21,7 +21,7 @@ import {
 } from "@/features/preview/preview-kind";
 import { SheetView } from "@/features/preview/sheet-view";
 import { TextView } from "@/features/preview/text-view";
-import { DocumentPdfView } from "@/features/search/document-pdf-view";
+import { PdfView } from "@/features/preview/pdf-view";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
@@ -427,7 +427,7 @@ function PdfPreview({ blob }: { blob: Blob }) {
   // pdf.js reads the Blob directly; a blob: URL would be fetched, which connect-src 'self' refuses.
   return (
     <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">
-      <DocumentPdfView url={blob} pages={[]} boxes={[]} />
+      <PdfView url={blob} pages={[]} boxes={[]} />
     </div>
   );
 }
