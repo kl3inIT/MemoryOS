@@ -152,11 +152,13 @@ Browser bounds: stream response 8 MiB per connection, reply 1000000 characters, 
 
 ## Voice
 
-Voice connections are Tenant-owned Chat configuration, separate from the LLM model catalog. `MODELS_MANAGE` controls `/admin/voice`; reads expose only `credentialConfigured`. OpenAI, OpenAI-compatible, ElevenLabs and Azure AI Speech have provider-specific validation and adapters. One active STT and one active TTS connection may be selected per Tenant. Member settings store Auto-Send, Auto-Playback and playback speed. Chat and Search authorize transcription with `CHAT_WRITE` or `SEARCH_READ`; synthesis requires `CHAT_READ`.
+Voice connections are Tenant-owned Chat configuration, separate from the LLM model catalog. `MODELS_MANAGE` controls `/admin/voice`; reads expose only `credentialConfigured`. OpenAI, OpenAI-compatible, ElevenLabs, Azure AI Speech and Soniox have provider-specific validation and adapters. Soniox is speech-to-text only: its connection rejects read-aloud model and voice settings, it cannot be selected for Text-to-Speech, and `/admin/voice` lists it only under speech to text (the provider response carries `speech`). One active STT and one active TTS connection may be selected per Tenant. Member settings store Auto-Send, Auto-Playback and playback speed. Chat and Search authorize transcription with `CHAT_WRITE` or `SEARCH_READ`; synthesis requires `CHAT_READ`.
 
 The browser requests a CSRF-protected, single-use ticket whose purpose is `TRANSCRIBE` or `SYNTHESIZE`, then opens the matching same-origin WebSocket. Tickets expire, are consumed atomically and live in one API process. The transcription socket accepts only PCM16 24 kHz mono binary frames plus one `{type:"end"}` control message, with 64 KiB frame, 25 MiB recording, 60-second idle and 10-minute session bounds. Audio remains in memory for the connection and is never persisted. The server response is `{type:"transcript", text, isFinal, utteranceEnd, revision}`. `revision` increases on that MemoryOS connection; the browser ignores a non-increasing revision so delayed provider work cannot regress the composer. `isFinal` means committed text, while `utteranceEnd` is reserved for a real provider VAD boundary and alone may drive future server-side pause semantics.
 
 The public OpenAI connection uses a provider Realtime transcription WebSocket with fixed live model `gpt-live-transcribe`, PCM 24 kHz, low transcription delay, the member UI language and turn detection disabled. Provider deltas become cumulative interim text. Browser Stop sends the provider buffer commit; the MemoryOS handler emits the final transcript with `utteranceEnd:false`. The configured STT model remains authoritative for REST and fallback. Realtime connection, send, parse, close or final-timeout failure replays the complete bounded recording through the chunked batch path. An initial Realtime connection failure selects a chunked session during setup. OpenAI-compatible endpoints do not inherit this behavior by name; they, ElevenLabs and Azure use the existing chunked/REST adapters.
+
+Soniox uses its realtime WebSocket (`stt-rt.` host derived from the REST endpoint, `/transcribe-websocket`): the key and a PCM16 24 kHz mono configuration with the language as a strict hint travel in the first text message, audio as binary frames. Final tokens are committed text and non-final tokens extend the interim preview; `<fin>` and `<end>` markers are dropped. Stop sends `finalize` and an empty frame and waits for `finished`. A provider `error_code`, close or send failure replays the bounded recording through the chunked path, whose REST adapter is Soniox async: upload, transcription with the matching `stt-async-` model, polling, transcript read, and deletion of both the transcription and the file on success or failure. A key is verified by an authorized one-item transcription listing.
 
 The composer freezes send while dictation is settling, preserves the pre-recording draft and applies cumulative transcript updates. Auto-Send remains tied to the current client stop/pause behavior until a provider VAD adapter emits a genuine utterance boundary. Read-aloud and Auto-Playback stream synthesized audio without storing it; stopping, navigation and authority changes close their sockets and players. The UI reuses the installed shadcn/Radix controls and assistant-ui primitives; comparative UI references inform presentation but do not change the provider or authorization contract. Full active scope and open live-provider/Safari gates are in [MEM-91](../increments/active/mem-91-chat-voice/design.md).
 
@@ -274,6 +276,46 @@ The MVC controller returns `ResponseEntity<Flux<ServerSentEvent<Object>>>`, foll
 Authorization and cursor preflight run synchronously before the response. Reader allocation is deferred until subscription, and each subscription owns its own cleanup; an unconsumed publisher holds no reader slot. Terminal persistence uses a nonblocking finalization claim independent of the state monitor, so a slow terminal write does not hold the monitor used by Stop and text callbacks. Terminal publication is serialized. Admission is released exactly once after both persistence and actual work retirement complete.
 
 Each read replays from the cursor with `XRANGE`, draining the backlog without sleeping, then polls every `poll-interval` (200 ms, Onyx `CHAT_RESUME_POLL_INTERVAL_S`) until events arrive or the 15-second heartbeat is due. A blocking `XREAD` is not used because it would stall the shared Lettuce connection. When a read finds nothing new, first at once and then at every heartbeat, the reader re-authorizes the actor for the reply and checks that it is still RUNNING; a revoked membership ends the stream with the authorization failure. A reply that is no longer RUNNING gets a final drain of up to 2 seconds for its outcome and otherwise ends with a reset, as Onyx ends a resume when the processing fence lapses. Every live stream therefore ends with an outcome, a reset or the connection timeout; a dead writer, a startup- or lease-failed run, an expired buffer and a Redis outage all reach history instead of hanging. A reader that cannot reach Redis ends at once with `BUFFER_MISSING`, as Onyx's resume endpoint answers without a buffer, rather than failing the subscription.
+
+## Query history for administrators
+
+An organization can read what it is being asked, under `CHAT_HISTORY_READ` — an ordinary grant given through a Group,
+implied by administrator access, and held apart from every other administrative power, as `AUDIT_READ` is. This is
+the separate administrative read path that *Internal persistence contracts* reserves; no owner-scoped endpoint is
+widened.
+
+`chat_settings.chat_history_visibility` (V107) decides how much is visible, as Onyx's `query_history_type` does, and
+a model manager changes it. It defaults to `NORMAL`.
+
+- **`NORMAL`** names the person who asked.
+- **`ANONYMIZED`** drops their name and e-mail before the answer leaves the server, and refuses to narrow a read to
+  one person. It hides nothing else: the questions and answers stay as they are, and a question often names its
+  author, so the screen says so rather than letting the word promise more than it does.
+- **`DISABLED`** refuses every read. Conversations are still recorded.
+
+What the read covers:
+
+- **A temporary conversation never appears**: its message content is not written at all.
+- **A conversation its owner deleted is listed and marked as deleted**, as Onyx lists one. Hard deletion is off by
+  default, so the row is still there; the retention policy eventually removes it and it leaves this screen too.
+- **Citations are named, not opened.** A transcript carries the titles a message cited; reading a source goes through
+  the reader's own Source authority, never the asker's, which is the rule sharing already follows.
+
+| Method and path | Contract |
+| --- | --- |
+| `GET /api/chat/history` | A page of conversations, newest first, on an opaque `(updated_at, id)` cursor. Filters: `from`, `to`, `q` (asker or title; `%` and `_` are literal), `actorId`, `feedback` (`POSITIVE`, `NEGATIVE`, `MIXED`, `NONE`). `size` is 1–100, default 30. Each page also carries the period's counts |
+| `GET /api/chat/history/{sessionId}` | One conversation's transcript on its selected branch, with each message's feedback and cited titles |
+| `GET /api/chat/history/export` | The filtered conversations as CSV, at most 50,000 rows, with a byte-order mark and formula prefixes neutralized |
+| `PUT /api/chat/settings/history-visibility` | Chooses the mode; requires `MODELS_MANAGE` |
+
+Every transcript opened is recorded as `chat_history.read` and every export as `chat_history.export`, through
+[audit](audit.md), written outside the read so a failed read still leaves evidence. Listing is not recorded: it shows
+no message body beyond the first question and answer, and at chat volume it would drown the stream. Onyx records
+nothing at all here.
+
+Admin › Monitoring › Conversation history (`/admin/chat-history`, vi "Theo dõi › Lịch sử hội thoại") shows the
+period's counts, one row of filters, the shared table and pager, a conversation in a centred dialog, and an export
+link carrying the filters on screen.
 
 ## Conversation lifecycle
 

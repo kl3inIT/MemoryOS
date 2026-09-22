@@ -161,4 +161,61 @@ class StructuredDocumentChunkerTest {
         assertThrows(IllegalArgumentException.class, () -> chunker.chunk("A", "{\"schema\":\"other\",\"blocks\":[]}"));
         assertThrows(IllegalArgumentException.class, () -> chunker.chunk("A", "{\"schema\":\"memoryos-extraction-v1\",\"blocks\":[]}"));
     }
+
+    @Test
+    void mergesAdjacentParagraphsIntoOneChunk() {
+        var blocks = new java.util.ArrayList<Map<String, Object>>();
+        for (int i = 0; i < 40; i++) {
+            blocks.add(Map.of("kind", "PARAGRAPH", "index", i, "text", "Dòng số " + i + " của báo cáo.",
+                    "provenance", List.of(Map.of("page_no", i))));
+        }
+        var chunks = chunker.chunk("Báo cáo", mapper.writeValueAsString(
+                Map.of("schema", "memoryos-extraction-v1", "blocks", blocks)));
+        assertEquals(1, chunks.size());
+        var chunk = chunks.getFirst();
+        assertTrue(chunk.content().contains("Dòng số 0"));
+        assertTrue(chunk.content().contains("Dòng số 39"));
+        assertEquals(0, chunk.blockIndex());
+        // Merged provenance lists every source location, not just the first block's.
+        assertEquals(40, mapper.readTree(chunk.provenanceJson()).size());
+    }
+
+    @Test
+    void aHeadingFlushesTheMergeSoSectionsNeverMix() {
+        var chunks = chunker.chunk("Báo cáo", """
+                {"schema":"memoryos-extraction-v1","blocks":[
+                  {"index":0,"kind":"PARAGRAPH","text":"Đoạn mở đầu."},
+                  {"index":1,"kind":"HEADING","headingLevel":1,"text":"Kết quả kinh doanh"},
+                  {"index":2,"kind":"PARAGRAPH","text":"Doanh thu tăng."}]}
+                """);
+        assertEquals(3, chunks.size());
+        assertTrue(chunks.get(0).content().contains("Đoạn mở đầu"));
+        assertTrue(chunks.get(0).content().contains("Section") == false);
+        assertTrue(chunks.get(2).content().contains("Kết quả kinh doanh"));
+        assertTrue(chunks.get(2).content().contains("Doanh thu tăng"));
+    }
+
+    @Test
+    void reportsTypedCodesForContentRejections() {
+        var invalid = assertThrows(DocumentContentException.class,
+                () -> chunker.chunk("A", "{\"schema\":\"other\",\"blocks\":[]}"));
+        assertEquals("SEARCH_INDEX_ARTIFACT_INVALID", invalid.code());
+        var empty = assertThrows(DocumentContentException.class,
+                () -> chunker.chunk("A", "{\"schema\":\"memoryos-extraction-v1\",\"blocks\":[]}"));
+        assertEquals("SEARCH_INDEX_NO_TEXT", empty.code());
+    }
+
+    @Test
+    void stillRejectsDocumentsBeyondTheChunkLimit() {
+        // Tables flush the merge, so alternating blocks keep one chunk per paragraph.
+        var blocks = new java.util.ArrayList<Map<String, Object>>();
+        for (int i = 0; i < 10_001; i++) {
+            blocks.add(Map.of("kind", "PARAGRAPH", "index", i * 2, "text", "Đoạn " + i));
+            blocks.add(Map.of("kind", "TABLE", "index", i * 2 + 1, "text", "",
+                    "table", Map.of("cells", List.of())));
+        }
+        var failure = assertThrows(DocumentContentException.class, () -> chunker.chunk("Lớn",
+                mapper.writeValueAsString(Map.of("schema", "memoryos-extraction-v1", "blocks", blocks))));
+        assertEquals("SEARCH_INDEX_CONTENT_LIMIT", failure.code());
+    }
 }

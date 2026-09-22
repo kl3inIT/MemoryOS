@@ -128,7 +128,9 @@ class ModelCatalogConstraintsTest {
         tx(() -> { catalog.initializeFlows(tenant); catalog.initializeFlows(tenant); catalog.initializeFlows(otherTenant); });
         var unset = read(() -> catalog.flowDefault(tenant, ModelFlow.CHAT_NAMING));
         assertNull(unset.modelConfigurationId());
-        assertEquals(List.of(unset), read(() -> catalog.flowDefaults(tenant)));
+        var defaults = read(() -> catalog.flowDefaults(tenant));
+        assertEquals(ModelFlow.values().length, defaults.size(), "initializing seeds one row per task flow, once");
+        assertEquals(unset, defaults.getFirst());
         var model = new ModelCatalogRepository.Model(UUID.randomUUID(), tenant, provider, "mini", "Mini", true, settings, 1);
         tx(() -> catalog.insertModel(model));
         assertThrows(DataIntegrityViolationException.class,

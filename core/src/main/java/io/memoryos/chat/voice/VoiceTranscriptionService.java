@@ -94,6 +94,14 @@ public class VoiceTranscriptionService {
                 meters.counter("memoryos.chat.voice.realtime.fallback", "provider", VoiceProvider.OPENAI.name()).increment();
             }
         }
+        if (connection.provider() == VoiceProvider.SONIOX) {
+            try {
+                return metered(SonioxRealtimeTranscriber.open(connection.provider().baseUrl(connection.endpoint()), key,
+                        connection.sttModel(), language, batch, listener, release, meters), connection, actor);
+            } catch (RuntimeException unavailable) {
+                meters.counter("memoryos.chat.voice.realtime.fallback", "provider", VoiceProvider.SONIOX.name()).increment();
+            }
+        }
         return metered(new ChunkedTranscriber(batch, listener, release), connection, actor);
     }
 
@@ -136,6 +144,8 @@ public class VoiceTranscriptionService {
                         wav, PROVIDER_TIMEOUT));
                 case AZURE -> http(client -> AzureSpeech.transcribe(client, base, key, language, wav, Pcm16.WAV_HEADER_BYTES,
                         wav.length - Pcm16.WAV_HEADER_BYTES, PROVIDER_TIMEOUT));
+                case SONIOX -> http(client -> SonioxAsync.transcribe(client, base, key, connection.sttModel(), language, wav,
+                        PROVIDER_TIMEOUT));
             };
             outcome = "succeeded";
             return text;

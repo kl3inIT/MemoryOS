@@ -12,9 +12,18 @@ spring:
       timeout: ${MEMORYOS_REDIS_COMMAND_TIMEOUT}
       ssl:
         enabled: ${MEMORYOS_REDIS_SSL_ENABLED}
+        bundle: memoryos-redis
       lettuce:
         pool:
           max-active: ${MEMORYOS_REDIS_POOL_MAX_ACTIVE}
           max-idle: ${MEMORYOS_REDIS_POOL_MAX_IDLE}
           min-idle: ${MEMORYOS_REDIS_POOL_MIN_IDLE}
           max-wait: ${MEMORYOS_REDIS_POOL_MAX_WAIT}
+  ssl:
+    bundle:
+      pem:
+        memoryos-redis:
+          truststore:
+            # A private certificate authority protects Redis; without this the client trusts only the
+            # system store. The launcher stages MEMORYOS_REDIS_TLS_CA_FILE and exports this value.
+            certificate: ${MEMORYOS_REDIS_TLS_CA_CERTIFICATE}

@@ -3,14 +3,13 @@ import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, ChevronsDown } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useSyncExternalStore } from "react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { getGoogleDriveSelectionTreeQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { getGoogleDriveSelectionTree } from "@/lib/hey-api/sdk.gen";
 import type {
   GetGoogleDriveConfigurationResponse,
-  GoogleDriveLinkOriginResponse,
   GoogleDriveSelectionItemResponse,
   GoogleDriveSelectionTreeItemResponse,
   GoogleDriveSelectionTreeResponse,
@@ -36,6 +35,7 @@ type SelectionControls = {
   disabled: boolean;
   allowSelection: boolean;
   onApprove: (id: string, checked: boolean) => void;
+  onApproveBranch: (parentId: string, checked: boolean) => void;
   onSelect: (item: GoogleDriveSelectionItemResponse, control: HTMLElement) => void;
 };
 type TreeProps = SelectionControls & {
@@ -175,7 +175,11 @@ function branchQuery(
 
 export function GoogleDriveSelectionTree(props: TreeProps) {
   const view = useTreeView();
-  return <SelectionBranch {...props} view={view} ancestors={[]} />;
+  return (
+    <TooltipProvider>
+      <SelectionBranch {...props} view={view} ancestors={[]} />
+    </TooltipProvider>
+  );
 }
 
 /** Re-renders only the node whose path changed, which keeps large trees responsive. */
@@ -329,6 +333,7 @@ const SelectionTreeNode = memo(function SelectionTreeNode({
     if (!expandable || expanded) return;
     void client.prefetchInfiniteQuery(branchQuery(props, item.id));
   }, [client, expandable, expanded, item.id, props]);
+  const branchControl = expandable && item.kind === "FILE" && props.allowSelection;
   return (
     <li className="min-w-0">
       <div className="flex min-w-0 items-center gap-1 rounded-md pr-1 hover:bg-surface-subtle">
@@ -358,12 +363,7 @@ const SelectionTreeNode = memo(function SelectionTreeNode({
           <span aria-hidden="true" className="w-8 shrink-0" />
         )}
         <div className="min-w-0 flex-1">
-          <GoogleDriveSelectionRow
-            {...props}
-            item={item}
-            parentId={ancestors.at(-1)}
-            showScopeBadge={ancestors.length === 0}
-          />
+          <GoogleDriveSelectionRow {...props} item={item} showScopeBadge={ancestors.length === 0} />
           {repeated ? (
             <p className="pb-2 text-xs text-content-muted">
               {ui("Already shown earlier in this branch. Its sync selection is shared.")}
@@ -371,15 +371,21 @@ const SelectionTreeNode = memo(function SelectionTreeNode({
           ) : null}
         </div>
         {expandable ? (
-          <Button
-            prominence="tertiary"
-            className="size-8 shrink-0 p-0 text-content-muted"
-            aria-label={ui("Expand everything in {{v1}}", { v1: item.name })}
-            onClick={() => view.onExpandAll(path)}
-          >
-            <ChevronsDown aria-hidden="true" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                prominence="tertiary"
+                className="size-8 shrink-0 p-0 text-content-muted"
+                aria-label={ui("Expand everything in {{v1}}", { v1: item.name })}
+                onClick={() => view.onExpandAll(path)}
+              >
+                <ChevronsDown aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{ui("Expand everything")}</TooltipContent>
+          </Tooltip>
         ) : null}
+        {branchControl ? <BranchSelectionControl {...props} item={item} /> : null}
       </div>
       {expanded ? (
         <div
@@ -398,7 +404,6 @@ const SelectionTreeNode = memo(function SelectionTreeNode({
 
 export function GoogleDriveSelectionRow({
   item,
-  parentId,
   showScopeBadge = true,
   approved,
   disabled,
@@ -407,7 +412,6 @@ export function GoogleDriveSelectionRow({
   onSelect,
 }: SelectionControls & {
   item: GoogleDriveSelectionItemResponse;
-  parentId?: string;
   /** Descendants of a selected folder are in scope by construction, so the badge only adds noise there. */
   showScopeBadge?: boolean;
 }) {
@@ -415,10 +419,6 @@ export function GoogleDriveSelectionRow({
 
   const included = item.coveredByRoots || (approved ? approved.has(item.id) : item.selected);
   const canSelect = allowSelection && item.kind === "LINKED" && !item.coveredByRoots;
-  const origins = useMemo(
-    () => (parentId ? item.origins.filter((origin) => origin.parentId === parentId) : item.origins),
-    [item.origins, parentId],
-  );
   const statusChip =
     item.status !== "AVAILABLE" ? (
       <StatusBadge tone="warning">
@@ -432,96 +432,71 @@ export function GoogleDriveSelectionRow({
       <StatusBadge tone="neutral">{ui("Linked")}</StatusBadge>
     ) : null;
   return (
-    <div className="flex min-w-0 items-center gap-2 py-1.5">
+    <div className="flex min-w-0 items-center gap-2 py-1">
+      {canSelect ? (
+        <div className="shrink-0" data-selection-control={item.id}>
+          <Checkbox
+            aria-label={ui("Sync {{v1}}", { v1: item.name })}
+            checked={included}
+            disabled={disabled || (!included && item.status !== "AVAILABLE")}
+            onClick={(event) => {
+              // Before a draft exists, checking loads the complete draft and approves this
+              // target; the checkbox itself stays unchecked until the draft arrives.
+              if (!approved)
+                onSelect(
+                  item,
+                  event.currentTarget.closest<HTMLElement>("[data-selection-control]")!,
+                );
+            }}
+            onCheckedChange={(event) => {
+              if (approved) onApprove(item.id, event === true);
+            }}
+          />
+        </div>
+      ) : item.kind === "LINKED" ? (
+        // Keep linked rows aligned with their selectable siblings.
+        <span aria-hidden="true" className="w-4 shrink-0" />
+      ) : null}
       <FileTypeIcon name={item.name} mimeType={item.mimeType} />
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <div className="flex min-w-0 flex-1 basis-36 items-center gap-2">
-            <p className="min-w-0 break-words text-content-primary">{item.name}</p>
-            {statusChip}
-          </div>
-          {canSelect ? (
-            <div className="min-w-0" data-selection-control={item.id}>
-              {approved ? (
-                <label className="flex min-h-11 items-center gap-2 text-xs">
-                  <Checkbox
-                    aria-label={ui("Sync {{v1}}", { v1: item.name })}
-                    checked={included}
-                    disabled={disabled || (!included && item.status !== "AVAILABLE")}
-                    onCheckedChange={(event) => onApprove(item.id, event === true)}
-                  />
-                  {ui("Select for sync")}
-                </label>
-              ) : (
-                <Button
-                  prominence="secondary"
-                  className="h-auto min-h-11 max-w-full whitespace-normal text-left"
-                  disabled={disabled || (!included && item.status !== "AVAILABLE")}
-                  aria-label={ui("{{v1}} {{v2}} for sync", {
-                    v1: ui(included ? "Deselect" : "Select"),
-                    v2: item.name,
-                  })}
-                  onClick={(event) => onSelect(item, event.currentTarget.parentElement!)}
-                >
-                  {included ? ui("Deselect for sync") : ui("Select for sync")}
-                </Button>
-              )}
-            </div>
-          ) : null}
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <p className="min-w-0 break-words text-content-primary">{item.name}</p>
+          {statusChip}
         </div>
-        {origins.length ? <SelectionProvenance origins={origins} name={item.name} /> : null}
       </div>
     </div>
   );
 }
 
-function SelectionProvenance({
-  origins,
-  name,
-}: {
-  origins: GoogleDriveLinkOriginResponse[];
-  name: string;
-}) {
+function BranchSelectionControl({
+  item,
+  approved,
+  disabled,
+  onApproveBranch,
+  ...props
+}: BranchProps & { item: GoogleDriveSelectionTreeItemResponse }) {
   const ui = useAppTranslation();
-
-  const { parents, referenceCount } = useMemo(() => {
-    const grouped = new Map<string, { name: string; locations: Set<string> }>();
-    let referenceCount = 0;
-    for (const origin of origins) {
-      let parent = grouped.get(origin.parentId);
-      if (!parent) {
-        parent = { name: origin.parentName, locations: new Set() };
-        grouped.set(origin.parentId, parent);
-      }
-      if (!parent.locations.has(origin.location)) {
-        parent.locations.add(origin.location);
-        referenceCount++;
-      }
-    }
-    return { parents: [...grouped], referenceCount };
-  }, [origins]);
+  // enabled: false subscribes to the branch cache without fetching; the row only reflects children
+  // the user already expanded or warmed.
+  const branch = useInfiniteQuery({ ...branchQuery(props, item.id), enabled: false });
+  const children = branch.data?.pages.flatMap((page) => page.items) ?? [];
+  const linked = children.filter((child) => child.kind === "LINKED" && !child.coveredByRoots);
+  const selected = linked.filter((child) => (approved ? approved.has(child.id) : child.selected));
+  const checked =
+    linked.length === 0 || selected.length === 0
+      ? false
+      : selected.length >= linked.length
+        ? true
+        : "indeterminate";
   return (
-    <Collapsible aria-label={ui("References for {{v1}}", { v1: name })} className="min-w-0">
-      <CollapsibleTrigger className="min-h-11 cursor-pointer py-2 text-xs text-content-muted focus-visible:outline-2 focus-visible:outline-focus-ring">
-        {referenceCount} {referenceCount === 1 ? ui("reference") : ui("references")} ·{" "}
-        {parents.length} {parents.length === 1 ? ui("source document") : ui("source documents")}
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <ul className="space-y-2 border-l border-border-subtle pl-3 pb-2 text-xs text-content-muted">
-          {parents.map(([parentId, parent]) => (
-            <li key={parentId} className="min-w-0 space-y-1">
-              <p className="break-words font-medium text-content-primary">{parent.name}</p>
-              <ul aria-label={ui("Reference locations")} className="flex flex-wrap gap-x-3 gap-y-1">
-                {[...parent.locations].map((location) => (
-                  <li key={location} className="break-all">
-                    {location || ui("Location not recorded")}
-                  </li>
-                ))}
-              </ul>
-            </li>
-          ))}
-        </ul>
-      </CollapsibleContent>
-    </Collapsible>
+    <label className="flex min-h-8 cursor-pointer items-center gap-2 text-xs">
+      <Checkbox
+        aria-label={ui("Sync all links in {{v1}}", { v1: item.name })}
+        checked={checked}
+        disabled={disabled || linked.length === 0}
+        onCheckedChange={(event) => onApproveBranch(item.id, event === true)}
+      />
+      {ui("Select for sync")}
+    </label>
   );
 }

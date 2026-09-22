@@ -135,7 +135,7 @@ docker compose \
   --env-file /apps/memoryos/.env.staging \
   -f infrastructure/deployment/compose.base.yaml \
   -f infrastructure/deployment/compose.staging.yaml \
-  up -d --wait shared-keycloak
+  up -d --wait keycloak
 ```
 
 Verify:

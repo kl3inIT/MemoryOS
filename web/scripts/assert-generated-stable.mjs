@@ -43,12 +43,21 @@ function snapshotGeneratedPaths() {
 }
 
 const before = snapshotGeneratedPaths();
-const packageManagerScript = command === "pnpm" ? process.env.npm_execpath : undefined;
+// Running pnpm through node avoids quoting its Windows launcher, but only works while pnpm is a
+// JavaScript file. Installed as the standalone executable it is a native binary, and npm_execpath
+// either names it or is absent, so fall back to spawning the command itself.
+const packageManagerScript =
+  command === "pnpm" && /\.[cm]?js$/.test(process.env.npm_execpath ?? "")
+    ? process.env.npm_execpath
+    : undefined;
 const executable = packageManagerScript ? process.execPath : command;
 const spawnArguments = packageManagerScript
   ? [packageManagerScript, ...commandArguments]
   : commandArguments;
-const result = spawnSync(executable, spawnArguments, { stdio: "inherit" });
+const result = spawnSync(executable, spawnArguments, {
+  stdio: "inherit",
+  shell: !packageManagerScript && process.platform === "win32",
+});
 
 if (result.error) {
   throw result.error;

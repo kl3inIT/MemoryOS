@@ -27,6 +27,9 @@ public record SourceItemResponse(
         @Nullable SourceIndexAttemptResponse latestAttempt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
         @Nullable String errorCode,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+                description = "Stable code explaining a FAILED search status, e.g. SEARCH_INDEX_CONTENT_LIMIT.")
+        @Nullable String searchErrorCode,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"WAITING", "INDEXING", "READY", "FAILED"})
         String searchStatus
 ) {
@@ -41,6 +44,7 @@ public record SourceItemResponse(
                 item.lastIndexedAt(),
                 item.latestAttempt() == null ? null : SourceIndexAttemptResponse.from(item.latestAttempt()),
                 item.errorCode(),
+                item.searchErrorCode(),
                 item.searchStatus()
         );
     }

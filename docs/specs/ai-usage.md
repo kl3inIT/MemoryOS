@@ -14,7 +14,7 @@ The `usage` capability records every AI call MemoryOS makes into a daily ledger 
 
 ## Flows
 
-`CHAT`, `CHAT_NAMING`, `DEEP_RESEARCH`, `EMBEDDING_QUERY`, `EMBEDDING_INDEXING`, `IMAGE_GENERATION`, `IMAGE_EDIT`, `SPEECH_TO_TEXT`, `TEXT_TO_SPEECH`. A new AI task adds a value to `AiUsageFlow` and the table's check constraint.
+`CHAT`, `CHAT_NAMING`, `DEEP_RESEARCH`, `EMBEDDING_QUERY`, `EMBEDDING_INDEXING`, `IMAGE_GENERATION`, `IMAGE_EDIT`, `SPEECH_TO_TEXT`, `TEXT_TO_SPEECH`, `MEETING_MINUTES`. A new AI task adds a value to `AiUsageFlow` and the table's check constraint.
 
 | Flow | Captured by | Usage |
 | --- | --- | --- |
@@ -22,8 +22,9 @@ The `usage` capability records every AI call MemoryOS makes into a daily ledger 
 | Conversation naming | `ChatTurnService.recordNaming` after the title call | Same, on the naming model |
 | Search and indexing embeddings | `ValidatedEmbeddingService` per batch with a known caller | Reported tokens; priced by `memoryos.search.embedding-input-price-per-million`, unknown when unset |
 | Image generation and editing | `ImageProviderClient` after a delivered image | One image; cost unknown |
-| Speech-to-text | `VoiceTranscriptionService` once when the session closes | Seconds from the audio received (16-bit mono 24 kHz); cost unknown |
+| Speech-to-text | `VoiceTranscriptionService` once when a dictation session closes, and `BatchTranscriptionService` once per uploaded recording | Seconds from the audio received (16-bit mono 24 kHz), or the length the provider reported for a recording; cost unknown |
 | Text-to-speech | `VoiceSynthesisService` per synthesis | One call; cost unknown |
+| Meeting minutes | `TranscriptSummarizer` after the call that writes one meeting's minutes | Reported tokens on the minutes model; cost from the model price |
 
 ## Pricing
 

@@ -1,0 +1,223 @@
+package io.memoryos.api.meeting;
+
+import io.memoryos.BusinessException;
+import io.memoryos.iam.identity.ActorId;
+import io.memoryos.meeting.Meeting;
+import io.memoryos.meeting.MeetingService;
+import java.io.IOException;
+import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.DisposableBean;
+import org.springframework.stereotype.Component;
+import org.springframework.web.socket.BinaryMessage;
+import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.AbstractWebSocketHandler;
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
+import tools.jackson.databind.ObjectMapper;
+
+/**
+ * Records one meeting track. The browser sends PCM16 24 kHz mono binary frames and {@code {"type":"end"}}; the server
+ * sends {@code ready}, {@code preview} (uncommitted speech), {@code utterance} (stored) and {@code error} messages,
+ * then {@code finished} after an end. Pausing closes the socket; resuming opens a new one at the recorded offset.
+ * Audio and transcript text are never logged.
+ */
+@Component
+class MeetingStreamWebSocketHandler extends AbstractWebSocketHandler implements DisposableBean {
+    static final String PATH = "/api/meeting-stream";
+    static final int MAX_BINARY_FRAME = 64 * 1024;
+    static final int MAX_TEXT_FRAME = 16 * 1024;
+    /** A paused recording closes its socket; a live one sends audio continuously, silence included. */
+    static final Duration IDLE = Duration.ofSeconds(60);
+    private static final int SEND_TIME_LIMIT_MILLIS = 10_000;
+    private static final int SEND_BUFFER_BYTES = 256 * 1024;
+    private static final ObjectMapper JSON = new ObjectMapper();
+    private final MeetingService meetings;
+    private final ScheduledExecutorService watchdog =
+            Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().daemon().name("meeting-websocket-watchdog").factory());
+    private final Map<String, Live> sessions = new ConcurrentHashMap<>();
+
+    MeetingStreamWebSocketHandler(MeetingService meetings) {
+        this.meetings = meetings;
+    }
+
+    /** The ticket scope binding a handshake to one meeting track. */
+    static String scope(UUID meeting, Meeting.Track track) {
+        return "MEETING:" + meeting + ":" + track.name();
+    }
+
+    private static final class Live {
+        private final WebSocketSession socket;
+        private final MeetingService.TrackSession track;
+        private final AtomicBoolean ending = new AtomicBoolean();
+        private volatile long lastAudioNanos = System.nanoTime();
+        private @Nullable ScheduledFuture<?> check;
+
+        private Live(WebSocketSession socket, MeetingService.TrackSession track) {
+            this.socket = socket;
+            this.track = track;
+        }
+    }
+
+    @Override
+    public void afterConnectionEstablished(WebSocketSession session) {
+        session.setBinaryMessageSizeLimit(MAX_BINARY_FRAME);
+        session.setTextMessageSizeLimit(MAX_TEXT_FRAME);
+        var socket = new ConcurrentWebSocketSessionDecorator(session, SEND_TIME_LIMIT_MILLIS, SEND_BUFFER_BYTES);
+        var attributes = session.getAttributes();
+        var actor = (ActorId) attributes.get(MeetingHandshakeInterceptor.ACTOR);
+        var meeting = (UUID) attributes.get(MeetingHandshakeInterceptor.MEETING);
+        var track = (Meeting.Track) attributes.get(MeetingHandshakeInterceptor.TRACK);
+        long offset = (Long) attributes.get(MeetingHandshakeInterceptor.OFFSET);
+        MeetingService.TrackSession recording;
+        try {
+            recording = meetings.openTrack(actor, meeting, track, offset, new MeetingService.TrackListener() {
+                @Override
+                public void preview(String speaker, String text) {
+                    var body = message("preview");
+                    body.put("track", track.name());
+                    body.put("speaker", speaker);
+                    body.put("text", text);
+                    write(socket, body);
+                }
+
+                @Override
+                public void utterance(Meeting.Utterance utterance) {
+                    var body = message("utterance");
+                    var value = new LinkedHashMap<String, Object>();
+                    value.put("id", utterance.id().toString());
+                    value.put("track", utterance.track().name());
+                    value.put("speaker", utterance.speaker());
+                    value.put("startMs", utterance.startMs());
+                    value.put("endMs", utterance.endMs());
+                    value.put("text", utterance.text());
+                    value.put("confidence", utterance.confidence());
+                    body.put("utterance", value);
+                    write(socket, body);
+                }
+
+                @Override
+                public void failed() {
+                    fail(socket, "MEETING_PROVIDER_FAILED", CloseStatus.SERVER_ERROR);
+                }
+            });
+        } catch (BusinessException refused) {
+            fail(socket, refused.code().startsWith("MEETING_") ? refused.code()
+                    : "CHAT_CAPACITY_EXCEEDED".equals(refused.code()) ? "MEETING_BUSY" : "MEETING_UNAVAILABLE",
+                    CloseStatus.POLICY_VIOLATION);
+            return;
+        }
+        var live = new Live(socket, recording);
+        sessions.put(session.getId(), live);
+        write(socket, message("ready"));
+        live.check = watchdog.scheduleWithFixedDelay(() -> expire(live), 5, 5, TimeUnit.SECONDS);
+    }
+
+    @Override
+    protected void handleBinaryMessage(WebSocketSession session, BinaryMessage message) {
+        var live = sessions.get(session.getId());
+        if (live == null || live.ending.get()) return;
+        var payload = message.getPayload();
+        if (payload.remaining() % 2 != 0) {
+            fail(live.socket, "MEETING_INVALID_AUDIO", CloseStatus.POLICY_VIOLATION);
+            return;
+        }
+        byte[] pcm = new byte[payload.remaining()];
+        payload.get(pcm);
+        try {
+            live.track.append(pcm);
+        } catch (BusinessException limit) {
+            fail(live.socket, limit.code(), CloseStatus.POLICY_VIOLATION);
+            return;
+        } catch (IllegalStateException closed) {
+            return;
+        }
+        live.lastAudioNanos = System.nanoTime();
+    }
+
+    @Override
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) {
+        var live = sessions.get(session.getId());
+        if (live == null) return;
+        String type;
+        try {
+            type = JSON.readTree(message.getPayload()).path("type").asString("");
+        } catch (RuntimeException malformed) {
+            type = "";
+        }
+        if (!"end".equals(type)) {
+            fail(live.socket, "MEETING_INVALID_MESSAGE", CloseStatus.POLICY_VIOLATION);
+            return;
+        }
+        if (!live.ending.compareAndSet(false, true)) return;
+        live.track.finish().whenComplete((ignored, failure) -> {
+            write(live.socket, message("finished"));
+            close(live.socket, CloseStatus.NORMAL);
+        });
+    }
+
+    @Override
+    public void handleTransportError(WebSocketSession session, Throwable exception) {
+        close(session, CloseStatus.SERVER_ERROR);
+    }
+
+    @Override
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        var live = sessions.remove(session.getId());
+        if (live == null) return;
+        if (live.check != null) live.check.cancel(false);
+        live.track.close();
+    }
+
+    @Override
+    public void destroy() {
+        watchdog.shutdownNow();
+        sessions.values().forEach(live -> close(live.socket, CloseStatus.GOING_AWAY));
+    }
+
+    private void expire(Live live) {
+        if (!live.ending.get() && System.nanoTime() - live.lastAudioNanos > IDLE.toNanos())
+            fail(live.socket, "MEETING_IDLE", CloseStatus.POLICY_VIOLATION);
+    }
+
+    private static LinkedHashMap<String, Object> message(String type) {
+        var body = new LinkedHashMap<String, Object>();
+        body.put("type", type);
+        return body;
+    }
+
+    private static void fail(WebSocketSession socket, String code, CloseStatus status) {
+        var body = message("error");
+        body.put("code", code);
+        write(socket, body);
+        close(socket, status);
+    }
+
+    private static void write(WebSocketSession socket, Map<String, Object> body) {
+        if (!socket.isOpen()) return;
+        try {
+            socket.sendMessage(new TextMessage(JSON.writeValueAsString(body)));
+        } catch (IOException | RuntimeException failed) {
+            close(socket, CloseStatus.SERVER_ERROR);
+        }
+    }
+
+    private static void close(WebSocketSession socket, CloseStatus status) {
+        if (!socket.isOpen()) return;
+        try {
+            socket.close(status);
+        } catch (IOException ignored) {
+            // The container releases the connection; afterConnectionClosed owns cleanup.
+        }
+    }
+}

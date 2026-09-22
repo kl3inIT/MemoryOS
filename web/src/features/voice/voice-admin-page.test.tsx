@@ -38,6 +38,7 @@ const providers: VoiceProviderResponse[] = [
     requiresKey: true,
     requiresEndpoint: false,
     defaultEndpoint: "https://api.openai.com/v1",
+    speech: true,
     sttModels: ["whisper-1", "gpt-4o-transcribe"],
     ttsModels: ["tts-1", "tts-1-hd"],
     voices: ["alloy", "nova"],
@@ -47,7 +48,18 @@ const providers: VoiceProviderResponse[] = [
     requiresKey: false,
     requiresEndpoint: true,
     defaultEndpoint: "",
+    speech: true,
     sttModels: [],
+    ttsModels: [],
+    voices: [],
+  },
+  {
+    provider: "SONIOX",
+    requiresKey: true,
+    requiresEndpoint: false,
+    defaultEndpoint: "https://api.soniox.com/v1",
+    speech: false,
+    sttModels: ["stt-rt-v5"],
     ttsModels: [],
     voices: [],
   },
@@ -96,6 +108,21 @@ beforeEach(() => {
 });
 
 describe("Voice administration", () => {
+  it("offers a speech-to-text-only provider for recognition but not for reading aloud", async () => {
+    api.listChatVoiceConnections.mockResolvedValue({ data: [] });
+    mount();
+
+    await screen.findByRole("region", { name: "Speech to text" });
+    expect(
+      await row("Speech to text", "Soniox").findByText(
+        "Real-time Vietnamese recognition with speaker separation",
+      ),
+    ).toBeVisible();
+    const speech = within(screen.getByRole("region", { name: "Text to speech" }));
+    expect(speech.queryByRole("listitem", { name: "Soniox" })).not.toBeInTheDocument();
+    expect(speech.getByRole("listitem", { name: "OpenAI" })).toBeVisible();
+  });
+
   it("connects the first provider as the default only through the verifying save", async () => {
     let saved: VoiceConnectionResponse[] = [];
     api.listChatVoiceConnections.mockImplementation(async () => ({ data: saved }));

@@ -1,6 +1,7 @@
 package io.memoryos.document.application;
 
 import io.memoryos.document.DocumentChunk;
+import io.memoryos.document.DocumentContentException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -13,6 +14,7 @@ import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
 
 /** Preserves structural boundaries and table labels before applying token limits. */
 @Component
@@ -30,15 +32,30 @@ public final class StructuredDocumentChunker {
         JsonNode root = mapper.readTree(canonicalJson);
         if (!"memoryos-extraction-v1".equals(root.path("schema").asString())
                 || !root.path("blocks").isArray()) {
-            throw new IllegalArgumentException("unsupported extraction artifact");
+            throw new DocumentContentException("SEARCH_INDEX_ARTIFACT_INVALID", "unsupported extraction artifact");
         }
         var result = new ArrayList<DocumentChunk>();
         var headings = new ArrayList<String>();
+        // Adjacent text blocks share one chunk up to the token bound; reports with thousands of
+        // one-line paragraphs would otherwise exhaust MAX_CHUNKS. Headings and tables flush the
+        // buffer so a merged chunk never crosses a section boundary.
+        var pending = new StringBuilder();
+        var pendingProvenance = mapper.createArrayNode();
+        // Chat citations cap provenance at 8192 chars; keep the leading locations and drop the tail.
+        int pendingProvenanceChars = 0;
+        int pendingIndex = -1;
         int position = 0;
         for (JsonNode block : root.path("blocks")) {
             int blockIndex = block.path("index").asInt(position++);
             String kind = block.path("kind").asString();
             String text = block.path("text").asString("").strip();
+            if (("HEADING".equals(kind) || "TABLE".equals(kind)) && !pending.isEmpty()) {
+                append(result, pending.toString(), prefix(title, headings), headings, pendingIndex,
+                        mergedProvenance(pendingProvenance), 0);
+                pending.setLength(0);
+                pendingProvenance.removeAll();
+                pendingProvenanceChars = 0;
+            }
             if ("HEADING".equals(kind)) {
                 int level = Math.clamp(block.path("headingLevel").asInt(1), 1, 8);
                 while (headings.size() >= level) headings.removeLast();
@@ -52,25 +69,52 @@ public final class StructuredDocumentChunker {
                 String sheet = block.path("sheetName").asString(block.path("provenance").path("sheetName").asString(text));
                 appendNativeTable(result, block.path("table"), prefix(title, sheet.isBlank() ? headings : List.of(sheet)),
                         headings, blockIndex, provenance, 0);
+            } else if ("HEADING".equals(kind)) {
+                if (!text.isEmpty()) append(result, text, prefix, headings, blockIndex, provenance, 0);
             } else if (!"IMAGE".equals(kind) && !text.isEmpty()) {
-                append(result, text, prefix, headings, blockIndex, provenance, 0);
+                if (pending.isEmpty()) {
+                    pendingIndex = blockIndex;
+                } else if (tokens.estimate(prefix + pending + "\n\n" + text) > MAX_TOKENS) {
+                    append(result, pending.toString(), prefix, headings, pendingIndex,
+                            mergedProvenance(pendingProvenance), 0);
+                    pending.setLength(0);
+                    pendingProvenance.removeAll();
+                    pendingProvenanceChars = 0;
+                    pendingIndex = blockIndex;
+                }
+                if (!pending.isEmpty()) pending.append("\n\n");
+                pending.append(text);
+                if (pendingProvenanceChars < 6000) {
+                    pendingProvenance.add(block.path("provenance"));
+                    pendingProvenanceChars += provenance.length() + 1;
+                }
             }
         }
-        if (result.isEmpty()) throw new IllegalArgumentException("artifact has no searchable text");
+        if (!pending.isEmpty()) {
+            append(result, pending.toString(), prefix(title, headings), headings, pendingIndex,
+                    mergedProvenance(pendingProvenance), 0);
+        }
+        if (result.isEmpty()) throw new DocumentContentException("SEARCH_INDEX_NO_TEXT", "artifact has no searchable text");
         return List.copyOf(result);
+    }
+
+    /** One block keeps its original provenance shape; merged blocks report every source location. */
+    private String mergedProvenance(ArrayNode provenance) {
+        if (provenance.size() == 1) return mapper.writeValueAsString(provenance.get(0));
+        return mapper.writeValueAsString(provenance);
     }
 
     /** Native cells retain explicit coordinates. Never guess that the first row is a header. */
     private void appendNativeTable(List<DocumentChunk> result, JsonNode table, String prefix,
             List<String> headings, int blockIndex, String provenance, int depth) {
-        if (depth > 100 || table.path("cells").size() > 200000) throw new IllegalArgumentException("table exceeds bounds");
+        if (depth > 100 || table.path("cells").size() > 200000) throw new DocumentContentException("SEARCH_INDEX_CONTENT_LIMIT", "table exceeds bounds");
         var rows = new TreeMap<Integer, TreeMap<Integer, JsonNode>>();
         for (var cell : table.path("cells")) {
             int row = cell.path("row").asInt(-1), column = cell.path("column").asInt(-1);
             if (row < 0 || row >= 1048576 || column < 0 || column >= 16384)
-                throw new IllegalArgumentException("invalid cell coordinates");
+                throw new DocumentContentException("SEARCH_INDEX_ARTIFACT_INVALID", "invalid cell coordinates");
             if (rows.computeIfAbsent(row, ignored -> new TreeMap<>()).put(column, cell) != null)
-                throw new IllegalArgumentException("duplicate cell coordinates");
+                throw new DocumentContentException("SEARCH_INDEX_ARTIFACT_INVALID", "duplicate cell coordinates");
         }
         int part = 0;
         for (var row : rows.entrySet()) {
@@ -117,7 +161,7 @@ public final class StructuredDocumentChunker {
             List<String> headings, int blockIndex, String provenance) {
         var cells = new ArrayList<JsonNode>();
         table.path("table_cells").forEach(cells::add);
-        if (cells.size() > 100_000) throw new IllegalArgumentException("table exceeds cell limit");
+        if (cells.size() > 100_000) throw new DocumentContentException("SEARCH_INDEX_CONTENT_LIMIT", "table exceeds cell limit");
         cells.sort(Comparator.comparingInt((JsonNode c) -> c.path("start_row_offset_idx").asInt())
                 .thenComparingInt(c -> c.path("start_col_offset_idx").asInt()));
         var headers = new TreeMap<Integer, List<String>>();
@@ -126,9 +170,9 @@ public final class StructuredDocumentChunker {
             if (!cell.path("column_header").asBoolean(false)) continue;
             int start = cell.path("start_col_offset_idx").asInt();
             int end = cell.path("end_col_offset_idx").asInt(start + 1);
-            if (start < 0 || end <= start || end - start > 2048) throw new IllegalArgumentException("invalid table span");
+            if (start < 0 || end <= start || end - start > 2048) throw new DocumentContentException("SEARCH_INDEX_ARTIFACT_INVALID", "invalid table span");
             expandedCells += end - start;
-            if (expandedCells > 100_000) throw new IllegalArgumentException("expanded table exceeds cell limit");
+            if (expandedCells > 100_000) throw new DocumentContentException("SEARCH_INDEX_CONTENT_LIMIT", "expanded table exceeds cell limit");
             for (int column = start; column < end; column++) {
                 headers.computeIfAbsent(column, _ -> new ArrayList<>()).add(cell.path("text").asString(""));
             }
@@ -138,9 +182,9 @@ public final class StructuredDocumentChunker {
             if (cell.path("column_header").asBoolean(false)) continue;
             int start = cell.path("start_row_offset_idx").asInt();
             int end = cell.path("end_row_offset_idx").asInt(start + 1);
-            if (start < 0 || end <= start || end - start > 2048) throw new IllegalArgumentException("invalid table row span");
+            if (start < 0 || end <= start || end - start > 2048) throw new DocumentContentException("SEARCH_INDEX_ARTIFACT_INVALID", "invalid table row span");
             expandedCells += end - start;
-            if (expandedCells > 100_000) throw new IllegalArgumentException("expanded table exceeds cell limit");
+            if (expandedCells > 100_000) throw new DocumentContentException("SEARCH_INDEX_CONTENT_LIMIT", "expanded table exceeds cell limit");
             for (int row = start; row < end; row++) rows.computeIfAbsent(row, _ -> new ArrayList<>()).add(cell);
         }
         int part = 0;
@@ -195,7 +239,7 @@ public final class StructuredDocumentChunker {
             String window = text.substring(offset, windowEnd);
             int end = boundedEnd(prefix, window);
             String passage = prefix + window.substring(0, end).strip();
-            if (result.size() >= MAX_CHUNKS) throw new IllegalArgumentException("document exceeds chunk limit");
+            if (result.size() >= MAX_CHUNKS) throw new DocumentContentException("SEARCH_INDEX_CONTENT_LIMIT", "document exceeds chunk limit");
             result.add(new DocumentChunk(result.size(), passage, headings, blockIndex, part++, provenance,
                     sha256(passage), tokens.estimate(passage)));
             offset += end;
@@ -216,7 +260,7 @@ public final class StructuredDocumentChunker {
         int end = text.offsetByCodePoints(0, low);
         int boundary = Math.max(text.lastIndexOf('\n', end - 1), text.lastIndexOf(' ', end - 1));
         if (boundary > end / 2) end = boundary;
-        if (tokens.estimate(prefix + text.substring(0, end)) > MAX_TOKENS) throw new IllegalArgumentException("unbounded chunk");
+        if (tokens.estimate(prefix + text.substring(0, end)) > MAX_TOKENS) throw new DocumentContentException("SEARCH_INDEX_ARTIFACT_INVALID", "unbounded chunk");
         return end;
     }
 

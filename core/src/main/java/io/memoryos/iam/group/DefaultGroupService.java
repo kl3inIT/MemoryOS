@@ -58,6 +58,9 @@ public class DefaultGroupService implements GroupService {
                             + "and control Group access within the Tenant.", true),
             metadata(IamCapability.AGENTS_CREATE, "Create agents",
                     "Create custom Chat agents and share the agents they own or edit.", true),
+            metadata(IamCapability.CHAT_HISTORY_READ, "View conversation history",
+                    "Read and export the questions and answers of everyone in the Tenant. Every transcript read is "
+                            + "itself recorded in the audit log.", true),
             metadata(IamCapability.AUDIT_READ, "View audit log",
                     "Read and export who changed sign-in, users, Groups, models, connections and Sources within the Tenant.", true),
             metadata(IamCapability.AGENTS_MANAGE, "Manage agents",

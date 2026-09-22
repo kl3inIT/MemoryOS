@@ -24,6 +24,7 @@ export function canServe(
   values: { credential: boolean; sttModel: string; ttsModel: string; ttsVoice: string },
 ) {
   if (provider.requiresKey && !values.credential) return false;
+  if (fn === "TTS" && !provider.speech) return false;
   return fn === "STT" ? values.sttModel !== "" : values.ttsModel !== "" && values.ttsVoice !== "";
 }
 

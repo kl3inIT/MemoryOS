@@ -68,6 +68,7 @@ public class VoiceConnectionService {
     public Probe probe(ActorId actor, VoiceProvider provider, Input input) {
         var tenant = authorization.require(actor, IamCapability.MODELS_MANAGE, false).tenantId().value();
         validate(provider, input);
+        input = trimmed(input);
         var existing = connections.findByTenantIdAndProvider(tenant, provider);
         String key = switch (input.credential().action()) {
             case REPLACE -> input.credential().value();
@@ -81,6 +82,7 @@ public class VoiceConnectionService {
     public View save(ActorId actor, VoiceProvider provider, Input input) {
         var tenant = authorization.lockAndRequireExclusive(actor, IamCapability.MODELS_MANAGE).tenantId().value();
         validate(provider, input);
+        input = trimmed(input);
         var existing = connections.findByTenantIdAndProvider(tenant, provider);
         var entity = existing.orElseGet(() -> new VoiceConnectionEntity(tenant, provider));
         if (entity.revision() != input.revision()) throw ChatException.conflict();
@@ -120,6 +122,8 @@ public class VoiceConnectionService {
             audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.VOICE_CONNECTION_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant)).actor(actor).resource("VOICE_CONNECTION", null, null).detail("change", "DISABLE_" + function.name()).build());
             return;
         }
+        if (function == VoiceFunction.TTS && !provider.speech())
+            throw ChatException.invalid("This provider does not read text aloud.");
         var selected = connections.findByTenantIdAndProvider(tenant, provider).orElseThrow(ChatException::unavailable);
         if (model != null) selected.useTtsModel(model);
         if (!serves(selected, function)) throw ChatException.providerUnavailable();
@@ -141,6 +145,33 @@ public class VoiceConnectionService {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable).value();
         var all = connections.findByTenantIdOrderByProvider(tenant);
         return new Access(active(all, VoiceFunction.STT), active(all, VoiceFunction.TTS));
+    }
+
+    /**
+     * Every connection that can transcribe, with the Tenant's selected one first. Membership is enough to read it: a
+     * member choosing which provider transcribes their own recording must see what the Tenant configured, and the
+     * listing carries no endpoint or credential.
+     */
+    @Transactional(readOnly = true)
+    public List<Connection> transcribers(ActorId actor) {
+        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable).value();
+        var all = connections.findByTenantIdOrderByProvider(tenant);
+        var selected = active(all, VoiceFunction.STT);
+        return all.stream().filter(c -> serves(c, VoiceFunction.STT)).map(this::snapshot)
+                .sorted(java.util.Comparator.comparing(c -> selected != null && c.id().equals(selected.id()) ? 0 : 1))
+                .toList();
+    }
+
+    /** The connection a member asked to transcribe with, or the Tenant's selected one when they named none. */
+    @Transactional(readOnly = true)
+    public Connection transcriber(ActorId actor, @Nullable VoiceProvider provider) {
+        if (provider == null) {
+            var stt = resolve(actor).stt();
+            if (stt == null) throw ChatException.providerUnavailable();
+            return stt;
+        }
+        return transcribers(actor).stream().filter(c -> c.provider() == provider).findFirst()
+                .orElseThrow(ChatException::providerUnavailable);
     }
 
     public String key(Connection connection) {
@@ -181,9 +212,26 @@ public class VoiceConnectionService {
         if (replace ? credential.value() == null || credential.value().isBlank() || credential.value().length() > MAX_CREDENTIAL
                 : credential.value() != null)
             throw ChatException.invalid("Invalid provider credential.");
+        if (!provider.speech() && (!input.ttsModel().isEmpty() || !input.ttsVoice().isEmpty()))
+            throw ChatException.invalid("This provider does not read text aloud.");
         if (provider.requiresEndpoint() && input.endpoint().isEmpty())
             throw ChatException.invalid("This provider requires its own endpoint.");
         if (!input.endpoint().isEmpty()) ModelCatalogService.validateEndpoint(input.endpoint());
+    }
+
+    /**
+     * A key arrives from a clipboard and often brings a newline with it. An HTTP header ignores that, so the
+     * saved-connection check passes, while Soniox reads its key from a JSON field and answers
+     * {@code error_code 401 unauthenticated} — a key that verifies and then cannot transcribe. It is stripped once,
+     * here, before anything stores or probes it.
+     */
+    static Input trimmed(Input input) {
+        var credential = input.credential();
+        if (credential.action() != ProviderCredentials.Action.REPLACE || credential.value() == null) return input;
+        String key = credential.value().strip();
+        if (key.equals(credential.value())) return input;
+        return new Input(input.endpoint(), input.sttModel(), input.ttsModel(), input.ttsVoice(),
+                new ProviderCredentials.Change(credential.action(), key), input.activate(), input.revision());
     }
 
     private static boolean validIdentifier(@Nullable String value) {

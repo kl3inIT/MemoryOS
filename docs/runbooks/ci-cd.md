@@ -2,7 +2,7 @@
 
 > Delivery policy — 2026-09-12: the user owns business acceptance. CD verifies release provenance, backup/migration, deployed image identity and health/readiness. Login, upload, indexing, Search and reader are not deployment gates. Recovery is manual. A green deployment does not claim business acceptance or a successful restore rehearsal.
 
-The repository ships one GitHub Actions path: [CI](../../.github/workflows/ci.yml) verifies changes and publishes main releases; [Deploy staging](../../.github/workflows/deploy-staging.yml) promotes a verified release. Actions owns orchestration. The server runs [one Compose script](../../infrastructure/deployment/deploy-staging.sh). Existing [Playwright acceptance tooling](../../web/tests/staging/search.spec.ts) remains optional for an operator; CD does not install or execute it.
+The repository ships one GitHub Actions path: [CI](../../.github/workflows/ci.yml) verifies changes and publishes main releases; [Deploy](../../.github/workflows/deploy.yml) promotes a verified release and is called by [Deploy staging](../../.github/workflows/deploy-staging.yml) and [Deploy production](../../.github/workflows/deploy-production.yml), which only decide when their environment runs and where it points. Actions owns orchestration. The server runs [one Compose script](../../infrastructure/deployment/deploy.sh). Existing [Playwright acceptance tooling](../../web/tests/staging/search.spec.ts) remains optional for an operator; CD does not install or execute it.
 
 ## Required verification and release identity
 
@@ -33,11 +33,49 @@ These are external prerequisites, not evidence that the workflow has already dep
 | Server | Docker/Compose with `--wait`, Bash, jq, flock, coreutils, tar; the existing `/apps/memoryos/.env.staging` must be a root-only regular file with mode `0600` |
 | Server identity | SSH/SFTP access to its private `/apps/memoryos/incoming` directory and noninteractive sudo to run the reviewed deployment script; disable SSH forwarding and interactive terminals for this dedicated key |
 
+Production uses the same delivery workflow through [Deploy production](../../.github/workflows/deploy-production.yml), with `PRODUCTION_HOST`, `PRODUCTION_USER`, `PRODUCTION_KNOWN_HOSTS` and `PRODUCTION_SSH_KEY` on a GitHub `production` environment restricted to `main`, and `/apps/memoryos/.env.production` on its server. There is deliberately no `PRODUCTION_AUTO_DEPLOY`: an operator selects a CI run whose release is already accepted on staging. Each environment needs its own SSH identity; never reuse the staging key. The deployment script takes the environment as an argument and derives `.env.<environment>` and the `compose.base` / `compose.<environment>` / `compose.search.<environment>` overlays from it.
+
 No application login, smoke user, Actor variable or business-test credential is required by CD. The user tests the deployed application through normal identity and authorization paths. An optional operator-run acceptance script requires its own valid account and configuration; its result is separate from deployment status.
 
 Application secrets continue to come from the existing Infisical/server path. The workflow forwards its short-lived package-read token over SSH stdin for pulling private GHCR images; the server removes the temporary Docker credential file when that operation exits. An interrupted process can require operator cleanup of its private transaction directory after the job token expires. No application credentials are read or rotated by CD.
 
 Branch-protection changes are outside MEM-70. An owner can separately select the stable `CI Gate` check as a required merge check.
+
+## Provisioning a server
+
+A deployment assumes a host that already looks like this. Nothing here is created by CD, and a missing piece fails the deployment rather than repairing itself. The steps below were carried out on the production application node (Ubuntu 24.04, 12 vCPU, 31 GiB); staging predates this section and differs where noted.
+
+**Container runtime.** Docker Engine and the Compose plugin from Docker's own repository, not the distribution's `docker.io`, which ships no Compose plugin. Also `jq`, `flock`, `tar` and `coreutils`: the deployment script calls the first three directly. The production node runs Docker 29.8.1 and Compose v5.5.1; record the version when it changes, because CI validates Compose files with the version on the GitHub runner and nothing ties the two together. They have already disagreed once, over nested variable defaults.
+
+Do not add the deployment user to the `docker` group. Membership is root without a password; the user reaches Docker through the one `sudo` rule below.
+
+**Directory tree.** All owned by root:
+
+| Path | Mode | Holds |
+| --- | --- | --- |
+| `/apps/memoryos` | `0755` | the root the script resolves everything against |
+| `/apps/memoryos/incoming` | `0755` | release bundles uploaded by CD, one directory per release |
+| `/apps/memoryos/deployments` | `0700` | `pending`, `current.env`, `current.compose`, one directory per transaction |
+| `/apps/memoryos/secrets` | `0700` | secret files mounted into containers |
+| `/apps/memoryos/.env.<environment>` | `0600` | values Compose cannot default; the script refuses a symlink or any other mode |
+
+Secrets live in files rather than environment variables because an environment variable is visible in `docker inspect`, in a crash log and in `/proc/<pid>/environ`. Their subdirectories follow the environment file: `minio/`, `redis/`, `opensearch/`, `interpreter/`.
+
+**Networks.** `docker network create proxy-network`. Compose declares it `external`, so it is not created on demand and the whole stack refuses to start without it. Production declares no other external network; `shared-infra` exists only on the host MemoryOS shares with OrgMemory.
+
+**Reverse proxy.** Nginx Proxy Manager on `proxy-network`, forwarding to `memoryos-web:8080` by container name. No application service publishes a host port, so only the proxy is reachable from outside. Raise `client_max_body_size` on the object-storage host: the browser uploads directly to MinIO through it, and the default rejects large files at the proxy before MinIO ever sees them.
+
+**Access.** Open 22, 80 and 443 only. Port 81 is the proxy's own administration interface and belongs behind an SSH tunnel, never on the public interface. Disable `PasswordAuthentication`. Create a deployment user for CD whose sudo rule names the script exactly:
+
+```
+memoryos-ci ALL=(root) NOPASSWD: /usr/bin/bash /apps/memoryos/incoming/*/deploy.sh *
+```
+
+**That rule pins the file name.** Renaming the script in the repository without updating this line makes every deployment stop at `sudo: a password is required`, after the bundle has been uploaded and before anything is reserved. It happened once on staging, where the rule still named `deploy-staging.sh`. Validate any edit with `visudo -c` before installing it, and keep both names while releases published under the old one are still deployable.
+
+**TLS.** Certificates for the application, identity and object-storage hosts, issued through the proxy once DNS resolves to this machine. Ask for them before DNS propagates and Let's Encrypt counts the failures against an hourly limit.
+
+**Values that only fail on the server.** `MEMORYOS_KEYCLOAK_HOSTNAME` is required precisely because a default would silently authenticate one environment against another's realm. `MEMORYOS_SEARCH_REPLICAS` must be `0` on a single data node, or every replica shard stays unassigned and the OpenSearch health check, which waits for a green cluster, never passes.
 
 ## Deploy and accept
 

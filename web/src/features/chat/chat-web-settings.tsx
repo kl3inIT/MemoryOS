@@ -1,7 +1,7 @@
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { useState, type ReactNode } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Cpu, Globe, Settings2, Telescope } from "lucide-react";
+import { CheckCircle2, Cpu, Globe, MessagesSquare, Settings2, Telescope } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { Switch } from "@/components/ui/switch";
 import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
@@ -17,15 +17,23 @@ import {
   listChatWebConnections,
   listChatWebEngines,
   listConfiguredChatModels,
+  saveChatHistoryVisibility,
   saveChatSettings,
   saveChatWebConnection,
   selectChatWebProvider,
   testChatWebConnection,
   updateChatModel,
 } from "@/lib/hey-api/sdk.gen";
-import type { Model, WebConnectionResponse } from "@/lib/hey-api/types.gen";
+import type {
+  ChatHistoryVisibilityRequest,
+  Model,
+  WebConnectionResponse,
+} from "@/lib/hey-api/types.gen";
+
+type ChatHistoryVisibility = ChatHistoryVisibilityRequest["visibility"];
 import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
+import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ProviderCard } from "@/components/provider-logos/provider-card";
 import { ProviderLogo } from "@/components/provider-logos/provider-logo";
@@ -220,6 +228,7 @@ export function ChatWebSettings() {
           </section>
           <NativeSearchSection onChanged={changed} />
           <DeepResearchSection />
+          <ConversationHistorySection />
         </>
       )}
       {error && (
@@ -537,6 +546,98 @@ function ConnectionCard({
 }
 
 /** As Onyx Chat Preferences: Deep research is offered in the composer while enabled, and is enabled until changed. */
+/**
+ * Who may read other people's conversations (MEM-125). "Hide who asked" hides the name and the e-mail and nothing
+ * else — a question often names its author — so the screen says that rather than promising anonymity.
+ */
+function ConversationHistorySection() {
+  const ui = useAppTranslation();
+  const problemMessage = useProblemMessage();
+  const session = useApplicationSession();
+  const cache = useQueryClient();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<ErrorMessage>();
+  const settings = useQuery({
+    queryKey: ["chat-settings", session.actorId, session.authorizationVersion],
+    queryFn: async ({ signal }) => (await getChatSettings({ signal, throwOnError: true })).data,
+    retry: false,
+  });
+  async function choose(visibility: ChatHistoryVisibility) {
+    if (!settings.data) return;
+    setPending(true);
+    setError(undefined);
+    try {
+      await saveChatHistoryVisibility({
+        body: { visibility, revision: settings.data.revision },
+        headers: sameOriginMutationHeaders,
+        throwOnError: true,
+      });
+      await cache.invalidateQueries({ queryKey: ["chat-settings"] });
+    } catch (failed) {
+      setError(presentProblem(failed, "mutation").message);
+    } finally {
+      setPending(false);
+    }
+  }
+  if (settings.isPending) return null;
+  const modes: { value: ChatHistoryVisibility; label: AppCopy; detail: AppCopy }[] = [
+    {
+      value: "NORMAL",
+      label: "Show who asked",
+      detail: "A reader sees the name and e-mail of the person who asked.",
+    },
+    {
+      value: "ANONYMIZED",
+      label: "Hide who asked",
+      detail:
+        "The name and e-mail are hidden; the questions and answers are not. A question often names its author.",
+    },
+    {
+      value: "DISABLED",
+      label: "Nobody reads other people's conversations",
+      detail: "Conversations are still recorded; this screen and its export are refused.",
+    },
+  ];
+  return (
+    <section aria-label={ui("Conversation history")} className="mt-8 space-y-3">
+      <h2 className="text-lg font-semibold">{ui("Conversation history")}</h2>
+      <p className="text-content-muted">
+        {ui(
+          "Who may read the organization's questions and answers. Opening a conversation is recorded in the audit log.",
+        )}
+      </p>
+      {settings.isError ? (
+        <p role="alert">{ui("Không tải được cài đặt Chat.")}</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {modes.map((mode) => (
+            <ProviderCard
+              key={mode.value}
+              logo={<MessagesSquare />}
+              name={ui(mode.label)}
+              description={ui(mode.detail)}
+              selected={settings.data.chatHistoryVisibility === mode.value}
+              actions={
+                <Switch
+                  checked={settings.data.chatHistoryVisibility === mode.value}
+                  disabled={pending}
+                  aria-label={ui(mode.label)}
+                  onCheckedChange={(checked) => (checked ? void choose(mode.value) : undefined)}
+                />
+              }
+            />
+          ))}
+        </div>
+      )}
+      {error && (
+        <p role="alert" className="text-sm text-status-danger-content">
+          {problemMessage(error)}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function DeepResearchSection() {
   const ui = useAppTranslation();
   const problemMessage = useProblemMessage();

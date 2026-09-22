@@ -19,7 +19,8 @@ class ModulithArchitectureTest {
             "retrieval",
             "chat",
             "mcp",
-            "usage"
+            "usage",
+            "meeting"
     );
 
     private final ApplicationModules modules = ApplicationModules.of(MemoryOsModules.class);

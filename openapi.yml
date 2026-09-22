@@ -229,6 +229,259 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}/speakers/{track}/{label}:
+    put:
+      tags:
+      - Meetings
+      summary: Name a speaker of a meeting track
+      operationId: nameMeetingSpeaker
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: track
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - MIC
+          - TAB
+      - name: label
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingSpeakerRequest"
+        required: true
+      responses:
+        "200":
+          description: The meeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting or speaker not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/shares:
+    put:
+      tags:
+      - Meetings
+      summary: Say who else may read this meeting
+      operationId: shareMeeting
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingShareRequest"
+        required: true
+      responses:
+        "200":
+          description: "The meeting, with its readers"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/notes:
+    put:
+      tags:
+      - Meetings
+      summary: Replace the owner's private notes
+      operationId: updateMeetingNotes
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingNotesRequest"
+        required: true
+      responses:
+        "200":
+          description: The meeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: The meeting changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/minutes/{itemId}:
+    put:
+      tags:
+      - Meetings
+      summary: Tick off a task the minutes found
+      operationId: markMeetingMinutesItem
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingItemRequest"
+        required: true
+      responses:
+        "200":
+          description: The meeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting or item not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/mcp/servers/{serverId}:
     get:
       tags:
@@ -1399,6 +1652,7 @@ paths:
           - OPENAI_COMPATIBLE
           - ELEVENLABS
           - AZURE
+          - SONIOX
       requestBody:
         content:
           application/json:
@@ -1471,6 +1725,7 @@ paths:
           - OPENAI_COMPATIBLE
           - ELEVENLABS
           - AZURE
+          - SONIOX
       - name: revision
         in: query
         required: true
@@ -1577,6 +1832,63 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/ChatSettingsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved Tenant Chat settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/settings/history-visibility:
+    put:
+      tags:
+      - Chat Settings
+      summary: Choose who may read other people's conversations; requires model management
+      operationId: saveChatHistoryVisibility
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatHistoryVisibilityRequest"
         required: true
       responses:
         "400":
@@ -4056,6 +4368,7 @@ paths:
           type: string
           enum:
           - CHAT_NAMING
+          - MEETING_MINUTES
       - name: modelConfigurationId
         in: query
         required: false
@@ -5689,6 +6002,471 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SearchPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings:
+    get:
+      tags:
+      - Meetings
+      summary: "List the current member's meetings, newest first"
+      operationId: listMeetings
+      responses:
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Meetings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeetingSummary"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Meetings
+      summary: Create a meeting to record
+      operationId: createMeeting
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingCreateRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: The new meeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/tickets:
+    post:
+      tags:
+      - Meetings
+      summary: Issue a 60-second single-use ticket for one track's recording WebSocket
+      operationId: createMeetingTicket
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingTicketRequest"
+        required: true
+      responses:
+        "200":
+          description: Ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingTicket"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: The meeting has ended
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/recording:
+    post:
+      tags:
+      - Meetings
+      summary: Reserve storage for a recording of this meeting
+      operationId: reserveMeetingRecording
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingRecordingRequest"
+        required: true
+      responses:
+        "200":
+          description: Where to send the recording
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingRecordingReservation"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: The meeting is no longer recording
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/recording/finalize:
+    post:
+      tags:
+      - Meetings
+      summary: Accept the uploaded recording and queue its transcript
+      operationId: finalizeMeetingRecording
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: "The meeting, with its recording queued"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/minutes:
+    post:
+      tags:
+      - Meetings
+      summary: Write the minutes again after the meeting changed
+      operationId: rerunMeetingMinutes
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: "The meeting, with its minutes queued"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/minutes/export:
+    post:
+      tags:
+      - Meetings
+      summary: Download the minutes as a Vietnamese biên bản in Word format
+      operationId: exportMeetingMinutes
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingHeadingRequest"
+        required: true
+      responses:
+        "200":
+          description: The biên bản
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/library:
+    post:
+      tags:
+      - Meetings
+      summary: Take the minutes into the caller's file library so a conversation can
+        use them
+      operationId: publishMeetingMinutes
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingLibraryFile"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/{meetingId}/end:
+    post:
+      tags:
+      - Meetings
+      summary: End recording
+      operationId: endMeeting
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The ended meeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
       security:
       - bearerAuth: []
       - browserSession: []
@@ -7575,6 +8353,7 @@ paths:
           - OPENAI_COMPATIBLE
           - ELEVENLABS
           - AZURE
+          - SONIOX
       responses:
         "400":
           description: Invalid voice configuration
@@ -11567,6 +12346,128 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}:
+    get:
+      tags:
+      - Meetings
+      summary: Read one of the current member's meetings with its transcript
+      operationId: getMeeting
+      parameters:
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: The meeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Meetings
+      summary: Delete a meeting and its transcript
+      operationId: deleteMeeting
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Meeting not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/meetings/transcribers:
+    get:
+      tags:
+      - Meetings
+      summary: "The speech connections a recording may be transcribed with, the Tenant's\
+        \ own first"
+      operationId: listMeetingTranscribers
+      responses:
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Transcribers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeetingTranscriber"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/mcp/servers/{serverId}/tools:
     get:
       tags:
@@ -13812,6 +14713,208 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/history:
+    get:
+      tags:
+      - Chat history
+      summary: "The Tenant's conversations, newest first; requires conversation history\
+        \ access"
+      operationId: listChatHistory
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: actorId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: feedback
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - POSITIVE
+          - NEGATIVE
+          - MIXED
+          - NONE
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 30
+      responses:
+        "400":
+          description: "Invalid filter, cursor or page size"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Conversation history requirement not met, or history is turned\
+            \ off for the Tenant"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No such conversation in this Tenant
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatHistoryPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/history/{sessionId}:
+    get:
+      tags:
+      - Chat history
+      summary: One conversation's transcript; the read is itself recorded in the audit
+        log
+      operationId: getChatHistoryTranscript
+      parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: "Invalid filter, cursor or page size"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Conversation history requirement not met, or history is turned\
+            \ off for the Tenant"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No such conversation in this Tenant
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatHistoryTranscript"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/history/export:
+    get:
+      tags:
+      - Chat history
+      summary: "The conversations the filters select as CSV, at most 50,000 rows;\
+        \ the export is itself recorded"
+      operationId: exportChatHistory
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: actorId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: feedback
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - POSITIVE
+          - NEGATIVE
+          - MIXED
+          - NONE
+      responses:
+        "400":
+          description: "Invalid filter, cursor or page size"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Conversation history requirement not met, or history is turned\
+            \ off for the Tenant"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: No such conversation in this Tenant
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/group-options:
     get:
       tags:
@@ -15088,6 +16191,7 @@ paths:
           - IMAGE_EDIT
           - SPEECH_TO_TEXT
           - TEXT_TO_SPEECH
+          - MEETING_MINUTES
       responses:
         "400":
           description: Invalid period or filter
@@ -15338,6 +16442,7 @@ paths:
           - IMAGE_EDIT
           - SPEECH_TO_TEXT
           - TEXT_TO_SPEECH
+          - MEETING_MINUTES
       responses:
         "400":
           description: Invalid period or filter
@@ -15424,6 +16529,7 @@ paths:
           - IMAGE_EDIT
           - SPEECH_TO_TEXT
           - TEXT_TO_SPEECH
+          - MEETING_MINUTES
       responses:
         "400":
           description: Invalid period or filter
@@ -16179,6 +17285,324 @@ components:
       required:
       - operation
       - sourceId
+    MeetingSpeakerRequest:
+      type: object
+      description: A blank or absent name restores the automatic label
+      properties:
+        name:
+          type:
+          - string
+          - "null"
+          maxLength: 200
+    MeetingAudio:
+      type: object
+      description: An uploaded recording being turned into a transcript
+      properties:
+        status:
+          type: string
+          enum:
+          - NONE
+          - WAITING
+          - PENDING
+          - RUNNING
+          - DONE
+          - FAILED
+        failure:
+          type:
+          - string
+          - "null"
+        filename:
+          type:
+          - string
+          - "null"
+        sizeBytes:
+          type: integer
+          format: int64
+        provider:
+          type:
+          - string
+          - "null"
+      required:
+      - failure
+      - filename
+      - provider
+      - sizeBytes
+      - status
+    MeetingDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        kind:
+          type: string
+          enum:
+          - ONLINE
+          - IN_PERSON
+        language:
+          type:
+          - string
+          - "null"
+        participants:
+          type: array
+          items:
+            type: string
+        terms:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+        status:
+          type: string
+          enum:
+          - RECORDING
+          - TRANSCRIBING
+          - ENDED
+        provider:
+          type:
+          - string
+          - "null"
+        diarized:
+          type: boolean
+          description: Whether speaker labels distinguish people
+        createdAt:
+          type: string
+          format: date-time
+        endedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        revision:
+          type: integer
+          format: int64
+        speakers:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingSpeaker"
+        utterances:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingUtterance"
+        minutes:
+          $ref: "#/components/schemas/MeetingMinutes"
+        audio:
+          $ref: "#/components/schemas/MeetingAudio"
+        owned:
+          type: boolean
+          description: Whether the reader recorded this meeting; only its owner may
+            edit it
+        readers:
+          type: array
+          description: Who the meeting is shared with; empty for anyone but its owner
+          items:
+            $ref: "#/components/schemas/MeetingReader"
+      required:
+      - audio
+      - createdAt
+      - diarized
+      - endedAt
+      - id
+      - kind
+      - language
+      - minutes
+      - notes
+      - owned
+      - participants
+      - provider
+      - readers
+      - revision
+      - speakers
+      - status
+      - terms
+      - title
+      - utterances
+    MeetingMinutes:
+      type: object
+      description: What the model made of the meeting once it ended
+      properties:
+        status:
+          type: string
+          enum:
+          - NONE
+          - PENDING
+          - RUNNING
+          - READY
+          - FAILED
+        failure:
+          type:
+          - string
+          - "null"
+        summary:
+          type: string
+        kind:
+          type: string
+          description: What kind of meeting this was
+        generatedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingMinutesItem"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingMinutesItem"
+      required:
+      - actions
+      - decisions
+      - failure
+      - generatedAt
+      - kind
+      - status
+      - summary
+    MeetingMinutesItem:
+      type: object
+      description: A decision the meeting reached or work it handed out
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type: string
+        owner:
+          type:
+          - string
+          - "null"
+        due:
+          type:
+          - string
+          - "null"
+        quote:
+          type:
+          - string
+          - "null"
+          description: The transcript sentence the item rests on
+        sourceUtteranceId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        done:
+          type: boolean
+      required:
+      - done
+      - due
+      - id
+      - owner
+      - quote
+      - sourceUtteranceId
+      - text
+    MeetingReader:
+      type: object
+      description: "One member, or one Group, the meeting is shared with"
+      properties:
+        kind:
+          type: string
+          enum:
+          - MEMBER
+          - GROUP
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - kind
+      - name
+    MeetingSpeaker:
+      type: object
+      properties:
+        track:
+          type: string
+          enum:
+          - MIC
+          - TAB
+        label:
+          type: string
+        name:
+          type:
+          - string
+          - "null"
+      required:
+      - label
+      - name
+      - track
+    MeetingUtterance:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        track:
+          type: string
+          enum:
+          - MIC
+          - TAB
+        speaker:
+          type: string
+        startMs:
+          type: integer
+          format: int64
+        endMs:
+          type: integer
+          format: int64
+        text:
+          type: string
+        confidence:
+          type: number
+          format: double
+      required:
+      - confidence
+      - endMs
+      - id
+      - speaker
+      - startMs
+      - text
+      - track
+    MeetingShareRequest:
+      type: object
+      description: "Everyone who may read this meeting, replacing the current list"
+      properties:
+        members:
+          type: array
+          items:
+            type: string
+            format: uuid
+        groups:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - groups
+      - members
+    MeetingNotesRequest:
+      type: object
+      properties:
+        notes:
+          type: string
+          maxLength: 50000
+        revision:
+          type: integer
+          format: int64
+      required:
+      - notes
+      - revision
+    MeetingItemRequest:
+      type: object
+      properties:
+        done:
+          type: boolean
+      required:
+      - done
     McpHeaderTemplateChange:
       type: object
       description: "Header values may contain secrets and are never returned; API-key\
@@ -16985,6 +18409,7 @@ components:
           - OPENAI_COMPATIBLE
           - ELEVENLABS
           - AZURE
+          - SONIOX
         model:
           type: string
           maxLength: 200
@@ -17045,6 +18470,7 @@ components:
           - OPENAI_COMPATIBLE
           - ELEVENLABS
           - AZURE
+          - SONIOX
         endpoint:
           type: string
         sttModel:
@@ -17086,12 +18512,37 @@ components:
           type: boolean
           description: "Deep research: agentic research across the web and connected\
             \ sources; uses significantly more tokens per query."
+        chatHistoryVisibility:
+          type: string
+          description: "Who in the organization may read other people's conversations:\
+            \ NORMAL names the asker, ANONYMIZED hides only their name and e-mail,\
+            \ DISABLED refuses every read"
+          enum:
+          - NORMAL
+          - ANONYMIZED
+          - DISABLED
         revision:
           type: integer
           format: int64
       required:
+      - chatHistoryVisibility
       - deepResearchEnabled
       - revision
+    ChatHistoryVisibilityRequest:
+      type: object
+      properties:
+        visibility:
+          type: string
+          enum:
+          - NORMAL
+          - ANONYMIZED
+          - DISABLED
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - visibility
     Title:
       type: object
       properties:
@@ -18077,6 +19528,7 @@ components:
           type: string
           enum:
           - CHAT_NAMING
+          - MEETING_MINUTES
         modelConfigurationId:
           type:
           - string
@@ -18492,6 +19944,11 @@ components:
           type:
           - string
           - "null"
+        searchErrorCode:
+          type:
+          - string
+          - "null"
+          description: "Stable code explaining a FAILED search status, e.g. SEARCH_INDEX_CONTENT_LIMIT."
         searchStatus:
           type: string
           enum:
@@ -18505,6 +19962,7 @@ components:
       - id
       - lastIndexedAt
       - latestAttempt
+      - searchErrorCode
       - searchStatus
       - sha256
       - sizeBytes
@@ -18980,6 +20438,167 @@ components:
       required:
       - count
       - type
+    MeetingCreateRequest:
+      type: object
+      description: What the owner enters before recording
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        kind:
+          type: string
+          enum:
+          - ONLINE
+          - IN_PERSON
+        language:
+          type:
+          - string
+          - "null"
+          enum:
+          - vi
+          - en
+        participants:
+          type:
+          - array
+          - "null"
+          description: "Participant names, at most 50"
+          items:
+            type: string
+        terms:
+          type:
+          - array
+          - "null"
+          description: "Names and terms the speech provider should prefer, at most\
+            \ 100"
+          items:
+            type: string
+      required:
+      - kind
+      - title
+    MeetingTicketRequest:
+      type: object
+      properties:
+        track:
+          type: string
+          enum:
+          - MIC
+          - TAB
+      required:
+      - track
+    MeetingTicket:
+      type: object
+      description: A 60-second single-use ticket for one meeting track's WebSocket
+      properties:
+        ticket:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+      - expiresAt
+      - ticket
+    MeetingRecordingRequest:
+      type: object
+      description: Declared before the bytes are uploaded and checked against them
+        afterwards
+      properties:
+        filename:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        sha256:
+          type: string
+          description: Hex SHA-256 of the file
+        provider:
+          type:
+          - string
+          - "null"
+          description: The speech provider to transcribe with; the Tenant's own is
+            used when absent
+          enum:
+          - OPENAI
+          - OPENAI_COMPATIBLE
+          - ELEVENLABS
+          - AZURE
+          - SONIOX
+      required:
+      - filename
+      - mediaType
+      - sha256
+      - sizeBytes
+    MeetingRecordingReservation:
+      type: object
+      description: "Where to send the recording, and the meeting as it now reads"
+      properties:
+        meeting:
+          $ref: "#/components/schemas/MeetingDetail"
+        method:
+          type: string
+        uploadUrl:
+          type: string
+        requiredHeaders:
+          type: object
+          additionalProperties:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+      - expiresAt
+      - meeting
+      - method
+      - requiredHeaders
+      - uploadUrl
+    MeetingHeadingRequest:
+      type: object
+      description: The parts of a biên bản the transcript cannot supply; a blank field
+        prints as an ellipsis
+      properties:
+        organization:
+          type: string
+        parentOrganization:
+          type: string
+        number:
+          type: string
+        about:
+          type: string
+        place:
+          type: string
+        opened:
+          type: string
+        closed:
+          type: string
+        chair:
+          type: string
+        chairRole:
+          type: string
+        secretary:
+          type: string
+        secretaryRole:
+          type: string
+        attendees:
+          type: array
+          items:
+            type: string
+    MeetingLibraryFile:
+      type: object
+      description: The minutes as a file in the caller's library
+      properties:
+        fileId:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        status:
+          type: string
+          description: READY when Chat can read it; PROCESSING while it is extracted
+      required:
+      - fileId
+      - filename
+      - status
     McpToolRefresh:
       type: object
       properties:
@@ -19310,6 +20929,7 @@ components:
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
+            - CHAT_HISTORY_READ
         permissions:
           $ref: "#/components/schemas/GroupPermissions"
       required:
@@ -19377,6 +20997,7 @@ components:
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
+            - CHAT_HISTORY_READ
           maxItems: 7
           maxLength: 7
           minItems: 0
@@ -21161,6 +22782,84 @@ components:
       - passages
       - title
       - totalChunks
+    MeetingSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        kind:
+          type: string
+          enum:
+          - ONLINE
+          - IN_PERSON
+        status:
+          type: string
+          enum:
+          - RECORDING
+          - TRANSCRIBING
+          - ENDED
+        participants:
+          type: integer
+          format: int32
+        durationMs:
+          type: integer
+          format: int64
+          description: End of the last utterance
+        createdAt:
+          type: string
+          format: date-time
+        endedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        owned:
+          type: boolean
+          description: "Whether the member recorded it, as opposed to being shared\
+            \ it"
+      required:
+      - createdAt
+      - durationMs
+      - endedAt
+      - id
+      - kind
+      - owned
+      - participants
+      - status
+      - title
+    MeetingTranscriber:
+      type: object
+      description: A speech connection a recording may be transcribed with
+      properties:
+        provider:
+          type: string
+          enum:
+          - OPENAI
+          - OPENAI_COMPATIBLE
+          - ELEVENLABS
+          - AZURE
+          - SONIOX
+        model:
+          type: string
+        diarizes:
+          type: boolean
+          description: Whether it separates the speakers of a recording
+        maxBytes:
+          type: integer
+          format: int64
+          description: The largest recording this provider accepts
+        selected:
+          type: boolean
+          description: Whether it is the Tenant's own choice
+      required:
+      - diarizes
+      - maxBytes
+      - model
+      - provider
+      - selected
     ChatGroupOption:
       type: object
       additionalProperties: false
@@ -21294,6 +22993,7 @@ components:
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
+            - CHAT_HISTORY_READ
         scopedCapabilities:
           type: array
           description: Eligible capabilities available only within resources managed
@@ -21319,6 +23019,7 @@ components:
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
+            - CHAT_HISTORY_READ
         authorizationVersion:
           type: integer
           format: int64
@@ -21504,6 +23205,7 @@ components:
           - AGENTS_CREATE
           - AGENTS_MANAGE
           - AUDIT_READ
+          - CHAT_HISTORY_READ
         label:
           type: string
         description:
@@ -21533,6 +23235,7 @@ components:
             - AGENTS_CREATE
             - AGENTS_MANAGE
             - AUDIT_READ
+            - CHAT_HISTORY_READ
       required:
       - description
       - editable
@@ -21601,12 +23304,16 @@ components:
           - OPENAI_COMPATIBLE
           - ELEVENLABS
           - AZURE
+          - SONIOX
         requiresKey:
           type: boolean
         requiresEndpoint:
           type: boolean
         defaultEndpoint:
           type: string
+        speech:
+          type: boolean
+          description: Whether the provider can read text aloud.
         sttModels:
           type: array
           items:
@@ -21624,6 +23331,7 @@ components:
       - provider
       - requiresEndpoint
       - requiresKey
+      - speech
       - sttModels
       - ttsModels
       - voices
@@ -22812,6 +24520,119 @@ components:
       - endpointRequired
       - knownModels
       - provider
+    ChatHistoryEntry:
+      type: object
+      description: One conversation. The person is absent when the Tenant hides who
+        asked
+      properties:
+        id:
+          type: string
+          format: uuid
+        actorId:
+          type: string
+          format: uuid
+        person:
+          type: string
+        email:
+          type: string
+        title:
+          type: string
+        question:
+          type: string
+        answer:
+          type: string
+        modelName:
+          type: string
+        messages:
+          type: integer
+          format: int64
+        feedback:
+          type: string
+          enum:
+          - POSITIVE
+          - NEGATIVE
+          - MIXED
+          - NONE
+        deleted:
+          type: boolean
+          description: The owner deleted this conversation; it is kept until retention
+            removes it
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - deleted
+      - feedback
+      - id
+      - messages
+      - title
+      - updatedAt
+    ChatHistoryPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatHistoryEntry"
+        nextCursor:
+          type: string
+        conversations:
+          type: integer
+          format: int64
+        positive:
+          type: integer
+          format: int64
+        negative:
+          type: integer
+          format: int64
+      required:
+      - conversations
+      - items
+      - negative
+      - positive
+    ChatHistoryMessage:
+      type: object
+      description: "One message; citations are named, and opening one uses the reader's\
+        \ own Source authority"
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+        content:
+          type: string
+        modelName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        positive:
+          type: boolean
+        comment:
+          type: string
+        citations:
+          type: array
+          items:
+            type: string
+      required:
+      - citations
+      - content
+      - createdAt
+      - id
+      - role
+    ChatHistoryTranscript:
+      type: object
+      properties:
+        conversation:
+          $ref: "#/components/schemas/ChatHistoryEntry"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatHistoryMessage"
+      required:
+      - conversation
+      - messages
     ChatFileTextResponse:
       type: object
       properties:

@@ -216,6 +216,8 @@ public class VoiceSynthesisService {
             case ELEVENLABS -> new HttpSpeech(text -> ElevenLabsVoice.speech(base, key, connection.ttsModel(), connection.ttsVoice(),
                     speed, text, PROVIDER_TIMEOUT));
             case AZURE -> new HttpSpeech(text -> AzureSpeech.speech(base, key, connection.ttsVoice(), speed, text, PROVIDER_TIMEOUT));
+            // Speech-to-text only; configuration never makes it a read-aloud connection.
+            case SONIOX -> throw ChatException.providerUnavailable();
         };
     }
 

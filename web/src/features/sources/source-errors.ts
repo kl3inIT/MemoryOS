@@ -174,6 +174,12 @@ const statusMessages: Record<string, string> = {
     "This item exceeds the supported acquisition limits and was not imported.",
   SOURCE_PUBLICATION_INTERNAL:
     "Extracted content could not be published. Retry the affected file after checking the Source status.",
+  SEARCH_INDEX_FAILED: "Search indexing failed unexpectedly. Try indexing the file again.",
+  SEARCH_INDEX_ARTIFACT_INVALID:
+    "The extracted document could not be read for indexing. Upload the file again; if it still fails, the file may be corrupt.",
+  SEARCH_INDEX_NO_TEXT: "The file contains no searchable text.",
+  SEARCH_INDEX_CONTENT_LIMIT:
+    "The extracted document exceeds the supported indexing size. Split the file and upload it again.",
   SOURCE_MANAGER_NOT_ELIGIBLE:
     "This member cannot manage the Source because they do not manage any group. Assign them as a group manager first.",
   SOURCE_PAUSED: "Canceled by pause. Resume the Source to continue synchronization and indexing.",

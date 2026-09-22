@@ -99,6 +99,15 @@ class ChatRuntimeConfiguration {
         return new ChatMaintenance(turns, streams);
     }
 
+    /**
+     * Meeting minutes run here, not in the Worker, because the chat model catalog and its provider clients are wired
+     * in this application. The claim leases one meeting per replica, so running several API replicas is safe.
+     */
+    @Bean
+    MeetingMinutes meetingMinutes(io.memoryos.meeting.MeetingMinutesService minutes) {
+        return new MeetingMinutes(minutes);
+    }
+
     @Bean(defaultCandidate = false)
     ThreadPoolTaskScheduler chatMaintenanceScheduler() {
         var scheduler = new ThreadPoolTaskScheduler();
@@ -106,6 +115,41 @@ class ChatRuntimeConfiguration {
         scheduler.setVirtualThreads(true);
         scheduler.setThreadNamePrefix("chat-maintenance-");
         return scheduler;
+    }
+
+    /**
+     * The meetings' own scheduler: writing minutes and transcribing a recording are both long provider calls, while
+     * the chat maintenance ticks are due every second and every 25 ms. Neither may wait behind the other, so the two
+     * meeting jobs have a thread each and the chat ticks keep theirs.
+     */
+    @Bean(defaultCandidate = false)
+    ThreadPoolTaskScheduler meetingMinutesScheduler() {
+        var scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(2);
+        scheduler.setVirtualThreads(true);
+        scheduler.setThreadNamePrefix("meeting-jobs-");
+        return scheduler;
+    }
+
+    @Bean
+    MeetingRecordings meetingRecordings(io.memoryos.meeting.MeetingRecordingService recordings) {
+        return new MeetingRecordings(recordings);
+    }
+
+    /** Uploaded recordings, on the meetings' scheduler beside the minutes. */
+    record MeetingRecordings(io.memoryos.meeting.MeetingRecordingService recordings) {
+        @Scheduled(fixedDelayString = "${memoryos.meeting.recording-interval:5s}", scheduler = "meetingMinutesScheduler")
+        public void transcribe() {
+            for (int done = 0; done < 2 && recordings.transcribeNext(); done++) { /* drain */ }
+        }
+    }
+
+    record MeetingMinutes(io.memoryos.meeting.MeetingMinutesService minutes) {
+        @Scheduled(fixedDelayString = "${memoryos.meeting.minutes-interval:5s}", scheduler = "meetingMinutesScheduler")
+        public void write() {
+            // A few per pass, so one replica draining a backlog still leaves room for the chat maintenance ticks.
+            for (int written = 0; written < 2 && minutes.writeNext(); written++) { /* drain */ }
+        }
     }
 
     record ChatMaintenance(ChatTurnService turns, StreamBufferWriter streams) {

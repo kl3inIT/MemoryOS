@@ -1,5 +1,184 @@
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-92 meetings
+  "Chưa lưu được thay đổi. Hãy thử lại.": "The change could not be saved. Try again.",
+  "Meeting minutes": "Meeting minutes",
+  "Writes the summary, decisions and action items of a recorded meeting.":
+    "Writes the summary, decisions and action items of a recorded meeting.",
+  "Meeting minutes model": "Meeting minutes model",
+  "Tóm tắt": "Summary",
+  "Việc cần làm": "Action items",
+  "Quyết định": "Decisions",
+  "Đang viết tóm tắt, quyết định và việc cần làm…":
+    "Writing the summary, decisions and action items…",
+  "Chưa viết được tóm tắt": "The minutes could not be written",
+  "Transcript vẫn còn nguyên. Thử lại khi mô hình sẵn sàng.":
+    "The transcript is intact. Try again when the model is available.",
+  "Viết lại": "Write again",
+  "Viết lúc {{when}}": "Written at {{when}}",
+  "Không có việc nào được giao": "No work was assigned",
+  "Không có quyết định nào": "No decisions were reached",
+  "Đánh dấu xong: {{text}}": "Mark done: {{text}}",
+  "Ghi trong lúc họp; chỉ mình bạn xem được.": "Write during the meeting; only you can see it.",
+  "Transcript, tên người nói và ghi chú sẽ mất vĩnh viễn.":
+    "The transcript, speaker names and notes are lost for good.",
+  "Thời lượng": "Duration",
+  "Số câu": "Utterances",
+  "Người nói": "Speakers",
+  "{{count}} đã đặt tên": "{{count}} named",
+  "Chưa đặt tên": "None named",
+  "Nhận dạng": "Recognition",
+  "Có tách người nói": "Separates speakers",
+  "Không tách người nói": "No speaker separation",
+  "Xoá {{v1}}?": "Delete {{v1}}?",
+  "Đang tải cuộc họp": "Loading meeting",
+  "Chưa xem được danh sách cuộc họp": "Meetings unavailable",
+  "Chưa xem được cuộc họp này": "This meeting is unavailable",
+  "Xoá cuộc họp này": "Delete this meeting",
+  "Xoá cuộc họp": "Delete meeting",
+  "Tìm theo tên cuộc họp": "Search by meeting name",
+  "Mọi trạng thái": "Any status",
+  "Thời gian": "Period",
+  "30 ngày qua": "Last 30 days",
+  "90 ngày qua": "Last 90 days",
+  "Không có cuộc họp nào khớp bộ lọc.": "No meeting matches these filters.",
+  "Đang kết nối lại": "Reconnecting",
+  "đang nói": "speaking",
+  "{{count}} người": "{{count}} people",
+  "7 ngày qua": "Last 7 days",
+  "Anh Thanh, Chị Lan, Anh Minh": "Thanh, Lan, Minh",
+  "Áp dụng cho mọi câu của {{name}}": "Applies to everything {{name}} said",
+  Bạn: "You",
+  "Bạn chưa chọn tab cuộc họp nên chưa bắt đầu ghi.":
+    "No meeting tab was chosen, so recording has not started.",
+  "Bắt đầu ghi": "Start recording",
+  "Bỏ tên": "Remove name",
+  "Buổi họp hôm nay được ghi lại thành văn bản trên MemoryOS để làm biên bản. Nếu ai không đồng ý, xin báo ngay.":
+    "Today's meeting is being transcribed in MemoryOS for the minutes. If you do not agree, please say so now.",
+  "Câu thông báo": "Notice text",
+  "Chỉ mình bạn": "Only you",
+  "Chia sẻ với {{count}} người và nhóm": "Shared with {{count}} people and Groups",
+  "Được chia sẻ với bạn": "Shared with you",
+  "Chọn lại tab": "Choose the tab again",
+  "Chọn tab họp": "Choose the meeting tab",
+  "Chưa bật “Chia sẻ cả âm thanh của thẻ”, nên chỉ ghi giọng của bạn.":
+    "“Share tab audio” is off, so only your voice is recorded.",
+  "Chưa có cuộc họp nào": "No meetings yet",
+  "Chưa kết thúc": "Not ended",
+  "Chưa lưu": "Not saved",
+  "Cuộc họp": "Meetings",
+  "Cuộc họp {{date}}": "Meeting {{date}}",
+  "Cuộc họp đã kết thúc nên không ghi tiếp được.":
+    "The meeting has ended, so it cannot record any more.",
+  "Cuộc họp này chưa có transcript.": "This meeting has no transcript yet.",
+  "Cuộc họp chưa kết thúc nhưng không còn ghi. Ghi tiếp sẽ nối đúng mốc thời gian.":
+    "This meeting has not ended but is no longer recording. Resuming continues its clock.",
+  "Đã kết thúc": "Ended",
+  "Đã lưu": "Saved",
+  "Đang ghi": "Recording",
+  "Đang ghi một cuộc họp": "A meeting is recording",
+  "Đang kết nối lại… Âm thanh vẫn được giữ.": "Reconnecting… Audio is kept.",
+  "Đang kết thúc…": "Ending…",
+  "Đang lưu phần cuối…": "Saving the last part…",
+  "Đang nghe…": "Listening…",
+  "Đặt tên cho {{name}}": "Name {{name}}",
+  "Dịch vụ nhận dạng giọng nói không phản hồi. Phần đã ghi vẫn được lưu.":
+    "The speech service stopped responding. What was recorded is saved.",
+  Dừng: "Stop",
+  "Cách nhau bằng dấu phẩy; dùng để gán tên người nói.":
+    "Separate with commas; used to name speakers.",
+  "Dừng ghi và kết thúc cuộc họp?": "Stop recording and end the meeting?",
+  "Dừng và kết thúc": "Stop and end",
+  "Ghi chú của tôi": "My notes",
+  "Ghi chú vừa đổi ở nơi khác. Tải lại trang.": "These notes changed elsewhere. Reload the page.",
+  "Ghi cuộc họp mới": "Record a meeting",
+  "Hình thức": "Format",
+  "Họp online": "Online meeting",
+  "Họp trực tiếp": "In-person meeting",
+  "Kết thúc": "End",
+  "Xuất biên bản": "Export the minutes",
+  "Mở trong Chat": "Open in Chat",
+  "Tải file ghi âm": "Upload a recording",
+  "Chia sẻ với": "Share with",
+  "Chọn file": "Choose a file",
+  "{{name}} · {{size}}": "{{name}} · {{size}}",
+  "Chưa chọn file nào": "No file chosen",
+  "Đang nhận dạng": "Transcribing",
+  "Những người trong bản ghi đã biết buổi họp được ghi lại.":
+    "Everyone in the recording knew the meeting was being recorded.",
+  "Chưa có kết nối nhận dạng giọng nói nào đọc được file. Hãy nhờ quản trị viên cấu hình.":
+    "No speech connection here can read a file. Ask an administrator to configure one.",
+  "Bản ghi tải lên": "Uploaded recording",
+  "Transcript sẽ hiện khi nhận dạng xong.": "The transcript appears once it has been recognised.",
+  "File ghi âm": "Recording",
+  "Nhận dạng bằng": "Transcribe with",
+  "Tách được người nói": "Separates speakers",
+  "Tối đa {{size}} MB": "At most {{size}} MB",
+  "File {{size}} MB vượt giới hạn {{limit}} MB của {{provider}}.":
+    "A {{size}} MB file is over the {{limit}} MB {{provider}} accepts.",
+  "Đang tải lên… {{percent}}%": "Uploading… {{percent}}%",
+  "Tải lên và nhận dạng": "Upload and transcribe",
+  "Đang nhận dạng bản ghi {{filename}}…": "Transcribing {{filename}}…",
+  "Không nhận dạng được bản ghi. File đã được xoá.":
+    "The recording could not be transcribed. The file has been deleted.",
+  "Cơ quan, tổ chức": "Organization",
+  "CÔNG TY CỔ PHẦN TASCO": "TASCO JOINT STOCK COMPANY",
+  "Số biên bản": "Minutes number",
+  "Về việc": "Subject",
+  "Địa điểm": "Place",
+  "Phòng họp A, Hà Nội": "Meeting room A, Hanoi",
+  "Chủ trì": "Chair",
+  "Chức vụ chủ trì": "Chair's role",
+  "Thư ký": "Secretary",
+  "Chức vụ thư ký": "Secretary's role",
+  "Kết thúc cuộc họp": "End meeting",
+  "Kết thúc cuộc họp?": "End the meeting?",
+  "Không chia sẻ được tab. Hãy thử lại.": "The tab could not be shared. Try again.",
+  "Không đổi được sau khi bắt đầu ghi.": "Cannot be changed once recording starts.",
+  "Không đổi được tên. Hãy thử lại.": "The name could not be changed. Try again.",
+  "Không nghe thấy tab cuộc họp hơn 20 giây. Có thể âm thanh tab chưa được chia sẻ.":
+    "No sound from the meeting tab for over 20 seconds. Its audio may not be shared.",
+  "Mất kết nối và không nối lại được. Phần đã ghi vẫn được lưu.":
+    "The connection was lost for good. What was recorded is saved.",
+  "Máy chủ đang bận. Hãy thử lại sau ít phút.": "The server is busy. Try again in a few minutes.",
+  Micro: "Microphone",
+  "Mỗi luồng âm thanh ghi tối đa 5 giờ.": "Each audio track records at most 5 hours.",
+  "Ngôn ngữ": "Language",
+  "Người nói {{label}}": "Speaker {{label}}",
+  "Đã lưu đến {{time}}. Sau khi dừng, cuộc họp không ghi tiếp được.":
+    "Saved up to {{time}}. After stopping, the meeting cannot record again.",
+  "Sau khi kết thúc, cuộc họp không ghi tiếp được.":
+    "After it ends, the meeting cannot record again.",
+  "Tab cuộc họp đã dừng chia sẻ, nên chỉ còn ghi giọng của bạn.":
+    "The meeting tab stopped sharing, so only your voice is recorded.",
+  "Tab họp": "Meeting tab",
+  "Tạm dừng": "Pause",
+  "Tasco, OKR, KPI": "Tasco, OKR, KPI",
+  "Tên cuộc họp": "Meeting name",
+  "Tên khác": "Another name",
+  "Tên người nói": "Speaker name",
+  "Giúp nhận dạng đúng tên riêng và từ chuyên ngành.": "Helps recognise names and domain terms.",
+  "Thành phần": "Participants",
+  "Thời gian ghi": "Recording time",
+  "Thuật ngữ riêng": "Domain terms",
+  "Tiếng Anh": "English",
+  "Tiếng Việt xen tiếng Anh": "Vietnamese mixed with English",
+  "Tiếp tục": "Resume",
+  "Tiếp tục ghi": "Resume recording",
+  "Tôi đã thông báo cho mọi người rằng buổi họp được ghi lại.":
+    "I have told everyone that this meeting is being recorded.",
+  Transcript: "Transcript",
+  "Transcript, tên người nói và ghi chú của cuộc họp này sẽ bị xoá vĩnh viễn.":
+    "This meeting's transcript, speaker names and notes will be permanently deleted.",
+  "Trình duyệt không cho dùng micro. Hãy cho phép micro rồi thử lại.":
+    "The browser blocked the microphone. Allow the microphone and try again.",
+  "Trình duyệt này chưa ghi được. Hãy dùng Chrome hoặc Edge trên máy tính, hoặc Chrome trên điện thoại.":
+    "This browser cannot record. Use Chrome or Edge on a computer, or Chrome on a phone.",
+  "Nhớ bật “Chia sẻ cả âm thanh của thẻ”, và nên đeo tai nghe.":
+    "Remember to turn on “Share tab audio”, and wear headphones.",
+  "Về danh sách cuộc họp": "Back to meetings",
+  "Ví dụ: Giao ban tuần": "For example: Weekly briefing",
+  "Xoá cuộc họp?": "Delete the meeting?",
   // MEM-152 file library v2: the library page redesign (rail, filter popover, rows and empty states)
   "Phần của thư viện": "Library sections",
   "Tất cả tệp": "All files",
@@ -2291,6 +2470,7 @@ Object.assign(englishUi, {
     "Thông tin kết nối này cho phép nhập tệp. Nhóm của nguồn trong MemoryOS quyết định ai được tìm kiếm và đọc tài liệu đã nhập.",
   "Retry Save selection": "Thử lưu lựa chọn lại",
   "Expand everything in {{v1}}": "Mở tất cả bên trong {{v1}}",
+  "Expand everything": "Mở toàn bộ",
   "Load more": "Tải thêm",
   "Load more items in {{v1}}": "Tải thêm mục trong {{v1}}",
   "Load more selected content": "Tải thêm nội dung đã chọn",
@@ -2303,8 +2483,8 @@ Object.assign(englishUi, {
     "Phạm vi cụ thể gồm tệp được chọn trực tiếp, nội dung thư mục và tài liệu liên kết đã được duyệt. Đây không phải trình duyệt toàn bộ tài khoản.",
   "Expand folders to browse actual accessible files, then expand a file to see its recorded linked documents. Folder and file counts describe directly selected roots, not folder descendants. Search and type filters show unique results instead of the tree, including files inside selected folders once the source has synced.":
     "Mở rộng thư mục để xem tệp thực tế có quyền truy cập, rồi mở rộng tệp để xem tài liệu liên kết đã ghi nhận. Số thư mục và tệp là số mục gốc được chọn trực tiếp, không phải mục con. Tìm kiếm và lọc loại hiển thị kết quả không trùng thay cho cây, gồm cả tệp bên trong thư mục đã chọn sau khi nguồn đồng bộ.",
-  "References count unique locations within source documents. Opening a file's links reads stored evidence; it does not scan content or approve it. A file with no recorded links may not have been checked. Linked targets can appear in several branches; their sync selection is shared.":
-    "Tham chiếu đếm các vị trí riêng biệt trong tài liệu nguồn. Mở liên kết của tệp chỉ đọc bằng chứng đã lưu, không quét hoặc phê duyệt nội dung. Tệp chưa có liên kết ghi nhận có thể chưa được kiểm tra. Đích liên kết có thể xuất hiện ở nhiều nhánh nhưng dùng chung lựa chọn đồng bộ.",
+  "Opening a file's links reads stored evidence; it does not scan content or approve it. A file with no recorded links may not have been checked. Linked targets can appear in several branches; their sync selection is shared.":
+    "Mở liên kết của tệp chỉ đọc bằng chứng đã lưu, không quét hoặc phê duyệt nội dung. Tệp chưa có liên kết ghi nhận có thể chưa được kiểm tra. Đích liên kết có thể xuất hiện ở nhiều nhánh nhưng dùng chung lựa chọn đồng bộ.",
   "Use Edit selection to paste file or folder links, one per line or separated by commas. Choose a folder or its descendants, not both. Links and Google access are checked when you save; OAuth permissions may be broader than this selection.":
     "Dùng Sửa lựa chọn để dán liên kết tệp hoặc thư mục, mỗi dòng một liên kết hoặc phân cách bằng dấu phẩy. Chọn thư mục hoặc mục con, không chọn cả hai. Liên kết và quyền Google được kiểm tra khi lưu; quyền OAuth có thể rộng hơn lựa chọn này.",
   "Select for sync changes linked-document approvals in a draft without editing the root links. Save selection submits it for verification; Cancel discards unsaved changes.":
@@ -2397,16 +2577,10 @@ Object.assign(englishUi, {
   "Linked document · Not selected in draft": "Tài liệu liên kết · Chưa chọn trong bản nháp",
   "Linked document · Not selected for sync": "Tài liệu liên kết · Chưa chọn đồng bộ",
   "Sync {{v1}}": "Đồng bộ {{v1}}",
+  "Sync all links in {{v1}}": "Đồng bộ tất cả liên kết trong {{v1}}",
   "Select for sync": "Chọn để đồng bộ",
-  "{{v1}} {{v2}} for sync": "{{v1}} {{v2}} để đồng bộ",
-  "Deselect for sync": "Bỏ chọn đồng bộ",
-  "References for {{v1}}": "Tham chiếu cho {{v1}}",
-  reference: "tham chiếu",
-  references: "tham chiếu",
-  "source document": "tài liệu nguồn",
-  "source documents": "tài liệu nguồn",
-  "Reference locations": "Vị trí tham chiếu",
-  "Location not recorded": "Chưa ghi nhận vị trí",
+  "{{v1}} linked documents selected. Save selection applies the checked documents on the next sync.":
+    "Đã chọn {{v1}} tài liệu liên kết. Lưu lựa chọn để áp dụng các tài liệu đã tick vào lần đồng bộ tiếp theo.",
   "Add a source": "Thêm nguồn",
   "Connect the content you want to keep in MemoryOS.":
     "Kết nối nội dung bạn muốn lưu trong MemoryOS.",
@@ -2723,6 +2897,13 @@ Object.assign(englishUi, {
     "Trích xuất tệp gặp lỗi ngoài dự kiến. Thử lập chỉ mục lại.",
   "Cleanup failed unexpectedly. Try the removal again.":
     "Dọn dẹp gặp lỗi ngoài dự kiến. Thử xóa lại.",
+  "Search indexing failed unexpectedly. Try indexing the file again.":
+    "Đưa vào chỉ mục tìm kiếm gặp lỗi ngoài dự kiến. Thử lập chỉ mục lại.",
+  "The extracted document could not be read for indexing. Upload the file again; if it still fails, the file may be corrupt.":
+    "Không đọc được nội dung trích xuất để lập chỉ mục. Tải tệp lên lại; nếu vẫn lỗi, tệp có thể bị hỏng.",
+  "The file contains no searchable text.": "Tệp không chứa văn bản nào có thể tìm kiếm.",
+  "The extracted document exceeds the supported indexing size. Split the file and upload it again.":
+    "Nội dung trích xuất vượt kích thước lập chỉ mục được hỗ trợ. Chia nhỏ tệp rồi tải lên lại.",
   "This configuration changed in another session. Reload the saved selection before trying again.":
     "Cấu hình đã thay đổi ở phiên khác. Tải lại lựa chọn đã lưu trước khi thử lại.",
   "Some supplied links overlap. Use a folder or its descendants, not both.":
@@ -3118,6 +3299,8 @@ Object.assign(vietnameseUi, {
   "Bật tiếng": "Unmute",
   "Tắt tiếng": "Mute",
   "Nhận dạng tiếng Việt và tiếng Anh qua REST": "Vietnamese and English recognition over REST",
+  "Nhận dạng tiếng Việt theo thời gian thực, tách người nói":
+    "Real-time Vietnamese recognition with speaker separation",
   "Giọng Neural tiếng Việt và tiếng Anh": "Vietnamese and English neural voices",
   "Địa chỉ tài nguyên Speech": "Speech resource endpoint",
   "Endpoint của tài nguyên Azure AI Speech, trong mục Keys and Endpoint.":
@@ -3279,6 +3462,42 @@ Object.assign(englishUi, {
   "Edit, share, publish, feature, restore and transfer every custom agent, edit the default agent, and administer agent labels and public prompt shortcuts within the Tenant.":
     "Sửa, chia sẻ, công khai, đánh dấu nổi bật, khôi phục và chuyển quyền sở hữu mọi trợ lý, sửa trợ lý mặc định, quản lý nhãn trợ lý và lệnh tắt dùng chung trong tổ chức.",
   "View audit log": "Xem nhật ký audit",
+  "View conversation history": "Xem lịch sử hội thoại",
+  "Read and export the questions and answers of everyone in the Tenant. Every transcript read is itself recorded in the audit log.":
+    "Đọc và xuất câu hỏi, câu trả lời của mọi người trong tổ chức. Mỗi lần mở một hội thoại đều được ghi vào nhật ký audit.",
+  "Asked by": "Người hỏi",
+  "Who may read the organization's questions and answers. Opening a conversation is recorded in the audit log.":
+    "Ai được đọc câu hỏi và câu trả lời của tổ chức. Mở một hội thoại sẽ được ghi vào nhật ký audit.",
+  "Show who asked": "Hiện người hỏi",
+  "A reader sees the name and e-mail of the person who asked.":
+    "Người xem thấy tên và email của người đã hỏi.",
+  "Hide who asked": "Ẩn người hỏi",
+  "The name and e-mail are hidden; the questions and answers are not. A question often names its author.":
+    "Chỉ ẩn tên và email; nội dung câu hỏi và câu trả lời vẫn hiện. Câu hỏi thường tự lộ người viết.",
+  "Nobody reads other people's conversations": "Không ai đọc hội thoại của người khác",
+  "Conversations are still recorded; this screen and its export are refused.":
+    "Hội thoại vẫn được lưu; màn hình này và bản xuất bị từ chối.",
+  "Conversation history": "Lịch sử hội thoại",
+  "What people asked the assistant and how the answers were rated. Opening a conversation is recorded in the audit log.":
+    "Mọi người đã hỏi gì và câu trả lời được đánh giá ra sao. Mở một hội thoại sẽ được ghi vào nhật ký audit.",
+  Conversations: "Hội thoại",
+  "Marked good": "Đánh giá tốt",
+  "Marked bad": "Đánh giá chưa tốt",
+  Mixed: "Vừa tốt vừa chưa",
+  "Not rated": "Chưa đánh giá",
+  Feedback: "Đánh giá",
+  "Any feedback": "Mọi đánh giá",
+  "Search a person or a title": "Tìm người hoặc tiêu đề",
+  "Conversation history could not be loaded.": "Không tải được lịch sử hội thoại.",
+  "Loading conversation history…": "Đang tải lịch sử hội thoại…",
+  "No conversation in this period.": "Không có hội thoại nào trong khoảng này.",
+  "Widen the period or clear the filters.": "Nới khoảng thời gian hoặc bỏ bớt bộ lọc.",
+  Question: "Câu hỏi",
+  Answer: "Câu trả lời",
+  "{{count}} messages": "{{count}} tin nhắn",
+  "Loading the conversation…": "Đang tải hội thoại…",
+  "The conversation could not be loaded.": "Không tải được hội thoại.",
+  "Feedback: {{comment}}": "Đánh giá: {{comment}}",
   "Spending limit": "Hạn mức chi tiêu",
   "Spending limits": "Hạn mức chi tiêu",
   "Budget: {{whose}}": "Hạn mức: {{whose}}",

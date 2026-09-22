@@ -1,5 +1,6 @@
 import { RESEARCH_MINIMUM_CONTEXT, useChatModels } from "./chat-models";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { useAttachOnOpen } from "./use-attach-on-open";
 import { useAuiState } from "@assistant-ui/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
@@ -49,6 +50,7 @@ import { branchSteps } from "./chat-library";
 
 export function ChatPage() {
   const ui = useAppTranslation();
+  useAttachOnOpen();
   const { sessionId, projectId } = useParams({ strict: false });
   const { registry, routeError, retryRoute } = useChatThreads();
   const identity = useApplicationSession();

@@ -18,5 +18,5 @@ public interface DocumentChunkPort {
     Optional<DocumentChunkSet> read(TenantId tenant, DocumentId document, UUID generation);
     boolean isCurrent(TenantId tenantId, DocumentId documentId, UUID generation, String indexIdentity);
     void markSearchPending(TenantId tenantId, DocumentId documentId, UUID generation);
-    void markSearchFailed(TenantId tenantId, DocumentId documentId, UUID generation);
+    void markSearchFailed(TenantId tenantId, DocumentId documentId, UUID generation, String errorCode);
 }

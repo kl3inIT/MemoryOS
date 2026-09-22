@@ -18,6 +18,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated.agents'
 import { Route as AuthenticatedAssistantsRouteImport } from './routes/_authenticated.assistants'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated.library'
+import { Route as AuthenticatedMeetingsRouteImport } from './routes/_authenticated.meetings'
 import { Route as AuthenticatedSearchRouteImport } from './routes/_authenticated.search'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated.settings'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated._chat.index'
@@ -25,6 +26,7 @@ import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminAgentsRouteImport } from './routes/_authenticated.admin.agents'
 import { Route as AuthenticatedAdminAiCostsRouteImport } from './routes/_authenticated.admin.ai-costs'
 import { Route as AuthenticatedAdminAuditRouteImport } from './routes/_authenticated.admin.audit'
+import { Route as AuthenticatedAdminChatHistoryRouteImport } from './routes/_authenticated.admin.chat-history'
 import { Route as AuthenticatedAdminCodeInterpreterRouteImport } from './routes/_authenticated.admin.code-interpreter'
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated.admin.groups'
 import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from './routes/_authenticated.admin.identity-providers'
@@ -35,6 +37,7 @@ import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminVoiceRouteImport } from './routes/_authenticated.admin.voice'
 import { Route as AuthenticatedAdminWebSearchRouteImport } from './routes/_authenticated.admin.web-search'
 import { Route as AuthenticatedAgentsCreateRouteImport } from './routes/_authenticated.agents_.create'
+import { Route as AuthenticatedMeetingsMeetingIdRouteImport } from './routes/_authenticated.meetings_.$meetingId'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated.projects.index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated.settings.index'
 import { Route as AuthenticatedSettingsArchivedChatsRouteImport } from './routes/_authenticated.settings.archived-chats'
@@ -103,6 +106,11 @@ const AuthenticatedLibraryRoute = AuthenticatedLibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedMeetingsRoute = AuthenticatedMeetingsRouteImport.update({
+  id: '/meetings',
+  path: '/meetings',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedSearchRoute = AuthenticatedSearchRouteImport.update({
   id: '/search',
   path: '/search',
@@ -140,6 +148,12 @@ const AuthenticatedAdminAuditRoute = AuthenticatedAdminAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminChatHistoryRoute =
+  AuthenticatedAdminChatHistoryRouteImport.update({
+    id: '/chat-history',
+    path: '/chat-history',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminCodeInterpreterRoute =
   AuthenticatedAdminCodeInterpreterRouteImport.update({
     id: '/code-interpreter',
@@ -195,6 +209,12 @@ const AuthenticatedAgentsCreateRoute =
   AuthenticatedAgentsCreateRouteImport.update({
     id: '/agents_/create',
     path: '/agents/create',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedMeetingsMeetingIdRoute =
+  AuthenticatedMeetingsMeetingIdRouteImport.update({
+    id: '/meetings_/$meetingId',
+    path: '/meetings/$meetingId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedProjectsIndexRoute =
@@ -351,11 +371,13 @@ export interface FileRoutesByFullPath {
   '/agents': typeof AuthenticatedAgentsRoute
   '/assistants': typeof AuthenticatedAssistantsRoute
   '/library': typeof AuthenticatedLibraryRoute
+  '/meetings': typeof AuthenticatedMeetingsRoute
   '/search': typeof AuthenticatedSearchRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
+  '/admin/chat-history': typeof AuthenticatedAdminChatHistoryRoute
   '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
@@ -366,6 +388,7 @@ export interface FileRoutesByFullPath {
   '/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
   '/agents/create': typeof AuthenticatedAgentsCreateRoute
+  '/meetings/$meetingId': typeof AuthenticatedMeetingsMeetingIdRoute
   '/settings/archived-chats': typeof AuthenticatedSettingsArchivedChatsRoute
   '/settings/chat': typeof AuthenticatedSettingsChatRoute
   '/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
@@ -400,10 +423,12 @@ export interface FileRoutesByTo {
   '/agents': typeof AuthenticatedAgentsRoute
   '/assistants': typeof AuthenticatedAssistantsRoute
   '/library': typeof AuthenticatedLibraryRoute
+  '/meetings': typeof AuthenticatedMeetingsRoute
   '/search': typeof AuthenticatedSearchRoute
   '/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
   '/admin/audit': typeof AuthenticatedAdminAuditRoute
+  '/admin/chat-history': typeof AuthenticatedAdminChatHistoryRoute
   '/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
   '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
@@ -413,6 +438,7 @@ export interface FileRoutesByTo {
   '/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
   '/agents/create': typeof AuthenticatedAgentsCreateRoute
+  '/meetings/$meetingId': typeof AuthenticatedMeetingsMeetingIdRoute
   '/settings/archived-chats': typeof AuthenticatedSettingsArchivedChatsRoute
   '/settings/chat': typeof AuthenticatedSettingsChatRoute
   '/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
@@ -449,11 +475,13 @@ export interface FileRoutesById {
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
   '/_authenticated/assistants': typeof AuthenticatedAssistantsRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRoute
+  '/_authenticated/meetings': typeof AuthenticatedMeetingsRoute
   '/_authenticated/search': typeof AuthenticatedSearchRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/admin/agents': typeof AuthenticatedAdminAgentsRoute
   '/_authenticated/admin/ai-costs': typeof AuthenticatedAdminAiCostsRoute
   '/_authenticated/admin/audit': typeof AuthenticatedAdminAuditRoute
+  '/_authenticated/admin/chat-history': typeof AuthenticatedAdminChatHistoryRoute
   '/_authenticated/admin/code-interpreter': typeof AuthenticatedAdminCodeInterpreterRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRouteWithChildren
   '/_authenticated/admin/identity-providers': typeof AuthenticatedAdminIdentityProvidersRoute
@@ -464,6 +492,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/_authenticated/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
   '/_authenticated/agents_/create': typeof AuthenticatedAgentsCreateRoute
+  '/_authenticated/meetings_/$meetingId': typeof AuthenticatedMeetingsMeetingIdRoute
   '/_authenticated/settings/archived-chats': typeof AuthenticatedSettingsArchivedChatsRoute
   '/_authenticated/settings/chat': typeof AuthenticatedSettingsChatRoute
   '/_authenticated/settings/connections': typeof AuthenticatedSettingsConnectionsRoute
@@ -502,11 +531,13 @@ export interface FileRouteTypes {
     | '/agents'
     | '/assistants'
     | '/library'
+    | '/meetings'
     | '/search'
     | '/settings'
     | '/admin/agents'
     | '/admin/ai-costs'
     | '/admin/audit'
+    | '/admin/chat-history'
     | '/admin/code-interpreter'
     | '/admin/groups'
     | '/admin/identity-providers'
@@ -517,6 +548,7 @@ export interface FileRouteTypes {
     | '/admin/voice'
     | '/admin/web-search'
     | '/agents/create'
+    | '/meetings/$meetingId'
     | '/settings/archived-chats'
     | '/settings/chat'
     | '/settings/connections'
@@ -551,10 +583,12 @@ export interface FileRouteTypes {
     | '/agents'
     | '/assistants'
     | '/library'
+    | '/meetings'
     | '/search'
     | '/admin/agents'
     | '/admin/ai-costs'
     | '/admin/audit'
+    | '/admin/chat-history'
     | '/admin/code-interpreter'
     | '/admin/identity-providers'
     | '/admin/image-generation'
@@ -564,6 +598,7 @@ export interface FileRouteTypes {
     | '/admin/voice'
     | '/admin/web-search'
     | '/agents/create'
+    | '/meetings/$meetingId'
     | '/settings/archived-chats'
     | '/settings/chat'
     | '/settings/connections'
@@ -599,11 +634,13 @@ export interface FileRouteTypes {
     | '/_authenticated/agents'
     | '/_authenticated/assistants'
     | '/_authenticated/library'
+    | '/_authenticated/meetings'
     | '/_authenticated/search'
     | '/_authenticated/settings'
     | '/_authenticated/admin/agents'
     | '/_authenticated/admin/ai-costs'
     | '/_authenticated/admin/audit'
+    | '/_authenticated/admin/chat-history'
     | '/_authenticated/admin/code-interpreter'
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/identity-providers'
@@ -614,6 +651,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/voice'
     | '/_authenticated/admin/web-search'
     | '/_authenticated/agents_/create'
+    | '/_authenticated/meetings_/$meetingId'
     | '/_authenticated/settings/archived-chats'
     | '/_authenticated/settings/chat'
     | '/_authenticated/settings/connections'
@@ -714,6 +752,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLibraryRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/meetings': {
+      id: '/_authenticated/meetings'
+      path: '/meetings'
+      fullPath: '/meetings'
+      preLoaderRoute: typeof AuthenticatedMeetingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/search': {
       id: '/_authenticated/search'
       path: '/search'
@@ -761,6 +806,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/admin/audit'
       preLoaderRoute: typeof AuthenticatedAdminAuditRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/chat-history': {
+      id: '/_authenticated/admin/chat-history'
+      path: '/chat-history'
+      fullPath: '/admin/chat-history'
+      preLoaderRoute: typeof AuthenticatedAdminChatHistoryRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/code-interpreter': {
@@ -831,6 +883,13 @@ declare module '@tanstack/react-router' {
       path: '/agents/create'
       fullPath: '/agents/create'
       preLoaderRoute: typeof AuthenticatedAgentsCreateRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/meetings_/$meetingId': {
+      id: '/_authenticated/meetings_/$meetingId'
+      path: '/meetings/$meetingId'
+      fullPath: '/meetings/$meetingId'
+      preLoaderRoute: typeof AuthenticatedMeetingsMeetingIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/projects/': {
@@ -1066,6 +1125,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminAgentsRoute: typeof AuthenticatedAdminAgentsRoute
   AuthenticatedAdminAiCostsRoute: typeof AuthenticatedAdminAiCostsRoute
   AuthenticatedAdminAuditRoute: typeof AuthenticatedAdminAuditRoute
+  AuthenticatedAdminChatHistoryRoute: typeof AuthenticatedAdminChatHistoryRoute
   AuthenticatedAdminCodeInterpreterRoute: typeof AuthenticatedAdminCodeInterpreterRoute
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRouteWithChildren
   AuthenticatedAdminIdentityProvidersRoute: typeof AuthenticatedAdminIdentityProvidersRoute
@@ -1087,6 +1147,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminAgentsRoute: AuthenticatedAdminAgentsRoute,
   AuthenticatedAdminAiCostsRoute: AuthenticatedAdminAiCostsRoute,
   AuthenticatedAdminAuditRoute: AuthenticatedAdminAuditRoute,
+  AuthenticatedAdminChatHistoryRoute: AuthenticatedAdminChatHistoryRoute,
   AuthenticatedAdminCodeInterpreterRoute:
     AuthenticatedAdminCodeInterpreterRoute,
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRouteWithChildren,
@@ -1147,9 +1208,11 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
   AuthenticatedAssistantsRoute: typeof AuthenticatedAssistantsRoute
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRoute
+  AuthenticatedMeetingsRoute: typeof AuthenticatedMeetingsRoute
   AuthenticatedSearchRoute: typeof AuthenticatedSearchRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
   AuthenticatedAgentsCreateRoute: typeof AuthenticatedAgentsCreateRoute
+  AuthenticatedMeetingsMeetingIdRoute: typeof AuthenticatedMeetingsMeetingIdRoute
   AuthenticatedSharedSessionIdRoute: typeof AuthenticatedSharedSessionIdRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
   AuthenticatedAgentsAgentIdEditRoute: typeof AuthenticatedAgentsAgentIdEditRoute
@@ -1161,9 +1224,11 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
   AuthenticatedAssistantsRoute: AuthenticatedAssistantsRoute,
   AuthenticatedLibraryRoute: AuthenticatedLibraryRoute,
+  AuthenticatedMeetingsRoute: AuthenticatedMeetingsRoute,
   AuthenticatedSearchRoute: AuthenticatedSearchRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
   AuthenticatedAgentsCreateRoute: AuthenticatedAgentsCreateRoute,
+  AuthenticatedMeetingsMeetingIdRoute: AuthenticatedMeetingsMeetingIdRoute,
   AuthenticatedSharedSessionIdRoute: AuthenticatedSharedSessionIdRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
   AuthenticatedAgentsAgentIdEditRoute: AuthenticatedAgentsAgentIdEditRoute,
