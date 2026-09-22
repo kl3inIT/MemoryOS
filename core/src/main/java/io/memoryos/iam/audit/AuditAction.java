@@ -81,6 +81,10 @@ public enum AuditAction {
     AI_LIMIT_UPDATE("ai_limit.update", AuditEventClass.API_ACTIVITY, "scope", "group", "before", "after"),
     AI_LIMIT_DELETE("ai_limit.delete", AuditEventClass.API_ACTIVITY, "scope", "group", "before"),
 
+    // Reading other people's questions (MEM-125); Onyx records nothing here.
+    CHAT_HISTORY_READ("chat_history.read", AuditEventClass.API_ACTIVITY, "person", "email", "messages"),
+    CHAT_HISTORY_EXPORT("chat_history.export", AuditEventClass.API_ACTIVITY, "from", "to", "rows"),
+
     // The audit stream's own reads that leave the system, and refused authority.
     AUDIT_EXPORT("audit.export", AuditEventClass.API_ACTIVITY, "from", "to", "rows"),
     PERMISSION_DENIED("permission.denied", AuditEventClass.API_ACTIVITY, "capability", "scope");

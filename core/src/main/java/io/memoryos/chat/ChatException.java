@@ -12,6 +12,12 @@ public final class ChatException extends BusinessException {
         return new ChatException("CHAT_UNAVAILABLE", FailureCategory.NOT_FOUND, "Chat is unavailable.");
     }
 
+    /** The Tenant turned administrative history off; the conversations exist, this reader may not read them. */
+    public static ChatException historyDisabled() {
+        return new ChatException("CHAT_HISTORY_DISABLED", FailureCategory.NOT_PERMITTED,
+                "Conversation history is turned off for this organization.");
+    }
+
     public static ChatException invalid(String message) {
         return new ChatException("CHAT_INVALID_REQUEST", FailureCategory.VALIDATION, message);
     }
