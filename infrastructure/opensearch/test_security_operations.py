@@ -177,7 +177,8 @@ class CertificateRenewalTest(unittest.TestCase):
 
     def test_preserves_fresh_certificates_and_rotates_due_leafs_without_changing_authority_or_credentials(self):
         before = self.snapshot()
-        with patch.object(provision, "restart_and_wait") as restart:
+        # Dashboards has a certificate only where it is published, so this case says which deployment it describes.
+        with patch.object(provision, "restart_and_wait") as restart,                 patch.dict(os.environ, {"MEMORYOS_OPENSEARCH_DASHBOARDS_PUBLIC_URL": "https://search.example"}):
             self.assertEqual([], provision.renew_certificates(self.directory, 30))
             restart.assert_not_called()
             self.assertEqual(before, self.snapshot())
@@ -193,6 +194,13 @@ class CertificateRenewalTest(unittest.TestCase):
             self.assertEqual(0o600, (self.directory / (name + ".key")).stat().st_mode & 0o777)
         provision.run("openssl", "verify", "-CAfile", str(self.directory / "ca.crt"),
                       "-verify_hostname", "memoryos-opensearch-dashboards", str(self.directory / "dashboards.crt"))
+
+    def test_leaves_dashboards_alone_where_it_is_not_published(self):
+        with patch.object(provision, "restart_and_wait") as restart,                 patch.dict(os.environ, {"MEMORYOS_OPENSEARCH_DASHBOARDS_PUBLIC_URL": ""}):
+            self.assertEqual(["node", "admin"], provision.renew_certificates(self.directory, 366))
+            self.assertEqual([("memoryos-opensearch",)], [call.args for call in restart.call_args_list])
+        self.assertFalse((self.directory / "dashboards.crt").exists(),
+                         "a deployment without Dashboards has no certificate to renew for it")
 
     def test_restores_original_leaf_pairs_when_runtime_reload_fails(self):
         before = self.snapshot()
