@@ -9,7 +9,7 @@ const composer = vi.hoisted(() => ({
   setText: vi.fn(),
   send: vi.fn(),
 }));
-const search = vi.hoisted(() => ({ value: {} as { ask?: string; attach?: string } }));
+const search = vi.hoisted(() => ({ value: {} as { ask?: string; attach?: string[] } }));
 const sessionId = vi.hoisted(() => ({ value: "" }));
 const navigate = vi.hoisted(() => vi.fn());
 const waitForChatFile = vi.hoisted(() => vi.fn());
@@ -47,7 +47,7 @@ const attachment = {
   status: "READY" as const,
 };
 
-function open(session: string, values: { ask?: string; attach?: string }) {
+function open(session: string, values: { ask?: string; attach?: string[] }) {
   sessionId.value = session;
   search.value = values;
   render(
@@ -66,14 +66,20 @@ beforeEach(async () => {
 });
 afterEach(cleanup);
 
-it("attaches the file a question is about before sending the question", async () => {
+it("attaches every file a question is about before sending the question", async () => {
+  const second = { ...attachment, id: "55555555-5555-4555-8555-555555555555" };
+  waitForChatFile.mockImplementation(async (id: string) =>
+    id === second.id ? second : attachment,
+  );
   open("22222222-2222-4222-8222-222222222222", {
     ask: "Sơ đồ này nói gì?",
-    attach: attachment.id,
+    attach: [attachment.id, second.id],
   });
 
   await waitFor(() => expect(composer.send).toHaveBeenCalledOnce());
   expect(waitForChatFile).toHaveBeenCalledWith(attachment.id, expect.anything());
+  expect(waitForChatFile).toHaveBeenCalledWith(second.id, expect.anything());
+  expect(composer.addAttachment).toHaveBeenCalledTimes(2);
   expect(composer.addAttachment).toHaveBeenCalledBefore(composer.send);
   expect(composer.setText).toHaveBeenCalledWith("Sơ đồ này nói gì?");
   // The search values are dropped, so a reload does not ask the same question again.
@@ -84,14 +90,17 @@ it("attaches the file a question is about before sending the question", async ()
 
 it("keeps the question in the composer when its file never arrives", async () => {
   waitForChatFile.mockRejectedValue(new Error("still processing"));
-  open("33333333-3333-4333-8333-333333333333", { ask: "Sơ đồ này nói gì?", attach: attachment.id });
+  open("33333333-3333-4333-8333-333333333333", {
+    ask: "Sơ đồ này nói gì?",
+    attach: [attachment.id],
+  });
 
   await waitFor(() => expect(composer.setText).toHaveBeenCalledWith("Sơ đồ này nói gì?"));
   expect(composer.send).not.toHaveBeenCalled();
 });
 
 it("opens a conversation with the file attached and nothing asked", async () => {
-  open("44444444-4444-4444-8444-444444444444", { attach: attachment.id });
+  open("44444444-4444-4444-8444-444444444444", { attach: [attachment.id] });
 
   await waitFor(() => expect(composer.addAttachment).toHaveBeenCalledOnce());
   expect(composer.setText).not.toHaveBeenCalled();

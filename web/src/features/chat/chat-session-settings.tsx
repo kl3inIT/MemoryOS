@@ -168,21 +168,29 @@ export function ChatStarterPrompts({
     : personas.data?.find((p) => p.builtin);
   const navigate = useNavigate();
   const { sessionId } = useParams({ strict: false });
-  const { ask, attach } = useSearch({ strict: false });
+  // `/` carries a single `attach`; a conversation carries the list the file preview may send.
+  const { ask, attach } = useSearch({ strict: false }) as { ask?: string; attach?: string[] };
   /**
-   * What a new conversation was opened with: a question from an agent's detail view, and the library file a
-   * question in the file preview was about. The file is attached before the question is sent, so the answer
-   * is given about it; dropping both search values keeps a reload from asking twice.
+   * What a new conversation was opened with: a question from an agent's detail view, and the library files a
+   * question in the file preview was about. Every file is attached before the question is sent, so the answer
+   * is given about them; dropping both search values keeps a reload from asking twice.
    */
   useEffect(() => {
-    if ((!ask && !attach) || !sessionId || disabled || seededSessions.has(sessionId)) return;
+    const attachments = attach ?? [];
+    if (
+      (!ask && attachments.length === 0) ||
+      !sessionId ||
+      disabled ||
+      seededSessions.has(sessionId)
+    )
+      return;
     seededSessions.add(sessionId);
     const composer = aui.thread.composer();
     void (async () => {
       let attached = true;
-      if (attach)
+      for (const id of attachments)
         try {
-          const file = await waitForChatFile(attach, AbortSignal.timeout(120_000));
+          const file = await waitForChatFile(id, AbortSignal.timeout(120_000));
           await composer.addAttachment(composerAttachment(file));
         } catch {
           attached = false;

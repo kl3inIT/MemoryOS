@@ -1,5 +1,6 @@
-import { useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { cn } from "@/lib/utils";
 import { MIN_CROP, rectBetween, type CropRect } from "./chat-image-crop";
 
 /**
@@ -23,6 +24,7 @@ export function ImageCropper({
   const ui = useAppTranslation();
   const frame = useRef<HTMLDivElement>(null);
   const from = useRef<{ clientX: number; clientY: number } | null>(null);
+  const [size, setSize] = useState<{ width: number; height: number }>();
 
   function drawTo(event: ReactPointerEvent<HTMLDivElement>) {
     if (!from.current || !frame.current) return;
@@ -31,9 +33,18 @@ export function ImageCropper({
 
   return (
     <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-4">
+      {/*
+       * The frame is exactly the picture, because the selection is read as a fraction of it. Its height is
+       * the viewer's and its shape the image's own, so `max-h-full` on the picture has a height to resolve
+       * against: without that the browser draws it at natural size and the viewer cuts off its bottom.
+       */}
       <div
         ref={frame}
-        className="relative max-h-full touch-none overflow-hidden select-none"
+        style={size && { aspectRatio: `${size.width} / ${size.height}` }}
+        className={cn(
+          "relative touch-none overflow-hidden select-none",
+          size ? "h-full max-h-full max-w-full" : "max-h-full max-w-full",
+        )}
         onPointerDown={(event) => {
           from.current = { clientX: event.clientX, clientY: event.clientY };
           // jsdom has no pointer capture; the drag still works without it.
@@ -56,13 +67,18 @@ export function ImageCropper({
           src={src}
           alt={alt}
           draggable={false}
-          className="block max-h-full max-w-full cursor-crosshair object-contain"
-          onLoad={(event) =>
-            onNatural({
+          className={cn(
+            "block cursor-crosshair object-contain",
+            size ? "size-full" : "max-h-full max-w-full",
+          )}
+          onLoad={(event) => {
+            const natural = {
               width: event.currentTarget.naturalWidth,
               height: event.currentTarget.naturalHeight,
-            })
-          }
+            };
+            setSize(natural);
+            onNatural(natural);
+          }}
         />
         {rect ? (
           // One ring dims everything around the selection, so the crop reads at a glance.

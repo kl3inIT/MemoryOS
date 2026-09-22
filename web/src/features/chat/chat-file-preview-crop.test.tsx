@@ -88,41 +88,50 @@ async function selectHalfTheImage(user: UserEvent) {
   ]);
 }
 
-it("saves the selected part of an image as a new file", async () => {
+it("uses the crop at once and saves it as a new file", async () => {
   const saved = vi.fn();
   show(saved);
   const user = userEvent.setup();
 
   await user.click(await screen.findByRole("button", { name: "Cắt ảnh" }));
-  expect(screen.getByRole("button", { name: "Lưu thành tệp mới" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Cắt" })).toBeDisabled();
 
   await selectHalfTheImage(user);
 
   expect(screen.getByText("640 × 360 px")).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Lưu thành tệp mới" }));
+  await user.click(screen.getByRole("button", { name: "Cắt" }));
 
   expect(renderCrop).toHaveBeenCalledWith(
     expect.objectContaining({ width: 1280, height: 720 }),
     { x: 0.25, y: 0.25, width: 0.5, height: 0.5 },
     "image/png",
   );
+  // The crop replaces what the viewer shows, so it can be read, downloaded and asked about straight away.
+  expect(await screen.findByText("Đã cắt · 640 × 360 px")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Tải xuống" })).toHaveAttribute(
+    "download",
+    "So do kien truc (đã cắt).png",
+  );
+
+  await user.click(screen.getByRole("button", { name: "Lưu thành tệp mới" }));
   const [file] = saved.mock.calls[0] as [File];
   expect(file.name).toBe("So do kien truc (đã cắt).png");
   expect(file.type).toBe("image/png");
-  // Saving leaves cropping, so the preview shows the image again.
-  expect(await screen.findByRole("button", { name: "Cắt ảnh" })).toBeInTheDocument();
+
+  // The original is one press away again.
+  await user.click(screen.getByRole("button", { name: "Về ảnh gốc" }));
+  expect(screen.queryByText("Đã cắt · 640 × 360 px")).not.toBeInTheDocument();
 });
 
-it("offers only a download where nothing can be saved, and reports a failed crop", async () => {
+it("offers no save where nothing can be kept, and reports a failed crop", async () => {
   show();
   const user = userEvent.setup();
   renderCrop.mockRejectedValue(new Error("no canvas"));
 
   await user.click(await screen.findByRole("button", { name: "Cắt ảnh" }));
-  expect(screen.queryByRole("button", { name: "Lưu thành tệp mới" })).not.toBeInTheDocument();
-
   await selectHalfTheImage(user);
-  await user.click(screen.getByRole("button", { name: "Tải ảnh đã cắt" }));
+  await user.click(screen.getByRole("button", { name: "Cắt" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Không cắt được ảnh.");
+  expect(screen.queryByRole("button", { name: "Lưu thành tệp mới" })).not.toBeInTheDocument();
 });

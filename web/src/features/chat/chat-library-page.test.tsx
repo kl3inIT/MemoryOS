@@ -747,7 +747,7 @@ it("asks Chat about the file being previewed, with the file attached to the ques
   );
   expect(router.state.location.search).toEqual({
     ask: "Sơ đồ này nói gì?",
-    attach: picture.id,
+    attach: [picture.id],
   });
   expect(createChatSession).toHaveBeenCalledWith(
     expect.objectContaining({ body: expect.objectContaining({ title: "Sơ đồ này nói gì?" }) }),
