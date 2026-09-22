@@ -1,7 +1,7 @@
 import { useId, useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { FileAudio, Users } from "lucide-react";
+import { FileAudio, Upload, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -67,6 +67,7 @@ export function UploadRecordingDialog({
   const navigate = useNavigate();
   const problemMessage = useProblemMessage();
   const aborter = useRef<AbortController>(undefined);
+  const picker = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File>();
   const [title, setTitle] = useState("");
   const [participants, setParticipants] = useState("");
@@ -147,13 +148,32 @@ export function UploadRecordingDialog({
           <fieldset disabled={pending || nobody} className="grid gap-4">
             <div className="grid gap-1.5">
               <Label htmlFor={`${id}-file`}>{ui("File ghi âm")}</Label>
-              <Input
+              {/* A button over a hidden input, as the library upload does: the native control cannot be styled
+                  and shows the browser's own English label. */}
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  size="sm"
+                  prominence="secondary"
+                  onClick={() => picker.current?.click()}
+                >
+                  <Upload aria-hidden="true" />
+                  {ui("Chọn file")}
+                </Button>
+                <span className="min-w-0 truncate text-sm text-content-secondary">
+                  {file
+                    ? ui("{{name}} · {{size}}", { name: file.name, size: size(file.size) })
+                    : ui("Chưa chọn file nào")}
+                </span>
+              </div>
+              <input
+                ref={picker}
                 id={`${id}-file`}
                 type="file"
                 accept={ACCEPT}
+                className="sr-only"
                 onChange={(event) => setFile(event.target.files?.[0])}
               />
-              {file && <p className="text-xs text-content-muted">{size(file.size)}</p>}
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor={`${id}-title`}>{ui("Tên cuộc họp")}</Label>
