@@ -1,5 +1,6 @@
 import { render } from "@testing-library/react";
 import { expect, it } from "vitest";
+import { uiLocale } from "@/i18n/format";
 import { Said } from "./transcript-text";
 
 it("marks only the characters the provider was unsure of, and reads the line whole either way", () => {
@@ -9,7 +10,9 @@ it("marks only the characters the provider was unsure of, and reads the line who
   expect(marked.container.textContent).toBe(text);
   const mark = marked.container.querySelector("mark");
   expect(mark?.textContent).toBe("ra tiếng");
-  expect(mark?.getAttribute("title")).toBe("41%");
+  expect(mark?.getAttribute("title")).toBe(
+    new Intl.NumberFormat(uiLocale(), { style: "percent" }).format(0.41),
+  );
 
   const plain = render(<Said text={text} spans={[]} />);
   expect(plain.container.textContent).toBe(text);
