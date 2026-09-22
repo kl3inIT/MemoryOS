@@ -187,9 +187,10 @@ services:
 
   keycloak:
     <<: *service-defaults
-    # The former MEMORYOS_SHARED_KEYCLOAK_IMAGE still resolves, so a server can be migrated
-    # without a coordinated edit of its environment file.
-    image: ${MEMORYOS_KEYCLOAK_IMAGE:-${MEMORYOS_SHARED_KEYCLOAK_IMAGE:?Set MEMORYOS_KEYCLOAK_IMAGE}}
+    # Renamed from MEMORYOS_SHARED_KEYCLOAK_IMAGE. A nested fallback to the old name is not portable:
+    # the Compose version on the CI runner evaluates the inner expression even when the outer variable
+    # is set. A server keeps both lines in its environment file until every deployment uses the new one.
+    image: ${MEMORYOS_KEYCLOAK_IMAGE:?Set MEMORYOS_KEYCLOAK_IMAGE}
     container_name: memoryos-keycloak
     command:
       - start

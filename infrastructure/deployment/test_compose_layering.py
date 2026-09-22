@@ -53,6 +53,12 @@ class ComposeLayeringTest(unittest.TestCase):
         self.assertIn("KC_HOSTNAME: ${MEMORYOS_KEYCLOAK_HOSTNAME:?Set MEMORYOS_KEYCLOAK_HOSTNAME}", BASE)
         self.assertNotIn("MEMORYOS_KEYCLOAK_HOSTNAME:-", BASE)
 
+    def test_no_nested_interpolation_because_compose_versions_disagree_about_it(self):
+        # ${A:-${B:?...}} reads naturally but the Compose version on the CI runner evaluates the inner
+        # expression even when A is set, so a fallback to an old variable name fails the build there.
+        for name, text in (("base", BASE), ("staging", STAGING), ("production", PRODUCTION)):
+            self.assertNotRegex(text, r"\$\{[A-Z_]+:[-?][^}]*\$\{", name)
+
     def test_the_redis_entry_point_does_not_assume_an_inspector(self):
         self.assertIn('if [ -f "$MEMORYOS_REDIS_INSPECTOR_PASSWORD_FILE" ]; then', REDIS_ENTRYPOINT)
         self.assertIn('if [ -n "$INSPECTOR_HASH" ]; then', REDIS_ENTRYPOINT)
