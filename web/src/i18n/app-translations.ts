@@ -505,9 +505,6 @@ export const vietnameseUi: Record<string, string> = {
   "Tệp trong thư viện": "Library files",
   "Đã đính kèm": "Attached",
   "Tải thêm": "Load more",
-  "Không chuẩn bị được tệp để đính kèm. Hãy thử lại.":
-    "The files could not be prepared for attaching. Try again.",
-  "Đang chuẩn bị tệp…": "Preparing files…",
   "Đã chọn {{count}}/{{max}} tệp": "{{count}}/{{max}} files selected",
   "Đính kèm {{count}} tệp": "Attach {{count}} files",
   "Mỗi câu hỏi đính kèm tối đa 20 tệp.": "A question can carry at most 20 files.",

@@ -86,9 +86,11 @@ export const en = {
     preview: "Image preview",
     previewTitle: "Attachment preview",
     fileLabel: "Attachment: {{name}}",
+    list: "Attached files",
     remove: "Remove file",
     uploading: "Uploading…",
     processing: "Processing…",
+    preparing: "Preparing…",
     failed: "Could not attach this file. Remove it and try again.",
   },
   common: {

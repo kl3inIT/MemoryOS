@@ -42,7 +42,7 @@ import {
   ChatSpeakingIndicator,
 } from "@/features/voice/chat-auto-playback";
 import { useAutoPlayback } from "@/features/voice/use-chat-auto-playback";
-import { ComposerAttachments } from "@/components/assistant-ui/elements/attachment.aui";
+import { ChatAttachmentStaging, ChatComposerAttachments } from "./chat-attachment-staging";
 import { ChatArtifactCards } from "./chat-artifact-view";
 import { ChatImages } from "./chat-images";
 import { ChatGeneratedFiles } from "./chat-generated-files";
@@ -108,144 +108,146 @@ export function ChatThread({
   // Onyx "Chat Auto-scroll": follow the answer while it is written unless the member turned it off.
   const autoScroll = useChatPreferences().data?.autoScroll ?? true;
   return (
-    <ChatSourcesWorkspace>
-      <ThreadPrimitive.Root
-        className="aui-root flex h-full min-h-0 min-w-0 flex-1 flex-col [&_[data-chat-search-match]]:rounded-xl [&_[data-chat-search-match]]:bg-highlight-match/40"
-        style={{ ["--thread-max-width" as string]: "48rem" }}
-      >
-        <ThreadPrimitive.Viewport
-          data-testid="chat-viewport"
-          autoScroll={autoScroll}
-          className={cn(
-            "relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-4 pt-6 [scrollbar-gutter:stable] sm:px-8",
-            isEmpty && !welcome && "justify-center",
-          )}
+    <ChatAttachmentStaging>
+      <ChatSourcesWorkspace>
+        <ThreadPrimitive.Root
+          className="aui-root flex h-full min-h-0 min-w-0 flex-1 flex-col [&_[data-chat-search-match]]:rounded-xl [&_[data-chat-search-match]]:bg-highlight-match/40"
+          style={{ ["--thread-max-width" as string]: "48rem" }}
         >
-          <AuiIf condition={(state) => state.thread.isEmpty}>
-            <div className="mx-auto mb-8 w-full max-w-(--thread-max-width) text-center">
-              {welcome ?? (
-                <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">
-                  {ui("Bạn muốn tìm hiểu điều gì?")}
-                </h1>
-              )}
-              {!welcome && starters}
-            </div>
-          </AuiIf>
-          <div className="mx-auto w-full max-w-(--thread-max-width) space-y-7 pb-8 font-main-content-body empty:hidden">
-            <ThreadPrimitive.Messages>
-              {({ message }) =>
-                message.role === "user" ? (
-                  <UserMessage readOnly={readOnly} />
-                ) : (
-                  <AssistantMessage readOnly={readOnly} />
-                )
-              }
-            </ThreadPrimitive.Messages>
-          </div>
-          {!readOnly && (
-            <ThreadPrimitive.ViewportFooter
-              className={cn(
-                "relative mx-auto flex w-full max-w-(--thread-max-width) flex-col bg-surface-base pb-[max(1rem,env(safe-area-inset-bottom))] pt-3",
-                !isEmpty && "sticky bottom-0 mt-auto rounded-t-2xl",
-              )}
-            >
-              <div className="absolute -top-11 left-1/2 -translate-x-1/2">
-                <ThreadPrimitive.ScrollToBottom asChild>
-                  <IconButton
-                    aria-label={ui("Đến tin nhắn mới nhất")}
-                    prominence="secondary"
-                    className="disabled:hidden"
-                  >
-                    <ArrowDown />
-                  </IconButton>
-                </ThreadPrimitive.ScrollToBottom>
+          <ThreadPrimitive.Viewport
+            data-testid="chat-viewport"
+            autoScroll={autoScroll}
+            className={cn(
+              "relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-4 pt-6 [scrollbar-gutter:stable] sm:px-8",
+              isEmpty && !welcome && "justify-center",
+            )}
+          >
+            <AuiIf condition={(state) => state.thread.isEmpty}>
+              <div className="mx-auto mb-8 w-full max-w-(--thread-max-width) text-center">
+                {welcome ?? (
+                  <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">
+                    {ui("Bạn muốn tìm hiểu điều gì?")}
+                  </h1>
+                )}
+                {!welcome && starters}
               </div>
-              {modelNotice && (
-                <p role="status" className="mb-2 text-sm text-content-secondary">
-                  {modelNotice}
-                </p>
-              )}
-              {connection === "recovering" && !error && (
-                <ConnectionNotice className="mb-2" label={t("reconnecting")} />
-              )}
-              {connection === "uncertain" || error ? (
-                <ErrorState
-                  className="mb-3"
-                  title={t("unconfirmed")}
-                  detail={error ?? t("checkBeforeSending")}
-                  action={{ label: t("check"), pending: checking, onClick: () => void onCheck() }}
-                />
-              ) : null}
-              <ChatVoiceFailure />
-              <ChatSpeakingIndicator />
-              <ChatAutoPlayback />
-              <ComposerPrimitive.Unstable_TriggerPopoverRoot>
-                <ComposerPrimitive.AttachmentDropzone className="rounded-2xl data-[dragging]:ring-2">
-                  <ChatComposerRoot className="flex w-full flex-col gap-2 rounded-2xl border border-border-default bg-surface-raised p-2.5 shadow-sm transition-colors focus-within:border-border-strong">
-                    <ChatComposerDraft />
-                    <ChatDictationAutoSend />
-                    <ChatAutoListen />
-                    <ChatComposerQuote />
-                    <ComposerAttachments />
-                    <ComposerPrimitive.Input
-                      aria-label={ui("Câu hỏi")}
-                      placeholder={
-                        dictating
-                          ? ui("Đang nghe…")
-                          : reading
-                            ? ui("MemoryOS đang đọc…")
-                            : ui("Nhập câu hỏi…")
-                      }
-                      rows={1}
-                      maxLength={32000}
-                      className="max-h-48 min-h-12 w-full resize-none bg-transparent px-2.5 py-1.5 text-base leading-6 outline-none placeholder:text-content-muted"
-                    />
-                    <ChatPromptShortcutPopover />
-                    <ChatDictationStrip />
-                    <AuiIf condition={(state) => state.composer.attachments.length > 20}>
-                      <p role="alert" className="text-sm">
-                        {ui("Mỗi tin nhắn có tối đa 20 tệp. Hãy gỡ bớt trước khi gửi.")}
-                      </p>
-                    </AuiIf>
-                    <div
-                      data-testid="chat-composer-actions"
-                      className="flex flex-nowrap items-center justify-between gap-2"
+            </AuiIf>
+            <div className="mx-auto w-full max-w-(--thread-max-width) space-y-7 pb-8 font-main-content-body empty:hidden">
+              <ThreadPrimitive.Messages>
+                {({ message }) =>
+                  message.role === "user" ? (
+                    <UserMessage readOnly={readOnly} />
+                  ) : (
+                    <AssistantMessage readOnly={readOnly} />
+                  )
+                }
+              </ThreadPrimitive.Messages>
+            </div>
+            {!readOnly && (
+              <ThreadPrimitive.ViewportFooter
+                className={cn(
+                  "relative mx-auto flex w-full max-w-(--thread-max-width) flex-col bg-surface-base pb-[max(1rem,env(safe-area-inset-bottom))] pt-3",
+                  !isEmpty && "sticky bottom-0 mt-auto rounded-t-2xl",
+                )}
+              >
+                <div className="absolute -top-11 left-1/2 -translate-x-1/2">
+                  <ThreadPrimitive.ScrollToBottom asChild>
+                    <IconButton
+                      aria-label={ui("Đến tin nhắn mới nhất")}
+                      prominence="secondary"
+                      className="disabled:hidden"
                     >
-                      {composerMenu ?? <span />}
-                      <div className="flex min-w-0 items-center gap-1">
-                        {modelPicker}
-                        <ChatDictationButton />
-                        <AuiIf condition={(state) => !state.thread.isRunning}>
-                          <ChatComposerSend asChild disabled={sendDisabled}>
-                            <IconButton aria-label={ui("Gửi câu hỏi")} prominence="primary">
-                              <ArrowUp />
+                      <ArrowDown />
+                    </IconButton>
+                  </ThreadPrimitive.ScrollToBottom>
+                </div>
+                {modelNotice && (
+                  <p role="status" className="mb-2 text-sm text-content-secondary">
+                    {modelNotice}
+                  </p>
+                )}
+                {connection === "recovering" && !error && (
+                  <ConnectionNotice className="mb-2" label={t("reconnecting")} />
+                )}
+                {connection === "uncertain" || error ? (
+                  <ErrorState
+                    className="mb-3"
+                    title={t("unconfirmed")}
+                    detail={error ?? t("checkBeforeSending")}
+                    action={{ label: t("check"), pending: checking, onClick: () => void onCheck() }}
+                  />
+                ) : null}
+                <ChatVoiceFailure />
+                <ChatSpeakingIndicator />
+                <ChatAutoPlayback />
+                <ComposerPrimitive.Unstable_TriggerPopoverRoot>
+                  <ComposerPrimitive.AttachmentDropzone className="rounded-2xl data-[dragging]:ring-2">
+                    <ChatComposerRoot className="flex w-full flex-col gap-2 rounded-2xl border border-border-default bg-surface-raised p-2.5 shadow-sm transition-colors focus-within:border-border-strong">
+                      <ChatComposerDraft />
+                      <ChatDictationAutoSend />
+                      <ChatAutoListen />
+                      <ChatComposerQuote />
+                      <ChatComposerAttachments />
+                      <ComposerPrimitive.Input
+                        aria-label={ui("Câu hỏi")}
+                        placeholder={
+                          dictating
+                            ? ui("Đang nghe…")
+                            : reading
+                              ? ui("MemoryOS đang đọc…")
+                              : ui("Nhập câu hỏi…")
+                        }
+                        rows={1}
+                        maxLength={32000}
+                        className="max-h-48 min-h-12 w-full resize-none bg-transparent px-2.5 py-1.5 text-base leading-6 outline-none placeholder:text-content-muted"
+                      />
+                      <ChatPromptShortcutPopover />
+                      <ChatDictationStrip />
+                      <AuiIf condition={(state) => state.composer.attachments.length > 20}>
+                        <p role="alert" className="text-sm">
+                          {ui("Mỗi tin nhắn có tối đa 20 tệp. Hãy gỡ bớt trước khi gửi.")}
+                        </p>
+                      </AuiIf>
+                      <div
+                        data-testid="chat-composer-actions"
+                        className="flex flex-nowrap items-center justify-between gap-2"
+                      >
+                        {composerMenu ?? <span />}
+                        <div className="flex min-w-0 items-center gap-1">
+                          {modelPicker}
+                          <ChatDictationButton />
+                          <AuiIf condition={(state) => !state.thread.isRunning}>
+                            <ChatComposerSend asChild disabled={sendDisabled}>
+                              <IconButton aria-label={ui("Gửi câu hỏi")} prominence="primary">
+                                <ArrowUp />
+                              </IconButton>
+                            </ChatComposerSend>
+                          </AuiIf>
+                          <AuiIf condition={(state) => state.thread.isRunning}>
+                            <IconButton
+                              aria-label={stopping ? ui("Đang yêu cầu dừng") : ui("Dừng trả lời")}
+                              prominence="secondary"
+                              disabled={stopping}
+                              onClick={onStop}
+                            >
+                              <Square />
                             </IconButton>
-                          </ChatComposerSend>
-                        </AuiIf>
-                        <AuiIf condition={(state) => state.thread.isRunning}>
-                          <IconButton
-                            aria-label={stopping ? ui("Đang yêu cầu dừng") : ui("Dừng trả lời")}
-                            prominence="secondary"
-                            disabled={stopping}
-                            onClick={onStop}
-                          >
-                            <Square />
-                          </IconButton>
-                        </AuiIf>
+                          </AuiIf>
+                        </div>
                       </div>
-                    </div>
-                  </ChatComposerRoot>
-                </ComposerPrimitive.AttachmentDropzone>
-              </ComposerPrimitive.Unstable_TriggerPopoverRoot>
-            </ThreadPrimitive.ViewportFooter>
-          )}
-          {isEmpty && afterComposer && (
-            <div className="mx-auto w-full max-w-(--thread-max-width) pb-8">{afterComposer}</div>
-          )}
-        </ThreadPrimitive.Viewport>
-        {!readOnly && <ChatSelectionToolbar />}
-      </ThreadPrimitive.Root>
-    </ChatSourcesWorkspace>
+                    </ChatComposerRoot>
+                  </ComposerPrimitive.AttachmentDropzone>
+                </ComposerPrimitive.Unstable_TriggerPopoverRoot>
+              </ThreadPrimitive.ViewportFooter>
+            )}
+            {isEmpty && afterComposer && (
+              <div className="mx-auto w-full max-w-(--thread-max-width) pb-8">{afterComposer}</div>
+            )}
+          </ThreadPrimitive.Viewport>
+          {!readOnly && <ChatSelectionToolbar />}
+        </ThreadPrimitive.Root>
+      </ChatSourcesWorkspace>
+    </ChatAttachmentStaging>
   );
 }
 

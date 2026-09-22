@@ -58,6 +58,7 @@ function DialogContent({
   );
 }
 import { IconButton } from "@/components/ui/icon-button";
+import { ClampedList } from "@/components/ui/clamped-list";
 import { useAttachmentSrc } from "@/hooks/use-attachment-src";
 import { cn } from "@/lib/utils";
 import { DocumentKindIcon } from "@/features/search/document-source-icon";
@@ -255,8 +256,96 @@ const AttachmentRemove: FC = () => {
   );
 };
 
-export const ComposerAttachments: FC = () => (
-  <div className="aui-composer-attachments flex min-w-0 w-full flex-row flex-wrap items-center gap-2 p-1 empty:hidden">
-    <ComposerPrimitive.Attachments>{() => <AttachmentUI />}</ComposerPrimitive.Attachments>
-  </div>
-);
+/**
+ * A file the composer is still preparing on the server, before it exists as an attachment: the library copy a
+ * person asked for. It carries the same tile as a real attachment so the wait is shown where the files are.
+ */
+export type ComposerPendingAttachment = {
+  id: string;
+  name: string;
+  contentType: string;
+  /** The preparation failed; the tile says so and stays until the person takes it off. */
+  failed?: boolean;
+  onRemove?: () => void;
+};
+
+const PendingAttachmentUI: FC<{ item: ComposerPendingAttachment }> = ({ item }) => {
+  const { t } = useTranslation("attachments");
+  return (
+    <div className="aui-attachment-root animate-in fade-in-0 zoom-in-95 relative flex w-64 max-w-full shrink-0 items-center gap-2 rounded-[14px] bg-muted p-2 duration-200 motion-reduce:animate-none">
+      <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-[10px] bg-background/50">
+        <DocumentKindIcon
+          mediaType={item.contentType}
+          filename={item.name}
+          className="size-6 stroke-[1.5]"
+        />
+        <span
+          aria-hidden="true"
+          className="bg-background/60 absolute inset-0 flex items-center justify-center backdrop-blur-[2px]"
+        >
+          {item.failed ? (
+            <AlertCircleIcon className="text-destructive size-4" />
+          ) : (
+            <Loader2Icon className="text-muted-foreground size-4 animate-spin" />
+          )}
+        </span>
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-medium" title={item.name}>
+          {item.name}
+        </span>
+        <span
+          role="status"
+          className={cn(
+            "truncate text-xs text-muted-foreground",
+            item.failed && "text-destructive",
+          )}
+        >
+          {item.failed ? t("failed") : t("preparing")}
+        </span>
+      </span>
+      {item.onRemove && (
+        <IconButton
+          aria-label={t("remove")}
+          title={t("remove")}
+          size="sm"
+          prominence="secondary"
+          className="z-10 size-6 min-h-0 min-w-0 shrink-0 rounded-full border-0 p-0"
+          onClick={item.onRemove}
+        >
+          <XIcon className="size-3 stroke-[2.5]" />
+        </IconButton>
+      )}
+    </div>
+  );
+};
+
+/**
+ * The draft's attachments, kept to two rows: a message may carry twenty files, and twenty tiles would push the
+ * question out of the composer. The rest sit behind the list's "+N" card, where they can still be taken off.
+ */
+export const ComposerAttachments: FC<{ pending?: readonly ComposerPendingAttachment[] }> = ({
+  pending = [],
+}) => {
+  const { t } = useTranslation("attachments");
+  const attachments = useAuiState((state) => state.composer.attachments);
+  const items = [
+    ...attachments.map((attachment, index) => (
+      <ComposerPrimitive.AttachmentByIndex
+        key={attachment.id}
+        index={index}
+        components={{ Attachment: AttachmentUI }}
+      />
+    )),
+    ...pending.map((item) => <PendingAttachmentUI key={`pending:${item.id}`} item={item} />),
+  ];
+  if (items.length === 0) return null;
+  return (
+    <ClampedList
+      className="aui-composer-attachments w-full gap-2 p-1"
+      label={t("list")}
+      maxRows={2}
+      items={items}
+    />
+  );
+};
