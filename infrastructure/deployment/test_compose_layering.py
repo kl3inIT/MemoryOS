@@ -85,5 +85,17 @@ class ComposeLayeringTest(unittest.TestCase):
         self.assertNotIn("redis_inspector_password", PRODUCTION)
 
 
+    def test_the_object_store_and_its_client_come_from_one_registry(self):
+        """A pinned digest says which bytes; it does not say who still serves them.
+
+        Docker Hub stopped serving minio/mc, so a host that had not already cached it could not
+        pull the client at all, while the server it belongs to pulled from quay.io without
+        trouble. The digest is unchanged: quay.io carries the same one.
+        """
+        base = (DEPLOYMENT / "compose.base.yaml").read_text(encoding="utf-8")
+        registries = set(re.findall(r"image: \$\{MEMORYOS_MINIO(?:_MC)?_IMAGE:-([^/]+/)", base))
+        self.assertEqual(registries, {"quay.io/"}, "the client and the server disagree on a source")
+
+
 if __name__ == "__main__":
     unittest.main()
