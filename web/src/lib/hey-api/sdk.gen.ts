@@ -1850,7 +1850,7 @@ export const rerunMeetingMinutes = <ThrowOnError extends boolean = false>(option
 });
 
 /**
- * Download the minutes as a Vietnamese biên bản in Word format
+ * Download the minutes as a Vietnamese biên bản, in Word or as a PDF
  */
 export const exportMeetingMinutes = <ThrowOnError extends boolean = false>(options: Options<ExportMeetingMinutesData, ThrowOnError>): RequestResult<ExportMeetingMinutesResponses, ExportMeetingMinutesErrors, ThrowOnError> => (options.client ?? client).post<ExportMeetingMinutesResponses, ExportMeetingMinutesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {

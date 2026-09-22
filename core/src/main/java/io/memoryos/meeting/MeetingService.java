@@ -174,7 +174,7 @@ public class MeetingService {
         String cleanOwner = optional(owner, MAX_NAME, "An owner");
         String cleanDue = optional(due, MAX_DUE, "A deadline");
         // A decision belongs to the meeting, not to a person, so it carries neither an owner nor a deadline.
-        if (item.kind() == Meeting.ItemKind.DECISION && (cleanOwner != null || cleanDue != null))
+        if (item.kind() != Meeting.ItemKind.ACTION && (cleanOwner != null || cleanDue != null))
             throw MeetingException.invalid("A decision has no owner and no deadline.");
         record Change(Meeting.MinutesField field, String before, String after) {}
         var changes = new ArrayList<Change>(3);
@@ -229,11 +229,20 @@ public class MeetingService {
     }
 
     public byte[] exportMinutes(ActorId actor, UUID id, MeetingMinutesDocument.Heading heading) {
+        return exportMinutes(actor, id, heading, TranscriptFormat.DOCX);
+    }
+
+    /** The biên bản as Word to edit or as PDF to read and print; both say exactly the same thing. */
+    public byte[] exportMinutes(ActorId actor, UUID id, MeetingMinutesDocument.Heading heading,
+            TranscriptFormat format) {
         UUID tenant = tenant(actor);
         var meeting = readable(tenant, actor, id);
         if (meeting.minutes().status() != Meeting.MinutesStatus.READY)
             throw MeetingException.invalid("The minutes are not written yet.");
-        return MeetingMinutesDocument.render(meeting, validate(heading));
+        var clean = validate(heading);
+        return format == TranscriptFormat.PDF
+                ? MeetingMinutesPdf.render(meeting, clean)
+                : MeetingMinutesDocument.render(meeting, clean);
     }
 
     /** The heading is printed, not stored, so it only has to fit on the page. */
@@ -253,7 +262,20 @@ public class MeetingService {
                 field(heading.closed(), MAX_NAME, "The closing time"), field(heading.chair(), MAX_NAME, "The chair"),
                 field(heading.chairRole(), MAX_NAME, "The chair's role"),
                 field(heading.secretary(), MAX_NAME, "The secretary"),
-                field(heading.secretaryRole(), MAX_NAME, "The secretary's role"), List.copyOf(attendees));
+                field(heading.secretaryRole(), MAX_NAME, "The secretary's role"), List.copyOf(attendees),
+                typeface(heading.font()));
+    }
+
+    /**
+     * The typefaces a biên bản may be set in. Word only names the face and the reader's machine supplies it, so this
+     * is a list of faces every office machine has rather than a list of files; anything else falls back to the
+     * decree's own.
+     */
+    static final List<String> TYPEFACES = List.of("Times New Roman", "Arial", "Calibri", "Tahoma");
+
+    private static String typeface(@Nullable String font) {
+        String clean = font == null ? "" : font.strip();
+        return TYPEFACES.contains(clean) ? clean : "";
     }
 
     private static String field(@Nullable String value, int limit, String what) {
@@ -445,14 +467,15 @@ public class MeetingService {
         var minutes = new Meeting.Minutes(row.minutesStatus(), row.minutesFailure(), row.minutesSummary(), row.minutesKind(),
                 row.minutesGeneratedAt(),
                 items.stream().filter(item -> item.kind() == Meeting.ItemKind.DECISION).toList(),
-                items.stream().filter(item -> item.kind() == Meeting.ItemKind.ACTION).toList(), row.minutesEdited());
+                items.stream().filter(item -> item.kind() == Meeting.ItemKind.ACTION).toList(), row.minutesEdited(),
+                items.stream().filter(item -> item.kind() == Meeting.ItemKind.TOPIC).toList());
         return new Meeting.Detail(row.id(), row.title(), row.kind(), row.language(), row.participants(), row.terms(),
                 row.owned() ? row.notes() : "", row.status(), row.provider(), row.diarized(), row.createdAt(),
                 row.endedAt(), row.revision(), meetings.speakers(tenant, id), meetings.utterances(tenant, id), minutes,
                 new Meeting.Audio(row.audioStatus(), row.audioFailure(), row.audioFilename(), row.audioSizeBytes(),
                         row.audioProvider()),
                 row.owned(), row.owned() ? meetings.readers(tenant, id) : List.of(),
-                meetings.starred(tenant, id, actor), meetings.bookmarks(tenant, id, actor));
+                meetings.starred(tenant, id, actor), meetings.bookmarks(tenant, id, actor), row.correcting());
     }
 
     /** The Tenant the actor is writing in; correction runs need it to bill the model call. */

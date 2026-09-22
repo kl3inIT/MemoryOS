@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
@@ -19,6 +20,12 @@ import {
   type MeetingHeadingRequest,
 } from "./meetings-api";
 import { slug } from "./meeting-file-name";
+
+/**
+ * Nghị định 30 asks for Times New Roman and a company follows it by convention, so it leads. Word only names the face;
+ * the reader's own machine supplies it, which is why these are faces every office machine has.
+ */
+const TYPEFACES = ["Times New Roman", "Arial", "Calibri", "Tahoma"];
 
 /** Saves the returned document through a temporary object URL, as the file preview does. */
 function save(document: Blob, name: string) {
@@ -59,6 +66,7 @@ export function ExportMinutesDialog({
     secretary: "",
     secretaryRole: "",
     attendees: meeting.participants,
+    font: TYPEFACES[0],
   }));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
@@ -72,13 +80,16 @@ export function ExportMinutesDialog({
     };
   }
 
-  async function download(event: FormEvent) {
+  async function download(event: FormEvent, format: "DOCX" | "PDF" = "DOCX") {
     event.preventDefault();
     if (pending) return;
     setPending(true);
     setError(undefined);
     try {
-      save(await exportMinutes(meeting.id, heading), `bien-ban-${slug(meeting.title)}.docx`);
+      save(
+        await exportMinutes(meeting.id, heading, format),
+        `bien-ban-${slug(meeting.title)}.${format === "PDF" ? "pdf" : "docx"}`,
+      );
       onOpenChange(false);
     } catch (failed) {
       setError(problemMessage(presentProblem(failed, "mutation").message));
@@ -146,6 +157,16 @@ export function ExportMinutesDialog({
               </div>
             </div>
           </fieldset>
+          <div className="grid max-w-64 gap-1.5">
+            <Label htmlFor={`${id}-font`}>{ui("Phông chữ")}</Label>
+            <Select {...field("font")}>
+              {TYPEFACES.map((font) => (
+                <option key={font} value={font}>
+                  {font}
+                </option>
+              ))}
+            </Select>
+          </div>
           {error && (
             <p role="alert" className="text-sm text-status-danger-content">
               {error}
@@ -155,8 +176,16 @@ export function ExportMinutesDialog({
             <Button type="button" prominence="tertiary" onClick={() => onOpenChange(false)}>
               {ui("Huỷ")}
             </Button>
+            <Button
+              type="button"
+              prominence="secondary"
+              disabled={pending}
+              onClick={(event) => void download(event, "PDF")}
+            >
+              {ui("Tải PDF")}
+            </Button>
             <Button type="submit" pending={pending}>
-              {ui("Tải về")}
+              {ui("Tải Word")}
             </Button>
           </DialogFooter>
         </form>

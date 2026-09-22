@@ -31,6 +31,11 @@
 | Searching the transcript counts its hits and filtering to starred lines hides the rest | `tests/e2e/meetings.spec.ts` |
 | The Word file and the PDF carry every line with its time and speaker, a named speaker keeps their name, an unnamed one is numbered in the meeting's language, the clock grows an hour only past an hour, and Vietnamese marks survive into the PDF page | `MeetingTranscriptExportTest`: the bytes are read back with `XWPFDocument` and `PDFTextStripper` |
 | The owner corrects the summary and one action's words, owner and deadline; each change is an event carrying what the model wrote; a decision may not be given an owner; a reader of a shared meeting is refused; and a rerun answers 409 until it is told to discard the corrections, after which the minutes are the model's again | `ChatSessionApiIntegrationTest.theOwnerCorrectsTheMinutesAndARerunAsksBeforeThrowingThatWorkAway` |
+| The chosen typeface is named on every run of the biên bản, tables included, and a face nobody offered falls back to Times New Roman | `MeetingMinutesDocumentTest.theChosenFaceIsNamedOnEveryRunAndAnUnknownOneIsNot` |
+| Topics come back in the order the meeting reached them, and one on a missing line or on a line already taken is dropped | `ChatSessionApiIntegrationTest.endingAMeetingWritesItsMinutesFromTheTranscriptWithTheLinesTheyRestOn` |
+| Choosing a topic in the timeline scrolls its line into view | `tests/e2e/meetings.spec.ts` |
+| The PDF biên bản carries every section and every Vietnamese letter, embeds the open face that stands in for the one picked (Tinos, Arimo, Carlito, and Tinos for anything unknown), and never leaves the signatures alone on a page at any length from ten to forty actions | `MeetingMinutesPdfTest` |
+| Exporting with `format=PDF` answers `application/pdf` under a `.pdf` name | `ChatSessionApiIntegrationTest.endingAMeetingWritesItsMinutesFromTheTranscriptWithTheLinesTheyRestOn` |
 | Meeting routes are documented and CSRF-protected in the committed OpenAPI | `OpenApiContractTest` |
 | Every WebSocket path the browser opens lands in an nginx location that forwards the upgrade, resolved the way nginx resolves it (exact `=` first, then regex) | `web/scripts/nginx-websocket-routes.test.mjs`: parses the shipped `nginx.conf` |
 

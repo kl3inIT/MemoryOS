@@ -197,6 +197,10 @@ export type MeetingDetail = {
      * Moments the caller marked while the meeting was running
      */
     bookmarks: Array<MeetingBookmark>;
+    /**
+     * Whether a correction pass is running on this meeting right now
+     */
+    correcting: boolean;
 };
 
 /**
@@ -217,6 +221,10 @@ export type MeetingMinutes = {
      * Whether the words standing now are the owner's rather than the model's
      */
     edited: boolean;
+    /**
+     * The subjects the meeting moved through, each at the line it began
+     */
+    topics: Array<MeetingMinutesItem>;
 };
 
 /**
@@ -1487,6 +1495,10 @@ export type MeetingHeadingRequest = {
     secretary?: string;
     secretaryRole?: string;
     attendees?: Array<string>;
+    /**
+     * Times New Roman, Arial, Calibri or Tahoma; anything else is set in Times New Roman, which the decree asks for
+     */
+    font?: string;
 };
 
 /**
@@ -8333,7 +8345,9 @@ export type ExportMeetingMinutesData = {
     path: {
         meetingId: string;
     };
-    query?: never;
+    query?: {
+        format?: 'DOCX' | 'PDF';
+    };
     url: '/api/meetings/{meetingId}/minutes/export';
 };
 

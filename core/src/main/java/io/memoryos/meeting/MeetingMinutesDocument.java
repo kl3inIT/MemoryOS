@@ -1,5 +1,7 @@
 package io.memoryos.meeting;
 
+import io.memoryos.meeting.MeetingMinutesLayout.Align;
+import io.memoryos.meeting.MeetingMinutesLayout.Cell;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -10,7 +12,6 @@ import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
-import org.jspecify.annotations.Nullable;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTFonts;
 
 /**
@@ -19,15 +20,12 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTFonts;
  * state bodies; a company follows it by convention, so every heading field is the owner's to fill and an empty one is
  * left as an ellipsis for them to write on the printed page.
  *
- * <p>No model runs here. The same meeting and the same heading always produce the same document.
+ * <p>What the document says lives in {@link MeetingMinutesLayout}, shared with {@link MeetingMinutesPdf}; this class
+ * only knows how Word draws it. No model runs here, and the same meeting and heading always produce the same document.
  */
 public final class MeetingMinutesDocument {
     /** Nghị định 30 asks for Times New Roman at 13 to 14 points; body text is 13, the title 14. */
-    private static final String FONT = "Times New Roman";
-    private static final int BODY = 26;
-    private static final int TITLE = 28;
-    private static final int SMALL = 22;
-    private static final String BLANK = "…";
+    static final String FONT = "Times New Roman";
     /** Twips: the first-line indent and the two levels of list indent the decree's sample uses. */
     private static final int TAB = 720;
     private static final int LEVEL_1 = 360;
@@ -40,21 +38,29 @@ public final class MeetingMinutesDocument {
      */
     public record Heading(String organization, String parentOrganization, String number, String about, String place,
                           String opened, String closed, String chair, String chairRole, String secretary,
-                          String secretaryRole, List<String> attendees) {
+                          String secretaryRole, List<String> attendees, String font) {
         public Heading {
             attendees = List.copyOf(attendees);
+        }
+
+        public Heading(String organization, String parentOrganization, String number, String about, String place,
+                String opened, String closed, String chair, String chairRole, String secretary, String secretaryRole,
+                List<String> attendees) {
+            this(organization, parentOrganization, number, about, place, opened, closed, chair, chairRole, secretary,
+                    secretaryRole, attendees, "");
+        }
+
+        /** What the document is set in. The decree asks for Times New Roman; a company is free to ask for its own. */
+        public String typeface() {
+            return font.isBlank() ? FONT : font;
         }
     }
 
     public static byte[] render(Meeting.Detail meeting, Heading heading) {
         try (var document = new XWPFDocument(); var bytes = new ByteArrayOutputStream()) {
-            defaultFont(document);
-            letterhead(document, heading);
-            title(document, heading);
-            opening(document, heading);
-            attendees(document, heading);
-            content(document, meeting, heading);
-            signatures(document, heading);
+            defaultFont(document, heading.typeface());
+            MeetingMinutesLayout.write(meeting, heading, new WordPage(document));
+            typeface(document, heading.typeface());
             document.write(bytes);
             return bytes.toByteArray();
         } catch (IOException failure) {
@@ -62,174 +68,95 @@ public final class MeetingMinutesDocument {
         }
     }
 
-    /** The two-column letterhead: the body on the left, the national heading on the right. */
-    private static void letterhead(XWPFDocument document, Heading heading) {
-        var table = borderless(document, 2);
-        var left = table.getRow(0).getCell(0);
-        cellLine(left, or(heading.parentOrganization(), ""), true, BODY, ParagraphAlignment.CENTER);
-        cellLine(left, or(heading.organization(), BLANK), true, BODY, ParagraphAlignment.CENTER);
-        cellLine(left, "Số: " + or(heading.number(), BLANK) + "/BB", false, BODY, ParagraphAlignment.CENTER);
-        var right = table.getRow(0).getCell(1);
-        cellLine(right, "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", true, BODY, ParagraphAlignment.CENTER);
-        cellLine(right, "Độc lập - Tự do - Hạnh phúc", true, BODY, ParagraphAlignment.CENTER);
-    }
-
-    private static void title(XWPFDocument document, Heading heading) {
-        blank(document);
-        line(document, "BIÊN BẢN", true, TITLE, ParagraphAlignment.CENTER);
-        line(document, "Về việc " + or(heading.about(), BLANK), true, BODY, ParagraphAlignment.CENTER);
-        blank(document);
-    }
-
-    private static void opening(XWPFDocument document, Heading heading) {
-        indented(document, "Hôm nay, vào lúc " + or(heading.opened(), BLANK));
-        indented(document, "Tại " + or(heading.place(), BLANK));
-        indented(document, "Diễn ra cuộc họp với nội dung " + or(heading.about(), BLANK));
-        blank(document);
-    }
-
-    private static void attendees(XWPFDocument document, Heading heading) {
-        line(document, "I. Thành phần tham dự:", true, BODY, ParagraphAlignment.LEFT);
-        listed(document, "1. Chủ trì: " + person(heading.chair(), heading.chairRole()));
-        listed(document, "2. Thư ký: " + person(heading.secretary(), heading.secretaryRole()));
-        listed(document, "3. Thành phần khác:");
-        if (heading.attendees().isEmpty()) bullet(document, BLANK);
-        else heading.attendees().forEach(attendee -> bullet(document, attendee));
-        blank(document);
-    }
-
-    private static void content(XWPFDocument document, Meeting.Detail meeting, Heading heading) {
-        var minutes = meeting.minutes();
-        line(document, "II. Nội dung cuộc họp:", true, BODY, ParagraphAlignment.LEFT);
-        paragraphs(document, minutes.summary());
-        blank(document);
-
-        line(document, "III. Kết luận cuộc họp:", true, BODY, ParagraphAlignment.LEFT);
-        if (minutes.decisions().isEmpty()) listed(document, BLANK);
-        else numbered(document, minutes.decisions().stream().map(Meeting.MinutesItem::text).toList());
-        blank(document);
-
-        line(document, "IV. Nhiệm vụ được giao:", true, BODY, ParagraphAlignment.LEFT);
-        if (minutes.actions().isEmpty()) listed(document, BLANK);
-        else numbered(document, minutes.actions().stream().map(MeetingMinutesDocument::assignment).toList());
-        blank(document);
-
-        indented(document, "Cuộc họp kết thúc vào lúc " + or(heading.closed(), BLANK)
-                + ", nội dung cuộc họp đã được các thành viên dự họp thông qua và cùng ký vào biên bản./.");
-        blank(document);
-    }
-
-    /** "Kiểm tra bảng cân đối do Anh Minh thực hiện, thời hạn thứ Tư." */
-    private static String assignment(Meeting.MinutesItem action) {
-        var sentence = new StringBuilder(action.text());
-        if (action.owner() != null) sentence.append(" do ").append(action.owner()).append(" thực hiện");
-        if (action.due() != null) sentence.append(", thời hạn ").append(action.due());
-        if (sentence.charAt(sentence.length() - 1) != '.') sentence.append('.');
-        return sentence.toString();
-    }
-
-    private static void signatures(XWPFDocument document, Heading heading) {
-        var table = borderless(document, 2);
-        var secretary = table.getRow(0).getCell(0);
-        cellLine(secretary, "THƯ KÝ", true, BODY, ParagraphAlignment.CENTER);
-        cellLine(secretary, "(Ký, ghi rõ họ tên)", false, SMALL, ParagraphAlignment.CENTER);
-        cellLine(secretary, "", false, BODY, ParagraphAlignment.CENTER);
-        cellLine(secretary, "", false, BODY, ParagraphAlignment.CENTER);
-        cellLine(secretary, or(heading.secretary(), BLANK), true, BODY, ParagraphAlignment.CENTER);
-        var chair = table.getRow(0).getCell(1);
-        cellLine(chair, "CHỦ TỌA", true, BODY, ParagraphAlignment.CENTER);
-        cellLine(chair, "(Ký, ghi rõ họ tên)", false, SMALL, ParagraphAlignment.CENTER);
-        cellLine(chair, "", false, BODY, ParagraphAlignment.CENTER);
-        cellLine(chair, "", false, BODY, ParagraphAlignment.CENTER);
-        cellLine(chair, or(heading.chair(), BLANK), true, BODY, ParagraphAlignment.CENTER);
-    }
-
-    private static String person(@Nullable String name, @Nullable String role) {
-        String who = "Ông/Bà " + or(name, BLANK);
-        return isBlank(role) ? who : who + " - Chức vụ: " + role.strip();
-    }
-
-    private static void paragraphs(XWPFDocument document, String text) {
-        if (isBlank(text)) {
-            listed(document, BLANK);
-            return;
+    /** The layout's lines as Word paragraphs, its columns as a borderless two-cell table. */
+    private record WordPage(XWPFDocument document) implements MeetingMinutesLayout.Page {
+        @Override
+        public void line(String text, boolean bold, int size, Align align) {
+            paragraph(text, bold, size, align);
         }
-        text.lines().map(String::strip).filter(line -> !line.isEmpty()).forEach(line -> listed(document, line));
+
+        @Override
+        public void indented(String text) {
+            paragraph(text, false, MeetingMinutesLayout.BODY, Align.JUSTIFY).setIndentationFirstLine(TAB);
+        }
+
+        @Override
+        public void listed(String text) {
+            paragraph(text, false, MeetingMinutesLayout.BODY, Align.JUSTIFY).setIndentationLeft(LEVEL_1);
+        }
+
+        @Override
+        public void bullet(String text) {
+            paragraph("- " + text, false, MeetingMinutesLayout.BODY, Align.JUSTIFY).setIndentationLeft(TAB);
+        }
+
+        @Override
+        public void blank() {
+            document.createParagraph();
+        }
+
+        @Override
+        public void columns(List<Cell> left, List<Cell> right, boolean keepWithPrevious) {
+            var table = document.createTable(1, 2);
+            table.setWidth("100%");
+            var properties = table.getCTTbl().getTblPr();
+            if (properties != null && properties.isSetTblBorders()) properties.unsetTblBorders();
+            fill(table.getRow(0).getCell(0), left);
+            fill(table.getRow(0).getCell(1), right);
+        }
+
+        private XWPFParagraph paragraph(String text, boolean bold, int size, Align align) {
+            var paragraph = document.createParagraph();
+            paragraph.setAlignment(alignment(align));
+            run(paragraph, text, bold, size);
+            return paragraph;
+        }
+
+        private static void fill(XWPFTableCell cell, List<Cell> lines) {
+            for (var line : lines) {
+                // A new cell already carries one empty paragraph; the first line reuses it.
+                var paragraph = cell.getParagraphs().size() == 1 && cell.getParagraphs().getFirst().getRuns().isEmpty()
+                        ? cell.getParagraphs().getFirst() : cell.addParagraph();
+                paragraph.setAlignment(ParagraphAlignment.CENTER);
+                run(paragraph, line.text(), line.bold(), line.size());
+            }
+        }
     }
 
-    private static void numbered(XWPFDocument document, List<String> items) {
-        int position = 1;
-        for (var item : items) listed(document, position++ + ". " + item);
+    private static ParagraphAlignment alignment(Align align) {
+        return switch (align) {
+            case LEFT -> ParagraphAlignment.LEFT;
+            case CENTER -> ParagraphAlignment.CENTER;
+            case JUSTIFY -> ParagraphAlignment.BOTH;
+        };
     }
 
-    // Paragraph and run plumbing. Every run goes through run(), so the decree's font and sizes live in one place.
-
-    private static void defaultFont(XWPFDocument document) {
+    private static void defaultFont(XWPFDocument document, String face) {
         var fonts = CTFonts.Factory.newInstance();
-        fonts.setAscii(FONT);
-        fonts.setHAnsi(FONT);
+        fonts.setAscii(face);
+        fonts.setHAnsi(face);
         document.createStyles().setDefaultFonts(fonts);
     }
 
-    private static XWPFParagraph line(XWPFDocument document, String text, boolean bold, int size,
-                                      ParagraphAlignment alignment) {
-        var paragraph = document.createParagraph();
-        paragraph.setAlignment(alignment);
-        run(paragraph, text, bold, size);
-        return paragraph;
-    }
-
-    /** A body paragraph with the decree's first-line indent. */
-    private static void indented(XWPFDocument document, String text) {
-        var paragraph = line(document, text, false, BODY, ParagraphAlignment.BOTH);
-        paragraph.setIndentationFirstLine(TAB);
-    }
-
-    /** One item under a numbered section. */
-    private static void listed(XWPFDocument document, String text) {
-        var paragraph = line(document, text, false, BODY, ParagraphAlignment.BOTH);
-        paragraph.setIndentationLeft(LEVEL_1);
-    }
-
-    private static void bullet(XWPFDocument document, String text) {
-        var paragraph = line(document, "- " + text, false, BODY, ParagraphAlignment.BOTH);
-        paragraph.setIndentationLeft(TAB);
-    }
-
-    private static void blank(XWPFDocument document) {
-        document.createParagraph();
-    }
-
-    private static void cellLine(XWPFTableCell cell, String text, boolean bold, int size, ParagraphAlignment alignment) {
-        // A new cell already carries one empty paragraph; the first line reuses it.
-        var paragraph = cell.getParagraphs().size() == 1 && cell.getParagraphs().getFirst().getRuns().isEmpty()
-                ? cell.getParagraphs().getFirst() : cell.addParagraph();
-        paragraph.setAlignment(alignment);
-        run(paragraph, text, bold, size);
+    /**
+     * Names the chosen face on every run, including the ones inside the letterhead and signature tables. The document
+     * default already carries it, but not every reader honours that — LibreOffice falls back to its own — and a
+     * biên bản that changes typeface when somebody else opens it is not the one that was signed.
+     */
+    private static void typeface(XWPFDocument document, String face) {
+        for (var paragraph : document.getParagraphs()) paragraph.getRuns().forEach(run -> run.setFontFamily(face));
+        for (XWPFTable table : document.getTables())
+            for (var row : table.getRows())
+                for (var cell : row.getTableCells())
+                    for (var paragraph : cell.getParagraphs())
+                        paragraph.getRuns().forEach(run -> run.setFontFamily(face));
     }
 
     private static XWPFRun run(XWPFParagraph paragraph, String text, boolean bold, int size) {
         var run = paragraph.createRun();
-        run.setFontFamily(FONT);
         run.setFontSize(size / 2.0);
         run.setBold(bold);
         run.setText(text);
         return run;
-    }
-
-    private static XWPFTable borderless(XWPFDocument document, int columns) {
-        var table = document.createTable(1, columns);
-        table.setWidth("100%");
-        var properties = table.getCTTbl().getTblPr();
-        if (properties != null && properties.isSetTblBorders()) properties.unsetTblBorders();
-        return table;
-    }
-
-    private static String or(@Nullable String value, String fallback) {
-        return isBlank(value) ? fallback : value.strip();
-    }
-
-    private static boolean isBlank(@Nullable String value) {
-        return value == null || value.isBlank();
     }
 }

@@ -47,6 +47,10 @@ Searching a transcript happens in the browser over what is already loaded; no ro
 
 Two marks belong to whoever left them, and nobody else sees them — a meeting five people read collects five sets. A **star** says a line matters and is left afterwards, while reading: `PUT` and `DELETE /api/meetings/{id}/utterances/{utteranceId}/star`, answered with the meeting as that reader sees it. A **bookmark** says to come back to a moment and is left during the meeting, when there is no line yet to star: `POST /api/meetings/{id}/bookmarks` takes milliseconds from the start of the recording and a label, numbering it `Đánh dấu N` when none is given, and `DELETE /api/meetings/{id}/bookmarks/{bookmarkId}` takes back one of the caller's own. At most 200 bookmarks per person per meeting, and a time outside the recording is refused. Anyone who reads the meeting may leave both; the meeting carries `starred` and `bookmarks` for the caller alone.
 
+## The timeline
+
+The same model call that writes the minutes also names the subjects the meeting moved through, each at the line it began on, stored as `TOPIC` items beside the decisions and the work and answered as `minutes.topics`. A topic on a line that does not exist, or on a line another topic already took, is dropped; the rest are kept in the order the meeting reached them, at most thirty. The transcript tab shows them as a table of contents, and choosing one scrolls to its line — every transcript line carries its utterance id as its element id, which is also what the quote beside each decision and action jumps to.
+
 ## Correcting the minutes
 
 The minutes are the owner's to correct: a model that misheard one conclusion costs one edit, not a rerun of the whole meeting. `PUT /api/meetings/{id}/minutes/summary` rewrites the summary; `PUT /api/meetings/{id}/minutes/items/{itemId}` rewrites one decision or one piece of work, its owner and its deadline. A decision belongs to the meeting rather than to a person, so giving one an owner or a deadline is refused. Only the owner reaches either — a reader of a shared meeting gets 404.
@@ -54,6 +58,12 @@ The minutes are the owner's to correct: a model that misheard one conclusion cos
 What the reader sees is the row, and the history is the events beside it: every change is a row in `meeting_minutes_event` carrying the field, who changed it, and what it said before, so the model's own words stay readable after they are replaced. `minutes.edited` and each item's `edited` say whether the words standing now are the owner's.
 
 Rerunning writes the whole minutes again, which throws that work away, so `POST /api/meetings/{id}/minutes` answers 409 once anything was corrected unless it is called with `discardEdits=true`. A rerun starts from the model's own words again and clears the flag.
+
+## Choosing the typeface
+
+The export dialog offers Times New Roman, Arial, Calibri and Tahoma, with Times New Roman first because Nghị định 30 asks for it and a company follows the decree by convention. Word only names the face and the reader's machine supplies it, so these are faces every office machine has; a name outside the list is set in Times New Roman. The face is named on every run, the letterhead and signature tables included, because not every reader honours the document default and a biên bản that changes typeface when somebody else opens it is not the one that was signed. Nothing is remembered between exports: the heading is typed for each biên bản.
+
+`POST /api/meetings/{id}/minutes/export?format=PDF` answers the same biên bản as a PDF. What a biên bản says lives in one layout both renderers read, so the Word file and the PDF can never say different things. A PDF has to carry its face, and the faces offered are licensed, so each is set in the open face drawn to the same metrics: Tinos for Times New Roman, Arimo for Arial and Tahoma, Carlito for Calibri, all under the SIL Open Font License and bundled under `core/src/main/resources/fonts` with their licences. Margins follow the decree — 30 mm left for binding, 15 mm right, 20 mm top and bottom — body text is justified, and the signature block never opens a page of its own: the closing paragraph moves over with it.
 
 ## Taking the transcript away
 
@@ -63,7 +73,7 @@ Both files are built from one list of lines, so they say exactly the same thing.
 
 ## Correcting what was misheard
 
-The owner asks a model what was probably said at each marked stretch: `POST /api/meetings/{id}/corrections` answers the run and its proposals, and changes nothing. Only the owner reaches any of this — a reader of a shared meeting gets 404 — and the call is billed to the owner's Tenant as `MEETING_CORRECTION`, a model flow an administrator selects like any other. One pass at a time per meeting; a second press while one is running answers 409.
+The owner asks a model what was probably said at each marked stretch: `POST /api/meetings/{id}/corrections` answers the run and its proposals, and changes nothing. Only the owner reaches any of this — a reader of a shared meeting gets 404 — and the call is billed to the owner's Tenant as `MEETING_CORRECTION`, a model flow an administrator selects like any other. One pass at a time per meeting; a second press while one is running answers 409. A pass keeps running on the server when the page that started it is closed, so the meeting says so itself — `correcting` is true while a pass holds it — and the page shows it running and keeps the button shut until it is done, whichever tab asks. The button names what it does: *Hiệu chỉnh N đoạn khó nghe*, counting the marked stretches on lines nobody has rewritten, and it is not offered when there are none.
 
 Neighbouring marks that read as one phrase are asked about together: joined when at most 5 characters and 8 words apart with no `.`, `!` or `?` between them. Each stretch is sent with 100 characters of context either side, the two lines before and after with the one being judged marked, the speaker, the meeting's terms, and the same words where they appear clearly elsewhere in the transcript. A line the owner has rewritten is never sent again.
 

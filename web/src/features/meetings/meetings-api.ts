@@ -280,9 +280,11 @@ export async function markMinutesItem(meetingId: string, itemId: string, done: b
 export async function exportMinutes(
   meetingId: string,
   heading: MeetingHeadingRequest,
+  format: "DOCX" | "PDF" = "DOCX",
 ): Promise<Blob> {
   const { data } = await exportMeetingMinutes({
     path: { meetingId },
+    query: { format },
     body: heading,
     headers: sameOriginMutationHeaders,
     throwOnError: true,

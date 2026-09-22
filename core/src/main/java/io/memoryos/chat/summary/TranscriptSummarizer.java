@@ -29,6 +29,8 @@ public class TranscriptSummarizer {
     static final int MAX_OUTPUT_TOKENS = 4096;
     /** Enough for about two hours of speech; beyond that the middle is dropped, and the summary says so. */
     static final int MAX_INPUT_CHARS = 120_000;
+    /** A table of contents longer than this is a transcript again. */
+    static final int MAX_TOPICS = 30;
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(TranscriptSummarizer.class);
 
     private final ChatModelResolver models;
@@ -75,6 +77,9 @@ public class TranscriptSummarizer {
                 weekly briefing, a project review or an interview.
                 - decisions: each choice the meeting actually settled on.
                 - actions: each piece of work someone took on or was given.
+                - topics: the subjects the meeting moved through, in the order it reached them. A title of at most \
+                8 words in the output language, and the line where that subject began. Only real changes of \
+                subject — a meeting of twenty minutes has a handful, not one per line.
 
                 Rules:
                 - Never invent a decision, an action, an owner or a date. If the transcript does not say it, leave it out.
@@ -130,8 +135,18 @@ public class TranscriptSummarizer {
                 .map(action -> new TranscriptSummary.Action(action.text().strip(), blankToNull(action.owner()),
                         blankToNull(action.due()), blankToNull(action.quote()), within(action.line(), lines)))
                 .toList();
+        // A topic that cannot be traced to a line cannot be jumped to, and two on the same line are one.
+        var seen = new java.util.HashSet<Integer>();
+        var topics = (summary.topics() == null ? List.<TranscriptSummary.Topic>of() : summary.topics()).stream()
+                .filter(topic -> topic.title() != null && !topic.title().isBlank())
+                .filter(topic -> within(topic.line(), lines) > 0 && seen.add(topic.line()))
+                .sorted(java.util.Comparator.comparingInt(TranscriptSummary.Topic::line))
+                .limit(MAX_TOPICS)
+                .map(topic -> new TranscriptSummary.Topic(topic.title().strip(), topic.line()))
+                .toList();
         String text = summary.summary() == null ? "" : summary.summary().strip();
-        return new TranscriptSummary(text, summary.kind() == null ? "" : summary.kind().strip(), decisions, actions);
+        return new TranscriptSummary(text, summary.kind() == null ? "" : summary.kind().strip(), decisions, actions,
+                topics);
     }
 
     private static int within(int line, int lines) {

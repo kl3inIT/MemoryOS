@@ -6562,7 +6562,7 @@ paths:
     post:
       tags:
       - Meetings
-      summary: Download the minutes as a Vietnamese biên bản in Word format
+      summary: "Download the minutes as a Vietnamese biên bản, in Word or as a PDF"
       operationId: exportMeetingMinutes
       parameters:
       - name: X-MemoryOS-CSRF
@@ -6579,6 +6579,15 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: format
+        in: query
+        required: false
+        schema:
+          type: string
+          default: DOCX
+          enum:
+          - DOCX
+          - PDF
       requestBody:
         content:
           application/json:
@@ -6590,6 +6599,10 @@ paths:
           description: The biên bản
           content:
             application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
               schema:
                 type: string
                 format: binary
@@ -18320,9 +18333,14 @@ components:
           description: Moments the caller marked while the meeting was running
           items:
             $ref: "#/components/schemas/MeetingBookmark"
+        correcting:
+          type: boolean
+          description: Whether a correction pass is running on this meeting right
+            now
       required:
       - audio
       - bookmarks
+      - correcting
       - createdAt
       - diarized
       - endedAt
@@ -18380,6 +18398,12 @@ components:
           type: boolean
           description: Whether the words standing now are the owner's rather than
             the model's
+        topics:
+          type: array
+          description: "The subjects the meeting moved through, each at the line it\
+            \ began"
+          items:
+            $ref: "#/components/schemas/MeetingMinutesItem"
       required:
       - actions
       - decisions
@@ -18389,6 +18413,7 @@ components:
       - kind
       - status
       - summary
+      - topics
     MeetingMinutesItem:
       type: object
       description: A decision the meeting reached or work it handed out
@@ -21583,6 +21608,10 @@ components:
           type: array
           items:
             type: string
+        font:
+          type: string
+          description: "Times New Roman, Arial, Calibri or Tahoma; anything else is\
+            \ set in Times New Roman, which the decree asks for"
     MeetingLibraryFile:
       type: object
       description: The minutes as a file in the caller's library

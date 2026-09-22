@@ -28,7 +28,8 @@ public final class Meeting {
     /** Where a meeting's generated minutes are: never asked for, queued, running, written or given up on. */
     public enum MinutesStatus { NONE, PENDING, RUNNING, READY, FAILED }
 
-    public enum ItemKind { DECISION, ACTION }
+    /** A decision the meeting reached, work it handed out, or a subject it moved on to. */
+    public enum ItemKind { DECISION, ACTION, TOPIC }
 
     /** A decision the meeting reached or work it handed out, with the line it rests on. */
     public record MinutesItem(UUID id, ItemKind kind, String text, @Nullable String owner, @Nullable String due,
@@ -43,10 +44,10 @@ public final class Meeting {
     /** What a run of the minutes job produced, as the owner reads it. */
     public record Minutes(MinutesStatus status, @Nullable String failure, String summary, String kind,
                           @Nullable Instant generatedAt, List<MinutesItem> decisions, List<MinutesItem> actions,
-                          boolean edited) {
+                          boolean edited, List<MinutesItem> topics) {
         public Minutes(MinutesStatus status, @Nullable String failure, String summary, String kind,
                 @Nullable Instant generatedAt, List<MinutesItem> decisions, List<MinutesItem> actions) {
-            this(status, failure, summary, kind, generatedAt, decisions, actions, false);
+            this(status, failure, summary, kind, generatedAt, decisions, actions, false, List.of());
         }
     }
 
@@ -65,7 +66,17 @@ public final class Meeting {
                          List<String> terms, String notes, Status status, @Nullable String provider, boolean diarized,
                          Instant createdAt, @Nullable Instant endedAt, long revision, List<Speaker> speakers,
                          List<Utterance> utterances, Minutes minutes, Audio audio, boolean owned,
-                         List<Reader> readers, List<UUID> starred, List<Bookmark> bookmarks) {
+                         List<Reader> readers, List<UUID> starred, List<Bookmark> bookmarks,
+                         boolean correcting) {
+
+        public Detail(UUID id, String title, Kind kind, @Nullable String language, List<String> participants,
+                List<String> terms, String notes, Status status, @Nullable String provider, boolean diarized,
+                Instant createdAt, @Nullable Instant endedAt, long revision, List<Speaker> speakers,
+                List<Utterance> utterances, Minutes minutes, Audio audio, boolean owned, List<Reader> readers,
+                List<UUID> starred, List<Bookmark> bookmarks) {
+            this(id, title, kind, language, participants, terms, notes, status, provider, diarized, createdAt,
+                    endedAt, revision, speakers, utterances, minutes, audio, owned, readers, starred, bookmarks, false);
+        }
 
         /** A meeting read for a document rather than for a person carries nobody's marks. */
         public Detail(UUID id, String title, Kind kind, @Nullable String language, List<String> participants,
@@ -73,7 +84,8 @@ public final class Meeting {
                 Instant createdAt, @Nullable Instant endedAt, long revision, List<Speaker> speakers,
                 List<Utterance> utterances, Minutes minutes, Audio audio, boolean owned, List<Reader> readers) {
             this(id, title, kind, language, participants, terms, notes, status, provider, diarized, createdAt,
-                    endedAt, revision, speakers, utterances, minutes, audio, owned, readers, List.of(), List.of());
+                    endedAt, revision, speakers, utterances, minutes, audio, owned, readers, List.of(), List.of(),
+                    false);
         }
     }
 

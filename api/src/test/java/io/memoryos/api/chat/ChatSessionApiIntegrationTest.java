@@ -2243,7 +2243,11 @@ class ChatSessionApiIntegrationTest {
                 .map(Enum::name).collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new)), listed);
         var naming = flows.get(0);
         assertEquals("CHAT_NAMING", naming.path("flow").asText());
-        assertTrue(naming.path("modelConfigurationId").isNull());
+        String chatModel = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-default")
+                .with(authentication(actor))).andReturn().getResponse().getContentAsString())
+                .path("modelConfigurationId").asText();
+        flows.forEach(flow -> assertEquals(chatModel, flow.path("modelConfigurationId").asText(),
+                flow.path("flow").asText() + " names the model that runs it, the Chat model to begin with"));
         assertTrue(naming.path("available").asBoolean());
         mockMvc.perform(get("/api/chat/model-flows").with(authentication(other))).andExpect(status().isForbidden());
         var internal = providerBody("http://flow.internal/v1", true).put("dataBoundary", "INTERNAL");
@@ -3367,6 +3371,20 @@ class ChatSessionApiIntegrationTest {
                     .path("utterances").get(0).path("text").asText();
             assertEquals(said, beforeAnything, "proposing changes nothing");
 
+            assertFalse(Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting)
+                    .with(authentication(actor))).andReturn().getResponse().getContentAsString())
+                    .path("correcting").asBoolean(), "a finished pass lets go of the meeting");
+
+            // A pass still running, from a page that was closed or another tab, is visible and holds the meeting.
+            jdbc.sql("UPDATE meeting SET correction_running_until = now() + interval '5 minutes' WHERE id = :id")
+                    .param("id", meeting).update();
+            assertTrue(Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting)
+                    .with(authentication(actor))).andReturn().getResponse().getContentAsString())
+                    .path("correcting").asBoolean());
+            mockMvc.perform(post("/api/meetings/" + meeting + "/corrections").with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isConflict());
+            jdbc.sql("UPDATE meeting SET correction_running_until = NULL WHERE id = :id").param("id", meeting).update();
+
             // A reader of a shared meeting never reaches any of this.
             mockMvc.perform(post("/api/meetings/" + meeting + "/corrections").with(authentication(other))
                     .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
@@ -3425,7 +3443,9 @@ class ChatSessionApiIntegrationTest {
                      "decisions":[{"text":"Chốt ngân sách quý 4 trước thứ Năm","quote":"Chốt ngân sách quý 4 trước thứ Năm.","line":1}],
                      "actions":[{"text":"Gửi bảng KPI tháng 9","owner":"Chị Lan","due":"chiều nay",
                                  "quote":"Em gửi bảng KPI tháng 9 chiều nay.","line":2},
-                                {"text":"","owner":null,"due":null,"quote":null,"line":9}]}
+                                {"text":"","owner":null,"due":null,"quote":null,"line":9}],
+                     "topics":[{"title":"Số liệu KPI","line":2},{"title":"Ngân sách quý 4","line":1},
+                               {"title":"Trùng dòng","line":1},{"title":"Không có dòng này","line":9}]}
                     """, "stop", 40);
         });
         UUID meeting = UUID.randomUUID();
@@ -3466,6 +3486,11 @@ class ChatSessionApiIntegrationTest {
             assertEquals(utterances[0].toString(), minutes.path("decisions").get(0).path("sourceUtteranceId").asText(),
                     "a decision points at the line it rests on");
             assertEquals(1, minutes.path("actions").size(), "an item with no text is dropped");
+            var topics = minutes.path("topics");
+            assertEquals(2, topics.size(), "a topic on a line that is not there, or on a line already taken, is dropped");
+            assertEquals("Ngân sách quý 4", topics.get(0).path("text").asText(), "in the order the meeting reached them");
+            assertEquals(utterances[0].toString(), topics.get(0).path("sourceUtteranceId").asText());
+            assertEquals("Số liệu KPI", topics.get(1).path("text").asText());
             var action = minutes.path("actions").get(0);
             assertEquals("Chị Lan", action.path("owner").asText());
             assertEquals("chiều nay", action.path("due").asText());
@@ -3504,6 +3529,13 @@ class ChatSessionApiIntegrationTest {
                     .andReturn().getResponse().getContentAsByteArray();
             assertEquals('P', exported[0], "the biên bản is a Word package");
             assertEquals('K', exported[1]);
+            var printed = mockMvc.perform(post("/api/meetings/" + meeting + "/minutes/export?format=PDF")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(heading)).andExpect(status().isOk())
+                    .andExpect(header().string("Content-Type", org.hamcrest.Matchers.startsWith("application/pdf")))
+                    .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString(".pdf")))
+                    .andReturn().getResponse().getContentAsByteArray();
+            assertEquals("%PDF", new String(printed, 0, 4, UTF_8), "and the same biên bản prints as a PDF");
             // The endpoint answers a Word document, so its failures must still answer a problem document.
             mockMvc.perform(post("/api/meetings/" + meeting + "/minutes/export").with(authentication(other)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(heading))
