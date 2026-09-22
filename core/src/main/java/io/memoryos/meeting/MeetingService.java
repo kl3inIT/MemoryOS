@@ -475,7 +475,7 @@ public class MeetingService {
                 new Meeting.Audio(row.audioStatus(), row.audioFailure(), row.audioFilename(), row.audioSizeBytes(),
                         row.audioProvider()),
                 row.owned(), row.owned() ? meetings.readers(tenant, id) : List.of(),
-                meetings.starred(tenant, id, actor), meetings.bookmarks(tenant, id, actor));
+                meetings.starred(tenant, id, actor), meetings.bookmarks(tenant, id, actor), row.correcting());
     }
 
     /** The Tenant the actor is writing in; correction runs need it to bill the model call. */

@@ -18333,9 +18333,14 @@ components:
           description: Moments the caller marked while the meeting was running
           items:
             $ref: "#/components/schemas/MeetingBookmark"
+        correcting:
+          type: boolean
+          description: Whether a correction pass is running on this meeting right
+            now
       required:
       - audio
       - bookmarks
+      - correcting
       - createdAt
       - diarized
       - endedAt

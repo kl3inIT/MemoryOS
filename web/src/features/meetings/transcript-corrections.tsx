@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Undo2, WandSparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
   correctionsKey,
   keepWording,
   loadCorrections,
+  loadMeeting,
   meetingKey,
   proposeCorrections,
   revertAllCorrections,
@@ -32,14 +33,42 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
   const problemMessage = useProblemMessage();
   const [error, setError] = useState<string | null>(null);
   const [wording, setWording] = useState<Record<string, string>>({});
+  const [found, setFound] = useState<number | null>(null);
+  // A pass runs on the server whether or not this page is still open, so whether one is running comes from the
+  // meeting itself. Leaving and coming back shows it still running, and the button stays shut until it is done.
+  const running = meeting.correcting;
+  useQuery({
+    queryKey: meetingKey(meeting.id),
+    queryFn: ({ signal }) => loadMeeting(meeting.id, signal),
+    refetchInterval: running ? 3000 : false,
+  });
   const corrections = useQuery({
     queryKey: correctionsKey(meeting.id),
     queryFn: ({ signal }) => loadCorrections(meeting.id, signal),
   });
+  const wasRunning = useRef(running);
+  useEffect(() => {
+    // A pass started elsewhere has just finished: its proposals are waiting to be read.
+    if (wasRunning.current && !running)
+      void cache.invalidateQueries({ queryKey: correctionsKey(meeting.id) });
+    wasRunning.current = running;
+  }, [running, cache, meeting.id]);
 
   const run = useMutation({
-    mutationFn: () => proposeCorrections(meeting.id),
-    onSuccess: () => cache.invalidateQueries({ queryKey: correctionsKey(meeting.id) }),
+    mutationFn: () => {
+      setFound(null);
+      // Mark it running straight away, so the button shuts even before the server answers.
+      cache.setQueryData<MeetingDetail>(meetingKey(meeting.id), (current) =>
+        current ? { ...current, correcting: true } : current,
+      );
+      return proposeCorrections(meeting.id);
+    },
+    onSuccess: (result) => setFound(result.corrections.length),
+    onSettled: () =>
+      Promise.all([
+        cache.invalidateQueries({ queryKey: correctionsKey(meeting.id) }),
+        cache.invalidateQueries({ queryKey: meetingKey(meeting.id) }),
+      ]),
   });
   const decide = useMutation({
     mutationFn: (act: () => Promise<MeetingDetail>) => act(),
@@ -61,22 +90,31 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
   const all = corrections.data ?? [];
   const pending = all.filter((item) => item.status === "PENDING");
   const applied = all.filter((item) => item.status === "ACCEPTED");
-  const busy = run.isPending || decide.isPending;
+  const busy = running || run.isPending || decide.isPending;
+  // What a pass would look at: every stretch the provider marked, on lines nobody has rewritten by hand.
+  const unclear = meeting.utterances
+    .filter((utterance) => utterance.editSource !== "HUMAN")
+    .reduce((count, utterance) => count + utterance.spans.length, 0);
+  if (unclear === 0 && all.length === 0 && !running) return null;
   const runId = pending[0]?.runId;
   const appliedRun = applied.at(-1)?.runId;
 
   return (
     <section className="grid gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          prominence="secondary"
-          size="sm"
-          disabled={busy}
-          onClick={() => guard(() => run.mutateAsync())}
-        >
-          <WandSparkles aria-hidden="true" />
-          {run.isPending ? ui("Đang soát…") : ui("Soát lỗi nhận dạng")}
-        </Button>
+        {(unclear > 0 || running) && (
+          <Button
+            prominence="secondary"
+            size="sm"
+            disabled={busy}
+            onClick={() => guard(() => run.mutateAsync())}
+          >
+            <WandSparkles aria-hidden="true" className={running ? "animate-pulse" : undefined} />
+            {running
+              ? ui("Đang hiệu chỉnh…")
+              : ui("Hiệu chỉnh {{count}} đoạn khó nghe", { count: unclear })}
+          </Button>
+        )}
         {pending.length > 0 && runId && (
           <ConfirmDialog
             trigger={
@@ -115,8 +153,12 @@ export function TranscriptCorrections({ meeting }: { meeting: MeetingDetail }) {
 
       {error && <p className="text-sm text-status-danger-content">{error}</p>}
 
-      {run.isSuccess && run.data.corrections.length === 0 && (
-        <p className="text-sm text-content-muted">{ui("Không có chỗ nào cần sửa.")}</p>
+      {found !== null && !running && (
+        <p role="status" className="text-sm text-content-muted">
+          {found === 0
+            ? ui("Không có chỗ nào cần sửa.")
+            : ui("Tìm được {{count}} chỗ cần sửa.", { count: found })}
+        </p>
       )}
 
       <ol className="grid gap-2">

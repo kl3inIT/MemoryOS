@@ -382,7 +382,10 @@ class MeetingController {
                           List<UUID> starred,
                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                                   description = "Moments the caller marked while the meeting was running")
-                          List<BookmarkResponse> bookmarks) {
+                          List<BookmarkResponse> bookmarks,
+                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                  description = "Whether a correction pass is running on this meeting right now")
+                          boolean correcting) {
         static DetailResponse from(Meeting.Detail detail) {
             return new DetailResponse(detail.id(), detail.title(), detail.kind(), detail.language(), detail.participants(),
                     detail.terms(), detail.notes(), detail.status(), detail.provider(), detail.diarized(), detail.createdAt(),
@@ -391,7 +394,7 @@ class MeetingController {
                     detail.utterances().stream().map(UtteranceResponse::from).toList(),
                     MinutesResponse.from(detail.minutes()), AudioResponse.from(detail.audio()), detail.owned(),
                     detail.readers().stream().map(ReaderResponse::from).toList(), detail.starred(),
-                    detail.bookmarks().stream().map(BookmarkResponse::from).toList());
+                    detail.bookmarks().stream().map(BookmarkResponse::from).toList(), detail.correcting());
         }
     }
 
