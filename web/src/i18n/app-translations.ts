@@ -3432,6 +3432,42 @@ Object.assign(englishUi, {
   "Edit, share, publish, feature, restore and transfer every custom agent, edit the default agent, and administer agent labels and public prompt shortcuts within the Tenant.":
     "Sửa, chia sẻ, công khai, đánh dấu nổi bật, khôi phục và chuyển quyền sở hữu mọi trợ lý, sửa trợ lý mặc định, quản lý nhãn trợ lý và lệnh tắt dùng chung trong tổ chức.",
   "View audit log": "Xem nhật ký audit",
+  "View conversation history": "Xem lịch sử hội thoại",
+  "Read and export the questions and answers of everyone in the Tenant. Every transcript read is itself recorded in the audit log.":
+    "Đọc và xuất câu hỏi, câu trả lời của mọi người trong tổ chức. Mỗi lần mở một hội thoại đều được ghi vào nhật ký audit.",
+  "Asked by": "Người hỏi",
+  "Who may read the organization's questions and answers. Opening a conversation is recorded in the audit log.":
+    "Ai được đọc câu hỏi và câu trả lời của tổ chức. Mở một hội thoại sẽ được ghi vào nhật ký audit.",
+  "Show who asked": "Hiện người hỏi",
+  "A reader sees the name and e-mail of the person who asked.":
+    "Người xem thấy tên và email của người đã hỏi.",
+  "Hide who asked": "Ẩn người hỏi",
+  "The name and e-mail are hidden; the questions and answers are not. A question often names its author.":
+    "Chỉ ẩn tên và email; nội dung câu hỏi và câu trả lời vẫn hiện. Câu hỏi thường tự lộ người viết.",
+  "Nobody reads other people's conversations": "Không ai đọc hội thoại của người khác",
+  "Conversations are still recorded; this screen and its export are refused.":
+    "Hội thoại vẫn được lưu; màn hình này và bản xuất bị từ chối.",
+  "Conversation history": "Lịch sử hội thoại",
+  "What people asked the assistant and how the answers were rated. Opening a conversation is recorded in the audit log.":
+    "Mọi người đã hỏi gì và câu trả lời được đánh giá ra sao. Mở một hội thoại sẽ được ghi vào nhật ký audit.",
+  Conversations: "Hội thoại",
+  "Marked good": "Đánh giá tốt",
+  "Marked bad": "Đánh giá chưa tốt",
+  Mixed: "Vừa tốt vừa chưa",
+  "Not rated": "Chưa đánh giá",
+  Feedback: "Đánh giá",
+  "Any feedback": "Mọi đánh giá",
+  "Search a person or a title": "Tìm người hoặc tiêu đề",
+  "Conversation history could not be loaded.": "Không tải được lịch sử hội thoại.",
+  "Loading conversation history…": "Đang tải lịch sử hội thoại…",
+  "No conversation in this period.": "Không có hội thoại nào trong khoảng này.",
+  "Widen the period or clear the filters.": "Nới khoảng thời gian hoặc bỏ bớt bộ lọc.",
+  Question: "Câu hỏi",
+  Answer: "Câu trả lời",
+  "{{count}} messages": "{{count}} tin nhắn",
+  "Loading the conversation…": "Đang tải hội thoại…",
+  "The conversation could not be loaded.": "Không tải được hội thoại.",
+  "Feedback: {{comment}}": "Đánh giá: {{comment}}",
   "Spending limit": "Hạn mức chi tiêu",
   "Spending limits": "Hạn mức chi tiêu",
   "Budget: {{whose}}": "Hạn mức: {{whose}}",

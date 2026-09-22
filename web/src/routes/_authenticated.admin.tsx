@@ -18,6 +18,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
       canManageMcp,
       canManageAgents,
       canReadAudit,
+      canReadChatHistory,
     } = useAdminAccess();
     const matchRoute = useMatchRoute();
     const sharePointStep = useRouterState({
@@ -60,6 +61,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const agentsSelected = Boolean(matchRoute({ to: "/admin/agents" }));
     const costsSelected = Boolean(matchRoute({ to: "/admin/ai-costs" }));
     const auditSelected = Boolean(matchRoute({ to: "/admin/audit" }));
+    const chatHistorySelected = Boolean(matchRoute({ to: "/admin/chat-history" }));
     const documentSetsSelected = Boolean(matchRoute({ to: "/admin/document-sets", fuzzy: true }));
     const addSourceSelected = Boolean(matchRoute({ to: "/admin/sources/new", fuzzy: true }));
     const page = usersSelected
@@ -86,11 +88,13 @@ export const Route = createFileRoute("/_authenticated/admin")({
                           ? "costs"
                           : auditSelected
                             ? "audit"
-                            : documentSetsSelected
-                              ? "documentSets"
-                              : addSourceSelected
-                                ? "addSource"
-                                : "sources";
+                            : chatHistorySelected
+                              ? "chatHistory"
+                              : documentSetsSelected
+                                ? "documentSets"
+                                : addSourceSelected
+                                  ? "addSource"
+                                  : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
@@ -111,7 +115,9 @@ export const Route = createFileRoute("/_authenticated/admin")({
                   ? canManageAgents
                   : page === "audit"
                     ? canReadAudit
-                    : canReadSources;
+                    : page === "chatHistory"
+                      ? canReadChatHistory
+                      : canReadSources;
 
     if (!allowed) {
       return <AccessDeniedScreen />;
@@ -146,11 +152,13 @@ export const Route = createFileRoute("/_authenticated/admin")({
                                 ? "AI costs"
                                 : page === "audit"
                                   ? "Audit log"
-                                  : page === "documentSets"
-                                    ? "Bộ tài liệu"
-                                    : page === "addSource"
-                                      ? "Add a source"
-                                      : "Sources",
+                                  : page === "chatHistory"
+                                    ? "Conversation history"
+                                    : page === "documentSets"
+                                      ? "Bộ tài liệu"
+                                      : page === "addSource"
+                                        ? "Add a source"
+                                        : "Sources",
         )}
         sourceSetup={sourceSetup}
       >

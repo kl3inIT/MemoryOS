@@ -275,6 +275,46 @@ Authorization and cursor preflight run synchronously before the response. Reader
 
 Each read replays from the cursor with `XRANGE`, draining the backlog without sleeping, then polls every `poll-interval` (200 ms, Onyx `CHAT_RESUME_POLL_INTERVAL_S`) until events arrive or the 15-second heartbeat is due. A blocking `XREAD` is not used because it would stall the shared Lettuce connection. When a read finds nothing new, first at once and then at every heartbeat, the reader re-authorizes the actor for the reply and checks that it is still RUNNING; a revoked membership ends the stream with the authorization failure. A reply that is no longer RUNNING gets a final drain of up to 2 seconds for its outcome and otherwise ends with a reset, as Onyx ends a resume when the processing fence lapses. Every live stream therefore ends with an outcome, a reset or the connection timeout; a dead writer, a startup- or lease-failed run, an expired buffer and a Redis outage all reach history instead of hanging. A reader that cannot reach Redis ends at once with `BUFFER_MISSING`, as Onyx's resume endpoint answers without a buffer, rather than failing the subscription.
 
+## Query history for administrators
+
+An organization can read what it is being asked, under `CHAT_HISTORY_READ` — an ordinary grant given through a Group,
+implied by administrator access, and held apart from every other administrative power, as `AUDIT_READ` is. This is
+the separate administrative read path that *Internal persistence contracts* reserves; no owner-scoped endpoint is
+widened.
+
+`chat_settings.chat_history_visibility` (V107) decides how much is visible, as Onyx's `query_history_type` does, and
+a model manager changes it. It defaults to `NORMAL`.
+
+- **`NORMAL`** names the person who asked.
+- **`ANONYMIZED`** drops their name and e-mail before the answer leaves the server, and refuses to narrow a read to
+  one person. It hides nothing else: the questions and answers stay as they are, and a question often names its
+  author, so the screen says so rather than letting the word promise more than it does.
+- **`DISABLED`** refuses every read. Conversations are still recorded.
+
+What the read covers:
+
+- **A temporary conversation never appears**: its message content is not written at all.
+- **A conversation its owner deleted is listed and marked as deleted**, as Onyx lists one. Hard deletion is off by
+  default, so the row is still there; the retention policy eventually removes it and it leaves this screen too.
+- **Citations are named, not opened.** A transcript carries the titles a message cited; reading a source goes through
+  the reader's own Source authority, never the asker's, which is the rule sharing already follows.
+
+| Method and path | Contract |
+| --- | --- |
+| `GET /api/chat/history` | A page of conversations, newest first, on an opaque `(updated_at, id)` cursor. Filters: `from`, `to`, `q` (asker or title; `%` and `_` are literal), `actorId`, `feedback` (`POSITIVE`, `NEGATIVE`, `MIXED`, `NONE`). `size` is 1–100, default 30. Each page also carries the period's counts |
+| `GET /api/chat/history/{sessionId}` | One conversation's transcript on its selected branch, with each message's feedback and cited titles |
+| `GET /api/chat/history/export` | The filtered conversations as CSV, at most 50,000 rows, with a byte-order mark and formula prefixes neutralized |
+| `PUT /api/chat/settings/history-visibility` | Chooses the mode; requires `MODELS_MANAGE` |
+
+Every transcript opened is recorded as `chat_history.read` and every export as `chat_history.export`, through
+[audit](audit.md), written outside the read so a failed read still leaves evidence. Listing is not recorded: it shows
+no message body beyond the first question and answer, and at chat volume it would drown the stream. Onyx records
+nothing at all here.
+
+Admin › Monitoring › Conversation history (`/admin/chat-history`, vi "Theo dõi › Lịch sử hội thoại") shows the
+period's counts, one row of filters, the shared table and pager, a conversation in a centred dialog, and an export
+link carrying the filters on screen.
+
 ## Conversation lifecycle
 
 Branching copies one conversation's selected path into a new one of the caller's own: `POST /api/chat/sessions/{id}/messages/{messageId}/branch` copies every message up to and including that one, keeping its text, status, attachments, citations, activity and model record, and records `branched_from_session_id`/`branched_from_message_id` so the branch's header links back. A branch always ends on an answer, so naming a question copies the answer that followed it; a running reply, a message off the selected path, a conversation the caller does not own, a path longer than 1000 messages and generated files beyond 50 artifacts or 30 MiB are each refused by name. Generated files and images are copied as the branch's own objects, so deleting either conversation leaves the other whole; uploads are not copied, because an upload belongs to its owner rather than to a conversation.

@@ -596,7 +596,16 @@ export type ChatSettingsResponse = {
      * Deep research: agentic research across the web and connected sources; uses significantly more tokens per query.
      */
     deepResearchEnabled: boolean;
+    /**
+     * Who in the organization may read other people's conversations: NORMAL names the asker, ANONYMIZED hides only their name and e-mail, DISABLED refuses every read
+     */
+    chatHistoryVisibility: 'NORMAL' | 'ANONYMIZED' | 'DISABLED';
     revision: number;
+};
+
+export type ChatHistoryVisibilityRequest = {
+    visibility: 'NORMAL' | 'ANONYMIZED' | 'DISABLED';
+    revision?: number;
 };
 
 export type Title = {
@@ -1568,7 +1577,7 @@ export type GroupSummary = {
     systemKey: GroupSystemKey | null;
     memberCount: number;
     managerCount: number;
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
     permissions: GroupPermissions;
 };
 
@@ -1583,7 +1592,7 @@ export type AddGroupMembersRequest = {
 };
 
 export type ReplaceGroupCapabilitiesRequest = {
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
 };
 
 export type SharePointCredentialTestResponse = {
@@ -2275,11 +2284,11 @@ export type CurrentIdentity = {
     /**
      * Expanded global capabilities backed by current server enforcement.
      */
-    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ'>;
+    capabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
     /**
      * Eligible capabilities available only within resources managed by this actor.
      */
-    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ'>;
+    scopedCapabilities: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
     /**
      * Monotonic Tenant IAM revision used only to invalidate private client data.
      */
@@ -2340,11 +2349,11 @@ export type GroupCapabilities = {
 };
 
 export type GroupCapability = {
-    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ';
+    id: 'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ';
     label: string;
     description: string;
     editable: boolean;
-    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ'>;
+    implies: Array<'SYSTEM_ADMIN' | 'SYSTEM_BASIC' | 'SEARCH_READ' | 'CHAT_READ' | 'CHAT_WRITE' | 'IMAGE_GENERATE' | 'LLM_GATEWAY_USE' | 'USERS_MANAGE' | 'GROUPS_READ' | 'GROUPS_MANAGE' | 'SOURCES_READ' | 'SOURCES_MANAGE' | 'SOURCES_DELETE' | 'MODELS_MANAGE' | 'MCP_MANAGE' | 'AGENTS_CREATE' | 'AGENTS_MANAGE' | 'AUDIT_READ' | 'CHAT_HISTORY_READ'>;
 };
 
 export type WebAvailabilityResponse = {
@@ -2823,6 +2832,54 @@ export type ImageProviderResponse = {
     endpointRequired: boolean;
     editModel?: ImageKnownModelResponse;
     knownModels: Array<ImageKnownModelResponse>;
+};
+
+/**
+ * One conversation. The person is absent when the Tenant hides who asked
+ */
+export type ChatHistoryEntry = {
+    id: string;
+    actorId?: string;
+    person?: string;
+    email?: string;
+    title: string;
+    question?: string;
+    answer?: string;
+    modelName?: string;
+    messages: number;
+    feedback: 'POSITIVE' | 'NEGATIVE' | 'MIXED' | 'NONE';
+    /**
+     * The owner deleted this conversation; it is kept until retention removes it
+     */
+    deleted: boolean;
+    updatedAt: string;
+};
+
+export type ChatHistoryPage = {
+    items: Array<ChatHistoryEntry>;
+    nextCursor?: string;
+    conversations: number;
+    positive: number;
+    negative: number;
+};
+
+/**
+ * One message; citations are named, and opening one uses the reader's own Source authority
+ */
+export type ChatHistoryMessage = {
+    id: string;
+    role: string;
+    content: string;
+    modelName?: string;
+    createdAt: string;
+    positive?: boolean;
+    comment?: string;
+    citations: Array<string>;
+};
+
+export type ChatHistoryTranscript = {
+    conversation: ChatHistoryEntry;
+    messages: Array<ChatHistoryMessage>;
 };
 
 export type ChatFileTextResponse = {
@@ -4393,6 +4450,53 @@ export type SaveChatSettingsResponses = {
 };
 
 export type SaveChatSettingsResponse = SaveChatSettingsResponses[keyof SaveChatSettingsResponses];
+
+export type SaveChatHistoryVisibilityData = {
+    body: ChatHistoryVisibilityRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chat/settings/history-visibility';
+};
+
+export type SaveChatHistoryVisibilityErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type SaveChatHistoryVisibilityError = SaveChatHistoryVisibilityErrors[keyof SaveChatHistoryVisibilityErrors];
+
+export type SaveChatHistoryVisibilityResponses = {
+    /**
+     * Saved Tenant Chat settings
+     */
+    200: ChatSettingsResponse;
+};
+
+export type SaveChatHistoryVisibilityResponse = SaveChatHistoryVisibilityResponses[keyof SaveChatHistoryVisibilityResponses];
 
 export type GenerateChatTitleData = {
     body?: never;
@@ -14543,6 +14647,133 @@ export type GetChatImageArtifactResponses = {
 };
 
 export type GetChatImageArtifactResponse = GetChatImageArtifactResponses[keyof GetChatImageArtifactResponses];
+
+export type ListChatHistoryData = {
+    body?: never;
+    path?: never;
+    query?: {
+        from?: string;
+        to?: string;
+        q?: string;
+        actorId?: string;
+        feedback?: 'POSITIVE' | 'NEGATIVE' | 'MIXED' | 'NONE';
+        cursor?: string;
+        size?: number;
+    };
+    url: '/api/chat/history';
+};
+
+export type ListChatHistoryErrors = {
+    /**
+     * Invalid filter, cursor or page size
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Conversation history requirement not met, or history is turned off for the Tenant
+     */
+    403: ApiProblem;
+    /**
+     * No such conversation in this Tenant
+     */
+    404: ApiProblem;
+};
+
+export type ListChatHistoryError = ListChatHistoryErrors[keyof ListChatHistoryErrors];
+
+export type ListChatHistoryResponses = {
+    /**
+     * Successful result
+     */
+    200: ChatHistoryPage;
+};
+
+export type ListChatHistoryResponse = ListChatHistoryResponses[keyof ListChatHistoryResponses];
+
+export type GetChatHistoryTranscriptData = {
+    body?: never;
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/chat/history/{sessionId}';
+};
+
+export type GetChatHistoryTranscriptErrors = {
+    /**
+     * Invalid filter, cursor or page size
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Conversation history requirement not met, or history is turned off for the Tenant
+     */
+    403: ApiProblem;
+    /**
+     * No such conversation in this Tenant
+     */
+    404: ApiProblem;
+};
+
+export type GetChatHistoryTranscriptError = GetChatHistoryTranscriptErrors[keyof GetChatHistoryTranscriptErrors];
+
+export type GetChatHistoryTranscriptResponses = {
+    /**
+     * Successful result
+     */
+    200: ChatHistoryTranscript;
+};
+
+export type GetChatHistoryTranscriptResponse = GetChatHistoryTranscriptResponses[keyof GetChatHistoryTranscriptResponses];
+
+export type ExportChatHistoryData = {
+    body?: never;
+    path?: never;
+    query?: {
+        from?: string;
+        to?: string;
+        q?: string;
+        actorId?: string;
+        feedback?: 'POSITIVE' | 'NEGATIVE' | 'MIXED' | 'NONE';
+    };
+    url: '/api/chat/history/export';
+};
+
+export type ExportChatHistoryErrors = {
+    /**
+     * Invalid filter, cursor or page size
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Conversation history requirement not met, or history is turned off for the Tenant
+     */
+    403: ApiProblem;
+    /**
+     * No such conversation in this Tenant
+     */
+    404: ApiProblem;
+};
+
+export type ExportChatHistoryError = ExportChatHistoryErrors[keyof ExportChatHistoryErrors];
+
+export type ExportChatHistoryResponses = {
+    /**
+     * CSV
+     */
+    200: Blob | File;
+};
+
+export type ExportChatHistoryResponse = ExportChatHistoryResponses[keyof ExportChatHistoryResponses];
 
 export type ListChatGroupOptionsData = {
     body?: never;
