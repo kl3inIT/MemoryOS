@@ -11,7 +11,7 @@ import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.retrieval.DocumentOriginalService.ByteRange;
-import io.memoryos.retrieval.DocumentOriginalService.OriginalPdf;
+import io.memoryos.retrieval.DocumentOriginalService.Original;
 import io.memoryos.retrieval.DocumentOriginalService.RangeNotSatisfiableException;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -24,10 +24,21 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 class DocumentOriginalResponsesTest {
     private static final byte[] PDF = "%PDF-1.7 ranged".getBytes(StandardCharsets.US_ASCII);
+    private static final byte[] DOCX = "PK docx".getBytes(StandardCharsets.US_ASCII);
+    private static final String DOCX_TYPE =
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     private static final StoredObjectReference REFERENCE = new StoredObjectReference(
             new StoredObjectId(UUID.nameUUIDFromBytes("pdf".getBytes(StandardCharsets.US_ASCII))),
             new ObjectKey("raw/tenant/pdf"), "Sổ tay.pdf",
             new ObjectMetadata(PDF.length, "application/pdf", new ContentSha256("a".repeat(64))));
+
+    private static Original original(byte[] bytes, String mediaType, String filename) {
+        return new Original(new StoredObjectReference(
+                new StoredObjectId(UUID.nameUUIDFromBytes(filename.getBytes(StandardCharsets.UTF_8))),
+                new ObjectKey("raw/tenant/original"), filename,
+                new ObjectMetadata(bytes.length, mediaType, new ContentSha256("b".repeat(64)))),
+                null, new ByteArrayInputStream(bytes), () -> {});
+    }
 
     @Test
     void acceptsOnlyOneOrderedByteRange() {
@@ -48,7 +59,7 @@ class DocumentOriginalResponsesTest {
         var closed = new AtomicBoolean();
         DocumentOriginalResponses.write(null, response, range -> {
             requested.set(range);
-            return new OriginalPdf(REFERENCE, null, new ByteArrayInputStream(PDF), () -> closed.set(true));
+            return new Original(REFERENCE, null, new ByteArrayInputStream(PDF), () -> closed.set(true));
         });
 
         assertNull(requested.get());
@@ -56,8 +67,10 @@ class DocumentOriginalResponsesTest {
         assertEquals("bytes", response.getHeader("Accept-Ranges"));
         assertEquals(PDF.length, response.getContentLengthLong());
         assertNull(response.getHeader("Content-Range"));
-        assertEquals("application/octet-stream", response.getContentType());
-        assertTrue(response.getHeader("Content-Disposition").startsWith("attachment;"));
+        assertEquals("application/pdf", response.getContentType());
+        assertTrue(response.getHeader("Content-Disposition").startsWith("inline;"));
+        assertTrue(response.getHeader("Content-Disposition").contains("Sổ tay.pdf")
+                || response.getHeader("Content-Disposition").contains("UTF-8''"));
         assertEquals("no-store", response.getHeader("Cache-Control"));
         assertEquals("nosniff", response.getHeader("X-Content-Type-Options"));
         assertEquals("no", response.getHeader("X-Accel-Buffering"));
@@ -73,7 +86,7 @@ class DocumentOriginalResponsesTest {
         DocumentOriginalResponses.write("bytes=5-", response, range -> {
             requested.set(range);
             var served = new ByteRange(5, PDF.length - 1);
-            return new OriginalPdf(REFERENCE, served,
+            return new Original(REFERENCE, served,
                     new ByteArrayInputStream(Arrays.copyOfRange(PDF, 5, PDF.length)), () -> closed.set(true));
         });
 
@@ -85,6 +98,37 @@ class DocumentOriginalResponsesTest {
         assertEquals("no-store", response.getHeader("Cache-Control"));
         assertArrayEquals(Arrays.copyOfRange(PDF, 5, PDF.length), response.getContentAsByteArray());
         assertTrue(closed.get());
+    }
+
+    @Test
+    void originalIsServedUnderItsOwnDeclaredTypeSoTheBrowserCanRenderIt() throws Exception {
+        var response = new MockHttpServletResponse();
+        DocumentOriginalResponses.write(null, response, range -> original(DOCX, DOCX_TYPE, "Báo cáo.docx"));
+
+        assertEquals(DOCX_TYPE, response.getContentType());
+        assertTrue(response.getHeader("Content-Disposition").startsWith("inline;"));
+        assertEquals("nosniff", response.getHeader("X-Content-Type-Options"));
+    }
+
+    @Test
+    void typesThatCouldRunScriptInThisOriginAreDownloadedRatherThanShown() throws Exception {
+        for (var scriptable : new String[] {"text/html", "image/svg+xml", "application/xhtml+xml",
+                "TEXT/HTML; charset=utf-8"}) {
+            var response = new MockHttpServletResponse();
+            DocumentOriginalResponses.write(null, response, range -> original(DOCX, scriptable, "trang.html"));
+
+            assertTrue(response.getHeader("Content-Disposition").startsWith("attachment;"), scriptable);
+            assertEquals("nosniff", response.getHeader("X-Content-Type-Options"), scriptable);
+        }
+    }
+
+    @Test
+    void anUnusableDeclaredTypeFallsBackToBytesTheBrowserWillNotGuessAt() throws Exception {
+        var response = new MockHttpServletResponse();
+        DocumentOriginalResponses.write(null, response, range -> original(DOCX, "not a media type", "tệp"));
+
+        assertEquals("application/octet-stream", response.getContentType());
+        assertTrue(response.getHeader("Content-Disposition").startsWith("attachment;"));
     }
 
     @Test

@@ -272,19 +272,11 @@ public class JdbcSourceDocumentRepository {
     }
 
     /**
-     * Stored original PDF behind an actor-readable mapping whose current item version produced the Document's
-     * current source content. Other media types and stale versions have no original to serve.
-     */
-    public Optional<io.memoryos.objectstorage.StoredObjectReference> originalPdf(TenantId tenant, ActorId actor, UUID document) {
-        return Optional.ofNullable(originals(tenant, actor, java.util.Set.of(document), true).get(document));
-    }
-
-    /**
      * The stored source object each readable, eligible Document was extracted from, whatever its media type. Documents
      * the actor cannot read through an active searchable Source, or whose current version no longer matches, are absent.
      */
     public java.util.Map<UUID, io.memoryos.objectstorage.StoredObjectReference> originals(TenantId tenant, ActorId actor,
-            java.util.Set<UUID> documents, boolean pdfOnly) {
+            java.util.Set<UUID> documents) {
         if (documents.isEmpty()) return java.util.Map.of();
         var result = new java.util.LinkedHashMap<UUID, io.memoryos.objectstorage.StoredObjectReference>();
         jdbcClient.sql("""
@@ -297,12 +289,11 @@ public class JdbcSourceDocumentRepository {
                 JOIN stored_objects o ON o.tenant_id=v.tenant_id AND o.id=v.stored_object_id AND o.state='ACTIVE'
                 JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
                 WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
-                    AND d.status='ELIGIBLE' AND (:pdfOnly=FALSE OR d.media_type='application/pdf')
+                    AND d.status='ELIGIBLE'
                     AND d.source_content_sha256=v.content_sha256
                     AND c.status='ACTIVE' AND %s AND p.status='ACTIVE' AND %s
                 ORDER BY m.document_id,p.id,i.id
-                """.formatted(SEARCHABLE_SOURCE, DOCUMENT_READ_SCOPE)).param("tenant", tenant.value()).param("documents", documents)
-                .param("pdfOnly", pdfOnly).param("actor", actor.value())
+                """.formatted(SEARCHABLE_SOURCE, DOCUMENT_READ_SCOPE)).param("tenant", tenant.value()).param("documents", documents).param("actor", actor.value())
                 .query((r, _) -> {
                     result.put(r.getObject("document_id", UUID.class), new io.memoryos.objectstorage.StoredObjectReference(
                             new io.memoryos.objectstorage.StoredObjectId(r.getObject("id", UUID.class)),

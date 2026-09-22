@@ -12705,18 +12705,18 @@ export type ReadSearchDocumentOriginalData = {
 
 export type ReadSearchDocumentOriginalErrors = {
     /**
-     * Requested byte range starts beyond the original PDF
+     * Requested byte range starts beyond the original
      */
     416: unknown;
 };
 
 export type ReadSearchDocumentOriginalResponses = {
     /**
-     * Original PDF bytes
+     * Original bytes, under the object's declared media type
      */
     200: Blob | File;
     /**
-     * Requested byte range of the original PDF
+     * Requested byte range of the original
      */
     206: Blob | File;
 };
@@ -15556,7 +15556,7 @@ export type ReadChatDocumentOriginalErrors = {
      */
     404: ApiProblem;
     /**
-     * Requested byte range starts beyond the original PDF
+     * Requested byte range starts beyond the original
      */
     416: unknown;
 };
@@ -15565,11 +15565,11 @@ export type ReadChatDocumentOriginalError = ReadChatDocumentOriginalErrors[keyof
 
 export type ReadChatDocumentOriginalResponses = {
     /**
-     * Original PDF bytes
+     * Original bytes, under the object's declared media type
      */
     200: Blob | File;
     /**
-     * Requested byte range of the original PDF
+     * Requested byte range of the original
      */
     206: Blob | File;
 };

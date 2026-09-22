@@ -68,7 +68,7 @@ class DocumentOriginalServiceTest {
         when(search.identity()).thenReturn("index");
         when(access.canRead(actor, new DocumentId(document))).thenReturn(true);
         when(documents.isCurrent(tenant, new DocumentId(document), generation, "index")).thenReturn(true);
-        when(sources.originalPdf(tenant, actor, document)).thenReturn(Optional.of(reference));
+        when(sources.originals(tenant, actor, java.util.Set.of(document))).thenReturn(java.util.Map.of(document, reference));
         when(storage.inspect(reference.key())).thenReturn(reference.metadata());
     }
 
@@ -76,7 +76,7 @@ class DocumentOriginalServiceTest {
     void citationStreamsTheVerifiedOriginalWithoutSearchAuthority() throws Exception {
         var closed = new AtomicBoolean();
         when(storage.open(reference.key())).thenReturn(content(reference.metadata(), PDF, closed));
-        try (var pdf = service.citationPdf(actor, document, generation, null)) {
+        try (var pdf = service.citationOriginal(actor, document, generation, null)) {
             assertNull(pdf.range());
             assertArrayEquals(PDF, pdf.inputStream().readAllBytes());
         }
@@ -110,7 +110,7 @@ class DocumentOriginalServiceTest {
     @Test
     void searchRequiresSearchReadBeforeAndAfterOpening() {
         when(storage.open(reference.key())).thenReturn(content(reference.metadata(), PDF, new AtomicBoolean()));
-        service.searchPdf(actor, document, generation, null).close();
+        service.searchOriginal(actor, document, generation, null).close();
         verify(authorization, times(2)).require(actor, IamCapability.SEARCH_READ, false);
     }
 
@@ -118,13 +118,13 @@ class DocumentOriginalServiceTest {
     void rejectsChangedObjectsNonPdfBytesStaleGenerationsAndRevocationDuringOpen() {
         var closed = new AtomicBoolean();
         when(storage.open(reference.key())).thenReturn(content(reference(PDF.length + 1).metadata(), PDF, closed));
-        assertThrows(SearchDocumentUnavailableException.class, () -> service.citationPdf(actor, document, generation, null));
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.citationOriginal(actor, document, generation, null));
         assertTrue(closed.get());
 
         var html = "<html>".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
         var htmlClosed = new AtomicBoolean();
         when(storage.open(reference.key())).thenReturn(content(reference.metadata(), html, htmlClosed));
-        assertThrows(SearchDocumentUnavailableException.class, () -> service.citationPdf(actor, document, generation, null));
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.citationOriginal(actor, document, generation, null));
         assertTrue(htmlClosed.get());
 
         var revokedClosed = new AtomicBoolean();
@@ -132,20 +132,21 @@ class DocumentOriginalServiceTest {
             when(access.canRead(actor, new DocumentId(document))).thenReturn(false);
             return content(reference.metadata(), PDF, revokedClosed);
         });
-        assertThrows(SearchDocumentUnavailableException.class, () -> service.citationPdf(actor, document, generation, null));
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.citationOriginal(actor, document, generation, null));
         assertTrue(revokedClosed.get());
 
         when(access.canRead(actor, new DocumentId(document))).thenReturn(true);
         when(documents.isCurrent(eq(tenant), any(), eq(UUID.fromString(generation.toString())), anyString())).thenReturn(false);
-        assertThrows(SearchDocumentUnavailableException.class, () -> service.citationPdf(actor, document, generation, null));
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.citationOriginal(actor, document, generation, null));
     }
 
     @Test
     void rejectsMissingOrOversizedOriginalsBeforeOpeningStorage() {
-        when(sources.originalPdf(tenant, actor, document)).thenReturn(Optional.empty());
-        assertThrows(SearchDocumentUnavailableException.class, () -> service.citationPdf(actor, document, generation, null));
-        when(sources.originalPdf(tenant, actor, document)).thenReturn(Optional.of(reference(DocumentOriginalService.MAX_BYTES + 1)));
-        assertThrows(SearchDocumentUnavailableException.class, () -> service.citationPdf(actor, document, generation, null));
+        when(sources.originals(tenant, actor, java.util.Set.of(document))).thenReturn(java.util.Map.of());
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.citationOriginal(actor, document, generation, null));
+        when(sources.originals(tenant, actor, java.util.Set.of(document)))
+                .thenReturn(java.util.Map.of(document, reference(DocumentOriginalService.MAX_BYTES + 1)));
+        assertThrows(SearchDocumentUnavailableException.class, () -> service.citationOriginal(actor, document, generation, null));
         verify(storage, never()).open(any());
     }
 
@@ -154,7 +155,7 @@ class DocumentOriginalServiceTest {
         var closed = new AtomicBoolean();
         when(storage.openRange(reference.key(), 5, PDF.length - 1))
                 .thenReturn(range(5, PDF.length - 1, PDF.length, closed));
-        try (var pdf = service.searchPdf(actor, document, generation, new ByteRange(5, Long.MAX_VALUE))) {
+        try (var pdf = service.searchOriginal(actor, document, generation, new ByteRange(5, Long.MAX_VALUE))) {
             assertEquals(new ByteRange(5, PDF.length - 1), pdf.range());
             assertArrayEquals(Arrays.copyOfRange(PDF, 5, PDF.length), pdf.inputStream().readAllBytes());
         }
@@ -166,7 +167,7 @@ class DocumentOriginalServiceTest {
     @Test
     void firstRangeMustStartWithPdfMagicAndIsServedFromItsFirstByte() throws Exception {
         when(storage.openRange(reference.key(), 0, 2)).thenReturn(range(0, 2, PDF.length, new AtomicBoolean()));
-        try (var pdf = service.citationPdf(actor, document, generation, new ByteRange(0, 2))) {
+        try (var pdf = service.citationOriginal(actor, document, generation, new ByteRange(0, 2))) {
             assertArrayEquals(Arrays.copyOfRange(PDF, 0, 3), pdf.inputStream().readAllBytes());
         }
 
@@ -174,7 +175,7 @@ class DocumentOriginalServiceTest {
         var closed = new AtomicBoolean();
         when(storage.openRange(reference.key(), 0, 9)).thenReturn(new FakeRange(0, 9, PDF.length, html, closed));
         assertThrows(SearchDocumentUnavailableException.class,
-                () -> service.citationPdf(actor, document, generation, new ByteRange(0, 9)));
+                () -> service.citationOriginal(actor, document, generation, new ByteRange(0, 9)));
         assertTrue(closed.get());
     }
 
@@ -182,14 +183,14 @@ class DocumentOriginalServiceTest {
     void rangeRejectsAChangedObjectOrAProviderRangeThatDiffers() {
         when(storage.inspect(reference.key())).thenReturn(reference(PDF.length + 1).metadata());
         assertThrows(SearchDocumentUnavailableException.class,
-                () -> service.citationPdf(actor, document, generation, new ByteRange(1, 4)));
+                () -> service.citationOriginal(actor, document, generation, new ByteRange(1, 4)));
         verify(storage, never()).openRange(any(), anyLong(), anyLong());
 
         when(storage.inspect(reference.key())).thenReturn(reference.metadata());
         var closed = new AtomicBoolean();
         when(storage.openRange(reference.key(), 1, 4)).thenReturn(range(1, 4, PDF.length + 7, closed));
         assertThrows(SearchDocumentUnavailableException.class,
-                () -> service.citationPdf(actor, document, generation, new ByteRange(1, 4)));
+                () -> service.citationOriginal(actor, document, generation, new ByteRange(1, 4)));
         assertTrue(closed.get());
     }
 
@@ -197,24 +198,24 @@ class DocumentOriginalServiceTest {
     void everyRangeRechecksAuthoritySoRevocationStopsTheNextRange() throws Exception {
         when(storage.openRange(eq(reference.key()), anyLong(), anyLong()))
                 .thenAnswer(call -> range(call.getArgument(1), call.getArgument(2), PDF.length, new AtomicBoolean()));
-        service.citationPdf(actor, document, generation, new ByteRange(0, 4)).close();
+        service.citationOriginal(actor, document, generation, new ByteRange(0, 4)).close();
 
         when(access.canRead(actor, new DocumentId(document))).thenReturn(false);
         assertThrows(SearchDocumentUnavailableException.class,
-                () -> service.citationPdf(actor, document, generation, new ByteRange(5, 9)));
+                () -> service.citationOriginal(actor, document, generation, new ByteRange(5, 9)));
         verify(storage, times(1)).openRange(eq(reference.key()), anyLong(), anyLong());
     }
 
     @Test
     void rangeBeyondTheEndIsUnsatisfiableOnlyForAReader() {
         var unsatisfiable = assertThrows(DocumentOriginalService.RangeNotSatisfiableException.class,
-                () -> service.searchPdf(actor, document, generation, new ByteRange(PDF.length, Long.MAX_VALUE)));
+                () -> service.searchOriginal(actor, document, generation, new ByteRange(PDF.length, Long.MAX_VALUE)));
         assertEquals(PDF.length, unsatisfiable.sizeBytes());
         verify(storage, never()).inspect(any());
 
         when(access.canRead(actor, new DocumentId(document))).thenReturn(false);
         assertThrows(SearchDocumentUnavailableException.class,
-                () -> service.searchPdf(actor, document, generation, new ByteRange(PDF.length, Long.MAX_VALUE)));
+                () -> service.searchOriginal(actor, document, generation, new ByteRange(PDF.length, Long.MAX_VALUE)));
     }
 
     private static StoredObjectReference reference(long size) {

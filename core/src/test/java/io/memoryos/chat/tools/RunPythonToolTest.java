@@ -116,7 +116,7 @@ class RunPythonToolTest {
                         "report.xlsx", new ObjectMetadata(20, "application/vnd.ms-excel", new ContentSha256("c".repeat(64))))));
         var closed = new java.util.concurrent.atomic.AtomicBoolean();
         when(originals.citationOriginal(actor, document, generation)).thenReturn(new io.memoryos.retrieval.DocumentOriginalService
-                .OriginalPdf(null, null, new ByteArrayInputStream(new byte[20]), () -> closed.set(true)));
+                .Original(null, null, new ByteArrayInputStream(new byte[20]), () -> closed.set(true)));
         var sandbox = new SandboxDocuments(originals, actor);
         sandbox.register(List.of(new io.memoryos.retrieval.SearchHit(document, generation, 0, "Report", "text/plain", "x", "[]",
                 Instant.EPOCH, .5)));

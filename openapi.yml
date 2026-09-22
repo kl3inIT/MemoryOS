@@ -12305,7 +12305,8 @@ paths:
     get:
       tags:
       - Search
-      summary: Read the original PDF of a search result to show the matched page
+      summary: "Read the stored original of a search result, of any media type, to\
+        \ show the file as it looks"
       operationId: readSearchDocumentOriginal
       parameters:
       - name: documentId
@@ -12328,21 +12329,21 @@ paths:
           type: string
       responses:
         "200":
-          description: Original PDF bytes
+          description: "Original bytes, under the object's declared media type"
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         "206":
-          description: Requested byte range of the original PDF
+          description: Requested byte range of the original
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         "416":
-          description: Requested byte range starts beyond the original PDF
+          description: Requested byte range starts beyond the original
       security:
       - bearerAuth: []
       - browserSession: []
@@ -15831,7 +15832,8 @@ paths:
     get:
       tags:
       - Chat
-      summary: Read the original PDF of a cited document to show the cited page
+      summary: "Read the stored original of a cited document, of any media type, to\
+        \ show the file as it looks"
       operationId: readChatDocumentOriginal
       parameters:
       - name: documentId
@@ -15854,21 +15856,21 @@ paths:
           type: string
       responses:
         "200":
-          description: Original PDF bytes
+          description: "Original bytes, under the object's declared media type"
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         "206":
-          description: Requested byte range of the original PDF
+          description: Requested byte range of the original
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         "416":
-          description: Requested byte range starts beyond the original PDF
+          description: Requested byte range starts beyond the original
         "400":
           description: Invalid passage window
           content:

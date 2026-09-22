@@ -4603,7 +4603,7 @@ export const getSearchDocumentOptions = (options: Options<GetSearchDocumentData>
 export const readSearchDocumentOriginalQueryKey = (options: Options<ReadSearchDocumentOriginalData>) => createQueryKey('readSearchDocumentOriginal', options);
 
 /**
- * Read the original PDF of a search result to show the matched page
+ * Read the stored original of a search result, of any media type, to show the file as it looks
  */
 export const readSearchDocumentOriginalOptions = (options: Options<ReadSearchDocumentOriginalData>) => queryOptions<ReadSearchDocumentOriginalResponse, DefaultError, ReadSearchDocumentOriginalResponse, ReturnType<typeof readSearchDocumentOriginalQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -6150,7 +6150,7 @@ export const readChatDocumentPassagesOptions = (options: Options<ReadChatDocumen
 export const readChatDocumentOriginalQueryKey = (options: Options<ReadChatDocumentOriginalData>) => createQueryKey('readChatDocumentOriginal', options);
 
 /**
- * Read the original PDF of a cited document to show the cited page
+ * Read the stored original of a cited document, of any media type, to show the file as it looks
  */
 export const readChatDocumentOriginalOptions = (options: Options<ReadChatDocumentOriginalData>) => queryOptions<ReadChatDocumentOriginalResponse, ReadChatDocumentOriginalError, ReadChatDocumentOriginalResponse, ReturnType<typeof readChatDocumentOriginalQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
