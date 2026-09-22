@@ -16,7 +16,7 @@ SSH vào được cả hai node bằng user `ubuntu` (viết thường; `Ubuntu`
 | OS | Ubuntu 24.04.2 LTS, kernel 6.8.0-60 | Ubuntu 24.04.2 LTS, kernel 6.8.0-60 |
 | CPU / RAM | 12 vCPU / 31 GiB | 8 vCPU / 15 GiB |
 | Disk `/` | 493 GB, trống 470 GB | 296 GB, trống 281 GB |
-| GPU | không | không |
+| GPU | không | **NVIDIA RTX 4090 (AD102), PCI `00:06.0`** — driver chưa cài |
 | sudo | passwordless | passwordless |
 | Ra Internet | GHCR và Docker Hub trả `401` | GHCR trả `401` |
 
@@ -102,7 +102,13 @@ Hệ quả phải ghi vào realm production cho người sau đọc được: **
 Còn lại:
 
 1. **Infisical** — environment `production` và machine identity; `MEMORYOS_INFISICAL_BOOTSTRAP_FILE` là bắt buộc trong `compose.base.yaml`.
-2. **Phân vai hai node** — `serving` chạy Docling OCR (limit phải hạ xuống dưới 15 GiB, thấp hơn mức 8 CPU / 16 GiB đang đặt trên cụm Jmix của MEM-79), hay Worker trỏ sang endpoint `jmix-ocr` sẵn có. Phương án sau tạo phụ thuộc chéo môi trường và phải được chấp nhận tường minh. OpenSearch ở lại node 31 GiB.
+2. **Phân vai node `serving`** — nó có một **RTX 4090 chưa cài driver**, nên câu hỏi rộng hơn mức OCR. Kiểm kê ngày 2026-09-21 ghi nhầm là không có GPU: lúc đó chỉ kết luận từ việc thiếu `nvidia-smi`, mà thiếu công cụ không chứng minh được thiếu phần cứng. `lspci` ngày 2026-09-22 cho thấy card nằm ở `00:06.0`, không module `nvidia` nào được nạp và không có `/dev/nvidia*`.
+
+   Ba việc có thể đặt lên nó, không loại trừ nhau: Docling OCR chạy GPU (nhanh hơn nhiều so với CPU và không còn phụ thuộc `jmix-ocr` của cụm Jmix); sinh embedding tại chỗ thay vì gọi ra ngoài; và model serving tự host — thứ [MEM-66](mem-66-vllm-cpu-gateway-research/design.md) đã park ngày 2026-09-19 *"cho tới khi có một môi trường đủ điều kiện"*. Một 4090 24 GB có thể chính là môi trường đó, nên MEM-66 cần được xem lại chứ không giữ nguyên trạng thái park.
+
+   Ràng buộc thật của node này là **15 GiB RAM hệ thống**, không phải VRAM. Trước khi đặt việc lên đây phải cài driver NVIDIA và NVIDIA Container Toolkit; chừng nào chưa cài thì GPU không dùng được từ container.
+
+   Nếu vẫn chọn Docling CPU tại chỗ thì limit phải hạ xuống dưới 15 GiB, thấp hơn mức 8 CPU / 16 GiB đang đặt trên cụm Jmix của MEM-79. Trỏ Worker sang `jmix-ocr` sẵn có vẫn là lựa chọn, nhưng nó tạo phụ thuộc chéo môi trường và giờ khó biện minh hơn khi máy tại chỗ có GPU. OpenSearch ở lại node 31 GiB.
 3. **Đích sao lưu ngoài host** cho PostgreSQL và MinIO.
 
 ## Nghiệm thu
