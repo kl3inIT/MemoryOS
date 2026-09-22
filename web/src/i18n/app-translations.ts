@@ -3943,9 +3943,9 @@ Object.assign(englishUi, {
   "Names new conversations. A small, fast model keeps the chat model free.":
     "Đặt tên cho cuộc trò chuyện mới. Chọn mô hình nhỏ, nhanh để mô hình chat vẫn rảnh trả lời.",
   "Conversation naming model": "Mô hình đặt tên cuộc trò chuyện",
-  "Use the conversation model": "Dùng mô hình của cuộc trò chuyện",
-  "Unavailable; the conversation model is used instead.":
-    "Không khả dụng; đang dùng mô hình của cuộc trò chuyện.",
+  "No model chosen; {{model}} is used.": "Chưa chọn mô hình; đang dùng {{model}}.",
+  "Unavailable; {{model}} is used instead.": "Không khả dụng; đang dùng {{model}}.",
+  "Unavailable; the Chat model is used instead.": "Không khả dụng; đang dùng mô hình Chat.",
   "Save task model": "Lưu mô hình tác vụ",
   "Task model saved.": "Đã lưu mô hình tác vụ.",
   "Every configured model on this provider is removed. Affected Persona defaults are cleared, task models fall back to the conversation model and Chat history is kept. Replace a Tenant default first.":
