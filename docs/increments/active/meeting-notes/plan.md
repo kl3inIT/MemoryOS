@@ -23,8 +23,8 @@ Design: [design.md](design.md). Each phase is its own pull request.
 
 Reading the transcript back — [MEM-183](https://linear.app/memory-os/issue/MEM-183):
 
-- [ ] Search inside a transcript: highlighted matches and a match count, with next/previous.
-- [ ] Star a line and filter to starred lines only (ghiam-pro's highlight, which also scopes what the AI reads).
+- [x] Search inside a transcript: highlighted matches and a match count, with next/previous. It runs in the browser over the transcript already loaded.
+- [x] Star a line and filter to starred lines only, plus a bookmark for a moment while the meeting is still running. Both belong to whoever left them. Scoping what the model reads to starred lines belongs with the minutes work ([MEM-188](https://linear.app/memory-os/issue/MEM-188)).
 - [x] Show the provider's low confidence: the uncertain stretches are highlighted in the transcript, with the percentage on hover. Soniox reports a confidence per token, so the mark is the word rather than the line; every other provider reports none and marks nothing.
 - [ ] A topic timeline that jumps to its utterance.
 

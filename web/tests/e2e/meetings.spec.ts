@@ -95,6 +95,8 @@ async function mockMeetings(page: Page) {
         audio: { status: "NONE", failure: null, filename: null, sizeBytes: 0, provider: null },
         owned: true,
         readers: [],
+        starred: [],
+        bookmarks: [],
       };
       await route.fulfill({ status: 201, json: meeting });
       return;
@@ -117,6 +119,23 @@ async function mockMeetings(page: Page) {
     await route.fulfill({ json: [...current, ...earlier] });
   });
   await page.route(`**/api/meetings/${MEETING_ID}`, (route) => route.fulfill({ json: meeting }));
+  await page.route(`**/api/meetings/${MEETING_ID}/utterances/*/star`, async (route) => {
+    const line = new URL(route.request().url()).pathname.split("/").at(-2)!;
+    const starred = route.request().method() === "PUT" ? [line] : [];
+    meeting = { ...meeting!, starred };
+    await route.fulfill({ json: meeting });
+  });
+  await page.route(`**/api/meetings/${MEETING_ID}/bookmarks`, async (route) => {
+    const body = route.request().postDataJSON() as { atMs: number };
+    meeting = {
+      ...meeting!,
+      bookmarks: [
+        ...meeting!.bookmarks,
+        { id: "b1", atMs: body.atMs, label: `Đánh dấu ${meeting!.bookmarks.length + 1}` },
+      ],
+    };
+    await route.fulfill({ json: meeting });
+  });
   await page.route(`**/api/meetings/${MEETING_ID}/corrections`, (route) =>
     route.fulfill({
       json: [
@@ -556,6 +575,21 @@ for (const width of [1440, 390]) {
 
     // What the model would change, and what it already changed, both live above the transcript.
     await page.getByRole("tab", { name: "Transcript" }).click();
+    // Searching the transcript, and keeping one line for later.
+    const find = page.getByRole("textbox", { name: "Tìm trong transcript" });
+    await find.fill("KPI");
+    await expect(page.getByText("1/1")).toBeVisible();
+    await find.fill("");
+
+    await page
+      .getByRole("listitem")
+      .filter({ hasText: "Bên nhân sự đã gửi bảng KPI" })
+      .getByRole("button", { name: "Đánh dấu câu này" })
+      .click();
+    await page.getByRole("button", { name: "Câu đã đánh dấu (1)" }).click();
+    await expect(page.getByText("Tuần này bên mình phải chốt")).toHaveCount(0);
+    await page.getByRole("button", { name: "Câu đã đánh dấu (1)" }).click();
+
     await expect(page.getByText("Mã dự án đọc rõ ở câu sau là 09.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Nhận", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Hoàn tác", exact: true })).toBeVisible();

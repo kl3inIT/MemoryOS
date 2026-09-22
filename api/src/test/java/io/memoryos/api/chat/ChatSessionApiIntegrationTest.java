@@ -3148,6 +3148,83 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void starsAndBookmarksBelongToWhoeverLeftThemAndNobodyElseSeesThem() throws Exception {
+        UUID meeting = UUID.randomUUID();
+        UUID line = UUID.randomUUID();
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status,
+                                        ended_at)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'IN_PERSON', 'vi', '[]'::jsonb, 'ENDED',
+                            CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label) VALUES (:tenant,:meeting,'MIC','1')")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text,
+                                                  confidence)
+                    VALUES (:tenant, :id, :meeting, 'MIC', '1', 0, 2000, 'Chốt ngân sách quý 4.', 0.9)
+                    """).param("tenant", TENANT).param("id", line).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_user_share(tenant_id, meeting_id, actor_id)
+                    VALUES (:tenant, :meeting, :reader)
+                    """).param("tenant", TENANT).param("meeting", meeting)
+                    .param("reader", other.getPrincipal().actorId().value()).update();
+
+            var starred = Json.mapper().readTree(mockMvc.perform(
+                    put("/api/meetings/" + meeting + "/utterances/" + line + "/star").with(authentication(other))
+                            .with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(1, starred.path("starred").size());
+            assertEquals(line.toString(), starred.path("starred").get(0).asText());
+
+            // The owner reads the same meeting and sees none of the reader's marks.
+            var owners = Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting)
+                    .with(authentication(actor))).andExpect(status().isOk()).andReturn().getResponse()
+                    .getContentAsString());
+            assertEquals(0, owners.path("starred").size(), "a star belongs to the reader who left it");
+
+            var marked = Json.mapper().readTree(mockMvc.perform(post("/api/meetings/" + meeting + "/bookmarks")
+                    .with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"atMs\":65000,\"label\":null}"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(1, marked.path("bookmarks").size());
+            assertEquals(65000, marked.path("bookmarks").get(0).path("atMs").asLong());
+            assertEquals("Đánh dấu 1", marked.path("bookmarks").get(0).path("label").asText(),
+                    "a mark with no name is numbered");
+            String bookmark = marked.path("bookmarks").get(0).path("id").asText();
+
+            mockMvc.perform(post("/api/meetings/" + meeting + "/bookmarks").with(authentication(other)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"atMs\":-1,\"label\":null}")).andExpect(status().isBadRequest());
+
+            // A line of another meeting cannot be starred through this one.
+            mockMvc.perform(put("/api/meetings/" + meeting + "/utterances/" + UUID.randomUUID() + "/star")
+                    .with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isNotFound());
+
+            // One reader cannot take back another's mark.
+            mockMvc.perform(delete("/api/meetings/" + meeting + "/bookmarks/" + bookmark).with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNotFound());
+
+            var cleared = Json.mapper().readTree(mockMvc.perform(
+                    delete("/api/meetings/" + meeting + "/bookmarks/" + bookmark).with(authentication(other))
+                            .with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(0, cleared.path("bookmarks").size());
+
+            var unstarred = Json.mapper().readTree(mockMvc.perform(
+                    delete("/api/meetings/" + meeting + "/utterances/" + line + "/star").with(authentication(other))
+                            .with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(0, unstarred.path("starred").size());
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
     void aProposalIsOnlyAnOfferUntilTheOwnerTakesItAndCanBeTakenBack() throws Exception {
         var asked = new java.util.concurrent.atomic.AtomicReference<String>();
         when(model.call(any(Prompt.class))).thenAnswer(call -> {

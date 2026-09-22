@@ -41,6 +41,12 @@ Each track is one provider stream over the Tenant's default speech-to-text conne
 
 An utterance also carries `spans`: the stretches the provider was least sure of, as half-open character offsets into the stored text with the lowest confidence among the tokens each covers. A token below 0.6 — Soniox's own review threshold — is marked, neighbouring marked tokens become one stretch, and the threshold is applied once, when the utterance is built, so stored stretches reflect the threshold in force at transcription time. Only Soniox reports a confidence per token, live and for an uploaded recording; every other provider stores an empty list and nothing is marked. The transcript highlights those stretches and shows the percentage on hover.
 
+## Finding a line, and keeping one
+
+Searching a transcript happens in the browser over what is already loaded; no route answers a query. Every hit is numbered across the whole meeting so the arrows walk them in reading order, and a hit is drawn over an uncertain stretch where the two overlap.
+
+Two marks belong to whoever left them, and nobody else sees them — a meeting five people read collects five sets. A **star** says a line matters and is left afterwards, while reading: `PUT` and `DELETE /api/meetings/{id}/utterances/{utteranceId}/star`, answered with the meeting as that reader sees it. A **bookmark** says to come back to a moment and is left during the meeting, when there is no line yet to star: `POST /api/meetings/{id}/bookmarks` takes milliseconds from the start of the recording and a label, numbering it `Đánh dấu N` when none is given, and `DELETE /api/meetings/{id}/bookmarks/{bookmarkId}` takes back one of the caller's own. At most 200 bookmarks per person per meeting, and a time outside the recording is refused. Anyone who reads the meeting may leave both; the meeting carries `starred` and `bookmarks` for the caller alone.
+
 ## Correcting what was misheard
 
 The owner asks a model what was probably said at each marked stretch: `POST /api/meetings/{id}/corrections` answers the run and its proposals, and changes nothing. Only the owner reaches any of this — a reader of a shared meeting gets 404 — and the call is billed to the owner's Tenant as `MEETING_CORRECTION`, a model flow an administrator selects like any other. One pass at a time per meeting; a second press while one is running answers 409.
