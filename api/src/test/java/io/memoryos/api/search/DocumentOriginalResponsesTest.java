@@ -11,7 +11,7 @@ import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.retrieval.DocumentOriginalService.ByteRange;
-import io.memoryos.retrieval.DocumentOriginalService.OriginalPdf;
+import io.memoryos.retrieval.DocumentOriginalService.Original;
 import io.memoryos.retrieval.DocumentOriginalService.RangeNotSatisfiableException;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -48,7 +48,7 @@ class DocumentOriginalResponsesTest {
         var closed = new AtomicBoolean();
         DocumentOriginalResponses.write(null, response, range -> {
             requested.set(range);
-            return new OriginalPdf(REFERENCE, null, new ByteArrayInputStream(PDF), () -> closed.set(true));
+            return new Original(REFERENCE, null, new ByteArrayInputStream(PDF), () -> closed.set(true));
         });
 
         assertNull(requested.get());
@@ -73,7 +73,7 @@ class DocumentOriginalResponsesTest {
         DocumentOriginalResponses.write("bytes=5-", response, range -> {
             requested.set(range);
             var served = new ByteRange(5, PDF.length - 1);
-            return new OriginalPdf(REFERENCE, served,
+            return new Original(REFERENCE, served,
                     new ByteArrayInputStream(Arrays.copyOfRange(PDF, 5, PDF.length)), () -> closed.set(true));
         });
 

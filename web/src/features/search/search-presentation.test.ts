@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createSearchSnippet,
   friendlyMediaType,
-  stripGeneratedTitlePrefix,
+  stripGeneratedPrefix,
 } from "./search-presentation";
 
 describe("search presentation", () => {
@@ -16,16 +16,21 @@ describe("search presentation", () => {
     expect(friendlyMediaType("application/x-private-format")).toBe("Document");
   });
 
-  it("removes only the exact generated title prefix", () => {
-    expect(stripGeneratedTitlePrefix("Title: policy.md\nSection: Leave\nBody", "policy.md")).toBe(
-      "Section: Leave\nBody",
+  it("removes the generated title, section and table row context", () => {
+    expect(stripGeneratedPrefix("Title: policy.md\nSection: Leave\nBody", "policy.md")).toBe(
+      "Body",
     );
-    expect(stripGeneratedTitlePrefix("Title: another.md\nBody", "policy.md")).toBe(
+    expect(
+      stripGeneratedPrefix("Title: report.docx\nSection: A > B\nRow: Q1\n[A1] 12", "report.docx"),
+    ).toBe("[A1] 12");
+    expect(stripGeneratedPrefix("Title: another.md\nBody", "policy.md")).toBe(
       "Title: another.md\nBody",
     );
-    expect(stripGeneratedTitlePrefix("Intro\nTitle: policy.md\nBody", "policy.md")).toBe(
+    expect(stripGeneratedPrefix("Intro\nTitle: policy.md\nBody", "policy.md")).toBe(
       "Intro\nTitle: policy.md\nBody",
     );
+    // A document whose own first line looks like section context keeps it: no generated title precedes it.
+    expect(stripGeneratedPrefix("Section: Leave\nBody", "policy.md")).toBe("Section: Leave\nBody");
   });
 
   it("centers a bounded snippet on the exact phrase and highlights it", () => {

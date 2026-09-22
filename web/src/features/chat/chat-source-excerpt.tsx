@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { stripGeneratedTitlePrefix } from "@/features/search/search-presentation";
+import { stripGeneratedPrefix } from "@/features/search/search-presentation";
 import { readChatDocumentPassages } from "@/lib/hey-api/sdk.gen";
 import { cn } from "@/lib/utils";
 import type { ChatSource } from "./chat-evidence";
@@ -55,7 +55,7 @@ function DocumentSourceExcerpt({
     .filter(
       (passage) => passage.ordinal >= source.startOrdinal && passage.ordinal <= source.endOrdinal,
     )
-    .map((passage) => stripGeneratedTitlePrefix(passage.content, detail.data!.title).trim())
+    .map((passage) => stripGeneratedPrefix(passage.content, detail.data!.title).trim())
     .join(" ");
   return (
     <span className={className}>

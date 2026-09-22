@@ -43,7 +43,7 @@ The following acceptance evidence remains distinct: approved OpenAI embeddings o
 - `OpenSearchRetrievalIntegrationTest`: real OpenSearch 3.8.0 receives 25 indexed chunks; verifies bounded middle/tail/past-end windows, title/count/provenance and Tenant/generation isolation without embedding calls for reads. A short keyword query calls embeddings and retains both lexical-only and semantic-only hits through the shared hybrid pipeline. Existing indexing/reuse/repair tests remain in the same runtime fixture.
 - General Search permits eligible PUBLIC FILE and private FILE with current associated-Group membership; neither creator nor Source-management authority bypasses that policy. These tests do not establish Google Drive ACL-aware retrieval or expose private Chat attachments through general Search.
 
-## Result source presentation and original PDF (MEM-87)
+## Result source presentation and stored originals (MEM-87)
 
 | Contract | Evidence |
 | --- | --- |
@@ -51,8 +51,10 @@ The following acceptance evidence remains distinct: approved OpenAI embeddings o
 | Search original PDF requires `SEARCH_READ` before and after opening storage | `DocumentOriginalServiceTest.searchRequiresSearchReadBeforeAndAfterOpening` |
 | Original PDF ranges: one `bytes=first-[last]` gives 206 with `Content-Range`/`Content-Length`, whole responses advertise `Accept-Ranges` and disable proxy buffering, beyond-the-end gives 416 without body, suffix/multiple/malformed ranges serve the whole object | `DocumentOriginalResponsesTest` |
 | Each range rechecks authority (revocation stops the next range), inspects object metadata, requires the provider range and whole size, checks `%PDF-` from byte 0, and returns 416 only to a reader | `DocumentOriginalServiceTest` range cases |
+| A Word Document is served with its own media type and only after the OOXML `PK\x03\x04` header; a Word Document whose stored bytes are not a package is refused; a media type without a viewer has no original view, while the sandbox batch still reads any type | `DocumentOriginalServiceTest.wordOriginalsAreServedWholeAfterTheirOwnMagicCheck`, `sandboxOriginalsKeepReadableBoundedFilesOfAnyTypeAndRecheckOnOpen`, `SourceOriginalQueryTest`; real PostgreSQL |
 | A PDF match opens the preview on "PDF pages"; it shows a 12-page generated original at the cited page 7 (box in view, `Page 7 / 12`, page 1 not rendered) and reads it by range: one whole-file response for headers, ranges totalling under half of the 6 MiB file; when ranged reads fail (500) it reopens with one more whole read and renders page 7 without an error | `search.spec.ts` source presentation case |
 | Card icon/meta line, provider name as the Drive link (none for uploads) and preview PDF tabs with highlighted region | `search.spec.ts` source presentation case |
+| A Word match opens the preview on "Original document", docx-preview renders the whole stored `.docx` in a real browser, and the original is read whole at the requested generation without ranges; its passages show the chunk text with the generated `Title:`/`Section:`/`Row:` context removed | `search.spec.ts` Word result case |
 | The file-type menu offers every media type on the page, including Google Sheets | `search.spec.ts` source presentation case |
 | Result card: best match and each related match are their own named controls (`Open best match in …`, `Open related match n in …`); one-line results heading `n results for "query"` | `search.spec.ts` result case; `search-page.test.tsx` |
 | `totalResults` counts readable grouped Documents across pages; heading and shared `TablePagination` use it (`Showing 1–1 of 23`, `1 / 2` → `2 / 2`) | `DocumentSearchServiceTest.filtersObsoleteAndIneligibleHitsBeforeGroupingAndBoundedPaging`; `OpenApiContractTest`; `search-page.test.tsx`; `search.spec.ts` result case |

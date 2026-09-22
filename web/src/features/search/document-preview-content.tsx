@@ -8,7 +8,7 @@ import {
   readChatFilePassages,
 } from "@/lib/hey-api/sdk.gen";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { stripGeneratedTitlePrefix } from "./search-presentation";
+import { stripGeneratedPrefix } from "./search-presentation";
 import type { DocumentSelection } from "./document-preview-dialog";
 
 export function DocumentPreviewContent({
@@ -124,7 +124,7 @@ export function DocumentPreviewContent({
                   <p
                     className={`whitespace-pre-wrap break-words text-content-primary ${variant === "chat" ? "text-sm leading-7" : "font-main-content-body"}`}
                   >
-                    {stripGeneratedTitlePrefix(passage.content, detail.data.title).trim()}
+                    {stripGeneratedPrefix(passage.content, detail.data.title).trim()}
                   </p>
                 </article>
               );

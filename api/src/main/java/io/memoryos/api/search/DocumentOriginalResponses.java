@@ -1,7 +1,7 @@
 package io.memoryos.api.search;
 
 import io.memoryos.retrieval.DocumentOriginalService.ByteRange;
-import io.memoryos.retrieval.DocumentOriginalService.OriginalPdf;
+import io.memoryos.retrieval.DocumentOriginalService.Original;
 import io.memoryos.retrieval.DocumentOriginalService.RangeNotSatisfiableException;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -15,7 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 
 /**
- * Original PDF bytes are served as a non-executable, uncached attachment, like owner-private Chat files.
+ * Original bytes are served as a non-executable, uncached attachment, like owner-private Chat files.
  * A single {@code Range} lets pdf.js read only the parts of a large PDF it renders; every range is a new
  * authorized read.
  */
@@ -25,8 +25,8 @@ public final class DocumentOriginalResponses {
     private DocumentOriginalResponses() {}
 
     public static void write(@Nullable String rangeHeader, HttpServletResponse response,
-            Function<@Nullable ByteRange, OriginalPdf> open) throws IOException {
-        OriginalPdf opened;
+            Function<@Nullable ByteRange, Original> open) throws IOException {
+        Original opened;
         try {
             opened = open.apply(parseRange(rangeHeader));
         } catch (RangeNotSatisfiableException unsatisfiable) {
@@ -35,15 +35,15 @@ public final class DocumentOriginalResponses {
             response.setHeader(HttpHeaders.CONTENT_RANGE, "bytes */" + unsatisfiable.sizeBytes());
             return;
         }
-        try (var pdf = opened) {
+        try (var original = opened) {
             commonHeaders(response);
             response.setContentType(MediaType.APPLICATION_OCTET_STREAM_VALUE);
             response.setHeader(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
-                    .filename(pdf.reference().filename(), StandardCharsets.UTF_8).build().toString());
+                    .filename(original.reference().filename(), StandardCharsets.UTF_8).build().toString());
             // Stream through the proxy instead of spooling a whole original to its temporary files.
             response.setHeader("X-Accel-Buffering", "no");
-            long size = pdf.reference().metadata().sizeBytes();
-            var range = pdf.range();
+            long size = original.reference().metadata().sizeBytes();
+            var range = original.range();
             if (range == null) {
                 response.setContentLengthLong(size);
             } else {
@@ -51,7 +51,7 @@ public final class DocumentOriginalResponses {
                 response.setHeader(HttpHeaders.CONTENT_RANGE, "bytes " + range.first() + "-" + range.last() + "/" + size);
                 response.setContentLengthLong(range.length());
             }
-            pdf.inputStream().transferTo(response.getOutputStream());
+            original.inputStream().transferTo(response.getOutputStream());
         }
     }
 

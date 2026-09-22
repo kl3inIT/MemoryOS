@@ -12,7 +12,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   EvidenceViewSwitch,
   type EvidenceView,
-  type PdfEvidence,
+  type OriginalEvidence,
 } from "@/features/search/evidence-view-switch";
 import {
   DocumentPreviewDialog,
@@ -22,21 +22,27 @@ import { client } from "@/lib/hey-api/client.gen";
 import { citedPdfLocation } from "./chat-source-meta";
 import { ChatSourceHeader, ChatSourceRow } from "./chat-source-list";
 
-/** PDF page view for an indexed document citation whose provenance records pages. */
-function citationPdf(source: ChatSource): PdfEvidence | undefined {
-  const location = citedPdfLocation(source);
-  if (!location || !source.documentId || !source.generation) return undefined;
+const WORD_DOCUMENT = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+/** The stored original of an indexed document citation: its cited PDF pages, or a whole Word document. */
+function citationOriginal(source: ChatSource): OriginalEvidence | undefined {
+  if (!source.documentId || !source.generation) return undefined;
   const { documentId, generation } = source;
-  return {
-    url: client.buildUrl({
-      url: "/api/chat/documents/{documentId}/original",
-      path: { documentId },
-      query: { generation },
-    }),
-    pages: location.pages,
-    boxes: location.boxes,
-    table: location.table,
-  };
+  const url = client.buildUrl({
+    url: "/api/chat/documents/{documentId}/original",
+    path: { documentId },
+    query: { generation },
+  });
+  const location = citedPdfLocation(source);
+  if (location)
+    return {
+      kind: "pdf",
+      url,
+      pages: location.pages,
+      boxes: location.boxes,
+      table: location.table,
+    };
+  return source.mediaType === WORD_DOCUMENT ? { kind: "docx", url } : undefined;
 }
 
 /** The cited passages of an indexed document or file citation, read with Chat authority. */
@@ -130,9 +136,10 @@ export function ChatSourcePanel({
   };
   const documentCitation =
     selected && !selected.web && !(selected.fileId != null && !selected.fileLocation?.generation);
-  const pdf = documentCitation ? citationPdf(selected) : undefined;
+  const original = documentCitation ? citationOriginal(selected) : undefined;
   const view = selected
-    ? (views[selected.citationId] ?? (pdf?.table ? "pdf" : "passages"))
+    ? (views[selected.citationId] ??
+      (original?.kind === "pdf" && original.table ? "original" : "passages"))
     : undefined;
   const changeView = (next: EvidenceView) => {
     if (selected) setViews((current) => ({ ...current, [selected.citationId]: next }));
@@ -227,8 +234,8 @@ export function ChatSourcePanel({
       ) : selected ? (
         <>
           <ChatSourceHeader source={selected}>
-            {/* The PDF tabs name their own view; the passage hint would be false on the page tab. */}
-            {pdf ? null : (
+            {/* The original tabs name their own view; the passage hint would be false on the original tab. */}
+            {original ? null : (
               <p className="mt-3 text-xs leading-5 text-content-muted">
                 {selected.fileId ? t("fileCitation") : t("highlighted")}
               </p>
@@ -249,7 +256,7 @@ export function ChatSourcePanel({
           ) : (
             <EvidenceViewSwitch
               key={`view:${selected.documentId}:${selected.citationId}`}
-              pdf={pdf}
+              original={original}
               view={view}
               onViewChange={changeView}
             >

@@ -2957,7 +2957,7 @@ export const getSearchDocument = <ThrowOnError extends boolean = false>(options:
 });
 
 /**
- * Read the original PDF of a search result to show the matched page
+ * Read the original file of a search result to show it as stored
  */
 export const readSearchDocumentOriginal = <ThrowOnError extends boolean = false>(options: Options<ReadSearchDocumentOriginalData, ThrowOnError>): RequestResult<ReadSearchDocumentOriginalResponses, ReadSearchDocumentOriginalErrors, ThrowOnError> => (options.client ?? client).get<ReadSearchDocumentOriginalResponses, ReadSearchDocumentOriginalErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
@@ -3642,7 +3642,7 @@ export const readChatDocumentPassages = <ThrowOnError extends boolean = false>(o
 });
 
 /**
- * Read the original PDF of a cited document to show the cited page
+ * Read the original file of a cited document to show its pages
  */
 export const readChatDocumentOriginal = <ThrowOnError extends boolean = false>(options: Options<ReadChatDocumentOriginalData, ThrowOnError>): RequestResult<ReadChatDocumentOriginalResponses, ReadChatDocumentOriginalErrors, ThrowOnError> => (options.client ?? client).get<ReadChatDocumentOriginalResponses, ReadChatDocumentOriginalErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {

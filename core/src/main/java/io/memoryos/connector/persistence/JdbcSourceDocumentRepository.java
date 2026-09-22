@@ -252,23 +252,26 @@ public class JdbcSourceDocumentRepository {
     }
 
     /**
-     * Stored original PDF behind an actor-readable mapping whose current item version produced the Document's
-     * current source content. Other media types and stale versions have no original to serve.
+     * Stored original behind an actor-readable mapping whose current item version produced the Document's current
+     * source content, when the Document's media type is one a reader can render. Other media types and stale
+     * versions have no original to serve.
      */
-    public Optional<io.memoryos.objectstorage.StoredObjectReference> originalPdf(TenantId tenant, ActorId actor, UUID document) {
-        return Optional.ofNullable(originals(tenant, actor, java.util.Set.of(document), true).get(document));
+    public Optional<io.memoryos.connector.StoredOriginal> original(TenantId tenant, ActorId actor, UUID document,
+            java.util.Set<String> mediaTypes) {
+        return Optional.ofNullable(originals(tenant, actor, java.util.Set.of(document), mediaTypes).get(document));
     }
 
     /**
-     * The stored source object each readable, eligible Document was extracted from, whatever its media type. Documents
-     * the actor cannot read through an active searchable Source, or whose current version no longer matches, are absent.
+     * The stored source object each readable, eligible Document was extracted from, restricted to {@code mediaTypes}
+     * or, when that set is empty, whatever its media type. Documents the actor cannot read through an active
+     * searchable Source, or whose current version no longer matches, are absent.
      */
-    public java.util.Map<UUID, io.memoryos.objectstorage.StoredObjectReference> originals(TenantId tenant, ActorId actor,
-            java.util.Set<UUID> documents, boolean pdfOnly) {
+    public java.util.Map<UUID, io.memoryos.connector.StoredOriginal> originals(TenantId tenant, ActorId actor,
+            java.util.Set<UUID> documents, java.util.Set<String> mediaTypes) {
         if (documents.isEmpty()) return java.util.Map.of();
-        var result = new java.util.LinkedHashMap<UUID, io.memoryos.objectstorage.StoredObjectReference>();
+        var result = new java.util.LinkedHashMap<UUID, io.memoryos.connector.StoredOriginal>();
         jdbcClient.sql("""
-                SELECT DISTINCT ON (m.document_id) m.document_id,o.id,o.object_key,o.filename,o.size_bytes,o.declared_media_type,o.content_sha256
+                SELECT DISTINCT ON (m.document_id) m.document_id,d.media_type,o.id,o.object_key,o.filename,o.size_bytes,o.declared_media_type,o.content_sha256
                 FROM documents_by_connector_credential_pair m
                 JOIN connector_credential_pairs p ON p.tenant_id=m.tenant_id AND p.id=m.connector_credential_pair_id
                 JOIN connectors c ON c.tenant_id=m.tenant_id AND c.id=m.connector_id
@@ -277,18 +280,23 @@ public class JdbcSourceDocumentRepository {
                 JOIN stored_objects o ON o.tenant_id=v.tenant_id AND o.id=v.stored_object_id AND o.state='ACTIVE'
                 JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
                 WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
-                    AND d.status='ELIGIBLE' AND (:pdfOnly=FALSE OR d.media_type='application/pdf')
+                    AND d.status='ELIGIBLE' AND (:anyMediaType=TRUE OR d.media_type IN (:mediaTypes))
                     AND d.source_content_sha256=v.content_sha256
                     AND c.status='ACTIVE' AND %s AND p.status='ACTIVE' AND %s
                 ORDER BY m.document_id,p.id,i.id
                 """.formatted(SEARCHABLE_SOURCE, DOCUMENT_READ_SCOPE)).param("tenant", tenant.value()).param("documents", documents)
-                .param("pdfOnly", pdfOnly).param("actor", actor.value())
+                .param("anyMediaType", mediaTypes.isEmpty())
+                // An empty IN list is invalid SQL; the flag above already admits every media type.
+                .param("mediaTypes", mediaTypes.isEmpty() ? java.util.Set.of("") : mediaTypes)
+                .param("actor", actor.value())
                 .query((r, _) -> {
-                    result.put(r.getObject("document_id", UUID.class), new io.memoryos.objectstorage.StoredObjectReference(
-                            new io.memoryos.objectstorage.StoredObjectId(r.getObject("id", UUID.class)),
-                            new io.memoryos.objectstorage.ObjectKey(r.getString("object_key")), r.getString("filename"),
-                            new io.memoryos.objectstorage.ObjectMetadata(r.getLong("size_bytes"), r.getString("declared_media_type"),
-                                    new io.memoryos.objectstorage.ContentSha256(r.getString("content_sha256")))));
+                    result.put(r.getObject("document_id", UUID.class), new io.memoryos.connector.StoredOriginal(
+                            new io.memoryos.objectstorage.StoredObjectReference(
+                                    new io.memoryos.objectstorage.StoredObjectId(r.getObject("id", UUID.class)),
+                                    new io.memoryos.objectstorage.ObjectKey(r.getString("object_key")), r.getString("filename"),
+                                    new io.memoryos.objectstorage.ObjectMetadata(r.getLong("size_bytes"), r.getString("declared_media_type"),
+                                            new io.memoryos.objectstorage.ContentSha256(r.getString("content_sha256")))),
+                            r.getString("media_type")));
                     return true;
                 }).list();
         return java.util.Map.copyOf(result);

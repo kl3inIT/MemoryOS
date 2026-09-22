@@ -104,6 +104,8 @@ export const vietnameseUi: Record<string, string> = {
   "Trang PDF": "PDF pages",
   "Cách xem bằng chứng": "Evidence view",
   "Đang tải trang PDF…": "Loading PDF pages…",
+  "Tài liệu gốc": "Original document",
+  "Đang tải tài liệu…": "Loading document…",
   "Không mở được bản PDF gốc. Hãy xem đoạn trích.":
     "The original PDF could not be opened. Use the passages view.",
   "Vùng được trích dẫn trên trang {{page}}": "Cited region on page {{page}}",

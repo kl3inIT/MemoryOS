@@ -10467,7 +10467,7 @@ paths:
     get:
       tags:
       - Search
-      summary: Read the original PDF of a search result to show the matched page
+      summary: Read the original file of a search result to show it as stored
       operationId: readSearchDocumentOriginal
       parameters:
       - name: documentId
@@ -10490,21 +10490,21 @@ paths:
           type: string
       responses:
         "200":
-          description: Original PDF bytes
+          description: Original file bytes
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         "206":
-          description: Requested byte range of the original PDF
+          description: Requested byte range of the original file
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         "416":
-          description: Requested byte range starts beyond the original PDF
+          description: Requested byte range starts beyond the original file
       security:
       - bearerAuth: []
       - browserSession: []
@@ -13256,7 +13256,7 @@ paths:
     get:
       tags:
       - Chat
-      summary: Read the original PDF of a cited document to show the cited page
+      summary: Read the original file of a cited document to show its pages
       operationId: readChatDocumentOriginal
       parameters:
       - name: documentId
@@ -13279,21 +13279,21 @@ paths:
           type: string
       responses:
         "200":
-          description: Original PDF bytes
+          description: Original file bytes
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         "206":
-          description: Requested byte range of the original PDF
+          description: Requested byte range of the original file
           content:
             application/octet-stream:
               schema:
                 type: string
                 format: binary
         "416":
-          description: Requested byte range starts beyond the original PDF
+          description: Requested byte range starts beyond the original file
         "400":
           description: Invalid passage window
           content:

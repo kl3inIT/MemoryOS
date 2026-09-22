@@ -8,8 +8,14 @@ import { Dialog } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { DocumentPreviewContent } from "./document-preview-content";
 import { client } from "@/lib/hey-api/client.gen";
-import { EvidenceViewSwitch, type EvidenceView, type PdfEvidence } from "./evidence-view-switch";
+import {
+  EvidenceViewSwitch,
+  type EvidenceView,
+  type OriginalEvidence,
+} from "./evidence-view-switch";
 import { readSourceLocation } from "./source-provenance";
+
+const WORD_DOCUMENT = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 export type DocumentSelection = {
   documentId: string;
@@ -50,26 +56,30 @@ export function DocumentPreviewDialog({
   const ui = useAppTranslation();
   const location = readSourceLocation(selection.provenance ?? []);
   const { documentId, generation } = selection;
-  const pdf: PdfEvidence | undefined =
-    !fileId && selection.mediaType === "application/pdf" && location.pages.length
-      ? {
-          url:
-            variant === "chat"
-              ? client.buildUrl({
-                  url: "/api/chat/documents/{documentId}/original",
-                  path: { documentId },
-                  query: { generation },
-                })
-              : client.buildUrl({
-                  url: "/api/search/documents/{documentId}/original",
-                  path: { documentId },
-                  query: { generation },
-                }),
-          pages: location.pages,
-          boxes: location.boxes,
-          table: location.table,
-        }
-      : undefined;
+  // A stored original is shown when a Document's media type has a viewer; owner-private Chat files have none.
+  const originalUrl =
+    variant === "chat"
+      ? client.buildUrl({
+          url: "/api/chat/documents/{documentId}/original",
+          path: { documentId },
+          query: { generation },
+        })
+      : client.buildUrl({
+          url: "/api/search/documents/{documentId}/original",
+          path: { documentId },
+          query: { generation },
+        });
+  let original: OriginalEvidence | undefined;
+  if (fileId) original = undefined;
+  else if (selection.mediaType === "application/pdf" && location.pages.length)
+    original = {
+      kind: "pdf",
+      url: originalUrl,
+      pages: location.pages,
+      boxes: location.boxes,
+      table: location.table,
+    };
+  else if (selection.mediaType === WORD_DOCUMENT) original = { kind: "docx", url: originalUrl };
 
   return (
     <Dialog.Root
@@ -124,10 +134,10 @@ export function DocumentPreviewDialog({
             </Dialog.Close>
           </header>
 
-          {/* Search opens PDF results on their pages: scanned originals are the reliable evidence. */}
+          {/* Search opens a result on its stored original: scanned pages and Word layout are the reliable evidence. */}
           <EvidenceViewSwitch
-            pdf={pdf}
-            defaultView={variant === "search" ? "pdf" : undefined}
+            original={original}
+            defaultView={variant === "search" ? "original" : undefined}
             view={view}
             onViewChange={onViewChange}
           >

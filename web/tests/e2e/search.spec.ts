@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { fulfillPdfRange, rangedBytes, rangedHandbookPdf } from "../fixtures/ranged-pdf";
+import { fulfillDocx, minimalDocx } from "../fixtures/minimal-docx";
 
 const documentId = "73835d74-d386-4b4e-b392-ad7f81e3b55a";
 const generation = "6b780b3a-de22-4307-ace9-6c2f44e22fc1";
@@ -455,4 +456,99 @@ test("shows source type, provider and authors, links to Google Drive and outline
   expect(fallbackReads.filter((range) => !range)).toHaveLength(2);
   await dialog.getByRole("tab", { name: "Passages" }).click();
   await expect(dialog.getByText(nextPassage.content)).toBeVisible();
+});
+
+test("opens a Word result on its rendered original and shows passages without the generated context", async ({
+  page,
+}) => {
+  const wordDocument = "8b3f4e5d-6c70-4182-8c9d-1e2f3a4b5c63";
+  const wordGeneration = "9c405f6e-7d81-4293-9dae-2f3a4b5c6d74";
+  const title = "Quy trình nghỉ phép.docx";
+  // What the chunker indexes: retrieval context above the text, repeated on every passage.
+  const indexed = {
+    ordinal: 4,
+    content: `Title: ${title}\nSection: Quy trình > Nộp đơn\nRow: Bước 1\nGửi đơn trên cổng nội bộ.`,
+    provenanceJson: "[]",
+  };
+  await page.route("**/api/search", (route) =>
+    route.fulfill({
+      json: {
+        page: 0,
+        hasMore: false,
+        totalResults: 1,
+        candidateLimit: 500,
+        results: [
+          {
+            documentId: wordDocument,
+            generation: wordGeneration,
+            title,
+            mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            updatedAt: "2026-09-07T00:00:00Z",
+            score: 0.6,
+            sections: [
+              {
+                startOrdinal: 4,
+                endOrdinal: 4,
+                matchingOrdinal: 4,
+                score: 0.6,
+                content: indexed.content,
+                provenance: [{ ordinal: 4, provenanceJson: "[]" }],
+              },
+            ],
+            sourceTypes: ["FILE"],
+            authors: [],
+            providerUrl: null,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route("**/api/search/documents/*?*", (route) =>
+    route.fulfill({
+      json: {
+        documentId: wordDocument,
+        generation: wordGeneration,
+        title,
+        passages: [indexed],
+        firstOrdinal: 4,
+        totalChunks: 9,
+        hasMore: false,
+      },
+    }),
+  );
+  const original = minimalDocx([
+    "Quy trình nghỉ phép của Tasco",
+    "Bước 1: gửi đơn trên cổng nội bộ.",
+    "Bước 2: quản lý duyệt trong hai ngày làm việc.",
+  ]);
+  const reads: { url: URL; range?: string }[] = [];
+  await page.route("**/api/search/documents/*/original?*", (route) => {
+    reads.push({ url: new URL(route.request().url()), range: route.request().headers()["range"] });
+    return fulfillDocx(route, original);
+  });
+
+  await page.goto("/search");
+  await page.getByRole("textbox", { name: "Search documents" }).fill("nghỉ phép");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("button", { name: title, exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: title });
+  await expect(dialog.getByRole("tab", { name: "Original document" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  const rendered = dialog.locator('[data-slot="docx-preview"]');
+  await expect(rendered).toContainText("Bước 2: quản lý duyệt trong hai ngày làm việc.");
+  await expect(rendered).toContainText("Quy trình nghỉ phép của Tasco");
+  // Word originals are read whole, at the requested generation: the viewer unzips a package, not page ranges.
+  // StrictMode remounts the reader, and the query keeps no inactive cache, so the count itself is not asserted.
+  expect(reads.length).toBeGreaterThan(0);
+  expect(reads.map(({ range }) => range)).toEqual(reads.map(() => undefined));
+  expect(new Set(reads.map(({ url }) => url.searchParams.get("generation")))).toEqual(
+    new Set([wordGeneration]),
+  );
+
+  await dialog.getByRole("tab", { name: "Passages" }).click();
+  await expect(dialog.getByText("Gửi đơn trên cổng nội bộ.")).toBeVisible();
+  await expect(dialog.getByText("Section: Quy trình > Nộp đơn")).toHaveCount(0);
+  await expect(dialog.getByText("Row: Bước 1")).toHaveCount(0);
 });

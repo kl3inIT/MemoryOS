@@ -39,11 +39,23 @@ export function friendlyMediaType(mediaType: string): string {
   return "Document";
 }
 
-export function stripGeneratedTitlePrefix(content: string, title: string): string {
+/**
+ * Removes the retrieval context `StructuredDocumentChunker` writes above every passage — `Title:`, then the
+ * optional `Section:` and table `Row:` lines. It is indexing context, not document text, and repeating it on
+ * every passage of a reader buries the content. An exact `Title:` line identifies the generated block, so a
+ * document that happens to begin with `Section:` keeps its own text.
+ */
+export function stripGeneratedPrefix(content: string, title: string): string {
   const lineBreak = content.indexOf("\n");
   const firstLine = (lineBreak === -1 ? content : content.slice(0, lineBreak)).replace(/\r$/, "");
   if (firstLine !== `Title: ${title}`) return content;
-  return lineBreak === -1 ? "" : content.slice(lineBreak + 1);
+  let rest = lineBreak === -1 ? "" : content.slice(lineBreak + 1);
+  for (;;) {
+    const next = rest.indexOf("\n");
+    const line = (next === -1 ? rest : rest.slice(0, next)).replace(/\r$/, "");
+    if (!line.startsWith("Section: ") && !line.startsWith("Row: ")) return rest;
+    rest = next === -1 ? "" : rest.slice(next + 1);
+  }
 }
 
 export function createSearchSnippet(
@@ -52,7 +64,7 @@ export function createSearchSnippet(
   query: string,
   maxLength = DEFAULT_SNIPPET_LENGTH,
 ): SearchSnippet {
-  const cleaned = stripGeneratedTitlePrefix(content, title).trim();
+  const cleaned = stripGeneratedPrefix(content, title).trim();
   if (!cleaned) return { text: "No preview text available.", parts: [] };
 
   const terms = highlightTerms(query);

@@ -56,7 +56,7 @@ class SandboxDocumentsTest {
 
         // Opening rechecks citation authority for the staged generation.
         sandbox.open(sandbox.documents().getFirst());
-        verify(originals).citationOriginal(actor, document, newer.generation());
+        verify(originals).sandboxOriginal(actor, document, newer.generation());
     }
 
     private static SearchHit hit(UUID document, UUID generation) {

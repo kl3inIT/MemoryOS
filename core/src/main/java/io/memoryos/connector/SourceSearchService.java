@@ -59,15 +59,20 @@ public class SourceSearchService {
         return Map.copyOf(metadata);
     }
 
-    /** Original PDF object for presentation; callers still check Document eligibility and generation. */
-    public java.util.Optional<io.memoryos.objectstorage.StoredObjectReference> originalPdf(TenantId tenant, ActorId actor, UUID document) {
-        return documents.originalPdf(tenant, actor, document);
+    /** Renderable original object for presentation; callers still check Document eligibility and generation. */
+    public java.util.Optional<StoredOriginal> original(TenantId tenant, ActorId actor, UUID document,
+            java.util.Set<String> mediaTypes) {
+        return documents.original(tenant, actor, document, mediaTypes);
     }
 
     /** Original source objects of any media type for readable, eligible Documents; callers still check generation. */
     public java.util.Map<UUID, io.memoryos.objectstorage.StoredObjectReference> originals(TenantId tenant, ActorId actor,
             java.util.Set<UUID> documents) {
-        return documents.isEmpty() ? java.util.Map.of() : this.documents.originals(tenant, actor, documents, false);
+        if (documents.isEmpty()) return java.util.Map.of();
+        var originals = this.documents.originals(tenant, actor, documents, java.util.Set.of());
+        var result = new java.util.LinkedHashMap<UUID, io.memoryos.objectstorage.StoredObjectReference>();
+        originals.forEach((document, original) -> result.put(document, original.reference()));
+        return java.util.Map.copyOf(result);
     }
 
     public List<DocumentSourceMetadata> indexMetadata(TenantId tenant, DocumentId document, UUID generation) {

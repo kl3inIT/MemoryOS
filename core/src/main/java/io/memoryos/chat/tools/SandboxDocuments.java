@@ -63,8 +63,8 @@ public final class SandboxDocuments {
         return new ArrayList<>(documents.values());
     }
 
-    public DocumentOriginalService.OriginalPdf open(Document document) {
-        return originals.citationOriginal(actor, document.documentId(), document.generation());
+    public DocumentOriginalService.Original open(Document document) {
+        return originals.sandboxOriginal(actor, document.documentId(), document.generation());
     }
 
     /**

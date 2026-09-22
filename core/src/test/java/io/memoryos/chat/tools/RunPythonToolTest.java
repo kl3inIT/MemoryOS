@@ -115,8 +115,8 @@ class RunPythonToolTest {
                 new io.memoryos.objectstorage.StoredObjectReference(stored, new io.memoryos.objectstorage.ObjectKey("raw/r"),
                         "report.xlsx", new ObjectMetadata(20, "application/vnd.ms-excel", new ContentSha256("c".repeat(64))))));
         var closed = new java.util.concurrent.atomic.AtomicBoolean();
-        when(originals.citationOriginal(actor, document, generation)).thenReturn(new io.memoryos.retrieval.DocumentOriginalService
-                .OriginalPdf(null, null, new ByteArrayInputStream(new byte[20]), () -> closed.set(true)));
+        when(originals.sandboxOriginal(actor, document, generation)).thenReturn(new io.memoryos.retrieval.DocumentOriginalService
+                .Original(null, null, new ByteArrayInputStream(new byte[20]), () -> closed.set(true)));
         var sandbox = new SandboxDocuments(originals, actor);
         sandbox.register(List.of(new io.memoryos.retrieval.SearchHit(document, generation, 0, "Report", "text/plain", "x", "[]",
                 Instant.EPOCH, .5)));
@@ -128,7 +128,7 @@ class RunPythonToolTest {
 
         assertEquals(List.of(new InterpreterClient.StagedFile("notes.csv", "svc-notes.csv"),
                 new InterpreterClient.StagedFile(name, "svc-report")), staged());
-        verify(originals).citationOriginal(actor, document, generation);
+        verify(originals).sandboxOriginal(actor, document, generation);
         assertTrue(closed.get());
     }
 
