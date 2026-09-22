@@ -86,7 +86,7 @@ export function CitationRail({
                   {place.sheet ? <span>·</span> : null}
                   {place.sheet ? <span>{place.sheet}</span> : null}
                 </div>
-                {entry.section ? (
+                {entry.section && entry.section !== place.sheet ? (
                   <p className="mt-1 line-clamp-2 break-words font-secondary-body text-content-secondary">
                     {entry.section}
                   </p>

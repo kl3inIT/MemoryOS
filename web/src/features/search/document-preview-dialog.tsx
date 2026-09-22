@@ -1,6 +1,6 @@
 import { Download, Maximize2, Minimize2, X } from "lucide-react";
 import { Dialog } from "radix-ui";
-import { lazy, Suspense, useState, type RefObject } from "react";
+import { lazy, Suspense, useCallback, useState, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import type { CitationConfidence } from "@/features/preview/original-view";
@@ -49,6 +49,13 @@ const SIZES = {
   tall: "sm:h-[calc(100dvh-3rem)] sm:w-[min(64rem,calc(100vw-3rem))]",
 } as const;
 
+/**
+ * Full screen leaves no margin and no rounding, so the expand control changes something for the formats that
+ * already open at the largest windowed size — a PDF, a Word file, a wide workbook.
+ */
+const FULL_SCREEN =
+  "sm:top-0 sm:left-0 sm:h-dvh sm:max-h-dvh sm:w-screen sm:max-w-none sm:translate-x-0 sm:translate-y-0 sm:rounded-none";
+
 type DocumentPreviewDialogProps = {
   selection: DocumentSelection;
   returnFocusRef: RefObject<HTMLElement | null>;
@@ -83,17 +90,22 @@ export function DocumentPreviewDialog({
     ? undefined
     : documentOriginalReader(variant, selection.documentId, selection.generation);
   const cited = readSourceLocation(reading.activeMatch?.provenance ?? []);
+  const places = selection.matches.map((match) => readSourceLocation(match.provenance ?? []));
   const [placed, setPlaced] = useState<readonly CitationConfidence[]>([]);
+  // A reader reports what it found on every repaint; only a different answer is worth another render.
+  const onPlaced = useCallback((found: readonly CitationConfidence[]) => {
+    setPlaced((known) =>
+      known.length === found.length && known.every((one, index) => one === found[index])
+        ? known
+        : found,
+    );
+  }, []);
   const [full, setFull] = useState(false);
   const [passages, setPassages] = useState(!reader || view === "passages");
 
   // A PDF citation is drawn from its recorded region, so its rail entry reports what provenance recorded.
   const confidence: readonly CitationConfidence[] =
-    kind === "pdf"
-      ? selection.matches.map((match) =>
-          readSourceLocation(match.provenance ?? []).boxes.length ? "exact" : "none",
-        )
-      : placed;
+    kind === "pdf" ? places.map((place) => (place.boxes.length ? "exact" : "none")) : placed;
   const located = kind === "pdf" ? cited.boxes.length > 0 : SEARCHABLE.has(kind);
 
   return (
@@ -108,7 +120,7 @@ export function DocumentPreviewDialog({
         <Dialog.Content
           className={cn(
             "fixed inset-x-0 bottom-0 z-50 flex max-h-[calc(100dvh-0.5rem)] min-h-[72dvh] flex-col overflow-hidden rounded-t-2xl border border-border-default bg-surface-overlay shadow-md outline-none sm:top-1/2 sm:left-1/2 sm:min-h-0 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl",
-            full ? SIZES.full : SIZES[previewSize(kind)],
+            full ? FULL_SCREEN : SIZES[previewSize(kind)],
           )}
           onCloseAutoFocus={(event) => {
             const target = returnFocusRef.current?.isConnected
@@ -175,7 +187,8 @@ export function DocumentPreviewDialog({
           </header>
 
           <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-            <div className="flex min-h-0 flex-1 flex-col">
+            {/* min-w-0 keeps a wide original — a workbook with many columns — from pushing the rail out. */}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
               {reader && !passages ? (
                 <Suspense
                   fallback={
@@ -190,9 +203,13 @@ export function DocumentPreviewDialog({
                     mediaType={selection.mediaType}
                     pages={cited.pages}
                     boxes={cited.boxes}
+                    rows={places.map((place) =>
+                      place.row === undefined ? undefined : { sheet: place.sheet, row: place.row },
+                    )}
                     citations={reading.citations}
+                    sections={reading.sections}
                     active={reading.activeMatchIndex}
-                    onPlaced={setPlaced}
+                    onPlaced={onPlaced}
                     onActive={reading.select}
                     thumbnails
                   />

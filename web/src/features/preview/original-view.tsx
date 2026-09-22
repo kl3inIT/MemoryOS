@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { IconButton } from "@/components/ui/icon-button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -19,6 +19,7 @@ import { PdfView } from "./pdf-view";
 import { MAX_TEXT_PREVIEW_BYTES, previewKind, type Sheets } from "./preview-kind";
 import { PreviewCanvas, PreviewSkeleton } from "./preview-surface";
 import { PreviewToolbar, ToolbarGroup } from "./preview-toolbar";
+import { placeSheetCitations, renderedRows, type SheetCitation } from "./sheet-citations";
 import { SheetView } from "./sheet-view";
 import { TextView } from "./text-view";
 
@@ -75,7 +76,9 @@ export function OriginalView({
   mediaType,
   pages = [],
   boxes = [],
+  rows = [],
   citations,
+  sections = [],
   active = 0,
   onPlaced,
   onActive,
@@ -87,8 +90,12 @@ export function OriginalView({
   /** Pages and regions the extraction recorded for the citation; PDF only, empty when none were recorded. */
   pages?: readonly number[];
   boxes?: readonly PdfHighlight[];
+  /** The sheet and row recorded for each citation; workbooks only, and absent where none was recorded. */
+  rows?: readonly (SheetCitation | undefined)[];
   /** The cited passage text, in the order the citation rail lists it. */
   citations: readonly string[];
+  /** The heading each citation was read under, which tells two identical passages apart. */
+  sections?: readonly (string | undefined)[];
   active?: number;
   /**
    * Where each citation ended up, in citation order, so the rail can say which ones were located. A format
@@ -132,6 +139,7 @@ export function OriginalView({
   const highlighted = (children: (onRendered: Rendered) => ReactNode, rendered?: boolean) => (
     <HighlightedOriginal
       citations={citations}
+      sections={sections}
       active={active}
       onPlaced={onPlaced}
       onActive={onActive}
@@ -162,13 +170,10 @@ export function OriginalView({
     case "docx":
       return highlighted((onRendered) => <DocxView blob={data.blob} onLoad={onRendered} />);
     case "xlsx":
-      return highlighted(
-        () => (
-          <PreviewCanvas>
-            <SheetView sheets={data.sheets} />
-          </PreviewCanvas>
-        ),
-        true,
+      return (
+        <CitationSteps active={active} total={citations.length} onActive={onActive}>
+          <WorkbookOriginal sheets={data.sheets} rows={rows} active={active} onPlaced={onPlaced} />
+        </CitationSteps>
       );
     case "csv":
       return highlighted(
@@ -212,6 +217,7 @@ export function OriginalView({
  */
 function HighlightedOriginal({
   citations,
+  sections,
   active,
   rendered = false,
   onPlaced,
@@ -219,6 +225,7 @@ function HighlightedOriginal({
   children,
 }: {
   citations: readonly string[];
+  sections: readonly (string | undefined)[];
   active: number;
   /** A view that renders synchronously is ready as soon as it is in the tree. */
   rendered?: boolean;
@@ -226,7 +233,6 @@ function HighlightedOriginal({
   onActive?: (index: number) => void;
   children: (onRendered: Rendered) => ReactNode;
 }) {
-  const ui = useAppTranslation();
   const container = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(rendered);
   const onRendered = useCallback(() => setReady(true), []);
@@ -237,7 +243,7 @@ function HighlightedOriginal({
   useEffect(() => {
     const root = container.current;
     if (!root || !ready || !citations.length) return undefined;
-    const placements = placeCitations(root, citations);
+    const placements = placeCitations(root, citations, sections);
     paintCitations(placements, active);
     report.current?.(placements.map((placement) => placement.confidence));
     const opened = placements[active]?.range ?? placements.find((found) => found.range)?.range;
@@ -247,13 +253,66 @@ function HighlightedOriginal({
         : opened?.startContainer.parentElement;
     anchor?.scrollIntoView({ block: "center" });
     return () => clearCitations();
-  }, [citations, active, ready]);
+  }, [citations, sections, active, ready]);
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
+    <CitationSteps active={active} total={citations.length} onActive={onActive}>
       <div ref={container} className="flex min-h-0 flex-1 flex-col">
         {children(onRendered)}
       </div>
-      {onActive && citations.length > 1 ? (
+    </CitationSteps>
+  );
+}
+
+/**
+ * A workbook shows its citations on the rows the extraction recorded. Nothing is searched for: the extraction
+ * and this preview format numbers and dates differently, and a row number says exactly where the passage came
+ * from.
+ */
+function WorkbookOriginal({
+  sheets,
+  rows,
+  active,
+  onPlaced,
+}: {
+  sheets: Sheets;
+  rows: readonly (SheetCitation | undefined)[];
+  active: number;
+  onPlaced?: (confidence: readonly CitationConfidence[]) => void;
+}) {
+  // Parsing the workbook is the expensive part, so it happens once per workbook rather than once per citation.
+  const rendered = useMemo(() => renderedRows(sheets), [sheets]);
+  const placements = placeSheetCitations(sheets, rendered, rows);
+  const report = useRef(onPlaced);
+  useEffect(() => {
+    report.current = onPlaced;
+  });
+  useEffect(() => {
+    report.current?.(placements.map((placement) => (placement ? "exact" : "none")));
+  });
+  return (
+    <PreviewCanvas>
+      <SheetView sheets={sheets} placements={placements} active={active} />
+    </PreviewCanvas>
+  );
+}
+
+/** The floating previous/next control a reader steps through the citations with, over any original. */
+function CitationSteps({
+  active,
+  total,
+  onActive,
+  children,
+}: {
+  active: number;
+  total: number;
+  onActive?: (index: number) => void;
+  children: ReactNode;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      {children}
+      {onActive && total > 1 ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-4">
           <PreviewToolbar>
             <ToolbarGroup>
@@ -267,13 +326,13 @@ function HighlightedOriginal({
                 <ChevronLeft />
               </IconButton>
               <span className="min-w-14 text-center font-secondary-action text-content-secondary tabular-nums">
-                {active + 1} / {citations.length}
+                {active + 1} / {total}
               </span>
               <IconButton
                 prominence="internal"
                 size="sm"
                 aria-label={ui("Đoạn sau")}
-                disabled={active >= citations.length - 1}
+                disabled={active >= total - 1}
                 onClick={() => onActive(active + 1)}
               >
                 <ChevronRight />
