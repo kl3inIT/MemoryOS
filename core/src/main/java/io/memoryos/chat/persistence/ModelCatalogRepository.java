@@ -73,7 +73,8 @@ public class ModelCatalogRepository {
         for (var flow : ModelFlow.values())
             jdbc.sql("""
                     INSERT INTO model_flow_default(tenant_id, flow, model_configuration_id)
-                    SELECT :tenant, :flow, model_configuration_id FROM chat_model_default WHERE tenant_id = :tenant
+                    VALUES (:tenant, :flow,
+                            (SELECT model_configuration_id FROM chat_model_default WHERE tenant_id = :tenant))
                     ON CONFLICT DO NOTHING
                     """).param("tenant", tenant).param("flow", flow.name()).update();
     }
