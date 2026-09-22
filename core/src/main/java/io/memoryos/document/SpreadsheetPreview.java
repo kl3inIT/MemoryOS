@@ -1,4 +1,4 @@
-package io.memoryos.chat.interpreter;
+package io.memoryos.document;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,6 +22,10 @@ import org.xml.sax.SAXException;
  * Onyx {@code parse_spreadsheet_for_preview} ({@code chat_utils.py}): each sheet of an xlsx as CSV text, cut at a row
  * boundary past {@link #MAX_CHARS_PER_SHEET}. Reads with POI's streaming reader, shows cached formula values and never
  * evaluates formulas.
+ *
+ * <p>A workbook is never sent to the browser as bytes, because the app ships no client-side workbook parser.
+ * Both an owner-private Chat file and a Document original are read through this, so it belongs to no one
+ * capability.
  */
 public final class SpreadsheetPreview {
     /** Onyx {@code MAX_PREVIEW_CHARS_PER_SHEET}. */
