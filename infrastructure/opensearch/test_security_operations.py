@@ -16,7 +16,7 @@ def load(name):
 
 
 keycloak = load("configure-keycloak-client")
-provision = load("provision-staging")
+provision = load("provision-search")
 dashboards = load("provision-dashboards")
 
 

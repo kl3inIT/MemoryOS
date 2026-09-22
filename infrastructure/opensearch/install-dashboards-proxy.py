@@ -116,7 +116,7 @@ server {
     if entry not in cron.splitlines():
         cron = cron.rstrip() + "\n" + entry + "\n"
     internal_renewal = Path("/apps/memoryos/renew-internal-search-certificates.py")
-    internal_renewal.write_text((Path(__file__).parent / "provision-staging.py").read_text(), encoding="utf-8")
+    internal_renewal.write_text((Path(__file__).parent / "provision-search.py").read_text(), encoding="utf-8")
     internal_renewal.chmod(0o700)
     internal_entry = "41 3 * * * /usr/bin/python3 /apps/memoryos/renew-internal-search-certificates.py --renew-certificates >> /apps/memoryos/internal-search-certificate-renewal.log 2>&1"
     if internal_entry not in cron.splitlines():
