@@ -29,7 +29,6 @@ if [ -n "${MEMORYOS_REDIS_TLS_CA_FILE:-}" ]; then
     export MEMORYOS_REDIS_TLS_CA_CERTIFICATE
 fi
 
-unset INFISICAL_TOKEN
 # The jar name has to expand inside the shell that runs as memoryos, not before su hands over.
 # shellcheck disable=SC2016
 exec su -p -s /bin/sh memoryos -c 'exec java -jar "$MEMORYOS_APPLICATION_JAR"'
