@@ -117,10 +117,18 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn("vars.STAGING_AUTO_DEPLOY == 'true'", STAGING_CALLER)
 
     def test_each_environment_carries_its_own_identity_and_trust(self):
-        for caller, prefix in ((STAGING_CALLER, "STAGING"), (PRODUCTION_CALLER, "PRODUCTION")):
+        # Environment-scoped values are read inside the job that enters the environment. A caller
+        # cannot read them: `with:` is evaluated before any environment is entered and yields empty
+        # strings, which is how the first run of the split failed.
+        for prefix in ("STAGING", "PRODUCTION"):
             for name in ("HOST", "USER", "KNOWN_HOSTS"):
-                self.assertIn("vars.%s_%s" % (prefix, name), caller)
-            self.assertIn("secrets.%s_SSH_KEY" % prefix, caller)
+                self.assertIn("vars.%s_%s" % (prefix, name), WORKFLOW)
+            self.assertIn("secrets.%s_SSH_KEY" % prefix, WORKFLOW)
+        for caller in CALLERS:
+            self.assertNotIn("vars.STAGING_HOST", caller)
+            self.assertNotIn("vars.PRODUCTION_HOST", caller)
+            self.assertNotIn("SSH_KEY", caller)
+        self.assertIn("inputs.environment == 'production' && vars.PRODUCTION_HOST || vars.STAGING_HOST", WORKFLOW)
 
     def test_manual_rollback_checks_schema_before_restoring_images(self):
         rollback = SCRIPT.split('elif [[ "$mode" == rollback ]]', 1)[1].split('elif [[ "$mode" == finish ]]', 1)[0]

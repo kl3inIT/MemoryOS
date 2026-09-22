@@ -10,18 +10,6 @@ name: Deploy
         description: Deployment environment; selects the GitHub environment, the server env file and the Compose overlays
         required: true
         type: string
-      host:
-        description: Server host name
-        required: true
-        type: string
-      user:
-        description: Dedicated deployment operator on that server
-        required: true
-        type: string
-      known_hosts:
-        description: Verified SSH host key for that server
-        required: true
-        type: string
       ci_run_id:
         description: Successful main CI run containing the verified release; empty resolves the triggering run
         required: false
@@ -32,10 +20,6 @@ name: Deploy
         required: false
         default: ''
         type: string
-    secrets:
-      ssh_key:
-        description: Private key of the dedicated deployment identity for that server
-        required: true
 
 permissions:
   contents: read # Check out trusted main deployment code.
@@ -51,10 +35,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     environment: ${{ inputs.environment }}
+    # Host, operator, trusted host key and deployment key belong to the GitHub environment, and a
+    # caller cannot read its own environment's values: `with:` is evaluated before any environment is
+    # entered, so passing them in yields empty strings. They are selected here, inside the job that
+    # enters the environment.
     env:
       DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
-      DEPLOY_HOST: ${{ inputs.host }}
-      DEPLOY_USER: ${{ inputs.user }}
+      DEPLOY_HOST: ${{ inputs.environment == 'production' && vars.PRODUCTION_HOST || vars.STAGING_HOST }}
+      DEPLOY_USER: ${{ inputs.environment == 'production' && vars.PRODUCTION_USER || vars.STAGING_USER }}
     steps:
       - name: Check out trusted deployment code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -135,8 +123,8 @@ jobs:
       - name: Prepare dedicated SSH identity and verified host trust
         if: steps.release.outputs.ready == 'true'
         env:
-          DEPLOY_KEY: ${{ secrets.ssh_key }}
-          KNOWN_HOSTS: ${{ inputs.known_hosts }}
+          DEPLOY_KEY: ${{ inputs.environment == 'production' && secrets.PRODUCTION_SSH_KEY || secrets.STAGING_SSH_KEY }}
+          KNOWN_HOSTS: ${{ inputs.environment == 'production' && vars.PRODUCTION_KNOWN_HOSTS || vars.STAGING_KNOWN_HOSTS }}
         run: |
           test -n "$DEPLOY_KEY"
           test -n "$KNOWN_HOSTS"
