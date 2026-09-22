@@ -193,6 +193,7 @@ export function DocumentPreviewDialog({
                     citations={reading.citations}
                     active={reading.activeMatchIndex}
                     onPlaced={setPlaced}
+                    onActive={reading.select}
                     thumbnails
                   />
                 </Suspense>

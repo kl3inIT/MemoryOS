@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { IconButton } from "@/components/ui/icon-button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
@@ -16,6 +18,7 @@ import type { PdfHighlight } from "./pdf-pages";
 import { PdfView } from "./pdf-view";
 import { MAX_TEXT_PREVIEW_BYTES, previewKind, type Sheets } from "./preview-kind";
 import { PreviewCanvas, PreviewSkeleton } from "./preview-surface";
+import { PreviewToolbar, ToolbarGroup } from "./preview-toolbar";
 import { SheetView } from "./sheet-view";
 import { TextView } from "./text-view";
 
@@ -75,6 +78,7 @@ export function OriginalView({
   citations,
   active = 0,
   onPlaced,
+  onActive,
   thumbnails = false,
 }: {
   reader: OriginalReader;
@@ -91,6 +95,8 @@ export function OriginalView({
    * with no text to search reports nothing, and the rail keeps saying it does not know.
    */
   onPlaced?: (confidence: readonly CitationConfidence[]) => void;
+  /** Steps the reader between citations from the toolbar; the rail does the same from its cards. */
+  onActive?: (index: number) => void;
   /** A page rail beside a paged original, for a reader wide enough to hold one. */
   thumbnails?: boolean;
 }) {
@@ -128,6 +134,7 @@ export function OriginalView({
       citations={citations}
       active={active}
       onPlaced={onPlaced}
+      onActive={onActive}
       rendered={rendered}
     >
       {children}
@@ -208,6 +215,7 @@ function HighlightedOriginal({
   active,
   rendered = false,
   onPlaced,
+  onActive,
   children,
 }: {
   citations: readonly string[];
@@ -215,8 +223,10 @@ function HighlightedOriginal({
   /** A view that renders synchronously is ready as soon as it is in the tree. */
   rendered?: boolean;
   onPlaced?: (confidence: readonly CitationConfidence[]) => void;
+  onActive?: (index: number) => void;
   children: (onRendered: Rendered) => ReactNode;
 }) {
+  const ui = useAppTranslation();
   const container = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(rendered);
   const onRendered = useCallback(() => setReady(true), []);
@@ -239,8 +249,39 @@ function HighlightedOriginal({
     return () => clearCitations();
   }, [citations, active, ready]);
   return (
-    <div ref={container} className="flex min-h-0 flex-1 flex-col">
-      {children(onRendered)}
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div ref={container} className="flex min-h-0 flex-1 flex-col">
+        {children(onRendered)}
+      </div>
+      {onActive && citations.length > 1 ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-4">
+          <PreviewToolbar>
+            <ToolbarGroup>
+              <IconButton
+                prominence="internal"
+                size="sm"
+                aria-label={ui("Đoạn trước")}
+                disabled={active <= 0}
+                onClick={() => onActive(active - 1)}
+              >
+                <ChevronLeft />
+              </IconButton>
+              <span className="min-w-14 text-center font-secondary-action text-content-secondary tabular-nums">
+                {active + 1} / {citations.length}
+              </span>
+              <IconButton
+                prominence="internal"
+                size="sm"
+                aria-label={ui("Đoạn sau")}
+                disabled={active >= citations.length - 1}
+                onClick={() => onActive(active + 1)}
+              >
+                <ChevronRight />
+              </IconButton>
+            </ToolbarGroup>
+          </PreviewToolbar>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -96,7 +96,8 @@ export function DocxView({
         ref={body}
         data-slot="docx-preview"
         // Pages keep their layout as in Onyx; narrow screens scroll sideways instead of reflowing.
-        className="overflow-auto px-4 py-6 text-content-document [&_section.docx]:mx-auto [&_section.docx]:mb-6 [&_section.docx]:bg-surface-document [&_section.docx]:shadow-md"
+        // The bottom padding leaves the floating toolbar its own room over the last page.
+        className="overflow-auto px-4 pt-6 pb-20 text-content-document [&_section.docx]:mx-auto [&_section.docx]:mb-6 [&_section.docx]:bg-surface-document [&_section.docx]:shadow-md"
       />
     </>
   );

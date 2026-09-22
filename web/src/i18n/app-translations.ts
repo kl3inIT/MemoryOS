@@ -560,6 +560,8 @@ export const vietnameseUi: Record<string, string> = {
   "Gần đúng": "Approximate",
   "Không tìm thấy": "Not found",
   "Không có lớp văn bản": "No text layer",
+  "Đoạn trước": "Previous passage",
+  "Đoạn sau": "Next passage",
   "Không mở được tệp gốc. Hãy tải xuống để xem toàn bộ tệp.":
     "This original could not be opened. Download it to see the whole file.",
   "Tệp này không xem trực tiếp được. Hãy tải xuống để mở bằng ứng dụng phù hợp.":
