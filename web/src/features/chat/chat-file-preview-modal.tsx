@@ -1,22 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Copy,
-  Download,
-  Loader2,
-  RotateCw,
-  X,
-  ZoomIn,
-  ZoomOut,
-} from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Copy, Download, Loader2, X } from "lucide-react";
 import { Dialog } from "radix-ui";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { IconButton } from "@/components/ui/icon-button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { CsvView } from "@/features/preview/csv-view";
+import { DocxView } from "@/features/preview/docx-view";
 import { DownloadView } from "@/features/preview/download-view";
+import { ImageControls, ImageView } from "@/features/preview/image-view";
 import {
   codeLanguage,
   lineCount,
@@ -24,7 +15,6 @@ import {
   parseCsv,
   previewKind,
   previewSize,
-  sanitizeDocxHtml,
   sheetsSchema,
   type PreviewKind,
   type Sheets,
@@ -133,19 +123,6 @@ async function load(target: PreviewTarget, signal: AbortSignal): Promise<Loaded>
     truncated,
     bytes: blob.size,
   };
-}
-
-function useObjectUrl(blob: Blob | undefined): string | undefined {
-  const [entry, setEntry] = useState<{ blob: Blob; url: string }>();
-  useEffect(() => {
-    if (!blob) return undefined;
-    const url = URL.createObjectURL(blob);
-    // The object URL is a browser resource whose lifetime is the effect's.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEntry({ blob, url });
-    return () => URL.revokeObjectURL(url);
-  }, [blob]);
-  return entry && entry.blob === blob ? entry.url : undefined;
 }
 
 const SIZES = {
@@ -401,9 +378,7 @@ function Content({
   const ui = useAppTranslation();
   switch (loaded.kind) {
     case "image":
-      return (
-        <ImagePreview blob={loaded.blob} alt={target.filename} zoom={zoom} rotation={rotation} />
-      );
+      return <ImageView blob={loaded.blob} alt={target.filename} zoom={zoom} rotation={rotation} />;
     case "pdf":
       return <PdfPreview blob={loaded.blob} />;
     case "xlsx":
@@ -415,7 +390,7 @@ function Content({
         </div>
       );
     case "docx":
-      return <DocxPreview blob={loaded.blob} onLoad={onDocx} />;
+      return <DocxView blob={loaded.blob} onLoad={onDocx} />;
     case "code":
     case "text":
     case "markdown":
@@ -448,108 +423,11 @@ function Unavailable({ target, message }: { target: PreviewTarget; message: stri
   return <DownloadView href={downloadUrl(target)} filename={target.filename} message={message} />;
 }
 
-/** Zoomed images are dragged rather than scrolled, as an image viewer does; at 100% there is nothing to pan. */
-function ImagePreview({
-  blob,
-  alt,
-  zoom,
-  rotation,
-}: {
-  blob: Blob;
-  alt: string;
-  zoom: number;
-  rotation: number;
-}) {
-  const src = useObjectUrl(blob);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [dragging, setDragging] = useState(false);
-  const from = useRef<{ x: number; y: number } | null>(null);
-  const pannable = zoom > 100;
-  // At 100% there is nothing to pan, so the offset is derived away rather than reset in an effect.
-  const offset = pannable ? pan : { x: 0, y: 0 };
-  return (
-    <div
-      className={cn(
-        "flex min-h-0 flex-1 items-center justify-center overflow-hidden p-4",
-        pannable && (dragging ? "cursor-grabbing" : "cursor-grab"),
-      )}
-      onPointerDown={(event) => {
-        if (!pannable) return;
-        from.current = { x: event.clientX - offset.x, y: event.clientY - offset.y };
-        setDragging(true);
-        event.currentTarget.setPointerCapture(event.pointerId);
-      }}
-      onPointerMove={(event) => {
-        if (!from.current) return;
-        setPan({ x: event.clientX - from.current.x, y: event.clientY - from.current.y });
-      }}
-      onPointerUp={() => {
-        from.current = null;
-        setDragging(false);
-      }}
-      onPointerCancel={() => {
-        from.current = null;
-        setDragging(false);
-      }}
-    >
-      {src && (
-        <img
-          src={src}
-          alt={alt}
-          draggable={false}
-          className="max-h-full max-w-full object-contain transition-transform duration-300 ease-in-out"
-          style={{
-            transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom / 100}) rotate(${rotation}deg)`,
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
 function PdfPreview({ blob }: { blob: Blob }) {
   // pdf.js reads the Blob directly; a blob: URL would be fetched, which connect-src 'self' refuses.
   return (
     <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">
       <DocumentPdfView url={blob} pages={[]} boxes={[]} />
-    </div>
-  );
-}
-
-function ImageControls({
-  zoom,
-  onZoom,
-  onRotate,
-}: {
-  zoom: number;
-  onZoom: (zoom: number) => void;
-  onRotate: () => void;
-}) {
-  const ui = useAppTranslation();
-  return (
-    <div className="flex items-center gap-1 rounded-xl border border-border-subtle bg-surface-base p-1 shadow-lg">
-      <IconButton
-        prominence="internal"
-        size="sm"
-        aria-label={ui("Thu nhỏ")}
-        disabled={zoom <= 25}
-        onClick={() => onZoom(Math.max(zoom - 25, 25))}
-      >
-        <ZoomOut />
-      </IconButton>
-      <span className="w-12 text-center font-mono text-xs tabular-nums">{zoom}%</span>
-      <IconButton
-        prominence="internal"
-        size="sm"
-        aria-label={ui("Phóng to")}
-        disabled={zoom >= 200}
-        onClick={() => onZoom(Math.min(zoom + 25, 200))}
-      >
-        <ZoomIn />
-      </IconButton>
-      <IconButton prominence="internal" size="sm" aria-label={ui("Xoay ảnh")} onClick={onRotate}>
-        <RotateCw />
-      </IconButton>
     </div>
   );
 }
@@ -571,100 +449,6 @@ function CopyButton({ text }: { text: string }) {
     >
       {copied ? <Check /> : <Copy />}
     </IconButton>
-  );
-}
-
-function DocxPreview({
-  blob,
-  onLoad,
-}: {
-  blob: Blob;
-  onLoad: (result: { words: number; text: string }) => void;
-}) {
-  const body = useRef<HTMLDivElement>(null);
-  const styles = useRef<HTMLDivElement>(null);
-  const onLoadRef = useRef(onLoad);
-  const [state, setState] = useState<"rendering" | "done" | "failed">("rendering");
-  useEffect(() => {
-    onLoadRef.current = onLoad;
-  }, [onLoad]);
-  useEffect(() => {
-    if (!body.current || !styles.current) return undefined;
-    let current = true;
-    const bodyElement = body.current;
-    const styleElement = styles.current;
-    let adopted: CSSStyleSheet[] = [];
-    void (async () => {
-      try {
-        const { renderAsync } = await import("docx-preview");
-        // Render detached, then attach only sanitized markup and library <style> elements (Onyx sanitizeDocxHtml).
-        const renderedBody = document.createElement("div");
-        const renderedStyles = document.createElement("div");
-        await renderAsync(blob, renderedBody, renderedStyles, {
-          className: "docx",
-          inWrapper: false,
-          ignoreWidth: false,
-          ignoreHeight: false,
-          ignoreFonts: false,
-          breakPages: true,
-          useBase64URL: true,
-          renderHeaders: true,
-          renderFooters: true,
-          renderFootnotes: true,
-          renderEndnotes: true,
-        });
-        if (!current) return;
-        bodyElement.innerHTML = sanitizeDocxHtml(renderedBody.innerHTML);
-        // The deployment CSP (style-src 'self') ignores style attributes parsed from markup and inline <style>
-        // elements; the same rules are applied through CSSOM, which the policy allows.
-        for (const element of bodyElement.querySelectorAll<HTMLElement>("[style]"))
-          element.style.cssText = element.getAttribute("style") ?? "";
-        adopted = Array.from(renderedStyles.querySelectorAll("style")).flatMap((style) => {
-          try {
-            const sheet = new CSSStyleSheet();
-            sheet.replaceSync(style.textContent ?? "");
-            return [sheet];
-          } catch {
-            return [];
-          }
-        });
-        document.adoptedStyleSheets = [...document.adoptedStyleSheets, ...adopted];
-        styleElement.replaceChildren();
-        const text = bodyElement.innerText ?? "";
-        onLoadRef.current({ words: text.split(/\s+/).filter(Boolean).length, text });
-        setState("done");
-      } catch {
-        if (current) setState("failed");
-      }
-    })();
-    return () => {
-      current = false;
-      document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
-        (sheet) => !adopted.includes(sheet),
-      );
-    };
-  }, [blob]);
-  const ui = useAppTranslation();
-  return (
-    <>
-      {state === "rendering" && (
-        <div className="flex justify-center p-6" role="status">
-          <Loader2 className="size-8 animate-spin text-content-muted" aria-hidden />
-        </div>
-      )}
-      {state === "failed" && (
-        <p className="p-6 text-center text-sm text-content-secondary">
-          {ui("Không đọc được tài liệu Word này.")}
-        </p>
-      )}
-      <div ref={styles} />
-      <div
-        ref={body}
-        data-slot="docx-preview"
-        // Pages keep their layout as in Onyx; narrow screens scroll sideways instead of reflowing.
-        className="overflow-auto px-4 py-6 text-content-document [&_section.docx]:mx-auto [&_section.docx]:mb-6 [&_section.docx]:bg-surface-document [&_section.docx]:shadow-md"
-      />
-    </>
   );
 }
 
