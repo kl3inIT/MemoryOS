@@ -253,6 +253,9 @@ if args[:2] == ["image", "inspect"]:
     print(args[-1])
 elif args[0] == "inspect":
     print(json.dumps([json.loads((root / "runtime.json").read_text())[args[1]]]))
+elif args[:2] == ["exec", "memoryos-postgres"] and any("to_regclass" in arg for arg in args):
+    # Whether Flyway has run here: a database with no recorded migration has no history table.
+    print("t" if (root / "schema").read_text().strip() else "f")
 elif args[:2] == ["exec", "memoryos-postgres"]:
     print((root / "schema").read_text(), end="")
 elif args[0] == "compose":
