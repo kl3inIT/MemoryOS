@@ -14,6 +14,12 @@ The pinned OpenSearch 3.8.0 service persists its data in a dedicated volume and 
 
 Start API first for the complete current Flyway chain (through V29 in the isolated integration; Search itself is introduced by main V17), then worker. Never point an unverified integration binary at the preserved Google review database. Upload/reindex a FILE through the existing Source UI. Extraction produces canonical JSON; the SEARCH workload then produces chunks/vectors. Wait for the item's separate Search status to become Ready, then search from the application home and open its passages. No ChatModel or Chat configuration is needed.
 
+## Production
+
+Production uses `compose.base.yaml`, `compose.production.yaml` and `compose.search.production.yaml`. That overlay is the staging one without Dashboards: production publishes no inspection surface, so it needs no public origin, no OIDC client and no certificate for one. Reach the cluster through an SSH tunnel when something has to be inspected.
+
+Its single data node cannot allocate a replica, and the health check waits for a green cluster, so `MEMORYOS_SEARCH_REPLICAS` must be `0` in Infisical production. The default is `1`, which leaves every replica shard unassigned and the cluster yellow for good.
+
 ## Server configuration
 
 Both deployables read `classpath:memoryos-search.yaml`. Supply a managed OpenSearch cluster with HTTPS, its service username/password and a trusted CA (system trust or `MEMORYOS_OPENSEARCH_CA_CERTIFICATE`). The Java client rejects HTTP credentials and non-loopback HTTP endpoints. Credential values come from Infisical or deployment-mounted secrets, never this repository.

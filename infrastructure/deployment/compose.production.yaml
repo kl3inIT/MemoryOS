@@ -16,3 +16,5 @@ services:
   worker:
     environment:
       SPRING_PROFILES_ACTIVE: production
+      # The production profile states no default for this; db-scheduler refuses to start without it.
+      MEMORYOS_SCHEDULER_NAME: ${MEMORYOS_SCHEDULER_NAME:-memoryos-worker-production-1}
