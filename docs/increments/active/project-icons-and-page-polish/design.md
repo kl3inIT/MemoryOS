@@ -12,7 +12,7 @@ Owner report 2026-09-22, four UI corrections on Projects:
 
 ## Design
 
-`chat_project` gains a nullable `icon_name` column (V119) holding the same lowercase key vocabulary
+`chat_project` gains a nullable `icon_name` column (V123) holding the same lowercase key vocabulary
 as Persona icons (`[a-z0-9-]{1,40}`). `ProjectInput`/`ProjectView` carry `iconName`; on update a null
 `iconName` keeps the current icon (matching the Persona contract) so file-only updates from the
 library never clear it, while a blank string clears it.
