@@ -21,6 +21,7 @@ import { PreviewCanvas, PreviewSkeleton } from "./preview-surface";
 import { PreviewToolbar, ToolbarGroup } from "./preview-toolbar";
 import { placeSheetCitations, renderedRows, type SheetCitation } from "./sheet-citations";
 import { SheetView } from "./sheet-view";
+import { MarkdownView } from "./markdown-view";
 import { TextView } from "./text-view";
 
 export type CitationConfidence = CitationPlacement["confidence"];
@@ -41,7 +42,8 @@ type Loaded =
   | { kind: "pdf" }
   | { kind: "xlsx"; sheets: Sheets }
   | { kind: "csv"; text: string; truncated: boolean }
-  | { kind: "code" | "markdown" | "text"; text: string; truncated: boolean }
+  | { kind: "code" | "text"; text: string; truncated: boolean }
+  | { kind: "markdown"; text: string; truncated: boolean }
   | { kind: "image" | "docx"; blob: Blob }
   | { kind: "doc" | "pptx" | "unsupported" };
 
@@ -184,8 +186,16 @@ export function OriginalView({
         ),
         true,
       );
-    case "code":
     case "markdown":
+      return highlighted(
+        () => (
+          <PreviewCanvas>
+            <MarkdownView text={data.text} truncated={data.truncated} />
+          </PreviewCanvas>
+        ),
+        true,
+      );
+    case "code":
     case "text":
       return highlighted(
         () => (
