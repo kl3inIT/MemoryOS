@@ -225,6 +225,27 @@ Operating constraints:
 - **Logs.** The service writes JSON logs to stdout. Read them with `docker logs memoryos-interpreter`; they are not exported through OTLP.
 - **Executor image.** The image is about 3.3 GB, including LibreOffice Calc for `recalc-xlsx`. The service's image watchdog is disabled because the service has no registry credentials. `docker image prune -a` or `docker system prune -a` removes the executor image; `/health` then fails, and runs fail until the next deployment pulls it again. The interpreter CI job has no layer cache yet, so each release adds roughly 3.5 GB of new layers on the host; remove only interpreter images that neither `deployments/current.env` nor a retained `previous.env` references.
 
+## Keycloak runtime
+
+Each release builds `memoryos-keycloak` from `infrastructure/keycloak/Dockerfile`: Keycloak 26.7.0 pinned by digest and optimized for PostgreSQL with health and metrics on, plus the `memoryos` login theme copied into the image. CI starts the image against a throwaway PostgreSQL and fails unless a login page uses the theme and every image the stylesheet names is served (`infrastructure/keycloak/smoke-test-image.sh`). Keycloak does not fail on a missing theme. It logs `Failed to find LOGIN theme memoryos` and shows its built-in page, so a healthy container proves nothing about the theme.
+
+The theme is not mounted. A release directory is root-only (`deploy.sh` runs under `umask 077`), and Keycloak runs as uid 1000, so a theme mounted from the release can never be read.
+
+**Who runs Keycloak depends on the environment file.**
+
+- **The file names no `MEMORYOS_KEYCLOAK_IMAGE`** (production): the release owns Keycloak.
+  - The deployment dumps the `keycloak` database next to the `memoryos` one, because a newer Keycloak migrates its schema on start.
+  - It rolls Keycloak out before the api and checks its health and revision like the other components.
+  - Sign-in is down for about a minute during each deployment.
+- **The file names an image** (staging): the release leaves Keycloak alone. The deployment removes Keycloak from the candidate image list, so the release's image cannot override the file's. Staging's Keycloak is shared with OrgMemory, and its `orgmemory` realm uses the `orgmemory-shadcn` theme that only the OrgMemory image carries. `compose.staging.yaml` mounts the `memoryos` theme into it, and the operator recreates it.
+
+**Handing Keycloak to the release on a host that ran it by hand:**
+
+1. Remove `MEMORYOS_KEYCLOAK_IMAGE` from `.env.<environment>`.
+2. Run the next deployment.
+
+That first deployment captures no previous Keycloak: the one running carries another project's revision label. So a rollback of that deployment leaves the new Keycloak running rather than stopping sign-in. Later deployments capture and restore it like the other components.
+
 ## Failure and recovery
 
 On deployment failure or cancellation, the workflow reports the transaction and preserves any reservation. An operator selects recovery explicitly. The existing `rollback` command stops candidate writers and compares Flyway history with the captured history before restoring prior image IDs/configuration. Changed history stops recovery without restoring data. Matching Flyway history is a structural guard, not proof of semantic compatibility for arbitrary application/data-format changes; inspect compatibility before choosing rollback. The original deployment remains failed or canceled.

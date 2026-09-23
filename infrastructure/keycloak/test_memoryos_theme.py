@@ -68,14 +68,17 @@ class MemoryOsThemeContractTest(unittest.TestCase):
                 self.assertTrue((THEME / "resources" / "img" / name).is_file(),
                                 "the theme references %s, which is not in it" % name)
 
-    def test_compose_mount_and_realm_reconciliation_are_fail_closed(self):
-        compose = read(ROOT / "infrastructure" / "deployment" / "compose.base.yaml")
+    def test_the_theme_ships_in_the_image_and_realm_reconciliation_is_fail_closed(self):
+        dockerfile = read(ROOT / "infrastructure" / "keycloak" / "Dockerfile")
+        base = read(ROOT / "infrastructure" / "deployment" / "compose.base.yaml")
+        staging = read(ROOT / "infrastructure" / "deployment" / "compose.staging.yaml")
         reconcile = read(ROOT / "infrastructure" / "keycloak" / "configure-memoryos-realm.sh")
 
-        self.assertIn(
-            "../keycloak/themes/memoryos:/opt/keycloak/themes/memoryos:ro",
-            compose,
-        )
+        self.assertIn("COPY --chown=keycloak:keycloak themes/memoryos /opt/keycloak/themes/memoryos", dockerfile)
+        # A release directory is readable by root only; Keycloak mounting it falls back to its own look.
+        self.assertNotIn("/opt/keycloak/themes/memoryos", base)
+        # Staging runs the OrgMemory image, which does not carry this theme.
+        self.assertIn("../keycloak/themes/memoryos:/opt/keycloak/themes/memoryos:ro", staging)
         self.assertRegex(reconcile, r'loginTheme:\s*"memoryos"')
         self.assertIn("get serverinfo", reconcile)
         self.assertNotIn("--fields themes", reconcile)

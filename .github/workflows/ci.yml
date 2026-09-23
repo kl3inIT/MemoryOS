@@ -122,7 +122,7 @@ jobs:
         run: |
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           bash -n infrastructure/deployment/deploy.sh
-          shellcheck -x infrastructure/deployment/deploy.sh api/src/main/docker/application-launcher.sh api/src/main/docker/api-entrypoint.sh
+          shellcheck -x infrastructure/deployment/deploy.sh api/src/main/docker/application-launcher.sh api/src/main/docker/api-entrypoint.sh             infrastructure/keycloak/smoke-test-image.sh
 
       - name: Verify deployment and monitoring configuration
         # Interpolation-only values; this step never starts application services.
@@ -132,6 +132,7 @@ jobs:
           MEMORYOS_WEB_IMAGE: memoryos-web:config-check
           MEMORYOS_INTERPRETER_IMAGE: memoryos-interpreter:config-check
           MEMORYOS_INTERPRETER_EXECUTOR_IMAGE: memoryos-interpreter-executor:config-check
+          MEMORYOS_KEYCLOAK_IMAGE: memoryos-keycloak:config-check
           MEMORYOS_POSTGRES_ADMIN_PASSWORD: config-check-only
           MEMORYOS_DATABASE_PASSWORD: config-check-only
           MEMORYOS_KEYCLOAK_DATABASE_PASSWORD: config-check-only
@@ -584,11 +585,29 @@ jobs:
             type=gha,scope=backend-worker
           cache-to: type=gha,mode=max,scope=backend-worker
 
+      # The login theme is inside this image, so a release carries its own sign-in page.
+      - name: Build production Keycloak image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: infrastructure/keycloak
+          tags: memoryos-keycloak:sha-${{ github.sha }}
+          load: true
+          provenance: false
+          sbom: false
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            BUILD_DATE=${{ steps.meta.outputs.build-date }}
+          cache-from: type=gha,scope=keycloak
+          cache-to: type=gha,mode=max,scope=keycloak
+
+      - name: Prove the Keycloak image serves the MemoryOS login theme
+        run: infrastructure/keycloak/smoke-test-image.sh "memoryos-keycloak:sha-$GITHUB_SHA"
+
       - name: Save backend images for publication
         if: ${{ github.event_name == 'push' }}
         run: |
           mkdir -p candidate
-          docker save --output candidate/backend.tar "memoryos-api:sha-$GITHUB_SHA" "memoryos-worker:sha-$GITHUB_SHA"
+          docker save --output candidate/backend.tar "memoryos-api:sha-$GITHUB_SHA" "memoryos-worker:sha-$GITHUB_SHA"             "memoryos-keycloak:sha-$GITHUB_SHA"
 
       - name: Preserve verified backend images
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -679,7 +698,7 @@ jobs:
           docker load --input candidate/web.tar
           docker load --input candidate/interpreter.tar
           mkdir release
-          for component in api worker web interpreter interpreter-executor; do
+          for component in api worker web interpreter interpreter-executor keycloak; do
             image="memoryos-$component:sha-$GITHUB_SHA"
             docker image inspect "$image" | jq --exit-status --arg sha "$GITHUB_SHA" '
               .[0].Config.Labels | .["org.opencontainers.image.revision"] == $sha

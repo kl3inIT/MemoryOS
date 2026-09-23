@@ -46,6 +46,11 @@ class ComposeLayeringTest(unittest.TestCase):
         self.assertNotIn("shared-infra", BASE)
         self.assertNotIn("shared-infra", PRODUCTION)
         self.assertIn("shared-infra", STAGING)
+        # Nor does production answer to the names the shared Keycloak is reached by.
+        for name in ("orgmemory-keycloak", "shared-keycloak"):
+            self.assertNotIn(name, BASE)
+            self.assertNotIn(name, PRODUCTION)
+            self.assertIn(name, STAGING)
 
     def test_a_keycloak_hostname_is_stated_rather_than_inherited(self):
         # The old default pointed at the staging realm, so forgetting the value on another host
