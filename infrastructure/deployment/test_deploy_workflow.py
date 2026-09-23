@@ -172,6 +172,17 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         rollback = SCRIPT.split('elif [[ "$mode" == rollback ]]', 1)[1].split('elif [[ "$mode" == finish ]]', 1)[0]
         self.assertNotIn("stop --timeout 45 keycloak", rollback)
 
+    def test_the_release_source_is_readable_and_nothing_else_is(self):
+        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
+        # Services started from the release's Compose files read its scripts as their own users;
+        # a root-only source is how Keycloak lost its theme and the host kept a hand-made copy.
+        extract = deploy.index('tar --extract --file "$tx/configuration.tar"')
+        self.assertLess(extract, deploy.index('chmod -R u=rwX,go=rX "$tx/source"'))
+        self.assertIn('chmod o+x "$state" "$tx"', deploy)
+        # Environment copies, dumps and state files are still created under this mask.
+        self.assertIn("\numask 077\n", SCRIPT)
+        self.assertNotRegex(SCRIPT, r"chmod[^\n]*(\.env|\.dump|pending|current)")
+
     def test_release_contract_has_no_model_serving(self):
         # Managed model serving was removed until a qualified environment exists (MEM-77).
         publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]

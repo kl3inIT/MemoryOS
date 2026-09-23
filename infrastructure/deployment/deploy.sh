@@ -135,6 +135,12 @@ if [[ "$mode" == deploy ]]; then
   fi
   mkdir "$tx/source"
   tar --extract --file "$tx/configuration.tar" --directory "$tx/source" --no-same-owner --no-same-permissions
+  # The source is what git holds, and the services started from these Compose files read their
+  # scripts and configuration from it as their own users: Grafana, Prometheus and the collector
+  # are not root. Everything else in the transaction, and in the state directory, stays readable
+  # by root alone; traversing a directory reveals no file whose own mode forbids reading it.
+  chmod -R u=rwX,go=rX "$tx/source"
+  chmod o+x "$state" "$tx"
   for file in compose.base.yaml "compose.$environment.yaml" "compose.search.$environment.yaml"; do
     printf '%s\n' "$tx/source/infrastructure/deployment/$file" >> "$tx/candidate.compose"
   done
