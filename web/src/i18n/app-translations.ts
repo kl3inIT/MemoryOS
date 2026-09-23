@@ -1322,6 +1322,8 @@ export const vietnameseUi: Record<string, string> = {
   "Hướng dẫn dự án": "Project instructions",
   "Tệp dự án": "Project files",
   Tệp: "Files",
+  "Tệp ({{count}})": "Files ({{count}})",
+  "Thư mục": "Folder",
   "Thêm tệp": "Add files",
   "Thêm tài liệu dùng chung cho các hội thoại trong dự án.":
     "Add documents to share across project conversations.",

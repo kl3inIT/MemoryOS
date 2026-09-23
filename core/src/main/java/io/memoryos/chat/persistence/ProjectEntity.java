@@ -18,6 +18,7 @@ public class ProjectEntity {
     @Column(nullable = false, length = 200) private String name;
     @Column(nullable = false, length = 2000) private String description;
     @Column(nullable = false, columnDefinition = "text") private String instructions;
+    @Column(name = "icon_name", length = 40) private @Nullable String iconName;
     @Version private @Nullable Long revision;
     @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
     @Column(name = "file_ids", nullable = false, columnDefinition = "jsonb")
@@ -26,12 +27,14 @@ public class ProjectEntity {
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
 
     protected ProjectEntity() {}
-    public ProjectEntity(UUID id, UUID tenant, UUID owner, String name, String description, String instructions) {
+    public ProjectEntity(UUID id, UUID tenant, UUID owner, String name, String description, String instructions,
+                         @Nullable String iconName) {
         this.id = id; this.tenantId = tenant; this.ownerId = owner; this.createdAt = Instant.now();
-        update(name, description, instructions);
+        update(name, description, instructions, iconName);
     }
-    public void update(String name, String description, String instructions) {
-        this.name = name; this.description = description; this.instructions = instructions; updatedAt = Instant.now();
+    public void update(String name, String description, String instructions, @Nullable String iconName) {
+        this.name = name; this.description = description; this.instructions = instructions;
+        this.iconName = iconName; updatedAt = Instant.now();
     }
     public UUID id() { return id; }
     public java.util.List<UUID> fileIds() { return java.util.List.copyOf(fileIds); }
@@ -40,6 +43,7 @@ public class ProjectEntity {
     public String name() { return name; }
     public String description() { return description; }
     public String instructions() { return instructions; }
+    public @Nullable String iconName() { return iconName; }
     public long revision() { return revision == null ? 0 : revision; }
     public Instant updatedAt() { return updatedAt; }
 }

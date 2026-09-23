@@ -20144,6 +20144,8 @@ components:
           items:
             type: string
             format: uuid
+        iconName:
+          type: string
     ProjectView:
       type: object
       properties:
@@ -20167,6 +20169,8 @@ components:
           items:
             type: string
             format: uuid
+        iconName:
+          type: string
     ChatPreferencesInput:
       type: object
       properties:
