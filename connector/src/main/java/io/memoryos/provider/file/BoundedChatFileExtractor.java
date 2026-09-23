@@ -2,6 +2,7 @@ package io.memoryos.provider.file;
 
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.DocumentContent;
+import io.memoryos.document.ExtractedDocument;
 import io.memoryos.ingestion.ChatFileExtractor;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
@@ -51,6 +52,12 @@ public final class BoundedChatFileExtractor implements ChatFileExtractor {
                     name.endsWith(".xlsm") ? "application/vnd.ms-excel.sheet.macroEnabled.12" : SpreadsheetSourceContentExtractor.XLSX);
             if (name.endsWith(".csv") || name.endsWith(".tsv")) return new SpreadsheetSourceContentExtractor(mapper).extractFile(file, filename,
                     name.endsWith(".tsv") ? "text/tab-separated-values" : "text/csv");
+            if (docling.readsImage(mediaType)) {
+                // PaddleOCR-VL reads the text of a scanned page or a screenshot; a photograph without
+                // text keeps the image description below. A service failure fails the attachment.
+                var read = docling.readChatImage(file, filename, mediaType);
+                if (read != null) return read;
+            }
             if (java.util.Set.of("text/html", "application/xhtml+xml", "message/rfc822", "application/epub+zip",
                     "image/png", "image/jpeg", "image/webp").contains(mediaType)) {
                 try (var tika = new TikaSourceContentExtractor()) {
@@ -80,7 +87,7 @@ public final class BoundedChatFileExtractor implements ChatFileExtractor {
                 text.append(buffer, 0, read);
             }
         }
-        output.block("PARAGRAPH").put("text", text.toString());
+        output.add(ExtractedDocument.Kind.PARAGRAPH, text.toString());
         return output.finish(mediaType, filename, "chat-utf8");
     }
 

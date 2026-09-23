@@ -2,6 +2,10 @@ package io.memoryos.provider.file;
 
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.DocumentContent;
+import io.memoryos.document.ExtractedDocument.Block;
+import io.memoryos.document.ExtractedDocument.Cell;
+import io.memoryos.document.ExtractedDocument.Location;
+import io.memoryos.document.ExtractedDocument.Table;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
@@ -14,7 +18,9 @@ import java.nio.file.Path;
 import java.nio.file.Files;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.zip.CRC32;
@@ -33,8 +39,6 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.openxml4j.opc.PackageAccess;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.node.ArrayNode;
-import tools.jackson.databind.node.ObjectNode;
 
 public final class SpreadsheetSourceContentExtractor {
     public static final String XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -86,10 +90,8 @@ public final class SpreadsheetSourceContentExtractor {
     }
 
     private DocumentContent delimited(java.io.Reader input, String filename, StructuredContent output, String mediaType) throws ExtractionException {
-        ObjectNode table = output.block("TABLE").putObject("table");
-        table.put("coordinateBase", 0);
-        table.put("missingCellValue", "EMPTY");
-        ArrayNode cells = table.putArray("cells");
+        int index = output.nextIndex();
+        var cells = new ArrayList<Cell>();
         int rows = 0;
         int columns = 0;
         try (var reader = new RecordBoundedReader(input, output);
@@ -103,12 +105,7 @@ public final class SpreadsheetSourceContentExtractor {
                 for (int column = 0; column < record.size(); column++) {
                     output.cell();
                     String value = record.get(column);
-                    ObjectNode cell = cells.addObject();
-                    cell.put("row", rows);
-                    cell.put("column", column);
-                    cell.put("type", "TEXT");
-                    cell.put("value", value);
-                    cell.put("text", value);
+                    cells.add(Cell.of(rows, column, value));
                     if (column > 0) output.append("\t");
                     output.append(value);
                 }
@@ -120,9 +117,7 @@ public final class SpreadsheetSourceContentExtractor {
                 if (cause instanceof ExtractionException extraction) throw extraction;
             throw StructuredContent.failure(ExtractionFailure.MALFORMED);
         }
-        table.put("rowCount", rows);
-        table.put("columnCount", columns);
-        table.putArray("merges");
+        output.add(Block.table(index, "", List.of(), new Table(rows, columns, cells), null));
         return output.finish(mediaType, filename, "commons-csv");
     }
 
@@ -139,7 +134,6 @@ public final class SpreadsheetSourceContentExtractor {
     private DocumentContent workbook(OPCPackage archive, String filename, StructuredContent output, String mediaType) throws ExtractionException {
         try (var workbook = new XSSFWorkbook(archive)) {
             if (workbook.getNumberOfSheets() < 1 || workbook.getNumberOfSheets() > StructuredContent.MAX_TABS) limit();
-            output.canonical().put("dateSystem", workbook.isDate1904() ? "1904" : "1900");
             DataFormatter formatter = new DataFormatter(Locale.ROOT);
             long represented = 0;
             for (int index = 0; index < workbook.getNumberOfSheets(); index++) {
@@ -156,46 +150,21 @@ public final class SpreadsheetSourceContentExtractor {
                     columns = Math.max(columns, merge.getLastColumn() + 1);
                 }
                 if ((represented += (long) rows * columns) > StructuredContent.MAX_CELLS) limit();
-                ObjectNode block = output.block("TABLE");
-                block.put("text", sheet.getSheetName());
-                ObjectNode provenance = block.putObject("provenance");
-                provenance.put("sheetIndex", index);
-                provenance.put("sheetName", sheet.getSheetName());
-                provenance.put("visibility", workbook.getSheetVisibility(index).name());
-                ObjectNode table = block.putObject("table");
-                table.put("rowCount", rows);
-                table.put("columnCount", columns);
-                table.put("coordinateBase", 0);
-                table.put("missingCellValue", "EMPTY");
-                ArrayNode merges = table.putArray("merges");
-                for (var merge : sheet.getMergedRegions()) {
-                    ObjectNode range = merges.addObject();
-                    range.put("startRowIndex", merge.getFirstRow());
-                    range.put("endRowIndex", merge.getLastRow() + 1);
-                    range.put("startColumnIndex", merge.getFirstColumn());
-                    range.put("endColumnIndex", merge.getLastColumn() + 1);
-                    range.put("range", merge.formatAsString());
-                }
-                ArrayNode cells = table.putArray("cells");
+                int block = output.nextIndex();
+                var cells = new ArrayList<Cell>();
                 output.append(sheet.getSheetName() + "\n");
                 for (var row : sheet) for (var value : row) {
                     output.cell();
                     XSSFCell source = (XSSFCell) value;
-                    ObjectNode cell = cells.addObject();
-                    cell.put("row", source.getRowIndex());
-                    cell.put("column", source.getColumnIndex());
                     String address = new CellAddress(source).formatAsString();
-                    cell.put("address", address);
-                    if (source.getCellType() == CellType.FORMULA) cell.put("formula", source.getCellFormula());
                     CellType type = source.getCellType() == CellType.FORMULA ? source.getCachedFormulaResultType() : source.getCellType();
-                    cell.put("type", type.name());
-                    String text = value(source, type, cell, formatter, workbook.isDate1904());
-                    cell.put("text", text);
-                    cell.put("numberFormat", source.getCellStyle().getDataFormatString());
-                    if (source.getHyperlink() != null) cell.put("hyperlink", source.getHyperlink().getAddress());
-                    if (source.getCellComment() != null) cell.put("note", source.getCellComment().getString().getString());
+                    String text = value(source, type, formatter, workbook.isDate1904());
+                    cells.add(Cell.of(source.getRowIndex(), source.getColumnIndex(), text));
                     if (!text.isEmpty()) output.append(address + ": " + text + "\n");
                 }
+                output.add(Block.table(block, sheet.getSheetName(),
+                        List.of(Location.sheet(index, sheet.getSheetName(), workbook.getSheetVisibility(index).name())),
+                        new Table(rows, columns, cells), sheet.getSheetName()));
             }
             return output.finish(mediaType, filename, "apache-poi-xlsx");
         } catch (EncryptedDocumentException exception) {
@@ -205,34 +174,15 @@ public final class SpreadsheetSourceContentExtractor {
         }
     }
 
-    private static String value(XSSFCell cell, CellType type, ObjectNode output,
-                                DataFormatter formatter, boolean date1904) {
+    private static String value(XSSFCell cell, CellType type, DataFormatter formatter, boolean date1904) {
         // A cached value is data, not an instruction. No FormulaEvaluator or external-link resolver exists here.
-        if (cell.getCellType() == CellType.FORMULA && cell.getRawValue() == null) {
-            output.put("cachedValuePresent", false);
-            return cell.getCellFormula();
-        }
+        if (cell.getCellType() == CellType.FORMULA && cell.getRawValue() == null) return cell.getCellFormula();
         return switch (type) {
-            case STRING -> {
-                String value = cell.getStringCellValue();
-                output.put("value", value);
-                yield value;
-            }
-            case NUMERIC -> {
-                output.put("rawValue", cell.getRawValue());
-                output.put("value", cell.getNumericCellValue());
-                yield formatter.formatRawCellContents(cell.getNumericCellValue(), cell.getCellStyle().getDataFormat(),
-                        cell.getCellStyle().getDataFormatString(), date1904);
-            }
-            case BOOLEAN -> {
-                output.put("value", cell.getBooleanCellValue());
-                yield Boolean.toString(cell.getBooleanCellValue());
-            }
-            case ERROR -> {
-                String error = FormulaError.forInt(cell.getErrorCellValue()).getString();
-                output.put("value", error);
-                yield error;
-            }
+            case STRING -> cell.getStringCellValue();
+            case NUMERIC -> formatter.formatRawCellContents(cell.getNumericCellValue(), cell.getCellStyle().getDataFormat(),
+                    cell.getCellStyle().getDataFormatString(), date1904);
+            case BOOLEAN -> Boolean.toString(cell.getBooleanCellValue());
+            case ERROR -> FormulaError.forInt(cell.getErrorCellValue()).getString();
             case BLANK, _NONE -> "";
             case FORMULA -> throw new IllegalArgumentException("invalid cached formula type");
         };

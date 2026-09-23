@@ -144,11 +144,11 @@ final class BoundedDoclingClient extends DoclingServeClient implements AutoClose
     @Override protected <T> String writeValueAsString(T value) { return mapper.writeValueAsString(value); }
 
     CanonicalResponse convertFile(java.nio.file.Path file, String extension,
-                                  DoclingProperties properties) throws IOException {
+                                  DoclingProperties properties, boolean ocr) throws IOException {
         String boundary = "memoryos-" + java.util.UUID.randomUUID();
         StringBuilder fields = new StringBuilder();
         // Serialize the SDK options once; multipart and JSON use the same names, values and defaults.
-        mapper.valueToTree(properties.options()).properties().forEach(option -> {
+        mapper.valueToTree(properties.options(ocr)).properties().forEach(option -> {
             var values = option.getValue().isArray() ? option.getValue() : java.util.List.of(option.getValue());
             for (var value : values) fields.append("--").append(boundary).append("\r\nContent-Disposition: form-data; name=\"")
                     .append(option.getKey()).append("\"\r\n\r\n").append(value.asString()).append("\r\n");

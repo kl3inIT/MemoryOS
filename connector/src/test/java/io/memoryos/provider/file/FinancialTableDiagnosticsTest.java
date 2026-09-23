@@ -2,6 +2,7 @@ package io.memoryos.provider.file;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import io.memoryos.document.ExtractedDocument;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
@@ -30,7 +31,7 @@ class FinancialTableDiagnosticsTest {
                 new String[]{"1.000", "2.000", "(100)", "— 2900"});
         var original = blocks.deepCopy();
 
-        var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+        var checks = assess(blocks);
 
         assertEquals("INCONSISTENT", checks.get(0).path("status").asString());
         assertEquals(4, checks.get(0).path("column_index").asInt());
@@ -45,7 +46,7 @@ class FinancialTableDiagnosticsTest {
                 new String[]{"(1,000)", "100,000,000,000,000,000,000", "-100", "99,999,999,999,999,998,900"},
                 new String[]{"-1.000", "2.000", "(100)", "900"});
 
-        var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+        var checks = assess(blocks);
 
         assertEquals("CONSISTENT", checks.get(0).path("status").asString());
         assertEquals("CONSISTENT", checks.get(1).path("status").asString());
@@ -57,7 +58,7 @@ class FinancialTableDiagnosticsTest {
                 new String[]{"1,000", "2,000", "-", "3,000"},
                 new String[]{"1,000", "2,000", " ", null});
 
-        var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+        var checks = assess(blocks);
 
         assertEquals("INCOMPLETE", checks.get(0).path("status").asString());
         assertEquals(mapper.createArrayNode().add(61), checks.get(0).path("missing_row_codes"));
@@ -71,7 +72,7 @@ class FinancialTableDiagnosticsTest {
                 new String[]{"1.00.000", "2.000", "1", "102001"},
                 new String[]{"-(100)", "2,000", "1", "1,901"});
 
-        var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+        var checks = assess(blocks);
 
         for (var check : checks) {
             assertEquals("INVALID_NUMERIC", check.path("status").asString());
@@ -82,12 +83,12 @@ class FinancialTableDiagnosticsTest {
     @Test
     void refusesMergedOrDuplicatePeriodHeaders() {
         var merged = validTable();
-        cellAt(merged, 0, 4).put("end_col_offset_idx", 6);
+        cellAt(merged, 0, 4).put("columnSpan", 2);
         var duplicate = table(ENGLISH, "Current year", "Current year",
                 new String[]{"1", "2", "3", "6"}, new String[]{"1", "2", "3", "6"});
 
         for (var blocks : new ArrayNode[]{merged, duplicate}) {
-            var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+            var checks = assess(blocks);
             assertEquals(1, checks.size());
             assertEquals("AMBIGUOUS", checks.get(0).path("status").asString());
             assertEquals("AMBIGUOUS_PERIOD_HEADERS", checks.get(0).path("reason").asString());
@@ -98,15 +99,15 @@ class FinancialTableDiagnosticsTest {
     @Test
     void refusesMergedAndOverlappingAmountsButStillAssessesUnaffectedPeriod() {
         var merged = validTable();
-        cellAt(merged, 3, 4).put("end_col_offset_idx", 6);
+        cellAt(merged, 3, 4).put("columnSpan", 2);
         var overlapping = validTable();
         cells(overlapping).add(cellAt(overlapping, 4, 4).deepCopy());
 
-        var mergedChecks = FinancialTableDiagnostics.assess(merged, mapper);
+        var mergedChecks = assess(merged);
         assertEquals("AMBIGUOUS", mergedChecks.get(0).path("status").asString());
         assertEquals("AMBIGUOUS", mergedChecks.get(1).path("status").asString());
         assertEquals(mapper.createArrayNode().add(61), mergedChecks.get(1).path("ambiguous_row_codes"));
-        var overlapChecks = FinancialTableDiagnostics.assess(overlapping, mapper);
+        var overlapChecks = assess(overlapping);
         assertEquals("AMBIGUOUS", overlapChecks.get(0).path("status").asString());
         assertEquals("CONSISTENT", overlapChecks.get(1).path("status").asString());
     }
@@ -121,7 +122,7 @@ class FinancialTableDiagnosticsTest {
         blocks.add(noHeaders.get(0));
         blocks.add(unrelated.get(0));
 
-        var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+        var checks = assess(blocks);
 
         assertEquals(3, checks.size());
         assertEquals("INCOMPLETE", checks.get(2).path("status").asString());
@@ -134,7 +135,7 @@ class FinancialTableDiagnosticsTest {
         var table = validTable().get(0);
         for (int i = 0; i < 65; i++) blocks.add(table);
 
-        var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+        var checks = assess(blocks);
 
         assertEquals(128, checks.size());
         assertEquals("INCOMPLETE", checks.get(127).path("status").asString());
@@ -149,7 +150,7 @@ class FinancialTableDiagnosticsTest {
         removeCell(blocks, 3, 1);
         removeCell(blocks, 3, 2);
 
-        var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+        var checks = assess(blocks);
 
         assertEquals(1, checks.size());
         assertEquals("INCOMPLETE", checks.get(0).path("status").asString());
@@ -164,7 +165,7 @@ class FinancialTableDiagnosticsTest {
                 new String[]{"1", "2", "3", "6"}, new String[]{"1", "2", "3", "— 6"});
         var original = blocks.deepCopy();
 
-        var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+        var checks = assess(blocks);
 
         assertEquals("CONSISTENT", checks.get(0).path("status").asString());
         assertEquals("CURRENT", checks.get(0).path("period_identity").asString());
@@ -180,7 +181,7 @@ class FinancialTableDiagnosticsTest {
                 new String[]{"1", "2", "3", "6"}, new String[]{"1", "2", "3", "6"});
         cellAt(blocks, 4, 2).put("text", "7O");
 
-        var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+        var checks = assess(blocks);
         var issues = checks.get(0).path("structure_issues");
 
         assertEquals(1, checks.size());
@@ -196,14 +197,14 @@ class FinancialTableDiagnosticsTest {
     void recognizesExplicitVietnameseQuarterButDoesNotRepairMissingQuarterDigits() {
         var blocks = table(VIETNAMESE, "Quý 1 năm 2026", "Đơn vị tính: VND\nQuy 1 nam 2025",
                 new String[]{"1", "2", "3", "6"}, new String[]{"1", "2", "3", "6"});
-        var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+        var checks = assess(blocks);
         assertEquals("CONSISTENT", checks.get(0).path("status").asString());
         assertEquals("2026-Q1", checks.get(0).path("period_identity").asString());
         assertEquals("2025-Q1", checks.get(1).path("period_identity").asString());
 
         cellAt(blocks, 0, 4).put("text", "Quý | năm 2026");
         cellAt(blocks, 0, 5).put("text", "Quý năm 2025");
-        var damaged = FinancialTableDiagnostics.assess(blocks, mapper);
+        var damaged = assess(blocks);
         assertEquals(1, damaged.size());
         assertEquals("INCOMPLETE", damaged.get(0).path("status").asString());
         assertEquals(2, damaged.get(0).path("structure_issues").size());
@@ -215,13 +216,13 @@ class FinancialTableDiagnosticsTest {
     void followsOnlyContiguousExplicitHeaderAncestryWithinOneColumn() {
         var blocks = validTable();
         shiftRows(blocks, 2);
-        cells(blocks).add(cell(0, 4, "Currency: VND", true).put("end_col_offset_idx", 6));
+        cells(blocks).add(cell(0, 4, "Currency: VND", true).put("columnSpan", 2));
         cells(blocks).add(cell(1, 4, "Current", true));
         cellAt(blocks, 2, 4).put("text", "year");
-        cellAt(blocks, 2, 5).put("start_row_offset_idx", 1);
+        cellAt(blocks, 2, 5).put("row", 1).put("rowSpan", 2);
         var original = blocks.deepCopy();
 
-        var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+        var checks = assess(blocks);
 
         assertEquals(2, checks.size());
         assertEquals("CONSISTENT", checks.get(0).path("status").asString());
@@ -235,13 +236,13 @@ class FinancialTableDiagnosticsTest {
     void refusesMergedPeriodAncestorsAndConflictingSingleColumnAncestors() {
         var merged = validTable();
         shiftRows(merged, 1);
-        cells(merged).add(cell(0, 4, "Current year", true).put("end_col_offset_idx", 6));
+        cells(merged).add(cell(0, 4, "Current year", true).put("columnSpan", 2));
         var conflicting = validTable();
         shiftRows(conflicting, 1);
         cells(conflicting).add(cell(0, 4, "Previous year", true));
 
         for (var blocks : new ArrayNode[]{merged, conflicting}) {
-            var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+            var checks = assess(blocks);
             assertEquals(1, checks.size());
             assertEquals("AMBIGUOUS", checks.get(0).path("status").asString());
             assertEquals("AMBIGUOUS_PERIOD_HEADERS",
@@ -259,8 +260,8 @@ class FinancialTableDiagnosticsTest {
         shiftRows(qualified, 1);
         cells(qualified).add(cell(0, 4, "Unaudited forecast", true));
 
-        assertEquals("AMBIGUOUS", FinancialTableDiagnostics.assess(gap, mapper).get(0).path("status").asString());
-        var result = FinancialTableDiagnostics.assess(qualified, mapper);
+        assertEquals("AMBIGUOUS", assess(gap).get(0).path("status").asString());
+        var result = assess(qualified);
         assertEquals(1, result.size());
         assertEquals("INCOMPLETE", result.get(0).path("status").asString());
         assertEquals(4, result.get(0).path("structure_issues").get(0).path("column_index").asInt());
@@ -271,9 +272,9 @@ class FinancialTableDiagnosticsTest {
         var blocks = validTable();
         cells(blocks).add(cellAt(blocks, 1, 1).deepCopy());
         removeCell(blocks, 3, 1);
-        cellAt(blocks, 4, 2).put("column_header", true);
+        cellAt(blocks, 4, 2).put("columnHeader", true);
 
-        var result = FinancialTableDiagnostics.assess(blocks, mapper).get(0);
+        var result = assess(blocks).get(0);
         var issues = result.path("structure_issues");
 
         assertEquals("AMBIGUOUS", result.path("status").asString());
@@ -291,7 +292,7 @@ class FinancialTableDiagnosticsTest {
         var blocks = validTable();
         cellAt(blocks, 2, 1).put("text", "Cash and cash equivalents at the beginning and at the end of the year");
 
-        var result = FinancialTableDiagnostics.assess(blocks, mapper).get(0);
+        var result = assess(blocks).get(0);
 
         assertEquals("AMBIGUOUS", result.path("status").asString());
         assertEquals(60, result.path("structure_issues").get(0).path("row_code").asInt());
@@ -305,10 +306,10 @@ class FinancialTableDiagnosticsTest {
         shiftRows(deep, 4);
         for (int row = 0; row < 4; row++) cells(deep).add(cell(row, 4, "Currency: VND", true));
         var wide = validTable();
-        ((ObjectNode) wide.get(0).path("table")).put("num_cols", Integer.MAX_VALUE);
+        ((ObjectNode) wide.get(0).path("table")).put("columnCount", Integer.MAX_VALUE);
 
         for (var blocks : new ArrayNode[]{deep, wide}) {
-            var result = FinancialTableDiagnostics.assess(blocks, mapper);
+            var result = assess(blocks);
             assertEquals(1, result.size());
             assertEquals("INCOMPLETE", result.get(0).path("status").asString());
             assertEquals("ASSESSMENT_LIMIT", result.get(0).path("reason").asString());
@@ -326,7 +327,7 @@ class FinancialTableDiagnosticsTest {
             cells(blocks).add(cell(1, 1, "20", false));
             var original = blocks.deepCopy();
 
-            var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+            var checks = assess(blocks);
 
             assertEquals(1, checks.size());
             assertEquals("INCOME_STATEMENT_ROW_IDENTITY", checks.get(0).path("check").asString());
@@ -341,38 +342,38 @@ class FinancialTableDiagnosticsTest {
     @Test
     void doesNotConfuseVerticalIncomeRowsOrMetricHeadersWithHorizontalBodyLabels() {
         var vertical = incomeLabels(new String[]{"Net revenue", "Gross profit"});
-        cellAt(vertical, 2, 0).put("start_row_offset_idx", 1).put("end_row_offset_idx", 2);
-        cellAt(vertical, 2, 1).put("start_col_offset_idx", 0).put("end_col_offset_idx", 1);
+        cellAt(vertical, 2, 0).put("row", 1);
+        cellAt(vertical, 2, 1).put("column", 0);
         cells(vertical).add(cell(1, 1, "10", false));
         cells(vertical).add(cell(2, 1, "20", false));
         var headers = incomeLabels(new String[]{"Net revenue", "Gross profit"});
-        for (var cell : cells(headers)) ((ObjectNode) cell).put("column_header", true);
+        for (var cell : cells(headers)) ((ObjectNode) cell).put("columnHeader", true);
         cells(headers).add(cell(1, 0, "10", false));
         cells(headers).add(cell(1, 1, "20", false));
         var repeated = incomeLabels(new String[]{"Gross profit", "Gross profit"});
         cells(repeated).add(cell(1, 0, "10", false));
         cells(repeated).add(cell(1, 1, "20", false));
 
-        assertEquals(0, FinancialTableDiagnostics.assess(vertical, mapper).size());
-        assertEquals(0, FinancialTableDiagnostics.assess(headers, mapper).size());
-        assertEquals(0, FinancialTableDiagnostics.assess(repeated, mapper).size());
-        assertEquals(0, FinancialTableDiagnostics.assess(
-                incomeLabels(new String[]{"Net revenue", "Gross profit"}), mapper).size());
+        assertEquals(0, assess(vertical).size());
+        assertEquals(0, assess(headers).size());
+        assertEquals(0, assess(repeated).size());
+        assertEquals(0, assess(
+                incomeLabels(new String[]{"Net revenue", "Gross profit"})).size());
     }
 
     @Test
     void ignoresMalformedCodesUntilAnIncomeBandIsEstablished() {
         var blocks = incomeLabels(new String[]{"Net revenue", "Metric"});
-        cells(blocks).add(cell(1, 0, "10", false).put("end_row_offset_idx", 1));
+        cells(blocks).add(cell(1, 0, "10", false).put("rowSpan", 0));
 
-        assertEquals(0, FinancialTableDiagnostics.assess(blocks, mapper).size());
+        assertEquals(0, assess(blocks).size());
 
         cellAt(blocks, 2, 1).put("text", "Gross profit");
         cells(blocks).add(cell(1, 0, "10", false));
         cells(blocks).add(cell(1, 1, "20", false));
         var original = blocks.deepCopy();
 
-        var checks = FinancialTableDiagnostics.assess(blocks, mapper);
+        var checks = assess(blocks);
 
         assertEquals(1, checks.size());
         assertEquals("NON_ROW_ORIENTED_INCOME_LABELS", checks.get(0).path("reason").asString());
@@ -384,16 +385,22 @@ class FinancialTableDiagnosticsTest {
         var blocks = incomeLabels(new String[]{"Net revenue", "Gross profit"});
         cells(blocks).add(cell(1, 0, "10", false));
         cells(blocks).add(cell(1, 1, "20", false));
-        ((ObjectNode) blocks.get(0).path("table")).put("num_rows", 0);
+        ((ObjectNode) blocks.get(0).path("table")).put("rowCount", 0);
 
-        assertEquals(0, FinancialTableDiagnostics.assess(blocks, mapper).size());
+        assertEquals(0, assess(blocks).size());
+    }
+
+    /** Fixtures are written as v2 artifact JSON, which is what the Docling adapter hands over as blocks. */
+    private ArrayNode assess(ArrayNode blocks) {
+        return FinancialTableDiagnostics.assess(
+                mapper.readerForListOf(ExtractedDocument.Block.class).readValue(blocks), mapper);
     }
 
     private ArrayNode incomeLabels(String[] labels) {
         var blocks = mapper.createArrayNode();
         var table = blocks.addObject().put("index", 17).put("kind", "TABLE")
-                .putObject("table").put("num_rows", 3).put("num_cols", 2);
-        var cells = table.putArray("table_cells");
+                .putObject("table").put("rowCount", 3).put("columnCount", 2);
+        var cells = table.putArray("cells");
         cells.add(cell(2, 0, labels[0], false));
         cells.add(cell(2, 1, labels[1], false));
         return blocks;
@@ -401,11 +408,10 @@ class FinancialTableDiagnosticsTest {
 
     private void shiftRows(ArrayNode blocks, int offset) {
         var table = (ObjectNode) blocks.get(0).path("table");
-        table.put("num_rows", table.path("num_rows").asInt() + offset);
+        table.put("rowCount", table.path("rowCount").asInt() + offset);
         for (var raw : cells(blocks)) {
             var cell = (ObjectNode) raw;
-            cell.put("start_row_offset_idx", cell.path("start_row_offset_idx").asInt() + offset);
-            cell.put("end_row_offset_idx", cell.path("end_row_offset_idx").asInt() + offset);
+            cell.put("row", cell.path("row").asInt() + offset);
         }
     }
 
@@ -430,8 +436,8 @@ class FinancialTableDiagnosticsTest {
             String[] current, String[] prior) {
         var blocks = mapper.createArrayNode();
         var block = blocks.addObject().put("index", 17).put("kind", "TABLE");
-        var table = block.putObject("table").put("num_rows", 5).put("num_cols", 6);
-        var cells = table.putArray("table_cells");
+        var table = block.putObject("table").put("rowCount", 5).put("columnCount", 6);
+        var cells = table.putArray("cells");
         cells.add(cell(0, 1, "Items", true));
         cells.add(cell(0, 2, "Code", true));
         cells.add(cell(0, 3, "Notes", true));
@@ -448,20 +454,17 @@ class FinancialTableDiagnosticsTest {
     }
 
     private ObjectNode cell(int row, int column, String text, boolean header) {
-        return mapper.createObjectNode().put("text", text).put("start_row_offset_idx", row)
-                .put("end_row_offset_idx", row + 1).put("start_col_offset_idx", column)
-                .put("end_col_offset_idx", column + 1).put("column_header", header)
-                .put("row_header", false).put("row_section", false);
+        return mapper.createObjectNode().put("text", text).put("row", row).put("rowSpan", 1)
+                .put("column", column).put("columnSpan", 1).put("columnHeader", header).put("rowHeader", false);
     }
 
     private ArrayNode cells(ArrayNode blocks) {
-        return (ArrayNode) blocks.get(0).path("table").path("table_cells");
+        return (ArrayNode) blocks.get(0).path("table").path("cells");
     }
 
     private ObjectNode cellAt(ArrayNode blocks, int row, int column) {
         for (var cell : cells(blocks)) {
-            if (cell.path("start_row_offset_idx").asInt() == row
-                    && cell.path("start_col_offset_idx").asInt() == column) return (ObjectNode) cell;
+            if (cell.path("row").asInt() == row && cell.path("column").asInt() == column) return (ObjectNode) cell;
         }
         throw new AssertionError("Missing fixture cell");
     }

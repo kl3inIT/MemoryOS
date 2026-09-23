@@ -2,6 +2,7 @@ package io.memoryos.provider.file;
 
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.DocumentContent;
+import io.memoryos.document.ExtractedDocument;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
 import io.memoryos.provider.StructuredContent;
@@ -48,7 +49,7 @@ final class ChatMarkupExtractor {
             parser.parse(input, handler, new Metadata(), context);
             String text = handler.toString();
             output.append(text);
-            output.block("PARAGRAPH").put("text", text);
+            output.add(ExtractedDocument.Kind.PARAGRAPH, text);
             return output.finish(mediaType, filename, "chat-tika-body");
         } catch (ExtractionException limit) { throw limit; }
         catch (Exception invalid) {

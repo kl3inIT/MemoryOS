@@ -2,11 +2,17 @@ package io.memoryos.provider.sharepoint;
 
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.DocumentContent;
+import io.memoryos.document.ExtractedDocument.Block;
+import io.memoryos.document.ExtractedDocument.Cell;
+import io.memoryos.document.ExtractedDocument.Kind;
+import io.memoryos.document.ExtractedDocument.Table;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
 import io.memoryos.provider.StructuredContent;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
@@ -51,9 +57,6 @@ public final class SharePointPageSourceContentExtractor {
         if (title.isBlank()) throw StructuredContent.failure(ExtractionFailure.MALFORMED);
 
         var output = new StructuredContent(mapper, input);
-        var properties = output.canonical().putObject("pageProperties");
-        properties.put("title", title);
-        properties.put("webUrl", page.path("webUrl").asString(""));
         heading(output, title, 1);
         paragraph(output, page.path("textAboveTitle").asString(""));
         paragraph(output, page.path("description").asString(""));
@@ -82,7 +85,7 @@ public final class SharePointPageSourceContentExtractor {
             } else if (tag.length() == 2 && tag.charAt(0) == 'h') {
                 heading(output, element.text(), Character.getNumericValue(tag.charAt(1)));
             } else if ("li".equals(tag)) {
-                block(output, "listItem", element.text());
+                block(output, Kind.LIST_ITEM, element.text());
             } else if (element.select("table").isEmpty()) {
                 paragraph(output, element.text());
             }
@@ -90,40 +93,45 @@ public final class SharePointPageSourceContentExtractor {
         if (body.select("h1, h2, h3, h4, h5, h6, p, li, table").isEmpty()) paragraph(output, body.text());
     }
 
+    /**
+     * Cells keep their position in the row. The page author's `th` is the only header signal: a row
+     * of `th` heads the columns, a `th` beside `td` cells heads its row. Nothing is inferred.
+     */
     private void table(StructuredContent output, Element table) throws ExtractionException {
-        var block = output.block("table");
-        var rows = block.putArray("rows");
-        for (Element row : table.select("tr")) {
+        int index = output.nextIndex();
+        var cells = new ArrayList<Cell>();
+        var rows = table.select("tr");
+        for (int row = 0; row < rows.size(); row++) {
             output.checkTime();
-            var cells = rows.addArray();
-            for (Element cell : row.select("th, td")) {
+            var columns = rows.get(row).select("th, td");
+            boolean headerRow = !columns.isEmpty() && columns.stream().allMatch(cell -> "th".equals(cell.tagName()));
+            for (int column = 0; column < columns.size(); column++) {
                 output.cell();
-                String text = cell.text().strip();
-                cells.add(text);
+                String text = columns.get(column).text().strip();
+                boolean header = "th".equals(columns.get(column).tagName());
+                cells.add(new Cell(row, column, 1, 1, header && headerRow, header && !headerRow, text, List.of()));
                 output.append(text);
                 output.append("\t");
             }
             output.append("\n");
         }
+        output.add(Block.table(index, "", List.of(), new Table(rows.size(), null, cells), null));
     }
 
     private void heading(StructuredContent output, String text, int level) throws ExtractionException {
         if (text.isBlank()) return;
-        var block = output.block("heading");
-        block.put("level", Math.clamp(level, 1, 6));
-        block.put("text", text.strip());
+        output.add(Block.heading(output.nextIndex(), text.strip(), Math.clamp(level, 1, 6), List.of()));
         output.append(text.strip());
         output.append("\n\n");
     }
 
     private void paragraph(StructuredContent output, String text) throws ExtractionException {
-        block(output, "paragraph", text);
+        block(output, Kind.PARAGRAPH, text);
     }
 
-    private void block(StructuredContent output, String kind, String text) throws ExtractionException {
+    private void block(StructuredContent output, Kind kind, String text) throws ExtractionException {
         if (text == null || text.isBlank()) return;
-        var block = output.block(kind);
-        block.put("text", text.strip());
+        output.add(kind, text.strip());
         output.append(text.strip());
         output.append("\n");
     }

@@ -1,0 +1,82 @@
+[ {
+  "ordinal" : 0,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Báo cáo tài chính quý I\nBáo cáo tài chính quý I",
+  "headings" : [ "Báo cáo tài chính quý I" ],
+  "blockIndex" : 0,
+  "part" : 0,
+  "provenanceJson" : "[{\"page_no\":1,\"bbox\":{\"l\":72.5,\"t\":780.25,\"r\":410.75,\"b\":760.5,\"coord_origin\":\"BOTTOMLEFT\"},\"charspan\":[0,23]}]",
+  "contentSha256" : "af284a656f724003ee47da06281a1f36ba030f15dc902376e9cada7c2eab1929",
+  "tokenCount" : 37
+}, {
+  "ordinal" : 1,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Báo cáo tài chính quý I\nCông ty cổ phần Tasco trình bày báo cáo tài chính hợp nhất.\n\nSố liệu được lập theo chuẩn mực kế toán Việt Nam.\n\nĐơn vị tính: VND",
+  "headings" : [ "Báo cáo tài chính quý I" ],
+  "blockIndex" : 1,
+  "part" : 0,
+  "provenanceJson" : "[[{\"page_no\":1,\"bbox\":{\"l\":72.5,\"t\":740.0,\"r\":520.5,\"b\":720.75,\"coord_origin\":\"BOTTOMLEFT\"},\"charspan\":[0,58]}],[{\"page_no\":1,\"bbox\":{\"l\":72.5,\"t\":715.0,\"r\":500.5,\"b\":700.25,\"coord_origin\":\"BOTTOMLEFT\"},\"charspan\":[0,48]}],[{\"page_no\":2,\"bbox\":{\"l\":90.0,\"t\":700.5,\"r\":200.5,\"b\":690.0,\"coord_origin\":\"BOTTOMLEFT\"},\"charspan\":[0,16]}]]",
+  "contentSha256" : "aa936c6756861d4a3418f3c73d7475494fc9882ecbd4af88fd7e415841ffad73",
+  "tokenCount" : 84
+}, {
+  "ordinal" : 2,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Báo cáo tài chính quý I > Bảng cân đối kế toán\nBảng cân đối kế toán",
+  "headings" : [ "Báo cáo tài chính quý I", "Bảng cân đối kế toán" ],
+  "blockIndex" : 4,
+  "part" : 0,
+  "provenanceJson" : "[{\"page_no\":2,\"bbox\":{\"l\":72.5,\"t\":680.0,\"r\":300.5,\"b\":660.0,\"coord_origin\":\"BOTTOMLEFT\"},\"charspan\":[0,20]}]",
+  "contentSha256" : "df3193a91018d1d6b95bb92ba113a815a139fb6471d3a0c5a3c5f05ab034982a",
+  "tokenCount" : 48
+}, {
+  "ordinal" : 3,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Báo cáo tài chính quý I > Bảng cân đối kế toán\nRow: Tiền và tương đương tiền\nChỉ tiêu: Tiền và tương đương tiền\nSố dư / Đầu năm: 1.234.567\nSố dư / Cuối năm: 2.345.678",
+  "headings" : [ "Báo cáo tài chính quý I", "Bảng cân đối kế toán" ],
+  "blockIndex" : 5,
+  "part" : 0,
+  "provenanceJson" : "{\"source\":[{\"page_no\":2,\"bbox\":{\"l\":60.5,\"t\":650.25,\"r\":540.75,\"b\":400.5,\"coord_origin\":\"BOTTOMLEFT\"},\"charspan\":[0,0]}],\"tableRow\":2}",
+  "contentSha256" : "7a9d0b78bdfe8eda5a17b1c2d2163ca03afc843d438e102db84d889bc4d60268",
+  "tokenCount" : 98
+}, {
+  "ordinal" : 4,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Báo cáo tài chính quý I > Bảng cân đối kế toán\nRow: Tiền và tương đương tiền\nChỉ tiêu: Tiền và tương đương tiền\nSố dư / Đầu năm: (12.000)\nSố dư / Cuối năm: —",
+  "headings" : [ "Báo cáo tài chính quý I", "Bảng cân đối kế toán" ],
+  "blockIndex" : 5,
+  "part" : 1,
+  "provenanceJson" : "{\"source\":[{\"page_no\":2,\"bbox\":{\"l\":60.5,\"t\":650.25,\"r\":540.75,\"b\":400.5,\"coord_origin\":\"BOTTOMLEFT\"},\"charspan\":[0,0]}],\"tableRow\":3}",
+  "contentSha256" : "c6d11c9f0d7a69834f2a25dd1bbc845f747150fa756adca34251a91c9d79e98f",
+  "tokenCount" : 91
+}, {
+  "ordinal" : 5,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Báo cáo tài chính quý I > Thuyết minh\nThuyết minh",
+  "headings" : [ "Báo cáo tài chính quý I", "Thuyết minh" ],
+  "blockIndex" : 7,
+  "part" : 0,
+  "provenanceJson" : "[{\"page_no\":3,\"bbox\":{\"l\":72.5,\"t\":780.0,\"r\":200.5,\"b\":760.0,\"coord_origin\":\"BOTTOMLEFT\"},\"charspan\":[0,11]}]",
+  "contentSha256" : "3d3ad0e9309cacd2f2471d9ea22dd70f25151df92fb89530a2ea150a87ae5756",
+  "tokenCount" : 36
+}, {
+  "ordinal" : 6,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Báo cáo tài chính quý I > Thuyết minh\nRow: Phải thu khách hàng\nColumn 1: Phải thu khách hàng\nColumn 2: 45.000",
+  "headings" : [ "Báo cáo tài chính quý I", "Thuyết minh" ],
+  "blockIndex" : 8,
+  "part" : 0,
+  "provenanceJson" : "{\"source\":[{\"page_no\":3,\"bbox\":{\"l\":60.5,\"t\":750.5,\"r\":540.5,\"b\":600.25,\"coord_origin\":\"BOTTOMLEFT\"},\"charspan\":[0,0]}],\"tableRow\":0}",
+  "contentSha256" : "b078be39efb11cbfd8d356e58d65be83ae428453ef4c3cc532d49cc139c1b038",
+  "tokenCount" : 59
+}, {
+  "ordinal" : 7,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Báo cáo tài chính quý I > Thuyết minh\nColumn 1: Trả trước người bán\nColumn 2: 7.500",
+  "headings" : [ "Báo cáo tài chính quý I", "Thuyết minh" ],
+  "blockIndex" : 8,
+  "part" : 1,
+  "provenanceJson" : "{\"source\":[{\"page_no\":3,\"bbox\":{\"l\":60.5,\"t\":750.5,\"r\":540.5,\"b\":600.25,\"coord_origin\":\"BOTTOMLEFT\"},\"charspan\":[0,0]}],\"tableRow\":1}",
+  "contentSha256" : "dd653080cb2656f34a486d32ddffff75c7433226df710a9aa16e483d0dea51fb",
+  "tokenCount" : 53
+}, {
+  "ordinal" : 8,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Báo cáo tài chính quý I > Thuyết minh\nĐoạn không có vị trí.\n\nĐoạn trải trên hai trang.",
+  "headings" : [ "Báo cáo tài chính quý I", "Thuyết minh" ],
+  "blockIndex" : 9,
+  "part" : 0,
+  "provenanceJson" : "[[],[{\"page_no\":3,\"bbox\":{\"l\":72.5,\"t\":120.0,\"r\":500.5,\"b\":100.0,\"coord_origin\":\"BOTTOMLEFT\"},\"charspan\":[0,10]},{\"page_no\":4,\"bbox\":{\"l\":72.5,\"t\":780.0,\"r\":500.5,\"b\":760.0,\"coord_origin\":\"BOTTOMLEFT\"},\"charspan\":[10,25]}]]",
+  "contentSha256" : "acffc05eb474797cc98ea219898713c51de1f4c6b985a18e5b3096d5aa255c02",
+  "tokenCount" : 52
+} ]

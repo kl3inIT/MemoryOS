@@ -19,7 +19,7 @@ class GoogleNativeExtractionTest {
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Test
-    void sheetsPreserveSparseDefaultsZeroFalseFormulaMergesAndAllTabs() throws Exception {
+    void sheetsPreserveSparseDefaultsZeroFalseAndAllTabsWithoutFormulas() throws Exception {
         JsonNode spreadsheet = mapper.readTree("""
                 {"spreadsheetId":"sheet1","properties":{"locale":"vi_VN","timeZone":"Asia/Ho_Chi_Minh"},"sheets":[
                   {"properties":{"title":"Revenue","gridProperties":{"rowCount":2,"columnCount":3}},
@@ -41,11 +41,10 @@ class GoogleNativeExtractionTest {
         assertEquals("42.00", cells.get(3).path("text").asString());
         assertEquals(1, cells.get(3).path("row").asInt());
         assertEquals(1, cells.get(3).path("column").asInt());
-        assertTrue(cells.get(3).path("formula").asString().startsWith("=IMPORTXML"));
-        assertEquals(3, canonical.path("blocks").get(0).path("table").path("merges").get(0).path("endColumnIndex").asInt());
-        assertEquals("EMPTY", canonical.path("blocks").get(1).path("table").path("missingCellValue").asString());
-        assertEquals("vi_VN", canonical.path("spreadsheetProperties").path("locale").asString());
-        assertEquals("Asia/Ho_Chi_Minh", canonical.path("spreadsheetProperties").path("timeZone").asString());
+        assertFalse(result.structuredJson().contains("IMPORTXML"), "a formula is never stored or evaluated");
+        assertEquals("Revenue", canonical.path("blocks").get(0).path("sheetName").asString());
+        assertEquals(mapper.readTree("[{\"sheetIndex\":1,\"sheetName\":\"Notes\"}]"), canonical.path("blocks").get(1).path("locations"));
+        assertEquals(1, canonical.path("blocks").get(1).path("table").path("rowCount").asInt());
         assertEquals("Revenue\nA1: 0\nB1: false\nB2: 42.00\nNotes", result.normalizedText());
         var chunks = new io.memoryos.document.application.StructuredDocumentChunker(mapper).chunk(result.title(), result.structuredJson());
         assertTrue(chunks.stream().anyMatch(chunk -> chunk.content().contains("[B2] 42.00")));
@@ -77,11 +76,12 @@ class GoogleNativeExtractionTest {
         JsonNode blocks = canonical.path("blocks");
         assertEquals("HEADING", blocks.get(0).path("kind").asString());
         assertEquals("LIST_ITEM", blocks.get(1).path("kind").asString());
-        assertEquals("list1", blocks.get(1).path("bullet").path("listId").asString());
         assertEquals("TABLE", blocks.get(2).path("kind").asString());
         assertEquals("Right\n", blocks.get(2).path("table").path("cells").get(1).path("blocks").get(0).path("text").asString());
-        assertEquals("footnotes/note1", blocks.get(3).path("provenance").path("section").asString());
-        assertEquals("child", blocks.get(4).path("provenance").path("tabId").asString());
+        assertEquals(mapper.readTree("""
+                {"tabId":"first","section":"body","startIndex":1,"endIndex":9}"""), blocks.get(0).path("locations").get(0));
+        assertEquals("footnotes/note1", blocks.get(3).path("locations").get(0).path("section").asString());
+        assertEquals("child", blocks.get(4).path("locations").get(0).path("tabId").asString());
         assertEquals("Heading\nEntry\nLeft\nRight\nFootnote\nNested", result.normalizedText());
         var chunks = new io.memoryos.document.application.StructuredDocumentChunker(mapper).chunk(result.title(), result.structuredJson());
         assertTrue(chunks.stream().anyMatch(chunk -> chunk.content().contains("[B1] Right")));

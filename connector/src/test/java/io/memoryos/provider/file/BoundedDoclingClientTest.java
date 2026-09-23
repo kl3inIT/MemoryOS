@@ -52,8 +52,8 @@ class BoundedDoclingClientTest {
             client.convertDocument(ai.docling.serve.api.convert.request.ConvertDocumentRequest.builder()
                     .source(ai.docling.serve.api.convert.request.source.FileSource.builder().filename("document.pdf")
                             .base64String(java.util.Base64.getEncoder().encodeToString(java.nio.file.Files.readAllBytes(file))).build())
-                    .options(properties.options()).target(ai.docling.serve.api.convert.request.target.InBodyTarget.builder().build()).build());
-            client.convertFile(file, ".pdf", properties);
+                    .options(properties.options(true)).target(ai.docling.serve.api.convert.request.target.InBodyTarget.builder().build()).build());
+            client.convertFile(file, ".pdf", properties, true);
             var source = java.util.Objects.requireNonNull(requests.poll(5, java.util.concurrent.TimeUnit.SECONDS));
             var multipart = java.util.Objects.requireNonNull(requests.poll(5, java.util.concurrent.TimeUnit.SECONDS));
             assertEquals("/v1/convert/source/async", source.path()); assertEquals("/v1/convert/file", multipart.path());
@@ -70,8 +70,8 @@ class BoundedDoclingClientTest {
             assertTrue(multipart.body().contains("test file content"));
             assertFalse(source.body().contains(properties.apiKey())); assertFalse(multipart.body().contains(properties.apiKey()));
             assertFalse(properties.toString().contains(properties.apiKey()));
-            assertTrue(properties.parserConfiguration(262_144_000).contains("maxInput=262144000"));
-            assertTrue(properties.parserConfiguration(10_485_760).contains("ocr=tesseract:vie,eng"));
+            assertTrue(properties.parserConfiguration(262_144_000, true).contains("maxInput=262144000"));
+            assertTrue(properties.parserConfiguration(10_485_760, true).contains("ocr=tesseract:vie,eng"));
         } finally { server.stop(0); }
     }
 

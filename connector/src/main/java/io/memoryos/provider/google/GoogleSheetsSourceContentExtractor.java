@@ -2,16 +2,20 @@ package io.memoryos.provider.google;
 
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.DocumentContent;
+import io.memoryos.document.ExtractedDocument.Block;
+import io.memoryos.document.ExtractedDocument.Cell;
+import io.memoryos.document.ExtractedDocument.Location;
+import io.memoryos.document.ExtractedDocument.Table;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
 import io.memoryos.provider.StructuredContent;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.node.ArrayNode;
-import tools.jackson.databind.node.ObjectNode;
 
 public final class GoogleSheetsSourceContentExtractor {
     private final ObjectMapper mapper;
@@ -25,11 +29,10 @@ public final class GoogleSheetsSourceContentExtractor {
         if (!input.providerFileId().equals(spreadsheet.path("spreadsheetId").asString()) || !sheets.isArray()) malformed();
         if (sheets.isEmpty() || sheets.size() > StructuredContent.MAX_TABS) limit();
         StructuredContent output = new StructuredContent(mapper, input);
-        output.canonical().set("spreadsheetProperties", spreadsheet.path("properties"));
-        if (spreadsheet.has("namedRanges")) output.canonical().set("namedRanges", spreadsheet.get("namedRanges"));
         long represented = 0;
         Set<Integer> sheetIds = new HashSet<>();
-        for (JsonNode sheet : sheets) {
+        for (int position = 0; position < sheets.size(); position++) {
+            JsonNode sheet = sheets.get(position);
             JsonNode properties = sheet.path("properties");
             int sheetId = properties.path("sheetId").asInt(0);
             if (!sheetIds.add(sheetId)) malformed();
@@ -38,29 +41,23 @@ public final class GoogleSheetsSourceContentExtractor {
             if (rows < 1 || columns < 1 || (represented += (long) rows * columns) > StructuredContent.MAX_CELLS) limit();
             String title = properties.path("title").asString("");
             if (title.isBlank()) malformed();
-            ObjectNode block = output.block("TABLE");
-            block.put("text", title);
-            block.set("provenance", properties);
-            ObjectNode table = block.putObject("table");
-            table.put("rowCount", rows);
-            table.put("columnCount", columns);
-            table.put("coordinateBase", 0);
-            table.put("missingCellValue", "EMPTY");
-            table.put("range", "'" + title.replace("'", "''") + "'!A1:" + RestGoogleDriveProvider.columnName(columns) + rows);
+            int index = output.nextIndex();
             JsonNode merges = sheet.path("merges");
             if (!merges.isMissingNode()) {
                 if (!merges.isArray()) malformed();
                 for (JsonNode merge : merges) validateMerge(merge, sheetId, rows, columns);
-                table.set("merges", merges);
-            } else table.putArray("merges");
-            ArrayNode cells = table.putArray("cells");
+            }
+            var cells = new ArrayList<Cell>();
             output.append(title + "\n");
             readPages(sheet.path("pages"), rows, columns, cells, output);
+            // Google Sheets locations never named the sheet; naming it would change how Chat and Search place a citation.
+            output.add(Block.table(index, title, List.of(Location.sheet(properties.path("index").asInt(position), title, null)),
+                    new Table(rows, columns, cells), title));
         }
         return output.finish("application/vnd.google-apps.spreadsheet", filename, "google-sheets-native-v1");
     }
 
-    private void readPages(JsonNode pages, int rows, int columns, ArrayNode cells,
+    private void readPages(JsonNode pages, int rows, int columns, List<Cell> cells,
                            StructuredContent output) throws ExtractionException {
         if (!pages.isArray() || pages.size() > 256) malformed();
         int expectedRow = 0;
@@ -90,17 +87,9 @@ public final class GoogleSheetsSourceContentExtractor {
                         JsonNode value = values.get(c);
                         if (!value.isObject()) malformed();
                         output.cell();
-                        ObjectNode cell = cells.addObject();
-                        cell.put("row", row);
-                        cell.put("column", column);
                         String address = RestGoogleDriveProvider.columnName(column + 1) + (row + 1);
-                        cell.put("address", address);
-                        cell.set("source", value);
                         String display = display(value);
-                        cell.put("text", display);
-                        if (value.path("userEnteredValue").has("formulaValue")) {
-                            cell.put("formula", value.path("userEnteredValue").path("formulaValue").asString());
-                        }
+                        cells.add(Cell.of(row, column, display));
                         if (!display.isEmpty()) output.append(address + ": " + display + "\n");
                     }
                 }

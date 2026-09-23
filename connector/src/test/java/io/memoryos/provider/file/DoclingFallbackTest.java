@@ -2,6 +2,7 @@ package io.memoryos.provider.file;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.*;
 
 import ai.docling.serve.client.DoclingServeClientException;
@@ -95,7 +96,7 @@ class DoclingFallbackTest {
 
     @Test
     void aChatAttachmentFallsBackThroughTheBoundedSpool() throws Exception {
-        when(client.convertFile(any(), any(), any())).thenThrow(new java.io.IOException("connection reset"));
+        when(client.convertFile(any(), any(), any(), anyBoolean())).thenThrow(new java.io.IOException("connection reset"));
         Path file = temporary.resolve("attachment.docx");
         Files.write(file, docx());
         try (var extractor = extractor()) {
