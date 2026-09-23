@@ -189,7 +189,7 @@ function SidebarContents({
           <>
             <Link
               to="/"
-              aria-label={ui("MemoryOS home")}
+              aria-label={ui("Home")}
               className="flex min-w-0 flex-1 items-center rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
               onClick={onNavigate}
             >
@@ -597,7 +597,7 @@ export function AppShell({
               aria-describedby={undefined}
               className="fixed inset-y-0 left-0 z-50 w-[min(var(--sidebar-width),86vw)] border-r border-border-subtle bg-surface-canvas shadow-md outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left motion-reduce:animate-none"
             >
-              <Dialog.Title className="sr-only">{ui("MemoryOS navigation")}</Dialog.Title>
+              <Dialog.Title className="sr-only">{ui("Navigation")}</Dialog.Title>
               <SidebarContents
                 area={area}
                 adminPage={adminPage}
