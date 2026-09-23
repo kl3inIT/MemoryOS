@@ -2,7 +2,7 @@ import { HighlightedCode } from "@/components/assistant-ui/elements/code-rendere
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { codeLanguage, type PreviewKind } from "./preview-kind";
 
-/** Source, plain text and Markdown read as highlighted source; JSON is reformatted when it was read whole. */
+/** Source and plain text read as highlighted source; JSON is reformatted when it was read whole. */
 export function TextView({
   text,
   filename,
@@ -11,7 +11,7 @@ export function TextView({
 }: {
   text: string;
   filename: string;
-  kind: Extract<PreviewKind, "code" | "text" | "markdown">;
+  kind: Extract<PreviewKind, "code" | "text">;
   truncated?: boolean;
 }) {
   const ui = useAppTranslation();

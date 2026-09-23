@@ -293,3 +293,17 @@ const tagComponents: Components = {
 const baseComponents = { ...tagComponents, CodeHeader };
 
 const defaultComponents = { ...baseComponents, pre: Pre, SyntaxHighlighter };
+
+/**
+ * The Markdown rendering an assistant answer uses, for anything rendering Markdown that is not a message
+ * part — a stored `.md` original, for one. It carries the same plugins, the same sanitizing and the same
+ * tag components, so a document and an answer read alike; the message-part slots stay behind, because
+ * they belong to a thread.
+ */
+export const markdownRendering = {
+  remarkPlugins: baseRemarkPlugins,
+  rehypePlugins,
+  plugins,
+  components: tagComponents,
+  preprocess,
+};

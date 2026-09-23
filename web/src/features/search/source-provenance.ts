@@ -19,10 +19,15 @@ const MAX_BOXES = 60;
  * Reads the location recorded in chunk provenance. The JSON is written by each extraction route
  * (Docling `prov` items with `page_no`/`bbox`, spreadsheet `sheetName`, table rows wrapping the block
  * provenance in `source` with their `tableRow`), so every field is optional and malformed input yields no location.
+ *
+ * A region is read once however many passages record it. Every row of a Docling table wraps that table's
+ * own box, so a cited table returns the same region for each of its rows; drawing it once per row stacks
+ * dozens of translucent highlights into a solid block that hides the page it is meant to point at.
  */
 export function readSourceLocation(provenanceJson: readonly string[]): SourceLocation {
   const pages = new Set<number>();
   const boxes: ProvenanceBox[] = [];
+  const regions = new Set<string>();
   let sheet: string | undefined;
   let row: number | undefined;
   let table = false;
@@ -51,7 +56,11 @@ export function readSourceLocation(provenanceJson: readonly string[]): SourceLoc
       pagesFound++;
       pages.add(page as number);
       const box = readBox(page as number, record.bbox);
-      if (box && boxes.length < MAX_BOXES) boxes.push(box);
+      const region = box && `${box.page}:${box.left}:${box.top}:${box.right}:${box.bottom}`;
+      if (box && region && !regions.has(region) && boxes.length < MAX_BOXES) {
+        regions.add(region);
+        boxes.push(box);
+      }
     }
     if (typeof record.sheetName === "string" && record.sheetName.trim()) {
       sheetsFound++;
