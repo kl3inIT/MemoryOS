@@ -16,6 +16,10 @@
       "rules": { "react-hooks/exhaustive-deps": "off" }
     },
     {
+      "files": ["src/features/preview/csv-view.tsx"],
+      "rules": { "react/incompatible-library": "off" }
+    },
+    {
       "files": ["src/components/ui/**/*.tsx", "src/components/assistant-ui/elements/**/*.tsx"],
       "rules": {
         "react/only-export-components": "off"

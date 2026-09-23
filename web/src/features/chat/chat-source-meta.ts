@@ -1,6 +1,7 @@
 import type { useAppTranslation } from "@/i18n/use-app-translation";
 import { documentSourceLabels } from "@/features/search/document-source-presentation";
-import { formatPages, readSourceLocation } from "@/features/search/source-provenance";
+import { formatPages } from "@/features/preview/pdf-pages";
+import { readSourceLocation } from "@/features/search/source-provenance";
 import type { ChatSource } from "./chat-evidence";
 
 type Translate = ReturnType<typeof useAppTranslation>;

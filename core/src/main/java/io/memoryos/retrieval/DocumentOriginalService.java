@@ -4,6 +4,7 @@ import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentId;
+import io.memoryos.document.SpreadsheetPreview;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.identity.ActorId;
@@ -21,8 +22,10 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 
 /**
- * Streams the stored original PDF of a readable Document so a reader can show the cited page and region, and the
- * original of any type behind a Chat search hit so run_python can stage it.
+ * Streams the stored original of a readable Document, whatever its media type, so a reader can show the file as
+ * it looks rather than its extraction, and so run_python can stage the file behind a Chat search hit.
+ * An original the stored object declares as a PDF still proves it is one before it is served, because pdf.js
+ * parses it.
  * Authority matches the passage readers: Search needs {@code SEARCH_READ}, Chat citations need membership
  * and Document eligibility. Every check is repeated after the object is opened, for each byte range too,
  * so a reader loses access between two ranges of the same document.
@@ -31,6 +34,7 @@ import org.springframework.stereotype.Service;
 public class DocumentOriginalService {
     public static final long MAX_BYTES = 64L * 1024 * 1024;
     private static final byte[] PDF_MAGIC = {'%', 'P', 'D', 'F', '-'};
+    private static final String WORKBOOK = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     private final TenantAccessResolver tenants;
     private final IamAuthorization authorization;
@@ -67,20 +71,10 @@ public class DocumentOriginalService {
         public long sizeBytes() { return sizeBytes; }
     }
 
-    /** {@code range} is the served range clamped to the object, or null for the whole object. */
-    public record OriginalPdf(StoredObjectReference reference, @Nullable ByteRange range, InputStream inputStream, Runnable closer)
+    /** An authorized original of any media type; {@code range} is the served range clamped to the object, or null for the whole object. */
+    public record Original(StoredObjectReference reference, @Nullable ByteRange range, InputStream inputStream, Runnable closer)
             implements AutoCloseable {
         @Override public void close() { closer.run(); }
-    }
-
-    /** Search reader. */
-    public OriginalPdf searchPdf(ActorId actor, UUID id, UUID generation, @Nullable ByteRange range) {
-        return open(actor, IamCapability.SEARCH_READ, id, generation, range, true);
-    }
-
-    /** Chat citation reader. */
-    public OriginalPdf citationPdf(ActorId actor, UUID id, UUID generation, @Nullable ByteRange range) {
-        return open(actor, null, id, generation, range, true);
     }
 
     /**
@@ -100,18 +94,53 @@ public class DocumentOriginalService {
     }
 
     /** The whole original of any media type, with the Chat citation authority, rechecked after the object is opened. */
-    public OriginalPdf citationOriginal(ActorId actor, UUID id, UUID generation) {
-        return open(actor, null, id, generation, null, false);
+    public Original citationOriginal(ActorId actor, UUID id, UUID generation) {
+        return citationOriginal(actor, id, generation, null);
     }
 
-    private OriginalPdf open(ActorId actor, @Nullable IamCapability capability, UUID id, UUID generation, @Nullable ByteRange requested,
-                             boolean pdf) {
+    /** Search reader for the stored original, whatever its media type. */
+    public Original searchOriginal(ActorId actor, UUID id, UUID generation, @Nullable ByteRange range) {
+        return open(actor, IamCapability.SEARCH_READ, id, generation, range);
+    }
+
+    /** Chat citation reader for the stored original, whatever its media type. */
+    public Original citationOriginal(ActorId actor, UUID id, UUID generation, @Nullable ByteRange range) {
+        return open(actor, null, id, generation, range);
+    }
+
+    /**
+     * The sheets of a workbook original, read under Search authority. A workbook is served as text per sheet
+     * rather than as bytes, because the app ships no client-side workbook parser.
+     */
+    public java.util.List<SpreadsheetPreview.Sheet> searchWorkbook(ActorId actor, UUID id, UUID generation) {
+        return sheets(searchOriginal(actor, id, generation, null));
+    }
+
+    /** The same sheets under the Chat citation authority. */
+    public java.util.List<SpreadsheetPreview.Sheet> citationWorkbook(ActorId actor, UUID id, UUID generation) {
+        return sheets(citationOriginal(actor, id, generation, null));
+    }
+
+    /** Reads an authorized original as a workbook, and closes the object whether or not it is one. */
+    private static java.util.List<SpreadsheetPreview.Sheet> sheets(Original original) {
+        try (var open = original) {
+            if (!WORKBOOK.equals(baseType(open.reference()))) throw new SearchDocumentUnavailableException();
+            return SpreadsheetPreview.parse(open.inputStream());
+        } catch (IOException unreadable) {
+            throw new SearchDocumentUnavailableException();
+        }
+    }
+
+    private Original open(ActorId actor, @Nullable IamCapability capability, UUID id, UUID generation,
+                          @Nullable ByteRange requested) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(SearchDocumentUnavailableException::new);
         if (capability != null) authorization.require(actor, capability, false);
         requireReadable(actor, tenant, id, generation);
-        var reference = lookup(tenant, actor, id, pdf)
+        var reference = lookup(tenant, actor, id)
                 .filter(candidate -> candidate.metadata().sizeBytes() <= MAX_BYTES)
                 .orElseThrow(SearchDocumentUnavailableException::new);
+        // An original the object declares as a PDF is the one pdf.js will parse, so it still proves it is one.
+        boolean pdf = declaresPdf(reference);
         Opened opened;
         if (requested == null) {
             var content = storage.open(reference.key());
@@ -133,8 +162,8 @@ public class DocumentOriginalService {
                     : opened.input();
             if (capability != null) authorization.require(actor, capability, false);
             requireReadable(actor, tenant, id, generation);
-            if (lookup(tenant, actor, id, pdf).filter(reference::equals).isEmpty()) throw new SearchDocumentUnavailableException();
-            return new OriginalPdf(reference, opened.range(), input, opened.closer());
+            if (lookup(tenant, actor, id).filter(reference::equals).isEmpty()) throw new SearchDocumentUnavailableException();
+            return new Original(reference, opened.range(), input, opened.closer());
         } catch (IOException failed) {
             opened.closer().run();
             throw new SearchDocumentUnavailableException();
@@ -144,9 +173,19 @@ public class DocumentOriginalService {
         }
     }
 
-    private java.util.Optional<StoredObjectReference> lookup(TenantId tenant, ActorId actor, UUID id, boolean pdf) {
-        return pdf ? sources.originalPdf(tenant, actor, id)
-                : java.util.Optional.ofNullable(sources.originals(tenant, actor, java.util.Set.of(id)).get(id));
+    private java.util.Optional<StoredObjectReference> lookup(TenantId tenant, ActorId actor, UUID id) {
+        return java.util.Optional.ofNullable(sources.originals(tenant, actor, java.util.Set.of(id)).get(id));
+    }
+
+    private static boolean declaresPdf(StoredObjectReference reference) {
+        return "application/pdf".equals(baseType(reference));
+    }
+
+    /** The declared media type without its parameters, lowercased, as the checks above compare it. */
+    private static String baseType(StoredObjectReference reference) {
+        var declared = reference.metadata().mediaType();
+        int parameters = declared.indexOf(';');
+        return (parameters < 0 ? declared : declared.substring(0, parameters)).strip().toLowerCase(java.util.Locale.ROOT);
     }
 
     private record Opened(@Nullable ByteRange range, InputStream input, Runnable closer) {

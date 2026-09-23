@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   createSearchSnippet,
   friendlyMediaType,
+  passageBody,
+  passageSection,
   stripGeneratedTitlePrefix,
 } from "./search-presentation";
 
@@ -26,6 +28,27 @@ describe("search presentation", () => {
     expect(stripGeneratedTitlePrefix("Intro\nTitle: policy.md\nBody", "policy.md")).toBe(
       "Intro\nTitle: policy.md\nBody",
     );
+  });
+
+  it("drops the chunk header, which the original document never contains", () => {
+    expect(passageBody("Title: policy.md\nSection: Leave > Paid\nDoanh thu 412")).toBe(
+      "Doanh thu 412",
+    );
+    expect(passageBody("Title: policy.md\nDoanh thu 412")).toBe("Doanh thu 412");
+    // The chunker truncates a long header on a code point boundary, and the cut line is still the header.
+    expect(passageBody("Title: policy.md\nSection: Rat dai nhung bi c\nDoanh thu 412")).toBe(
+      "Doanh thu 412",
+    );
+    // A passage that carries no header is its own body, including text that merely mentions a section.
+    expect(passageBody("Doanh thu 412\nSection: Leave")).toBe("Doanh thu 412\nSection: Leave");
+  });
+
+  it("keeps the section breadcrumb as the context a citation is read in", () => {
+    expect(passageSection("Title: policy.md\nSection: Leave > Paid\nDoanh thu 412")).toBe(
+      "Leave > Paid",
+    );
+    expect(passageSection("Title: policy.md\nDoanh thu 412")).toBeUndefined();
+    expect(passageSection("Doanh thu 412\nSection: Leave")).toBeUndefined();
   });
 
   it("centers a bounded snippet on the exact phrase and highlights it", () => {

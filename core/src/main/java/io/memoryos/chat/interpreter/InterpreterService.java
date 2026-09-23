@@ -187,11 +187,11 @@ public class InterpreterService {
     static final String XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     /** Onyx {@code fetch_chat_file(parsed=true)}: an owner-private generated xlsx as CSV text per sheet. */
-    public java.util.List<SpreadsheetPreview.Sheet> spreadsheet(ActorId actor, UUID id) {
+    public java.util.List<io.memoryos.document.SpreadsheetPreview.Sheet> spreadsheet(ActorId actor, UUID id) {
         var served = open(actor, id);
         try (var content = served.content()) {
             if (!XLSX.equals(served.mediaType())) throw ChatException.invalid("Only xlsx files have a spreadsheet preview");
-            return SpreadsheetPreview.parse(content.inputStream());
+            return io.memoryos.document.SpreadsheetPreview.parse(content.inputStream());
         } catch (java.io.IOException failed) {
             throw ChatException.invalid("The workbook cannot be previewed");
         }

@@ -1,6 +1,7 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.api.search.DocumentOriginalResponses;
+import io.memoryos.api.search.contract.DocumentSpreadsheetResponse;
 import io.memoryos.api.search.contract.SearchDocumentResponse;
 import io.memoryos.iam.identity.IdentityContext;
 import io.memoryos.retrieval.DocumentOriginalService;
@@ -47,17 +48,26 @@ class ChatDocumentController {
     }
 
     @GetMapping(value = "/{documentId}/original", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
-    @Operation(operationId = "readChatDocumentOriginal", summary = "Read the original PDF of a cited document to show the cited page")
-    @ApiResponse(responseCode = "200", description = "Original PDF bytes", content = @Content(mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE, schema = @Schema(type = "string", format = "binary")))
-    @ApiResponse(responseCode = "206", description = "Requested byte range of the original PDF", content = @Content(mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE, schema = @Schema(type = "string", format = "binary")))
-    @ApiResponse(responseCode = "416", description = "Requested byte range starts beyond the original PDF")
+    @Operation(operationId = "readChatDocumentOriginal", summary = "Read the stored original of a cited document, of any media type, to show the file as it looks")
+    @ApiResponse(responseCode = "200", description = "Original bytes, under the object's declared media type", content = @Content(mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE, schema = @Schema(type = "string", format = "binary")))
+    @ApiResponse(responseCode = "206", description = "Requested byte range of the original", content = @Content(mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE, schema = @Schema(type = "string", format = "binary")))
+    @ApiResponse(responseCode = "416", description = "Requested byte range starts beyond the original")
     void original(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID documentId, @RequestParam UUID generation,
             @Parameter(description = "One byte range, for example bytes=0-1048575")
             @RequestHeader(value = HttpHeaders.RANGE, required = false) @Nullable String range,
             HttpServletResponse response) throws IOException {
         DocumentOriginalResponses.write(range, response,
-                requested -> originals.citationPdf(identity.actorId(), documentId, generation, requested));
+                requested -> originals.citationOriginal(identity.actorId(), documentId, generation, requested));
+    }
+
+    @GetMapping("/{documentId}/spreadsheet")
+    @Operation(operationId = "readChatDocumentSpreadsheet", summary = "Read the workbook original of a cited document as CSV text per sheet")
+    @ApiResponse(responseCode = "200", description = "Sheets in workbook order", useReturnTypeSchema = true)
+    ResponseEntity<DocumentSpreadsheetResponse> spreadsheet(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID documentId, @RequestParam UUID generation) {
+        return ResponseEntity.ok().header("Cache-Control", "no-store")
+                .body(DocumentSpreadsheetResponse.from(originals.citationWorkbook(identity.actorId(), documentId, generation)));
     }
 
     @GetMapping("/{documentId}")

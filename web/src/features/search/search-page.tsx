@@ -46,6 +46,7 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import { cn } from "@/lib/utils";
 import { searchDocuments } from "@/lib/hey-api/sdk.gen";
+import { matchingProvenance } from "./source-provenance";
 import { useVoiceAvailability } from "@/features/voice/use-voice-availability";
 import { useDictationInput, type DictationStatus } from "@/features/voice/use-dictation-input";
 import type {
@@ -293,11 +294,10 @@ function AuthorizedSearchPage() {
       mediaType: item.mediaType,
       sourceTypes: item.sourceTypes,
       providerUrl: item.providerUrl,
-      provenance:
-        (section ?? item.sections[0])?.provenance.map((entry) => entry.provenanceJson) ?? [],
       matches: item.sections.map((candidate) => ({
         matchingOrdinal: candidate.matchingOrdinal,
         from: Math.max(0, candidate.matchingOrdinal - 1),
+        provenance: matchingProvenance(candidate.provenance, candidate.matchingOrdinal),
       })),
       activeMatchIndex,
     });

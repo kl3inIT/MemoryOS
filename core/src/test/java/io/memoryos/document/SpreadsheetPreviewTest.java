@@ -1,4 +1,4 @@
-package io.memoryos.chat.interpreter;
+package io.memoryos.document;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -33,7 +33,7 @@ class SpreadsheetPreviewTest {
 
         assertEquals(List.of(
                 new SpreadsheetPreview.Sheet("Doanh thu",
-                        "Tên,Ghi chú\n\"Hà Nội, VN\",,\"nói \"\"xin chào\"\"\nlần 2\"\n,3\n", false),
+                        "Tên,Ghi chú\n\"Hà Nội, VN\",,\"nói \"\"xin chào\"\"\nlần 2\"\n\n,3\n", false),
                 new SpreadsheetPreview.Sheet("Trống", "", false)), sheets);
     }
 
@@ -50,6 +50,22 @@ class SpreadsheetPreviewTest {
         assertEquals(new SpreadsheetPreview.Sheet("Data", "row0\nrow1\n", true), cut);
         // No complete row fits: an empty preview rather than a malformed row.
         assertEquals("", SpreadsheetPreview.parse(new ByteArrayInputStream(xlsx), 3).getFirst().csv());
+    }
+
+    @Test void anAbsentRowKeepsItsLineSoACitedRowNumberStillAddressesItsLine() throws IOException {
+        byte[] xlsx;
+        try (var workbook = new XSSFWorkbook(); var out = new ByteArrayOutputStream()) {
+            var sheet = workbook.createSheet("Data");
+            sheet.createRow(0).createCell(0).setCellValue("header");
+            sheet.createRow(3).createCell(0).setCellValue("cited");
+            workbook.write(out);
+            xlsx = out.toByteArray();
+        }
+
+        var lines = SpreadsheetPreview.parse(new ByteArrayInputStream(xlsx)).getFirst().csv().split("\\n", -1);
+
+        // Extraction records a cited row by its sheet row index, so line 3 must be sheet row 3.
+        assertEquals("cited", lines[3]);
     }
 
     @Test void anythingButAWorkbookIsRejected() {

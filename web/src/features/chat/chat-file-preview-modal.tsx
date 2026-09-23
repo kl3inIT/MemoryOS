@@ -1,36 +1,29 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Copy,
-  Crop,
-  Download,
-  Loader2,
-  RotateCcw,
-  RotateCw,
-  Undo2,
-  X,
-  ZoomIn,
-  ZoomOut,
-} from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Copy, Download, Loader2, Undo2, X } from "lucide-react";
 import { Dialog } from "radix-ui";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { z } from "zod";
-import { HighlightedCode } from "@/components/assistant-ui/elements/code-renderers.aui";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { DocumentPdfView } from "@/features/search/document-pdf-view";
+import { CsvView } from "@/features/preview/csv-view";
+import { DocxView } from "@/features/preview/docx-view";
+import { DownloadView } from "@/features/preview/download-view";
+import { ImageControls, ImageView } from "@/features/preview/image-view";
+import { useObjectUrl } from "@/features/preview/use-object-url";
+import {
+  codeLanguage,
+  lineCount,
+  MAX_TEXT_PREVIEW_BYTES,
+  parseCsv,
+  previewKind,
+  previewSize,
+  sheetsSchema,
+  type PreviewKind,
+  type Sheets,
+} from "@/features/preview/preview-kind";
+import { SheetView } from "@/features/preview/sheet-view";
+import { TextView } from "@/features/preview/text-view";
+import { PdfView } from "@/features/preview/pdf-view";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
@@ -44,18 +37,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ChatFileAskComposer, type AskExtras } from "./chat-file-ask-composer";
 import { fileSize } from "./chat-code";
-import {
-  codeLanguage,
-  downloadUrl,
-  lineCount,
-  MAX_TEXT_PREVIEW_BYTES,
-  parseCsv,
-  previewKind,
-  previewSize,
-  sanitizeDocxHtml,
-  type PreviewKind,
-  type PreviewTarget,
-} from "./chat-file-preview";
+import { downloadUrl, type PreviewTarget } from "./chat-file-preview";
 import { ImageCropper } from "./chat-image-cropper";
 import {
   croppedFileName,
@@ -64,14 +46,6 @@ import {
   renderCrop,
   type CropRect,
 } from "./chat-image-crop";
-
-const spreadsheetSchema = z.object({
-  sheets: z.array(z.object({ name: z.string(), csv: z.string(), truncated: z.boolean() })),
-});
-type Sheets = z.infer<typeof spreadsheetSchema>["sheets"];
-
-/** Rows past this count are not rendered; the download holds the whole file. */
-const MAX_TABLE_ROWS = 1000;
 
 /** What the viewer may scale an image to, and the step its buttons take. */
 const ZOOM = { min: 25, max: 400, step: 25 } as const;
@@ -116,7 +90,7 @@ async function readSheets(target: PreviewTarget, signal: AbortSignal): Promise<S
           signal,
           throwOnError: true,
         });
-  return spreadsheetSchema.parse(data).sheets;
+  return sheetsSchema.parse(data).sheets;
 }
 
 type Loaded =
@@ -164,19 +138,6 @@ async function load(target: PreviewTarget, signal: AbortSignal): Promise<Loaded>
     truncated,
     bytes: blob.size,
   };
-}
-
-function useObjectUrl(blob: Blob | undefined): string | undefined {
-  const [entry, setEntry] = useState<{ blob: Blob; url: string }>();
-  useEffect(() => {
-    if (!blob) return undefined;
-    const url = URL.createObjectURL(blob);
-    // The object URL is a browser resource whose lifetime is the effect's.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEntry({ blob, url });
-    return () => URL.revokeObjectURL(url);
-  }, [blob]);
-  return entry && entry.blob === blob ? entry.url : undefined;
 }
 
 const SIZES = {
@@ -465,6 +426,8 @@ export function ChatFilePreviewModal({
                       {kind === "image" && (
                         <ImageControls
                           zoom={zoom}
+                          bare
+                          maxZoom={ZOOM.max}
                           cropping={cropping}
                           crop={
                             crop && { selected: true, ...(natural && cropPixels(crop, natural)) }
@@ -620,7 +583,7 @@ function Content({
   switch (loaded.kind) {
     case "image":
       return (
-        <ImagePreview
+        <ImageView
           blob={loaded.blob}
           alt={target.filename}
           zoom={zoom}
@@ -631,38 +594,26 @@ function Content({
     case "pdf":
       return <PdfPreview blob={loaded.blob} />;
     case "xlsx":
-      return <SheetsPreview sheets={loaded.sheets} />;
+      return <SheetView sheets={loaded.sheets} />;
     case "csv":
       return (
         <div className="p-4">
-          <CsvTable csv={loaded.text} truncated={loaded.truncated} />
+          <CsvView csv={loaded.text} truncated={loaded.truncated} />
         </div>
       );
     case "docx":
-      return <DocxPreview blob={loaded.blob} onLoad={onDocx} />;
+      return <DocxView blob={loaded.blob} onLoad={onDocx} />;
     case "code":
     case "text":
-    case "markdown": {
-      const language = codeLanguage(target.filename, loaded.kind);
-      let shown = loaded.text;
-      if (language === "json" && !loaded.truncated) {
-        try {
-          shown = JSON.stringify(JSON.parse(loaded.text), null, 2);
-        } catch {
-          shown = loaded.text;
-        }
-      }
+    case "markdown":
       return (
-        <div className="min-h-full bg-surface-sunken p-4 text-sm">
-          <HighlightedCode code={shown} language={language} />
-          {loaded.truncated && (
-            <p className="mt-3 text-xs text-content-muted">
-              {ui("Chỉ hiển thị 1 MB đầu của tệp.")}
-            </p>
-          )}
-        </div>
+        <TextView
+          text={loaded.text}
+          filename={target.filename}
+          kind={loaded.kind}
+          truncated={loaded.truncated}
+        />
       );
-    }
     case "doc":
       return (
         <Unavailable
@@ -681,183 +632,14 @@ function Content({
 }
 
 function Unavailable({ target, message }: { target: PreviewTarget; message: string }) {
-  const ui = useAppTranslation();
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
-      <p className="text-sm text-content-secondary">{message}</p>
-      <Button asChild size="sm" prominence="secondary">
-        <a href={downloadUrl(target)} download={target.filename}>
-          {ui("Tải xuống")}
-        </a>
-      </Button>
-    </div>
-  );
-}
-
-/** Zoomed images are dragged rather than scrolled, as an image viewer does; at 100% there is nothing to pan. */
-function ImagePreview({
-  blob,
-  alt,
-  zoom,
-  rotation,
-  onZoom,
-}: {
-  blob: Blob;
-  alt: string;
-  zoom: number;
-  rotation: number;
-  onZoom: (deltaY: number) => void;
-}) {
-  const frame = useRef<HTMLDivElement>(null);
-  // The page behind the viewer must not scroll while the picture is being scaled, so the wheel listener is
-  // registered directly and non-passively; React's own onWheel cannot call preventDefault.
-  useEffect(() => {
-    const node = frame.current;
-    if (!node) return;
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      onZoom(event.deltaY);
-    };
-    node.addEventListener("wheel", onWheel, { passive: false });
-    return () => node.removeEventListener("wheel", onWheel);
-  }, [onZoom]);
-  const src = useObjectUrl(blob);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [dragging, setDragging] = useState(false);
-  const from = useRef<{ x: number; y: number } | null>(null);
-  const pannable = zoom > 100;
-  // At 100% there is nothing to pan, so the offset is derived away rather than reset in an effect.
-  const offset = pannable ? pan : { x: 0, y: 0 };
-  return (
-    <div
-      ref={frame}
-      className={cn(
-        "flex min-h-0 flex-1 items-center justify-center overflow-hidden p-4",
-        pannable && (dragging ? "cursor-grabbing" : "cursor-grab"),
-      )}
-      onPointerDown={(event) => {
-        if (!pannable) return;
-        from.current = { x: event.clientX - offset.x, y: event.clientY - offset.y };
-        setDragging(true);
-        event.currentTarget.setPointerCapture(event.pointerId);
-      }}
-      onPointerMove={(event) => {
-        if (!from.current) return;
-        setPan({ x: event.clientX - from.current.x, y: event.clientY - from.current.y });
-      }}
-      onPointerUp={() => {
-        from.current = null;
-        setDragging(false);
-      }}
-      onPointerCancel={() => {
-        from.current = null;
-        setDragging(false);
-      }}
-    >
-      {src && (
-        <img
-          src={src}
-          alt={alt}
-          draggable={false}
-          className="max-h-full max-w-full object-contain transition-transform duration-300 ease-in-out"
-          style={{
-            transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom / 100}) rotate(${rotation}deg)`,
-          }}
-        />
-      )}
-    </div>
-  );
+  return <DownloadView href={downloadUrl(target)} filename={target.filename} message={message} />;
 }
 
 function PdfPreview({ blob }: { blob: Blob }) {
   // pdf.js reads the Blob directly; a blob: URL would be fetched, which connect-src 'self' refuses.
   return (
     <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">
-      <DocumentPdfView url={blob} pages={[]} boxes={[]} />
-    </div>
-  );
-}
-
-function ImageControls({
-  zoom,
-  cropping,
-  crop,
-  onZoom,
-  onRotate,
-  onCrop,
-}: {
-  zoom: number;
-  cropping: boolean;
-  /** Whether a region has been drawn, and its size in the image's own pixels once that is known. */
-  crop?: { selected: boolean; width?: number; height?: number };
-  onZoom: (zoom: number) => void;
-  onRotate: (degrees: number) => void;
-  onCrop: () => void;
-}) {
-  const ui = useAppTranslation();
-  return (
-    // The pill around these is the viewer's, so the controls are bare buttons in a row.
-    <div className="flex items-center gap-1">
-      {cropping ? (
-        <span className="px-2 font-secondary-body tabular-nums">
-          {!crop?.selected
-            ? ui("Chưa chọn vùng")
-            : crop.width && crop.height
-              ? ui("{{width}} × {{height}} px", { width: crop.width, height: crop.height })
-              : ui("Đã chọn vùng")}
-        </span>
-      ) : (
-        <>
-          <IconButton
-            prominence="internal"
-            size="sm"
-            aria-label={ui("Thu nhỏ")}
-            disabled={zoom <= ZOOM.min}
-            onClick={() => onZoom(clampZoom(zoom - ZOOM.step))}
-          >
-            <ZoomOut />
-          </IconButton>
-          <span className="w-12 text-center font-secondary-body tabular-nums">{zoom}%</span>
-          <IconButton
-            prominence="internal"
-            size="sm"
-            aria-label={ui("Phóng to")}
-            disabled={zoom >= ZOOM.max}
-            onClick={() => onZoom(clampZoom(zoom + ZOOM.step))}
-          >
-            <ZoomIn />
-          </IconButton>
-          {/*
-           * Each press turns a quarter further in the direction it names. The angle is never folded back to
-           * zero, so a fourth turn to the right keeps going right instead of spinning back.
-           */}
-          <IconButton
-            prominence="internal"
-            size="sm"
-            aria-label={ui("Xoay trái")}
-            onClick={() => onRotate(-90)}
-          >
-            <RotateCcw />
-          </IconButton>
-          <IconButton
-            prominence="internal"
-            size="sm"
-            aria-label={ui("Xoay phải")}
-            onClick={() => onRotate(90)}
-          >
-            <RotateCw />
-          </IconButton>
-        </>
-      )}
-      <IconButton
-        prominence="internal"
-        size="sm"
-        aria-pressed={cropping}
-        aria-label={cropping ? ui("Thoát cắt ảnh") : ui("Cắt ảnh")}
-        onClick={onCrop}
-      >
-        <Crop />
-      </IconButton>
+      <PdfView url={blob} pages={[]} boxes={[]} />
     </div>
   );
 }
@@ -879,179 +661,6 @@ function CopyButton({ text }: { text: string }) {
     >
       {copied ? <Check /> : <Copy />}
     </IconButton>
-  );
-}
-
-function CsvTable({ csv, truncated = false }: { csv: string; truncated?: boolean }) {
-  const ui = useAppTranslation();
-  const [header = [], ...rows] = parseCsv(csv);
-  const columns = Math.max(header.length, ...rows.map((row) => row.length));
-  if (!columns) return <p className="text-sm text-content-secondary">{ui("Trang tính trống")}</p>;
-  const shown = rows.slice(0, MAX_TABLE_ROWS);
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="overflow-auto rounded-lg border border-border-subtle bg-surface-base">
-        <Table>
-          <TableHeader className="sticky top-0 bg-surface-subtle">
-            <TableRow>
-              {Array.from({ length: columns }, (_, index) => (
-                <TableHead
-                  key={index}
-                  className={cn(
-                    "whitespace-nowrap",
-                    index === 0 && "sticky left-0 bg-surface-subtle",
-                  )}
-                >
-                  {header[index] ?? ""}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {shown.map((row, rowIndex) => (
-              <TableRow key={rowIndex}>
-                {Array.from({ length: columns }, (_, index) => (
-                  <TableCell
-                    key={index}
-                    title={row[index] || undefined}
-                    className={cn(
-                      "max-w-80 truncate whitespace-nowrap",
-                      index === 0 && "sticky left-0 bg-surface-base font-medium",
-                    )}
-                  >
-                    {row[index] ?? ""}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      {(truncated || rows.length > MAX_TABLE_ROWS) && (
-        <p className="text-xs text-content-muted">{ui("Bản xem trước bị cắt bớt")}</p>
-      )}
-    </div>
-  );
-}
-
-function SheetsPreview({ sheets }: { sheets: Sheets }) {
-  const ui = useAppTranslation();
-  if (!sheets.length)
-    return <p className="p-4 text-sm text-content-secondary">{ui("Không đọc được bảng tính.")}</p>;
-  return (
-    <Tabs defaultValue="0" className="p-4">
-      <TabsList className="w-full justify-start overflow-x-auto">
-        {sheets.map((sheet, index) => (
-          <TabsTrigger
-            key={index}
-            value={String(index)}
-            className="max-w-64 flex-none"
-            title={sheet.name}
-          >
-            <span className="truncate">{sheet.name}</span>
-          </TabsTrigger>
-        ))}
-      </TabsList>
-      {sheets.map((sheet, index) => (
-        <TabsContent key={index} value={String(index)}>
-          <CsvTable csv={sheet.csv} truncated={sheet.truncated} />
-        </TabsContent>
-      ))}
-    </Tabs>
-  );
-}
-
-function DocxPreview({
-  blob,
-  onLoad,
-}: {
-  blob: Blob;
-  onLoad: (result: { words: number; text: string }) => void;
-}) {
-  const body = useRef<HTMLDivElement>(null);
-  const styles = useRef<HTMLDivElement>(null);
-  const onLoadRef = useRef(onLoad);
-  const [state, setState] = useState<"rendering" | "done" | "failed">("rendering");
-  useEffect(() => {
-    onLoadRef.current = onLoad;
-  }, [onLoad]);
-  useEffect(() => {
-    if (!body.current || !styles.current) return undefined;
-    let current = true;
-    const bodyElement = body.current;
-    const styleElement = styles.current;
-    let adopted: CSSStyleSheet[] = [];
-    void (async () => {
-      try {
-        const { renderAsync } = await import("docx-preview");
-        // Render detached, then attach only sanitized markup and library <style> elements (Onyx sanitizeDocxHtml).
-        const renderedBody = document.createElement("div");
-        const renderedStyles = document.createElement("div");
-        await renderAsync(blob, renderedBody, renderedStyles, {
-          className: "docx",
-          inWrapper: false,
-          ignoreWidth: false,
-          ignoreHeight: false,
-          ignoreFonts: false,
-          breakPages: true,
-          useBase64URL: true,
-          renderHeaders: true,
-          renderFooters: true,
-          renderFootnotes: true,
-          renderEndnotes: true,
-        });
-        if (!current) return;
-        bodyElement.innerHTML = sanitizeDocxHtml(renderedBody.innerHTML);
-        // The deployment CSP (style-src 'self') ignores style attributes parsed from markup and inline <style>
-        // elements; the same rules are applied through CSSOM, which the policy allows.
-        for (const element of bodyElement.querySelectorAll<HTMLElement>("[style]"))
-          element.style.cssText = element.getAttribute("style") ?? "";
-        adopted = Array.from(renderedStyles.querySelectorAll("style")).flatMap((style) => {
-          try {
-            const sheet = new CSSStyleSheet();
-            sheet.replaceSync(style.textContent ?? "");
-            return [sheet];
-          } catch {
-            return [];
-          }
-        });
-        document.adoptedStyleSheets = [...document.adoptedStyleSheets, ...adopted];
-        styleElement.replaceChildren();
-        const text = bodyElement.innerText ?? "";
-        onLoadRef.current({ words: text.split(/\s+/).filter(Boolean).length, text });
-        setState("done");
-      } catch {
-        if (current) setState("failed");
-      }
-    })();
-    return () => {
-      current = false;
-      document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
-        (sheet) => !adopted.includes(sheet),
-      );
-    };
-  }, [blob]);
-  const ui = useAppTranslation();
-  return (
-    <>
-      {state === "rendering" && (
-        <div className="flex justify-center p-6" role="status">
-          <Loader2 className="size-8 animate-spin text-content-muted" aria-hidden />
-        </div>
-      )}
-      {state === "failed" && (
-        <p className="p-6 text-center text-sm text-content-secondary">
-          {ui("Không đọc được tài liệu Word này.")}
-        </p>
-      )}
-      <div ref={styles} />
-      <div
-        ref={body}
-        data-slot="docx-preview"
-        // Pages keep their layout as in Onyx; narrow screens scroll sideways instead of reflowing.
-        className="overflow-auto px-4 py-6 text-content-document [&_section.docx]:mx-auto [&_section.docx]:mb-6 [&_section.docx]:bg-surface-document [&_section.docx]:shadow-md"
-      />
-    </>
   );
 }
 

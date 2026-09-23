@@ -111,4 +111,18 @@
       scroll-behavior: auto !important;
     }
   }
+
+  /*
+   * A cited passage located in a rendered original, painted through the CSS Custom Highlight API so no
+   * element is inserted into the renderer's output. The page beneath is `--surface-document`, white in both
+   * themes, so the highlighter reads the same either way — as the PDF reader's box overlay does. The one
+   * the citation rail has selected is drawn at full strength.
+   */
+  ::highlight(memoryos-citation) {
+    background-color: color-mix(in srgb, var(--pdf-highlight) 45%, transparent);
+  }
+
+  ::highlight(memoryos-citation-active) {
+    background-color: var(--pdf-highlight);
+  }
 }

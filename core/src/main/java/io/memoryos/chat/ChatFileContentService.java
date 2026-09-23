@@ -170,13 +170,13 @@ public class ChatFileContentService {
         return open(actor, tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable), id);
     }
     /** Onyx {@code fetch_chat_file(parsed=true)} for an attachment: an owner-private xlsx as CSV text per sheet. */
-    public java.util.List<io.memoryos.chat.interpreter.SpreadsheetPreview.Sheet> spreadsheet(ActorId actor, UUID id) {
+    public java.util.List<io.memoryos.document.SpreadsheetPreview.Sheet> spreadsheet(ActorId actor, UUID id) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         var file = files.owned(tenant, actor, id, false).orElseThrow(ChatException::unavailable).file();
         if (!"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".equals(file.mediaType()))
             throw ChatException.invalid("Only xlsx files have a spreadsheet preview");
         try (var input = open(actor, tenant, id)) {
-            return io.memoryos.chat.interpreter.SpreadsheetPreview.parse(input.inputStream());
+            return io.memoryos.document.SpreadsheetPreview.parse(input.inputStream());
         } catch (java.io.IOException failed) {
             throw ChatException.invalid("The workbook cannot be previewed");
         }

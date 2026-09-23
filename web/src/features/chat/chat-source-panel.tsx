@@ -9,35 +9,16 @@ import { useTranslation } from "react-i18next";
 import type { ChatArtifact } from "./chat-artifacts";
 import { ChatArtifactView } from "./chat-artifact-view";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import {
-  EvidenceViewSwitch,
-  type EvidenceView,
-  type PdfEvidence,
-} from "@/features/search/evidence-view-switch";
+import { documentOriginalReader } from "@/features/search/document-original-reader";
+import { useDocumentReading } from "@/features/search/document-reading";
+import { firstEvidenceView, type EvidenceView } from "@/features/search/evidence-order";
+import { EvidenceViewSwitch } from "@/features/search/evidence-view-switch";
+import { matchingProvenance, readSourceLocation } from "@/features/search/source-provenance";
 import {
   DocumentPreviewDialog,
   type DocumentSelection,
 } from "@/features/search/document-preview-dialog";
-import { client } from "@/lib/hey-api/client.gen";
-import { citedPdfLocation } from "./chat-source-meta";
 import { ChatSourceHeader, ChatSourceRow } from "./chat-source-list";
-
-/** PDF page view for an indexed document citation whose provenance records pages. */
-function citationPdf(source: ChatSource): PdfEvidence | undefined {
-  const location = citedPdfLocation(source);
-  if (!location || !source.documentId || !source.generation) return undefined;
-  const { documentId, generation } = source;
-  return {
-    url: client.buildUrl({
-      url: "/api/chat/documents/{documentId}/original",
-      path: { documentId },
-      query: { generation },
-    }),
-    pages: location.pages,
-    boxes: location.boxes,
-    table: location.table,
-  };
-}
 
 /** The cited passages of an indexed document or file citation, read with Chat authority. */
 function citationSelection(source: ChatSource): DocumentSelection {
@@ -49,16 +30,55 @@ function citationSelection(source: ChatSource): DocumentSelection {
     mediaType: source.mediaType,
     sourceTypes: source.sourceTypes,
     providerUrl: source.providerUrl,
-    provenance: source.provenance.map((item) => item.provenanceJson),
     matches: [
       {
         from: Math.max(0, (ordinal ?? source.startOrdinal) - 2),
         matchingOrdinal: ordinal ?? source.startOrdinal,
         matchingEndOrdinal: ordinal ?? source.endOrdinal,
+        provenance: matchingProvenance(source.provenance, ordinal ?? source.startOrdinal),
       },
     ],
     activeMatchIndex: 0,
   };
+}
+
+/**
+ * One document citation inside the narrow panel: its passages and its stored original share the reading
+ * state, so the original opens on the same match and paints the passages that were actually cited.
+ */
+function ChatDocumentEvidence({
+  source,
+  view,
+  onViewChange,
+}: {
+  source: ChatSource;
+  view?: EvidenceView;
+  onViewChange: (view: EvidenceView) => void;
+}) {
+  const selection = citationSelection(source);
+  const reading = useDocumentReading(selection, "chat", source.fileId ?? undefined);
+  const location = readSourceLocation(selection.matches[0]!.provenance ?? []);
+  const original =
+    source.documentId && source.generation
+      ? {
+          reader: documentOriginalReader("chat", source.documentId, source.generation),
+          filename: source.title,
+          mediaType: source.mediaType,
+          pages: location.pages,
+          boxes: location.boxes,
+          citations: reading.citations,
+        }
+      : undefined;
+  return (
+    <EvidenceViewSwitch
+      original={original}
+      table={location.table}
+      view={view}
+      onViewChange={onViewChange}
+    >
+      <DocumentPreviewContent variant="chat" selection={selection} reading={reading} />
+    </EvidenceViewSwitch>
+  );
 }
 
 const wideQuery = "(min-width: 1024px)";
@@ -130,9 +150,11 @@ export function ChatSourcePanel({
   };
   const documentCitation =
     selected && !selected.web && !(selected.fileId != null && !selected.fileLocation?.generation);
-  const pdf = documentCitation ? citationPdf(selected) : undefined;
+  // The original is shown for an indexed document citation; an owner-private file keeps its own reader.
+  const original = documentCitation && selected.documentId ? selected : undefined;
   const view = selected
-    ? (views[selected.citationId] ?? (pdf?.table ? "pdf" : "passages"))
+    ? (views[selected.citationId] ??
+      (original ? firstEvidenceView(original.title, original.mediaType ?? "") : "passages"))
     : undefined;
   const changeView = (next: EvidenceView) => {
     if (selected) setViews((current) => ({ ...current, [selected.citationId]: next }));
@@ -227,8 +249,8 @@ export function ChatSourcePanel({
       ) : selected ? (
         <>
           <ChatSourceHeader source={selected}>
-            {/* The PDF tabs name their own view; the passage hint would be false on the page tab. */}
-            {pdf ? null : (
+            {/* The tabs name their own view; the passage hint would be false on the original tab. */}
+            {original ? null : (
               <p className="mt-3 text-xs leading-5 text-content-muted">
                 {selected.fileId ? t("fileCitation") : t("highlighted")}
               </p>
@@ -247,19 +269,12 @@ export function ChatSourcePanel({
             // One reader at a time: the dialog owns the passages and pdf.js document while it is open.
             <p className="px-5 py-4 text-sm leading-6 text-content-muted">{t("expandedView")}</p>
           ) : (
-            <EvidenceViewSwitch
-              key={`view:${selected.documentId}:${selected.citationId}`}
-              pdf={pdf}
+            <ChatDocumentEvidence
+              key={`${selected.documentId}:${selected.generation}:${selected.citationId}`}
+              source={selected}
               view={view}
               onViewChange={changeView}
-            >
-              <DocumentPreviewContent
-                key={`${selected.documentId}:${selected.generation}:${selected.citationId}`}
-                variant="chat"
-                fileId={selected.fileId ?? undefined}
-                selection={citationSelection(selected)}
-              />
-            </EvidenceViewSwitch>
+            />
           )}
           {expanded ? (
             <DocumentPreviewDialog
@@ -267,7 +282,6 @@ export function ChatSourcePanel({
               fileId={selected.fileId ?? undefined}
               selection={citationSelection(selected)}
               view={view}
-              onViewChange={changeView}
               returnFocusRef={expandRef}
               fallbackFocusRef={titleRef}
               onClose={() => setExpanded(false)}

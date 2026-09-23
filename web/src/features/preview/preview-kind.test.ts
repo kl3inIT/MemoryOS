@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCsv, previewKind, sanitizeDocxHtml } from "./chat-file-preview";
+import { parseCsv, previewKind, sanitizeDocxHtml } from "./preview-kind";
 
 describe("generated file preview", () => {
   it("picks the first Onyx variant that matches", () => {
