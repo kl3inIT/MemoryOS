@@ -182,6 +182,26 @@ async function mockMeetings(page: Page) {
       json: { ticket: "synthetic-ticket", expiresAt: new Date(Date.now() + 60_000).toISOString() },
     }),
   );
+  const written: { body?: unknown } = {};
+  await page.route(`**/api/meetings/${MEETING_ID}/utterances/u2/corrections`, async (route) => {
+    const body = route.request().postDataJSON() as { start: number; end: number; text: string };
+    written.body = body;
+    meeting = {
+      ...meeting!,
+      utterances: meeting!.utterances.map((utterance) =>
+        utterance.id === "u2"
+          ? {
+              ...utterance,
+              text:
+                utterance.text.slice(0, body.start) + body.text + utterance.text.slice(body.end),
+              spans: [],
+              editSource: "HUMAN" as const,
+            }
+          : utterance,
+      ),
+    };
+    await route.fulfill({ json: meeting });
+  });
   await page.route(`**/api/meetings/${MEETING_ID}/speakers/MIC/1/suggestion`, async (route) => {
     meeting = {
       ...meeting!,
@@ -434,7 +454,7 @@ async function mockMeetings(page: Page) {
   const correcting = (value: boolean) => {
     meeting = { ...meeting!, correcting: value };
   };
-  return { audio, exported, uploaded, shared, correcting };
+  return { audio, exported, uploaded, shared, correcting, written };
 }
 
 test("a member uploads a recording and watches it being transcribed", async ({ page }) => {
@@ -489,7 +509,7 @@ for (const width of [1440, 390]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    const { audio, exported, shared, correcting } = await mockMeetings(page);
+    const { audio, exported, shared, correcting, written } = await mockMeetings(page);
 
     await page.goto("/meetings");
     await expect(page.getByRole("heading", { name: "Cuộc họp", level: 1 })).toBeVisible({
@@ -677,6 +697,20 @@ for (const width of [1440, 390]) {
       path: `../output/playwright/meetings-corrections-${width}.png`,
       fullPage: true,
     });
+
+    // The owner opens a word the provider was unsure of and writes what was said.
+    await page.getByRole("button", { name: "Sửa “Vinaconex 9”" }).click();
+    const word = page.getByRole("textbox", { name: "Từ đúng" });
+    await expect(word).toHaveValue("Vinaconex 9");
+    await page.screenshot({ path: `../output/playwright/meetings-word-${width}.png` });
+    await word.fill("Vinaconex 09");
+    await word.press("Enter");
+    expect(written.body).toEqual({ start: 59, end: 70, text: "Vinaconex 09" });
+    await expect(
+      page
+        .locator('ol[aria-live="polite"]')
+        .getByText("còn thiếu số liệu của Vinaconex 09 và Tower 3."),
+    ).toBeVisible();
 
     expect(audio.ended).toBe(true);
     await expect(page.getByRole("timer")).toHaveCount(0);

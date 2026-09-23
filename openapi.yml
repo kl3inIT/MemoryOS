@@ -6315,6 +6315,75 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}/utterances/{utteranceId}/corrections:
+    post:
+      tags:
+      - Meetings
+      summary: Write what was said at a stretch the provider was unsure of
+      operationId: correctMeetingWords
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: utteranceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeetingWordCorrectionRequest"
+        required: true
+      responses:
+        "200":
+          description: The meeting with the line rewritten
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting or line not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: "Still recording, or the stretch is no longer marked"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings/{meetingId}/tickets:
     post:
       tags:
@@ -21663,6 +21732,23 @@ components:
       required:
       - kind
       - title
+    MeetingWordCorrectionRequest:
+      type: object
+      description: What was said at one marked stretch of a line
+      properties:
+        start:
+          type: integer
+          format: int32
+        end:
+          type: integer
+          format: int32
+        text:
+          type: string
+          maxLength: 2000
+      required:
+      - end
+      - start
+      - text
     MeetingTicketRequest:
       type: object
       properties:

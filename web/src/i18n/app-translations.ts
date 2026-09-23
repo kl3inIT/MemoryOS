@@ -49,6 +49,8 @@ export const vietnameseUi: Record<string, string> = {
     "Speaker {{label}} introduced themselves as {{name}}",
   "Đặt tên {{name}}": "Name them {{name}}",
   "Bỏ qua": "Skip",
+  "Sửa “{{word}}”": "Correct “{{word}}”",
+  "Từ đúng": "What was said",
   "Nhận hết": "Accept all",
   "Đang nhận…": "Accepting…",
   "Đã sửa ({{count}})": "Corrected ({{count}})",

@@ -3511,6 +3511,70 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void theOwnerWritesWhatWasSaidAtAMarkedWordAndCanTakeItBack() throws Exception {
+        UUID meeting = UUID.randomUUID();
+        UUID line = UUID.randomUUID();
+        String said = "Bên Tát cô đã gửi bảng KPI.";
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, terms,
+                                        status)
+                    VALUES (:tenant, :id, :owner, 'Giao ban', 'IN_PERSON', 'vi', '[]'::jsonb, '[]'::jsonb, 'RECORDING')
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label) VALUES (:tenant,:meeting,'MIC','1')")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms, text,
+                                                  confidence, spans)
+                    VALUES (:tenant, :id, :meeting, 'MIC', '1', 0, 2000, :text, 0.55,
+                            '[{"start":4,"end":10,"confidence":0.35}]'::jsonb)
+                    """).param("tenant", TENANT).param("id", line).param("meeting", meeting).param("text", said)
+                    .update();
+            String path = "/api/meetings/" + meeting + "/utterances/" + line + "/corrections";
+            String tasco = "{\"start\":4,\"end\":10,\"text\":\"Tasco\"}";
+
+            // Not while the meeting is still being recorded.
+            mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(tasco)).andExpect(status().isConflict());
+            jdbc.sql("UPDATE meeting SET status = 'ENDED', ended_at = CURRENT_TIMESTAMP WHERE id = :id")
+                    .param("id", meeting).update();
+
+            // Only a marked stretch, and only by the owner.
+            mockMvc.perform(post(path).with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"start\":0,\"end\":3,\"text\":\"Phía\"}"))
+                    .andExpect(status().isConflict());
+            mockMvc.perform(post(path).with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                    .contentType(MediaType.APPLICATION_JSON).content(tasco)).andExpect(status().isNotFound());
+
+            var written = Json.mapper().readTree(mockMvc.perform(post(path).with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(tasco))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            var rewritten = written.path("utterances").get(0);
+            assertEquals("Bên Tasco đã gửi bảng KPI.", rewritten.path("text").asText());
+            assertEquals("HUMAN", rewritten.path("editSource").asText(), "the owner's words lock the line");
+            assertEquals(0, rewritten.path("spans").size(), "the word is no longer marked");
+
+            var corrections = Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting + "/corrections")
+                    .with(authentication(actor))).andExpect(status().isOk()).andReturn().getResponse()
+                    .getContentAsString());
+            assertEquals(1, corrections.size(), "it sits with the other corrections");
+            assertEquals("ACCEPTED", corrections.get(0).path("status").asText());
+            assertEquals("Tát cô", corrections.get(0).path("before").asText());
+
+            var reverted = Json.mapper().readTree(mockMvc.perform(
+                    post("/api/meetings/" + meeting + "/corrections/" + corrections.get(0).path("id").asText()
+                            + "/revert").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals(said, reverted.path("utterances").get(0).path("text").asText(),
+                    "and is taken back the same way");
+            assertEquals(1, reverted.path("utterances").get(0).path("spans").size());
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
     void endingAMeetingWritesItsMinutesFromTheTranscriptWithTheLinesTheyRestOn() throws Exception {
         var prompts = new java.util.concurrent.LinkedBlockingQueue<String>();
         when(model.call(any(Prompt.class))).thenAnswer(call -> {
