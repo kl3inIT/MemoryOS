@@ -23,6 +23,10 @@ reason no normalization fixes: extraction and the preview format the same cell d
 line, unlike Onyx, so line *n* of a sheet is sheet row *n*. A row the preview did not render — the header line, a
 sheet that is gone, a row past the preview cut — is left unplaced, and nothing is drawn.
 
+A recorded region is drawn once however many passages record it, and every region of a page is painted as one layer. Each row of a Docling table wraps that table's own box, so a cited table records the same region once per row; drawing each one multiplies a translucent highlight over itself until the page reads as a solid block rather than as the document the citation points at.
+
+A Markdown original is read as the document it is — headings, paragraphs and tables — through the same rendering an assistant answer uses, rather than as highlighted source. Source files and plain text keep the source rendering, which is what a reader of those wants.
+
 The chunk header `StructuredDocumentChunker` writes in front of each passage (a `Title:` line and, under headings, a `Section:` line) is not part of the document and is removed before a citation is located or shown. The heading trail is shown beside the citation as the context it was read in.
 
 Docling normalized table text preserves leading and skipped columns with tabs derived from cell offsets, rather than shifting sparse values left. Row gaps retain their offsets, and padding counts against the existing text-size bound before allocation. Canonical cell coordinates and OCR values are not rewritten by text rendering.
