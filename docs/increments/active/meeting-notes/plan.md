@@ -48,7 +48,7 @@ Asking and finding:
 
 - [ ] *Catch me up* and meeting-scoped questions during and after the meeting (own model flow, answers from the transcript only, with timestamps) — [MEM-185](https://linear.app/memory-os/issue/MEM-185).
 - [ ] Owner filter in retrieval so meeting notes appear in the owner's Search and `search_knowledge`.
-- [ ] Speaker-name suggestions from participants and self-introductions, offered for confirmation with the evidence quote, never applied silently — [MEM-186](https://linear.app/memory-os/issue/MEM-186), which also carries ghiam-pro's voice profiles as a second tier behind consent and deletion.
+- [x] Speaker-name suggestions read from self-introductions by rule, offered to the owner with the line they came from and never applied silently — [MEM-186](https://linear.app/memory-os/issue/MEM-186), whose second tier, ghiam-pro's voice profiles behind consent and deletion, remains open.
 
 ## Phase 3 — tasks and desktop
 

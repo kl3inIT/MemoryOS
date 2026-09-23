@@ -259,7 +259,15 @@ class MeetingController {
     @Schema(name = "MeetingSpeaker")
     record SpeakerResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Meeting.Track track,
                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String label,
-                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String name) {}
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String name,
+                           @Schema(description = "The name this voice gave itself, offered to the owner",
+                                   requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
+                           @Nullable SpeakerSuggestionResponse suggestion) {}
+
+    @Schema(name = "MeetingSpeakerSuggestion")
+    record SpeakerSuggestionResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+                                     @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID utteranceId,
+                                     @Schema(requiredMode = Schema.RequiredMode.REQUIRED) double confidence) {}
 
     @Schema(name = "MeetingUtterance")
     record UtteranceResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
@@ -390,7 +398,9 @@ class MeetingController {
             return new DetailResponse(detail.id(), detail.title(), detail.kind(), detail.language(), detail.participants(),
                     detail.terms(), detail.notes(), detail.status(), detail.provider(), detail.diarized(), detail.createdAt(),
                     detail.endedAt(), detail.revision(),
-                    detail.speakers().stream().map(s -> new SpeakerResponse(s.track(), s.label(), s.name())).toList(),
+                    detail.speakers().stream().map(s -> new SpeakerResponse(s.track(), s.label(), s.name(),
+                            s.suggestion() == null ? null : new SpeakerSuggestionResponse(s.suggestion().name(),
+                                    s.suggestion().utteranceId(), s.suggestion().confidence()))).toList(),
                     detail.utterances().stream().map(UtteranceResponse::from).toList(),
                     MinutesResponse.from(detail.minutes()), AudioResponse.from(detail.audio()), detail.owned(),
                     detail.readers().stream().map(ReaderResponse::from).toList(), detail.starred(),
@@ -442,6 +452,16 @@ class MeetingController {
                            @PathVariable UUID meetingId, @PathVariable Meeting.Track track, @PathVariable String label,
                            @RequestBody SpeakerRequest body) {
         return DetailResponse.from(meetings.nameSpeaker(identity.actorId(), meetingId, track, label, body.name()));
+    }
+
+    @DeleteMapping("/{meetingId}/speakers/{track}/{label}/suggestion")
+    @Operation(operationId = "dismissMeetingSpeakerSuggestion", summary = "Keep the automatic label for a speaker")
+    @ApiResponse(responseCode = "200", description = "The meeting", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting or speaker not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse dismissSuggestion(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                                     @PathVariable UUID meetingId, @PathVariable Meeting.Track track,
+                                     @PathVariable String label) {
+        return DetailResponse.from(meetings.dismissSpeakerSuggestion(identity.actorId(), meetingId, track, label));
     }
 
     @PostMapping("/{meetingId}/end")

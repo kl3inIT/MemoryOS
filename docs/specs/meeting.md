@@ -85,6 +85,12 @@ A proposal carries the model's reason and three scores — is this what was said
 
 Utterances are stored as they are committed, with their speaker row created on first use. Naming a speaker (`PUT /api/meetings/{id}/speakers/{track}/{label}`) applies to every utterance of that speaker; a blank name restores the automatic label.
 
+### The name a voice gave itself
+
+A meeting opens with people saying who they are, so the owner is offered what each unnamed voice called itself instead of typing it again. `SpeakerIntroductions` reads the transcript with rules only — no model runs and nothing is stored — and answers, per voice, the earliest line matching a self-introduction ("tôi/mình/em/anh/chị + (tên) (là) Name", "tên tôi là Name", "Name đây", "my name is Name"). A name is one to four capitalized words, cut at the first word that is a role or a continuing sentence rather than a name; the words around it are read whatever their case. Confidence is 0.9, or 0.97 when the name is on the meeting's participant list, compared without marks or case.
+
+Each offer carries the utterance it was read from and reaches the owner only, on `speakers[].suggestion`; a reader never sees one. Accepting is the ordinary rename. Dismissing (`DELETE /api/meetings/{id}/speakers/{track}/{label}/suggestion`, Flyway V122 `meeting_speaker.suggestion_dismissed`) keeps the automatic label and stops the offer for good. A voice that already has a name is never asked about, and nothing is renamed without the owner pressing.
+
 ## Uploading a recording
 
 A meeting that has recorded nothing can be made from a recording taken elsewhere — a phone, a dictaphone, a desktop meeting client.

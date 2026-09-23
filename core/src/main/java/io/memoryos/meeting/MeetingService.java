@@ -108,6 +108,15 @@ public class MeetingService {
         return detail(tenant, actor, id);
     }
 
+    /** Keeps the automatic label and stops offering the name this voice gave itself. */
+    @Transactional
+    public Meeting.Detail dismissSpeakerSuggestion(ActorId actor, UUID id, Meeting.Track track, String label) {
+        UUID tenant = tenant(actor);
+        meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        if (!meetings.dismissSuggestion(tenant, id, track, label)) throw MeetingException.notFound();
+        return detail(tenant, actor, id);
+    }
+
     @Transactional
     public Meeting.Detail updateNotes(ActorId actor, UUID id, String notes, long revision) {
         UUID tenant = tenant(actor);
@@ -462,6 +471,24 @@ public class MeetingService {
         return readable(tenant, actor, id);
     }
 
+    /**
+     * The speakers, and for the owner the name each unanswered voice gave itself. Only the owner can act on an offer,
+     * so only the owner is shown one.
+     */
+    private List<Meeting.Speaker> named(UUID tenant, UUID id, MeetingRepository.Row row,
+            List<Meeting.Utterance> utterances) {
+        var speakers = meetings.speakers(tenant, id);
+        if (!row.owned()) return speakers;
+        var asking = meetings.speakersAskingForAName(tenant, id);
+        if (asking.isEmpty()) return speakers;
+        var offered = SpeakerIntroductions.suggest(utterances, row.participants(), asking);
+        return speakers.stream().map(speaker -> {
+            var suggestion = offered.get(SpeakerIntroductions.key(speaker.track(), speaker.label()));
+            return suggestion == null ? speaker
+                    : new Meeting.Speaker(speaker.track(), speaker.label(), speaker.name(), suggestion);
+        }).toList();
+    }
+
     private Meeting.Detail present(UUID tenant, UUID actor, UUID id, MeetingRepository.Row row) {
         var items = row.minutesStatus() == Meeting.MinutesStatus.READY ? meetings.minutesItems(tenant, id) : List.<Meeting.MinutesItem>of();
         var minutes = new Meeting.Minutes(row.minutesStatus(), row.minutesFailure(), row.minutesSummary(), row.minutesKind(),
@@ -469,9 +496,10 @@ public class MeetingService {
                 items.stream().filter(item -> item.kind() == Meeting.ItemKind.DECISION).toList(),
                 items.stream().filter(item -> item.kind() == Meeting.ItemKind.ACTION).toList(), row.minutesEdited(),
                 items.stream().filter(item -> item.kind() == Meeting.ItemKind.TOPIC).toList());
+        var utterances = meetings.utterances(tenant, id);
         return new Meeting.Detail(row.id(), row.title(), row.kind(), row.language(), row.participants(), row.terms(),
                 row.owned() ? row.notes() : "", row.status(), row.provider(), row.diarized(), row.createdAt(),
-                row.endedAt(), row.revision(), meetings.speakers(tenant, id), meetings.utterances(tenant, id), minutes,
+                row.endedAt(), row.revision(), named(tenant, id, row, utterances), utterances, minutes,
                 new Meeting.Audio(row.audioStatus(), row.audioFailure(), row.audioFilename(), row.audioSizeBytes(),
                         row.audioProvider()),
                 row.owned(), row.owned() ? meetings.readers(tenant, id) : List.of(),

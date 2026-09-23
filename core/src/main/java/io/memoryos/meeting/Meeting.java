@@ -95,7 +95,18 @@ public final class Meeting {
      */
     public record Bookmark(UUID id, long atMs, String label) {}
 
-    public record Speaker(Track track, String label, @Nullable String name) {}
+    public record Speaker(Track track, String label, @Nullable String name,
+                          @Nullable SpeakerSuggestion suggestion) {
+        public Speaker(Track track, String label, @Nullable String name) {
+            this(track, label, name, null);
+        }
+    }
+
+    /**
+     * The name this voice gave itself, and the line where it did. Offered to the owner only; accepting it is the
+     * ordinary rename, and dismissing it keeps the automatic label without asking again.
+     */
+    public record SpeakerSuggestion(String name, UUID utteranceId, double confidence) {}
 
     public record Utterance(UUID id, Track track, String speaker, long startMs, long endMs, String text,
                             double confidence, List<Span> spans, @Nullable EditSource editSource) {

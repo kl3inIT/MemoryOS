@@ -6,6 +6,7 @@ import {
   createMeeting,
   createMeetingTicket,
   deleteMeeting,
+  dismissMeetingSpeakerSuggestion,
   editMeetingMinutesItem,
   editMeetingMinutesSummary,
   endMeeting,
@@ -114,6 +115,20 @@ export async function nameSpeaker(
   const { data } = await nameMeetingSpeaker({
     path: { meetingId, track, label },
     body: { name },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+/** Keeps the automatic label for a voice and stops offering the name it gave itself. */
+export async function dismissSpeakerSuggestion(
+  meetingId: string,
+  track: MeetingTrack,
+  label: string,
+) {
+  const { data } = await dismissMeetingSpeakerSuggestion({
+    path: { meetingId, track, label },
     headers: sameOriginMutationHeaders,
     throwOnError: true,
   });

@@ -182,6 +182,25 @@ async function mockMeetings(page: Page) {
       json: { ticket: "synthetic-ticket", expiresAt: new Date(Date.now() + 60_000).toISOString() },
     }),
   );
+  await page.route(`**/api/meetings/${MEETING_ID}/speakers/MIC/1/suggestion`, async (route) => {
+    meeting = {
+      ...meeting!,
+      speakers: meeting!.speakers.map((speaker) =>
+        speaker.label === "1" ? { ...speaker, suggestion: null } : speaker,
+      ),
+    };
+    await route.fulfill({ json: meeting });
+  });
+  await page.route(`**/api/meetings/${MEETING_ID}/speakers/MIC/1`, async (route) => {
+    const { name } = route.request().postDataJSON() as { name: string };
+    meeting = {
+      ...meeting!,
+      speakers: meeting!.speakers.map((speaker) =>
+        speaker.label === "1" ? { ...speaker, name, suggestion: null } : speaker,
+      ),
+    };
+    await route.fulfill({ json: meeting });
+  });
   await page.route(`**/api/meetings/${MEETING_ID}/speakers/MIC/2`, async (route) => {
     const { name } = route.request().postDataJSON() as { name: string };
     meeting = {
@@ -197,6 +216,12 @@ async function mockMeetings(page: Page) {
       ...meeting!,
       status: "ENDED",
       endedAt: new Date().toISOString(),
+      // The API reads the name a voice gave itself out of the transcript and offers it to the owner.
+      speakers: meeting!.speakers.map((speaker) =>
+        speaker.label === "1"
+          ? { ...speaker, suggestion: { name: "Thanh", utteranceId: "u1", confidence: 0.97 } }
+          : speaker,
+      ),
       // The API queues the minutes when a meeting ends; this fixture answers with them already written.
       minutes: {
         status: "READY",
@@ -609,8 +634,21 @@ for (const width of [1440, 390]) {
       .getByRole("button", { name: "Đánh dấu câu này" })
       .click();
     await page.getByRole("button", { name: "Câu đã đánh dấu (1)" }).click();
-    await expect(page.getByText("Tuần này bên mình phải chốt")).toHaveCount(0);
+    await expect(
+      page.locator('ol[aria-live="polite"]').getByText("Tuần này bên mình phải chốt"),
+    ).toHaveCount(0);
     await page.getByRole("button", { name: "Câu đã đánh dấu (1)" }).click();
+
+    // The name a voice gave itself is offered once, with the line it said it in, and renames only when pressed.
+    await expect(page.getByText("Người nói 1 tự giới thiệu là Thanh")).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({
+      path: `../output/playwright/meetings-speaker-names-${width}.png`,
+      fullPage: true,
+    });
+    await page.getByRole("button", { name: "Đặt tên Thanh" }).click();
+    await expect(page.getByText("Người nói 1 tự giới thiệu là Thanh")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Đặt tên cho Thanh" }).first()).toBeVisible();
 
     await expect(page.getByText("Mã dự án đọc rõ ở câu sau là 09.")).toBeVisible();
     // The button says what it does to what: one stretch was marked unclear on this transcript.
