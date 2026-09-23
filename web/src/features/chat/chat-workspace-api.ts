@@ -115,6 +115,7 @@ export const projectSchema = z.object({
   name: z.string(),
   description: z.string(),
   instructions: z.string(),
+  iconName: z.string().nullish(),
   revision: z.number().int(),
   updatedAt: z.string(),
 });

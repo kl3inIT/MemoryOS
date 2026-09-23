@@ -31,6 +31,8 @@ These are behavior-evidence pointers, not a live Google E2E or IDE-clean claim. 
 | A passage that is absent, repeated, too short to anchor or whose anchors sit too far apart is reported as `none`, so nothing is drawn and the rail states it | `preview-highlight.test.ts`, `citation-highlight.test.ts` |
 | A repeated passage is placed under the most specific heading that occurs once, and stays `none` when no heading singles one out | `preview-highlight.test.ts` |
 | The chunk header is removed before a citation is located and shown, and its heading trail is kept as context | `search-presentation.test.ts` |
+| A cited table is drawn once however many of its rows record the same region, and the distinct regions of a section's passages are all kept | `source-provenance.test.ts` |
+| A Markdown original reads as headings, paragraphs and tables rather than as source | `markdown-view.test.tsx` |
 | A workbook citation is placed on the recorded sheet row rather than searched for, and a row the preview did not render is left unplaced | `sheet-citations.test.ts` |
 | An absent sheet row keeps its own line, so a recorded row number addresses the same line of the preview | `SpreadsheetPreviewTest.anAbsentRowKeepsItsLineSoACitedRowNumberStillAddressesItsLine` |
 | The cited rows are marked in the rendered sheet and the one being read is stated | `csv-view.test.tsx` |

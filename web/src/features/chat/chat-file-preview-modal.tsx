@@ -22,6 +22,7 @@ import {
   type Sheets,
 } from "@/features/preview/preview-kind";
 import { SheetView } from "@/features/preview/sheet-view";
+import { MarkdownView } from "@/features/preview/markdown-view";
 import { TextView } from "@/features/preview/text-view";
 import { PdfView } from "@/features/preview/pdf-view";
 import { uiLocale } from "@/i18n/format";
@@ -95,7 +96,8 @@ async function readSheets(target: PreviewTarget, signal: AbortSignal): Promise<S
 
 type Loaded =
   | { kind: "xlsx"; sheets: Sheets }
-  | { kind: "text" | "code" | "markdown" | "csv"; text: string; truncated: boolean; bytes: number }
+  | { kind: "text" | "code"; text: string; truncated: boolean; bytes: number }
+  | { kind: "markdown" | "csv"; text: string; truncated: boolean; bytes: number }
   | { kind: "image" | "pdf" | "docx"; blob: Blob; converted?: boolean }
   | { kind: "doc" | "unsupported" };
 
@@ -603,9 +605,10 @@ function Content({
       );
     case "docx":
       return <DocxView blob={loaded.blob} onLoad={onDocx} />;
+    case "markdown":
+      return <MarkdownView text={loaded.text} truncated={loaded.truncated} />;
     case "code":
     case "text":
-    case "markdown":
       return (
         <TextView
           text={loaded.text}

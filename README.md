@@ -36,7 +36,7 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 
 | Module | Responsibility |
 | --- | --- |
-| `core` | Capability implementations: `iam`, `objectstorage`, `connector`, `document`, `ingestion`, `retrieval`, `chat` and `mcp`. IAM owns identity, Tenant membership, invitations, Users, Groups and authorization |
+| `core` | Capability implementations: `iam`, `objectstorage`, `connector`, `document`, `ingestion`, `retrieval`, `chat`, `mcp`, `usage` and `meeting`. IAM owns identity, Tenant membership, invitations, Users, Groups and authorization |
 | `connector` | Shared provider bundle: Google and SharePoint acquisition, offline Sheets/Docs snapshots, XLSX/CSV readers, Docling PDF/DOCX/PPTX and bounded Tika TXT/Markdown |
 | `api` | Spring Boot HTTP, validation, migration and security composition root; Chat runs here on virtual threads |
 | `worker` | Source synchronization, extraction, Search projection and cleanup over Redis Streams |
