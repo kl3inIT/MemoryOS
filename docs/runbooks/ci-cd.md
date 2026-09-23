@@ -241,6 +241,41 @@ docker compose --project-name memoryos --env-file /apps/memoryos/deployments/cur
 
 Do not run a second deployment outside this workflow/reservation protocol. Retain the current and previous image IDs, referenced configuration directories, and backups until a newer release and its recovery path have been accepted. Remove older unreferenced artifacts only after verifying those references; disk pressure fails preflight rather than pruning rollback material automatically.
 
+### A capture that reports a mixed runtime with nothing wrong
+
+`Unhealthy or mixed runtime` also comes from containers that are running the right image and are
+healthy, when they do not agree on `com.docker.compose.project.config_files`. A rollout before the
+`--force-recreate` change could leave that split: Compose reused any container whose service
+definition and image were unchanged, which is every component except the API whenever a dispatch
+redeployed the commit already running, so the reused containers kept the previous release
+directory in their label. Every later deployment then stops at the capture, before the
+reservation, having changed nothing.
+
+Recognise it by uniform revision labels and health across a split `config_files`:
+
+```sh
+# In a privileged Bash session on the server:
+docker inspect memoryos-api memoryos-worker memoryos-web memoryos-interpreter |
+  jq -r '.[] | [.Name, .State.Health.Status,
+    .Config.Labels["org.opencontainers.image.revision"],
+    .Config.Labels["com.docker.compose.project.config_files"]] | @tsv'
+```
+
+Recovery is to recreate the release components from the accepted record, which puts one set of
+Compose files on all of them. It starts the same images the host is already running, so it is a
+restart, not a release:
+
+```sh
+files=()
+while IFS= read -r file; do files+=(-f "$file"); done < /apps/memoryos/deployments/current.compose
+docker compose --project-name memoryos --env-file /apps/memoryos/deployments/current.base.env \
+  --env-file /apps/memoryos/deployments/current.env "${files[@]}" \
+  up -d --no-deps --force-recreate --pull never --wait --wait-timeout 240 \
+  api worker web interpreter
+```
+
+Rerun the command above to confirm one `config_files` value, then dispatch the deployment again.
+
 ## Interpreter runtime
 
 `memoryos-interpreter` ([MEM-110](../increments/completed/mem-110-memoryos-interpreter/design.md)) runs Python for the Chat `run_python` tool. No MemoryOS component calls it until MEM-110 phase 3.
