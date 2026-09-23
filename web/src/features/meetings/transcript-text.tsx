@@ -18,6 +18,7 @@ export function Said({
   query = "",
   firstMatch = 0,
   currentMatch = -1,
+  unsure,
 }: {
   text: string;
   spans: UtteranceSpan[];
@@ -25,6 +26,8 @@ export function Said({
   /** The ordinal of this line's first hit among the whole transcript's, so each can be reached by name. */
   firstMatch?: number;
   currentMatch?: number;
+  /** Wraps a marked stretch, so the owner can open it; left out, a mark is only a mark. */
+  unsure?: (span: UtteranceSpan, mark: ReactNode) => ReactNode;
 }) {
   const hits = matches(text, query);
   if (spans.length === 0 && hits.length === 0) return text;
@@ -68,7 +71,7 @@ export function Said({
       );
     } else {
       const sure = confidence.get(from);
-      parts.push(
+      const mark = (
         <mark
           key={from}
           className="rounded-sm bg-status-warning-surface px-0.5 text-status-warning-content"
@@ -79,8 +82,11 @@ export function Said({
           }
         >
           {piece}
-        </mark>,
+        </mark>
       );
+      // A search hit can cut into a mark; only a whole mark is offered for correcting.
+      const span = spans.find((entry) => entry.start === from && entry.end === to);
+      parts.push(unsure && span ? <span key={from}>{unsure(span, mark)}</span> : mark);
     }
     from = to;
   }

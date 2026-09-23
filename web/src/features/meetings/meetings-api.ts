@@ -2,6 +2,7 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   acceptAllMeetingCorrections,
   acceptMeetingCorrection,
+  correctMeetingWords,
   bookmarkMeetingMoment,
   createMeeting,
   createMeetingTicket,
@@ -200,6 +201,23 @@ export async function acceptCorrection(meetingId: string, correctionId: string, 
   const { data } = await acceptMeetingCorrection({
     path: { meetingId, correctionId },
     body: { text: text ?? null },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+/** The owner writes what was said at one marked stretch of a line. */
+export async function correctWords(
+  meetingId: string,
+  utteranceId: string,
+  start: number,
+  end: number,
+  text: string,
+) {
+  const { data } = await correctMeetingWords({
+    path: { meetingId, utteranceId },
+    body: { start, end, text },
     headers: sameOriginMutationHeaders,
     throwOnError: true,
   });

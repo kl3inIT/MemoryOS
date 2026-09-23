@@ -1447,6 +1447,15 @@ export type MeetingCreateRequest = {
     terms?: Array<string> | null;
 };
 
+/**
+ * What was said at one marked stretch of a line
+ */
+export type MeetingWordCorrectionRequest = {
+    start: number;
+    end: number;
+    text: string;
+};
+
 export type MeetingTicketRequest = {
     track: 'MIC' | 'TAB';
 };
@@ -8156,6 +8165,56 @@ export type CreateMeetingResponses = {
 };
 
 export type CreateMeetingResponse = CreateMeetingResponses[keyof CreateMeetingResponses];
+
+export type CorrectMeetingWordsData = {
+    body: MeetingWordCorrectionRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        utteranceId: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/utterances/{utteranceId}/corrections';
+};
+
+export type CorrectMeetingWordsErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or line not available
+     */
+    404: ApiProblem;
+    /**
+     * Still recording, or the stretch is no longer marked
+     */
+    409: ApiProblem;
+};
+
+export type CorrectMeetingWordsError = CorrectMeetingWordsErrors[keyof CorrectMeetingWordsErrors];
+
+export type CorrectMeetingWordsResponses = {
+    /**
+     * The meeting with the line rewritten
+     */
+    200: MeetingDetail;
+};
+
+export type CorrectMeetingWordsResponse = CorrectMeetingWordsResponses[keyof CorrectMeetingWordsResponses];
 
 export type CreateMeetingTicketData = {
     body: MeetingTicketRequest;

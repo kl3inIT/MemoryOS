@@ -130,6 +130,32 @@ public class MeetingCorrectionService {
         return details.get(actor, meetingId);
     }
 
+    /**
+     * The owner types what was said at one stretch the provider was unsure of. It is recorded like an accepted
+     * proposal of their own, so it sits with the other corrections and is taken back the same way, and it locks the
+     * line against later passes. Only a marked stretch can be corrected this way, and never while recording.
+     */
+    public Meeting.Detail correctByHand(ActorId actor, UUID meetingId, UUID utteranceId, int start, int end,
+            String text) {
+        UUID tenant = details.tenantOf(actor);
+        tx.executeWithoutResult(ignored -> {
+            var meeting = meetings.lock(tenant, actor.value(), meetingId).orElseThrow(MeetingException::notFound);
+            if (meeting.status() != Meeting.Status.ENDED) throw MeetingException.conflict();
+            var utterance = meetings.lockUtterance(tenant, meetingId, utteranceId)
+                    .orElseThrow(MeetingException::notFound);
+            // The page shows marks read as whole words; anything else is stale or was never marked.
+            if (utterance.spans().stream().noneMatch(span -> span.start() == start && span.end() == end))
+                throw MeetingException.conflict();
+            var mark = utterance.spans().stream().filter(span -> span.start() == start).findFirst().orElseThrow();
+            var correction = new Meeting.Correction(UUID.randomUUID(), utteranceId, UUID.randomUUID(), start, end,
+                    utterance.text().substring(start, end), utterance.text().substring(start, end), "",
+                    mark.confidence(), 1, 1, false, Meeting.CorrectionStatus.PENDING);
+            meetings.insertCorrections(tenant, meetingId, correction.runId(), List.of(correction));
+            apply(tenant, meetingId, actor, correction, text);
+        });
+        return details.get(actor, meetingId);
+    }
+
     /** Keeps the provider's words. The proposal stays on the record as offered and declined. */
     public Meeting.Detail keep(ActorId actor, UUID meetingId, UUID correctionId) {
         UUID tenant = details.tenantOf(actor);

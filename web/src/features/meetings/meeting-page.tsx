@@ -58,6 +58,7 @@ import { slug } from "./meeting-file-name";
 import { EditableItem, EditableSummary } from "./minutes-editing";
 import { SpeakerSuggestions } from "./speaker-suggestions";
 import { TranscriptCorrections } from "./transcript-corrections";
+import { WordCorrection } from "./word-correction";
 import { matches } from "./transcript-search";
 import { Said } from "./transcript-text";
 import {
@@ -1212,6 +1213,20 @@ function Transcript({
                   query={query}
                   firstMatch={firstMatch.get(utterance.id) ?? 0}
                   currentMatch={current}
+                  unsure={
+                    meeting.owned && meeting.status === "ENDED"
+                      ? (span, mark) => (
+                          <WordCorrection
+                            meeting={meeting}
+                            utteranceId={utterance.id}
+                            text={utterance.text}
+                            span={span}
+                          >
+                            {mark}
+                          </WordCorrection>
+                        )
+                      : undefined
+                  }
                 />
               </p>
             </div>

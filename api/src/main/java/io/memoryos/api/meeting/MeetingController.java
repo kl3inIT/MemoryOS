@@ -544,6 +544,25 @@ class MeetingController {
         return DetailResponse.from(corrections.accept(identity.actorId(), meetingId, correctionId, body.text()));
     }
 
+    @Schema(name = "MeetingWordCorrectionRequest", description = "What was said at one marked stretch of a line")
+    record WordCorrectionRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int start,
+                                 @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int end,
+                                 @Schema(requiredMode = Schema.RequiredMode.REQUIRED, maxLength = 2000) String text) {}
+
+    @PostMapping(value = "/{meetingId}/utterances/{utteranceId}/corrections",
+            consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "correctMeetingWords",
+            summary = "Write what was said at a stretch the provider was unsure of")
+    @ApiResponse(responseCode = "200", description = "The meeting with the line rewritten", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting or line not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    @ApiResponse(responseCode = "409", description = "Still recording, or the stretch is no longer marked", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse correctWords(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                                @PathVariable UUID meetingId, @PathVariable UUID utteranceId,
+                                @RequestBody WordCorrectionRequest body) {
+        return DetailResponse.from(corrections.correctByHand(identity.actorId(), meetingId, utteranceId, body.start(),
+                body.end(), body.text() == null ? "" : body.text()));
+    }
+
     @PostMapping("/{meetingId}/corrections/{correctionId}/keep")
     @Operation(operationId = "keepMeetingWording", summary = "Decline a proposal and keep what the provider heard")
     @ApiResponse(responseCode = "200", description = "The meeting, unchanged", useReturnTypeSchema = true)
