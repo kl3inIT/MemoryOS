@@ -143,16 +143,26 @@ test("searches merged sections, filters, pages and opens each best match with es
     page: 0,
   });
   expect(requests[1]).toMatchObject({ mediaTypes: ["application/pdf"], page: 0 });
+  // A PDF match opens on the stored original; the passages stay reachable from the rail.
+  const originalPdf = rangedHandbookPdf();
+  await page.route("**/api/search/documents/*/original?*", (route) =>
+    fulfillPdfRange(route, originalPdf),
+  );
   await titleButton.click();
   const reader = page.getByRole("dialog", { name: "HR-2026 Quy định nghỉ phép" });
-  await expect(reader).toContainText("Selected passage");
-  await expect(reader).toContainText(nextPassage.content);
-  expect(previewOffsets).toEqual([2]);
-  await reader.getByRole("button", { name: "Passage 2" }).click();
-  await expect(reader).toContainText(sections[1].content);
+  const rail = reader.getByRole("complementary", { name: "2 best-matching passages" });
+  await expect(rail).toBeVisible();
+  await reader.getByRole("button", { name: "All passages" }).click();
+  const selected = reader.getByRole("article", { name: "Selected passage" });
+  await expect(selected).toContainText(nextPassage.content);
+  // Every match's passage window is read up front, so the rail can quote each citation.
   expect(previewOffsets).toEqual([2, 39]);
-  await reader.getByRole("button", { name: "Passage 1" }).click();
-  await expect(reader).toContainText(nextPassage.content);
+  await rail.getByRole("button", { name: /Ngày phép còn lại/ }).click();
+  await expect(selected).toContainText(sections[1].content);
+  await rail.getByRole("button", { name: /Đăng ký nghỉ với quản lý/ }).click();
+  await expect(selected).toContainText(nextPassage.content);
+  // Both windows are read up front; choosing a match re-reads its own window, never a shared one.
+  expect(previewOffsets).toEqual([2, 39, 39, 2]);
   await page.keyboard.press("Escape");
   await expect(reader).toHaveCount(0);
   await expect(titleButton).toBeFocused();
@@ -409,18 +419,12 @@ test("shows source type, provider and authors, links to Google Drive and outline
   ).toHaveAttribute("href", providerUrl);
   await titleButton.click();
   const dialog = page.getByRole("dialog");
-  await expect(
-    dialog.getByRole("link", { name: "Open HR-2026 Quy định nghỉ phép in Google Drive" }),
-  ).toHaveAttribute("href", providerUrl);
-  await expect(dialog.getByRole("tab", { name: "PDF pages" })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
   // The whole 12-page original opens at the cited page 7; distant pages stay unrendered placeholders.
   const citedPage = dialog.locator('[data-slot="pdf-page"][data-page="7"]');
   await expect(citedPage).toHaveAttribute("data-rendered", "true");
   await expect(dialog.locator('[data-slot="pdf-citation-box"]')).toBeInViewport();
-  await expect(dialog.getByText("Page 7 / 12")).toBeVisible();
+  await expect(dialog.getByRole("spinbutton", { name: "Page number" })).toHaveValue("7");
+  await expect(dialog.getByText("/ 12")).toBeVisible();
   await expect(dialog.locator('[data-slot="pdf-page"][data-page="1"]')).not.toHaveAttribute(
     "data-rendered",
   );
@@ -437,7 +441,7 @@ test("shows source type, provider and authors, links to Google Drive and outline
     ),
   ).toBeLessThan(originalPdf.length / 2);
   // A failing range read falls back to one whole read instead of an error.
-  await dialog.getByRole("tab", { name: "Passages" }).click();
+  await dialog.getByRole("button", { name: "All passages" }).click();
   await page.unroute("**/api/search/documents/*/original?*");
   const fallbackReads: (string | undefined)[] = [];
   await page.route("**/api/search/documents/*/original?*", (route) => {
@@ -445,14 +449,16 @@ test("shows source type, provider and authors, links to Google Drive and outline
     fallbackReads.push(range);
     return range ? route.fulfill({ status: 500 }) : fulfillPdfRange(route, originalPdf);
   });
-  await dialog.getByRole("tab", { name: "PDF pages" }).click();
+  await dialog.getByRole("button", { name: "Original file" }).click();
   await expect(dialog.locator('[data-slot="pdf-page"][data-page="7"]')).toHaveAttribute(
     "data-rendered",
     "true",
   );
-  await expect(dialog.getByText("Page 7 / 12")).toBeVisible();
+  await expect(dialog.getByRole("spinbutton", { name: "Page number" })).toHaveValue("7");
   await expect(dialog.getByRole("alert")).toHaveCount(0);
   expect(fallbackReads.filter((range) => !range)).toHaveLength(2);
-  await dialog.getByRole("tab", { name: "Passages" }).click();
-  await expect(dialog.getByText(nextPassage.content)).toBeVisible();
+  await dialog.getByRole("button", { name: "All passages" }).click();
+  await expect(
+    dialog.getByRole("article", { name: "Selected passage" }),
+  ).toContainText(nextPassage.content);
 });

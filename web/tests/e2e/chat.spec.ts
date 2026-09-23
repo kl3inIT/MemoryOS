@@ -366,17 +366,6 @@ test("grounds prose citations in message sources, opens the cited range, and pre
     page.getByText("Annual leave is 17 days. Applies to full-time employees.", { exact: true }),
   ).toBeVisible();
   expect(documentReads).toHaveLength(1);
-  await citation.press("Enter");
-  const panel = page.getByRole("complementary", { name: "Nguồn" });
-  await expect(panel).toBeVisible();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByRole("textbox", { name: "Câu hỏi", exact: true })).toBeEnabled();
-  await expect(page.getByRole("article", { name: "Đoạn được chọn" })).toHaveCount(2);
-  await expect(citation).toHaveAttribute("aria-current", "true");
-  await expect(panel).toContainText("Nguồn 1 · PDF · Google Drive · Trang 1");
-  await expect(
-    panel.getByRole("link", { name: "Mở Employee handbook trong Google Drive" }),
-  ).toHaveAttribute("href", fixtureSource.providerUrl!);
   const originalPdf = rangedHandbookPdf();
   const originalReads: { url: URL; range?: string }[] = [];
   await page.route(`**/api/chat/documents/${fixtureSource.documentId}/original?*`, (route) => {
@@ -386,12 +375,25 @@ test("grounds prose citations in message sources, opens the cited range, and pre
     });
     return fulfillPdfRange(route, originalPdf);
   });
-  await panel.getByRole("tab", { name: "Trang PDF" }).click();
-  await expect(panel.getByRole("tab", { name: "Trang PDF" })).toHaveAttribute(
+  await citation.press("Enter");
+  const panel = page.getByRole("complementary", { name: "Nguồn" });
+  await expect(panel).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "Câu hỏi", exact: true })).toBeEnabled();
+  // A PDF citation opens on the stored original; its passages stay one tab away.
+  await expect(panel.getByRole("tab", { name: "Tệp gốc" })).toHaveAttribute(
     "aria-selected",
     "true",
   );
-  await expect(panel.locator('[data-slot="pdf-page"][data-page="1"]')).toBeVisible();
+  await expect(citation).toHaveAttribute("aria-current", "true");
+  await expect(panel).toContainText("Nguồn 1 · PDF · Google Drive · Trang 1");
+  await expect(
+    panel.getByRole("link", { name: "Mở Employee handbook trong Google Drive" }),
+  ).toHaveAttribute("href", fixtureSource.providerUrl!);
+  await expect(panel.locator('[data-slot="pdf-page"][data-page="1"]')).toHaveAttribute(
+    "data-rendered",
+    "true",
+  );
   await expect(panel.locator('[data-slot="pdf-citation-box"]')).toHaveCount(2);
   expect(new Set(originalReads.map(({ url }) => url.searchParams.get("generation")))).toEqual(
     new Set([fixtureSource.generation]),
@@ -405,14 +407,15 @@ test("grounds prose citations in message sources, opens the cited range, and pre
       originalPdf.length,
     ),
   ).toBeLessThan(originalPdf.length / 2);
-  await expect(panel.getByText("Trang 1 / 12")).toBeVisible();
+  await expect(panel.getByRole("spinbutton", { name: "Số trang" })).toHaveValue("1");
+  await expect(panel.getByText("/ 12")).toBeVisible();
   const lastPage = panel.locator('[data-slot="pdf-page"][data-page="12"]');
   await lastPage.scrollIntoViewIfNeeded();
   await expect(lastPage).toHaveAttribute("data-rendered", "true");
   await expect(lastPage.locator("canvas")).toBeVisible();
-  await expect(panel.getByText("Trang 12 / 12")).toBeVisible();
+  await expect(panel.getByRole("spinbutton", { name: "Số trang" })).toHaveValue("12");
   await panel.getByRole("button", { name: "Về đoạn trích dẫn" }).click();
-  await expect(panel.getByText("Trang 1 / 12")).toBeVisible();
+  await expect(panel.getByRole("spinbutton", { name: "Số trang" })).toHaveValue("1");
   await panel.getByRole("tab", { name: "Đoạn trích" }).click();
   await expect(page.getByRole("article", { name: "Đoạn được chọn" })).toHaveCount(2);
   await panel.getByRole("button", { name: "Phần trước" }).click();
@@ -432,6 +435,7 @@ test("grounds prose citations in message sources, opens the cited range, and pre
   await expect(citation).toHaveCount(1);
   await page.getByRole("button", { name: "Nguồn 1", exact: true }).click();
   await page.getByRole("button", { name: "Đọc nguồn 1: Employee handbook" }).click();
+  await panel.getByRole("tab", { name: "Đoạn trích" }).click();
   await expect(panel).toContainText("Annual leave is 17 days.");
   await page.getByRole("button", { name: "Về danh sách nguồn" }).click();
   await expect(page.getByRole("button", { name: "Đọc nguồn 1: Employee handbook" })).toBeVisible();
@@ -441,6 +445,8 @@ test("grounds prose citations in message sources, opens the cited range, and pre
     route.fulfill({ status: 404, json: {} }),
   );
   await citation.click();
+  // The denial is reported on the passages view; the original tab keeps the stored file.
+  await panel.getByRole("tab", { name: "Đoạn trích" }).click();
   await expect(page.getByRole("alert")).toContainText("không còn khả dụng hoặc đã thay đổi");
   await page.getByRole("button", { name: "Đóng nguồn" }).click();
   await expect(page.getByText("17 days", { exact: true })).toBeVisible();
@@ -791,12 +797,18 @@ for (const mobile of [false, true]) {
       panel.getByRole("heading", { name: "Employee handbook", exact: true }),
     ).toBeVisible();
     // A table row opens on its PDF page instead of the flattened passage text.
-    await expect(panel.getByRole("tab", { name: "Trang PDF" })).toHaveAttribute(
+    await expect(panel.getByRole("tab", { name: "Tệp gốc" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
     await panel.getByRole("button", { name: "Về danh sách nguồn" }).click();
     await panel.getByRole("button", { name: "Đọc nguồn 1: Employee handbook" }).click();
+    // A PDF citation opens on the stored original too; the passages are one tab away.
+    await expect(panel.getByRole("tab", { name: "Tệp gốc" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await panel.getByRole("tab", { name: "Đoạn trích" }).click();
     await expect(panel.getByRole("article", { name: "Đoạn được chọn" })).toContainText(
       "Employees receive 17 days.",
     );
@@ -812,7 +824,7 @@ for (const mobile of [false, true]) {
         page.getByRole("button", { name: "Mở nguồn 2: Employee handbook" }),
       ).toHaveAttribute("aria-current", "true");
     }
-    await expect(panel.getByRole("tab", { name: "Trang PDF" })).toHaveAttribute(
+    await expect(panel.getByRole("tab", { name: "Tệp gốc" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
@@ -825,21 +837,22 @@ for (const mobile of [false, true]) {
     } else {
       await panel.getByRole("button", { name: "Mở rộng" }).click();
       const expanded = page.getByRole("dialog");
-      await expect(expanded.getByRole("tab", { name: "Trang PDF" })).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
+      // The expanded reader opens on the same evidence the panel was showing.
       await expect(expanded.locator('[data-slot="pdf-page"][data-page="1"]')).toHaveAttribute(
         "data-rendered",
         "true",
       );
       await expect(panel.locator("canvas")).toHaveCount(0);
-      await expanded.getByRole("tab", { name: "Đoạn trích" }).click();
+      await expanded.getByRole("button", { name: "Toàn bộ đoạn trích" }).click();
+      await expect(
+        expanded.getByRole("article", { name: "Đoạn được chọn" }),
+      ).toContainText("Submit requests to your manager.");
       await page.keyboard.press("Escape");
       await expect(expanded).toBeHidden();
       await expect(panel).toBeVisible();
       await expect(panel.getByRole("button", { name: "Mở rộng" })).toBeFocused();
-      await expect(panel.getByRole("tab", { name: "Đoạn trích" })).toHaveAttribute(
+      // The dialog's own toggle does not change which evidence the panel shows.
+      await expect(panel.getByRole("tab", { name: "Tệp gốc" })).toHaveAttribute(
         "aria-selected",
         "true",
       );
