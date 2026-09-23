@@ -33,6 +33,9 @@ public class ChatProjectService {
     public record ProjectInput(String name, String description, String instructions, @Nullable List<UUID> fileIds,
                                @Nullable String iconName) {
         public ProjectInput(String name, String description, String instructions) { this(name, description, instructions, null, null); }
+        public ProjectInput(String name, String description, String instructions, List<UUID> fileIds) {
+            this(name, description, instructions, fileIds, null);
+        }
     }
     public record ProjectView(UUID id, String name, String description, String instructions, long revision, Instant updatedAt,
                               List<UUID> fileIds, @Nullable String iconName) {}

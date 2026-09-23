@@ -438,11 +438,14 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
         ]);
       }}
     >
-      <label className="block space-y-1">
-        <span>{ui("Tên dự án")}</span>
+      <div className="space-y-1">
+        <label htmlFor="project-name" className="block">
+          {ui("Tên dự án")}
+        </label>
         <div className="relative">
           <ProjectIconPicker iconName={iconName} onIcon={setIconName} />
           <Input
+            id="project-name"
             autoFocus
             required
             maxLength={200}
@@ -451,7 +454,7 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
             className="pl-10"
           />
         </div>
-      </label>
+      </div>
       {project && (
         <label className="block space-y-1">
           <span>{ui("Hướng dẫn dự án")}</span>
