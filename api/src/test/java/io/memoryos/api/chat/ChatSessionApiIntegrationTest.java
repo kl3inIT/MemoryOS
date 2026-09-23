@@ -3432,6 +3432,85 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void aMarkOnHalfAWordIsAskedAboutAndReplacedAsTheWholeWord() throws Exception {
+        // Soniox scores pieces of words: on staging "Trực" was marked as "Tr", the model answered "Trực", and
+        // replacing only the mark left "Trựcực tiếp".
+        when(model.call(any(Prompt.class))).thenAnswer(call -> response("""
+                {"proposals":[{"id":"%s","replace":true,"text":"Cộc","reason":"Tiếng gõ cửa.",
+                  "confidence":0.9,"contextFit":0.9,"meaningSafe":0.9,"matchedGlossary":false}]}
+                """.formatted(STRETCH.get()), "stop", 40));
+        UUID meeting = UUID.randomUUID();
+        UUID knock = UUID.randomUUID();
+        UUID direct = UUID.randomUUID();
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, terms,
+                                        status, ended_at)
+                    VALUES (:tenant, :id, :owner, 'Giao ban', 'IN_PERSON', 'vi', '[]'::jsonb, '[]'::jsonb, 'ENDED',
+                            CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("INSERT INTO meeting_speaker(tenant_id, meeting_id, track, label) VALUES (:tenant,:meeting,'MIC','1')")
+                    .param("tenant", TENANT).param("meeting", meeting).update();
+            for (var line : List.of(java.util.Map.entry(knock, "Cốc, cốc, cốc."), java.util.Map.entry(direct, "Trực tiếp limit à?")))
+                jdbc.sql("""
+                        INSERT INTO meeting_utterance(tenant_id, id, meeting_id, track, speaker, start_ms, end_ms,
+                                                      text, confidence, spans)
+                        VALUES (:tenant, :id, :meeting, 'MIC', '1', :at, :at + 1000, :text, 0.5,
+                                '[{"start":1,"end":3,"confidence":0.35}]'::jsonb)
+                        """).param("tenant", TENANT).param("id", line.getKey()).param("meeting", meeting)
+                        .param("at", line.getKey().equals(knock) ? 0 : 2000).param("text", line.getValue()).update();
+
+            var read = Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting)
+                    .with(authentication(actor))).andReturn().getResponse().getContentAsString());
+            var mark = read.path("utterances").get(0).path("spans").get(0);
+            assertEquals(0, mark.path("start").asInt(), "the mark reaches back to where the word begins");
+            assertEquals(3, mark.path("end").asInt());
+
+            // A pass asks about the word, so its answer replaces the word.
+            STRETCH.set(knock + ":0");
+            var proposed = Json.mapper().readTree(mockMvc.perform(post("/api/meetings/" + meeting + "/corrections")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            var proposal = proposed.path("corrections").get(0);
+            assertEquals("Cốc", proposal.path("before").asText());
+            var knocked = Json.mapper().readTree(mockMvc.perform(
+                    post("/api/meetings/" + meeting + "/corrections/" + proposal.path("id").asText() + "/accept")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"text\":null}"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals("Cộc, cốc, cốc.", knocked.path("utterances").get(0).path("text").asText());
+
+            // A proposal stored before this fix still points at "Tr"; accepting it replaces the whole word.
+            UUID legacy = UUID.randomUUID();
+            jdbc.sql("""
+                    INSERT INTO meeting_correction(tenant_id, id, meeting_id, utterance_id, run_id, span_start,
+                                                   span_end, before, after, reason, confidence, context_fit,
+                                                   meaning_safe, matched_glossary, status)
+                    VALUES (:tenant, :id, :meeting, :line, :run, 0, 2, 'Tr', 'Trực', 'Phần đầu câu.', 0.99, 0.99,
+                            0.99, false, 'PENDING')
+                    """).param("tenant", TENANT).param("id", legacy).param("meeting", meeting).param("line", direct)
+                    .param("run", UUID.randomUUID()).update();
+            var accepted = Json.mapper().readTree(mockMvc.perform(
+                    post("/api/meetings/" + meeting + "/corrections/" + legacy + "/accept")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"text\":null}"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals("Trực tiếp limit à?", accepted.path("utterances").get(1).path("text").asText(),
+                    "the rest of the word is not put back a second time");
+
+            var reverted = Json.mapper().readTree(mockMvc.perform(
+                    post("/api/meetings/" + meeting + "/corrections/" + legacy + "/revert")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            assertEquals("Trực tiếp limit à?", reverted.path("utterances").get(1).path("text").asText(),
+                    "taking it back puts back exactly the word that was replaced");
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    @Test
     void endingAMeetingWritesItsMinutesFromTheTranscriptWithTheLinesTheyRestOn() throws Exception {
         var prompts = new java.util.concurrent.LinkedBlockingQueue<String>();
         when(model.call(any(Prompt.class))).thenAnswer(call -> {

@@ -621,12 +621,15 @@ public class MeetingRepository {
     }
 
     /** Records the decision and the words that actually went in, which are the owner's when they rewrote them. */
-    public void accepted(UUID tenant, UUID id, UUID actor, String after) {
+    /** Records what was actually replaced, so taking it back puts back exactly those words. */
+    public void accepted(UUID tenant, UUID id, UUID actor, int start, int end, String before, String after) {
         jdbc.sql("""
                 UPDATE meeting_correction
-                SET status = 'ACCEPTED', after = :after, decided_at = CURRENT_TIMESTAMP, decided_by = :actor
+                SET status = 'ACCEPTED', span_start = :start, span_end = :end, before = :before, after = :after,
+                    decided_at = CURRENT_TIMESTAMP, decided_by = :actor
                 WHERE tenant_id = :tenant AND id = :id
-                """).param("tenant", tenant).param("id", id).param("after", after).param("actor", actor).update();
+                """).param("tenant", tenant).param("id", id).param("start", start).param("end", end)
+                .param("before", before).param("after", after).param("actor", actor).update();
     }
 
     public void decide(UUID tenant, UUID id, Meeting.CorrectionStatus status, UUID actor) {

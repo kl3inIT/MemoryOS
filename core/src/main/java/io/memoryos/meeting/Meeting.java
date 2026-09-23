@@ -113,8 +113,8 @@ public final class Meeting {
         public Utterance {
             // The text is trimmed and capped after the provider wrote it, so a stretch can fall outside; drop it
             // rather than store an offset that points past the line a reader sees.
-            spans = spans.stream().filter(span -> span.start() >= 0 && span.end() <= text.length()
-                    && span.start() < span.end()).toList();
+            spans = Span.words(text, spans.stream().filter(span -> span.start() >= 0 && span.end() <= text.length()
+                    && span.start() < span.end()).toList());
         }
 
         public Utterance(UUID id, Track track, String speaker, long startMs, long endMs, String text,
@@ -129,7 +129,43 @@ public final class Meeting {
     }
 
     /** A stretch of an utterance the provider was unsure of, by character offset, half-open. */
-    public record Span(int start, int end, double confidence) {}
+    public record Span(int start, int end, double confidence) {
+        /**
+         * Widens each stretch to the words it touches and joins the ones that then overlap. Soniox scores pieces of
+         * words, so a mark can cover "Tr" of "Trực"; asking about or replacing half a word puts the rest of it back
+         * twice ("Trựcực"). Stored marks stay as the provider gave them; everyone reads whole words.
+         */
+        static List<Span> words(String text, List<Span> spans) {
+            var widened = new java.util.ArrayList<Span>(spans.size());
+            for (var span : spans.stream().sorted(java.util.Comparator.comparingInt(Span::start)).toList()) {
+                int start = wordStart(text, span.start()), end = wordEnd(text, span.end());
+                var last = widened.isEmpty() ? null : widened.getLast();
+                if (last != null && start < last.end())
+                    widened.set(widened.size() - 1, new Span(last.start(), Math.max(last.end(), end),
+                            Math.min(last.confidence(), span.confidence())));
+                else widened.add(new Span(start, end, span.confidence()));
+            }
+            return List.copyOf(widened);
+        }
+
+        /** Where the word holding {@code offset} begins. */
+        public static int wordStart(String text, int offset) {
+            int at = offset;
+            while (at > 0 && inWord(text.charAt(at - 1))) at--;
+            return at;
+        }
+
+        /** Where the word holding the character before {@code offset} ends. */
+        public static int wordEnd(String text, int offset) {
+            int at = offset;
+            while (at < text.length() && inWord(text.charAt(at))) at++;
+            return at;
+        }
+
+        private static boolean inWord(char character) {
+            return Character.isLetterOrDigit(character) || Character.getType(character) == Character.NON_SPACING_MARK;
+        }
+    }
 
     /** Who last changed what an utterance says. Absent means nobody has: the provider's own words still stand. */
     public enum EditSource { MODEL, HUMAN }
