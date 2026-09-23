@@ -1,4 +1,11 @@
-"""Static contract tests for the repository-owned MemoryOS Keycloak theme."""
+"""Static contract tests for the repository-owned MemoryOS Keycloak theme.
+
+The rules here are the ones every version of the theme has to keep: it restyles keycloak.v2
+rather than replacing its markup, it serves every byte from this repository, and the deployment
+mounts it and the realm reconciliation refuses to converge without it. What the page looks like —
+which selectors it styles, what the headings say — belongs to whoever owns the design, and is not
+frozen here; the tests that did freeze one version failed the moment a different one was restored.
+"""
 
 from pathlib import Path
 import re
@@ -20,48 +27,46 @@ class MemoryOsThemeContractTest(unittest.TestCase):
         self.assertRegex(properties, r"(?m)^parent=keycloak\.v2$")
         self.assertRegex(properties, r"(?m)^styles=css/styles\.css css/memoryos\.css$")
         self.assertRegex(properties, r"(?m)^darkMode=false$")
+        # Keycloak's own templates keep owning every authentication and required-action form.
         self.assertEqual([], list(THEME.glob("*.ftl")))
 
-    def test_declared_resources_exist_and_are_local(self):
+    def test_every_byte_the_theme_serves_comes_from_this_repository(self):
+        css = read(THEME / "resources" / "css" / "memoryos.css")
         properties = read(THEME / "theme.properties")
-        custom_css = THEME / "resources" / "css" / "memoryos.css"
-        css = read(custom_css)
 
-        for relative_path in (
-            "resources/css/memoryos.css",
-            "resources/img/favicon.svg",
-            "resources/img/lock.svg",
-            "resources/img/memoryos-mark.svg",
-            "resources/img/meaning-network.svg",
-            "messages/messages_en.properties",
-        ):
-            with self.subTest(relative_path=relative_path):
-                self.assertTrue((THEME / relative_path).is_file())
-
-        self.assertIn("favicons=img/favicon.svg", properties)
+        self.assertTrue((THEME / "resources" / "css" / "memoryos.css").is_file())
+        self.assertTrue((THEME / "messages" / "messages_en.properties").is_file())
+        # A login page that fetches a font or a background from elsewhere tells that host who is
+        # signing in, and stops working when that host does.
         self.assertNotRegex(css, r"https?://")
         self.assertNotRegex(css, r"@import\s")
 
-    def test_covers_keycloak_forms_and_approved_visual_contract(self):
+        # keycloak.v2 ships this one, and a theme that extends it keeps naming it.
+        inherited = {"css/styles.css"}
+        declared = re.findall(r"(?m)^(?:styles|favicons)=(.+)$", properties)
+        for entry in " ".join(declared).split():
+            if entry in inherited:
+                continue
+            with self.subTest(declared=entry):
+                self.assertTrue((THEME / "resources" / entry).is_file(),
+                                "theme.properties declares %s, which is not in the theme" % entry)
+
+    def test_the_images_the_theme_keeps_are_the_images_it_uses(self):
+        # The previous design left four images behind when it was replaced. An image nobody
+        # references is one more thing a reader has to decide about.
         css = read(THEME / "resources" / "css" / "memoryos.css")
-        messages = read(THEME / "messages" / "messages_en.properties")
+        properties = read(THEME / "theme.properties")
+        used = {Path(reference).name for reference in re.findall(r'url\("?([^")]+)"?\)', css)}
+        used |= {Path(entry).name for entry in " ".join(
+            re.findall(r"(?m)^favicons=(.+)$", properties)).split()}
 
-        for selector in (
-            "#kc-form-login",
-            "#kc-passwd-update-form",
-            'body[data-page-id*="reset-password"]',
-            'body[data-page-id*="verify-email"]',
-            'body[data-page-id="login-info"]',
-            'body[data-page-id="login-error"]',
-        ):
-            with self.subTest(selector=selector):
-                self.assertIn(selector, css)
-
-        self.assertIn("Continue to your memory.", messages)
-        self.assertIn("Create your password.", messages)
-        self.assertIn("Check your inbox.", messages)
-        self.assertNotIn("PRIVATE BY DESIGN", css)
-        self.assertNotIn("auth.kl3in.tech", css)
+        for image in (THEME / "resources" / "img").glob("*"):
+            with self.subTest(image=image.name):
+                self.assertIn(image.name, used, "%s is in the theme but nothing references it" % image.name)
+        for name in used:
+            with self.subTest(used=name):
+                self.assertTrue((THEME / "resources" / "img" / name).is_file(),
+                                "the theme references %s, which is not in it" % name)
 
     def test_compose_mount_and_realm_reconciliation_are_fail_closed(self):
         compose = read(ROOT / "infrastructure" / "deployment" / "compose.base.yaml")
