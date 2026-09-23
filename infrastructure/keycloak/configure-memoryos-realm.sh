@@ -203,17 +203,6 @@ find_mapper_uuid() {
 
 "$KCADM" get "realms/$TARGET_REALM" --config "$CONFIG_FILE" >/dev/null
 
-require_memoryos_theme() {
-    theme_count=$("$KCADM" get serverinfo \
-        --config "$CONFIG_FILE" |
-        jq -r '[.themes.login[]? | select(.name == "memoryos")] | length')
-    if [ "$theme_count" -ne 1 ]; then
-        echo "MemoryOS login theme is not available to Keycloak" >&2
-        exit 1
-    fi
-    echo "theme=memoryos type=login action=available"
-}
-
 configure_realm() {
     # Without a mail server the realm is deliberately unable to send: no smtpServer, and no e-mail
     # verification, which would otherwise block every new sign-in behind a message nobody can deliver.
@@ -262,15 +251,7 @@ configure_realm() {
             --config "$CONFIG_FILE" \
             -f - >/dev/null
     fi
-    configured_theme=$("$KCADM" get "realms/$TARGET_REALM" \
-        --config "$CONFIG_FILE" \
-        --fields loginTheme |
-        jq -r '.loginTheme // empty')
-    if [ "$configured_theme" != "memoryos" ]; then
-        echo "MemoryOS realm login theme did not converge" >&2
-        exit 1
-    fi
-    echo "realm=$TARGET_REALM login-theme=memoryos self-registration=disabled email-verification=required smtp=updated"
+    echo "realm=$TARGET_REALM self-registration=disabled email-verification=required smtp=updated"
 }
 
 configure_provisioning_profile() {
@@ -291,7 +272,6 @@ configure_provisioning_profile() {
     echo "realm=$TARGET_REALM provisioning-provenance=admin-only"
 }
 
-require_memoryos_theme
 configure_realm
 configure_provisioning_profile
 

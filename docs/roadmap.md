@@ -96,7 +96,6 @@ This roadmap records delivery state at increment granularity. Linear is the exec
 | Interactive charts | A matplotlib figure `run_python` leaves open is captured as chart data plus a PNG and drawn interactively in the reply, as E2B does | [Design](increments/completed/chat-interactive-charts/design.md) |
 | [MEM-130 model discovery](https://linear.app/memory-os/issue/MEM-130) | Provider-reported model specs, catalog breadth and honest output-limit and Deep research model errors; a provider endpoint's own `/models` metadata fills the form | [Design](increments/completed/mem-130-model-discovery/design.md) |
 | [MEM-113 image model catalog](https://linear.app/memory-os/issue/MEM-113) | Backend-declared image model catalog, the `/admin/image-generation` page and `generate_image` taking a shape instead of a size | [Design](increments/completed/mem-113-image-model-catalog/design.md) |
-| [MEM-65](https://linear.app/memory-os/issue/MEM-65) | MemoryOS-branded Keycloak 26.7 authentication and required-action screens using the approved meaning-network composition | Delivered 2026-09-20. [Design](increments/completed/mem-65-keycloak-auth-theme/design.md) · [Plan](increments/completed/mem-65-keycloak-auth-theme/plan.md) |
 | [MEM-110 MemoryOS interpreter](https://linear.app/memory-os/issue/MEM-110) | Onyx python-sandbox snapshot vendored as `interpreter/` and renamed to `memoryos-interpreter`; staging runtime, authentication, Java `run_python` tool, browser rendering and office output quality remain open | [Design](increments/completed/mem-110-memoryos-interpreter/design.md) · [Plan](increments/completed/mem-110-memoryos-interpreter/plan.md) |
 | [MEM-111 Generated file preview](https://linear.app/memory-os/issue/MEM-111) | Onyx-style preview of `run_python` files in the Chat side panel (xlsx sheets, csv, docx, pdf, images, code/text); pptx conversion in the executor, artifact listing and versions remain open | [Design](increments/completed/mem-111-generated-file-preview/design.md) · [Plan](increments/completed/mem-111-generated-file-preview/plan.md) |
 | [MEM-101 deep research](https://linear.app/memory-os/issue/MEM-101) | Onyx `160f9b143` Deep research mode in Chat (clarification, streamed plan, ≤3 parallel research agents, merged-citation report) plus Chat-wide Onyx timing and uncapped citations; implemented with spans, metrics and integration tests in PR #202; visual review, full `clean check` and staging acceptance remain open; restart survival excluded | [Design](increments/completed/mem-101-deep-research/design.md) · [Plan](increments/completed/mem-101-deep-research/plan.md) |
@@ -191,7 +190,7 @@ Candidates are recorded so they can be prioritized, not as commitments. Promote 
 
 ## IAM follow-ups tracked separately from MEM-55/MEM-36
 
-MEM-36 and MEM-68 are Done. MEM-25 is Done. MEM-55 and MEM-69 are In Progress with Nhat (`nhudinhnhat2004`). MEM-59 is Done, and the MEM-65 theme increment is delivered; only its Compose-backed rollout is a deployment step. These tracker states are separate from the delivered Users/Groups implementation increment:
+MEM-36 and MEM-68 are Done. MEM-25 is Done. MEM-55 and MEM-69 are In Progress with Nhat (`nhudinhnhat2004`). MEM-59 is Done. These tracker states are separate from the delivered Users/Groups implementation increment:
 
 | Issue | Follow-up boundary |
 | --- | --- |
@@ -199,7 +198,6 @@ MEM-36 and MEM-68 are Done. MEM-25 is Done. MEM-55 and MEM-69 are In Progress wi
 | [MEM-68](https://linear.app/memory-os/issue/MEM-68) | Done: bounded provider/broker revocation across bearer tokens and browser sessions |
 | [MEM-69](https://linear.app/memory-os/issue/MEM-69) | Absolute browser-session lifetime and reauthentication policy beyond idle timeout |
 | [MEM-25](https://linear.app/memory-os/issue/MEM-25) | Done: the audit stream, its viewer and 365-day retention shipped in PR #278 |
-| [MEM-65](https://linear.app/memory-os/issue/MEM-65) | Theme delivered; enabling new broker/session behavior remains separate, and the shared-runtime rollout is a deployment step |
 
 ## Google Drive delivery in progress
 
