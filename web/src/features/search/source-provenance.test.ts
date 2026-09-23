@@ -33,6 +33,28 @@ describe("readSourceLocation", () => {
     expect(readSourceLocation(['[{"page_no":4}]']).table).toBe(false);
   });
 
+  it("draws a cited table once however many of its rows record it", () => {
+    // Every row of a Docling table wraps that table's own box, so a cited table of 40 rows records the
+    // same region 40 times. Drawing each one stacks 40 translucent highlights until the page reads as a
+    // solid block instead of as the document it is pointing at.
+    const row = (n: number) =>
+      `{"source":[{"page_no":1,"bbox":{"l":10,"t":700,"r":500,"b":100,"coord_origin":"BOTTOMLEFT"}}],"tableRow":${n}}`;
+    const location = readSourceLocation(Array.from({ length: 40 }, (_, index) => row(index + 1)));
+
+    expect(location.pages).toEqual([1]);
+    expect(location.boxes).toHaveLength(1);
+    expect(location.table).toBe(true);
+  });
+
+  it("keeps the distinct regions a section's passages record", () => {
+    const location = readSourceLocation([
+      '[{"page_no":1,"bbox":{"l":72,"t":694,"r":341,"b":675,"coord_origin":"BOTTOMLEFT"}}]',
+      '[{"page_no":1,"bbox":{"l":72,"t":634,"r":349,"b":615,"coord_origin":"BOTTOMLEFT"}}]',
+    ]);
+
+    expect(location.boxes).toHaveLength(2);
+  });
+
   it("marks a table row only when its source records a page", () => {
     const empty = { pages: [], boxes: [], table: false };
     expect(readSourceLocation(['{"tableRow":2}'])).toEqual(empty);

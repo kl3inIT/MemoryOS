@@ -226,8 +226,15 @@ export function PdfView({
                         }
                       />
                     ) : null}
-                    {show && view
-                      ? boxes
+                    {/*
+                      One multiplying layer for the whole page. Regions overlap — a passage spanning two
+                      lines of a table records a box for each — and multiplying each one onto the last
+                      darkens the overlap towards red until the page is unreadable. Painted together and
+                      multiplied once, an overlap is the same yellow as a single region.
+                    */}
+                    {show && view ? (
+                      <div className="pointer-events-none absolute inset-0 opacity-55 mix-blend-multiply">
+                        {boxes
                           .filter((box) => box.page === pageNumber)
                           .map((box, boxIndex) => {
                             const rect = pdfBoxRect(box, view, renderedWidth);
@@ -241,12 +248,13 @@ export function PdfView({
                                   page: pageNumber,
                                 })}
                                 data-slot="pdf-citation-box"
-                                className="pointer-events-none absolute scroll-m-12 rounded-[3px] bg-pdf-highlight/55 mix-blend-multiply ring-1 ring-pdf-highlight-border/80"
+                                className="absolute scroll-m-12 rounded-[3px] bg-pdf-highlight ring-1 ring-pdf-highlight-border/80"
                                 style={rect}
                               />
                             );
-                          })
-                      : null}
+                          })}
+                      </div>
+                    ) : null}
                   </div>
                 </figure>
               );
