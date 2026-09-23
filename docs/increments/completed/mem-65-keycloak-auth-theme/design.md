@@ -1,5 +1,10 @@
 # MEM-65 design: MemoryOS Keycloak authentication theme
 
+> **Replaced on 2026-09-23.** The meaning-network composition described below is no longer in
+> the repository. The theme the deployments serve is the centred brand card on a flat page,
+> added in `001f3632`. What this document still holds is the part that did not change: the
+> theme restyles keycloak.v2 without owning a template, and every byte it serves is local.
+
 ## Outcome
 
 The `memoryos` realm renders its browser authentication and required-action pages with the approved MemoryOS meaning-network composition: a full-viewport dark knowledge-map surface, a foreground MemoryOS identity on the left, and a compact light authentication card on the right. The page remains usable without vertical document scrolling at supported desktop and mobile viewport sizes.
