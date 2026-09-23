@@ -82,9 +82,7 @@ function keycloakMarkup(options: { pageId?: string; title?: string } = {}) {
     </html>`;
 }
 
-test("centres the card under the MemoryOS wordmark", async ({
-  page,
-}) => {
+test("centres the card under the MemoryOS wordmark", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.setContent(keycloakMarkup());
 
