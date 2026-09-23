@@ -73,7 +73,8 @@ The server bootstrap file is outside Git with mode `0600` and contains only `INF
 | `MEMORYOS_REDIS_PASSWORD` | Yes | Worker ACL password. Staging overrides any Infisical value from the mode-`0600` `MEMORYOS_REDIS_WORKER_PASSWORD_FILE` mounted into the worker; other production deployments supply it through their managed secret source. |
 | `MEMORYOS_REDIS_SSL_ENABLED` | No | `true` in staging. `application-staging.yaml` trusts only the mounted Redis CA through the `memoryos-redis` SSL bundle. |
 | `MEMORYOS_REDIS_CONNECT_TIMEOUT` | No | Bounded Redis connection timeout; staging default `2s`. |
-| `MEMORYOS_REDIS_COMMAND_TIMEOUT` | No | Bounded Redis command timeout; staging default `2s`. |
+| `MEMORYOS_REDIS_COMMAND_TIMEOUT` | No | Bounded Redis command timeout for the api; default `2s`. |
+| `MEMORYOS_WORKER_REDIS_COMMAND_TIMEOUT` | No | The worker's command timeout; default `5s`, and it must exceed the worker's `consumer-block` (2s). |
 | `MEMORYOS_REDIS_POOL_MAX_ACTIVE` | No | Maximum worker Redis connections; staging default `8`. |
 | `MEMORYOS_REDIS_POOL_MAX_IDLE` | No | Maximum idle worker Redis connections; staging default `8`. |
 | `MEMORYOS_REDIS_POOL_MIN_IDLE` | No | Minimum idle worker Redis connections; staging default `0`. |

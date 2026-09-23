@@ -415,7 +415,10 @@ services:
       MEMORYOS_REDIS_TLS_CA_FILE: /run/secrets/redis_tls_ca
       MEMORYOS_REDIS_PASSWORD_FILE: /run/secrets/redis_worker_password
       MEMORYOS_REDIS_CONNECT_TIMEOUT: ${MEMORYOS_REDIS_CONNECT_TIMEOUT:-2s}
-      MEMORYOS_REDIS_COMMAND_TIMEOUT: ${MEMORYOS_REDIS_COMMAND_TIMEOUT:-2s}
+      # Not the api's value. The worker's stream reads block on the server for consumer-block (2s);
+      # a command timeout no longer than that expires every idle read, logs it as a transport
+      # failure and backs off before reading again.
+      MEMORYOS_REDIS_COMMAND_TIMEOUT: ${MEMORYOS_WORKER_REDIS_COMMAND_TIMEOUT:-5s}
       MEMORYOS_REDIS_POOL_MAX_ACTIVE: ${MEMORYOS_REDIS_POOL_MAX_ACTIVE:-8}
       MEMORYOS_REDIS_POOL_MAX_IDLE: ${MEMORYOS_REDIS_POOL_MAX_IDLE:-8}
       MEMORYOS_REDIS_POOL_MIN_IDLE: ${MEMORYOS_REDIS_POOL_MIN_IDLE:-0}

@@ -27,6 +27,26 @@ def defines(text, service):
     return any(line.strip().startswith("image:") for line in body)
 
 
+def seconds(duration):
+    match = re.fullmatch(r"(\d+)(ms|s)", duration)
+    if not match:
+        raise ValueError("Unsupported duration " + duration)
+    return int(match.group(1)) / (1000 if match.group(2) == "ms" else 1)
+
+
+class WorkerRedisTimeoutTest(unittest.TestCase):
+    def test_the_worker_command_timeout_outlasts_its_blocking_read(self):
+        # Production ran with the api's 2s for the worker too. Every idle XREADGROUP BLOCK 2000 then
+        # timed out on the client, logged redis.transport.failed and backed off five seconds.
+        worker = BASE.split("\n  worker:\n", 1)[1].split("\n  web:\n", 1)[0]
+        timeout = re.search(r"MEMORYOS_REDIS_COMMAND_TIMEOUT: \$\{MEMORYOS_WORKER_REDIS_COMMAND_TIMEOUT:-(\w+)\}",
+                            worker)
+        self.assertIsNotNone(timeout, "the worker must not inherit the api's command timeout")
+        application = (ROOT / "worker/src/main/resources/application.yaml").read_text(encoding="utf-8")
+        block = re.search(r"(?m)^\s+consumer-block: (\w+)$", application).group(1)
+        self.assertGreater(seconds(timeout.group(1)), seconds(block))
+
+
 class ComposeLayeringTest(unittest.TestCase):
     def test_the_runtime_both_environments_share_is_defined_once(self):
         for service in ("redis", "interpreter", "api", "worker", "web", "postgres", "minio"):
