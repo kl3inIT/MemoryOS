@@ -844,9 +844,9 @@ for (const mobile of [false, true]) {
       );
       await expect(panel.locator("canvas")).toHaveCount(0);
       await expanded.getByRole("button", { name: "Toàn bộ đoạn trích" }).click();
-      await expect(
-        expanded.getByRole("article", { name: "Đoạn được chọn" }),
-      ).toContainText("Submit requests to your manager.");
+      await expect(expanded.getByRole("article", { name: "Đoạn được chọn" })).toContainText(
+        "Submit requests to your manager.",
+      );
       await page.keyboard.press("Escape");
       await expect(expanded).toBeHidden();
       await expect(panel).toBeVisible();

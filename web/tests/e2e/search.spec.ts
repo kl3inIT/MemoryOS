@@ -458,7 +458,7 @@ test("shows source type, provider and authors, links to Google Drive and outline
   await expect(dialog.getByRole("alert")).toHaveCount(0);
   expect(fallbackReads.filter((range) => !range)).toHaveLength(2);
   await dialog.getByRole("button", { name: "All passages" }).click();
-  await expect(
-    dialog.getByRole("article", { name: "Selected passage" }),
-  ).toContainText(nextPassage.content);
+  await expect(dialog.getByRole("article", { name: "Selected passage" })).toContainText(
+    nextPassage.content,
+  );
 });
