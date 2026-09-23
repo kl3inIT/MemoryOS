@@ -1,0 +1,55 @@
+[ {
+  "ordinal" : 0,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Doanh thu\n[A1] Khu vực\n[B1] Năm 2025",
+  "headings" : [ ],
+  "blockIndex" : 0,
+  "part" : 0,
+  "provenanceJson" : "{\"source\":{\"sheetIndex\":0,\"sheetName\":\"Doanh thu\",\"visibility\":\"VISIBLE\"},\"tableRow\":0}",
+  "contentSha256" : "164d2bf7681d3093fc82c195de4f137a376b356e49e0ecd7a0f14f578577ca35",
+  "tokenCount" : 32
+}, {
+  "ordinal" : 1,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Doanh thu\n[A2] Miền Bắc\n[B2] 120,5",
+  "headings" : [ ],
+  "blockIndex" : 0,
+  "part" : 1,
+  "provenanceJson" : "{\"source\":{\"sheetIndex\":0,\"sheetName\":\"Doanh thu\",\"visibility\":\"VISIBLE\"},\"tableRow\":1}",
+  "contentSha256" : "9ff971edfeb44db84d7b7dbf593bdd4bb43451368fb6971842adccb3a86705f5",
+  "tokenCount" : 32
+}, {
+  "ordinal" : 2,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Doanh thu\n[A3] Miền Nam\n[B3] 98",
+  "headings" : [ ],
+  "blockIndex" : 0,
+  "part" : 2,
+  "provenanceJson" : "{\"source\":{\"sheetIndex\":0,\"sheetName\":\"Doanh thu\",\"visibility\":\"VISIBLE\"},\"tableRow\":2}",
+  "contentSha256" : "e5085ae00f6a79738a8cffb2feae5bfad6adb19f73ca2799dc410f74c6b34bde",
+  "tokenCount" : 28
+}, {
+  "ordinal" : 3,
+  "content" : "Title: Tài liệu kiểm thử\nSection: Ẩn\n[A1] Ghi chú nội bộ",
+  "headings" : [ ],
+  "blockIndex" : 1,
+  "part" : 0,
+  "provenanceJson" : "{\"source\":{\"sheetIndex\":1,\"sheetName\":\"Ẩn\",\"visibility\":\"HIDDEN\"},\"tableRow\":0}",
+  "contentSha256" : "6462ed5bf753b5551d829a090eb24af7fa00d7e7d00f636eed1b792f819e9fa2",
+  "tokenCount" : 29
+}, {
+  "ordinal" : 4,
+  "content" : "Title: Tài liệu kiểm thử\n[A1] Mã\n[B1] Tên",
+  "headings" : [ ],
+  "blockIndex" : 2,
+  "part" : 0,
+  "provenanceJson" : "{\"source\":null,\"tableRow\":0}",
+  "contentSha256" : "9447bb7d00cc364fa53a4b230abc3204b729507cb3f68a12c23d439a21bdbbf5",
+  "tokenCount" : 21
+}, {
+  "ordinal" : 5,
+  "content" : "Title: Tài liệu kiểm thử\n[A2] KH-01\n[B2] Công ty An Phát",
+  "headings" : [ ],
+  "blockIndex" : 2,
+  "part" : 1,
+  "provenanceJson" : "{\"source\":null,\"tableRow\":1}",
+  "contentSha256" : "790cc4bd2414b0a0c4656e64dd14e2f357f1d908bdb6e4350dab8289bcc2c14d",
+  "tokenCount" : 26
+} ]

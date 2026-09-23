@@ -1,5 +1,8 @@
 package io.memoryos.provider.file;
 
+import io.memoryos.document.ExtractedDocument;
+import io.memoryos.document.ExtractedDocument.Block;
+import io.memoryos.document.ExtractedDocument.Table;
 import java.math.BigInteger;
 import java.text.Normalizer;
 import java.util.ArrayList;
@@ -8,7 +11,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
@@ -22,9 +24,6 @@ final class FinancialTableDiagnostics {
     private static final int MAX_HEADER_DEPTH = 4;
     private static final int AMBIGUOUS_CASH_BALANCE = -2;
     private static final int[] ROW_CODES = {50, 60, 61, 70};
-    private static final String[] OFFSETS = {
-            "start_row_offset_idx", "end_row_offset_idx", "start_col_offset_idx", "end_col_offset_idx"
-    };
     private static final String[] UNIT_PREFIXES = {"unit:vnd", "currency:vnd", "donvitinh:vnd"};
     private static final Pattern MARKS = Pattern.compile("\\p{M}+");
     private static final Pattern SPACES = Pattern.compile("\\s+");
@@ -36,19 +35,19 @@ final class FinancialTableDiagnostics {
 
     private FinancialTableDiagnostics() {}
 
-    static ArrayNode assess(ArrayNode blocks, ObjectMapper mapper) {
+    static ArrayNode assess(List<Block> blocks, ObjectMapper mapper) {
         var checks = mapper.createArrayNode();
         int totalCells = 0;
         for (int position = 0; position < blocks.size(); position++) {
             var block = blocks.get(position);
-            int index = block.path("index").asInt(position);
+            int index = block.index();
             if (position >= MAX_BLOCKS) {
                 add(checks, diagnostic(mapper, index, "INCOMPLETE", "ASSESSMENT_LIMIT"));
                 break;
             }
-            var table = block.path("table");
-            var rawCells = table.path("table_cells");
-            if (!rawCells.isArray()) continue;
+            var table = block.table();
+            if (table == null) continue;
+            var rawCells = table.cells();
             if (rawCells.size() > MAX_TOTAL_CELLS - totalCells) {
                 add(checks, diagnostic(mapper, index, "INCOMPLETE", "ASSESSMENT_LIMIT"));
                 break;
@@ -63,17 +62,17 @@ final class FinancialTableDiagnostics {
         return checks;
     }
 
-    private static boolean assessTable(JsonNode table, JsonNode rawCells, int index,
+    private static boolean assessTable(Table table, List<ExtractedDocument.Cell> rawCells, int index,
             ArrayNode checks, ObjectMapper mapper) {
-        int rows = table.path("num_rows").asInt(-1);
-        int columns = table.path("num_cols").asInt(-1);
+        int rows = table.rowCount() == null ? -1 : table.rowCount();
+        int columns = table.columnCount() == null ? -1 : table.columnCount();
         if (rows > MAX_TABLE_CELLS || columns > MAX_COLUMNS) {
             return add(checks, diagnostic(mapper, index, "INCOMPLETE", "ASSESSMENT_LIMIT"));
         }
         boolean cashBalanceLabel = false;
         boolean incomeLabels = false;
         for (var raw : rawCells) {
-            String label = normalize(raw.path("text").asString(""));
+            String label = normalize(raw.text());
             int code = rowCode(label);
             incomeLabels = incomeLabels || incomeIdentity(label) != 0;
             if (code == 60 || code == 70 || code == AMBIGUOUS_CASH_BALANCE) {
@@ -87,7 +86,7 @@ final class FinancialTableDiagnostics {
         var cells = new ArrayList<Cell>(rawCells.size());
         for (var raw : rawCells) {
             var cell = cell(raw);
-            if (cell == null || cell.row < 0 || cell.column < 0 || cell.endRow <= cell.row
+            if (cell.row < 0 || cell.column < 0 || cell.endRow <= cell.row
                     || cell.endColumn <= cell.column || cell.endRow > rows || cell.endColumn > columns) {
                 return add(checks, diagnostic(mapper, index, "AMBIGUOUS", "INVALID_CELL_GEOMETRY"));
             }
@@ -102,7 +101,7 @@ final class FinancialTableDiagnostics {
                 boolean ambiguousBalance = code == AMBIGUOUS_CASH_BALANCE && (ROW_CODES[i] == 60 || ROW_CODES[i] == 70);
                 if (code != ROW_CODES[i] && !ambiguousBalance) continue;
                 if (ambiguousBalance || labels[i] != null || !isolated(cell, cells)
-                        || cell.raw.path("column_header").asBoolean(false)) duplicateLabels[i] = true;
+                        || cell.raw.columnHeader()) duplicateLabels[i] = true;
                 labels[i] = cell;
             }
         }
@@ -127,7 +126,7 @@ final class FinancialTableDiagnostics {
                 if (cell.row != label.row || cell.text().length() > 80
                         || !cell.text().strip().equals(Integer.toString(ROW_CODES[i]))) continue;
                 if (codeCell != null || !isolated(cell, cells) || cell.column <= label.column
-                        || cell.raw.path("column_header").asBoolean(false)) ambiguousCode = true;
+                        || cell.raw.columnHeader()) ambiguousCode = true;
                 codeCell = cell;
             }
             if (codeCell == null) {
@@ -150,7 +149,7 @@ final class FinancialTableDiagnostics {
                 boolean tooDeep = false;
                 for (var cell : cells) {
                     if (cell.column > column || cell.endColumn <= column) continue;
-                    if (cell.row < firstRow && cell.raw.path("column_header").asBoolean(false)) {
+                    if (cell.row < firstRow && cell.raw.columnHeader()) {
                         if (headers.size() == MAX_HEADER_DEPTH) {
                             tooDeep = true;
                             break;
@@ -202,15 +201,15 @@ final class FinancialTableDiagnostics {
         return true;
     }
 
-    private static boolean assessIncomeRows(JsonNode rawCells, int rows, int columns, int index,
+    private static boolean assessIncomeRows(List<ExtractedDocument.Cell> rawCells, int rows, int columns, int index,
             ArrayNode checks, ObjectMapper mapper) {
         if (rows < 1 || columns < 1) return true;
         int[] codes = new int[columns];
         int codeRow = -1;
         int codeIdentities = 0;
         for (var raw : rawCells) {
-            if (raw.path("column_header").asBoolean(false)) continue;
-            String text = raw.path("text").asString("");
+            if (raw.columnHeader()) continue;
+            String text = raw.text();
             if (text.length() > 80) continue;
             int identity = switch (text.strip()) {
                 case "10" -> 1;
@@ -220,7 +219,7 @@ final class FinancialTableDiagnostics {
             };
             if (identity == 0) continue;
             var cell = cell(raw);
-            if (cell == null || cell.row < 0 || cell.column < 0 || cell.endRow <= cell.row
+            if (cell.row < 0 || cell.column < 0 || cell.endRow <= cell.row
                     || cell.endColumn <= cell.column || cell.endRow > rows || cell.endColumn > columns) {
                 continue;
             }
@@ -233,11 +232,11 @@ final class FinancialTableDiagnostics {
         if (Integer.bitCount(codeIdentities) < 2) return true;
         int[] identities = new int[rows];
         for (var raw : rawCells) {
-            if (raw.path("column_header").asBoolean(false)) continue;
-            int identity = incomeIdentity(normalize(raw.path("text").asString("")));
+            if (raw.columnHeader()) continue;
+            int identity = incomeIdentity(normalize(raw.text()));
             if (identity == 0) continue;
             var cell = cell(raw);
-            if (cell == null || cell.row < 0 || cell.column < 0 || cell.endRow <= cell.row
+            if (cell.row < 0 || cell.column < 0 || cell.endRow <= cell.row
                     || cell.endColumn <= cell.column || cell.endRow > rows || cell.endColumn > columns) {
                 return add(checks, diagnostic(mapper, index, "AMBIGUOUS", "INVALID_CELL_GEOMETRY")
                         .put("check", "INCOME_STATEMENT_ROW_IDENTITY"));
@@ -322,7 +321,7 @@ final class FinancialTableDiagnostics {
                     matches++;
                 }
             }
-            if (matches > 1 || amount != null && (!amount.single() || amount.raw.path("column_header").asBoolean(false))) {
+            if (matches > 1 || amount != null && (!amount.single() || amount.raw.columnHeader())) {
                 ambiguous.add(ROW_CODES[i]);
             } else if (amount == null || missingAmount(amount.text())) {
                 missing.add(ROW_CODES[i]);
@@ -402,12 +401,12 @@ final class FinancialTableDiagnostics {
         return SPACES.matcher(folded).replaceAll("");
     }
 
-    private static Cell cell(JsonNode raw) {
-        for (var offset : OFFSETS) {
-            if (!raw.path(offset).isIntegralNumber() || !raw.path(offset).canConvertToInt()) return null;
-        }
-        return new Cell(raw, raw.path(OFFSETS[0]).asInt(), raw.path(OFFSETS[1]).asInt(),
-                raw.path(OFFSETS[2]).asInt(), raw.path(OFFSETS[3]).asInt());
+    /** Geometry is checked in long arithmetic so a span cannot wrap an end into range. */
+    private static Cell cell(ExtractedDocument.Cell raw) {
+        long endRow = (long) raw.row() + raw.rowSpan();
+        long endColumn = (long) raw.column() + raw.columnSpan();
+        return new Cell(raw, raw.row(), Math.clamp(endRow, Integer.MIN_VALUE, Integer.MAX_VALUE),
+                raw.column(), Math.clamp(endColumn, Integer.MIN_VALUE, Integer.MAX_VALUE));
     }
 
     private static boolean isolated(Cell target, List<Cell> cells) {
@@ -443,8 +442,8 @@ final class FinancialTableDiagnostics {
 
     private record Period(int column, String identity) {}
 
-    private record Cell(JsonNode raw, int row, int endRow, int column, int endColumn) {
-        String text() { return raw.path("text").asString(""); }
+    private record Cell(ExtractedDocument.Cell raw, int row, int endRow, int column, int endColumn) {
+        String text() { return raw.text(); }
         boolean single() { return endRow == row + 1 && endColumn == column + 1; }
         boolean covers(int targetRow, int targetColumn) {
             return row <= targetRow && targetRow < endRow && column <= targetColumn && targetColumn < endColumn;

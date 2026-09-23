@@ -209,6 +209,30 @@ memoryos-ci ALL=(root) NOPASSWD: /usr/bin/bash /apps/memoryos/incoming/*/deploy.
 
 **Values that only fail on the server.** `MEMORYOS_KEYCLOAK_HOSTNAME` is required precisely because a default would silently authenticate one environment against another's realm. `MEMORYOS_SEARCH_REPLICAS` must be `0` on a single data node, or every replica shard stays unassigned and the OpenSearch health check, which waits for a green cluster, never passes.
 
+### Serving node
+
+`hn-fci-k8s-aioffice-serving` (172.24.244.79, 8 vCPU, 15 GiB, RTX 4090 24 GB) has no public address; reach it with `ProxyJump` through the application node. It holds the off-host backups and is where GPU services run ([MEM-192](../increments/active/mem-192-ocr-gpu/design.md), [MEM-135](../increments/active/mem-135-embedding-settings/design.md)). Prepared on 2026-09-23:
+
+* **Firmware.** Legacy BIOS boot, so there is no Secure Boot and no module signing step.
+* **Driver.** `ubuntu-drivers install --gpgpu nvidia:580-server-open` plus `nvidia-utils-580-server`: driver 580.178.04, CUDA 13.0, prebuilt modules for kernel `6.8.0-142-generic`, no DKMS. The driver packages **and** `linux-generic`, `linux-image-generic` and `linux-headers-generic` are held. Holding only the driver lets unattended-upgrades install a kernel with no matching module, and the GPU disappears at the next reboot. Upgrade both together by hand: release the holds, upgrade, reboot, confirm `nvidia-smi`, hold again.
+* **Containers.** Docker 29.8.1 and Compose v5.5.1 from Docker's repository, and NVIDIA Container Toolkit 1.20.1 configured with `nvidia-ctk runtime configure --runtime=docker`. `/etc/docker/daemon.json` also sets `"ip": "127.0.0.1"`, so a port published without an address binds to loopback, and caps `json-file` logs at 50 MB × 5. A service meant for the application node must publish on `172.24.244.79:<port>` explicitly.
+* **Firewall.** `ufw` denies incoming by default and allows only 22/tcp from `172.24.244.120`, which carries both the jump host and the backup account. Open a service port for that address only; `ufw` cannot filter a port Docker publishes, so the bind address remains the real boundary.
+* **Backups.** `memoryos-backup` accepts writes through `rrsync -wo /srv/memoryos-backups`; the application node sends at 02:10 and `memoryos-backup-prune.timer` runs here at 05:00. Reboot outside that window, and after any SSH or firewall change confirm that the backup key still authenticates.
+* **Open.** `PasswordAuthentication` and `PermitRootLogin` are still `yes`; disabling them was deferred on 2026-09-23.
+
+**Rollout.** The production deployment rolls this node out before the application node, because the worker it is about to start reads scanned documents through it. The step connects with `ProxyJump` through the application node, copies the release bundle and `deploy-serving.sh` to `/apps/memoryos-serving/incoming/<release>/`, and runs that script under one sudo rule. The script checks the bundle, installs and restarts `memoryos-serving-firewall.service` **before** any port is published, then pulls the digest-pinned images and runs `docker compose up --wait` on `compose.serving.yaml`. A release without `deploy-serving.sh` skips the step. Nothing on this node is built by the release; the release only decides which configuration runs.
+
+What the node must already have, beyond the list above:
+
+| Item | Value |
+| --- | --- |
+| Tree | `/apps/memoryos-serving` and `/apps/memoryos-serving/incoming`, root-owned, `0755` |
+| Environment | `/apps/memoryos-serving/.env.serving`, root, `0600`, from [`serving.env.example`](../../infrastructure/deployment/serving.env.example); it holds no secret |
+| Deployment user | `memoryos-ci`, not in `docker`, key only, with `memoryos-ci ALL=(root) NOPASSWD: /usr/bin/bash /apps/memoryos-serving/incoming/*/deploy-serving.sh *` checked by `visudo -c` |
+| GitHub `production` environment | variables `PRODUCTION_SERVING_HOST` (`172.24.244.79`) and `PRODUCTION_SERVING_USER`, secret `PRODUCTION_SERVING_SSH_KEY` (its own key, not the application node's), and the node's host key appended to `PRODUCTION_KNOWN_HOSTS` under `172.24.244.79` |
+
+The jump is an SSH forward through the application node's deployment user, which needs no further rights there. The firewall reads `MEMORYOS_SERVING_ALLOWED_SOURCE` and `MEMORYOS_SERVING_PORTS` from the same environment file; after changing them, restart the unit and confirm that the application node still reaches the port and another address does not. On 2026-09-23 the rule admitted the application node (HTTP 200), refused it once another source was configured, and left one rule after two runs.
+
 ## Deploy and accept
 
 Start the first deployment after the implementation is merged and its main CI has published a release:

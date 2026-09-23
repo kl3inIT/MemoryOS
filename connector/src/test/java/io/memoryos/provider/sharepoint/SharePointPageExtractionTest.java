@@ -4,9 +4,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.connector.SourceInputFormat;
+import io.memoryos.document.application.StructuredDocumentChunker;
 import io.memoryos.ingestion.ExtractionException;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
@@ -29,11 +31,15 @@ class SharePointPageExtractionTest {
         assertTrue(content.normalizedText().contains("Giá trị 1"), "table cells reach the text");
         var canonical = mapper.readTree(content.structuredJson());
         var kinds = canonical.path("blocks").valueStream().map(block -> block.path("kind").asString("")).toList();
-        assertTrue(kinds.contains("heading"));
-        assertTrue(kinds.contains("paragraph"));
-        assertEquals(2, kinds.stream().filter("listItem"::equals).count());
-        assertTrue(kinds.contains("table"));
-        assertEquals("Trang thử nghiệm", canonical.path("pageProperties").path("title").asString(""));
+        assertEquals("memoryos-extraction-v2", canonical.path("schema").asString());
+        assertEquals(List.of("HEADING", "HEADING", "PARAGRAPH", "LIST_ITEM", "LIST_ITEM", "TABLE"), kinds);
+        assertEquals("Trang thử nghiệm", canonical.at("/blocks/0/text").asString());
+        assertEquals(2, canonical.at("/blocks/1/headingLevel").asInt());
+        var chunks = new StructuredDocumentChunker(mapper).chunk(content.title(), content.structuredJson());
+        assertTrue(canonical.at("/blocks/5/table/cells/0/columnHeader").asBoolean(), "a row of th heads the columns");
+        assertTrue(chunks.stream().anyMatch(chunk -> chunk.content().endsWith("Cột A: Giá trị 1\nCột B: Giá trị 2")),
+                "table rows are labelled by the author's column headers");
+        assertTrue(chunks.getLast().content().contains("Section: Trang thử nghiệm > Báo cáo quý"));
     }
 
     @Test

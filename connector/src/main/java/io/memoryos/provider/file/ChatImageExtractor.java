@@ -2,6 +2,7 @@ package io.memoryos.provider.file;
 
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.DocumentContent;
+import io.memoryos.document.ExtractedDocument;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
 import io.memoryos.provider.StructuredContent;
@@ -39,7 +40,7 @@ final class ChatImageExtractor {
         }
         var output = new StructuredContent(mapper, SourceInputDescriptor.binary());
         String description = "Image attachment " + width + "x" + height + ". Visual content must be read by a vision-capable model, not inferred from this metadata.";
-        output.append(description); output.block("PARAGRAPH").put("text", description);
+        output.append(description); output.add(ExtractedDocument.Kind.PARAGRAPH, description);
         return output.finish(mediaType, filename, "chat-imageio");
     }
     private ChatImageExtractor() {}

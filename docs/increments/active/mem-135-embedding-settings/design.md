@@ -91,7 +91,7 @@ Tài liệu mới hoặc vừa thay đổi trong lúc dựng được ghi vào *
 
 * **Model:** `Qwen/Qwen3-Embedding-0.6B`, 1024 chiều, giấy phép Apache-2.0. Tiền tố câu hỏi: `Instruct: Given a question, retrieve passages that answer it\nQuery: `. Tài liệu không có tiền tố.
 * **Dịch vụ:** Hugging Face Text Embeddings Inference (TEI), bản CUDA, ghim theo digest. TEI nhẹ và không giữ trước toàn bộ VRAM như vLLM. Nó có API OpenAI-compatible `/v1/embeddings` và hỗ trợ `--api-key`.
-* **Nơi chạy:** GPU RTX 4090 của node `serving`, dùng chung với Docling GPU sau này. Chỉ mở trên mạng riêng tới node `application`.
+* **Nơi chạy:** GPU RTX 4090 của node `serving`, dùng chung với OCR của [MEM-192](../mem-192-ocr-gpu/design.md) qua một file `compose.serving.yaml`. Chỉ mở trên mạng riêng tới node `application`.
 * **Lên 4B sau này:** đổi trên trang quản trị, cùng TEI; không cần release.
 
 ## Phạm vi
@@ -111,7 +111,7 @@ Tài liệu mới hoặc vừa thay đổi trong lúc dựng được ghi vào *
 * Chuyển tức thì (`INSTANT`).
 * Một model riêng cho từng Tenant.
 * Cổng dữ liệu ra ngoài (MEM-134): nhãn Nội bộ/Bên ngoài chỉ để hiển thị.
-* Docling GPU: dựng cùng node nhưng thuộc MEM-79/MEM-191.
+* Docling GPU và OCR: dựng cùng node nhưng thuộc [MEM-192](../mem-192-ocr-gpu/design.md).
 
 ## Điều kiện chấp nhận
 

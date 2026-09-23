@@ -1,6 +1,9 @@
 package io.memoryos.document.application;
 
 import io.memoryos.document.DocumentContent;
+import io.memoryos.document.ExtractedDocument;
+import io.memoryos.document.ExtractedDocument.Block;
+import io.memoryos.document.ExtractedDocument.Kind;
 import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.document.persistence.JdbcExtractionArtifactRepository;
 import io.memoryos.objectstorage.ObjectKey;
@@ -10,7 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
-import java.util.Map;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
@@ -31,8 +34,8 @@ public class DefaultExtractionArtifactService implements ExtractionArtifactPort 
     @Override
     public DocumentContent stage(TenantId tenantId, DocumentContent content) {
         String json = content.structuredJson().isEmpty()
-                ? mapper.writeValueAsString(Map.of("schema", "memoryos-extraction-v1", "blocks",
-                    java.util.List.of(Map.of("kind", "PARAGRAPH", "text", content.normalizedText(), "index", 0))))
+                ? mapper.writeValueAsString(new ExtractedDocument(ExtractedDocument.SCHEMA, null,
+                    List.of(Block.text(0, Kind.PARAGRAPH, content.normalizedText(), List.of())), List.of(), null, null))
                 : content.structuredJson();
         byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
         if (bytes.length == 0 || bytes.length > 33_554_432) throw new IllegalArgumentException("artifact exceeds limit");

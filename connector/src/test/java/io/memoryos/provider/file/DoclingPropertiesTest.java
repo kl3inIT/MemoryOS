@@ -27,7 +27,7 @@ class DoclingPropertiesTest {
         assertTrue(bound.forceOcr());
         assertEquals("test-private-key", bound.apiKey());
         assertFalse(bound.toString().contains(bound.apiKey()));
-        assertFalse(bound.parserConfiguration(262_144_000).contains(bound.apiKey()));
+        assertFalse(bound.parserConfiguration(262_144_000, true).contains(bound.apiKey()));
         assertThrows(IllegalArgumentException.class,
                 () -> new DoclingProperties(null, null, null, 0, null, null, false, "injected\r\nheader"));
     }
@@ -65,13 +65,13 @@ class DoclingPropertiesTest {
     void callerCannotMutateEffectiveLanguagesOrParserFingerprint() {
         var languages = new ArrayList<>(List.of("vie", "eng"));
         var properties = new DoclingProperties(null, null, null, 200, OcrEngine.TESSERACT, languages, false, null);
-        var fingerprint = properties.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES);
+        var fingerprint = properties.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES, true);
 
         languages.set(0, "deu");
         languages.add("fra");
 
         assertEquals(List.of("vie", "eng"), properties.ocrLanguages());
-        assertEquals(fingerprint, properties.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES));
+        assertEquals(fingerprint, properties.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES, true));
     }
 
     @Test
@@ -84,14 +84,14 @@ class DoclingPropertiesTest {
 
         for (var properties : List.of(original, rotated)) {
             assertFalse(properties.toString().contains(properties.apiKey()));
-            assertFalse(properties.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES).contains(properties.apiKey()));
-            assertFalse(properties.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES).contains(properties.endpoint().toString()));
-            assertFalse(properties.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES).contains(properties.endpoint().getHost()));
+            assertFalse(properties.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES, true).contains(properties.apiKey()));
+            assertFalse(properties.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES, true).contains(properties.endpoint().toString()));
+            assertFalse(properties.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES, true).contains(properties.endpoint().getHost()));
         }
-        assertEquals(original.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES),
-                rotated.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES));
-        assertEquals(original.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES),
-                unauthenticated.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES));
+        assertEquals(original.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES, true),
+                rotated.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES, true));
+        assertEquals(original.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES, true),
+                unauthenticated.parserConfiguration(ObjectUploadSpecification.MAX_SIZE_BYTES, true));
     }
 
     @Test

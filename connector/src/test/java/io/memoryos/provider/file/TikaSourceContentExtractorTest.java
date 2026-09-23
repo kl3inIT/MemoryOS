@@ -61,7 +61,7 @@ class TikaSourceContentExtractorTest {
             assertTrue(result.normalizedText().contains("Private note"));
             assertTrue(result.normalizedText().contains("Body text"));
             org.junit.jupiter.api.Assertions.assertFalse(result.normalizedText().contains("secretScript"));
-            assertTrue(result.structuredJson().contains("memoryos-extraction-v1"));
+            assertTrue(result.structuredJson().contains("memoryos-extraction-v2"));
         }
         try (var extractor = new TikaSourceContentExtractor(Duration.ofMillis(1))) {
             assertEquals(ExtractionFailure.TIMEOUT, assertThrows(ExtractionException.class,

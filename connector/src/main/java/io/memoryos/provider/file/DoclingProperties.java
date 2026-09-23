@@ -27,7 +27,7 @@ public record DoclingProperties(URI endpoint, String engineRevision, Duration ti
         }
         endpoint = endpoint == null ? URI.create("http://localhost:5001") : endpoint;
         engineRevision = engineRevision == null
-                ? "sha256:576fc2074ac77bcfbf3fe27633aa0dd89b452a170b2cd31689c8751e94d60f7a" : engineRevision;
+                ? "sha256:0525640504db7ed8a53e0e443882727888f6a3746948b1b7a8820efe95567bd3" : engineRevision;
         timeout = timeout == null ? Duration.ofMinutes(5) : timeout;
         maxPages = maxPages == 0 ? 200 : maxPages;
         ocrEngine = ocrEngine == null ? OcrEngine.EASYOCR : ocrEngine;
@@ -61,18 +61,23 @@ public record DoclingProperties(URI endpoint, String engineRevision, Duration ti
         this(endpoint, engineRevision, timeout, maxPages, null, null, false, null);
     }
 
-    ConvertDocumentOptions options() {
-        return ConvertDocumentOptions.builder().toFormat(OutputFormat.JSON)
-                .doOcr(true).forceOcr(forceOcr).ocrEngine(ocrEngine).ocrLang(ocrLanguages)
-                .doTableStructure(true).tableMode(TableFormerMode.ACCURATE)
+    /**
+     * @param ocr false when PaddleOCR-VL reads the scans: Docling then reads text layers only, and
+     *            the configured engine, languages and force flag are not sent as if they applied
+     */
+    ConvertDocumentOptions options(boolean ocr) {
+        var options = ConvertDocumentOptions.builder().toFormat(OutputFormat.JSON).doOcr(ocr);
+        if (ocr) options.forceOcr(forceOcr).ocrEngine(ocrEngine).ocrLang(ocrLanguages);
+        return options.doTableStructure(true).tableMode(TableFormerMode.ACCURATE)
                 .includeImages(true).imageExportMode(ImageRefMode.EMBEDDED)
                 .documentTimeout(timeout).abortOnError(false).build();
     }
 
-    String parserConfiguration(long maxInput) {
+    String parserConfiguration(long maxInput, boolean ocr) {
         return "memoryos-extraction-v2;docling-java=0.6.5;engine=" + engineRevision
-                + ";ocr=" + ocrEngine.name().toLowerCase(Locale.ROOT) + ":" + String.join(",", ocrLanguages)
-                + ";force=" + forceOcr + ";tables=accurate;images=embedded;maxPages=" + maxPages
+                + (ocr ? ";ocr=" + ocrEngine.name().toLowerCase(Locale.ROOT) + ":" + String.join(",", ocrLanguages)
+                        + ";force=" + forceOcr : ";ocr=none")
+                + ";tables=accurate;images=embedded;maxPages=" + maxPages
                 + ";timeoutSeconds=" + timeout.toSeconds() + ";maxInput=" + maxInput
                 + ";maxOutput=33554432;native=tika-4.0.0"
                 + ";tableText=sparse-offsets-v1;financialChecks=cash-flow-income-v2";

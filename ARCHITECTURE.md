@@ -24,6 +24,7 @@ flowchart LR
     WORKER --> PG
     WORKER --> S3
     WORKER --> DOC[Docling Serve]
+    WORKER --> PVL[PaddleOCR-VL]
     WORKER --> OS
 ```
 
@@ -38,7 +39,8 @@ The API and worker are separate deployables. The API owns HTTP, browser sessions
 | Redis Streams for work delivery | Consumer groups, acknowledgement and pending-message recovery fit independent API and worker processes | Delivery is at least once; consumers must tolerate redelivery and acknowledge only after durable commit |
 | Object storage for bytes and artifacts | Large immutable inputs and extraction results do not belong in request bodies or relational rows | PostgreSQL retains metadata, ownership, checksums and lifecycle fences |
 | OpenSearch as a projection | Hybrid text/vector retrieval needs an index optimized for ranking | Index contents never grant access; reads remain Tenant and Source scoped |
-| Docling out of process | Parsing and OCR have a different dependency, resource and failure profile from the JVM | Calls are bounded and retryable; parser failure does not take down the API |
+| Parsers out of process | Parsing and OCR have a different dependency, resource and failure profile from the JVM | Calls are bounded; a parser failure fails the attempt without taking down the API or worker |
+| One Document for every parser | Readers should not learn each provider's output | Every adapter writes the typed `memoryos-extraction-v2` Document; stored v1 artifacts are upgraded on read ([Document](docs/specs/document.md)) |
 | Keycloak for identity, MemoryOS for authorization | External identity and local Tenant/Group/capability policy change independently | Every protected operation resolves current MemoryOS authority |
 
 Redis Streams is not an event-sourcing log and does not own operation status. PostgreSQL records eligible work before dispatch, the relay publishes stable identifiers, and workers reload and token-claim the authoritative row. Lost or duplicated delivery is recovered through durable rediscovery, leases and idempotent completion.
@@ -155,6 +157,8 @@ Provider-backed indexing uses one common claim, extraction, publication and run-
 Google SOURCE_SYNC also records bounded, fully paginated permission observations under Tenant/Source/provider-file identity before the unchanged-content shortcut. `JdbcGoogleDriveAclRepository` owns atomic snapshot replacement and lifecycle-aware reads; failure retains prior complete evidence with distinct attempt status. ACL data can precede a Document and is not an effective-read grant. Binary metadata-version changes with identical verified bytes retain the immutable content version and do not enqueue extraction; the current version's provider version is refreshed in place, so the next traversal treats the file as unchanged. See the [ACL handoff contract](docs/specs/connector.md#google-drive-acl-observations--mem-88).
 
 Collected permissions are consumed server-side only through `GoogleDriveAclReader.readByDocument` and the `GoogleDriveAclChanged` event; no HTTP endpoint or UI displays them. The web Source detail uses a shared synchronization summary above Content, Sync history and Connection/settings tabs. Sync history shows per-run outcomes and counts, with bounded errors in a separate selected-run dialog.
+
+Extraction routes by content, not by file name. A PDF whose text layer is too thin to be anything but a scan, and an image, go to PaddleOCR-VL when the deployment configures it: layout detection and reading order, then a 0.9B vision-language model reading each block, on the production serving node's GPU. Other PDFs, DOCX and PPTX go to Docling, which then reads text layers only; without PaddleOCR-VL, Docling keeps its own OCR. Each adapter maps its provider's output onto the one Document, and a PaddleOCR-VL failure is final for the attempt rather than a silent fall back to a weaker reader ([Ingestion](docs/specs/ingestion.md), [MEM-192](docs/increments/active/mem-192-ocr-gpu/design.md)).
 
 The standalone OCR image owns a thin Serve composition and PDF backend/pipeline extensions for conservative pre-layout orientation. Worker retains its byte-only API boundary; its bounded adapter preserves raw document JSON and source-frame metadata rather than routing it through the SDK's closed document model. The [OCR recipe](infrastructure/deployment/ocr/README.md) and [Document contract](docs/specs/document.md) distinguish corrected coordinates, original provenance and unresolved financial periods. Image publication and deployment remain separate operational decisions.
 FILE and Drive binary admission is bounded at 100 MiB; native snapshots retain their separate 32 MiB bound. Admission, parser/OCR completion, financial fidelity and Search readiness are separate acceptance claims; the [Ingestion contract](docs/specs/ingestion.md) owns parser budgets and current OCR limits.
@@ -276,11 +280,12 @@ flowchart TB
     WORKER --> REDIS[(Redis)]
     WORKER --> MINIO
     WORKER --> DOCLING[Docling]
+    WORKER --> PADDLE[PaddleOCR-VL on the serving node]
     API --> OTEL[OTel collector]
     WORKER --> OTEL
 ```
 
-Base Compose owns PostgreSQL, MinIO, Keycloak, Redis-dependent application services, API, worker and web. Staging adds protected inspection and observability surfaces; production exposes none of them. API and worker images remain distinct, use bounded resources and report readiness for their owned dependencies. Exact deployment, recovery and evidence boundaries are in the [CI/CD runbook](docs/runbooks/ci-cd.md) and [delivery matrix](docs/tests/delivery.md).
+Base Compose owns PostgreSQL, MinIO, Keycloak, Redis-dependent application services, API, worker and web. Production's GPU services run on a second node from `compose.serving.yaml`, published on its private address and admitted to the application node alone by a `DOCKER-USER` rule; the production deployment rolls that node out first. Staging adds protected inspection and observability surfaces; production exposes none of them. API and worker images remain distinct, use bounded resources and report readiness for their owned dependencies. Exact deployment, recovery and evidence boundaries are in the [CI/CD runbook](docs/runbooks/ci-cd.md) and [delivery matrix](docs/tests/delivery.md).
 
 The deployment is an explicit overlay contract. `compose.base.yaml` owns PostgreSQL, private MinIO with a durable volume, one-shot bucket/policy/sentinel bootstrap, shared Keycloak, API, worker, and web. The Keycloak service receives the versioned MemoryOS theme through one read-only repository bind mount; production theme and template caches stay enabled. MinIO receives distinct least-privilege API and worker identities from mounted secret files; its browser CORS allowlist and the web `connect-src` are configured to exact origins. The API signs against a browser-reachable endpoint but inspects through the internal service endpoint. `compose.staging.yaml` adds Mailpit, TLS Redis, read-only PostgreSQL/Redis inspectors, native MinIO Console OIDC, and file-backed inspection secrets. pgweb and Redis Insight remain behind separate OAuth2 Proxies on loopback ports `18026` and `18027`; MinIO's container-only port `9001` is reached through a dedicated HTTPS proxy host and receives no host binding. `compose.production.yaml` adds production profiles and no inspection exposure or MinIO OIDC configuration. API and worker remain separate image targets; worker starts after API and Redis health, exposes datasource/Redis/db-scheduler/object-storage readiness internally, and runs with bounded resources and shutdown.
 

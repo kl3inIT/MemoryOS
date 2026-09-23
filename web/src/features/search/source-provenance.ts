@@ -16,13 +16,14 @@ export type SourceLocation = {
 const MAX_BOXES = 60;
 
 /**
- * Reads the location recorded in chunk provenance. The JSON is written by each extraction route
- * (Docling `prov` items with `page_no`/`bbox`, spreadsheet `sheetName`, table rows wrapping the block
- * provenance in `source` with their `tableRow`), so every field is optional and malformed input yields no location.
+ * Reads the location recorded in chunk provenance. The JSON holds the MemoryOS Document locations every
+ * extraction adapter writes (`page_no`/`bbox` on PDFs, `sheetName` on workbooks, table rows wrapping the
+ * block location in `source` with their `tableRow`); a block has one location object or a list of them, so
+ * every field is optional and malformed input yields no location.
  *
- * A region is read once however many passages record it. Every row of a Docling table wraps that table's
- * own box, so a cited table returns the same region for each of its rows; drawing it once per row stacks
- * dozens of translucent highlights into a solid block that hides the page it is meant to point at.
+ * A region is read once however many passages record it. Every row of a table wraps that table's own box,
+ * so a cited table returns the same region for each of its rows; drawing it once per row stacks dozens of
+ * translucent highlights into a solid block that hides the page it is meant to point at.
  */
 export function readSourceLocation(provenanceJson: readonly string[]): SourceLocation {
   const pages = new Set<number>();

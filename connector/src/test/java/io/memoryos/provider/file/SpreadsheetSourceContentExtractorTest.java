@@ -109,11 +109,11 @@ class SpreadsheetSourceContentExtractorTest {
         assertEquals(2, table.path("columnCount").asInt());
         assertEquals("multi\nline", table.path("cells").get(2).path("text").asString());
         assertEquals("a,\"b\"", table.path("cells").get(3).path("text").asString());
-        assertEquals("=1+1", table.path("cells").get(5).path("value").asString());
+        assertEquals("=1+1", table.path("cells").get(5).path("text").asString());
     }
 
     @Test
-    void xlsxRetainsZeroFalseSparseCoordinatesMergeAndCachedFormulaWithoutEvaluation() throws Exception {
+    void xlsxRetainsZeroFalseSparseCoordinatesAndCachedFormulaValueWithoutTheFormula() throws Exception {
         byte[] bytes;
         try (var workbook = new XSSFWorkbook(); var out = new ByteArrayOutputStream()) {
             var sheet = workbook.createSheet("Data");
@@ -133,11 +133,14 @@ class SpreadsheetSourceContentExtractorTest {
         var cells = blocks.get(0).path("table").path("cells");
         assertEquals("0", cells.get(0).path("text").asString());
         assertEquals("false", cells.get(1).path("text").asString());
-        assertEquals("1+1", cells.get(2).path("formula").asString());
         assertEquals("127", cells.get(2).path("text").asString());
-        assertEquals("C3", cells.get(2).path("address").asString());
-        assertEquals("A2:B2", blocks.get(0).path("table").path("merges").get(0).path("range").asString());
-        assertEquals("HIDDEN", blocks.get(1).path("provenance").path("visibility").asString());
+        assertEquals(2, cells.get(2).path("row").asInt());
+        assertEquals(2, cells.get(2).path("column").asInt());
+        assertFalse(result.structuredJson().contains("1+1"), "a formula is never stored or evaluated");
+        assertEquals("Data", blocks.get(0).path("sheetName").asString());
+        assertEquals(3, blocks.get(0).path("table").path("rowCount").asInt());
+        assertEquals(mapper.readTree("""
+                [{"sheetIndex":1,"sheetName":"Hidden","visibility":"HIDDEN"}]"""), blocks.get(1).path("locations"));
     }
 
     @Test
