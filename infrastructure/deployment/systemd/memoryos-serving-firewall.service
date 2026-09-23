@@ -1,0 +1,18 @@
+# Admits only the application node to the ports compose.serving.yaml publishes; see
+# serving-firewall.sh. It runs after Docker starts because Docker creates the chains it rewrites,
+# and again whenever Docker restarts. The allowed address and ports come from the serving node's
+# environment file, the same one Compose reads. See docs/runbooks/ci-cd.md#serving-node.
+[Unit]
+Description=Restrict MemoryOS serving ports to the application node
+After=docker.service
+Requires=docker.service
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/apps/memoryos-serving/.env.serving
+ExecStart=/bin/sh -c 'exec /usr/local/sbin/memoryos-serving-firewall "$MEMORYOS_SERVING_ALLOWED_SOURCE" $MEMORYOS_SERVING_PORTS'
+
+[Install]
+WantedBy=docker.service

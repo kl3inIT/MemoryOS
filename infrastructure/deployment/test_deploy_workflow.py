@@ -57,10 +57,8 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
             self.assertIn("cancel-in-progress: false", caller)
 
     def test_manual_finish_keeps_exact_selection_and_server_ownership_guard(self):
-        rollout_id = WORKFLOW.index("id: rollout")
-        rollout_start = WORKFLOW.rfind("- name:", 0, rollout_id)
-        recovery_start = WORKFLOW.rfind("- name:", 0, rollout_start)
-        recovery = WORKFLOW[recovery_start:rollout_start]
+        recovery_start = WORKFLOW.index("- name: Finish only the explicitly selected healthy recovery")
+        recovery = WORKFLOW[recovery_start:WORKFLOW.index("- name:", recovery_start + 1)]
         self.assertIn("inputs.recovery_release != ''", recovery)
         self.assertIn('[[ "$RECOVERY_RELEASE" =~ ^[0-9a-f]{40}', recovery)
         self.assertIn("finish '$RECOVERY_RELEASE'", recovery)
@@ -183,12 +181,23 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn("\numask 077\n", SCRIPT)
         self.assertNotRegex(SCRIPT, r"chmod[^\n]*(\.env|\.dump|pending|current)")
 
-    def test_release_contract_has_no_model_serving(self):
-        # Managed model serving was removed until a qualified environment exists (MEM-77).
+    def test_only_production_rolls_out_the_serving_node(self):
+        # The serving node (MEM-192) holds production's GPU services. Staging has none, the release
+        # builds nothing for it, and the application host's script never reaches it.
         publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
         for text in (WORKFLOW, publish, SCRIPT):
-            self.assertNotIn("serving", text)
             self.assertNotIn("inference", text)
+        for text in (publish, SCRIPT):
+            self.assertNotIn("serving", text)
+        start = WORKFLOW.index("- name: Roll out the serving node")
+        step = WORKFLOW[start:WORKFLOW.index("- name:", start + 1)]
+        self.assertIn("inputs.environment == 'production'", step)
+        self.assertIn("ProxyJump deploy-target", step)
+        self.assertIn("StrictHostKeyChecking yes", step)
+        self.assertLess(start, WORKFLOW.index("id: rollout"), "the worker starts against a serving node already rolled out")
+        # The step's own leading comment belongs to it.
+        outside = WORKFLOW[:WORKFLOW.rfind("\n\n", 0, start)] + WORKFLOW[WORKFLOW.index("- name:", start + 1):]
+        self.assertEqual(["serving-key"], sorted(set(re.findall(r"serving[\w-]*", outside))))
         self.assertIn("sha256sum configuration.tar images.env > SHA256SUMS", publish)
         self.assertIn("{manifest.json,configuration.tar,images.env,SHA256SUMS}", SCRIPT)
 

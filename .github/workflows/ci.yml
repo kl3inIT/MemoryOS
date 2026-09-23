@@ -122,7 +122,10 @@ jobs:
         run: |
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           bash -n infrastructure/deployment/deploy.sh
-          shellcheck -x infrastructure/deployment/deploy.sh api/src/main/docker/application-launcher.sh api/src/main/docker/api-entrypoint.sh             infrastructure/keycloak/smoke-test-image.sh
+          bash -n infrastructure/deployment/deploy-serving.sh
+          sh -n infrastructure/deployment/serving-firewall.sh
+          shellcheck -x infrastructure/deployment/deploy.sh api/src/main/docker/application-launcher.sh api/src/main/docker/api-entrypoint.sh             infrastructure/keycloak/smoke-test-image.sh \
+            infrastructure/deployment/deploy-serving.sh infrastructure/deployment/serving-firewall.sh
 
       - name: Verify deployment and monitoring configuration
         # Interpolation-only values; this step never starts application services.
@@ -151,6 +154,8 @@ jobs:
             -f infrastructure/deployment/compose.base.yaml \
             -f infrastructure/deployment/compose.production.yaml \
             -f infrastructure/deployment/compose.search.production.yaml config --quiet
+          docker compose --env-file infrastructure/deployment/serving.env.example \
+            -f infrastructure/deployment/compose.serving.yaml config --quiet
           docker compose --env-file infrastructure/observability/observability.env.example \
             -f infrastructure/observability/compose.observability.yaml config --quiet
           docker run --rm --network none --entrypoint promtool \

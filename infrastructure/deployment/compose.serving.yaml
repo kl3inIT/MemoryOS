@@ -1,0 +1,104 @@
+name: memoryos-serving
+
+# The GPU services of the serving node (hn-fci-k8s-aioffice-serving). Only the application node
+# calls them, and nothing here authenticates a caller: PaddleX serving has no API key. The boundary
+# is the network. A port is published on the node's private address only, and the
+# memoryos-serving-firewall unit admits the application node alone in DOCKER-USER, because ufw
+# cannot filter a port Docker publishes. See docs/increments/active/mem-192-ocr-gpu/design.md.
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  init: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "5"
+
+x-gpu: &gpu
+  devices:
+    - driver: nvidia
+      device_ids: ["0"]
+      capabilities: [gpu]
+
+services:
+  # The recognition half of PaddleOCR-VL: vLLM serving the 0.9B model that ships inside the image.
+  # It publishes no port; only the layout API reaches it, over this project's network.
+  paddleocr-vlm-server:
+    image: ${MEMORYOS_PADDLEOCR_VLM_IMAGE:-ccr-2vdh3abv-pub.cnc.bj.baidubce.com/paddlepaddle/paddleocr-genai-vllm-server:latest-nvidia-gpu-offline@sha256:d0d32c04a2119613d25a0a4c292e165ccc107954b74580613cf59e378037f8f5}
+    <<: *service-defaults
+    command:
+      - paddleocr
+      - genai_server
+      - --model_name
+      - PaddleOCR-VL-1.6-0.9B
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --backend
+      - vllm
+      - --backend_config
+      - /config/vlm.yaml
+    configs:
+      - source: paddleocr-vlm
+        target: /config/vlm.yaml
+    # The image's own vLLM keeps a multimodal processor cache in RAM that the vLLM recipe turns
+    # off. With it on, a 72-page report pushed the container into sustained memory stalls at a
+    # 6 GiB limit; with it off the same run used 2.7 GB of anonymous memory.
+    shm_size: 2g
+    deploy:
+      resources:
+        limits:
+          memory: ${MEMORYOS_PADDLEOCR_VLM_MEMORY_LIMIT:-7g}
+        reservations: *gpu
+    healthcheck:
+      test: [CMD-SHELL, curl -f http://127.0.0.1:8080/health || exit 1]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 300s
+
+  # The layout half and the API the Worker calls: PP-DocLayoutV3 finds blocks and reading order,
+  # then sends each block to the recognition server named in the image's pipeline_config_vllm.yaml
+  # (http://paddleocr-vlm-server:8080/v1), which is why the service keeps that name.
+  paddleocr-vl-api:
+    image: ${MEMORYOS_PADDLEOCR_VL_IMAGE:-ccr-2vdh3abv-pub.cnc.bj.baidubce.com/paddlepaddle/paddleocr-vl:latest-nvidia-gpu-offline@sha256:6c735bdf9e758ffdd58ccc067db0c2d84e37e5e6a2cbd47156069d4d7ea5d709}
+    <<: *service-defaults
+    command:
+      - paddlex
+      - --serve
+      - --pipeline
+      - /home/paddleocr/pipeline_config_vllm.yaml
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+    depends_on:
+      paddleocr-vlm-server:
+        condition: service_healthy
+    ports:
+      - ${MEMORYOS_SERVING_PRIVATE_ADDRESS:?the serving node private address}:${MEMORYOS_PADDLEOCR_VL_PORT:-18080}:8080
+    shm_size: 2g
+    deploy:
+      resources:
+        limits:
+          memory: ${MEMORYOS_PADDLEOCR_VL_MEMORY_LIMIT:-4g}
+        reservations: *gpu
+    healthcheck:
+      test: [CMD-SHELL, curl -f http://127.0.0.1:8080/health || exit 1]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 120s
+
+configs:
+  paddleocr-vlm:
+    content: |
+      gpu-memory-utilization: ${MEMORYOS_PADDLEOCR_VLM_GPU_MEMORY_UTILIZATION:-0.35}
+      max-num-seqs: 32
+      mm-processor-cache-gb: 0

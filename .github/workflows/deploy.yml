@@ -156,6 +156,48 @@ jobs:
           ssh -F "$RUNNER_TEMP/deploy-ssh/config" deploy-target \
             "remote='/apps/memoryos/incoming/$RECOVERY_RELEASE'; script=\"\$remote/deploy.sh\"; [ -f \"\$script\" ] || script=\"\$remote/deploy-staging.sh\"; sudo -n bash \"\$script\" finish '$RECOVERY_RELEASE' '$DEPLOY_ENVIRONMENT'"
 
+      # Production's GPU services run on a second node with no public address, reached through the
+      # application node. They go first: the worker about to start reads documents through them.
+      # A release that predates the serving node carries no deploy-serving.sh and skips this step.
+      - name: Roll out the serving node
+        if: steps.release.outputs.ready == 'true' && inputs.environment == 'production'
+        env:
+          RELEASE: ${{ steps.release.outputs.release }}
+          SERVING_HOST: ${{ vars.PRODUCTION_SERVING_HOST }}
+          SERVING_USER: ${{ vars.PRODUCTION_SERVING_USER }}
+          SERVING_KEY: ${{ secrets.PRODUCTION_SERVING_SSH_KEY }}
+        run: |
+          script="$RUNNER_TEMP/release-config/infrastructure/deployment/deploy-serving.sh"
+          if [[ ! -f "$script" ]]; then
+            echo 'Release predates the serving node; nothing to roll out there.'
+            exit 0
+          fi
+          [[ "$SERVING_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]+$ ]]
+          [[ "$SERVING_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          test -n "$SERVING_KEY"
+          umask 077
+          printf '%s\n' "$SERVING_KEY" > "$RUNNER_TEMP/deploy-ssh/serving-key"
+          cat >> "$RUNNER_TEMP/deploy-ssh/config" <<EOF
+          Host serving-target
+            HostName $SERVING_HOST
+            User $SERVING_USER
+            ProxyJump deploy-target
+            IdentityFile $RUNNER_TEMP/deploy-ssh/serving-key
+            UserKnownHostsFile $RUNNER_TEMP/deploy-ssh/known_hosts
+            BatchMode yes
+            StrictHostKeyChecking yes
+            ConnectTimeout 15
+            ServerAliveInterval 15
+            ServerAliveCountMax 4
+          EOF
+          remote="/apps/memoryos-serving/incoming/$RELEASE"
+          ssh -F "$RUNNER_TEMP/deploy-ssh/config" serving-target "umask 077; mkdir '$remote'"
+          cp "$script" release/deploy-serving.sh
+          scp -F "$RUNNER_TEMP/deploy-ssh/config" release/{manifest.json,configuration.tar,images.env,SHA256SUMS,deploy-serving.sh} \
+            "serving-target:$remote/"
+          ssh -F "$RUNNER_TEMP/deploy-ssh/config" serving-target "sudo -n bash '$remote/deploy-serving.sh' '$RELEASE'"
+          rm release/deploy-serving.sh
+
       - name: Back up, migrate and wait for readiness
         id: rollout
         if: steps.release.outputs.ready == 'true'
@@ -200,4 +242,4 @@ jobs:
 
       - name: Remove ephemeral SSH credentials
         if: ${{ always() }}
-        run: rm -f -- "$RUNNER_TEMP/deploy-ssh/key" "$RUNNER_TEMP/deploy-ssh/known_hosts" "$RUNNER_TEMP/deploy-ssh/config"
+        run: rm -f -- "$RUNNER_TEMP/deploy-ssh/key" "$RUNNER_TEMP/deploy-ssh/serving-key" "$RUNNER_TEMP/deploy-ssh/known_hosts" "$RUNNER_TEMP/deploy-ssh/config"
