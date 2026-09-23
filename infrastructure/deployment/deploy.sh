@@ -68,14 +68,22 @@ compose() {
 }
 
 rollout() {
+  # --force-recreate because the next deployment's capture requires every release component to
+  # name one set of Compose files. Compose reuses a container whose service definition and image
+  # are unchanged, and a redeployment of the commit already running changes neither: the
+  # containers it leaves alone keep the previous release directory in their
+  # com.docker.compose.project.config_files label while the ones it does replace carry the new
+  # one, and the capture then reads that split as a mixed runtime and refuses to deploy at all.
+  # Recreating unconditionally costs a restart of components a release would otherwise leave up,
+  # which a release rollout already spends on the API and the worker.
   # Before the API, which signs people in through it.
   if has_keycloak "$tx/$target.env"; then
-    compose up -d --no-deps --pull never --wait --wait-timeout 240 keycloak
+    compose up -d --no-deps --force-recreate --pull never --wait --wait-timeout 240 keycloak
   fi
-  compose up -d --no-deps --pull never --wait --wait-timeout 240 api
-  compose up -d --no-deps --pull never --wait --wait-timeout 240 worker web
+  compose up -d --no-deps --force-recreate --pull never --wait --wait-timeout 240 api
+  compose up -d --no-deps --force-recreate --pull never --wait --wait-timeout 240 worker web
   if has_interpreter "$tx/$target.env"; then
-    compose up -d --no-deps --pull never --wait --wait-timeout 240 interpreter
+    compose up -d --no-deps --force-recreate --pull never --wait --wait-timeout 240 interpreter
   fi
 }
 
