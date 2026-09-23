@@ -154,6 +154,36 @@ sudo systemctl daemon-reload && sudo systemctl enable --now memoryos-prune-relea
 sudo /usr/local/sbin/memoryos-prune-release-images --dry-run
 ```
 
+**The reverse proxy is not part of a release.** It terminates TLS for every host on the node and
+must survive a deployment, a rollback and a teardown, so it lives in its own composition at
+`/apps/proxy/compose.yaml` and joins `proxy-network`. It publishes 80 and 443; its administration
+interface stays on `127.0.0.1:81` and is reached through a host it serves itself, because `ufw`
+cannot filter a port Docker publishes — Docker writes its own iptables rules and the bind address
+is the whole protection.
+
+Nginx Proxy Manager already sets the forwarding headers, `Host`, TLS 1.2/1.3, gzip,
+`server_tokens off`, 90-second proxy timeouts and a 2000 MiB body limit. Only what those do not
+cover is configured, and only on the host that needs it:
+
+| Host | Upstream | Configured beyond the defaults |
+| --- | --- | --- |
+| `app.vadan.app` | `memoryos-web:8080` | `proxy_read_timeout 300s`, matching `web/nginx.conf` for `/api`; `= /api/meeting-stream` at 5400s because a quiet room sends nothing for minutes; the voice stream at 660s. WebSocket on. |
+| `auth.vadan.app` | `memoryos-keycloak:8080` | nothing |
+| `objects.vadan.app` | `memoryos-minio:9000` | `proxy_request_buffering off`, so a 250 MiB attachment streams to the store instead of spooling to the proxy's disk |
+| `observability.vadan.app` | `memoryos-grafana:3000` | WebSocket on, for Grafana Live |
+| `proxy.vadan.app` | `127.0.0.1:81` | nothing |
+
+Response buffering is **not** disabled anywhere: the API sends `X-Accel-Buffering: no` on the
+responses it streams, which nginx honours per response, so disabling it per host would also
+disable it for static assets.
+
+Write those per-path timeouts in the host's own advanced configuration, never as a Proxy Manager
+custom location. A custom location names its upstream literally, so nginx resolves it while
+loading: with `memoryos-web` absent, during a deployment or before the first one, the
+configuration test fails and the whole host is disabled until somebody saves it again. The
+advanced configuration includes `conf.d/include/proxy.conf`, which passes through the proxy's own
+`$server` and `$port` and is resolved per request.
+
 The observability stack is a prerequisite, not a companion. The api and worker join
 `memoryos-telemetry`, which is declared external and owned by that stack, and they read
 `MEMORYOS_OTLP_BASE_URL` with no application default. A deployment onto a host where the stack has

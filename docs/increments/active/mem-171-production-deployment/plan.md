@@ -168,6 +168,46 @@ Không bắt đầu Phase 2 khi còn thiếu một trong số:
 
 Khoá Docling **không** nằm trong danh sách này: Docling tự chạy trong stack, khoá là chuỗi mình tự sinh đặt ở hai đầu, không phải thứ đi mua. Khoá model chat cũng không: credential provider nằm trong database, mã hoá bằng khoá catalog, cấu hình ở trang quản trị — chỉ embedding mới cần giá trị lúc triển khai.
 
+## Kết quả lần promote đầu tiên — 2026-09-22
+
+Release `e85d932f` chạy trên node `application`, đã finalize, không còn reservation. `api`, `worker`, `web`, `interpreter` đều healthy. `https://app.vadan.app` trả 200, và `/oauth2/authorization/memoryos` chuyển tới `https://auth.vadan.app/realms/memoryos/...` với client `memoryos-web`. Flyway chạy đủ 118 migration; Tenant `tasco` (`981656c4-…`) được tạo với đúng một thành viên là chủ sở hữu đầu tiên.
+
+Năm host qua Nginx Proxy Manager, mỗi host một chứng chỉ Let's Encrypt: `app`, `auth`, `objects`, `observability`, `proxy`. Cấu hình của chúng nằm trong [runbook CI/CD](../../../runbooks/ci-cd.md).
+
+Docling **không** chạy trên node này: nó sẽ là stack riêng. Cho tới lúc đó, PDF có lớp chữ, DOCX và PPTX vẫn vào được nhờ đường rơi về bộ đọc gốc ([MEM-191](https://linear.app/memory-os/issue/MEM-191)); PDF scan thì không.
+
+## Những gì chặn lần promote đầu, và vì sao
+
+Năm lần deploy production hỏng trước khi thành công. Không lần nào là lỗi ứng dụng; tất cả đều là giả định rằng môi trường đã tồn tại trước khi công cụ dựng nó.
+
+| Chặn ở đâu | Gốc rễ | Sửa ở |
+| --- | --- | --- |
+| `Unhealthy or mixed runtime` | script chụp lại runtime cũ để biết đường lùi; máy trống bị đọc thành máy hỏng | [#329](https://github.com/kl3inIT/MemoryOS/pull/329) |
+| `relation "flyway_schema_history" does not exist` | đọc bảng lịch sử trên database Flyway chưa từng chạy | [#329](https://github.com/kl3inIT/MemoryOS/pull/329) |
+| `pull access denied for minio/mc` | Docker Hub ngừng phục vụ ảnh đó; staging không biết vì đã cache từ lâu | [#330](https://github.com/kl3inIT/MemoryOS/pull/330) |
+| `Resource not found ... /admin/realms/memoryos` | script realm không tạo được realm chưa tồn tại | [#326](https://github.com/kl3inIT/MemoryOS/pull/326) |
+| `UnknownHostException: auth.vadan.app` | api và worker chỉ nằm trên mạng internal, không có đường ra và không có DNS | [#339](https://github.com/kl3inIT/MemoryOS/pull/339) |
+| `Could not resolve placeholder 'MEMORYOS_OTLP_BASE_URL'` | overlay production không khai biến mà ứng dụng bắt buộc | [#322](https://github.com/kl3inIT/MemoryOS/pull/322) |
+
+Ba thứ không ai ghi lại, và script không tự làm, nên đều làm hỏng một lần deploy trước khi được viết vào runbook: `vm.max_map_count` ở mức mặc định khiến OpenSearch từ chối khởi động; các dịch vụ nền (`redis`, `minio`, `opensearch`) phải được bật trước vì rollout dùng `--no-deps`; và cấu hình phân quyền Search phải được nạp một lần, nếu không node trả 503 mãi.
+
+## Đã làm sau lần promote đầu — 2026-09-23
+
+* **Sao lưu ngoài host** ([#346](https://github.com/kl3inIT/MemoryOS/pull/346)): mỗi đêm một bản mã hoá bằng `age`, gửi sang node `serving` qua tài khoản chỉ được ghi thêm. Lần khôi phục thử đầu tiên đã qua. Khoá giải mã không nằm trên server nào.
+* **Keycloak do release quản lý** ([#350](https://github.com/kl3inIT/MemoryOS/pull/350)): production chạy image `memoryos-keycloak`, theme `memoryos` nằm trong image. Không còn image hay alias của OrgMemory.
+* **Không còn bản copy tay trên server** ([#351](https://github.com/kl3inIT/MemoryOS/pull/351)): các dịch vụ nền đọc cấu hình từ release. `~/bootstrap` và `~/provisioning` đã xoá.
+* **Worker có timeout Redis riêng** ([#354](https://github.com/kl3inIT/MemoryOS/pull/354)): 5s, dài hơn lượt chờ 2s của nó. Trước đó mọi lượt chờ đều báo lỗi hết giờ.
+
+## Còn mở
+
+* Docling: chọn node và dựng thành stack riêng ([MEM-79](https://linear.app/memory-os/issue/MEM-79)).
+* Node `serving` chỉ mới nhận backup: có RTX 4090 nhưng chưa cài driver, chưa có Docker. Kế hoạch dựng embedding trên đó nằm ở [MEM-135](../mem-135-embedding-settings/plan.md).
+* Nơi sao lưu thứ hai ngoài nhà cung cấp này, và cảnh báo khi một đêm không có bản sao lưu.
+* Mật khẩu yếu trên ba bề mặt quản trị ([MEM-189](https://linear.app/memory-os/issue/MEM-189)).
+* Gia hạn chứng chỉ Search khi không có Dashboards ([MEM-190](https://linear.app/memory-os/issue/MEM-190)).
+* Model embedding theo từng index và trang quản trị để đổi model, trước khi có dữ liệu khách hàng thật ([MEM-135](../mem-135-embedding-settings/design.md)).
+* Phase 1.7: đóng chính sách schema giai đoạn đầu. Từ lúc này production giữ dữ liệu thật.
+
 ## Phase 2 — Lần promote đầu tiên
 
 1. Chọn một `ci_run_id` **đã chạy thành công trên staging**. Production không phải nơi thử một release lần đầu.
