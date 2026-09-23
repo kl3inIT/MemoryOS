@@ -827,6 +827,7 @@ export type ProjectInput = {
     description?: string;
     instructions?: string;
     fileIds?: Array<string>;
+    iconName?: string;
 };
 
 export type ProjectView = {
@@ -837,6 +838,7 @@ export type ProjectView = {
     revision?: number;
     updatedAt?: string;
     fileIds?: Array<string>;
+    iconName?: string;
 };
 
 export type ChatPreferencesInput = {

@@ -28,7 +28,7 @@ import { listChatPersonaPins } from "@/lib/hey-api/sdk.gen";
 import { usePinUpdates } from "@/features/agents/agent-pins";
 import { AgentAvatar } from "@/features/agents/agent-avatar";
 import { ChatSessionRow, CHAT_DRAG_TYPE } from "./chat-session-row";
-import { ProjectEditor } from "./chat-projects-page";
+import { ProjectEditor, ProjectIcon } from "./chat-projects-page";
 import {
   loadProjects,
   moveConversation,
@@ -426,9 +426,9 @@ function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?:
           params={{ projectId: project.id }}
           onClick={onNavigate}
           aria-current={selected ? "page" : undefined}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-2 text-sm outline-none"
         >
-          <Folder className="size-4 shrink-0 text-content-muted" />
+          <ProjectIcon iconName={project.iconName} className="size-4 shrink-0 text-content-muted" />
           <span className="truncate">{project.name}</span>
         </Link>
       </div>
