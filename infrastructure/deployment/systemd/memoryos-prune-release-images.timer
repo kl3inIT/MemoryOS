@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily removal of superseded MemoryOS release images
+
+[Timer]
+# Away from business hours, and randomised so two hosts never prune at the same moment.
+OnCalendar=*-*-* 03:20:00
+RandomizedDelaySec=20m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
