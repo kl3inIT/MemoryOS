@@ -181,6 +181,9 @@ jobs:
       - name: Verify staging deployment boundaries
         run: python3 -m unittest discover -s infrastructure/deployment -p 'test_*.py'
 
+      - name: Verify off-host backup and retention
+        run: python3 -m unittest discover -s infrastructure/backup -p 'test_*.py'
+
       - name: Upload backend test reports
         if: ${{ !cancelled() }}
         continue-on-error: true

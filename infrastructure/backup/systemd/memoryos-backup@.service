@@ -1,0 +1,12 @@
+# Nightly off-host backup of one environment on this host; see backup.sh. The instance name is the
+# environment: memoryos-backup@production.
+[Unit]
+Description=MemoryOS off-host backup (%i)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/memoryos-backup/backup.sh %i
+# A dump of a quiet database is minutes; this only stops a hung transfer from running forever.
+TimeoutStartSec=3h

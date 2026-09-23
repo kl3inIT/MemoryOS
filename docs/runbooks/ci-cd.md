@@ -102,6 +102,34 @@ remove `deployments/pending`. Do **not** take the stack down with its volumes: P
 Keycloak realm as well, and the migrations the failed attempt applied are carried by the next
 release too, so the next deployment's migration check passes against them.
 
+**Off-host backup.** Every night at 02:10 (UTC+7) `memoryos-backup@<environment>.timer` runs
+`infrastructure/backup/backup.sh`. One archive holds what the host could not rebuild on its own:
+both databases, dumped by `infrastructure/postgres/backup-databases.sh`, which proves each dump
+with `pg_restore --list`; the object store; the secrets directory and environment files; and the
+reverse proxy's state. The credential encryption keys travel with the database on purpose: rows
+restored without them are credentials nobody can decrypt. OpenSearch and Redis are left out — the
+index is rebuilt from PostgreSQL, and Redis holds only queues.
+
+The archive is compressed and encrypted with `age` to a public key before it leaves the host. The
+**private key is not on any server**: it is kept in the team's password manager, because a key
+that lived on the host would be lost with it. The archive is sent by rsync to
+`memoryos-backup@<target>:`, an account whose `authorized_keys` entry runs `rrsync -wo`, so the
+sending host can add a backup but cannot read, list or delete one. Retention runs on the target
+(`memoryos-backup-prune.timer`, 05:00): the newest 14 archives, plus the oldest of each of the
+last six months. The sending host keeps its newest three for a fast restore and writes
+`backups/last-success` only after every target has the archive.
+
+Prove a backup rather than assume one:
+
+```sh
+sudo /usr/local/lib/memoryos-backup/restore-drill.sh <archive.tar.zst.age> <age-identity-file>
+```
+
+It decrypts the archive, restores both databases into a throwaway container on no network,
+counts what came back, and checks that the encryption keys are present. Put the identity in
+`/dev/shm` for the drill and shred it afterwards. Configuration lives in
+`/etc/memoryos-backup.conf`; see `infrastructure/backup/backup.conf.example`.
+
 **Never run `docker image prune -a` on a deployment host.** The interpreter executor image is
 started only for a Python execution, so no container holds it between runs and prune deletes it;
 the interpreter then answers 503 and the next deployment refuses to replace a runtime it cannot
