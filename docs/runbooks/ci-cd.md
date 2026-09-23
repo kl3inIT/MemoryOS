@@ -88,6 +88,14 @@ do for itself, each of which stopped a first promotion before it was written dow
   because those services belong to the operator rather than to a release, so a deployment onto a
   host where they were never started brings up an api that cannot reach Redis and waits four
   minutes for a health check that will not go green — after the reservation is taken.
+
+  Those services mount their scripts and configuration from the release directory that started
+  them. `deploy.sh` therefore leaves the release's `source` tree readable, and everything else
+  in the transaction readable by root alone. **Removing a release directory** that a running
+  container still mounts leaves that container unable to start again. Before removing one, check
+  that no container's mounts name it:
+  `docker inspect --format '{{.Name}} {{range .Mounts}}{{.Source}} {{end}}' $(docker ps -aq) | grep <release>`.
+  When a later release changes one of their files, recreate that service from the current release.
 * **The Search security configuration loaded once**, with
   `--profile ops run --rm search-security-bootstrap`. With
   `plugins.security.allow_default_init_securityindex: false` the node answers 503 until
