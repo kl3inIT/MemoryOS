@@ -6,14 +6,10 @@ Thứ tự đi từ cái chặn production trước. Mỗi phase là một PR ri
 
 Làm song song với Phase B, vì hai phase không phụ thuộc nhau.
 
-1. **Chuẩn bị máy** (Ubuntu 24.04, RTX 4090, hiện trắng)
-   * `sudo ubuntu-drivers install --gpgpu` để cài bản driver server được khuyến nghị, rồi **reboot một lần**. Kiểm tra bằng `nvidia-smi`.
-   * Cài Docker Engine và Compose plugin từ repo Docker, giống node `application`.
-   * Cài `nvidia-container-toolkit`, chạy `nvidia-ctk runtime configure --runtime=docker`, khởi động lại Docker. Kiểm tra bằng `docker run --rm --gpus all <cuda-base> nvidia-smi`.
-   * `ufw`: chặn mặc định, chỉ mở SSH và cổng TEI cho địa chỉ riêng của node `application`. Docker tự ghi iptables, nên còn phải bind cổng vào **địa chỉ riêng**, không bind `0.0.0.0`.
+1. **Chuẩn bị máy**: xong ngày 2026-09-23, dùng chung với [MEM-192](../mem-192-ocr-gpu/plan.md). Driver, Docker, NVIDIA Container Toolkit và ufw ghi ở [runbook](../../../runbooks/ci-cd.md#serving-node). Cổng TEI được chain `DOCKER-USER` của MEM-192 giới hạn cho `172.24.244.120`; ufw không lọc được cổng Docker publish.
 
 2. **Dịch vụ embedding**
-   * Thư mục `/apps/memoryos-serving/`, gồm `compose.yaml` và `secrets/embedding-api-key.txt` (sinh ngẫu nhiên, 0600).
+   * TEI là một service trong `compose.serving.yaml` của repo, dùng chung với Docling GPU và vLLM OCR của MEM-192. API key là file `embedding-api-key.txt` sinh tại chỗ, mode 0600.
    * Tải trước `Qwen/Qwen3-Embedding-0.6B`, **ghim revision**, vào volume `/apps/memoryos-serving/models`. Container chạy `HF_HUB_OFFLINE=1`.
    * Container TEI bản CUDA, image ghim digest:
      * `--model-id /models/Qwen3-Embedding-0.6B`
@@ -29,7 +25,7 @@ Làm song song với Phase B, vì hai phase không phụ thuộc nhau.
      * đo nhanh độ trễ một lô 32 đoạn.
    * **Kiểm tra VRAM:** đo `nvidia-smi` khi chạy, dự kiến dưới 3 GB. Ghi lại để chừa chỗ cho Docling GPU.
 
-3. **Ghi lại:** thêm mục `serving` vào runbook CI/CD. Node này do người vận hành quản lý, không thuộc release.
+3. **Ghi lại:** số đo VRAM và RAM vào bảng ngân sách trong [design MEM-192](../mem-192-ocr-gpu/design.md#ngân-sách-node-serving). Dịch vụ trên `serving` được deploy bằng workflow production, không do người vận hành tự quản: image Docling do repo build nên phải đi qua release.
 
 ## Phase B — Bước 1: thế hệ cấu hình và khoá lệch (repo)
 
