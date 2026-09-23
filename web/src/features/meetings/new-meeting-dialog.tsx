@@ -150,7 +150,7 @@ export function NewMeetingDialog({
                 id={`${id}-title`}
                 value={title}
                 maxLength={200}
-                placeholder={ui("Ví dụ: Giao ban tuần")}
+                placeholder={ui("Giao ban tuần")}
                 onChange={(event) => setTitle(event.target.value)}
               />
             </div>
@@ -159,13 +159,9 @@ export function NewMeetingDialog({
               <Input
                 id={`${id}-participants`}
                 value={participants}
-                placeholder={ui("Anh Thanh, Chị Lan, Anh Minh")}
-                aria-describedby={`${id}-participants-hint`}
+                placeholder={ui("Tên người dự, cách nhau bằng dấu phẩy")}
                 onChange={(event) => setParticipants(event.target.value)}
               />
-              <p id={`${id}-participants-hint`} className="text-xs text-content-muted">
-                {ui("Cách nhau bằng dấu phẩy; dùng để gán tên người nói.")}
-              </p>
             </div>
             <MeetingShareField
               label={ui("Chia sẻ với")}
@@ -237,13 +233,9 @@ export function NewMeetingDialog({
               <Input
                 id={`${id}-terms`}
                 value={terms}
-                placeholder={ui("Tasco, OKR, KPI")}
-                aria-describedby={`${id}-terms-hint`}
+                placeholder={ui("Tên riêng, từ viết tắt, thuật ngữ")}
                 onChange={(event) => setTerms(event.target.value)}
               />
-              <p id={`${id}-terms-hint`} className="text-xs text-content-muted">
-                {ui("Giúp nhận dạng đúng tên riêng và từ chuyên ngành.")}
-              </p>
             </div>
             <div className="flex items-start gap-3 rounded-xl border border-border-subtle bg-surface-base p-3">
               <Checkbox

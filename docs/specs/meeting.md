@@ -47,6 +47,10 @@ Searching a transcript happens in the browser over what is already loaded; no ro
 
 Two marks belong to whoever left them, and nobody else sees them — a meeting five people read collects five sets. A **star** says a line matters and is left afterwards, while reading: `PUT` and `DELETE /api/meetings/{id}/utterances/{utteranceId}/star`, answered with the meeting as that reader sees it. A **bookmark** says to come back to a moment and is left during the meeting, when there is no line yet to star: `POST /api/meetings/{id}/bookmarks` takes milliseconds from the start of the recording and a label, numbering it `Đánh dấu N` when none is given, and `DELETE /api/meetings/{id}/bookmarks/{bookmarkId}` takes back one of the caller's own. At most 200 bookmarks per person per meeting, and a time outside the recording is refused. Anyone who reads the meeting may leave both; the meeting carries `starred` and `bookmarks` for the caller alone.
 
+## The timeline
+
+The same model call that writes the minutes also names the subjects the meeting moved through, each at the line it began on, stored as `TOPIC` items beside the decisions and the work and answered as `minutes.topics`. A topic on a line that does not exist, or on a line another topic already took, is dropped; the rest are kept in the order the meeting reached them, at most thirty. The transcript tab shows them as a table of contents, and choosing one scrolls to its line — every transcript line carries its utterance id as its element id, which is also what the quote beside each decision and action jumps to.
+
 ## Correcting the minutes
 
 The minutes are the owner's to correct: a model that misheard one conclusion costs one edit, not a rerun of the whole meeting. `PUT /api/meetings/{id}/minutes/summary` rewrites the summary; `PUT /api/meetings/{id}/minutes/items/{itemId}` rewrites one decision or one piece of work, its owner and its deadline. A decision belongs to the meeting rather than to a person, so giving one an owner or a deadline is refused. Only the owner reaches either — a reader of a shared meeting gets 404.
@@ -54,6 +58,12 @@ The minutes are the owner's to correct: a model that misheard one conclusion cos
 What the reader sees is the row, and the history is the events beside it: every change is a row in `meeting_minutes_event` carrying the field, who changed it, and what it said before, so the model's own words stay readable after they are replaced. `minutes.edited` and each item's `edited` say whether the words standing now are the owner's.
 
 Rerunning writes the whole minutes again, which throws that work away, so `POST /api/meetings/{id}/minutes` answers 409 once anything was corrected unless it is called with `discardEdits=true`. A rerun starts from the model's own words again and clears the flag.
+
+## Choosing the typeface
+
+The export dialog offers Times New Roman, Arial, Calibri and Tahoma, with Times New Roman first because Nghị định 30 asks for it and a company follows the decree by convention. Word only names the face and the reader's machine supplies it, so these are faces every office machine has; a name outside the list is set in Times New Roman. The face is named on every run, the letterhead and signature tables included, because not every reader honours the document default and a biên bản that changes typeface when somebody else opens it is not the one that was signed. Nothing is remembered between exports: the heading is typed for each biên bản.
+
+`POST /api/meetings/{id}/minutes/export?format=PDF` answers the same biên bản as a PDF. What a biên bản says lives in one layout both renderers read, so the Word file and the PDF can never say different things. A PDF has to carry its face, and the faces offered are licensed, so each is set in the open face drawn to the same metrics: Tinos for Times New Roman, Arimo for Arial and Tahoma, Carlito for Calibri, all under the SIL Open Font License and bundled under `core/src/main/resources/fonts` with their licences. Margins follow the decree — 30 mm left for binding, 15 mm right, 20 mm top and bottom — body text is justified, and the signature block never opens a page of its own: the closing paragraph moves over with it.
 
 ## Taking the transcript away
 
@@ -63,7 +73,7 @@ Both files are built from one list of lines, so they say exactly the same thing.
 
 ## Correcting what was misheard
 
-The owner asks a model what was probably said at each marked stretch: `POST /api/meetings/{id}/corrections` answers the run and its proposals, and changes nothing. Only the owner reaches any of this — a reader of a shared meeting gets 404 — and the call is billed to the owner's Tenant as `MEETING_CORRECTION`, a model flow an administrator selects like any other. One pass at a time per meeting; a second press while one is running answers 409.
+The owner asks a model what was probably said at each marked stretch: `POST /api/meetings/{id}/corrections` answers the run and its proposals, and changes nothing. Only the owner reaches any of this — a reader of a shared meeting gets 404 — and the call is billed to the owner's Tenant as `MEETING_CORRECTION`, a model flow an administrator selects like any other. One pass at a time per meeting; a second press while one is running answers 409. A pass keeps running on the server when the page that started it is closed, so the meeting says so itself — `correcting` is true while a pass holds it — and the page shows it running and keeps the button shut until it is done, whichever tab asks. The button names what it does: *Hiệu chỉnh N đoạn khó nghe*, counting the marked stretches on lines nobody has rewritten, and it is not offered when there are none.
 
 Neighbouring marks that read as one phrase are asked about together: joined when at most 5 characters and 8 words apart with no `.`, `!` or `?` between them. Each stretch is sent with 100 characters of context either side, the two lines before and after with the one being judged marked, the speaker, the meeting's terms, and the same words where they appear clearly elsewhere in the transcript. A line the owner has rewritten is never sent again.
 
@@ -74,6 +84,12 @@ A proposal carries the model's reason and three scores — is this what was said
 `meeting_utterance.text` is always what the reader sees. Every change to it is a row in `meeting_utterance_event` with its `before`, its `after`, who made it and which run it belonged to, so the words the provider first wrote stay recoverable. `edit_source` says who last changed a line (`MODEL`, `HUMAN`, or nothing at all) and is what locks a line the owner rewrote. Accepting shifts the line's remaining marks: one covering the replaced words is dropped, the rest move by the difference in length.
 
 Utterances are stored as they are committed, with their speaker row created on first use. Naming a speaker (`PUT /api/meetings/{id}/speakers/{track}/{label}`) applies to every utterance of that speaker; a blank name restores the automatic label.
+
+### The name a voice gave itself
+
+A meeting opens with people saying who they are, so the owner is offered what each unnamed voice called itself instead of typing it again. `SpeakerIntroductions` reads the transcript with rules only — no model runs and nothing is stored — and answers, per voice, the earliest line matching a self-introduction ("tôi/mình/em/anh/chị + (tên) (là) Name", "tên tôi là Name", "Name đây", "my name is Name"). A name is one to four capitalized words, cut at the first word that is a role or a continuing sentence rather than a name; the words around it are read whatever their case. Confidence is 0.9, or 0.97 when the name is on the meeting's participant list, compared without marks or case.
+
+Each offer carries the utterance it was read from and reaches the owner only, on `speakers[].suggestion`; a reader never sees one. Accepting is the ordinary rename. Dismissing (`DELETE /api/meetings/{id}/speakers/{track}/{label}/suggestion`, Flyway V122 `meeting_speaker.suggestion_dismissed`) keeps the automatic label and stops the offer for good. A voice that already has a name is never asked about, and nothing is renamed without the owner pressing.
 
 ## Uploading a recording
 

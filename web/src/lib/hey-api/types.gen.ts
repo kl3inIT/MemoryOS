@@ -197,6 +197,10 @@ export type MeetingDetail = {
      * Moments the caller marked while the meeting was running
      */
     bookmarks: Array<MeetingBookmark>;
+    /**
+     * Whether a correction pass is running on this meeting right now
+     */
+    correcting: boolean;
 };
 
 /**
@@ -217,6 +221,10 @@ export type MeetingMinutes = {
      * Whether the words standing now are the owner's rather than the model's
      */
     edited: boolean;
+    /**
+     * The subjects the meeting moved through, each at the line it began
+     */
+    topics: Array<MeetingMinutesItem>;
 };
 
 /**
@@ -252,6 +260,16 @@ export type MeetingSpeaker = {
     track: 'MIC' | 'TAB';
     label: string;
     name: string | null;
+    /**
+     * The name this voice gave itself, offered to the owner
+     */
+    suggestion?: MeetingSpeakerSuggestion;
+};
+
+export type MeetingSpeakerSuggestion = {
+    name: string;
+    utteranceId: string;
+    confidence: number;
 };
 
 export type MeetingUtterance = {
@@ -1487,6 +1505,10 @@ export type MeetingHeadingRequest = {
     secretary?: string;
     secretaryRole?: string;
     attendees?: Array<string>;
+    /**
+     * Times New Roman, Arial, Calibri or Tahoma; anything else is set in Times New Roman, which the decree asks for
+     */
+    font?: string;
 };
 
 /**
@@ -8343,7 +8365,9 @@ export type ExportMeetingMinutesData = {
     path: {
         meetingId: string;
     };
-    query?: never;
+    query?: {
+        format?: 'DOCX' | 'PDF';
+    };
     url: '/api/meetings/{meetingId}/minutes/export';
 };
 
@@ -16815,6 +16839,53 @@ export type ListAiCostBreakdownResponses = {
 };
 
 export type ListAiCostBreakdownResponse = ListAiCostBreakdownResponses[keyof ListAiCostBreakdownResponses];
+
+export type DismissMeetingSpeakerSuggestionData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        meetingId: string;
+        track: 'MIC' | 'TAB';
+        label: string;
+    };
+    query?: never;
+    url: '/api/meetings/{meetingId}/speakers/{track}/{label}/suggestion';
+};
+
+export type DismissMeetingSpeakerSuggestionErrors = {
+    /**
+     * Invalid meeting request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Chat access, Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Meeting or speaker not available
+     */
+    404: ApiProblem;
+};
+
+export type DismissMeetingSpeakerSuggestionError = DismissMeetingSpeakerSuggestionErrors[keyof DismissMeetingSpeakerSuggestionErrors];
+
+export type DismissMeetingSpeakerSuggestionResponses = {
+    /**
+     * The meeting
+     */
+    200: MeetingDetail;
+};
+
+export type DismissMeetingSpeakerSuggestionResponse = DismissMeetingSpeakerSuggestionResponses[keyof DismissMeetingSpeakerSuggestionResponses];
 
 export type RemoveMeetingBookmarkData = {
     body?: never;

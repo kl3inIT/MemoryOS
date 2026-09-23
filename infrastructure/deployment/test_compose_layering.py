@@ -97,5 +97,21 @@ class ComposeLayeringTest(unittest.TestCase):
         self.assertEqual(registries, {"quay.io/"}, "the client and the server disagree on a source")
 
 
+    def test_the_services_that_call_out_have_a_way_off_the_host(self):
+        """Production's first deployment stopped on UnknownHostException for its own issuer.
+
+        memoryos-internal and memoryos-telemetry are both internal networks: no route off the host
+        and no public DNS. The api must fetch its identity provider's discovery document by the
+        issuer's public name and reach the chat model; the worker must reach the embedding
+        provider and every Source. Staging has shared-infra for this; production needs its own.
+        """
+        production = (DEPLOYMENT / "compose.production.yaml").read_text(encoding="utf-8")
+        for service in ("api", "worker"):
+            block = re.search(r"\n  %s:\n(.*?)(?=\n  [a-z-]+:\n|\nnetworks:)" % service, production, re.S).group(1)
+            self.assertIn("      egress:", block, service)
+        declared = production.split("\nnetworks:\n", 1)[1]
+        egress = re.search(r"\n  egress:\n((?:    .*\n?)*)", "\n" + declared).group(1)
+        self.assertNotIn("internal: true", egress, "an internal network is no way out")
+
 if __name__ == "__main__":
     unittest.main()

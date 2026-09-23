@@ -1,0 +1,16 @@
+# /etc/memoryos-backup.conf on the host being backed up. Mode 0600, owned by root.
+
+# age public key the archive is encrypted to. The private key is NOT on this host: whoever holds
+# it can read every backup, and losing it makes every backup unreadable. Keep it in the team's
+# password manager.
+BACKUP_RECIPIENT=age1...
+
+# Space-separated rsync targets. Each is a restricted account whose authorized_keys entry runs
+# `rrsync -wo <directory>`: this host may add a backup there but not read or delete one.
+BACKUP_REMOTES="memoryos-backup@172.24.244.79"
+
+# Private key this host uses to reach the targets.
+BACKUP_SSH_KEY=/root/.ssh/memoryos-backup
+
+# Archives kept on this host for a fast restore; the history lives on the targets.
+BACKUP_LOCAL_KEEP=3

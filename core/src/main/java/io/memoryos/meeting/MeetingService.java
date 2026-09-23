@@ -108,6 +108,15 @@ public class MeetingService {
         return detail(tenant, actor, id);
     }
 
+    /** Keeps the automatic label and stops offering the name this voice gave itself. */
+    @Transactional
+    public Meeting.Detail dismissSpeakerSuggestion(ActorId actor, UUID id, Meeting.Track track, String label) {
+        UUID tenant = tenant(actor);
+        meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        if (!meetings.dismissSuggestion(tenant, id, track, label)) throw MeetingException.notFound();
+        return detail(tenant, actor, id);
+    }
+
     @Transactional
     public Meeting.Detail updateNotes(ActorId actor, UUID id, String notes, long revision) {
         UUID tenant = tenant(actor);
@@ -174,7 +183,7 @@ public class MeetingService {
         String cleanOwner = optional(owner, MAX_NAME, "An owner");
         String cleanDue = optional(due, MAX_DUE, "A deadline");
         // A decision belongs to the meeting, not to a person, so it carries neither an owner nor a deadline.
-        if (item.kind() == Meeting.ItemKind.DECISION && (cleanOwner != null || cleanDue != null))
+        if (item.kind() != Meeting.ItemKind.ACTION && (cleanOwner != null || cleanDue != null))
             throw MeetingException.invalid("A decision has no owner and no deadline.");
         record Change(Meeting.MinutesField field, String before, String after) {}
         var changes = new ArrayList<Change>(3);
@@ -229,11 +238,20 @@ public class MeetingService {
     }
 
     public byte[] exportMinutes(ActorId actor, UUID id, MeetingMinutesDocument.Heading heading) {
+        return exportMinutes(actor, id, heading, TranscriptFormat.DOCX);
+    }
+
+    /** The biên bản as Word to edit or as PDF to read and print; both say exactly the same thing. */
+    public byte[] exportMinutes(ActorId actor, UUID id, MeetingMinutesDocument.Heading heading,
+            TranscriptFormat format) {
         UUID tenant = tenant(actor);
         var meeting = readable(tenant, actor, id);
         if (meeting.minutes().status() != Meeting.MinutesStatus.READY)
             throw MeetingException.invalid("The minutes are not written yet.");
-        return MeetingMinutesDocument.render(meeting, validate(heading));
+        var clean = validate(heading);
+        return format == TranscriptFormat.PDF
+                ? MeetingMinutesPdf.render(meeting, clean)
+                : MeetingMinutesDocument.render(meeting, clean);
     }
 
     /** The heading is printed, not stored, so it only has to fit on the page. */
@@ -253,7 +271,20 @@ public class MeetingService {
                 field(heading.closed(), MAX_NAME, "The closing time"), field(heading.chair(), MAX_NAME, "The chair"),
                 field(heading.chairRole(), MAX_NAME, "The chair's role"),
                 field(heading.secretary(), MAX_NAME, "The secretary"),
-                field(heading.secretaryRole(), MAX_NAME, "The secretary's role"), List.copyOf(attendees));
+                field(heading.secretaryRole(), MAX_NAME, "The secretary's role"), List.copyOf(attendees),
+                typeface(heading.font()));
+    }
+
+    /**
+     * The typefaces a biên bản may be set in. Word only names the face and the reader's machine supplies it, so this
+     * is a list of faces every office machine has rather than a list of files; anything else falls back to the
+     * decree's own.
+     */
+    static final List<String> TYPEFACES = List.of("Times New Roman", "Arial", "Calibri", "Tahoma");
+
+    private static String typeface(@Nullable String font) {
+        String clean = font == null ? "" : font.strip();
+        return TYPEFACES.contains(clean) ? clean : "";
     }
 
     private static String field(@Nullable String value, int limit, String what) {
@@ -440,19 +471,39 @@ public class MeetingService {
         return readable(tenant, actor, id);
     }
 
+    /**
+     * The speakers, and for the owner the name each unanswered voice gave itself. Only the owner can act on an offer,
+     * so only the owner is shown one.
+     */
+    private List<Meeting.Speaker> named(UUID tenant, UUID id, MeetingRepository.Row row,
+            List<Meeting.Utterance> utterances) {
+        var speakers = meetings.speakers(tenant, id);
+        if (!row.owned()) return speakers;
+        var asking = meetings.speakersAskingForAName(tenant, id);
+        if (asking.isEmpty()) return speakers;
+        var offered = SpeakerIntroductions.suggest(utterances, row.participants(), asking);
+        return speakers.stream().map(speaker -> {
+            var suggestion = offered.get(SpeakerIntroductions.key(speaker.track(), speaker.label()));
+            return suggestion == null ? speaker
+                    : new Meeting.Speaker(speaker.track(), speaker.label(), speaker.name(), suggestion);
+        }).toList();
+    }
+
     private Meeting.Detail present(UUID tenant, UUID actor, UUID id, MeetingRepository.Row row) {
         var items = row.minutesStatus() == Meeting.MinutesStatus.READY ? meetings.minutesItems(tenant, id) : List.<Meeting.MinutesItem>of();
         var minutes = new Meeting.Minutes(row.minutesStatus(), row.minutesFailure(), row.minutesSummary(), row.minutesKind(),
                 row.minutesGeneratedAt(),
                 items.stream().filter(item -> item.kind() == Meeting.ItemKind.DECISION).toList(),
-                items.stream().filter(item -> item.kind() == Meeting.ItemKind.ACTION).toList(), row.minutesEdited());
+                items.stream().filter(item -> item.kind() == Meeting.ItemKind.ACTION).toList(), row.minutesEdited(),
+                items.stream().filter(item -> item.kind() == Meeting.ItemKind.TOPIC).toList());
+        var utterances = meetings.utterances(tenant, id);
         return new Meeting.Detail(row.id(), row.title(), row.kind(), row.language(), row.participants(), row.terms(),
                 row.owned() ? row.notes() : "", row.status(), row.provider(), row.diarized(), row.createdAt(),
-                row.endedAt(), row.revision(), meetings.speakers(tenant, id), meetings.utterances(tenant, id), minutes,
+                row.endedAt(), row.revision(), named(tenant, id, row, utterances), utterances, minutes,
                 new Meeting.Audio(row.audioStatus(), row.audioFailure(), row.audioFilename(), row.audioSizeBytes(),
                         row.audioProvider()),
                 row.owned(), row.owned() ? meetings.readers(tenant, id) : List.of(),
-                meetings.starred(tenant, id, actor), meetings.bookmarks(tenant, id, actor));
+                meetings.starred(tenant, id, actor), meetings.bookmarks(tenant, id, actor), row.correcting());
     }
 
     /** The Tenant the actor is writing in; correction runs need it to bill the model call. */

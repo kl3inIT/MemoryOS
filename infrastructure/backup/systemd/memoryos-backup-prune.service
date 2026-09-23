@@ -1,0 +1,7 @@
+# Runs on a backup target; see prune-backups.sh.
+[Unit]
+Description=Remove MemoryOS backups outside the retention window
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/memoryos-backup/prune-backups.sh /srv/memoryos-backups

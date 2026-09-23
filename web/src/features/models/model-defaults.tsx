@@ -10,6 +10,7 @@ import type { ModelFlow } from "@/lib/hey-api/types.gen";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
+  modelLabel,
   refreshModelCatalog,
   tenantCandidate,
   type InstalledAdapter,
@@ -31,8 +32,8 @@ type Row = {
   ariaLabel: string;
   saveLabel: string;
   savedMessage: string;
-  /** Offered only by clearable rows: the empty selection. */
-  emptyLabel?: string;
+  /** Shown while nothing is saved, naming the model the task falls back to. */
+  unsetMessage?: string;
   unavailableMessage?: string;
   save: (revision: number, modelId: string | null, signal: AbortSignal) => Promise<Selection>;
 };
@@ -74,8 +75,7 @@ function SelectionEditor({
   const savedHidden =
     baseline.modelConfigurationId &&
     !candidates.some((model) => model.id === baseline.modelConfigurationId);
-  const candidateChosen =
-    candidates.some((model) => model.id === chosen) || (Boolean(row.emptyLabel) && !chosen);
+  const candidateChosen = candidates.some((model) => model.id === chosen);
   const conflicted = action.conflict || selection.revision !== baseline.revision;
 
   async function save() {
@@ -126,7 +126,6 @@ function SelectionEditor({
         </div>
         <ModelPicker
           ariaLabel={row.ariaLabel}
-          emptyLabel={row.emptyLabel}
           value={chosen}
           disabled={action.pending}
           placeholder={ui("Choose an eligible model")}
@@ -173,6 +172,11 @@ function SelectionEditor({
         />
       </div>
       {!candidates.length && <p role="status">{ui("No eligible models are available.")}</p>}
+      {!baseline.modelConfigurationId && row.unsetMessage && (
+        <p role="status" className="font-secondary-body text-status-warning-content">
+          {row.unsetMessage}
+        </p>
+      )}
       {baseline.available === false && row.unavailableMessage && (
         <p role="status" className="font-secondary-body text-status-warning-content">
           {row.unavailableMessage}
@@ -248,10 +252,21 @@ export function TenantDefault(catalog: Catalog) {
   );
 }
 
-/** Tenant models for tasks beside the conversation (Onyx llm_model_flow); unset uses the conversation model. */
+/**
+ * Tenant models for tasks beside the conversation (Onyx llm_model_flow). Each row names its model; a row whose model
+ * was deleted or became unavailable names the Chat default it falls back to.
+ */
 export function TaskModels(catalog: Catalog) {
   const ui = useAppTranslation();
   const flows = useQuery({ ...listChatModelFlowsOptions(), retry: false });
+  const tenant = useQuery({ ...getChatModelDefaultOptions(), retry: false });
+  const fallbackModel = catalog.models.find(
+    (model) => model.id === tenant.data?.modelConfigurationId,
+  );
+  const fallbackProvider =
+    fallbackModel && catalog.providers.find((provider) => provider.id === fallbackModel.providerId);
+  const fallback =
+    fallbackModel && fallbackProvider ? modelLabel(fallbackModel, fallbackProvider) : undefined;
   if (flows.isPending) return <p role="status">{ui("Loading task models…")}</p>;
   if (flows.isError)
     return (
@@ -292,8 +307,10 @@ export function TaskModels(catalog: Catalog) {
       }}
       row={{
         ...copy[flow.flow],
-        emptyLabel: ui("Use the conversation model"),
-        unavailableMessage: ui("Unavailable; the conversation model is used instead."),
+        unsetMessage: fallback && ui("No model chosen; {{model}} is used.", { model: fallback }),
+        unavailableMessage: fallback
+          ? ui("Unavailable; {{model}} is used instead.", { model: fallback })
+          : ui("Unavailable; the Chat model is used instead."),
         saveLabel: ui("Save task model"),
         savedMessage: ui("Task model saved."),
         save: async (revision, modelConfigurationId, signal) =>

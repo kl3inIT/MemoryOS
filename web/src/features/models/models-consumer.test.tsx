@@ -633,7 +633,7 @@ describe("provider data boundary", () => {
 });
 
 describe("models by task", () => {
-  it("sets the naming model from Tenant-wide models and clears it back to the conversation model", async () => {
+  it("names the model a task falls back to and sets it from Tenant-wide models", async () => {
     const publicProvider: ManagedProvider = { ...provider, isPublic: true, groupIds: [] };
     const writes: URL[] = [];
     let naming = {
@@ -677,7 +677,10 @@ describe("models by task", () => {
       </QueryClientProvider>,
     );
     const picker = await screen.findByRole("button", { name: "Conversation naming model" });
-    expect(picker).toHaveTextContent("Use the conversation model");
+    expect(picker).toHaveTextContent("Choose an eligible model");
+    expect(
+      await screen.findByText(/^No model chosen; Saved model .* is used\.$/),
+    ).toBeInTheDocument();
     expect(screen.getAllByText("External").length).toBeGreaterThan(0);
     fireEvent.click(picker);
     fireEvent.click(await screen.findByRole("button", { name: /Saved model/ }));
@@ -686,12 +689,10 @@ describe("models by task", () => {
     expect(writes[0].searchParams.get("modelConfigurationId")).toBe(model.id);
     expect(writes[0].searchParams.get("revision")).toBe("1");
     expect(await screen.findByText("Task model saved.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Conversation naming model" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Use the conversation model" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save task model" }));
-    await waitFor(() => expect(writes).toHaveLength(2));
-    expect(writes[1].searchParams.has("modelConfigurationId")).toBe(false);
-    expect(writes[1].searchParams.get("revision")).toBe("2");
+    expect(screen.getByRole("button", { name: "Conversation naming model" })).toHaveTextContent(
+      "Saved model",
+    );
+    expect(screen.queryByText(/^No model chosen/)).not.toBeInTheDocument();
     client.clear();
   });
 });

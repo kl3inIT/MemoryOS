@@ -94,6 +94,31 @@ class MeetingMinutesDocumentTest {
         }
     }
 
+    @Test
+    void theChosenFaceIsNamedOnEveryRunAndAnUnknownOneIsNot() throws Exception {
+        var arial = new MeetingMinutesDocument.Heading("Tasco", "", "", "Giao ban", "", "", "", "", "", "", "",
+                List.of(), "Arial");
+        assertEquals(List.of("Arial"), faces(MeetingMinutesDocument.render(meeting(), arial)),
+                "every run, the letterhead and the signatures included, is set in the face that was picked");
+
+        var unknown = MeetingService.validate(new MeetingMinutesDocument.Heading("Tasco", "", "", "Giao ban", "", "",
+                "", "", "", "", "", List.of(), "Comic Sans MS"));
+        assertEquals(List.of("Times New Roman"), faces(MeetingMinutesDocument.render(meeting(), unknown)),
+                "a face nobody offered falls back to the decree's own");
+    }
+
+    private static List<String> faces(byte[] bytes) throws Exception {
+        try (var document = new XWPFDocument(new ByteArrayInputStream(bytes))) {
+            var faces = new java.util.TreeSet<String>();
+            document.getParagraphs().forEach(p -> p.getRuns().forEach(run -> faces.add(run.getFontFamily())));
+            for (var table : document.getTables())
+                for (var row : table.getRows())
+                    for (var cell : row.getTableCells())
+                        cell.getParagraphs().forEach(p -> p.getRuns().forEach(run -> faces.add(run.getFontFamily())));
+            return List.copyOf(faces);
+        }
+    }
+
     private static boolean bordered(XWPFTable table) {
         var properties = table.getCTTbl().getTblPr();
         return properties != null && properties.isSetTblBorders();

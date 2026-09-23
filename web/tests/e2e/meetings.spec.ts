@@ -92,6 +92,7 @@ async function mockMeetings(page: Page) {
           decisions: [],
           actions: [],
           edited: false,
+          topics: [],
         },
         audio: { status: "NONE", failure: null, filename: null, sizeBytes: 0, provider: null },
         owned: true,
@@ -139,38 +140,41 @@ async function mockMeetings(page: Page) {
   });
   await page.route(`**/api/meetings/${MEETING_ID}/corrections`, (route) =>
     route.fulfill({
-      json: [
-        {
-          id: "c1",
-          utteranceId: "u2",
-          runId: "r1",
-          start: 59,
-          end: 70,
-          before: "Vinaconex 9",
-          after: "Vinaconex 09",
-          reason: "Mã dự án đọc rõ ở câu sau là 09.",
-          confidence: 0.82,
-          contextFit: 0.74,
-          meaningSafe: 0.96,
-          matchedGlossary: true,
-          status: "PENDING",
-        },
-        {
-          id: "c2",
-          utteranceId: "u1",
-          runId: "r1",
-          start: 26,
-          end: 31,
-          before: "quý 4",
-          after: "quý IV",
-          reason: "Văn bản của công ty viết số La Mã.",
-          confidence: 0.71,
-          contextFit: 0.8,
-          meaningSafe: 0.99,
-          matchedGlossary: false,
-          status: "ACCEPTED",
-        },
-      ],
+      json:
+        route.request().method() === "POST"
+          ? { runId: "r2", corrections: [PROPOSAL] }
+          : [
+              {
+                id: "c1",
+                utteranceId: "u2",
+                runId: "r1",
+                start: 59,
+                end: 70,
+                before: "Vinaconex 9",
+                after: "Vinaconex 09",
+                reason: "Mã dự án đọc rõ ở câu sau là 09.",
+                confidence: 0.82,
+                contextFit: 0.74,
+                meaningSafe: 0.96,
+                matchedGlossary: true,
+                status: "PENDING",
+              },
+              {
+                id: "c2",
+                utteranceId: "u1",
+                runId: "r1",
+                start: 26,
+                end: 31,
+                before: "quý 4",
+                after: "quý IV",
+                reason: "Văn bản của công ty viết số La Mã.",
+                confidence: 0.71,
+                contextFit: 0.8,
+                meaningSafe: 0.99,
+                matchedGlossary: false,
+                status: "ACCEPTED",
+              },
+            ],
     }),
   );
   await page.route(`**/api/meetings/${MEETING_ID}/tickets`, (route) =>
@@ -178,6 +182,25 @@ async function mockMeetings(page: Page) {
       json: { ticket: "synthetic-ticket", expiresAt: new Date(Date.now() + 60_000).toISOString() },
     }),
   );
+  await page.route(`**/api/meetings/${MEETING_ID}/speakers/MIC/1/suggestion`, async (route) => {
+    meeting = {
+      ...meeting!,
+      speakers: meeting!.speakers.map((speaker) =>
+        speaker.label === "1" ? { ...speaker, suggestion: null } : speaker,
+      ),
+    };
+    await route.fulfill({ json: meeting });
+  });
+  await page.route(`**/api/meetings/${MEETING_ID}/speakers/MIC/1`, async (route) => {
+    const { name } = route.request().postDataJSON() as { name: string };
+    meeting = {
+      ...meeting!,
+      speakers: meeting!.speakers.map((speaker) =>
+        speaker.label === "1" ? { ...speaker, name, suggestion: null } : speaker,
+      ),
+    };
+    await route.fulfill({ json: meeting });
+  });
   await page.route(`**/api/meetings/${MEETING_ID}/speakers/MIC/2`, async (route) => {
     const { name } = route.request().postDataJSON() as { name: string };
     meeting = {
@@ -193,6 +216,12 @@ async function mockMeetings(page: Page) {
       ...meeting!,
       status: "ENDED",
       endedAt: new Date().toISOString(),
+      // The API reads the name a voice gave itself out of the transcript and offers it to the owner.
+      speakers: meeting!.speakers.map((speaker) =>
+        speaker.label === "1"
+          ? { ...speaker, suggestion: { name: "Thanh", utteranceId: "u1", confidence: 0.97 } }
+          : speaker,
+      ),
       // The API queues the minutes when a meeting ends; this fixture answers with them already written.
       minutes: {
         status: "READY",
@@ -209,6 +238,7 @@ async function mockMeetings(page: Page) {
             quote: "Tuần này bên mình phải chốt ngân sách quý 4 trước thứ Năm, không lùi nữa.",
             sourceUtteranceId: "u1",
             done: false,
+            edited: false,
           },
         ],
         actions: [
@@ -220,8 +250,11 @@ async function mockMeetings(page: Page) {
             quote: "Vậy anh Minh kiểm tra lại các bảng cân đối, xong trước thứ Tư nhé.",
             sourceUtteranceId: "u3",
             done: false,
+            edited: false,
           },
         ],
+        edited: false,
+        topics: [topic("t1", "Ngân sách quý 4", "u1"), topic("t2", "Số liệu KPI tháng 9", "u2")],
       },
     };
     await route.fulfill({ json: meeting });
@@ -323,7 +356,7 @@ async function mockMeetings(page: Page) {
     };
     await route.fulfill({ json: meeting });
   });
-  await page.route(`**/api/meetings/${MEETING_ID}/minutes/export`, async (route) => {
+  await page.route(`**/api/meetings/${MEETING_ID}/minutes/export?*`, async (route) => {
     exported.heading = route.request().postDataJSON() as Record<string, unknown>;
     await route.fulfill({
       // The real endpoint answers with a Word document; the browser only has to save it.
@@ -397,7 +430,11 @@ async function mockMeetings(page: Page) {
       }
     });
   });
-  return { audio, exported, uploaded, shared };
+  /** Whether the server says a correction pass holds the meeting, as a reopened page would find it. */
+  const correcting = (value: boolean) => {
+    meeting = { ...meeting!, correcting: value };
+  };
+  return { audio, exported, uploaded, shared, correcting };
 }
 
 test("a member uploads a recording and watches it being transcribed", async ({ page }) => {
@@ -452,7 +489,7 @@ for (const width of [1440, 390]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 900 });
-    const { audio, exported, shared } = await mockMeetings(page);
+    const { audio, exported, shared, correcting } = await mockMeetings(page);
 
     await page.goto("/meetings");
     await expect(page.getByRole("heading", { name: "Cuộc họp", level: 1 })).toBeVisible({
@@ -563,19 +600,28 @@ for (const width of [1440, 390]) {
     await bienBan.getByLabel("Địa điểm").fill("Phòng họp A, Hà Nội");
     await bienBan.getByLabel("Chủ trì", { exact: true }).fill("Nguyễn Văn An");
     await page.screenshot({ path: `../output/playwright/meetings-export-${width}.png` });
+    await expect(bienBan.getByLabel("Phông chữ")).toHaveValue("Times New Roman");
+    await bienBan.getByLabel("Phông chữ").selectOption("Arial");
     const download = page.waitForEvent("download");
-    await bienBan.getByRole("button", { name: "Tải về" }).click();
+    await bienBan.getByRole("button", { name: "Tải Word" }).click();
     expect((await download).suggestedFilename()).toBe("bien-ban-giao-ban-tuan-khoi-tai-chinh.docx");
     expect(exported.heading).toMatchObject({
       organization: "CÔNG TY CỔ PHẦN TASCO",
       place: "Phòng họp A, Hà Nội",
       chair: "Nguyễn Văn An",
       attendees: ["Anh Thanh", "Chị Lan", "Anh Minh"],
+      font: "Arial",
     });
     await expect(bienBan).toHaveCount(0);
 
     // What the model would change, and what it already changed, both live above the transcript.
     await page.getByRole("tab", { name: "Transcript" }).click();
+    // The timeline is a table of contents: each subject jumps to the line it began on.
+    const timeline = page.getByRole("navigation", { name: "Dòng thời gian" });
+    await expect(timeline.getByRole("button", { name: /Ngân sách quý 4/ })).toBeVisible();
+    await timeline.getByRole("button", { name: /Số liệu KPI tháng 9/ }).click();
+    await expect(page.locator("#u2")).toBeInViewport();
+
     // Searching the transcript, and keeping one line for later.
     const find = page.getByRole("textbox", { name: "Tìm trong transcript" });
     await find.fill("KPI");
@@ -588,13 +634,45 @@ for (const width of [1440, 390]) {
       .getByRole("button", { name: "Đánh dấu câu này" })
       .click();
     await page.getByRole("button", { name: "Câu đã đánh dấu (1)" }).click();
-    await expect(page.getByText("Tuần này bên mình phải chốt")).toHaveCount(0);
+    await expect(
+      page.locator('ol[aria-live="polite"]').getByText("Tuần này bên mình phải chốt"),
+    ).toHaveCount(0);
     await page.getByRole("button", { name: "Câu đã đánh dấu (1)" }).click();
 
+    // The name a voice gave itself is offered once, with the line it said it in, and renames only when pressed.
+    await expect(page.getByText("Người nói 1 tự giới thiệu là Thanh")).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({
+      path: `../output/playwright/meetings-speaker-names-${width}.png`,
+      fullPage: true,
+    });
+    await page.getByRole("button", { name: "Đặt tên Thanh" }).click();
+    await expect(page.getByText("Người nói 1 tự giới thiệu là Thanh")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Đặt tên cho Thanh" }).first()).toBeVisible();
+
     await expect(page.getByText("Mã dự án đọc rõ ở câu sau là 09.")).toBeVisible();
+    // The button says what it does to what: one stretch was marked unclear on this transcript.
+    await page.getByRole("button", { name: "Hiệu chỉnh 1 đoạn khó nghe" }).click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "Tìm được 1 chỗ cần sửa." }),
+    ).toBeVisible();
+    // A pass started before the page was reopened is still running on the server: the button stays shut.
+    correcting(true);
+    await page.reload();
+    await page.getByRole("tab", { name: "Transcript" }).click();
+    await expect(page.getByRole("button", { name: "Đang hiệu chỉnh…" })).toBeDisabled();
+    await page.screenshot({ path: `../output/playwright/meetings-correcting-${width}.png` });
+    expect(
+      await page.evaluate(() => window.scrollX),
+      "choosing a tab never scrolls the whole page sideways",
+    ).toBe(0);
+    correcting(false);
+    await expect(page.getByRole("button", { name: "Hiệu chỉnh 1 đoạn khó nghe" })).toBeEnabled({
+      timeout: 10_000,
+    });
     await expect(page.getByRole("button", { name: "Nhận", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Hoàn tác", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Hoàn tác cả lượt (1)" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Hoàn tác cả lượt" })).toBeVisible();
     await page.screenshot({
       path: `../output/playwright/meetings-corrections-${width}.png`,
       fullPage: true,
@@ -611,3 +689,33 @@ for (const width of [1440, 390]) {
     });
   });
 }
+
+function topic(id: string, text: string, sourceUtteranceId: string) {
+  return {
+    id,
+    text,
+    owner: null,
+    due: null,
+    quote: null,
+    sourceUtteranceId,
+    done: false,
+    edited: false,
+  };
+}
+
+/** A proposal one pass would answer, for the pass the flow starts itself. */
+const PROPOSAL = {
+  id: "c3",
+  utteranceId: "u2",
+  runId: "r2",
+  start: 59,
+  end: 70,
+  before: "Vinaconex 9",
+  after: "Vinaconex 09",
+  reason: "Mã dự án đọc rõ ở câu sau là 09.",
+  confidence: 0.82,
+  contextFit: 0.74,
+  meaningSafe: 0.96,
+  matchedGlossary: true,
+  status: "PENDING",
+};

@@ -6562,7 +6562,7 @@ paths:
     post:
       tags:
       - Meetings
-      summary: Download the minutes as a Vietnamese biên bản in Word format
+      summary: "Download the minutes as a Vietnamese biên bản, in Word or as a PDF"
       operationId: exportMeetingMinutes
       parameters:
       - name: X-MemoryOS-CSRF
@@ -6579,6 +6579,15 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: format
+        in: query
+        required: false
+        schema:
+          type: string
+          default: DOCX
+          enum:
+          - DOCX
+          - PDF
       requestBody:
         content:
           application/json:
@@ -6590,6 +6599,10 @@ paths:
           description: The biên bản
           content:
             application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
               schema:
                 type: string
                 format: binary
@@ -17479,6 +17492,70 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/meetings/{meetingId}/speakers/{track}/{label}/suggestion:
+    delete:
+      tags:
+      - Meetings
+      summary: Keep the automatic label for a speaker
+      operationId: dismissMeetingSpeakerSuggestion
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: track
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - MIC
+          - TAB
+      - name: label
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: The meeting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingDetail"
+        "404":
+          description: Meeting or speaker not available
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "400":
+          description: Invalid meeting request
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: "Chat access, Tenant membership or CSRF requirement not met"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings/{meetingId}/bookmarks/{bookmarkId}:
     delete:
       tags:
@@ -18400,9 +18477,14 @@ components:
           description: Moments the caller marked while the meeting was running
           items:
             $ref: "#/components/schemas/MeetingBookmark"
+        correcting:
+          type: boolean
+          description: Whether a correction pass is running on this meeting right
+            now
       required:
       - audio
       - bookmarks
+      - correcting
       - createdAt
       - diarized
       - endedAt
@@ -18460,6 +18542,12 @@ components:
           type: boolean
           description: Whether the words standing now are the owner's rather than
             the model's
+        topics:
+          type: array
+          description: "The subjects the meeting moved through, each at the line it\
+            \ began"
+          items:
+            $ref: "#/components/schemas/MeetingMinutesItem"
       required:
       - actions
       - decisions
@@ -18469,6 +18557,7 @@ components:
       - kind
       - status
       - summary
+      - topics
     MeetingMinutesItem:
       type: object
       description: A decision the meeting reached or work it handed out
@@ -18542,10 +18631,29 @@ components:
           type:
           - string
           - "null"
+        suggestion:
+          type: "null"
+          $ref: "#/components/schemas/MeetingSpeakerSuggestion"
+          description: "The name this voice gave itself, offered to the owner"
       required:
       - label
       - name
       - track
+    MeetingSpeakerSuggestion:
+      type: object
+      properties:
+        name:
+          type: string
+        utteranceId:
+          type: string
+          format: uuid
+        confidence:
+          type: number
+          format: double
+      required:
+      - confidence
+      - name
+      - utteranceId
     MeetingUtterance:
       type: object
       properties:
@@ -21663,6 +21771,10 @@ components:
           type: array
           items:
             type: string
+        font:
+          type: string
+          description: "Times New Roman, Arial, Calibri or Tahoma; anything else is\
+            \ set in Times New Roman, which the decree asks for"
     MeetingLibraryFile:
       type: object
       description: The minutes as a file in the caller's library

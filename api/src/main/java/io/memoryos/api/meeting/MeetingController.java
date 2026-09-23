@@ -166,13 +166,15 @@ class MeetingController {
             description = "The parts of a biên bản the transcript cannot supply; a blank field prints as an ellipsis")
     record HeadingRequest(String organization, String parentOrganization, String number, String about, String place,
                           String opened, String closed, String chair, String chairRole, String secretary,
-                          String secretaryRole, List<String> attendees) {
+                          String secretaryRole, List<String> attendees,
+                          @Schema(description = "Times New Roman, Arial, Calibri or Tahoma; anything else is set in "
+                                  + "Times New Roman, which the decree asks for") @Nullable String font) {
         MeetingMinutesDocument.Heading toHeading() {
             return new MeetingMinutesDocument.Heading(text(organization), text(parentOrganization), text(number),
                     text(about), text(place), text(opened), text(closed), text(chair), text(chairRole), text(secretary),
                     text(secretaryRole),
                     attendees == null ? List.of()
-                            : attendees.stream().map(HeadingRequest::text).toList());
+                            : attendees.stream().map(HeadingRequest::text).toList(), text(font));
         }
 
         private static String text(@Nullable String value) {
@@ -212,11 +214,15 @@ class MeetingController {
                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<MinutesItemResponse> actions,
                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                                    description = "Whether the words standing now are the owner's rather than the model's")
-                           boolean edited) {
+                           boolean edited,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                   description = "The subjects the meeting moved through, each at the line it began")
+                           List<MinutesItemResponse> topics) {
         static MinutesResponse from(Meeting.Minutes minutes) {
             return new MinutesResponse(minutes.status(), minutes.failure(), minutes.summary(), minutes.kind(),
                     minutes.generatedAt(), minutes.decisions().stream().map(MinutesItemResponse::from).toList(),
-                    minutes.actions().stream().map(MinutesItemResponse::from).toList(), minutes.edited());
+                    minutes.actions().stream().map(MinutesItemResponse::from).toList(), minutes.edited(),
+                    minutes.topics().stream().map(MinutesItemResponse::from).toList());
         }
     }
 
@@ -253,7 +259,15 @@ class MeetingController {
     @Schema(name = "MeetingSpeaker")
     record SpeakerResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Meeting.Track track,
                            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String label,
-                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String name) {}
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String name,
+                           @Schema(description = "The name this voice gave itself, offered to the owner",
+                                   requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
+                           @Nullable SpeakerSuggestionResponse suggestion) {}
+
+    @Schema(name = "MeetingSpeakerSuggestion")
+    record SpeakerSuggestionResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) String name,
+                                     @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID utteranceId,
+                                     @Schema(requiredMode = Schema.RequiredMode.REQUIRED) double confidence) {}
 
     @Schema(name = "MeetingUtterance")
     record UtteranceResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
@@ -376,16 +390,21 @@ class MeetingController {
                           List<UUID> starred,
                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                                   description = "Moments the caller marked while the meeting was running")
-                          List<BookmarkResponse> bookmarks) {
+                          List<BookmarkResponse> bookmarks,
+                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                  description = "Whether a correction pass is running on this meeting right now")
+                          boolean correcting) {
         static DetailResponse from(Meeting.Detail detail) {
             return new DetailResponse(detail.id(), detail.title(), detail.kind(), detail.language(), detail.participants(),
                     detail.terms(), detail.notes(), detail.status(), detail.provider(), detail.diarized(), detail.createdAt(),
                     detail.endedAt(), detail.revision(),
-                    detail.speakers().stream().map(s -> new SpeakerResponse(s.track(), s.label(), s.name())).toList(),
+                    detail.speakers().stream().map(s -> new SpeakerResponse(s.track(), s.label(), s.name(),
+                            s.suggestion() == null ? null : new SpeakerSuggestionResponse(s.suggestion().name(),
+                                    s.suggestion().utteranceId(), s.suggestion().confidence()))).toList(),
                     detail.utterances().stream().map(UtteranceResponse::from).toList(),
                     MinutesResponse.from(detail.minutes()), AudioResponse.from(detail.audio()), detail.owned(),
                     detail.readers().stream().map(ReaderResponse::from).toList(), detail.starred(),
-                    detail.bookmarks().stream().map(BookmarkResponse::from).toList());
+                    detail.bookmarks().stream().map(BookmarkResponse::from).toList(), detail.correcting());
         }
     }
 
@@ -433,6 +452,16 @@ class MeetingController {
                            @PathVariable UUID meetingId, @PathVariable Meeting.Track track, @PathVariable String label,
                            @RequestBody SpeakerRequest body) {
         return DetailResponse.from(meetings.nameSpeaker(identity.actorId(), meetingId, track, label, body.name()));
+    }
+
+    @DeleteMapping("/{meetingId}/speakers/{track}/{label}/suggestion")
+    @Operation(operationId = "dismissMeetingSpeakerSuggestion", summary = "Keep the automatic label for a speaker")
+    @ApiResponse(responseCode = "200", description = "The meeting", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting or speaker not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse dismissSuggestion(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                                     @PathVariable UUID meetingId, @PathVariable Meeting.Track track,
+                                     @PathVariable String label) {
+        return DetailResponse.from(meetings.dismissSpeakerSuggestion(identity.actorId(), meetingId, track, label));
     }
 
     @PostMapping("/{meetingId}/end")
@@ -639,18 +668,22 @@ class MeetingController {
     }
 
     @PostMapping(value = "/{meetingId}/minutes/export", consumes = MediaType.APPLICATION_JSON_VALUE,
-            produces = DOCX)
-    @Operation(operationId = "exportMeetingMinutes", summary = "Download the minutes as a Vietnamese biên bản in Word format")
+            produces = {DOCX, MediaType.APPLICATION_PDF_VALUE})
+    @Operation(operationId = "exportMeetingMinutes", summary = "Download the minutes as a Vietnamese biên bản, in Word or as a PDF")
     @ApiResponse(responseCode = "200", description = "The biên bản",
-            content = @Content(mediaType = DOCX, schema = @Schema(type = "string", format = "binary")))
+            content = {@Content(mediaType = DOCX, schema = @Schema(type = "string", format = "binary")),
+                    @Content(mediaType = MediaType.APPLICATION_PDF_VALUE, schema = @Schema(type = "string", format = "binary"))})
     @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
     ResponseEntity<byte[]> export(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-                                  @PathVariable UUID meetingId, @RequestBody HeadingRequest body) {
-        byte[] document = meetings.exportMinutes(identity.actorId(), meetingId, body.toHeading());
+                                  @PathVariable UUID meetingId, @RequestBody HeadingRequest body,
+                                  @RequestParam(defaultValue = "DOCX") MeetingService.TranscriptFormat format) {
+        byte[] document = meetings.exportMinutes(identity.actorId(), meetingId, body.toHeading(), format);
+        boolean pdf = format == MeetingService.TranscriptFormat.PDF;
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
-                        .filename("bien-ban-" + meetingId + ".docx", StandardCharsets.UTF_8).build().toString())
-                .contentType(MediaType.parseMediaType(DOCX)).body(document);
+                        .filename("bien-ban-" + meetingId + (pdf ? ".pdf" : ".docx"), StandardCharsets.UTF_8)
+                        .build().toString())
+                .contentType(pdf ? MediaType.APPLICATION_PDF : MediaType.parseMediaType(DOCX)).body(document);
     }
 
     @PutMapping(value = "/{meetingId}/minutes/summary", consumes = MediaType.APPLICATION_JSON_VALUE)

@@ -35,7 +35,7 @@ public class MeetingRepository {
                       @Nullable String minutesFailure, String minutesSummary, String minutesKind,
                       @Nullable Instant minutesGeneratedAt, Meeting.AudioStatus audioStatus,
                       @Nullable String audioFailure, @Nullable String audioFilename, long audioSizeBytes,
-                      @Nullable String audioProvider, boolean owned, boolean minutesEdited) {}
+                      @Nullable String audioProvider, boolean owned, boolean minutesEdited, boolean correcting) {}
 
     /** One meeting this replica leased to write minutes for. */
     public record MinutesClaim(UUID tenant, UUID id, UUID owner, int attempts) {}
@@ -59,7 +59,8 @@ public class MeetingRepository {
                 SELECT id, title, kind, language, participants, terms, notes, status, provider, diarized, created_at,
                        ended_at, revision, minutes_status, minutes_failure, minutes_summary, minutes_kind, minutes_generated_at,
                        audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider, TRUE AS owned,
-                       minutes_edited
+                       minutes_edited,
+                       (correction_running_until > now()) IS TRUE AS correcting
                 FROM meeting m WHERE tenant_id = :tenant AND owner_actor_id = :owner AND id = :id
                 """).param("tenant", tenant).param("owner", owner).param("id", id).query(MeetingRepository::row).optional();
     }
@@ -70,7 +71,8 @@ public class MeetingRepository {
                 SELECT id, title, kind, language, participants, terms, notes, status, provider, diarized, created_at,
                        ended_at, revision, minutes_status, minutes_failure, minutes_summary, minutes_kind, minutes_generated_at,
                        audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider,
-                       (m.owner_actor_id = :actor) AS owned, m.minutes_edited
+                       (m.owner_actor_id = :actor) AS owned, m.minutes_edited,
+                       (m.correction_running_until > now()) IS TRUE AS correcting
                 FROM meeting m WHERE m.tenant_id = :tenant AND m.id = :id AND %s
                 """.formatted(MeetingAccessSql.READS))
                 .param("tenant", tenant).param("actor", actor).param("id", id).query(MeetingRepository::row).optional();
@@ -82,7 +84,8 @@ public class MeetingRepository {
                 SELECT id, title, kind, language, participants, terms, notes, status, provider, diarized, created_at,
                        ended_at, revision, minutes_status, minutes_failure, minutes_summary, minutes_kind, minutes_generated_at,
                        audio_status, audio_failure, audio_filename, audio_size_bytes, audio_provider, TRUE AS owned,
-                       minutes_edited
+                       minutes_edited,
+                       (correction_running_until > now()) IS TRUE AS correcting
                 FROM meeting m WHERE tenant_id = :tenant AND owner_actor_id = :owner AND id = :id FOR UPDATE
                 """).param("tenant", tenant).param("owner", owner).param("id", id).query(MeetingRepository::row).optional();
     }
@@ -163,11 +166,31 @@ public class MeetingRepository {
 
     public List<Meeting.Speaker> speakers(UUID tenant, UUID meeting) {
         return jdbc.sql("""
-                SELECT track, label, name FROM meeting_speaker WHERE tenant_id = :tenant AND meeting_id = :meeting
+                SELECT track, label, name, suggestion_dismissed FROM meeting_speaker
+                WHERE tenant_id = :tenant AND meeting_id = :meeting
                 ORDER BY track, label
                 """).param("tenant", tenant).param("meeting", meeting)
                 .query((r, ignored) -> new Meeting.Speaker(Meeting.Track.valueOf(r.getString("track")), r.getString("label"),
                         r.getString("name"))).list();
+    }
+
+    /** The voices whose offered name the owner has not answered yet: unnamed, and not dismissed. */
+    public List<Meeting.Speaker> speakersAskingForAName(UUID tenant, UUID meeting) {
+        return jdbc.sql("""
+                SELECT track, label FROM meeting_speaker
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND name IS NULL AND NOT suggestion_dismissed
+                """).param("tenant", tenant).param("meeting", meeting)
+                .query((r, ignored) -> new Meeting.Speaker(Meeting.Track.valueOf(r.getString("track")),
+                        r.getString("label"), null)).list();
+    }
+
+    /** Stops offering a name for this voice. Returns false for an unknown speaker. */
+    public boolean dismissSuggestion(UUID tenant, UUID meeting, Meeting.Track track, String label) {
+        return jdbc.sql("""
+                UPDATE meeting_speaker SET suggestion_dismissed = true
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND track = :track AND label = :label
+                """).param("tenant", tenant).param("meeting", meeting).param("track", track.name())
+                .param("label", label).update() == 1;
     }
 
     public List<Meeting.Utterance> utterances(UUID tenant, UUID meeting) {
@@ -678,7 +701,7 @@ public class MeetingRepository {
                 r.getString("minutes_summary"), r.getString("minutes_kind"), instant(r, "minutes_generated_at"),
                 Meeting.AudioStatus.valueOf(r.getString("audio_status")), r.getString("audio_failure"),
                 r.getString("audio_filename"), r.getLong("audio_size_bytes"), r.getString("audio_provider"),
-                r.getBoolean("owned"), r.getBoolean("minutes_edited"));
+                r.getBoolean("owned"), r.getBoolean("minutes_edited"), r.getBoolean("correcting"));
     }
 
     private static Meeting.@Nullable EditSource editSource(ResultSet r) throws SQLException {
