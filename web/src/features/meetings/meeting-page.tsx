@@ -56,6 +56,7 @@ import { startRecording, stopRecording, useActiveMeeting } from "./meeting-sessi
 import type { MeetingTrack } from "./meeting-socket";
 import { slug } from "./meeting-file-name";
 import { EditableItem, EditableSummary } from "./minutes-editing";
+import { SpeakerSuggestions } from "./speaker-suggestions";
 import { TranscriptCorrections } from "./transcript-corrections";
 import { matches } from "./transcript-search";
 import { Said } from "./transcript-text";
@@ -548,6 +549,7 @@ export function MeetingPage({
                 />
               </TabsContent>
               <TabsContent value="transcript" className="grid gap-4 pt-4">
+                <SpeakerSuggestions meeting={data} />
                 {corrections.panel}
                 <Transcript
                   meeting={data}

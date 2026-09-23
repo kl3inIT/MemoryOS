@@ -192,7 +192,7 @@ export function UploadRecordingDialog({
                 id={`${id}-title`}
                 value={title}
                 maxLength={200}
-                placeholder={ui("Ví dụ: Giao ban tuần")}
+                placeholder={ui("Giao ban tuần")}
                 onChange={(event) => setTitle(event.target.value)}
               />
             </div>
@@ -201,7 +201,7 @@ export function UploadRecordingDialog({
               <Input
                 id={`${id}-participants`}
                 value={participants}
-                placeholder={ui("Anh Thanh, Chị Lan, Anh Minh")}
+                placeholder={ui("Tên người dự, cách nhau bằng dấu phẩy")}
                 onChange={(event) => setParticipants(event.target.value)}
               />
             </div>

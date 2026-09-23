@@ -44,6 +44,11 @@ export const vietnameseUi: Record<string, string> = {
   "Tìm được {{count}} chỗ cần sửa.": "Found {{count}} places to correct.",
   "Nhận hết?": "Accept all?",
   "Transcript sẽ đổi ở {{count}} chỗ.": "The transcript changes in {{count}} places.",
+  "Tên người nói ({{count}})": "Speaker names ({{count}})",
+  "Người nói {{label}} tự giới thiệu là {{name}}":
+    "Speaker {{label}} introduced themselves as {{name}}",
+  "Đặt tên {{name}}": "Name them {{name}}",
+  "Bỏ qua": "Skip",
   "Nhận hết": "Accept all",
   "Đang nhận…": "Accepting…",
   "Đã sửa ({{count}})": "Corrected ({{count}})",
@@ -92,7 +97,7 @@ export const vietnameseUi: Record<string, string> = {
   "đang nói": "speaking",
   "{{count}} người": "{{count}} people",
   "7 ngày qua": "Last 7 days",
-  "Anh Thanh, Chị Lan, Anh Minh": "Thanh, Lan, Minh",
+  "Tên người dự, cách nhau bằng dấu phẩy": "Who attends, separated by commas",
   "Áp dụng cho mọi câu của {{name}}": "Applies to everything {{name}} said",
   Bạn: "You",
   "Bạn chưa chọn tab cuộc họp nên chưa bắt đầu ghi.":
@@ -131,8 +136,6 @@ export const vietnameseUi: Record<string, string> = {
   "Dịch vụ nhận dạng giọng nói không phản hồi. Phần đã ghi vẫn được lưu.":
     "The speech service stopped responding. What was recorded is saved.",
   Dừng: "Stop",
-  "Cách nhau bằng dấu phẩy; dùng để gán tên người nói.":
-    "Separate with commas; used to name speakers.",
   "Dừng ghi và kết thúc cuộc họp?": "Stop recording and end the meeting?",
   "Dừng và kết thúc": "Stop and end",
   "Ghi chú của tôi": "My notes",
@@ -200,11 +203,10 @@ export const vietnameseUi: Record<string, string> = {
     "The meeting tab stopped sharing, so only your voice is recorded.",
   "Tab họp": "Meeting tab",
   "Tạm dừng": "Pause",
-  "Tasco, OKR, KPI": "Tasco, OKR, KPI",
+  "Tên riêng, từ viết tắt, thuật ngữ": "Names, abbreviations, domain terms",
   "Tên cuộc họp": "Meeting name",
   "Tên khác": "Another name",
   "Tên người nói": "Speaker name",
-  "Giúp nhận dạng đúng tên riêng và từ chuyên ngành.": "Helps recognise names and domain terms.",
   "Thành phần": "Participants",
   "Thời gian ghi": "Recording time",
   "Thuật ngữ riêng": "Domain terms",
@@ -224,7 +226,7 @@ export const vietnameseUi: Record<string, string> = {
   "Nhớ bật “Chia sẻ cả âm thanh của thẻ”, và nên đeo tai nghe.":
     "Remember to turn on “Share tab audio”, and wear headphones.",
   "Về danh sách cuộc họp": "Back to meetings",
-  "Ví dụ: Giao ban tuần": "For example: Weekly briefing",
+  "Giao ban tuần": "Weekly briefing",
   "Xoá cuộc họp?": "Delete the meeting?",
   // MEM-152 file library v2: the library page redesign (rail, filter popover, rows and empty states)
   "Phần của thư viện": "Library sections",

@@ -166,11 +166,31 @@ public class MeetingRepository {
 
     public List<Meeting.Speaker> speakers(UUID tenant, UUID meeting) {
         return jdbc.sql("""
-                SELECT track, label, name FROM meeting_speaker WHERE tenant_id = :tenant AND meeting_id = :meeting
+                SELECT track, label, name, suggestion_dismissed FROM meeting_speaker
+                WHERE tenant_id = :tenant AND meeting_id = :meeting
                 ORDER BY track, label
                 """).param("tenant", tenant).param("meeting", meeting)
                 .query((r, ignored) -> new Meeting.Speaker(Meeting.Track.valueOf(r.getString("track")), r.getString("label"),
                         r.getString("name"))).list();
+    }
+
+    /** The voices whose offered name the owner has not answered yet: unnamed, and not dismissed. */
+    public List<Meeting.Speaker> speakersAskingForAName(UUID tenant, UUID meeting) {
+        return jdbc.sql("""
+                SELECT track, label FROM meeting_speaker
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND name IS NULL AND NOT suggestion_dismissed
+                """).param("tenant", tenant).param("meeting", meeting)
+                .query((r, ignored) -> new Meeting.Speaker(Meeting.Track.valueOf(r.getString("track")),
+                        r.getString("label"), null)).list();
+    }
+
+    /** Stops offering a name for this voice. Returns false for an unknown speaker. */
+    public boolean dismissSuggestion(UUID tenant, UUID meeting, Meeting.Track track, String label) {
+        return jdbc.sql("""
+                UPDATE meeting_speaker SET suggestion_dismissed = true
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND track = :track AND label = :label
+                """).param("tenant", tenant).param("meeting", meeting).param("track", track.name())
+                .param("label", label).update() == 1;
     }
 
     public List<Meeting.Utterance> utterances(UUID tenant, UUID meeting) {

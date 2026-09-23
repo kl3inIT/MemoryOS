@@ -610,7 +610,7 @@ test("mobile drawer, Search navigation, and leaving a running chat only closes t
   expect(box!.y + box!.height).toBeLessThan(844);
   await expect(page.getByRole("banner")).toContainText("Mobile running");
   await page.getByRole("button", { name: "Mở điều hướng" }).click();
-  const navigation = page.getByRole("dialog", { name: "Điều hướng MemoryOS" });
+  const navigation = page.getByRole("dialog", { name: "Điều hướng" });
   await expect(page.getByRole("banner").getByRole("button", { name: /chuyển chế độ/ })).toHaveCount(
     0,
   );
