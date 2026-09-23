@@ -43,7 +43,7 @@ class GoogleNativeExtractionTest {
         assertEquals(1, cells.get(3).path("column").asInt());
         assertFalse(result.structuredJson().contains("IMPORTXML"), "a formula is never stored or evaluated");
         assertEquals("Revenue", canonical.path("blocks").get(0).path("sheetName").asString());
-        assertEquals(mapper.readTree("[{\"sheetIndex\":1,\"sheetName\":\"Notes\"}]"), canonical.path("blocks").get(1).path("locations"));
+        assertEquals(mapper.readTree("[{\"sheetIndex\":1}]"), canonical.path("blocks").get(1).path("locations"));
         assertEquals(1, canonical.path("blocks").get(1).path("table").path("rowCount").asInt());
         assertEquals("Revenue\nA1: 0\nB1: false\nB2: 42.00\nNotes", result.normalizedText());
         var chunks = new io.memoryos.document.application.StructuredDocumentChunker(mapper).chunk(result.title(), result.structuredJson());

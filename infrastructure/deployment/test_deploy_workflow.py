@@ -201,6 +201,24 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn("sha256sum configuration.tar images.env > SHA256SUMS", publish)
         self.assertIn("{manifest.json,configuration.tar,images.env,SHA256SUMS}", SCRIPT)
 
+    def test_the_serving_firewall_guards_docker_without_being_restarted_by_a_deployment(self):
+        deployment = ROOT / "infrastructure/deployment"
+        unit = (deployment / "systemd/memoryos-serving-firewall.service").read_text(encoding="utf-8")
+        directives = [line.strip() for line in unit.splitlines() if line.strip() and not line.startswith("#")]
+        # At boot the rule exists before any container publishes a port, and a failed rule keeps Docker down.
+        self.assertIn("Before=docker.service", directives)
+        self.assertIn("RequiredBy=docker.service", directives)
+        for directive in directives:
+            self.assertNotRegex(directive, r"^(After|Requires|PartOf|WantedBy)=.*docker")
+        serving = (deployment / "deploy-serving.sh").read_text(encoding="utf-8")
+        # Docker requires the unit, so restarting it would restart every container.
+        self.assertNotRegex(serving, r"systemctl\s+(re)?start\s+memoryos-serving-firewall")
+        applied = serving.index('/usr/local/sbin/memoryos-serving-firewall "$allowed" "${ports[@]}"')
+        checked = serving.index("A published port is missing from MEMORYOS_SERVING_PORTS")
+        self.assertLess(checked, applied, "a port the firewall would not filter stops the deployment first")
+        self.assertLess(checked, serving.index("compose up"))
+        self.assertLess(applied, serving.index("compose up"), "the rule is current before containers publish")
+
     def test_interpreter_is_reachable_only_on_the_internal_network(self):
         compose = (ROOT / "infrastructure/deployment/compose.base.yaml").read_text(encoding="utf-8")
         service = compose.split("\n  interpreter:\n", 1)[1].split("\nnetworks:\n", 1)[0]

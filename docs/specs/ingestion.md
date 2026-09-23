@@ -68,7 +68,7 @@ Structured `policy` errors and HTTP 413 become terminal `WRITE_LIMIT`; structure
 
 ### PaddleOCR-VL for scans and images
 
-**Provider by text layer (MEM-192).** Which layout provider reads a FILE input depends on what it carries, not on its extension. The PDF admission pass also records each page's CropBox in points (width and height swapped for `/Rotate` 90 or 270, the page as displayed) and, when PaddleOCR-VL is configured, counts the text layer's non-whitespace characters page by page, stopping once the document has shown it is not a scan. Below 100 characters a page (the MEM-191 threshold) the PDF is a scan. A PDF mixing scanned and text pages follows its majority; splitting by page is later work.
+**Provider by text layer (MEM-192).** Which layout provider reads a FILE input depends on what it carries, not on its extension. The PDF admission pass also records each page's CropBox in points (width and height swapped for `/Rotate` 90 or 270, the page as displayed) and, when PaddleOCR-VL is configured, counts the text layer's non-whitespace characters page by page, stopping at the first page below 100 characters (the MEM-191 threshold). A PDF with any such page is a scan, so scanned statements inside a text report are not lost; a blank or picture page in a text document costs GPU time, not content. Splitting by page is later work.
 
 | Input | PaddleOCR-VL configured | PaddleOCR-VL absent |
 | --- | --- | --- |

@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -71,6 +72,39 @@ class PaddleOcrVlRoutingTest {
             assertTrue(document.path("financial_checks").isArray());
             assertEquals(1, paddleCalls.get());
             verifyNoInteractions(docling);
+        }
+    }
+
+    @Test
+    void aTextReportWithOneScannedPageIsReadByPaddleOcrVl() throws Exception {
+        // The text page alone carries more than both pages' threshold together; the page without text decides.
+        serve(200, fixture("sideways-and-upright-page.json"));
+        doclingAnswers();
+        try (var extractor = withPaddle()) {
+            var result = extract(extractor, textThenScan(), "report.pdf");
+
+            assertEquals("paddleocr-vl", result.metadata().get("parser"));
+            assertEquals(1, paddleCalls.get());
+            verifyNoInteractions(docling);
+        }
+    }
+
+    @Test
+    void aTableBlockWithoutCellsKeepsItsTextAsAParagraph() throws Exception {
+        serve(200, """
+                {"logId":"table-text","errorCode":0,"errorMsg":"Success","result":{"layoutParsingResults":[
+                 {"prunedResult":{"width":1685,"height":1191,"parsing_res_list":[
+                  {"block_label":"table","block_content":"Tổng cộng tài sản 12.345.678","block_bbox":[10,10,500,500]},
+                  {"block_label":"table","block_content":"<table></table>","block_bbox":[10,600,500,900]}]}}]}}
+                """);
+        try (var extractor = withPaddle()) {
+            var result = extract(extractor, scan(1), "scan.pdf");
+
+            var blocks = mapper.readTree(result.structuredJson()).path("blocks");
+            assertEquals(1, blocks.size(), "a table block with neither cells nor text adds nothing");
+            assertEquals("PARAGRAPH", blocks.get(0).path("kind").asString());
+            assertEquals("Tổng cộng tài sản 12.345.678", blocks.get(0).path("text").asString());
+            assertTrue(result.normalizedText().contains("Tổng cộng tài sản 12.345.678"));
         }
     }
 
@@ -234,6 +268,48 @@ class PaddleOcrVlRoutingTest {
     }
 
     @Test
+    void aTiffWithMoreFramesThanThePageLimitIsRefusedBeforeItIsSent() throws Exception {
+        serve(200, fixture("financial-statement-page.json"));
+        try (var extractor = withPaddle(2)) {
+            byte[] tiff = tiff(frame(40, 30), frame(40, 30), frame(40, 30));
+            var error = assertThrows(ExtractionException.class,
+                    () -> extractor.extract(tiff, "scan.tiff", "image/tiff", SourceInputDescriptor.binary()));
+            assertEquals(ExtractionFailure.WRITE_LIMIT, error.failure());
+            assertEquals(0, paddleCalls.get());
+        }
+    }
+
+    @Test
+    void aTiffWhoseLaterFrameIsOversizedIsRefusedBeforeItIsSent() throws Exception {
+        serve(200, fixture("financial-statement-page.json"));
+        try (var extractor = withPaddle()) {
+            // 12001 x 12000 is just over the 144 million pixel bound; one bit a pixel keeps it cheap to build.
+            var large = new java.awt.image.BufferedImage(12_001, 12_000, java.awt.image.BufferedImage.TYPE_BYTE_BINARY);
+            byte[] tiff = tiff(frame(40, 30), large);
+            assertTrue(tiff.length < 20_971_520, "refused for its pixels, not its bytes");
+            var error = assertThrows(ExtractionException.class,
+                    () -> extractor.extract(tiff, "scan.tiff", "image/tiff", SourceInputDescriptor.binary()));
+            assertEquals(ExtractionFailure.WRITE_LIMIT, error.failure());
+            assertEquals(0, paddleCalls.get());
+        }
+    }
+
+    @Test
+    void aTiffWithinThePageAndPixelLimitsIsSent() throws Exception {
+        serve(200, fixture("financial-statement-page.json"));
+        try (var extractor = withPaddle(2)) {
+            for (int frames = 1; frames <= 2; frames++) {
+                var images = new java.awt.image.BufferedImage[frames];
+                java.util.Arrays.fill(images, frame(40, 30));
+                byte[] tiff = tiff(images);
+                var result = extractor.extract(tiff, "scan.tiff", "image/tiff", SourceInputDescriptor.binary());
+                assertEquals("paddleocr-vl", result.metadata().get("parser"));
+                assertEquals(frames, paddleCalls.get());
+            }
+        }
+    }
+
+    @Test
     void anEmptyEndpointLeavesTheProviderAbsent() {
         var source = new org.springframework.boot.context.properties.source.MapConfigurationPropertySource(java.util.Map.of(
                 "memoryos.extraction.paddleocr-vl.endpoint", "",
@@ -264,8 +340,12 @@ class PaddleOcrVlRoutingTest {
     }
 
     private DoclingSourceContentExtractor withPaddle() {
+        return withPaddle(200);
+    }
+
+    private DoclingSourceContentExtractor withPaddle(int maxPages) {
         var paddle = new PaddleOcrVlExtractor(new PaddleOcrVlProperties(
-                URI.create("http://127.0.0.1:" + server.getAddress().getPort()), Duration.ofSeconds(10), 200, null), mapper);
+                URI.create("http://127.0.0.1:" + server.getAddress().getPort()), Duration.ofSeconds(10), maxPages, null), mapper);
         return new DoclingSourceContentExtractor(properties(), mapper, docling, paddle);
     }
 
@@ -354,6 +434,36 @@ class PaddleOcrVlRoutingTest {
             pdf.save(out);
             return out.toByteArray();
         }
+    }
+
+    /** A text-rich page followed by a page with no text layer. */
+    private static byte[] textThenScan() throws Exception {
+        try (var pdf = Loader.loadPDF(textPdf(1)); var out = new ByteArrayOutputStream()) {
+            pdf.addPage(new PDPage(new PDRectangle(842.04f, 595.44f)));
+            pdf.save(out);
+            return out.toByteArray();
+        }
+    }
+
+    private static java.awt.image.BufferedImage frame(int width, int height) {
+        return new java.awt.image.BufferedImage(width, height, java.awt.image.BufferedImage.TYPE_INT_RGB);
+    }
+
+    private static byte[] tiff(java.awt.image.BufferedImage... frames) throws Exception {
+        var writer = javax.imageio.ImageIO.getImageWritersByFormatName("tiff").next();
+        var out = new ByteArrayOutputStream();
+        try (var stream = javax.imageio.ImageIO.createImageOutputStream(out)) {
+            writer.setOutput(stream);
+            var parameters = writer.getDefaultWriteParam();
+            parameters.setCompressionMode(javax.imageio.ImageWriteParam.MODE_EXPLICIT);
+            parameters.setCompressionType("Deflate");
+            writer.prepareWriteSequence(null);
+            for (var frame : frames) writer.writeToSequence(new javax.imageio.IIOImage(frame, null, null), parameters);
+            writer.endWriteSequence();
+        } finally {
+            writer.dispose();
+        }
+        return out.toByteArray();
     }
 
     private static byte[] png() throws Exception {

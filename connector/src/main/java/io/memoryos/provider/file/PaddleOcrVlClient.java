@@ -107,9 +107,29 @@ final class PaddleOcrVlClient implements AutoCloseable {
             var response = transport.send(request, HttpResponse.BodyHandlers.ofInputStream());
             status = response.statusCode();
             byte[] answer;
+            // The request timeout ends with the response headers. A server that then stalls mid-body
+            // would hold the worker for ever, so the same deadline, counted from the start, closes
+            // the body; a read that fails after it has passed is a timeout, not a transport fault.
+            var expired = new java.util.concurrent.atomic.AtomicBoolean();
             try (var stream = response.body()) {
                 if (status >= 300) throw new StatusFailure(status);
-                answer = stream.readNBytes(maxResponseBytes + 1);
+                long remaining = timeout.toNanos() - (System.nanoTime() - started);
+                java.util.concurrent.CompletableFuture.delayedExecutor(Math.max(0, remaining), TimeUnit.NANOSECONDS)
+                        .execute(() -> {
+                            expired.set(true);
+                            try {
+                                stream.close();
+                            } catch (IOException ignored) {
+                                // Closing is how the stalled read is released; nothing else to do.
+                            }
+                        });
+                try {
+                    answer = stream.readNBytes(maxResponseBytes + 1);
+                } catch (IOException read) {
+                    if (expired.get()) throw failed(ExtractionFailure.TIMEOUT, status, "response_deadline");
+                    throw read;
+                }
+                if (expired.get()) throw failed(ExtractionFailure.TIMEOUT, status, "response_deadline");
             }
             if (answer.length > maxResponseBytes) throw failed(ExtractionFailure.WRITE_LIMIT, status, "response_limit");
             JsonNode envelope;

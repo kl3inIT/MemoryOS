@@ -104,7 +104,7 @@ Hệ quả:
 | PDF có lớp chữ, DOCX, PPTX | Docling, `do_ocr=false` | không |
 | XLSX, CSV, Google Docs/Sheets, SharePoint page | reader native hiện có | không |
 
-PDF là "scan" khi mật độ chữ của lớp chữ dưới ngưỡng 100 ký tự không trắng mỗi trang, cùng ngưỡng PDFBox mà MEM-191 đã dùng. PDF lẫn trang scan và trang có chữ đi theo phần đông; tách theo trang để sau.
+PDF là "scan" khi mật độ chữ của lớp chữ dưới ngưỡng 100 ký tự không trắng mỗi trang, cùng ngưỡng PDFBox mà MEM-191 đã dùng. PDF đi PaddleOCR-VL khi bất kỳ trang nào có lớp chữ dưới ngưỡng, để các bảng báo cáo scan nằm trong một báo cáo có chữ không bị mất; một trang trắng hay trang ảnh chỉ tốn thời gian GPU, không mất nội dung.
 
 **Không hạ cấp khi PaddleOCR-VL lỗi.** Spike cho thấy Tesseract sai chữ số trong số tiền, và một tài liệu đã index sai không được đọc lại khi dịch vụ quay lại, vì `parser_configuration` chỉ là metadata chẩn đoán. Không có dự phòng sang Docling hay Tesseract cho bản scan. Lỗi của PaddleOCR-VL đi đúng đường hiện có: `ExtractionException` là lỗi cuối (`DefaultIngestionCoordinator`), attempt và item thành `FAILED` với `SOURCE_EXTRACTION_<failure>`, lần đồng bộ sau không tự đọc lại item không đổi, và người quản lý Source bấm reindex. Chủ sản phẩm chọn cách này thay vì thêm cơ chế tự thử lại (2026-09-23). Dự phòng MEM-191 sang bộ đọc native vẫn áp dụng cho Docling và file có lớp chữ.
 
