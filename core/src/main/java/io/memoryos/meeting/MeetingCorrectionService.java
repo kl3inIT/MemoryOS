@@ -218,12 +218,17 @@ public class MeetingCorrectionService {
         String chosen = own == null ? correction.after() : own.strip();
         if (chosen.isEmpty() || chosen.length() > 2000 || chosen.chars().anyMatch(Character::isISOControl))
             throw MeetingException.invalid("A correction has 1 to 2000 characters.");
+        // A proposal made before marks were read as whole words can point at half of one, and its answer is the
+        // whole word: replacing only the half would leave the rest of the word behind it twice.
+        start = Meeting.Span.wordStart(utterance.text(), start);
+        end = Meeting.Span.wordEnd(utterance.text(), end);
+        String before = utterance.text().substring(start, end);
         String after = replaced(utterance.text(), start, end, chosen);
         meetings.rewrite(tenant, meetingId, utterance.id(), utterance.text(), after,
                 shifted(utterance.spans(), start, end, chosen.length()),
                 own == null ? Meeting.EditSource.MODEL : Meeting.EditSource.HUMAN, correction.runId(), actor.value(),
                 own == null ? "MODEL" : "HUMAN");
-        meetings.accepted(tenant, correction.id(), actor.value(), chosen);
+        meetings.accepted(tenant, correction.id(), actor.value(), start, end, before, chosen);
     }
 
     /**

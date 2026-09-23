@@ -28,6 +28,21 @@ class MeetingCorrectionSpansTest {
     }
 
     @Test
+    void aMarkOnPartOfAWordCoversTheWholeWord() {
+        // Soniox scored "ở" of "Mở" and "Tr" of "Trực" on staging.
+        var line = new Meeting.Utterance(java.util.UUID.randomUUID(), Meeting.Track.MIC, "1", 0, 1000,
+                "Mở cửa, trực tiếp 51 này.", 0.5,
+                List.of(new Meeting.Span(1, 2, 0.37), new Meeting.Span(8, 10, 0.3), new Meeting.Span(10, 12, 0.5),
+                        new Meeting.Span(19, 20, 0.25)));
+
+        var words = line.spans().stream().map(span -> line.text().substring(span.start(), span.end())).toList();
+
+        assertEquals(List.of("Mở", "trực", "51"), words);
+        assertEquals(0.3, line.spans().get(1).confidence(), 1e-9,
+                "two pieces of one word become one mark, as unsure as its least sure piece");
+    }
+
+    @Test
     void aMarkOverlappingTheChangeIsDropped() {
         var marks = List.of(new Meeting.Span(4, 10, 0.5));
 
