@@ -2,12 +2,13 @@ import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
 /**
- * The login theme against Keycloak's own markup: a centred card carrying the Tenant's wordmark.
+ * The login theme against Keycloak's own markup: a centred card under the MemoryOS wordmark, with
+ * the Tenant's identity provider offered below the form.
  *
  * The page is rendered from the stylesheet this repository ships and the markup keycloak.v2
  * produces, so the test exercises the theme rather than a running server. What it holds is what
- * the theme promises — the card is centred and the header is the Tenant's wordmark rather than a
- * product name. How the card looks inside is the designer's, and is not frozen here. The page
+ * the theme promises — the card is centred, the header carries the MemoryOS wordmark, and the
+ * Tenant's provider button carries the Tenant's own. How the card looks inside is the designer's, and is not frozen here. The page
  * does scroll a little on a 900-pixel viewport, because the centring rule adds its padding to a
  * full-viewport minimum height; that is the design's to decide, so no test holds it either way.
  */
@@ -21,7 +22,7 @@ const themeCss = readFileSync(
 
 function keycloakMarkup(options: { pageId?: string; title?: string } = {}) {
   const pageId = options.pageId ?? "login-login";
-  const title = options.title ?? "Sign in";
+  const title = options.title ?? "Continue to MemoryOS";
 
   return `<!doctype html>
     <html class="login-pf" lang="en">
@@ -30,7 +31,7 @@ function keycloakMarkup(options: { pageId?: string; title?: string } = {}) {
         <div class="pf-v5-c-login">
           <div class="pf-v5-c-login__container">
             <header id="kc-header" class="pf-v5-c-login__header">
-              <div id="kc-header-wrapper" class="pf-v5-c-brand">Tasco</div>
+              <div id="kc-header-wrapper" class="pf-v5-c-brand">MemoryOS</div>
             </header>
             <main class="pf-v5-c-login__main">
               <div class="pf-v5-c-login__main-header">
@@ -81,15 +82,13 @@ function keycloakMarkup(options: { pageId?: string; title?: string } = {}) {
     </html>`;
 }
 
-test("centres the card and carries the Tenant wordmark", async ({
+test("centres the card under the MemoryOS wordmark", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.setContent(keycloakMarkup());
 
-  await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-  // The product name is not what a member of this Tenant signs in to.
-  await expect(page.getByText("MemoryOS")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Continue to MemoryOS" })).toBeVisible();
 
   const layout = await page.evaluate(() => {
     const card = document.querySelector(".pf-v5-c-login__container")!.getBoundingClientRect();
@@ -97,12 +96,12 @@ test("centres the card and carries the Tenant wordmark", async ({
     return {
       leftInset: Math.round(card.left),
       rightInset: Math.round(innerWidth - card.right),
-      headerMask: header.maskImage || header.webkitMaskImage,
+      headerImage: header.backgroundImage,
     };
   });
 
   expect(Math.abs(layout.leftInset - layout.rightInset)).toBeLessThanOrEqual(1);
-  expect(layout.headerMask).toContain("tenant-wordmark.png");
+  expect(layout.headerImage).toContain("memoryos-wordmark.svg");
 });
 
 test("keeps the identity provider button on one line with its wordmark", async ({ page }) => {
@@ -119,5 +118,5 @@ test("keeps the identity provider button on one line with its wordmark", async (
     return { svgDisplay: svg.display, afterMask: after.maskImage || after.webkitMaskImage };
   });
   expect(marks.svgDisplay).toBe("none");
-  expect(marks.afterMask).toContain("tenant-wordmark.png");
+  expect(marks.afterMask).toContain("tasco-logo.png");
 });
