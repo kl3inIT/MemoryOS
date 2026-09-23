@@ -140,11 +140,11 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         publish = CI_WORKFLOW.split("name: Publish verified release", 1)[1].split("publish-landing:", 1)[0]
         self.assertIn("name: candidate-interpreter", CI_WORKFLOW)
         self.assertIn("docker load --input candidate/interpreter.tar", publish)
-        self.assertIn("for component in api worker web interpreter interpreter-executor; do", publish)
+        self.assertIn("for component in api worker web interpreter interpreter-executor keycloak; do", publish)
         # Compose rejects a hyphen in an environment key.
         self.assertIn("key=${component//-/_}", publish)
-        self.assertIn("images=(api worker web interpreter interpreter-executor)", SCRIPT)
-        self.assertIn('[[ $(wc -l < "$tx/images.env") == 6 ]]', SCRIPT)
+        self.assertIn("images=(api worker web interpreter interpreter-executor keycloak)", SCRIPT)
+        self.assertIn('[[ $(wc -l < "$tx/images.env") == 7 ]]', SCRIPT)
         deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
         # The executor is not a Compose service: pull it with the job-scoped credentials before reserving.
         self.assertLess(deploy.index("docker login ghcr.io"), deploy.index("docker pull --quiet"))
@@ -152,6 +152,25 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         # A runtime accepted before the interpreter joined the release has no interpreter container.
         self.assertIn('has_interpreter "$state/current.env"', deploy)
         self.assertIn('--argjson count "${#previous_components[@]}"', deploy)
+
+    def test_keycloak_joins_the_release_only_where_the_host_leaves_it_to_the_release(self):
+        backend = CI_WORKFLOW.split("  backend-images:\n", 1)[1].split("\n  secrets:\n", 1)[0]
+        self.assertIn("context: infrastructure/keycloak", backend)
+        self.assertIn("infrastructure/keycloak/smoke-test-image.sh", backend)
+        self.assertIn('"memoryos-keycloak:sha-$GITHUB_SHA"', backend)
+        deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
+        # Staging names the OrgMemory image in its environment file; the release must not override it.
+        strip = deploy.index('sed -i "/^$(image_key keycloak)=/d" "$tx/candidate.env"')
+        self.assertLess(deploy.index('cp "$tx/images.env" "$tx/candidate.env"'), strip)
+        self.assertIn('grep -q "^$(image_key keycloak)=" "$environment_file"', deploy)
+        # A Keycloak started by hand carries another revision; it joins the capture only once a release put it there.
+        self.assertIn('has_keycloak "$state/current.env"', deploy)
+        # Its database is dumped before a Keycloak that may migrate it starts.
+        self.assertLess(deploy.index('-d keycloak -Fc'), deploy.index("target=candidate; rollout"))
+        rollout = SCRIPT.split("rollout() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertLess(rollout.index("keycloak"), rollout.index(" api"))
+        rollback = SCRIPT.split('elif [[ "$mode" == rollback ]]', 1)[1].split('elif [[ "$mode" == finish ]]', 1)[0]
+        self.assertNotIn("stop --timeout 45 keycloak", rollback)
 
     def test_release_contract_has_no_model_serving(self):
         # Managed model serving was removed until a qualified environment exists (MEM-77).

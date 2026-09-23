@@ -207,9 +207,9 @@ services:
 
   keycloak:
     <<: *service-defaults
-    # Renamed from MEMORYOS_SHARED_KEYCLOAK_IMAGE. A nested fallback to the old name is not portable:
-    # the Compose version on the CI runner evaluates the inner expression even when the outer variable
-    # is set. A server keeps both lines in its environment file until every deployment uses the new one.
+    # Each release publishes memoryos-keycloak with the login theme inside it, and the deployment
+    # rolls it out with the rest. A host whose environment file names this variable keeps that image
+    # instead and manages Keycloak itself: staging, where the runtime is shared with OrgMemory.
     image: ${MEMORYOS_KEYCLOAK_IMAGE:?Set MEMORYOS_KEYCLOAK_IMAGE}
     container_name: memoryos-keycloak
     command:
@@ -235,9 +235,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      # Folder themes are read at runtime, so the optimized image needs no rebuild; recreate Keycloak to load changes.
-      - ../keycloak/themes/memoryos:/opt/keycloak/themes/memoryos:ro
     ports:
       - 127.0.0.1:${MEMORYOS_KEYCLOAK_HOST_PORT:-18180}:8080
     networks:
@@ -245,18 +242,18 @@ services:
         aliases:
           - keycloak
           - memoryos-keycloak
-          - shared-keycloak
       proxy:
         aliases:
           - keycloak
-          - orgmemory-keycloak
           - memoryos-keycloak
     healthcheck:
+      # Readiness answers 200 only once the server is up. Its body gives every check a status of its
+      # own, and those read UP while "Keycloak Initialized" is still DOWN.
       test:
         - CMD-SHELL
         - >-
           { printf 'GET /health/ready HTTP/1.0\r\n\r\n' >&0;
-          grep -q '"status" *: *"UP"'; } 0<>/dev/tcp/127.0.0.1/9000
+          head -n 1 | grep -q ' 200 '; } 0<>/dev/tcp/127.0.0.1/9000
       interval: 10s
       timeout: 5s
       retries: 18

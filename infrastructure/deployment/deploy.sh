@@ -19,9 +19,10 @@ mkdir -p "$state"
 exec 9>"$state/lock"
 flock --nonblock 9 || { echo "Another $environment operation owns the lock" >&2; exit 1; }
 
-# Release images in images.env order. The interpreter starts executor containers from the last one
-# on the host daemon, so it is pulled and verified here but is not a Compose service.
-images=(api worker web interpreter interpreter-executor)
+# Release images in images.env order. The interpreter starts executor containers from
+# interpreter-executor on the host daemon, so it is pulled and verified here but is not a Compose
+# service.
+images=(api worker web interpreter interpreter-executor keycloak)
 
 image_key() {
   local key=${1//-/_}
@@ -35,6 +36,12 @@ image_reference() {
 # A runtime accepted before MEM-110 has no interpreter.
 has_interpreter() {
   grep -q "^$(image_key interpreter)=" "$1"
+}
+
+# Keycloak belongs to the release only where the environment file leaves it to the release. A
+# runtime accepted before it joined, and a host that names its own Keycloak image, have none.
+has_keycloak() {
+  grep -q "^$(image_key keycloak)=" "$1"
 }
 
 # Empty before the first deployment: Flyway creates its history table when it first runs, and
@@ -61,6 +68,10 @@ compose() {
 }
 
 rollout() {
+  # Before the API, which signs people in through it.
+  if has_keycloak "$tx/$target.env"; then
+    compose up -d --no-deps --pull never --wait --wait-timeout 240 keycloak
+  fi
   compose up -d --no-deps --pull never --wait --wait-timeout 240 api
   compose up -d --no-deps --pull never --wait --wait-timeout 240 worker web
   if has_interpreter "$tx/$target.env"; then
@@ -78,6 +89,9 @@ verify_runtime() {
     docker image inspect "$reference" | jq --exit-status --arg sha "$sha" '
       .[0].Config.Labels["org.opencontainers.image.revision"] == $sha
     ' > /dev/null
+  fi
+  if has_keycloak "$tx/$target.env"; then
+    components+=(keycloak)
   fi
   for component in "${components[@]}"; do
     reference=$(image_reference "$component" "$tx/$target.env")
@@ -104,13 +118,21 @@ if [[ "$mode" == deploy ]]; then
   jq --exit-status --arg sha "${release:0:40}" '
     .repository == "kl3inIT/MemoryOS" and .sha == $sha
   ' "$tx/manifest.json" > /dev/null
-  [[ $(wc -l < "$tx/images.env") == 6 ]]
+  [[ $(wc -l < "$tx/images.env") == 7 ]]
   for component in "${images[@]}"; do
     reference=$(image_reference "$component" "$tx/images.env")
     [[ "$reference" =~ ^ghcr.io/kl3init/memoryos-$component@sha256:[0-9a-f]{64}$ ]]
   done
   [[ "$(sed -n 's/^MEMORYOS_RELEASE=//p' "$tx/images.env")" == "${release:0:40}" ]]
   cp "$tx/images.env" "$tx/candidate.env"
+  # The environment file names a Keycloak image where an operator runs Keycloak: staging shares one
+  # with OrgMemory, whose realm needs a theme only the OrgMemory image carries. The release then
+  # leaves Keycloak alone, and the environment file's image, not the release's, is the one Compose
+  # sees, because the release's value would otherwise override it.
+  if grep -q "^$(image_key keycloak)=" "$environment_file"; then
+    sed -i "/^$(image_key keycloak)=/d" "$tx/candidate.env"
+    echo 'Keycloak is managed on this host, not by the release'
+  fi
   mkdir "$tx/source"
   tar --extract --file "$tx/configuration.tar" --directory "$tx/source" --no-same-owner --no-same-permissions
   for file in compose.base.yaml "compose.$environment.yaml" "compose.search.$environment.yaml"; do
@@ -132,6 +154,11 @@ if [[ "$mode" == deploy ]]; then
     previous_components=(api worker web)
     if [[ -f "$state/current.env" ]] && has_interpreter "$state/current.env"; then
       previous_components+=(interpreter)
+    fi
+    # Only once a release put it there: before that, Keycloak carries another image's revision
+    # label and another Compose project's files, and would read as a mixed runtime.
+    if [[ -f "$state/current.env" ]] && has_keycloak "$state/current.env"; then
+      previous_components+=(keycloak)
     fi
     previous=$(docker inspect "${previous_components[@]/#/memoryos-}" | jq --exit-status --argjson count "${#previous_components[@]}" '
       if length == $count and all(.[]; .State.Running and .State.Health.Status == "healthy")
@@ -185,9 +212,11 @@ if [[ "$mode" == deploy ]]; then
   trap 'rm -f -- "$DOCKER_CONFIG/config.json"; rmdir -- "$DOCKER_CONFIG"' EXIT
   docker login ghcr.io --username "${4:?registry user}" --password-stdin
   compose pull api worker web interpreter
+  if has_keycloak "$tx/candidate.env"; then compose pull keycloak; fi
   docker pull --quiet "$(image_reference interpreter-executor "$tx/candidate.env")" > /dev/null
   for component in "${images[@]}"; do
     reference=$(image_reference "$component" "$tx/candidate.env")
+    [[ -n "$reference" ]] || continue
     docker image inspect "$reference" | jq --exit-status --arg sha "${release:0:40}" '
       .[0].Config.Labels["org.opencontainers.image.revision"] == $sha
     ' > /dev/null
@@ -209,6 +238,14 @@ if [[ "$mode" == deploy ]]; then
   docker exec -i memoryos-postgres pg_restore --list < "$tx/database.dump" > "$tx/backup.catalogue"
   [[ -s "$tx/backup.catalogue" ]]
   sha256sum "$tx/database.dump" > "$tx/backup.sha256"
+  if has_keycloak "$tx/candidate.env"; then
+    # A newer Keycloak migrates its database as it starts, and no older image can read it after.
+    # shellcheck disable=SC2016
+    timeout 300 docker exec memoryos-postgres sh -c       'exec pg_dump -U "$POSTGRES_USER" -d keycloak -Fc' > "$tx/keycloak.dump"
+    docker exec -i memoryos-postgres pg_restore --list < "$tx/keycloak.dump" > "$tx/keycloak.catalogue"
+    [[ -s "$tx/keycloak.catalogue" ]]
+    sha256sum "$tx/keycloak.dump" >> "$tx/backup.sha256"
+  fi
   target=candidate; rollout; verify_runtime
   echo 'Candidate healthy; finish records deployment, not business acceptance'
 elif [[ "$mode" == rollback ]]; then
@@ -238,6 +275,8 @@ elif [[ "$mode" == rollback ]]; then
     # The previous Compose files have no interpreter service to restore; leave the candidate one stopped.
     target=candidate; compose stop --timeout 65 interpreter
   fi
+  # A previous runtime without a release Keycloak leaves the candidate's running: stopping it would
+  # sign nobody in, and restoring the operator's image is the operator's call.
   target=previous; rollout; verify_runtime
   touch "$tx/rolled-back"
   echo 'Previous images restored and healthy; finish records recovery'

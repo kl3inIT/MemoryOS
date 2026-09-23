@@ -46,12 +46,24 @@ services:
 
   # Staging shares its Keycloak, api and worker with the OrgMemory runtime on the same host.
   # Production shares nothing, so the shared-infra network is declared here rather than in the base.
+  #
+  # Its Keycloak runs the OrgMemory image, named in .env.staging: the orgmemory realm uses a theme
+  # that image carries. That image lacks the MemoryOS theme, so it is mounted here, and the
+  # deployment leaves this Keycloak to its operator.
   keycloak:
     environment:
       KC_TRUSTSTORE_PATHS: /run/secrets/mailpit_smtp_ca
     secrets:
       - mailpit_smtp_ca
+    volumes:
+      - ../keycloak/themes/memoryos:/opt/keycloak/themes/memoryos:ro
     networks:
+      memoryos-internal:
+        aliases:
+          - shared-keycloak
+      proxy:
+        aliases:
+          - orgmemory-keycloak
       shared-infra:
         aliases:
           - keycloak
