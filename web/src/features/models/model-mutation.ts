@@ -24,11 +24,11 @@ function rejectOnAbort(signal: AbortSignal) {
  * request bodies and provider keys never become mutation variables; the only variable is the operation's AbortSignal,
  * because a mutation function receives none. The mutation settles with a sanitized error and is collected as soon as
  * nothing observes it. Cancelling or unmounting aborts the operation and settles it at once as discarded, so a late
- * response is never applied and never holds the page busy.
+ * response is never applied and never holds the page busy. `describe` gives a failure the page's own static copy.
  */
 export function useModelMutation(
   task: (signal: AbortSignal) => Promise<void>,
-  { onConflict }: { onConflict?: () => void } = {},
+  { onConflict, describe }: { onConflict?: () => void; describe?: (cause: unknown) => string } = {},
 ) {
   const controller = useRef<AbortController | null>(null);
   const mutation = useMutation<void, Error, AbortSignal>({
@@ -40,7 +40,7 @@ export function useModelMutation(
         await Promise.race([task(signal), rejectOnAbort(signal)]);
         signal.throwIfAborted();
       } catch (cause) {
-        throw signal.aborted ? new Error(discarded) : sanitizeModelActionError(cause);
+        throw signal.aborted ? new Error(discarded) : sanitizeModelActionError(cause, describe);
       }
     },
   });

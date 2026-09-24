@@ -19,6 +19,7 @@ import io.memoryos.document.DocumentIndexState;
 import io.memoryos.document.application.StructuredDocumentChunker;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
+import io.memoryos.retrieval.settings.SearchGenerations;
 import io.memoryos.retrieval.SearchUnavailableException;
 import io.memoryos.retrieval.SearchFilters;
 import io.memoryos.retrieval.SearchQuery;
@@ -62,7 +63,7 @@ class OpenSearchRetrievalIntegrationTest {
         var config = new SearchInfrastructureConfiguration();
         var properties = new SearchProperties(new URI("http", null, OPENSEARCH.getHost(), OPENSEARCH.getMappedPort(9200), null, null, null),
                 "", "", "", "https://api.openai.com/v1", "", "text-embedding-3-large", 3072, 32, 2, Duration.ofSeconds(10), 2, 50, .5,
-                .70, Duration.ofSeconds(30), "memoryos-test", 0);
+                .70, Duration.ofSeconds(30), "memoryos-test", 0, "", "");
         var mapper = new ObjectMapper();
         var documents = mock(DocumentChunkPort.class);
         var model = mock(EmbeddingModel.class);
@@ -80,7 +81,8 @@ class OpenSearchRetrievalIntegrationTest {
         try (var transport = config.searchTransport(properties)) {
             var gateway = org.mockito.Mockito.spy(new OpenSearchGateway(config.searchClient(transport), mapper));
             var sourceSearch = mock(io.memoryos.connector.SourceSearchService.class);
-            var index = new OpenSearchIndexService(gateway, new ValidatedEmbeddingService(model, properties.model(), 3072, 32, 2), properties, mapper, documents, sourceSearch,
+            var index = new OpenSearchIndexService(gateway, generations(properties, new ValidatedEmbeddingService(model, properties.model(), 3072, 32, 2)),
+                    properties, mapper, documents, sourceSearch,
                     new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP));
             var tenant = new TenantId(UUID.randomUUID());
             var actor = new io.memoryos.iam.identity.ActorId(UUID.randomUUID());
@@ -286,6 +288,93 @@ class OpenSearchRetrievalIntegrationTest {
                     Map.of("query", Map.of("term", Map.of("document_id", large.documentId().value().toString())))).path("count").asInt(-1));
             verify(gateway, org.mockito.Mockito.never()).json(any(), org.mockito.ArgumentMatchers.contains("_by_query"), any(), any());
         }
+    }
+
+    @Test
+    void anIndexThatDisagreesWithItsGenerationFailsLoudlyAndAnIndexFromBeforeGenerationsIsRecordedOnce() throws Exception {
+        var config = new SearchInfrastructureConfiguration();
+        var properties = new SearchProperties(new URI("http", null, OPENSEARCH.getHost(), OPENSEARCH.getMappedPort(9200), null, null, null),
+                "", "", "", "https://api.openai.com/v1", "", "text-embedding-3-small", 8, 32, 2, Duration.ofSeconds(10), 2, 50, .5,
+                .70, Duration.ofSeconds(30), "memoryos-meta", 0, "", "");
+        var mapper = new ObjectMapper();
+        var embeddings = new ValidatedEmbeddingService(mock(EmbeddingModel.class), properties.model(), 8, 32, 2);
+        var events = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(OpenSearchIndexService.class);
+        events.start();
+        logger.addAppender(events);
+        try (var transport = config.searchTransport(properties)) {
+            var gateway = new OpenSearchGateway(config.searchClient(transport), mapper);
+            // The index a deployment created before generations: _meta names only its identity and model.
+            String legacy = SearchGenerations.legacyIdentity(properties);
+            gateway.json("PUT", "/" + legacy, Map.of(), Map.of("settings", Map.of("index.knn", true, "number_of_replicas", 0),
+                    "mappings", Map.of("dynamic", "strict", "_meta", Map.of("identity", legacy, "model", "text-embedding-3-small"),
+                            "properties", Map.of("tenant_id", Map.of("type", "keyword"), "vector", Map.of("type", "knn_vector", "dimension", 8,
+                                    "method", Map.of("name", "hnsw", "engine", "faiss", "space_type", "cosinesimil"))))));
+            var seeded = generation(properties, legacy, "text-embedding-3-small", 8, "");
+            var index = new OpenSearchIndexService(gateway, SearchGenerations.fixed(seeded, embeddings, properties), properties, mapper,
+                    mock(DocumentChunkPort.class), mock(io.memoryos.connector.SourceSearchService.class), timings());
+            index.verifyOnStartup();
+            var meta = gateway.json("GET", "/" + legacy + "/_mapping", Map.of(), null).path(legacy).path("mappings").path("_meta");
+            assertEquals(legacy, meta.path("identity").asString());
+            assertEquals(seeded.id().toString(), meta.path("generation").asString());
+            assertEquals(8, meta.path("dimensions").asInt());
+            assertEquals("", meta.path("document_prefix").asString());
+            assertEquals(DocumentChunk.CONVENTION, meta.path("chunk_convention").asString());
+            assertTrue(logged(events, "search.index.generation_recorded"));
+
+            // Same index, other vectors: a document prefix, a model or a dimension that disagrees stops search and indexing.
+            for (var wrong : List.of(generation(properties, legacy, "text-embedding-3-small", 8, "passage: "),
+                    generation(properties, legacy, "Qwen/Qwen3-Embedding-0.6B", 8, ""),
+                    generation(properties, legacy, "text-embedding-3-small", 16, ""))) {
+                var mismatched = new OpenSearchIndexService(gateway, SearchGenerations.fixed(wrong, embeddings, properties), properties,
+                        mapper, mock(DocumentChunkPort.class), mock(io.memoryos.connector.SourceSearchService.class), timings());
+                events.list.clear();
+                assertThrows(SearchUnavailableException.class, mismatched::ensureIndex);
+                assertTrue(logged(events, "search.index.generation_mismatch"), wrong.toString());
+                events.list.clear();
+                mismatched.verifyOnStartup(); // reported, not thrown: the process keeps running and keeps refusing
+                assertTrue(logged(events, "search.index.generation_mismatch"), wrong.toString());
+            }
+
+            // A generation created after seeding names its index by its own ID and records everything that decides vectors.
+            var id = UUID.randomUUID();
+            var future = new io.memoryos.retrieval.settings.SearchGeneration(id, UUID.randomUUID(), UUID.randomUUID(),
+                    "Qwen/Qwen3-Embedding-0.6B", 8, "Instruct: Given a question, retrieve passages that answer it\nQuery: ", "", .7,
+                    DocumentChunk.CONVENTION, io.memoryos.retrieval.settings.SearchGeneration.identityFor("memoryos-meta", id),
+                    io.memoryos.retrieval.settings.SearchGeneration.Status.FUTURE, false, Instant.now(), null, null);
+            new OpenSearchIndexService(gateway, SearchGenerations.fixed(future, embeddings, properties), properties, mapper,
+                    mock(DocumentChunkPort.class), mock(io.memoryos.connector.SourceSearchService.class), timings()).ensureIndex();
+            assertEquals("memoryos-meta-" + id, future.identity());
+            var created = gateway.json("GET", "/" + future.identity() + "/_mapping", Map.of(), null).path(future.identity())
+                    .path("mappings").path("_meta");
+            assertEquals("Qwen/Qwen3-Embedding-0.6B", created.path("model").asString());
+            assertEquals(8, created.path("dimensions").asInt());
+            assertEquals(DocumentChunk.CONVENTION, created.path("chunk_convention").asString());
+        } finally {
+            logger.detachAppender(events);
+        }
+    }
+
+    private static boolean logged(ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> events, String name) {
+        return events.list.stream().anyMatch(event -> event.getKeyValuePairs() != null && event.getKeyValuePairs().stream()
+                .anyMatch(pair -> "event".equals(pair.key) && name.equals(pair.value)));
+    }
+
+    private static io.memoryos.retrieval.settings.SearchGeneration generation(SearchProperties properties, String identity,
+            String model, int dimensions, String documentPrefix) {
+        return new io.memoryos.retrieval.settings.SearchGeneration(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), model,
+                dimensions, "", documentPrefix, properties.minimumSemanticScore(), DocumentChunk.CONVENTION, identity,
+                io.memoryos.retrieval.settings.SearchGeneration.Status.PRESENT, false, Instant.now(), Instant.now(), null);
+    }
+
+    private static SearchGenerations generations(SearchProperties properties, ValidatedEmbeddingService embeddings) {
+        return SearchGenerations.fixed(generation(properties, SearchGenerations.legacyIdentity(properties), properties.model(),
+                properties.dimensions(), ""), embeddings, properties);
+    }
+
+    private static io.memoryos.retrieval.SearchTimings timings() {
+        return new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(),
+                io.micrometer.observation.ObservationRegistry.NOOP);
     }
 
     private DocumentChunkSet document(TenantId tenant, String title, String text) {

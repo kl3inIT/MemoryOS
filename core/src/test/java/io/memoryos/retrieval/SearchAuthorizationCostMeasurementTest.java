@@ -188,6 +188,10 @@ class SearchAuthorizationCostMeasurementTest {
                 SELECT md5('doc'||d)::uuid, :tenant, 'ELIGIBLE', 'Document '||d, md5('gen'||d)::uuid, md5('gen'||d)::uuid, 'space'
                 FROM generate_series(1,:documents) d""",
                 """
+                INSERT INTO document_search_projection(tenant_id,document_id,index_identity,generation)
+                SELECT :tenant, md5('doc'||d)::uuid, 'space', md5('gen'||d)::uuid
+                FROM generate_series(1,:documents) d""",
+                """
                 INSERT INTO documents_by_connector_credential_pair(tenant_id,connector_id,connector_credential_pair_id,document_id,connector_item_id,retrieval_eligible)
                 SELECT :tenant, md5('src'||(d % :sources + 1))::uuid, md5('src'||(d % :sources + 1))::uuid, md5('doc'||d)::uuid, md5('item'||d)::uuid, TRUE
                 FROM generate_series(1,:documents) d""",

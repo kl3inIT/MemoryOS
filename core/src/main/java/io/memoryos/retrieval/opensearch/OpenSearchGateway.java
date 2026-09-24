@@ -29,6 +29,20 @@ public final class OpenSearchGateway {
         return request("POST", path, Map.of("refresh", "wait_for"), body, "application/x-ndjson", false);
     }
 
+    /**
+     * Bulk writes through an alias with {@code require_alias}: when the alias is gone with its index, every item fails
+     * instead of OpenSearch creating an unmapped index under the alias name.
+     */
+    public JsonNode bulkThroughAlias(String alias, String body) {
+        return request("POST", "/" + alias + "/_bulk", Map.of("refresh", "wait_for", "require_alias", "true"), body,
+                "application/x-ndjson", false);
+    }
+
+    /** Deletes the resource; returns false when it did not exist. */
+    public boolean delete(String path) {
+        return !request("DELETE", path, Map.of(), null, "application/json", true).path("missing").asBoolean();
+    }
+
     public boolean exists(String path) {
         return !request("HEAD", path, Map.of(), null, "application/json", true).path("missing").asBoolean();
     }

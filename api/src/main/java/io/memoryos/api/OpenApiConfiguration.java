@@ -116,6 +116,10 @@ class OpenApiConfiguration {
                     configureNullableProperty(components, "ChatModelValidationResult", "failureCode", new StringSchema());
                     configureNullableProperty(components, "ChatPersonaPage", "nextCursor", new StringSchema());
                     configureNullableProperty(components, "Change", "value", new StringSchema());
+                    configureNullableProperty(components, "SearchSettingsResponse", "future",
+                            new Schema<>().$ref("#/components/schemas/SearchGenerationResponse"));
+                    configureNullableProperty(components, "SearchSettingsResponse", "rebuild",
+                            new Schema<>().$ref("#/components/schemas/SearchRebuildProgressResponse"));
                 })
                 .build();
     }

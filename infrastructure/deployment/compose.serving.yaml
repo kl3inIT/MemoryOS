@@ -1,10 +1,11 @@
 name: memoryos-serving
 
 # The GPU services of the serving node (hn-fci-k8s-aioffice-serving). Only the application node
-# calls them, and nothing here authenticates a caller: PaddleX serving has no API key. The boundary
-# is the network. A port is published on the node's private address only, and the
-# memoryos-serving-firewall unit admits the application node alone in DOCKER-USER, because ufw
-# cannot filter a port Docker publishes. See docs/increments/active/mem-192-ocr-gpu/design.md.
+# calls them. PaddleX serving has no API key, so for OCR the boundary is the network alone; the
+# embedding service also requires a key generated on this node. A port is published on the node's
+# private address only, and the memoryos-serving-firewall unit admits the application node alone in
+# DOCKER-USER, because ufw cannot filter a port Docker publishes. See
+# docs/increments/active/mem-192-ocr-gpu/design.md and docs/increments/active/mem-135-embedding-settings/design.md.
 
 x-service-defaults: &service-defaults
   restart: unless-stopped
@@ -96,7 +97,89 @@ services:
       retries: 20
       start_period: 120s
 
+  # Downloads the pinned embedding model into the models volume once. Compose runs it before every
+  # start of tei; it finds the revision already there and exits, so only the first deployment needs
+  # the network, and tei itself never reaches Hugging Face (HF_HUB_OFFLINE).
+  tei-model-download:
+    image: ${MEMORYOS_TEI_IMAGE:-ghcr.io/huggingface/text-embeddings-inference:89-1.9.4@sha256:1a284d9ca1adcc20b78c261d4d052c06057f0a3cb49a15c5d2c00930f710fce2}
+    <<: *service-defaults
+    restart: "no"
+    entrypoint:
+      - /bin/sh
+      - /bootstrap/download-model.sh
+    environment:
+      MODEL_REPOSITORY: Qwen/Qwen3-Embedding-0.6B
+      MODEL_REVISION: 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3
+      MODEL_DIRECTORY: /models/Qwen3-Embedding-0.6B
+    configs:
+      - source: tei-download-model
+        target: /bootstrap/download-model.sh
+    volumes:
+      - tei-models:/models
+
+  # Qwen3-Embedding-0.6B behind Text Embeddings Inference, the OpenAI-compatible /v1/embeddings the
+  # api and worker call; it reports the served name back as the model, which the client checks. The
+  # key is a file generated on this node; it reaches TEI as its API_KEY
+  # variable, never as a command-line argument that ps would show. The health check proves both
+  # that the server answers with the key and that it refuses a request without one.
+  tei:
+    image: ${MEMORYOS_TEI_IMAGE:-ghcr.io/huggingface/text-embeddings-inference:89-1.9.4@sha256:1a284d9ca1adcc20b78c261d4d052c06057f0a3cb49a15c5d2c00930f710fce2}
+    <<: *service-defaults
+    cap_add:
+      - DAC_OVERRIDE
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        API_KEY="$$(cat /run/secrets/tei_api_key)"
+        && export API_KEY
+        && exec text-embeddings-router
+        --model-id /models/Qwen3-Embedding-0.6B
+        --served-model-name Qwen/Qwen3-Embedding-0.6B
+        --hostname 0.0.0.0
+        --port 8080
+        --max-client-batch-size 32
+        --auto-truncate
+    environment:
+      HF_HUB_OFFLINE: "1"
+    secrets:
+      - tei_api_key
+    depends_on:
+      tei-model-download:
+        condition: service_completed_successfully
+    ports:
+      - ${MEMORYOS_SERVING_PRIVATE_ADDRESS:?the serving node private address}:${MEMORYOS_TEI_PORT:-18090}:8080
+    volumes:
+      - tei-models:/models:ro
+    deploy:
+      resources:
+        limits:
+          memory: ${MEMORYOS_TEI_MEMORY_LIMIT:-3g}
+        reservations: *gpu
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          printf 'header = "Authorization: Bearer %s"\n' "$$(cat /run/secrets/tei_api_key)"
+          | curl -fsS -o /dev/null -K - http://127.0.0.1:8080/health
+          && test "$$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json'
+          -d '{"input":"health"}' http://127.0.0.1:8080/v1/embeddings)" = 401
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 300s
+
+volumes:
+  tei-models:
+
+secrets:
+  # Generated on this node and never leaving it; deploy-serving.sh refuses to start without it.
+  tei_api_key:
+    file: ${MEMORYOS_TEI_API_KEY_SECRET_FILE:-/apps/memoryos-serving/secrets/tei/api-key.txt}
+
 configs:
+  tei-download-model:
+    file: ./tei/download-model.sh
   paddleocr-vlm:
     content: |
       gpu-memory-utilization: ${MEMORYOS_PADDLEOCR_VLM_GPU_MEMORY_UTILIZATION:-0.35}

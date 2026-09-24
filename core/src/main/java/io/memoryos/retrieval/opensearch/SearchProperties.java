@@ -26,7 +26,9 @@ public record SearchProperties(
         @DefaultValue("0.70") double minimumSemanticScore,
         @DefaultValue("30s") Duration timeout,
         @DefaultValue("memoryos-chunks") String indexPrefix,
-        @DefaultValue("1") int replicas) {
+        @DefaultValue("1") int replicas,
+        @DefaultValue("") String queryPrefix,
+        @DefaultValue("") String documentPrefix) {
     public SearchProperties {
         if (endpoint.getHost() == null || endpoint.getUserInfo() != null || endpoint.getQuery() != null
                 || !endpoint.getPath().isEmpty() && !endpoint.getPath().equals("/")) throw new IllegalArgumentException("invalid search endpoint");
@@ -35,13 +37,15 @@ public record SearchProperties(
             throw new IllegalArgumentException("OpenSearch credentials and remote endpoints require HTTPS");
         }
         if (username.isBlank() != password.isBlank()) throw new IllegalArgumentException("incomplete search credentials");
+        // The Chat provider endpoint rule (docs/specs/chat-models.md#credentials-and-provider-extension): HTTP is
+        // allowed with a key, internal hosts included; credentials, query strings and fragments in the URL are not.
         var embeddingUri = URI.create(embeddingEndpoint);
-        if (embeddingUri.getHost() == null || embeddingUri.getUserInfo() != null
-                || embeddingUri.getQuery() != null || embeddingUri.getFragment() != null
-                || !Set.of("http", "https").contains(embeddingUri.getScheme())
-                || !apiKey.isEmpty() && !"https".equals(embeddingUri.getScheme())) {
-            throw new IllegalArgumentException("embedding credentials require an HTTPS endpoint");
+        if (embeddingUri.getHost() == null || embeddingUri.getRawUserInfo() != null
+                || embeddingUri.getRawQuery() != null || embeddingUri.getRawFragment() != null
+                || !Set.of("http", "https").contains(embeddingUri.getScheme())) {
+            throw new IllegalArgumentException("invalid embedding endpoint");
         }
+        if (queryPrefix.length() > 1000 || documentPrefix.length() > 1000) throw new IllegalArgumentException("invalid embedding prefix");
         if (!indexPrefix.matches("[a-z][a-z0-9-]{0,59}") || !Double.isFinite(keywordWeight)
                 || keywordWeight <= 0 || keywordWeight >= 1 || candidateLimit < 50 || candidateLimit > 1000
                 || !Double.isFinite(minimumSemanticScore) || minimumSemanticScore < 0 || minimumSemanticScore > 1

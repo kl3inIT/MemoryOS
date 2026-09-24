@@ -51,13 +51,16 @@ export function modelActionError(error: unknown): string {
 /**
  * The error a catalog mutation settles with: its safe message, and for an API failure only the status and problem code,
  * so the global 401/403 handling and conflict detection still apply. The SDK cause, which can carry the problem body
- * or the request, is never retained.
+ * or the request, is never retained. `describe` turns the failure into the page's own static copy.
  */
-export function sanitizeModelActionError(error: unknown): Error {
-  if (!(error instanceof ApiError)) return new Error(modelActionError(error));
+export function sanitizeModelActionError(
+  error: unknown,
+  describe: (cause: unknown) => string = modelActionError,
+): Error {
+  if (!(error instanceof ApiError)) return new Error(describe(error));
   const code = problemCode(error);
   const safe = new ApiError(error.status, code === undefined ? undefined : { code });
-  safe.message = modelActionError(error);
+  safe.message = describe(error);
   return safe;
 }
 

@@ -37,6 +37,14 @@ public class JpaTenantRepository {
         return state;
     }
 
+    /** The published initial Tenant, read without locking the bootstrap state. */
+    public Optional<TenantId> findBootstrapTenant() {
+        TenantBootstrapStateEntity state = entityManager.find(TenantBootstrapStateEntity.class,
+                TenantBootstrapStateEntity.SINGLETON_ID);
+        return state == null || state.getTenant() == null ? Optional.empty()
+                : Optional.of(new TenantId(state.getTenant().getId()));
+    }
+
     public long countTenants() {
         return entityManager.createQuery("select count(tenant) from TenantEntity tenant", Long.class)
                 .getSingleResult();

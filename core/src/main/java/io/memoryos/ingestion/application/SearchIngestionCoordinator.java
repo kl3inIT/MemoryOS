@@ -8,6 +8,7 @@ import io.memoryos.ingestion.persistence.JdbcSearchWorkRepository;
 import io.memoryos.retrieval.SearchIndex;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -30,14 +31,22 @@ public final class SearchIngestionCoordinator implements IngestionCoordinator {
 
     @Override
     public Outcome process(OperationDelivery delivery) {
+        var active = index.identities();
         var claimed = Objects.requireNonNull(transactions.execute(_ -> {
-            var value = work.claim(delivery, index.identity());
-            // Only a content rewrite hides the document; access refreshes keep it searchable.
-            value.filter(JdbcSearchWorkRepository.Claim::index).ifPresent(c -> documents.markSearchPending(c.tenantId(), c.documentId(), c.generation()));
+            var value = work.claim(delivery);
+            if (value.isPresent() && !active.contains(value.orElseThrow().identity())) {
+                // The index was replaced, cancelled or cleaned up since this work was queued.
+                work.finish(value.orElseThrow(), "CANCELLED", "SEARCH_OBSOLETE");
+                return Optional.<JdbcSearchWorkRepository.Claim>empty();
+            }
+            // Only a content rewrite hides the document, and only in the index being rewritten.
+            value.filter(JdbcSearchWorkRepository.Claim::index).ifPresent(c ->
+                    documents.markSearchPending(c.tenantId(), c.documentId(), c.generation(), c.identity()));
             return value;
         }), "Search claim transaction returned no outcome");
         if (claimed.isEmpty()) return Outcome.SKIPPED;
         var claim = claimed.orElseThrow();
+        String identity = claim.identity();
         var lost = new AtomicBoolean(false);
         var lease = scheduler.scheduleAtFixedRate(() -> {
             try { if (!work.renew(claim)) lost.set(true); }
@@ -46,9 +55,9 @@ public final class SearchIngestionCoordinator implements IngestionCoordinator {
         long start = System.nanoTime();
         String result = "failed";
         try {
-            if (claim.removed()) index.delete(claim.tenantId(), claim.documentId());
+            if (claim.removed()) index.delete(claim.tenantId(), claim.documentId(), identity);
             else if (claim.access()) {
-                if (!documents.isCurrent(claim.tenantId(), claim.documentId(), claim.generation(), index.identity())) {
+                if (!documents.isCurrent(claim.tenantId(), claim.documentId(), claim.generation(), identity)) {
                     // A pending content rewrite reads access itself; retry briefly, then leave drift to projection repair.
                     boolean retry = claim.attempts() < 3;
                     work.finish(claim, retry ? "NOT_STARTED" : "CANCELLED", retry ? null : "SEARCH_OBSOLETE");
@@ -56,7 +65,7 @@ public final class SearchIngestionCoordinator implements IngestionCoordinator {
                     return Outcome.SKIPPED;
                 }
                 if (lost.get()) return Outcome.SKIPPED;
-                index.updateAccess(claim.tenantId(), claim.documentId(), claim.generation());
+                index.updateAccess(claim.tenantId(), claim.documentId(), claim.generation(), identity);
             } else {
                 var chunks = documents.prepare(claim.tenantId(), claim.documentId(), claim.generation());
                 if (chunks.isEmpty()) {
@@ -65,12 +74,12 @@ public final class SearchIngestionCoordinator implements IngestionCoordinator {
                     return Outcome.SKIPPED;
                 }
                 if (lost.get()) return Outcome.SKIPPED;
-                index.index(chunks.orElseThrow());
+                index.index(chunks.orElseThrow(), identity);
             }
             if (lost.get()) return Outcome.SKIPPED;
             boolean completed = Boolean.TRUE.equals(transactions.execute(status -> {
                 if (!work.finish(claim, "SUCCESS", null)) return false;
-                if (claim.index() && !documents.markSearchReady(claim.tenantId(), claim.documentId(), claim.generation(), index.identity())) {
+                if (claim.index() && !documents.markSearchReady(claim.tenantId(), claim.documentId(), claim.generation(), identity)) {
                     status.setRollbackOnly();
                     return false;
                 }
@@ -83,13 +92,24 @@ public final class SearchIngestionCoordinator implements IngestionCoordinator {
             // Content rejections never heal on retry: finish FAILED at once with the specific code.
             boolean permanent = failure instanceof DocumentContentException;
             String errorCode = permanent ? ((DocumentContentException) failure).code() : "SEARCH_INDEX_FAILED";
-            transactions.executeWithoutResult(_ -> {
-                boolean finished = work.finish(claim, !permanent && claim.attempts() < 3 ? "NOT_STARTED" : "FAILED", errorCode);
-                if (finished && claim.index()) documents.markSearchFailed(claim.tenantId(), claim.documentId(), claim.generation(), errorCode);
-            });
+            boolean finished = Boolean.TRUE.equals(transactions.execute(_ -> {
+                if (!work.finish(claim, !permanent && claim.attempts() < 3 ? "NOT_STARTED" : "FAILED", errorCode)) return false;
+                if (claim.index()) documents.markSearchFailed(claim.tenantId(), claim.documentId(), claim.generation(), errorCode, identity);
+                return true;
+            }));
+            if (!finished) {
+                // The claim was taken away, as cancelling a rebuild does while its index is deleted: not a document failure.
+                result = "obsolete";
+                LoggerFactory.getLogger(getClass()).atInfo().addKeyValue("event", "search.index.obsolete")
+                        .addKeyValue("error_type", failure.getClass().getName())
+                        .addKeyValue("identity", identity)
+                        .log("Search work lost its claim while failing; nothing is recorded against the document");
+                return Outcome.SKIPPED;
+            }
             LoggerFactory.getLogger(getClass()).atWarn().addKeyValue("event", "search.index.failed")
                     .addKeyValue("error_type", failure.getClass().getName())
                     .addKeyValue("error_code", errorCode)
+                    .addKeyValue("identity", identity)
                     .log("Search indexing failed; durable retry retained");
             return Outcome.FAILED;
         } finally {
@@ -101,7 +121,7 @@ public final class SearchIngestionCoordinator implements IngestionCoordinator {
     // The replaced generation stopped being served when readiness committed; a failed cleanup is left to the sweep.
     private void purgePreviousGeneration(JdbcSearchWorkRepository.Claim claim) {
         try {
-            index.purgeObsolete(claim.tenantId(), claim.documentId());
+            index.purgeObsolete(claim.tenantId(), claim.documentId(), claim.identity());
         } catch (RuntimeException failure) {
             LoggerFactory.getLogger(getClass()).atWarn().addKeyValue("event", "search.index.purge_failed")
                     .addKeyValue("error_type", failure.getClass().getName())

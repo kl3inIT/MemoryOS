@@ -85,12 +85,15 @@ public class DocumentChunkService implements DocumentChunkPort {
     }
 
     @Override
-    public void markSearchPending(TenantId tenant, DocumentId document, UUID generation) {
-        repository.searchState(tenant, document, generation, null);
+    public void markSearchPending(TenantId tenant, DocumentId document, UUID generation, String identity) {
+        repository.searchState(tenant, document, generation, null, identity);
     }
 
     @Override
-    public void markSearchFailed(TenantId tenant, DocumentId document, UUID generation, String errorCode) {
-        repository.searchState(tenant, document, generation, errorCode);
+    public void markSearchFailed(TenantId tenant, DocumentId document, UUID generation, String errorCode, String identity) {
+        repository.searchState(tenant, document, generation, errorCode, identity);
     }
+
+    @Override
+    public void serve(String identity) { repository.serve(identity); }
 }

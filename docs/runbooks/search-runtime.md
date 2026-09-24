@@ -31,7 +31,7 @@ Both deployables read `classpath:memoryos-search.yaml`. Supply a managed OpenSea
 | `MEMORYOS_OPENSEARCH_CA_CERTIFICATE` | Optional mounted PEM CA bundle |
 | `SPRING_AI_OPENAI_API_KEY` | Infisical secret shared by query and indexing embedding calls |
 | `MEMORYOS_EMBEDDING_ENDPOINT` | `https://api.openai.com/v1` |
-| `MEMORYOS_EMBEDDING_MODEL`, `MEMORYOS_EMBEDDING_DIMENSIONS` | `text-embedding-3-large`, `3072`; changes select a different index |
+| `MEMORYOS_EMBEDDING_MODEL`, `MEMORYOS_EMBEDDING_DIMENSIONS` | `text-embedding-3-large`, `3072`; they only seed the first PRESENT search generation. Change the model on the Search settings page, which rebuilds a new index in the background |
 | `MEMORYOS_EMBEDDING_BATCH_SIZE`, `MEMORYOS_EMBEDDING_CONCURRENCY` | `32`, `2` per deployable |
 | `MEMORYOS_EMBEDDING_TIMEOUT`, `MEMORYOS_EMBEDDING_RETRIES` | `10s`, `2`; each embedding attempt's timeout (at most `MEMORYOS_SEARCH_TIMEOUT`) and how often the provider SDK retries an I/O failure, 408, 429 or 5xx. A stalled connection then costs one attempt instead of the whole search deadline |
 | `MEMORYOS_SEARCH_CANDIDATE_LIMIT`, `MEMORYOS_SEARCH_KEYWORD_WEIGHT` | `500`, `0.5`; exploration/response budget and native min-max/arithmetic-mean fusion weight |
@@ -80,7 +80,7 @@ PostgreSQL rewrites `documents` for the volatile `gen_random_uuid()` default and
 
 ## Recovering the projection
 
-1. Preserve PostgreSQL and canonical artifacts. Determine the configured physical index identity from the index `_meta` and current `documents.search_index_identity`.
+1. Preserve PostgreSQL and canonical artifacts. Determine the physical index identity from the PRESENT row in `search_settings` and check it against the index `_meta`.
 2. If the index remains readable, restart normal workers. Matching input hashes reuse surviving vectors; only missing inputs are embedded. The reconciliation cursor revisits current Documents and verifies indexed chunk counts before readiness.
 3. If a compatible OpenSearch repository snapshot exists, restore it using the cluster's native snapshot API, including the intended mapping/alias. Keep the model/input space unchanged. Let the normal worker reconcile current PostgreSQL generations, replace missing data and sweep deleted/obsolete records. A successful snapshot restore is not current-state completeness.
 4. If both index and snapshot are lost, the normal worker recreates the physical index, reads current PostgreSQL chunks (or checksum-verified canonical JSON), and regenerates embeddings. This requires a functioning provider and incurs embedding cost. Missing canonical artifacts require the existing Source reindex flow.
@@ -88,4 +88,4 @@ PostgreSQL rewrites `documents` for the volatile `gen_random_uuid()` default and
 
 For a MinIO-backed snapshot repository, install/configure the OpenSearch `repository-s3` plugin and its server-side keystore credentials, give it a dedicated snapshot bucket/prefix, configure the S3-compatible endpoint and region, then register and verify the native repository. These credentials are separate from MemoryOS's ordinary file access identity. Run a create/restore/catch-up drill in an isolated target before setting an RPO/RTO. This change does not provision or claim a tested server snapshot repository. Follow the [native OpenSearch snapshot documentation](https://docs.opensearch.org/latest/tuning-your-cluster/availability-and-recovery/snapshots/snapshot-restore/).
 
-Old physical indices are not automatically deleted when the model/input space changes. Retain them until the new projection and recovery path are verified; then remove only the explicitly retired identity. The current implementation gradually rebuilds under the configured identity and does not promise uninterrupted search during model migration.
+A model change on the Search settings page builds a FUTURE index while search keeps reading PRESENT, switches when it is complete, and keeps the replaced index restorable for seven days; the worker then deletes it with a recount. A generation logged as `search.generation.cleanup_blocked` still has its index: check OpenSearch permissions and health, then let the hourly cleanup retry. Never delete a physical index that `search_settings` still names ([Rebuild, switch and retention](../specs/search.md#rebuild-switch-and-retention)).
