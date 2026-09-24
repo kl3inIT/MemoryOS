@@ -113,7 +113,7 @@ class PaddleOcrVlClientTest {
     @Test
     void anAnswerOverTheCapIsAWriteLimit() throws Exception {
         serve(200, ANSWER);
-        var properties = new PaddleOcrVlProperties(endpoint(), Duration.ofSeconds(10), 200, null);
+        var properties = new PaddleOcrVlProperties(endpoint(), Duration.ofSeconds(10), 200, null, null);
         try (var capped = new PaddleOcrVlClient(properties, mapper, ANSWER.getBytes(StandardCharsets.UTF_8).length - 1)) {
             assertFailure(ExtractionFailure.WRITE_LIMIT, capped);
         }
@@ -128,7 +128,7 @@ class PaddleOcrVlClientTest {
         var closed = endpoint();
         server.stop(0);
         server = null;
-        try (var client = new PaddleOcrVlClient(new PaddleOcrVlProperties(closed, Duration.ofSeconds(10), 200, null), mapper)) {
+        try (var client = new PaddleOcrVlClient(new PaddleOcrVlProperties(closed, Duration.ofSeconds(10), 200, null, null), mapper)) {
             assertFailure(ExtractionFailure.CONNECTION_FAILED, client);
         }
     }
@@ -190,9 +190,46 @@ class PaddleOcrVlClientTest {
     }
 
     @Test
+    void aRequestWaitingForAPermitIsNotTimedOutByItsWait() throws Exception {
+        var inFlight = new java.util.concurrent.atomic.AtomicInteger();
+        var peak = new java.util.concurrent.atomic.AtomicInteger();
+        serveSlowly(Duration.ofMillis(1_500), inFlight, peak);
+        var properties = new PaddleOcrVlProperties(endpoint(), Duration.ofMillis(2_500), 200, null, 1);
+        try (var client = new PaddleOcrVlClient(properties, mapper);
+                var callers = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            long started = System.nanoTime();
+            var first = callers.submit(() -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF));
+            var second = callers.submit(() -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {2}), PaddleOcrVlClient.FileType.PDF));
+
+            assertEquals(1, first.get(10, TimeUnit.SECONDS).size());
+            assertEquals(1, second.get(10, TimeUnit.SECONDS).size(), "the second waited 1.5 s and still had 2.5 s once sent");
+            assertTrue(Duration.ofNanos(System.nanoTime() - started).compareTo(Duration.ofMillis(3_000)) >= 0,
+                    "one after the other, past the timeout either request has");
+        }
+        assertEquals(1, peak.get());
+    }
+
+    @Test
+    void theServiceNeverHasMoreRequestsThanTheBound() throws Exception {
+        var inFlight = new java.util.concurrent.atomic.AtomicInteger();
+        var peak = new java.util.concurrent.atomic.AtomicInteger();
+        serveSlowly(Duration.ofMillis(300), inFlight, peak);
+        var properties = new PaddleOcrVlProperties(endpoint(), Duration.ofSeconds(10), 200, null, 2);
+        try (var client = new PaddleOcrVlClient(properties, mapper);
+                var callers = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            var calls = new java.util.ArrayList<java.util.concurrent.Future<?>>();
+            for (int call = 0; call < 6; call++) {
+                calls.add(callers.submit(() -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF)));
+            }
+            for (var call : calls) call.get(10, TimeUnit.SECONDS);
+        }
+        assertEquals(2, peak.get(), "two at once, never a third");
+    }
+
+    @Test
     void anEndpointWithATrailingSlashStillNamesTheOperation() throws Exception {
         serve(200, ANSWER);
-        var properties = new PaddleOcrVlProperties(URI.create(endpoint() + "/"), Duration.ofSeconds(10), 200, null);
+        var properties = new PaddleOcrVlProperties(URI.create(endpoint() + "/"), Duration.ofSeconds(10), 200, null, null);
         try (var client = new PaddleOcrVlClient(properties, mapper)) {
             client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF);
         }
@@ -209,7 +246,7 @@ class PaddleOcrVlClientTest {
     }
 
     private PaddleOcrVlClient client(Duration timeout) {
-        return new PaddleOcrVlClient(new PaddleOcrVlProperties(endpoint(), timeout, 200, null), mapper);
+        return new PaddleOcrVlClient(new PaddleOcrVlProperties(endpoint(), timeout, 200, null, null), mapper);
     }
 
     private URI endpoint() {
@@ -226,6 +263,29 @@ class PaddleOcrVlClientTest {
                 respond(exchange, status, answer);
             }
         });
+        server.start();
+    }
+
+    /** Answers every request after {@code hold}, on a thread of its own, counting the requests open at once. */
+    private void serveSlowly(Duration hold, java.util.concurrent.atomic.AtomicInteger inFlight,
+            java.util.concurrent.atomic.AtomicInteger peak) throws IOException {
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/layout-parsing", exchange -> {
+            try (exchange) {
+                peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+                try {
+                    exchange.getRequestBody().readAllBytes();
+                    Thread.sleep(hold);
+                } finally {
+                    // Before the answer leaves, so the next request in line cannot overlap this count.
+                    inFlight.decrementAndGet();
+                }
+                respond(exchange, 200, ANSWER);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        server.setExecutor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor());
         server.start();
     }
 
