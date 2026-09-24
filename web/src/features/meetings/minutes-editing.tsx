@@ -1,21 +1,30 @@
 import { useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, Pencil, X } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
-import { cn } from "@/lib/utils";
 import {
+  addMinutesItem,
   editMinutesItem,
   editMinutesSummary,
   meetingKey,
+  removeMinutesItem,
   type MeetingDetail,
   type MeetingMinutesItem,
 } from "./meetings-api";
+
+/**
+ * The pencil sits beside the line it edits and shows on hover or focus, as Fireflies and Otter do; a device without
+ * hover always shows it.
+ */
+const REVEAL =
+  "shrink-0 opacity-0 transition-opacity group-hover/row:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100";
 
 /**
  * The minutes as the owner may correct them. A model that misheard one conclusion should cost one edit, not a rerun
@@ -45,22 +54,22 @@ export function EditableSummary({ meeting }: { meeting: MeetingDetail }) {
 
   if (!editing)
     return (
-      <div className="grid gap-1">
-        <p className="whitespace-pre-wrap text-content-secondary">{meeting.minutes.summary}</p>
+      <div className="group/row flex items-start gap-2">
+        <p className="min-w-0 flex-1 whitespace-pre-wrap text-content-secondary">
+          {meeting.minutes.summary}
+        </p>
         {meeting.owned && (
-          <div>
-            <Button
-              size="sm"
-              prominence="tertiary"
-              onClick={() => {
-                setDraft(meeting.minutes.summary);
-                setEditing(true);
-              }}
-            >
-              <Pencil aria-hidden="true" />
-              {ui("Sửa tóm tắt")}
-            </Button>
-          </div>
+          <IconButton
+            size="sm"
+            aria-label={ui("Sửa tóm tắt")}
+            className={REVEAL}
+            onClick={() => {
+              setDraft(meeting.minutes.summary);
+              setEditing(true);
+            }}
+          >
+            <Pencil />
+          </IconButton>
         )}
       </div>
     );
@@ -108,13 +117,24 @@ export function EditableItem({
   const [text, setText] = useState(item.text);
   const [owner, setOwner] = useState(item.owner ?? "");
   const [due, setDue] = useState(item.due ?? "");
-  const [pending, setPending] = useState(false);
+  const [pending, setPending] = useState<"save" | "remove">();
   const [error, setError] = useState<string>();
   // A decision belongs to the meeting rather than to a person, so it carries neither an owner nor a deadline.
   const assignable = kind === "ACTION";
 
+  async function remove() {
+    setPending("remove");
+    setError(undefined);
+    try {
+      cache.setQueryData(meetingKey(meeting.id), await removeMinutesItem(meeting.id, item.id));
+    } catch (failed) {
+      setError(problemMessage(presentProblem(failed, "mutation").message));
+      setPending(undefined);
+    }
+  }
+
   async function save() {
-    setPending(true);
+    setPending("save");
     setError(undefined);
     try {
       cache.setQueryData(
@@ -131,75 +151,217 @@ export function EditableItem({
     } catch (failed) {
       setError(problemMessage(presentProblem(failed, "mutation").message));
     } finally {
-      setPending(false);
+      setPending(undefined);
     }
   }
 
   if (!editing)
     return (
-      <div className="grid gap-1">
-        {children}
+      <div className="group/row flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          {children}
+          {item.edited && <p className="mt-0.5 text-xs text-content-muted">{ui("Bạn đã sửa")}</p>}
+        </div>
         {meeting.owned && (
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              prominence="tertiary"
-              onClick={() => {
-                setText(item.text);
-                setOwner(item.owner ?? "");
-                setDue(item.due ?? "");
-                setEditing(true);
-              }}
-            >
-              <Pencil aria-hidden="true" />
-              {ui("Sửa")}
-            </Button>
-            {item.edited && <span className="text-xs text-content-muted">{ui("Bạn đã sửa")}</span>}
-          </div>
+          <IconButton
+            size="sm"
+            aria-label={ui("Sửa")}
+            className={REVEAL}
+            onClick={() => {
+              setText(item.text);
+              setOwner(item.owner ?? "");
+              setDue(item.due ?? "");
+              setEditing(true);
+            }}
+          >
+            <Pencil />
+          </IconButton>
         )}
       </div>
     );
 
   return (
     <div className="grid gap-2">
+      <ItemFields
+        id={item.id}
+        assignable={assignable}
+        text={text}
+        owner={owner}
+        due={due}
+        onText={setText}
+        onOwner={setOwner}
+        onDue={setDue}
+      />
+      {error && <p className="text-sm text-status-danger-content">{error}</p>}
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          pending={pending === "save"}
+          disabled={!!pending}
+          onClick={() => void save()}
+        >
+          <Check aria-hidden="true" />
+          {ui("Lưu")}
+        </Button>
+        <Button
+          size="sm"
+          prominence="tertiary"
+          disabled={!!pending}
+          onClick={() => setEditing(false)}
+        >
+          <X aria-hidden="true" />
+          {ui("Huỷ")}
+        </Button>
+        <Button
+          size="sm"
+          prominence="tertiary"
+          className="ml-auto text-status-danger-content"
+          pending={pending === "remove"}
+          disabled={!!pending}
+          onClick={() => void remove()}
+        >
+          <Trash2 aria-hidden="true" />
+          {ui("Xoá")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** What an item says, and for a piece of work who takes it and by when. */
+function ItemFields({
+  id,
+  assignable,
+  text,
+  owner,
+  due,
+  onText,
+  onOwner,
+  onDue,
+}: {
+  id: string;
+  assignable: boolean;
+  text: string;
+  owner: string;
+  due: string;
+  onText: (value: string) => void;
+  onOwner: (value: string) => void;
+  onDue: (value: string) => void;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <>
       <Textarea
         value={text}
         rows={2}
         maxLength={2000}
         aria-label={ui("Nội dung")}
-        onChange={(event) => setText(event.target.value)}
+        onChange={(event) => onText(event.target.value)}
       />
-      <div className={cn("grid gap-2", assignable && "sm:grid-cols-2")}>
-        {assignable && (
+      {assignable && (
+        <div className="grid gap-2 sm:grid-cols-2">
           <div className="grid gap-1">
-            <Label htmlFor={`owner-${item.id}`}>{ui("Người nhận")}</Label>
+            <Label htmlFor={`owner-${id}`}>{ui("Người nhận")}</Label>
             <Input
-              id={`owner-${item.id}`}
+              id={`owner-${id}`}
               value={owner}
               maxLength={200}
-              onChange={(event) => setOwner(event.target.value)}
+              onChange={(event) => onOwner(event.target.value)}
             />
           </div>
-        )}
-        {assignable && (
           <div className="grid gap-1">
-            <Label htmlFor={`due-${item.id}`}>{ui("Hạn")}</Label>
+            <Label htmlFor={`due-${id}`}>{ui("Hạn")}</Label>
             <Input
-              id={`due-${item.id}`}
+              id={`due-${id}`}
               value={due}
               maxLength={100}
-              onChange={(event) => setDue(event.target.value)}
+              onChange={(event) => onDue(event.target.value)}
             />
           </div>
-        )}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** A decision or a piece of work the model missed, written in by the owner. */
+export function NewItem({
+  meeting,
+  kind,
+  label,
+}: {
+  meeting: MeetingDetail;
+  kind: "ACTION" | "DECISION";
+  label: string;
+}) {
+  const ui = useAppTranslation();
+  const cache = useQueryClient();
+  const problemMessage = useProblemMessage();
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [owner, setOwner] = useState("");
+  const [due, setDue] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string>();
+
+  function close() {
+    setOpen(false);
+    setText("");
+    setOwner("");
+    setDue("");
+    setError(undefined);
+  }
+
+  async function add() {
+    setPending(true);
+    setError(undefined);
+    try {
+      cache.setQueryData(
+        meetingKey(meeting.id),
+        await addMinutesItem(meeting.id, kind, text, owner, due),
+      );
+      close();
+    } catch (failed) {
+      setError(problemMessage(presentProblem(failed, "mutation").message));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  if (!open)
+    return (
+      <div>
+        <Button
+          size="sm"
+          prominence="tertiary"
+          className="-ml-2 text-content-secondary"
+          onClick={() => setOpen(true)}
+        >
+          <Plus aria-hidden="true" />
+          {label}
+        </Button>
       </div>
+    );
+
+  return (
+    <div className="grid gap-2">
+      <ItemFields
+        id={`new-${kind}`}
+        assignable={kind === "ACTION"}
+        text={text}
+        owner={owner}
+        due={due}
+        onText={setText}
+        onOwner={setOwner}
+        onDue={setDue}
+      />
       {error && <p className="text-sm text-status-danger-content">{error}</p>}
       <div className="flex gap-2">
-        <Button size="sm" pending={pending} onClick={() => void save()}>
+        <Button size="sm" pending={pending} disabled={!text.trim()} onClick={() => void add()}>
           <Check aria-hidden="true" />
-          {ui("Lưu")}
+          {ui("Thêm")}
         </Button>
-        <Button size="sm" prominence="tertiary" onClick={() => setEditing(false)}>
+        <Button size="sm" prominence="tertiary" disabled={pending} onClick={close}>
           <X aria-hidden="true" />
           {ui("Huỷ")}
         </Button>

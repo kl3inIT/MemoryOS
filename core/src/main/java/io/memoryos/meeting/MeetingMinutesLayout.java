@@ -70,10 +70,13 @@ final class MeetingMinutesLayout {
         page.blank();
     }
 
+    /**
+     * Labelled lines flush with the numbered sections, as the decree's biên bản form writes them. The subject is
+     * already under the title, so it is not said again here.
+     */
     private static void opening(MeetingMinutesDocument.Heading heading, Page page) {
-        page.indented("Hôm nay, vào lúc " + or(heading.opened(), BLANK));
-        page.indented("Tại " + or(heading.place(), BLANK));
-        page.indented("Diễn ra cuộc họp với nội dung " + or(heading.about(), BLANK));
+        page.line("Thời gian bắt đầu: " + or(heading.opened(), BLANK), false, BODY, Align.LEFT);
+        page.line("Địa điểm: " + or(heading.place(), BLANK), false, BODY, Align.LEFT);
         page.blank();
     }
 

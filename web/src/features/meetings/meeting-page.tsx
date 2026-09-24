@@ -51,11 +51,12 @@ import {
 } from "./meeting-capture";
 import type { MeetingRecorder, RecorderSnapshot } from "./meeting-recorder";
 import { ExportMinutesDialog } from "./export-minutes-dialog";
+import { MeetingDetailsDialog } from "./meeting-details-dialog";
 import { MeetingShareField, type MeetingAudience } from "./meeting-share-field";
 import { startRecording, stopRecording, useActiveMeeting } from "./meeting-session";
 import type { MeetingTrack } from "./meeting-socket";
 import { slug } from "./meeting-file-name";
-import { EditableItem, EditableSummary } from "./minutes-editing";
+import { EditableItem, EditableSummary, NewItem } from "./minutes-editing";
 import { SpeakerSuggestions } from "./speaker-suggestions";
 import { TranscriptCorrections } from "./transcript-corrections";
 import { WordCorrection } from "./word-correction";
@@ -380,8 +381,11 @@ export function MeetingPage({
                   pendingLabel={ui("Đang kết thúc…")}
                   onConfirm={end}
                 />
+                <MeetingDetailsDialog meeting={data} />
               </>
-            ) : undefined
+            ) : (
+              <MeetingDetailsDialog meeting={data} />
+            )
           }
         />
 
@@ -777,14 +781,25 @@ function MinutesItems({
 }) {
   const cache = useQueryClient();
   const [failed, setFailed] = useState(false);
+  // What the model missed is written in beside what it found, by the owner only.
+  const add = meeting.owned && meeting.minutes.status === "READY" && (
+    <NewItem
+      meeting={meeting}
+      kind={kind}
+      label={kind === "ACTION" ? ui("Thêm việc") : ui("Thêm quyết định")}
+    />
+  );
   if (items.length === 0)
     return (
-      <EmptyState
-        icon={kind === "ACTION" ? <CheckSquare /> : <Gavel />}
-        title={
-          kind === "ACTION" ? ui("Không có việc nào được giao") : ui("Không có quyết định nào")
-        }
-      />
+      <div className="grid gap-3">
+        <EmptyState
+          icon={kind === "ACTION" ? <CheckSquare /> : <Gavel />}
+          title={
+            kind === "ACTION" ? ui("Không có việc nào được giao") : ui("Không có quyết định nào")
+          }
+        />
+        {add}
+      </div>
     );
 
   async function toggle(item: MeetingMinutesItem, done: boolean) {
@@ -875,6 +890,7 @@ function MinutesItems({
           </li>
         ))}
       </ul>
+      {add && <div className="mt-2 px-2">{add}</div>}
     </>
   );
 }

@@ -182,6 +182,52 @@ class MeetingController {
         }
     }
 
+    @Schema(name = "MeetingHeading", description = "The biên bản heading as the owner last saved it")
+    record HeadingResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED,
+                                   description = "Whether the owner saved one for this meeting. Otherwise only the "
+                                           + "organization, its parent and the typeface are filled, carried from "
+                                           + "the caller's last biên bản") boolean saved,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String organization,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String parentOrganization,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String number,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String about,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String place,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String opened,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String closed,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String chair,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String chairRole,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String secretary,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String secretaryRole,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<String> attendees,
+                           @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String font) {
+        static HeadingResponse from(MeetingMinutesDocument.Heading heading) {
+            return from(heading, true);
+        }
+
+        static HeadingResponse from(MeetingMinutesDocument.Heading heading, boolean saved) {
+            return new HeadingResponse(saved, heading.organization(), heading.parentOrganization(), heading.number(),
+                    heading.about(), heading.place(), heading.opened(), heading.closed(), heading.chair(),
+                    heading.chairRole(), heading.secretary(), heading.secretaryRole(), heading.attendees(),
+                    heading.font());
+        }
+
+        static HeadingResponse none() {
+            return new HeadingResponse(false, "", "", "", "", "", "", "", "", "", "", "", List.of(), "");
+        }
+    }
+
+    @Schema(name = "MeetingUpdateRequest", description = "What the owner fills in once the meeting is under way")
+    record UpdateRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, maxLength = 200) String title,
+                         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Participant names, at most 50")
+                         List<String> participants) {}
+
+    @Schema(name = "MeetingNewMinutesItemRequest", description = "A decision or a piece of work the model missed")
+    record NewItemRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"DECISION", "ACTION"})
+                          Meeting.ItemKind kind,
+                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED) @Size(max = 2000) String text,
+                          @Schema(nullable = true) @Size(max = 200) @Nullable String owner,
+                          @Schema(nullable = true) @Size(max = 100) @Nullable String due) {}
+
     @Schema(name = "MeetingItemRequest")
     record ItemRequest(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean done) {}
 
@@ -442,6 +488,36 @@ class MeetingController {
     DetailResponse notes(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
                          @PathVariable UUID meetingId, @RequestBody NotesRequest body) {
         return DetailResponse.from(meetings.updateNotes(identity.actorId(), meetingId, body.notes(), body.revision()));
+    }
+
+    @PutMapping(value = "/{meetingId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "updateMeeting", summary = "Rename the meeting and say who was in it")
+    @ApiResponse(responseCode = "200", description = "The meeting", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse update(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                          @PathVariable UUID meetingId, @RequestBody UpdateRequest body) {
+        return DetailResponse.from(meetings.updateDetails(identity.actorId(), meetingId, body.title(),
+                body.participants()));
+    }
+
+    @GetMapping("/{meetingId}/minutes/heading")
+    @Operation(operationId = "getMeetingMinutesHeading", summary = "The biên bản heading as the owner last saved it")
+    @ApiResponse(responseCode = "200", description = "The heading", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    HeadingResponse heading(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                            @PathVariable UUID meetingId) {
+        return meetings.heading(identity.actorId(), meetingId).map(HeadingResponse::from)
+                .or(() -> meetings.carriedHeading(identity.actorId()).map(last -> HeadingResponse.from(last, false)))
+                .orElseGet(HeadingResponse::none);
+    }
+
+    @PutMapping(value = "/{meetingId}/minutes/heading", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "saveMeetingMinutesHeading", summary = "Keep the biên bản heading the owner typed")
+    @ApiResponse(responseCode = "200", description = "The heading as stored", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    HeadingResponse saveHeading(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                                @PathVariable UUID meetingId, @RequestBody HeadingRequest body) {
+        return HeadingResponse.from(meetings.saveHeading(identity.actorId(), meetingId, body.toHeading()));
     }
 
     @PutMapping(value = "/{meetingId}/speakers/{track}/{label}", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -726,6 +802,25 @@ class MeetingController {
                             @Valid @RequestBody MinutesItemRequest body) {
         return DetailResponse.from(meetings.editItem(identity.actorId(), meetingId, itemId, body.text(), body.owner(),
                 body.due()));
+    }
+
+    @PostMapping(value = "/{meetingId}/minutes/items", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(operationId = "addMeetingMinutesItem", summary = "Write in a decision or a piece of work the model missed")
+    @ApiResponse(responseCode = "200", description = "The meeting with the item added", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse addItem(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                           @PathVariable UUID meetingId, @Valid @RequestBody NewItemRequest body) {
+        return DetailResponse.from(meetings.addItem(identity.actorId(), meetingId, body.kind(), body.text(),
+                body.owner(), body.due()));
+    }
+
+    @DeleteMapping("/{meetingId}/minutes/items/{itemId}")
+    @Operation(operationId = "removeMeetingMinutesItem", summary = "Take a decision or a piece of work out of the minutes")
+    @ApiResponse(responseCode = "200", description = "The meeting without the item", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "404", description = "Meeting or item not available", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+    DetailResponse removeItem(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                              @PathVariable UUID meetingId, @PathVariable UUID itemId) {
+        return DetailResponse.from(meetings.removeItem(identity.actorId(), meetingId, itemId));
     }
 
     @GetMapping("/{meetingId}/transcript")
