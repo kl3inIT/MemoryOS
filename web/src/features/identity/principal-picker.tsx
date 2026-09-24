@@ -15,20 +15,18 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { listChatPersonaShareOptions } from "@/lib/hey-api/sdk.gen";
 import {
   personLabel,
-  shareOptionsSchema,
-  type AgentPerson,
-  type AgentRef,
-} from "@/features/chat/chat-workspace-api";
+  principalOptionsSchema,
+  type Person,
+  type NamedRef,
+} from "@/features/identity/principals";
 
-export type Principal =
-  | { kind: "person"; person: AgentPerson }
-  | { kind: "group"; group: AgentRef };
+export type Principal = { kind: "person"; person: Person } | { kind: "group"; group: NamedRef };
 
 /**
  * An invite field for active members and ordinary Groups; results appear only while typing (Perplexity, GitBook).
  * The server rechecks every selection.
  */
-export function AgentPrincipalPicker({
+export function PrincipalPicker({
   onPick,
   exclude,
   groups = true,
@@ -45,7 +43,7 @@ export function AgentPrincipalPicker({
     queryKey: ["chat-persona-share-options", actorId, authorizationVersion, query],
     enabled: query !== "",
     queryFn: async ({ signal }) =>
-      shareOptionsSchema.parse(
+      principalOptionsSchema.parse(
         (
           await listChatPersonaShareOptions({
             query: { q: query, limit: 20 },

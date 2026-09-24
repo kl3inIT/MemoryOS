@@ -25,8 +25,8 @@ vi.mock("@tanstack/react-router", async (importOriginal) => ({
   useSearch: () => search.value,
 }));
 
-vi.mock("@/features/chat/chat-workspace-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/features/chat/chat-workspace-api")>()),
+vi.mock("@/features/chat/chat-personas-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/chat/chat-personas-api")>()),
   loadPersonas: vi.fn(async () => []),
 }));
 

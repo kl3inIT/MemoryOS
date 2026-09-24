@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import { z } from "zod";
 import { i18n } from "@/i18n";
 import { sourcesSchema, type ChatSource } from "@/features/chat/sources/chat-evidence";
 import { activitySchema, historyParts } from "@/features/chat/activity/chat-activity";
@@ -31,6 +32,20 @@ export type ChatUiMessage = UIMessage<
 >;
 export type ChatHistory = { session: ChatSession; messages: ChatMessage[] };
 export const chatSessionsKey = ["chat-sessions"] as const;
+
+export const feedbackSchema = z.object({
+  assistantMessageId: z.string().uuid(),
+  positive: z.boolean().nullable(),
+  comment: z.string(),
+  reason: z.string(),
+});
+export const branchSchema = z.object({
+  id: z.string().uuid(),
+  parentMessageId: z.string().uuid().nullable(),
+  latestChildMessageId: z.string().uuid().nullable(),
+});
+export type Feedback = z.infer<typeof feedbackSchema>;
+export type Branch = z.infer<typeof branchSchema>;
 
 export async function loadChatHistory(
   sessionId: string,

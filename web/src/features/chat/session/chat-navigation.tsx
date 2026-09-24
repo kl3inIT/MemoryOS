@@ -32,10 +32,9 @@ import { ProjectEditor, ProjectIcon } from "@/features/chat/projects/chat-projec
 import {
   loadProjects,
   moveConversation,
-  personaSchema,
-  type Persona,
   type Project,
-} from "@/features/chat/chat-workspace-api";
+} from "@/features/chat/projects/chat-projects-api";
+import { personaSchema, type Persona } from "@/features/chat/chat-personas-api";
 import { actionErrorText } from "@/lib/action-errors";
 import {
   useChatThreads,

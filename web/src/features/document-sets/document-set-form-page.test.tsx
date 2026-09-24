@@ -12,13 +12,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
 import { ActionNotifications } from "@/components/ui/action-notifications";
-import type * as ChatWorkspaceApi from "@/features/chat/chat-workspace-api";
+import type * as ChatPersonasApi from "@/features/chat/chat-personas-api";
 import { DocumentSetFormPage } from "./document-set-form-page";
 
 const loadPersonaSourcesMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/features/chat/chat-workspace-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof ChatWorkspaceApi>()),
+vi.mock("@/features/chat/chat-personas-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof ChatPersonasApi>()),
   loadPersonaSources: loadPersonaSourcesMock,
 }));
 

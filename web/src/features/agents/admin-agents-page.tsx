@@ -29,11 +29,10 @@ import { actionErrorText } from "@/lib/action-errors";
 import {
   agentLabelSchema,
   agentVisibility,
-  personLabel,
   personaSchema,
-  type AgentRef,
   type Persona,
-} from "@/features/chat/chat-workspace-api";
+} from "@/features/chat/chat-personas-api";
+import { personLabel, type NamedRef } from "@/features/identity/principals";
 import { AgentAvatar } from "./agent-avatar";
 import { AgentTransferDialog } from "./agent-transfer-dialog";
 import { PublicPromptShortcuts } from "./prompt-shortcuts";
@@ -219,9 +218,9 @@ function AgentLabels() {
   const ui = useAppTranslation();
   const cache = useQueryClient();
   const { actorId, authorizationVersion } = useApplicationSession();
-  const [renaming, setRenaming] = useState<AgentRef>();
+  const [renaming, setRenaming] = useState<NamedRef>();
   const [name, setName] = useState("");
-  const [removing, setRemoving] = useState<AgentRef>();
+  const [removing, setRemoving] = useState<NamedRef>();
   const labels = useQuery({
     queryKey: ["chat-persona-labels", actorId, authorizationVersion],
     queryFn: async ({ signal }) =>

@@ -9,7 +9,7 @@ import { createChatProject } from "@/lib/hey-api/sdk.gen";
 import { FormDialog } from "@/components/composites/form-dialog";
 import { chatLibraryKey, type LibraryFile } from "@/features/library/library";
 import { addToProject, ProjectFull, PROJECT_FILE_LIMIT } from "./chat-project-files";
-import { loadProjects, projectSchema } from "@/features/chat/chat-workspace-api";
+import { loadProjects, projectSchema } from "@/features/chat/projects/chat-projects-api";
 
 /**
  * Adds library files to one of the caller's Projects (MEM-152). The Project's own update admits them, so the

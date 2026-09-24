@@ -13,7 +13,7 @@ import { setChatFeedback, removeChatFeedback } from "@/lib/hey-api/sdk.gen";
 import { ChatEditingContext } from "./chat-editing-context";
 import { FormDialog } from "@/components/composites/form-dialog";
 import { actionErrorText } from "@/lib/action-errors";
-import type { Feedback } from "@/features/chat/chat-workspace-api";
+import type { Feedback } from "@/features/chat/chat-api";
 import { fileIdFromReference } from "@/features/library/files";
 import { ChatFilePicker } from "@/features/library/file-picker";
 import { ChatBranchAction } from "./chat-branch-action";

@@ -16,7 +16,7 @@ import type * as VoiceDictationModule from "@/features/voice/voice-dictation";
 import { SearchPage } from "./search-page";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type * as ChatSdk from "@/lib/hey-api/sdk.gen";
-import type * as ChatWorkspaceApi from "@/features/chat/chat-workspace-api";
+import type * as DocumentSetsApi from "@/features/document-sets/document-sets-api";
 
 const searchDocumentsMock = vi.hoisted(() => vi.fn());
 const voiceAvailabilityMock = vi.hoisted(() => vi.fn());
@@ -35,9 +35,8 @@ vi.mock("@/features/voice/voice-dictation", async (importOriginal) => ({
   startVoiceDictation: startVoiceDictationMock,
 }));
 
-vi.mock("@/features/chat/chat-workspace-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof ChatWorkspaceApi>()),
-  loadProjects: vi.fn().mockResolvedValue([]),
+vi.mock("@/features/document-sets/document-sets-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof DocumentSetsApi>()),
   loadDocumentSets: loadDocumentSetsMock,
 }));
 

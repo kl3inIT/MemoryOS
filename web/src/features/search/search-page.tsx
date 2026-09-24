@@ -41,7 +41,7 @@ import {
   useApplicationSession,
   useGlobalCapability,
 } from "@/features/identity/application-session-context";
-import { loadDocumentSets } from "@/features/chat/chat-workspace-api";
+import { loadDocumentSets } from "@/features/document-sets/document-sets-api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import { cn } from "@/lib/utils";
 import { searchDocuments } from "@/lib/hey-api/sdk.gen";

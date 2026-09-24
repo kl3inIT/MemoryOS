@@ -1,7 +1,7 @@
 import { getChatProject, updateChatProject } from "@/lib/hey-api/sdk.gen";
 import { libraryUpload, type LibraryFile } from "@/features/library/library";
 import type { ChatFile } from "@/features/library/files";
-import { projectSchema } from "@/features/chat/chat-workspace-api";
+import { projectSchema } from "@/features/chat/projects/chat-projects-api";
 
 /** A Project admits at most this many files, as a message does. */
 export const PROJECT_FILE_LIMIT = 20;

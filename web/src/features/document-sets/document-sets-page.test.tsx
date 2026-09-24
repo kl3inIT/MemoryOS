@@ -11,8 +11,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
-import type { DocumentSet } from "@/features/chat/chat-workspace-api";
-import type * as ChatWorkspaceApi from "@/features/chat/chat-workspace-api";
+import type { DocumentSet } from "@/features/document-sets/document-sets-api";
+import type * as ChatPersonasApi from "@/features/chat/chat-personas-api";
+import type * as DocumentSetsApi from "./document-sets-api";
 import type * as ChatSdk from "@/lib/hey-api/sdk.gen";
 import { DocumentSetsPage } from "./document-sets-page";
 
@@ -20,9 +21,13 @@ const loadDocumentSetsMock = vi.hoisted(() => vi.fn());
 const loadPersonaSourcesMock = vi.hoisted(() => vi.fn());
 const deleteDocumentSetMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/features/chat/chat-workspace-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof ChatWorkspaceApi>()),
+vi.mock("@/features/document-sets/document-sets-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof DocumentSetsApi>()),
   loadDocumentSets: loadDocumentSetsMock,
+}));
+
+vi.mock("@/features/chat/chat-personas-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof ChatPersonasApi>()),
   loadPersonaSources: loadPersonaSourcesMock,
 }));
 

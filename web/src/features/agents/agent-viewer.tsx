@@ -18,7 +18,8 @@ import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { can } from "@/lib/resource-permissions";
 import { cn } from "@/lib/utils";
-import { personLabel, type Persona } from "@/features/chat/chat-workspace-api";
+import { personLabel } from "@/features/identity/principals";
+import type { Persona } from "@/features/chat/chat-personas-api";
 import { AgentAvatar } from "./agent-avatar";
 
 const toolIcons: Record<string, typeof Globe> = {

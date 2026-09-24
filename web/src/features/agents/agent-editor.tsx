@@ -52,12 +52,12 @@ import { ModelLogo } from "@/features/models/model-logo";
 import {
   agentLabelSchema,
   agentTools,
-  loadDocumentSets,
   loadPersonaSources,
   personaSchema,
   type AgentTool,
   type Persona,
-} from "@/features/chat/chat-workspace-api";
+} from "@/features/chat/chat-personas-api";
+import { loadDocumentSets } from "@/features/document-sets/document-sets-api";
 import { AgentAvatar } from "./agent-avatar";
 import {
   AgentIconPicker,

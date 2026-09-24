@@ -27,7 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { ChatFilePicker } from "@/features/library/file-picker";
-import type { AgentRef } from "@/features/chat/chat-workspace-api";
+import type { NamedRef } from "@/features/identity/principals";
 import { findSourceProvider } from "@/features/sources/shared/source-provider-catalog";
 import { SectionHeader } from "@/components/composites/section-header";
 import { AgentAvatar } from "./agent-avatar";
@@ -229,7 +229,7 @@ export function AgentLabelPicker({
   onChange,
   onCreate,
 }: {
-  labels: AgentRef[];
+  labels: NamedRef[];
   value: string[];
   disabled: boolean;
   onChange: (ids: string[]) => void;

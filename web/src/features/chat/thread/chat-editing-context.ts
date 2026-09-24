@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import type { Branch, Feedback } from "@/features/chat/chat-workspace-api";
+import type { Branch, Feedback } from "@/features/chat/chat-api";
 export const ChatEditingContext = createContext<{
   sessionId?: string;
   /** The conversation's own title, so a branch taken from it can be named after it. */

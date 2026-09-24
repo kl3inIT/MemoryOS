@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteChatPersona, leaveChatPersona } from "@/lib/hey-api/sdk.gen";
 import { can } from "@/lib/resource-permissions";
 import { actionErrorText } from "@/lib/action-errors";
-import type { Persona } from "@/features/chat/chat-workspace-api";
+import type { Persona } from "@/features/chat/chat-personas-api";
 import { AgentTransferDialog } from "./agent-transfer-dialog";
 
 const itemClass =
