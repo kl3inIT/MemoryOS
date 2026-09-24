@@ -1,11 +1,11 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.api.chat.contract.AvailableChatModelResponse;
+import io.memoryos.api.chat.contract.ChatAgentRefResponse;
+import io.memoryos.api.chat.contract.ChatAgentShareOptionsResponse;
 import io.memoryos.api.chat.contract.ChatPersonaLabelRequest;
 import io.memoryos.api.chat.contract.ChatPersonaPinsRequest;
 import io.memoryos.chat.AgentListFilter;
-import io.memoryos.chat.AgentRef;
-import io.memoryos.chat.AgentShareOptions;
 import io.memoryos.chat.ChatPersonaService.ListingInput;
 import io.memoryos.chat.ChatPersonaService.PersonaInput;
 import io.memoryos.chat.ChatPersonaService.PersonaView;
@@ -170,29 +170,29 @@ class ChatPersonaController {
     @GetMapping("/persona-share-options")
     @Operation(operationId = "listChatPersonaShareOptions", summary = "Search active members and ordinary Groups to share an agent with")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    AgentShareOptions shareOptions(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ChatAgentShareOptionsResponse shareOptions(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @RequestParam(required = false) @Nullable String q, @RequestParam(defaultValue = "20") int limit) {
-        return personas.shareOptions(identity.actorId(), q, limit);
+        return ChatAgentShareOptionsResponse.from(personas.shareOptions(identity.actorId(), q, limit));
     }
     @GetMapping("/persona-labels")
     @Operation(operationId = "listChatPersonaLabels", summary = "List agent labels")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    List<AgentRef> labels(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return personas.labels(identity.actorId());
+    List<ChatAgentRefResponse> labels(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+        return personas.labels(identity.actorId()).stream().map(ChatAgentRefResponse::from).toList();
     }
     @PostMapping("/persona-labels")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(operationId = "createChatPersonaLabel", summary = "Create an agent label")
     @ApiResponse(responseCode = "201", description = "Successful chat operation", useReturnTypeSchema = true)
-    AgentRef createLabel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody ChatPersonaLabelRequest request) {
-        return personas.createLabel(identity.actorId(), request.name());
+    ChatAgentRefResponse createLabel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody ChatPersonaLabelRequest request) {
+        return ChatAgentRefResponse.from(personas.createLabel(identity.actorId(), request.name()));
     }
     @PutMapping("/persona-labels/{labelId}")
     @Operation(operationId = "renameChatPersonaLabel", summary = "Rename an agent label; requires AGENTS_MANAGE")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    AgentRef renameLabel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ChatAgentRefResponse renameLabel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID labelId, @RequestBody ChatPersonaLabelRequest request) {
-        return personas.renameLabel(identity.actorId(), labelId, request.name());
+        return ChatAgentRefResponse.from(personas.renameLabel(identity.actorId(), labelId, request.name()));
     }
     @DeleteMapping("/persona-labels/{labelId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
