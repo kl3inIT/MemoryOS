@@ -70,7 +70,8 @@ public final class MeetingMinutesPdf {
     /** A line of a paragraph: where it starts, and whether its words are spread to the right margin. */
     private record Line(List<String> words, float x, float width, boolean justify, boolean centre) {}
 
-    private record Columns(List<Cell> left, List<Cell> right, float height, boolean keepWithPrevious) implements Block {}
+    private record Columns(List<Cell> left, List<Cell> right, float leftShare, float height, boolean keepWithPrevious)
+            implements Block {}
 
     private record Gap(float height) implements Block {}
 
@@ -122,16 +123,16 @@ public final class MeetingMinutesPdf {
         }
 
         @Override
-        public void columns(List<Cell> left, List<Cell> right, boolean keepWithPrevious) {
-            float height = Math.max(columnHeight(left), columnHeight(right));
-            blocks.add(new Columns(left, right, height, keepWithPrevious));
+        public void columns(List<Cell> left, List<Cell> right, float leftShare, boolean keepWithPrevious) {
+            float height = Math.max(columnHeight(left, width * leftShare), columnHeight(right, width * (1 - leftShare)));
+            blocks.add(new Columns(left, right, leftShare, height, keepWithPrevious));
         }
 
-        private float columnHeight(List<Cell> cells) {
+        private float columnHeight(List<Cell> cells, float columnWidth) {
             float height = 0;
             for (var cell : cells)
                 height += wrap(safe(cell.text(), cell.bold() ? bold : regular), cell.bold() ? bold : regular,
-                        points(cell.size()), width / 2, width / 2).size() * points(cell.size()) * LEADING;
+                        points(cell.size()), columnWidth, columnWidth).size() * points(cell.size()) * LEADING;
             return height;
         }
 
@@ -197,8 +198,9 @@ public final class MeetingMinutesPdf {
                                 }
                             }
                             case Columns columns -> {
-                                column(stream, columns.left(), LEFT, y);
-                                column(stream, columns.right(), LEFT + width / 2, y);
+                                float split = width * columns.leftShare();
+                                column(stream, columns.left(), LEFT, split, y);
+                                column(stream, columns.right(), LEFT + split, width - split, y);
                                 y -= columns.height();
                             }
                         }
@@ -207,16 +209,31 @@ public final class MeetingMinutesPdf {
             }
         }
 
-        private void column(PDPageContentStream stream, List<Cell> cells, float x, float top) throws IOException {
+        private void column(PDPageContentStream stream, List<Cell> cells, float x, float columnWidth, float top)
+                throws IOException {
             float y = top;
             for (var cell : cells) {
                 var face = cell.bold() ? bold : regular;
                 float size = points(cell.size());
-                for (var words : wrap(safe(cell.text(), face), face, size, width / 2, width / 2)) {
+                for (var words : wrap(safe(cell.text(), face), face, size, columnWidth, columnWidth)) {
                     y -= size * LEADING;
-                    text(stream, new Line(words, x, width / 2, false, true), face, size, y + size * LEADING - size);
+                    float baseline = y + size * LEADING - size;
+                    text(stream, new Line(words, x, columnWidth, false, true), face, size, baseline);
+                    if (cell.underline() && !words.isEmpty())
+                        underline(stream, words, face, size, x, columnWidth, baseline);
                 }
             }
+        }
+
+        /** A rule as long as the centred line above it, as the decree draws under the tiêu ngữ. */
+        private static void underline(PDPageContentStream stream, List<String> words, PDType0Font face, float size,
+                float x, float columnWidth, float baseline) throws IOException {
+            float length = face.getStringWidth(String.join(" ", words)) / 1000 * size;
+            float start = x + (columnWidth - length) / 2;
+            stream.setLineWidth(0.6f);
+            stream.moveTo(start, baseline - 2.5f);
+            stream.lineTo(start + length, baseline - 2.5f);
+            stream.stroke();
         }
 
         private void text(PDPageContentStream stream, Line line, PDType0Font face, float size, float baseline)

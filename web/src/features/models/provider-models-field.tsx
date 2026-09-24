@@ -1,6 +1,6 @@
 import { ChatModelLogo } from "@/features/chat/chat-model-logo";
 import { Brain, Eye, RefreshCw, Search, Wrench } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -37,12 +37,15 @@ export function ProviderModelsField({
   selected,
   onSelected,
   disabled,
+  listOnOpen = false,
 }: {
   connection: () => ProviderTestInput | null;
   configured: ManagedModel[];
   selected: ReportedModel[];
   onSelected: (models: ReportedModel[]) => void;
   disabled?: boolean;
+  /** Opened from the connection's "Fetch models" button: the endpoint is read at once and the list brought into view. */
+  listOnOpen?: boolean;
 }) {
   const ui = useAppTranslation();
   const action = useModelAction();
@@ -84,8 +87,17 @@ export function ProviderModelsField({
     }
   }
 
+  const field = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!listOnOpen) return;
+    field.current?.scrollIntoView({ block: "nearest" });
+    // A second run (React's development double effect) replaces the first listing rather than racing it.
+    void refresh();
+    // On opening only; later listings are the owner's own press.
+  }, [listOnOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <div className="space-y-3">
+    <div ref={field} className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="font-main-ui-action">{ui("Models")}</p>

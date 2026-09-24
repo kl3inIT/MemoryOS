@@ -13,6 +13,10 @@ final class MeetingMinutesLayout {
     static final int BODY = 26;
     static final int TITLE = 28;
     static final int SMALL = 22;
+    /** The quốc hiệu, which the decree sets at 12 to 13 points and which has to hold on one line. */
+    static final int NATIONAL = 24;
+    /** The share of the width the letterhead gives the issuing body; the quốc hiệu takes the rest. */
+    static final float LETTERHEAD_SHARE = 0.4f;
     static final String BLANK = "…";
 
     private MeetingMinutesLayout() {}
@@ -20,7 +24,11 @@ final class MeetingMinutesLayout {
     enum Align { LEFT, CENTER, JUSTIFY }
 
     /** One line of a column: the letterhead and the signature block are two of these side by side. */
-    record Cell(String text, boolean bold, int size) {}
+    record Cell(String text, boolean bold, int size, boolean underline) {
+        Cell(String text, boolean bold, int size) {
+            this(text, bold, size, false);
+        }
+    }
 
     /** Where a biên bản is written. */
     interface Page {
@@ -37,10 +45,11 @@ final class MeetingMinutesLayout {
         void blank();
 
         /**
-         * Two centred columns side by side. {@code keepWithPrevious} asks that they never open a page on their own:
-         * a signature block alone on its last page signs nothing that anyone can see.
+         * Two centred columns side by side, the left one taking {@code leftShare} of the width. {@code keepWithPrevious}
+         * asks that they never open a page on their own: a signature block alone on its last page signs nothing that
+         * anyone can see.
          */
-        void columns(List<Cell> left, List<Cell> right, boolean keepWithPrevious);
+        void columns(List<Cell> left, List<Cell> right, float leftShare, boolean keepWithPrevious);
     }
 
     static void write(Meeting.Detail meeting, MeetingMinutesDocument.Heading heading, Page page) {
@@ -52,15 +61,19 @@ final class MeetingMinutesLayout {
         signatures(heading, page);
     }
 
-    /** The two-column letterhead: the body on the left, the national heading on the right. */
+    /**
+     * The two-column letterhead: the body on the left, the national heading on the right. As in the decree's forms the
+     * right column is the wider one so the quốc hiệu holds on one line, and the tiêu ngữ is underlined. The parent body
+     * is set in capitals without bold, the issuing body in bold.
+     */
     private static void letterhead(MeetingMinutesDocument.Heading heading, Page page) {
         page.columns(
-                List.of(new Cell(or(heading.parentOrganization(), ""), true, BODY),
+                List.of(new Cell(or(heading.parentOrganization(), ""), false, BODY),
                         new Cell(or(heading.organization(), BLANK), true, BODY),
                         new Cell("Số: " + or(heading.number(), BLANK) + "/BB", false, BODY)),
-                List.of(new Cell("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", true, BODY),
-                        new Cell("Độc lập - Tự do - Hạnh phúc", true, BODY)),
-                false);
+                List.of(new Cell("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM", true, NATIONAL),
+                        new Cell("Độc lập - Tự do - Hạnh phúc", true, BODY, true)),
+                LETTERHEAD_SHARE, false);
     }
 
     private static void title(MeetingMinutesDocument.Heading heading, Page page) {
@@ -121,7 +134,7 @@ final class MeetingMinutesLayout {
     }
 
     private static void signatures(MeetingMinutesDocument.Heading heading, Page page) {
-        page.columns(signature("THƯ KÝ", heading.secretary()), signature("CHỦ TỌA", heading.chair()), true);
+        page.columns(signature("THƯ KÝ", heading.secretary()), signature("CHỦ TỌA", heading.chair()), 0.5f, true);
     }
 
     private static List<Cell> signature(String role, @Nullable String name) {

@@ -30,6 +30,8 @@ class MeetingMinutesPdfTest {
                 "Chốt ngân sách quý 4 trước thứ Năm", "THƯ KÝ", "CHỦ TỌA", "Nguyễn Văn An", "Trần Thị Lan"))
             assertTrue(squash(text).contains(squash(expected)), () -> "missing: " + expected);
         assertFalse(text.contains("?"), "every Vietnamese letter has a glyph in the embedded face");
+        assertTrue(text.lines().anyMatch(line -> squash(line).contains("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")),
+                "the quốc hiệu holds on one line, as the decree sets it");
     }
 
     @Test

@@ -24,6 +24,7 @@ function harness() {
   let now = 0;
   const handlers = new Map<string, AudioCaptureHandlers>();
   const opened: Opened[] = [];
+  const stopped: string[] = [];
   const pending: {
     resolve: () => void;
     reject: (error: MeetingStreamError) => void;
@@ -36,8 +37,9 @@ function harness() {
     onUtterance: vi.fn(),
     now: () => now,
     capture: vi.fn(async (_stream: MediaStream, handler: AudioCaptureHandlers) => {
-      handlers.set(handlers.size === 0 ? "MIC" : "TAB", handler);
-      return { setMuted: vi.fn(), stop: vi.fn() };
+      const track = handlers.size === 0 ? "MIC" : "TAB";
+      handlers.set(track, handler);
+      return { setMuted: vi.fn(), stop: vi.fn(() => stopped.push(track)) };
     }),
     openSocket: vi.fn(
       (options: MeetingSocketOptions) =>
@@ -63,6 +65,7 @@ function harness() {
   return {
     recorder,
     opened,
+    stopped,
     pending,
     chunk: (track: "MIC" | "TAB", ms: number, level = 0.2) => {
       handlers.get(track)!.onLevel(level);
@@ -95,6 +98,19 @@ describe("meeting recorder", () => {
     await starting;
     expect(h.opened[0].sent.map((pcm) => pcm.byteLength)).toEqual([4_800, 4_800]);
     expect(h.recorder.getSnapshot().elapsedMs).toBe(5_200);
+  });
+
+  it("stopping turns the microphone off at once and finishes once the last words are stored", async () => {
+    const h = harness();
+    await h.recorder.start([{ track: "MIC", stream: stream(), offsetMs: 0 }]);
+    let stored!: () => void;
+    h.opened[0].finish.mockReturnValue(new Promise<void>((resolve) => (stored = resolve)));
+    const stopping = h.recorder.stop();
+    expect(h.stopped).toEqual(["MIC"]);
+    expect(h.recorder.getSnapshot().phase).toBe("stopping");
+    stored();
+    await stopping;
+    expect(h.recorder.getSnapshot().phase).toBe("stopped");
   });
 
   it("reconnects a failed track at the delivered offset and replays what was queued meanwhile", async () => {
