@@ -54,7 +54,7 @@ Creating, ending, rerunning the minutes, reserving and finalizing a recording, a
 
 ## Transcription
 
-Each track is one provider stream over the Tenant's default speech-to-text connection (`chat.voice` `LiveTranscriptionService`). An actor has at most two streams and the API process at most 32. Audio time is recorded as `SPEECH_TO_TEXT` usage when a stream closes.
+Each track is one provider stream over the Tenant's default speech-to-text connection (`voice` `LiveTranscriptionService`). An actor has at most two streams and the API process at most 32. Audio time is recorded as `SPEECH_TO_TEXT` usage when a stream closes.
 
 - **Soniox** streams realtime with endpoint detection, the language hint and the meeting's terms. Online, `MIC` is not diarized (it is the owner); `TAB` and in-person `MIC` are. Final tokens form an utterance that ends at a speaker change or an `<end>` endpoint. A keepalive is sent after five seconds without audio. When the provider stream fails, it reconnects after 2/5/10/20/30 seconds, replays the last five seconds of audio and shifts the new stream's times by the audio sent before the replay; after the last retry the socket reports `MEETING_PROVIDER_FAILED`.
 - **Other providers** have no live protocol: audio is cut into utterances after 800 ms of silence or at 30 seconds, silence never reaches the provider, and each utterance is transcribed through the provider's REST adapter with speaker `1`.
@@ -147,7 +147,7 @@ Each item cites the line it rests on; that line number becomes the utterance id,
 
 ## Taking the minutes into Chat
 
-`POST /api/meetings/{id}/library` writes the minutes into the caller's file library as Markdown and answers the file, so a conversation can use them. It needs `READY` minutes, and asking twice returns the file already made (V92's live-copy index, with `MEETING` added to `copied_from_source` in V112). Rewriting the minutes deletes that file so the next call publishes what was rewritten; a file a Project or an Agent still holds is left alone.
+`POST /api/meetings/{id}/library` writes the minutes into the caller's file library as Markdown and answers the file, so a conversation can use them. It needs `READY` minutes, and asking twice returns the file already made (V92's live-copy index, with `MEETING` added to `copied_from_source` in V112). Rewriting the minutes deletes that file so the next call publishes what was rewritten; a file a Project or an Agent still holds is left alone. `MeetingLibraryService` in the `meeting` module does both, reaching the file library through the `chat :: library` named interface until the library is its own module (ADR 0015 step 3).
 
 The file carries the summary, the decisions and the work with their owners, deadlines and the sentence each rests on. **It never carries the transcript.** A transcript is what people actually said, and the Delaware Chancery court in *ATG Capital v. Lane* read one back against the minutes it contradicted; counsel's advice since is that the approved minutes are the record while the transcript is working material kept close. The file says where the full wording lives.
 

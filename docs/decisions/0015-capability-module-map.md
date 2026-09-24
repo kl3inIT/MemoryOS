@@ -77,6 +77,30 @@ One pull request, in this order, each step compiling and passing its targeted te
 4. Internal layout of `chat`, `connector` and `iam`; drop `:: *` dependencies and collapse single-implementation pairs.
 5. Web feature folders mirror the modules.
 
+### Step 2: what `ai` and `voice` hold
+
+`ai`'s root is its published API: `ModelCatalogService` and the catalog records, the provider adapter contract (`ChatProviderAdapter`, `ChatProviderAdapters`), `ProviderCredentials`, `ChatModelResolver` and `ChatModelClients`, the native binding and its request policy (`ChatModelBinding`, `ChatRequestPolicy`, `ChatSampling`, `ReasoningEffort`), admission and accounting (`ModelGuard`, `ChatAdmissionLedger`, `ModelAccounting`), `ChatModelTurns`, `ChatModelValidation`, `ModelCalls` and the transcript calls (`TranscriptSummarizer`, `TranscriptCorrector`, `TranscriptSummary`, `TranscriptCorrections`), and `AiException`. The OpenAI adapter is internal (`ai.openai`, no named interface; it registers its own adapter bean), as are the catalog's JPA and JDBC persistence (`ai.persistence`) and the package-private `ModelCatalogProvisioner`. `voice`'s root is the connection, transcription and synthesis services and their values; the provider clients (Azure, ElevenLabs, OpenAI and Soniox realtime, the chunked transcribers) stay package-private in the root rather than moving to a subpackage, which would have made them public. Its JPA persistence is `voice.persistence`.
+
+Judgement calls made while moving:
+
+- **Model runtime in `ai`, turn policy in `chat`.** A single model call outside a conversation needs the binding, the request policy, client leases, budget admission and usage accounting, so those moved to `ai`. The guard's Chat part — Chat's prompt guidance per inference and the Search helper check — stays in `chat` as `ChatModelGuard extends ModelGuard`; `ModelCalls` runs on the plain `ModelGuard`.
+- **Which models a member may use is split by what it is about.** The catalog rules (provider access by Group, by agent restriction, visibility, the Tenant default, flow eligibility, native Web search support) are `ai`'s and take an agent as an id. Everything keyed by a conversation or an agent row is `chat`'s: `ChatModelAccess` pages agents for the provider form, reads and sets an agent's model, lists the models for a session or an agent, and selects a turn's model; `ChatModelSelector` then acquires the client from `ai` outside the transaction. The agent and personal-default SQL moved to `chat.persistence.JdbcAgentModelRepository`.
+- **The catalog reaches agents through a port and an event.** A provider's agent restriction must name agents of the Tenant: `ai` asks the `AgentDirectory` port, which `chat` implements. Deleting a model or provider publishes `ModelsRemoved` synchronously in the same transaction, before the rows go, and `chat` clears the agents that named one — the delete order the single repository used to run. The catalog still reads `iam_groups` and `iam_group_memberships` by SQL, as it did inside `chat`; step 4 replaces it with IAM's API.
+- **Provider activity is provider-neutral.** A hosted model reports reasoning, Web search steps and cited pages to a `ChatModelTurns.Listener`; `chat`'s `ChatTurnListener` turns them into Chat events and turn evidence. The OpenAI tests drive the adapter through that Chat listener, so their end-to-end assertions stay; test code is outside the module check.
+- **Contracts keep their names.** `AiException` and `VoiceException` answer the same `CHAT_` error codes, the metric names (`memoryos.chat.voice.*`) and configuration keys (`memoryos.chat.catalog.*`, `memoryos.chat.provider.*`, `memoryos.chat.execution.*`) are unchanged, and no class behind an HTTP body was renamed, so the OpenAPI document is identical. `ai` does not read Chat's `ChatExecutionProperties`: the `api` composition root passes the provider read timeout and the cost and token caps, and the two `ai` beans that need a limit read their key directly. The `Chat*` prefixes of classes now in `ai` stay until step 4.
+- **Voice settings stay in Chat.** `chat_voice_settings` holds a member's auto-send, auto-playback and playback speed, which decide what Chat's composer and answers do with voice; `VoiceSettings` and `VoiceSettingsService` moved to `chat.preferences`. `voice` depends on `ai` for `ProviderCredentials` and the endpoint rule, which the catalog and every tool connection share.
+- **Meetings publish minutes through `chat :: library` until step 3.** `MeetingLibraryService` in `meeting` publishes minutes to the owner's library and withdraws them on a rerun; `MeetingController` only maps HTTP. The five types it uses (`ChatLibraryService`, `ChatFileService`, `ChatLibraryFile`, `UserFile`, `ChatFileInUseException`) carry `@NamedInterface("library")`; step 3 moves them to `library` and replaces the dependency.
+- **Nothing moved is session-serialized.** The JDBC session stores the security context, the invitation and MCP authorization states; voice tickets are process memory. `V128` is unaffected.
+
+Dependencies after step 2 (every list also includes `shared`):
+
+| Module | Before | After |
+| --- | --- | --- |
+| `ai` | — (inside `chat`) | `iam :: tenant`, `iam :: group`, `audit`, `usage` |
+| `voice` | — (inside `chat`) | `ai`, `iam :: tenant`, `iam :: group`, `audit`, `usage` |
+| `chat` | `iam :: tenant`, `iam :: group`, `iam :: identity`, `retrieval`, `connector`, `objectstorage`, `document`, `mcp`, `usage`, `audit` | the same and `ai` (Chat no longer needs `voice`) |
+| `meeting` | `iam :: group`, `chat :: voice`, `chat :: summary`, `objectstorage`, `usage` | `iam :: group`, `ai`, `voice`, `chat :: library`, `objectstorage`, `usage` |
+
 ## Consequences
 
 - Meeting, Chat and ingestion depend on what they use; the orchestration in `MeetingController` returns to a module where Modulith checks it.

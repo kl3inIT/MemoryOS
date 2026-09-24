@@ -56,6 +56,8 @@ flowchart TB
     ING[ingestion]
     RET[retrieval]
     CHAT[chat]
+    AI[ai]
+    VOICE[voice]
     MCP[mcp]
     MEET[meeting]
     USAGE[usage]
@@ -79,13 +81,23 @@ flowchart TB
     CHAT --> CON
     CHAT --> RET
     CHAT --> MCP
+    CHAT --> AI
+    AI --> IAM
+    AI --> USAGE
+    VOICE --> AI
+    VOICE --> IAM
+    VOICE --> USAGE
     MEET --> IAM
-    MEET --> CHAT
+    MEET --> AI
+    MEET --> VOICE
+    MEET -. library .-> CHAT
     MEET --> OBJ
     IAM --> AUD
     CON --> AUD
     CHAT --> AUD
     MCP --> AUD
+    AI --> AUD
+    VOICE --> AUD
     USAGE --> IAM
     USAGE --> OBJ
     USAGE --> AUD
@@ -97,6 +109,8 @@ flowchart TB
     API --> DOC
     API --> RET
     API --> CHAT
+    API --> AI
+    API --> VOICE
     API --> MCP
     API --> MEET
     API --> AUD
@@ -109,11 +123,11 @@ flowchart TB
     WORKER --> AUD
 ```
 
-Arrows show allowed use of public capability contracts. Every module depends on `shared`, the shared kernel that holds `TenantId` and `ActorId`; only the `audit` arrow to it is drawn. No module depends on IAM as a whole: each lists the IAM named interfaces it calls (`iam :: tenant`, `iam :: group`, `iam :: identity`), and `objectstorage`, `document` and `ingestion` do not depend on IAM at all. `meeting` reaches `chat` only through its `voice` and `summary` named interfaces. `audit` sits below every capability that records into it (`iam`, `connector`, `chat`, `mcp`, `usage`) and depends only on `shared`: it carries typed Tenant and actor identifiers, and asks IAM who may read the stream through the `AuditReaders` port that `iam` implements. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided. The `api` and `worker` composition roots use only published module APIs, never a `persistence` package, and map core types to their own HTTP contracts. [ADR 0015](docs/decisions/0015-capability-module-map.md) records the target module map (`ai`, `voice`, `library` and `audit` extracted) and the layout rule this structure is moving to.
+Arrows show allowed use of public capability contracts. Every module depends on `shared`, the shared kernel that holds `TenantId` and `ActorId`; only the `audit` arrow to it is drawn. No module depends on IAM as a whole: each lists the IAM named interfaces it calls (`iam :: tenant`, `iam :: group`, `iam :: identity`), and `objectstorage`, `document` and `ingestion` do not depend on IAM at all. `chat`, `voice` and `meeting` run on `ai`, the model catalog and its providers; `meeting` records through `voice`, and reaches `chat` only through the `chat :: library` named interface (the dotted arrow) to publish its minutes until the file library becomes its own module. `ai` knows Chat's agents only by id, through the `AgentDirectory` port and the `ModelsRemoved` event that `chat` serves. `audit` sits below every capability that records into it (`iam`, `connector`, `chat`, `ai`, `voice`, `mcp`, `usage`) and depends only on `shared`: it carries typed Tenant and actor identifiers, and asks IAM who may read the stream through the `AuditReaders` port that `iam` implements. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided. The `api` and `worker` composition roots use only published module APIs, never a `persistence` package, and map core types to their own HTTP contracts. [ADR 0015](docs/decisions/0015-capability-module-map.md) records the target module map (`ai`, `voice` and `audit` are extracted; `library` is next) and the layout rule this structure is moving to.
 
 | Gradle module | Responsibility |
 | --- | --- |
-| `core` | Eleven capability implementations, the `shared` kernel of identifier types and their public contracts; no dependency on `connector` or a deployable |
+| `core` | Thirteen capability implementations, the `shared` kernel of identifier types and their public contracts; no dependency on `connector` or a deployable |
 | `connector` | Shared provider integration and bounded content extraction bundle; depends only on public `core` APIs |
 | `api` | HTTP, security, migrations and interactive Chat composition |
 | `worker` | Redis/db-scheduler composition and durable background work |
@@ -128,9 +142,11 @@ Arrows show allowed use of public capability contracts. Every module depends on 
 | `document` | Current Document metadata, canonical extraction artifact and current chunk identity | [Document](docs/specs/document.md) |
 | `ingestion` | Durable selection, synchronization, extraction, indexing and cleanup orchestration | [Ingestion](docs/specs/ingestion.md) |
 | `retrieval` | Embedding/OpenSearch adapters, search configuration generations and embedding providers, authorized Search, document passages and original PDF readers | [Search](docs/specs/search.md) |
-| `chat` | Personas, shared Document Sets, projects, sessions, message trees, model catalog, files, sharing and feedback | [Chat](docs/specs/chat.md), [model catalog](docs/specs/chat-models.md) |
+| `chat` | Personas and the model each runs on, shared Document Sets, projects, sessions, message trees, turns, files, sharing, feedback and per-member voice settings | [Chat](docs/specs/chat.md) |
+| `ai` | The Tenant's provider/model catalog, flow models, provider adapters (OpenAI) and their native clients, and single model calls outside a conversation such as meeting minutes and transcript corrections | [Model catalog](docs/specs/chat-models.md) |
+| `voice` | Tenant voice connections, batch and live transcription and speech synthesis; audio is never stored | [MEM-91 design](docs/increments/active/mem-91-chat-voice/design.md) |
 | `mcp` | Tenant-registered remote MCP servers, their OAuth clients, tool snapshots, sealed credentials and the Streamable HTTP client (MEM-112, in progress) | [MEM-112 design](docs/increments/active/mem-112-chat-mcp-client/design.md) |
-| `meeting` | Owner-private meetings: live track recording or an uploaded recording through the `chat` voice named interface, stored utterances, speaker names and notes, and leased minutes written by the API from the transcript; audio is never stored, and an uploaded recording is deleted once it has been transcribed (MEM-92, in progress) | [Meetings](docs/specs/meeting.md) |
+| `meeting` | Owner-private meetings: live track recording or an uploaded recording through `voice`, stored utterances, speaker names and notes, leased minutes written by the API from the transcript through `ai`, and minutes published to the owner's file library; audio is never stored, and an uploaded recording is deleted once it has been transcribed (MEM-92, in progress) | [Meetings](docs/specs/meeting.md) |
 | `usage` | Daily AI usage ledger for every AI flow, the AI costs report, and usage reports (a period's CSV and PDF export, built by the Worker and stored through `objectstorage`) | [AI usage and costs](docs/specs/ai-usage.md) |
 
 ## Durable ingestion and Search projection
@@ -209,13 +225,13 @@ Code Interpreter (`run_python`) calls the separate `memoryos-interpreter` servic
 
 Private Chat files reuse Object Storage, Document extraction and passage readers while remaining Chat-owned and owner-authorized. General Search excludes private file chunks. Sharing exposes allowed transcript descriptors without granting access to underlying private bytes or passages.
 
-Chat provider/model/default lifecycle uses capability-owned Spring Data JPA repositories and Hibernate revisions; authority projections, conflict-safe initialization and bulk reference mechanics remain JDBC. Access uses IAM `MODELS_MANAGE`, Group/Persona access and stable model configuration UUIDs. Organization BYOK is encrypted using a deployment-managed AES key. `/admin/models` implements Models-only navigation and provider/model/default administration through generated clients, independently of Tenant administration. Its bounded Persona projection respects builtin/current-actor ownership and stays separate from the assistant editor and Chat model selector. Access editing remains deferred. See the [catalog contract](docs/specs/chat-models.md).
+The provider/model/default lifecycle belongs to `ai` and uses its own Spring Data JPA repositories and Hibernate revisions; authority projections, conflict-safe initialization and bulk reference mechanics remain JDBC. Access uses IAM `MODELS_MANAGE`, Group/Persona access and stable model configuration UUIDs. Organization BYOK is encrypted using a deployment-managed AES key. `/admin/models` implements Models-only navigation and provider/model/default administration through generated clients, independently of Tenant administration. Its bounded Persona projection and the Persona model belong to `chat` (`ChatModelAccess`), respect builtin/current-actor ownership and stay separate from the assistant editor and Chat model selector. Access editing remains deferred. See the [catalog contract](docs/specs/chat-models.md).
 
-Each turn resolves a native Embabel/Spring AI binding once and acquires a bounded client lease. The OpenAI protocol adapter, its streaming clients, cancellation transport and hosted O200K estimator profile live in `core` under `chat.catalog.openai`; API composition registers the adapter bean; the executor neither selects providers nor decodes provider options. A shared immutable policy measures pre-reservation mandatory framing, bounded history and every converted native request/Validate. Raw HTTP cancellation precedes blocked-reader closure. No vendored tokenizer assets or native libraries ship in either deployable.
+Each turn resolves a native Embabel/Spring AI binding once and acquires a bounded client lease. The binding, request policy, client leases and guard live in `ai`; the OpenAI protocol adapter, its streaming clients, cancellation transport and hosted O200K estimator profile are internal to `ai.openai`, which registers the adapter bean. A turn selects its model in `chat` (`ChatModelAccess`, `ChatModelSelector`) and acquires the client from `ai` outside the transaction; hosted Web search and reasoning reach the turn through a provider-neutral `ChatModelTurns.Listener` that `chat` turns into its events and evidence. The executor neither selects providers nor decodes provider options. A shared immutable policy measures pre-reservation mandatory framing, bounded history and every converted native request/Validate. Raw HTTP cancellation precedes blocked-reader closure. No vendored tokenizer assets or native libraries ship in either deployable.
 
 No self-hosted model is deployed. MEM-77 managed serving (vLLM behind a private gateway, provisioning, drain/rotation and serving recovery) was removed on 2026-09-19 until a qualified environment exists; Chat reaches models only through providers in the catalog. See [Model serving](docs/runbooks/ci-cd.md#model-serving).
 
-Voice is a Chat-owned capability used by both the Chat composer and Search. Tenant voice connections and per-member settings live in PostgreSQL; encrypted credentials follow the same deployment-key contract as the other Chat tool connections. The browser obtains a one-use, purpose-bound in-memory ticket before opening a same-origin transcription or synthesis WebSocket. The handshake rechecks current membership and capability. Tickets are process-local, so a multi-replica API deployment requires sticky routing or a shared ticket store.
+Voice is its own capability (`voice`), used by the Chat composer, Search and meetings. Tenant voice connections live in PostgreSQL and belong to `voice`; the per-member settings (auto-send, auto-playback, playback speed) are how Chat uses voice and stay in `chat`. Encrypted credentials follow the same deployment-key contract as the catalog and the other tool connections. The browser obtains a one-use, purpose-bound in-memory ticket before opening a same-origin transcription or synthesis WebSocket. The handshake rechecks current membership and capability. Tickets are process-local, so a multi-replica API deployment requires sticky routing or a shared ticket store.
 
 The browser captures PCM16 mono audio at 24 kHz. For the public OpenAI provider, the API opens a provider-side Realtime transcription session with `gpt-live-transcribe`, forwards audio frames and relays cumulative transcript deltas. Manual Stop commits the provider buffer. The API retains the bounded recording only for the lifetime of the connection and replays it through the existing batch transcriber if Realtime setup or streaming fails. OpenAI-compatible, ElevenLabs and Azure connections use the bounded chunked/REST path because MemoryOS does not assume their Realtime protocols are compatible. Soniox, a speech-to-text-only provider, streams over its own realtime WebSocket and falls back to its async file API. Transcript messages carry a monotonically increasing connection revision plus separate committed-final and utterance-boundary signals; the current OpenAI session has turn detection disabled and therefore never invents a VAD boundary. Audio and provider text are not persisted or logged. The complete behavior and remaining live-provider acceptance are in the [Voice design](docs/increments/active/mem-91-chat-voice/design.md).
 

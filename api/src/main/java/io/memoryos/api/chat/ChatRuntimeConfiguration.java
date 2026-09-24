@@ -108,7 +108,7 @@ class ChatRuntimeConfiguration {
     }
 
     /**
-     * Meeting minutes run here, not in the Worker, because the chat model catalog and its provider clients are wired
+     * Meeting minutes run here, not in the Worker, because the model catalog (`ai`) and its provider clients are wired
      * in this application. The claim leases one meeting per replica, so running several API replicas is safe.
      */
     @Bean
