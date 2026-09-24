@@ -121,6 +121,11 @@ export function remainingTime(seconds: number | null): AppText {
     : appText("Khoảng {{hours}} giờ {{minutes}} phút", { hours, minutes: rest });
 }
 
+/** A PAST generation can still be restored until its retention ends. */
+export function retained(generation: Generation, now = Date.now()) {
+  return generation.retainedUntil != null && new Date(generation.retainedUntil).getTime() > now;
+}
+
 export type SearchActions = {
   /** A new model can be chosen only while nothing is being rebuilt. */
   changeModel: boolean;
@@ -139,10 +144,7 @@ export function searchActions(settings: SearchSettings, now = Date.now()): Searc
     switchEnabled: future != null && !future.automatic && Boolean(settings.rebuild?.switchable),
     cancel: future != null,
     restore: (generation) =>
-      future == null &&
-      generation.status === "PAST" &&
-      generation.retainedUntil != null &&
-      new Date(generation.retainedUntil).getTime() > now,
+      future == null && generation.status === "PAST" && retained(generation, now),
   };
 }
 

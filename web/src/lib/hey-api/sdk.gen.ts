@@ -87,6 +87,36 @@ export const replaceGoogleDriveRoots = <ThrowOnError extends boolean = false>(op
 });
 
 /**
+ * Delete an embedding provider that no search generation uses
+ */
+export const deleteEmbeddingProvider = <ThrowOnError extends boolean = false>(options: Options<DeleteEmbeddingProviderData, ThrowOnError>): RequestResult<DeleteEmbeddingProviderResponses, DeleteEmbeddingProviderErrors, ThrowOnError> => (options.client ?? client).delete<DeleteEmbeddingProviderResponses, DeleteEmbeddingProviderErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/search/embedding-providers/{providerId}',
+    ...options
+});
+
+/**
+ * Replace an embedding provider at the expected revision
+ */
+export const updateEmbeddingProvider = <ThrowOnError extends boolean = false>(options: Options<UpdateEmbeddingProviderData, ThrowOnError>): RequestResult<UpdateEmbeddingProviderResponses, UpdateEmbeddingProviderErrors, ThrowOnError> => (options.client ?? client).put<UpdateEmbeddingProviderResponses, UpdateEmbeddingProviderErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/search/embedding-providers/{providerId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Delete a meeting and its transcript
  */
 export const deleteMeeting = <ThrowOnError extends boolean = false>(options: Options<DeleteMeetingData, ThrowOnError>): RequestResult<DeleteMeetingResponses, DeleteMeetingErrors, ThrowOnError> => (options.client ?? client).delete<DeleteMeetingResponses, DeleteMeetingErrors, ThrowOnError>({
@@ -1838,6 +1868,109 @@ export const searchDocuments = <ThrowOnError extends boolean = false>(options: O
             type: 'apiKey'
         }],
     url: '/api/search',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Make a retained past generation present again
+ */
+export const restoreSearchPastGeneration = <ThrowOnError extends boolean = false>(options: Options<RestoreSearchPastGenerationData, ThrowOnError>): RequestResult<RestoreSearchPastGenerationResponses, RestoreSearchPastGenerationErrors, ThrowOnError> => (options.client ?? client).post<RestoreSearchPastGenerationResponses, RestoreSearchPastGenerationErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/search/settings/past/{generationId}/restore',
+    ...options
+});
+
+/**
+ * Cancel the rebuild and delete the future generation's index
+ */
+export const cancelSearchFutureGeneration = <ThrowOnError extends boolean = false>(options: Options<CancelSearchFutureGenerationData, ThrowOnError>): RequestResult<CancelSearchFutureGenerationResponses, CancelSearchFutureGenerationErrors, ThrowOnError> => (options.client ?? client).delete<CancelSearchFutureGenerationResponses, CancelSearchFutureGenerationErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/search/settings/future',
+    ...options
+});
+
+/**
+ * Start rebuilding the index for a new embedding model as the future generation
+ */
+export const createSearchFutureGeneration = <ThrowOnError extends boolean = false>(options: Options<CreateSearchFutureGenerationData, ThrowOnError>): RequestResult<CreateSearchFutureGenerationResponses, CreateSearchFutureGenerationErrors, ThrowOnError> => (options.client ?? client).post<CreateSearchFutureGenerationResponses, CreateSearchFutureGenerationErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/search/settings/future',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Make the fully rebuilt future generation present; the present one becomes past
+ */
+export const switchSearchFutureGeneration = <ThrowOnError extends boolean = false>(options: Options<SwitchSearchFutureGenerationData, ThrowOnError>): RequestResult<SwitchSearchFutureGenerationResponses, SwitchSearchFutureGenerationErrors, ThrowOnError> => (options.client ?? client).post<SwitchSearchFutureGenerationResponses, SwitchSearchFutureGenerationErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/search/settings/future/switch',
+    ...options
+});
+
+/**
+ * List embedding providers with keys redacted
+ */
+export const listEmbeddingProviders = <ThrowOnError extends boolean = false>(options?: Options<ListEmbeddingProvidersData, ThrowOnError>): RequestResult<ListEmbeddingProvidersResponses, ListEmbeddingProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListEmbeddingProvidersResponses, ListEmbeddingProvidersErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/search/embedding-providers',
+    ...options
+});
+
+/**
+ * Create an OpenAI-compatible embedding provider
+ */
+export const createEmbeddingProvider = <ThrowOnError extends boolean = false>(options: Options<CreateEmbeddingProviderData, ThrowOnError>): RequestResult<CreateEmbeddingProviderResponses, CreateEmbeddingProviderErrors, ThrowOnError> => (options.client ?? client).post<CreateEmbeddingProviderResponses, CreateEmbeddingProviderErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/search/embedding-providers',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Check a saved or unsaved embedding endpoint with one real /v1/embeddings call
+ */
+export const testEmbeddingProvider = <ThrowOnError extends boolean = false>(options: Options<TestEmbeddingProviderData, ThrowOnError>): RequestResult<TestEmbeddingProviderResponses, TestEmbeddingProviderErrors, ThrowOnError> => (options.client ?? client).post<TestEmbeddingProviderResponses, TestEmbeddingProviderErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, {
+            in: 'cookie',
+            name: 'SESSION',
+            type: 'apiKey'
+        }],
+    url: '/api/search/embedding-providers/test',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -3777,139 +3910,6 @@ export const getSearchSettings = <ThrowOnError extends boolean = false>(options?
         }],
     url: '/api/search/settings',
     ...options
-});
-
-/**
- * Cancel the rebuild and delete the future generation's index
- */
-export const cancelSearchFutureGeneration = <ThrowOnError extends boolean = false>(options: Options<CancelSearchFutureGenerationData, ThrowOnError>): RequestResult<CancelSearchFutureGenerationResponses, CancelSearchFutureGenerationErrors, ThrowOnError> => (options.client ?? client).delete<CancelSearchFutureGenerationResponses, CancelSearchFutureGenerationErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/search/settings/future',
-    ...options
-});
-
-/**
- * Start rebuilding the index for a new embedding model as the future generation
- */
-export const createSearchFutureGeneration = <ThrowOnError extends boolean = false>(options: Options<CreateSearchFutureGenerationData, ThrowOnError>): RequestResult<CreateSearchFutureGenerationResponses, CreateSearchFutureGenerationErrors, ThrowOnError> => (options.client ?? client).post<CreateSearchFutureGenerationResponses, CreateSearchFutureGenerationErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/search/settings/future',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Make the fully rebuilt future generation present; the present one becomes past
- */
-export const switchSearchFutureGeneration = <ThrowOnError extends boolean = false>(options: Options<SwitchSearchFutureGenerationData, ThrowOnError>): RequestResult<SwitchSearchFutureGenerationResponses, SwitchSearchFutureGenerationErrors, ThrowOnError> => (options.client ?? client).post<SwitchSearchFutureGenerationResponses, SwitchSearchFutureGenerationErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/search/settings/future/switch',
-    ...options
-});
-
-/**
- * Make a retained past generation present again
- */
-export const restoreSearchPastGeneration = <ThrowOnError extends boolean = false>(options: Options<RestoreSearchPastGenerationData, ThrowOnError>): RequestResult<RestoreSearchPastGenerationResponses, RestoreSearchPastGenerationErrors, ThrowOnError> => (options.client ?? client).post<RestoreSearchPastGenerationResponses, RestoreSearchPastGenerationErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/search/settings/past/{generationId}/restore',
-    ...options
-});
-
-/**
- * List embedding providers with keys redacted
- */
-export const listEmbeddingProviders = <ThrowOnError extends boolean = false>(options?: Options<ListEmbeddingProvidersData, ThrowOnError>): RequestResult<ListEmbeddingProvidersResponses, ListEmbeddingProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListEmbeddingProvidersResponses, ListEmbeddingProvidersErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/search/embedding-providers',
-    ...options
-});
-
-/**
- * Create an OpenAI-compatible embedding provider
- */
-export const createEmbeddingProvider = <ThrowOnError extends boolean = false>(options: Options<CreateEmbeddingProviderData, ThrowOnError>): RequestResult<CreateEmbeddingProviderResponses, CreateEmbeddingProviderErrors, ThrowOnError> => (options.client ?? client).post<CreateEmbeddingProviderResponses, CreateEmbeddingProviderErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/search/embedding-providers',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Delete an embedding provider that no search generation uses
- */
-export const deleteEmbeddingProvider = <ThrowOnError extends boolean = false>(options: Options<DeleteEmbeddingProviderData, ThrowOnError>): RequestResult<DeleteEmbeddingProviderResponses, DeleteEmbeddingProviderErrors, ThrowOnError> => (options.client ?? client).delete<DeleteEmbeddingProviderResponses, DeleteEmbeddingProviderErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/search/embedding-providers/{providerId}',
-    ...options
-});
-
-/**
- * Replace an embedding provider at the expected revision
- */
-export const updateEmbeddingProvider = <ThrowOnError extends boolean = false>(options: Options<UpdateEmbeddingProviderData, ThrowOnError>): RequestResult<UpdateEmbeddingProviderResponses, UpdateEmbeddingProviderErrors, ThrowOnError> => (options.client ?? client).put<UpdateEmbeddingProviderResponses, UpdateEmbeddingProviderErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/search/embedding-providers/{providerId}',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * Check a saved or unsaved embedding endpoint with one real /v1/embeddings call
- */
-export const testEmbeddingProvider = <ThrowOnError extends boolean = false>(options: Options<TestEmbeddingProviderData, ThrowOnError>): RequestResult<TestEmbeddingProviderResponses, TestEmbeddingProviderErrors, ThrowOnError> => (options.client ?? client).post<TestEmbeddingProviderResponses, TestEmbeddingProviderErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }, {
-            in: 'cookie',
-            name: 'SESSION',
-            type: 'apiKey'
-        }],
-    url: '/api/search/embedding-providers/test',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
 });
 
 /**

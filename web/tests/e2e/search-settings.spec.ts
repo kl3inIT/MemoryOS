@@ -85,6 +85,7 @@ const present: SearchGenerationResponse = {
   createdAt: "2026-08-01T08:00:00Z",
   activatedAt: "2026-08-01T08:05:00Z",
   retainedUntil: null,
+  cleanupBlocked: false,
 };
 const qwenFuture: SearchGenerationResponse = {
   ...present,
@@ -112,6 +113,18 @@ const bgePast: SearchGenerationResponse = {
   documentCount: 11_402,
   activatedAt: "2026-09-10T02:00:00Z",
   retainedUntil: "2026-09-29T02:00:00Z",
+};
+/** A retired index whose deletion failed three times: shown with a warning until cleanup succeeds. */
+const blockedPast: SearchGenerationResponse = {
+  ...present,
+  id: "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+  status: "PAST",
+  model: "text-embedding-3-small",
+  dimensions: 1536,
+  documentCount: 10_880,
+  activatedAt: "2026-08-20T02:00:00Z",
+  retainedUntil: "2026-09-01T02:00:00Z",
+  cleanupBlocked: true,
 };
 const inProgress = {
   ready: 8_214,
@@ -318,7 +331,6 @@ for (const width of [1440, 390]) {
         };
       };
       await expect(switchButton).toBeEnabled({ timeout: 15_000 });
-      await expect(rebuild.getByText("Sẵn sàng chuyển")).toBeVisible();
       await switchButton.click();
       await page
         .getByRole("alertdialog", { name: "Chuyển sang Qwen/Qwen3-Embedding-0.6B?" })
@@ -379,10 +391,14 @@ for (const width of [1440, 390]) {
     });
 
     test("a previous index is restored after confirmation", async ({ page }) => {
-      const mock = await install(page, { past: [bgePast] });
+      const mock = await install(page, { past: [bgePast, blockedPast] });
       await open(page, width);
       const past = page.getByRole("region", { name: "Index cũ" });
       await expect(past.getByText("BAAI/bge-m3")).toBeVisible();
+      await expect(past.getByText("Không xoá được index")).toBeVisible();
+      await expect(
+        past.getByRole("button", { name: "Hoàn tác về text-embedding-3-small" }),
+      ).toBeDisabled();
       await noHorizontalScroll(page);
       await capture(page, "previous-indexes", width);
       await past.getByRole("button", { name: "Hoàn tác về BAAI/bge-m3" }).click();

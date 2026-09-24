@@ -35,6 +35,7 @@ const present: Generation = {
   createdAt: "2026-08-01T08:00:00Z",
   activatedAt: "2026-08-01T08:05:00Z",
   retainedUntil: null,
+  cleanupBlocked: false,
 };
 const qwen: ModelPreset = {
   model: "Qwen/Qwen3-Embedding-0.6B",

@@ -75,6 +75,40 @@ export const replaceGoogleDriveRootsMutation = (options?: Partial<Options<Replac
 };
 
 /**
+ * Delete an embedding provider that no search generation uses
+ */
+export const deleteEmbeddingProviderMutation = (options?: Partial<Options<DeleteEmbeddingProviderData>>): UseMutationOptions<DeleteEmbeddingProviderResponse, DeleteEmbeddingProviderError, Options<DeleteEmbeddingProviderData>> => {
+    const mutationOptions: UseMutationOptions<DeleteEmbeddingProviderResponse, DeleteEmbeddingProviderError, Options<DeleteEmbeddingProviderData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteEmbeddingProvider({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Replace an embedding provider at the expected revision
+ */
+export const updateEmbeddingProviderMutation = (options?: Partial<Options<UpdateEmbeddingProviderData>>): UseMutationOptions<UpdateEmbeddingProviderResponse, UpdateEmbeddingProviderError, Options<UpdateEmbeddingProviderData>> => {
+    const mutationOptions: UseMutationOptions<UpdateEmbeddingProviderResponse, UpdateEmbeddingProviderError, Options<UpdateEmbeddingProviderData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateEmbeddingProvider({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
  * Delete a meeting and its transcript
  */
 export const deleteMeetingMutation = (options?: Partial<Options<DeleteMeetingData>>): UseMutationOptions<DeleteMeetingResponse, DeleteMeetingError, Options<DeleteMeetingData>> => {
@@ -2072,6 +2106,126 @@ export const searchDocumentsMutation = (options?: Partial<Options<SearchDocument
     const mutationOptions: UseMutationOptions<SearchDocumentsResponse, DefaultError, Options<SearchDocumentsData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await searchDocuments({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Make a retained past generation present again
+ */
+export const restoreSearchPastGenerationMutation = (options?: Partial<Options<RestoreSearchPastGenerationData>>): UseMutationOptions<RestoreSearchPastGenerationResponse, RestoreSearchPastGenerationError, Options<RestoreSearchPastGenerationData>> => {
+    const mutationOptions: UseMutationOptions<RestoreSearchPastGenerationResponse, RestoreSearchPastGenerationError, Options<RestoreSearchPastGenerationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await restoreSearchPastGeneration({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Cancel the rebuild and delete the future generation's index
+ */
+export const cancelSearchFutureGenerationMutation = (options?: Partial<Options<CancelSearchFutureGenerationData>>): UseMutationOptions<CancelSearchFutureGenerationResponse, CancelSearchFutureGenerationError, Options<CancelSearchFutureGenerationData>> => {
+    const mutationOptions: UseMutationOptions<CancelSearchFutureGenerationResponse, CancelSearchFutureGenerationError, Options<CancelSearchFutureGenerationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await cancelSearchFutureGeneration({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Start rebuilding the index for a new embedding model as the future generation
+ */
+export const createSearchFutureGenerationMutation = (options?: Partial<Options<CreateSearchFutureGenerationData>>): UseMutationOptions<CreateSearchFutureGenerationResponse, CreateSearchFutureGenerationError, Options<CreateSearchFutureGenerationData>> => {
+    const mutationOptions: UseMutationOptions<CreateSearchFutureGenerationResponse, CreateSearchFutureGenerationError, Options<CreateSearchFutureGenerationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createSearchFutureGeneration({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Make the fully rebuilt future generation present; the present one becomes past
+ */
+export const switchSearchFutureGenerationMutation = (options?: Partial<Options<SwitchSearchFutureGenerationData>>): UseMutationOptions<SwitchSearchFutureGenerationResponse, SwitchSearchFutureGenerationError, Options<SwitchSearchFutureGenerationData>> => {
+    const mutationOptions: UseMutationOptions<SwitchSearchFutureGenerationResponse, SwitchSearchFutureGenerationError, Options<SwitchSearchFutureGenerationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await switchSearchFutureGeneration({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listEmbeddingProvidersQueryKey = (options?: Options<ListEmbeddingProvidersData>) => createQueryKey('listEmbeddingProviders', options);
+
+/**
+ * List embedding providers with keys redacted
+ */
+export const listEmbeddingProvidersOptions = (options?: Options<ListEmbeddingProvidersData>) => queryOptions<ListEmbeddingProvidersResponse, ListEmbeddingProvidersError, ListEmbeddingProvidersResponse, ReturnType<typeof listEmbeddingProvidersQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listEmbeddingProviders({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listEmbeddingProvidersQueryKey(options)
+});
+
+/**
+ * Create an OpenAI-compatible embedding provider
+ */
+export const createEmbeddingProviderMutation = (options?: Partial<Options<CreateEmbeddingProviderData>>): UseMutationOptions<CreateEmbeddingProviderResponse, CreateEmbeddingProviderError, Options<CreateEmbeddingProviderData>> => {
+    const mutationOptions: UseMutationOptions<CreateEmbeddingProviderResponse, CreateEmbeddingProviderError, Options<CreateEmbeddingProviderData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createEmbeddingProvider({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Check a saved or unsaved embedding endpoint with one real /v1/embeddings call
+ */
+export const testEmbeddingProviderMutation = (options?: Partial<Options<TestEmbeddingProviderData>>): UseMutationOptions<TestEmbeddingProviderResponse, TestEmbeddingProviderError, Options<TestEmbeddingProviderData>> => {
+    const mutationOptions: UseMutationOptions<TestEmbeddingProviderResponse, TestEmbeddingProviderError, Options<TestEmbeddingProviderData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await testEmbeddingProvider({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -4942,160 +5096,6 @@ export const getSearchSettingsOptions = (options?: Options<GetSearchSettingsData
     },
     queryKey: getSearchSettingsQueryKey(options)
 });
-
-/**
- * Cancel the rebuild and delete the future generation's index
- */
-export const cancelSearchFutureGenerationMutation = (options?: Partial<Options<CancelSearchFutureGenerationData>>): UseMutationOptions<CancelSearchFutureGenerationResponse, CancelSearchFutureGenerationError, Options<CancelSearchFutureGenerationData>> => {
-    const mutationOptions: UseMutationOptions<CancelSearchFutureGenerationResponse, CancelSearchFutureGenerationError, Options<CancelSearchFutureGenerationData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await cancelSearchFutureGeneration({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Start rebuilding the index for a new embedding model as the future generation
- */
-export const createSearchFutureGenerationMutation = (options?: Partial<Options<CreateSearchFutureGenerationData>>): UseMutationOptions<CreateSearchFutureGenerationResponse, CreateSearchFutureGenerationError, Options<CreateSearchFutureGenerationData>> => {
-    const mutationOptions: UseMutationOptions<CreateSearchFutureGenerationResponse, CreateSearchFutureGenerationError, Options<CreateSearchFutureGenerationData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await createSearchFutureGeneration({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Make the fully rebuilt future generation present; the present one becomes past
- */
-export const switchSearchFutureGenerationMutation = (options?: Partial<Options<SwitchSearchFutureGenerationData>>): UseMutationOptions<SwitchSearchFutureGenerationResponse, SwitchSearchFutureGenerationError, Options<SwitchSearchFutureGenerationData>> => {
-    const mutationOptions: UseMutationOptions<SwitchSearchFutureGenerationResponse, SwitchSearchFutureGenerationError, Options<SwitchSearchFutureGenerationData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await switchSearchFutureGeneration({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Make a retained past generation present again
- */
-export const restoreSearchPastGenerationMutation = (options?: Partial<Options<RestoreSearchPastGenerationData>>): UseMutationOptions<RestoreSearchPastGenerationResponse, RestoreSearchPastGenerationError, Options<RestoreSearchPastGenerationData>> => {
-    const mutationOptions: UseMutationOptions<RestoreSearchPastGenerationResponse, RestoreSearchPastGenerationError, Options<RestoreSearchPastGenerationData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await restoreSearchPastGeneration({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const listEmbeddingProvidersQueryKey = (options?: Options<ListEmbeddingProvidersData>) => createQueryKey('listEmbeddingProviders', options);
-
-/**
- * List embedding providers with keys redacted
- */
-export const listEmbeddingProvidersOptions = (options?: Options<ListEmbeddingProvidersData>) => queryOptions<ListEmbeddingProvidersResponse, ListEmbeddingProvidersError, ListEmbeddingProvidersResponse, ReturnType<typeof listEmbeddingProvidersQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listEmbeddingProviders({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listEmbeddingProvidersQueryKey(options)
-});
-
-/**
- * Create an OpenAI-compatible embedding provider
- */
-export const createEmbeddingProviderMutation = (options?: Partial<Options<CreateEmbeddingProviderData>>): UseMutationOptions<CreateEmbeddingProviderResponse, CreateEmbeddingProviderError, Options<CreateEmbeddingProviderData>> => {
-    const mutationOptions: UseMutationOptions<CreateEmbeddingProviderResponse, CreateEmbeddingProviderError, Options<CreateEmbeddingProviderData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await createEmbeddingProvider({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Delete an embedding provider that no search generation uses
- */
-export const deleteEmbeddingProviderMutation = (options?: Partial<Options<DeleteEmbeddingProviderData>>): UseMutationOptions<DeleteEmbeddingProviderResponse, DeleteEmbeddingProviderError, Options<DeleteEmbeddingProviderData>> => {
-    const mutationOptions: UseMutationOptions<DeleteEmbeddingProviderResponse, DeleteEmbeddingProviderError, Options<DeleteEmbeddingProviderData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await deleteEmbeddingProvider({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Replace an embedding provider at the expected revision
- */
-export const updateEmbeddingProviderMutation = (options?: Partial<Options<UpdateEmbeddingProviderData>>): UseMutationOptions<UpdateEmbeddingProviderResponse, UpdateEmbeddingProviderError, Options<UpdateEmbeddingProviderData>> => {
-    const mutationOptions: UseMutationOptions<UpdateEmbeddingProviderResponse, UpdateEmbeddingProviderError, Options<UpdateEmbeddingProviderData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await updateEmbeddingProvider({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-/**
- * Check a saved or unsaved embedding endpoint with one real /v1/embeddings call
- */
-export const testEmbeddingProviderMutation = (options?: Partial<Options<TestEmbeddingProviderData>>): UseMutationOptions<TestEmbeddingProviderResponse, TestEmbeddingProviderError, Options<TestEmbeddingProviderData>> => {
-    const mutationOptions: UseMutationOptions<TestEmbeddingProviderResponse, TestEmbeddingProviderError, Options<TestEmbeddingProviderData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await testEmbeddingProvider({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
 
 export const listEmbeddingModelPresetsQueryKey = (options?: Options<ListEmbeddingModelPresetsData>) => createQueryKey('listEmbeddingModelPresets', options);
 

@@ -1,5 +1,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, History, Plus, RefreshCw, ScanSearch, Server, Settings2, Trash2 } from "lucide-react";
+import {
+  ArrowRight,
+  History,
+  Plus,
+  RefreshCw,
+  ScanSearch,
+  Server,
+  Settings2,
+  Trash2,
+} from "lucide-react";
 import { useLayoutEffect, useState, type ReactNode } from "react";
 import { EmptyState } from "@/components/composites/empty-state";
 import { SectionHeader } from "@/components/composites/section-header";
@@ -7,7 +16,7 @@ import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Progress } from "@/components/ui/progress";
@@ -42,6 +51,7 @@ import {
   rebuildPollMillis,
   refreshSearchSettings,
   remainingTime,
+  retained,
   searchActions,
   searchSettingsProblem,
   type Generation,
@@ -305,7 +315,14 @@ function Loaded({
                 key={past.id}
                 icon={<History />}
                 className="flex-wrap sm:flex-nowrap"
-                title={<span className="break-all">{past.model}</span>}
+                title={
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="break-all">{past.model}</span>
+                    {past.cleanupBlocked && (
+                      <StatusBadge tone="danger">{ui("Không xoá được index")}</StatusBadge>
+                    )}
+                  </span>
+                }
                 description={
                   <span className="flex flex-col gap-0.5">
                     <span className="break-words tabular-nums">
@@ -317,7 +334,7 @@ function Loaded({
                       )}
                     </span>
                     <span className="tabular-nums">
-                      {past.retainedUntil
+                      {past.retainedUntil && retained(past)
                         ? ui(
                             appText("Giữ đến {{date}}", {
                               date: formatUiDate(past.retainedUntil, {
@@ -397,76 +414,70 @@ function RebuildSection({
   return (
     <section aria-labelledby="search-rebuild" className="space-y-3">
       <SectionHeader id="search-rebuild" title={ui("Đang dựng lại")} />
-      <Card>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 space-y-1">
-              <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                {!sameModel && (
-                  <>
-                    <span className="break-all font-secondary-body text-content-muted">
-                      {present.model}
-                    </span>
-                    <ArrowRight className="size-3.5 shrink-0 text-content-muted" aria-hidden="true" />
-                  </>
-                )}
-                <span className="break-all font-main-ui-action text-content-primary">{future.model}</span>
-                {future.automatic && <Badge variant="secondary">{ui("Tự động")}</Badge>}
-              </p>
-              <p className="flex flex-wrap items-center gap-2 font-secondary-body text-content-muted">
-                <span className="break-words">{future.providerName}</span>
-                <DataBoundaryTag boundary={future.dataBoundary} />
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <Button size="sm" prominence="tertiary" tone="danger" onClick={onCancel}>
-                {ui("Cancel")}
-              </Button>
-              {showSwitch && (
-                <Button size="sm" disabled={!switchEnabled} onClick={onSwitch}>
-                  {ui("Chuyển index")}
-                </Button>
-              )}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Progress value={percent} aria-label={ui("Tiến độ dựng lại")} className="h-1.5" />
-            <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 font-secondary-body tabular-nums text-content-muted">
-              {progress ? (
-                <>
-                  <span className="text-content-primary">
-                    {ui(
-                      appText("{{ready}} / {{total}} tài liệu", {
-                        ready: count(progress.ready),
-                        total: count(progress.total),
-                      }),
-                    )}
+      <Card size="sm" className="gap-3">
+        {/* The actions wrap under the models on a phone instead of squeezing them. */}
+        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-4">
+          <div className="min-w-0 flex-[1_1_16rem]">
+            <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+              {!sameModel && (
+                <span className="inline-flex min-w-0 items-center gap-1.5">
+                  <span className="break-words font-main-ui-body text-content-muted">
+                    {present.model}
                   </span>
-                  <Dot />
-                  <span>{ui(appText("{{percent}}%", { percent }))}</span>
-                  <Dot />
-                  <span>{ui(remainingTime(progress.estimatedSecondsRemaining))}</span>
-                  {progress.failed > 0 && (
-                    <>
-                      <Dot />
-                      <span className="text-status-danger-content">
-                        {ui(appText("{{count}} lỗi", { count: count(progress.failed) }))}
-                      </span>
-                    </>
-                  )}
-                  {progress.switchable && !future.automatic && (
-                    <>
-                      <Dot />
-                      <span className="text-status-success-content">{ui("Sẵn sàng chuyển")}</span>
-                    </>
-                  )}
-                </>
-              ) : (
-                <span>{ui("Đang chuẩn bị")}</span>
+                  <ArrowRight className="size-3.5 shrink-0 text-content-muted" aria-hidden="true" />
+                  <span className="sr-only">{ui("sang")}</span>
+                </span>
               )}
+              <span className="min-w-0 break-words font-main-ui-action text-content-primary">
+                {future.model}
+              </span>
+              {future.automatic && <Badge variant="secondary">{ui("Tự động")}</Badge>}
+            </p>
+            <p className="mt-0.5 flex flex-wrap items-center gap-2 font-secondary-body text-content-muted">
+              <span className="break-words">{future.providerName}</span>
+              <DataBoundaryTag boundary={future.dataBoundary} />
             </p>
           </div>
-        </CardContent>
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            <Button size="sm" prominence="tertiary" tone="danger" onClick={onCancel}>
+              {ui("Cancel")}
+            </Button>
+            {showSwitch && (
+              <Button size="sm" disabled={!switchEnabled} onClick={onSwitch}>
+                {ui("Chuyển index")}
+              </Button>
+            )}
+          </div>
+        </div>
+        <div className="space-y-1.5 px-4">
+          <Progress value={percent} aria-label={ui("Tiến độ dựng lại")} className="h-1" />
+          <p className="flex flex-wrap items-center gap-x-1.5 font-secondary-body tabular-nums text-content-muted">
+            {progress ? (
+              <>
+                <span>
+                  {ui(
+                    appText("{{ready}} / {{total}} tài liệu", {
+                      ready: count(progress.ready),
+                      total: count(progress.total),
+                    }),
+                  )}
+                </span>
+                <Dot />
+                <span>{ui(appText("{{percent}}%", { percent }))}</span>
+                <Dot />
+                <span>{ui(remainingTime(progress.estimatedSecondsRemaining))}</span>
+                {progress.failed > 0 && (
+                  <>
+                    <Dot />
+                    <span>{ui(appText("{{count}} lỗi", { count: count(progress.failed) }))}</span>
+                  </>
+                )}
+              </>
+            ) : (
+              <span>{ui("Đang chuẩn bị")}</span>
+            )}
+          </p>
+        </div>
       </Card>
     </section>
   );
