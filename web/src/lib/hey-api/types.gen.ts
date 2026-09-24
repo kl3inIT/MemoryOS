@@ -1548,6 +1548,33 @@ export type MeetingWordCorrectionRequest = {
     text: string;
 };
 
+/**
+ * One proposal for one uncertain stretch. Nothing changes until it is accepted.
+ */
+export type MeetingCorrection = {
+    id: string;
+    utteranceId: string;
+    runId: string;
+    start: number;
+    end: number;
+    before: string;
+    after: string;
+    reason: string;
+    confidence: number;
+    contextFit: number;
+    meaningSafe: number;
+    matchedGlossary: boolean;
+    status: 'PENDING' | 'ACCEPTED' | 'KEPT' | 'REVERTED';
+};
+
+/**
+ * What deciding one stretch changed: the one line it rewrote and the proposal as it now stands
+ */
+export type MeetingCorrectionApplied = {
+    utterance: MeetingUtterance;
+    correction: MeetingCorrection;
+};
+
 export type MeetingTicketRequest = {
     track: 'MIC' | 'TAB';
 };
@@ -1610,25 +1637,6 @@ export type MeetingLibraryFile = {
      * READY when Chat can read it; PROCESSING while it is extracted
      */
     status: string;
-};
-
-/**
- * One proposal for one uncertain stretch. Nothing changes until it is accepted.
- */
-export type MeetingCorrection = {
-    id: string;
-    utteranceId: string;
-    runId: string;
-    start: number;
-    end: number;
-    before: string;
-    after: string;
-    reason: string;
-    confidence: number;
-    contextFit: number;
-    meaningSafe: number;
-    matchedGlossary: boolean;
-    status: 'PENDING' | 'ACCEPTED' | 'KEPT' | 'REVERTED';
 };
 
 export type MeetingCorrectionRun = {
@@ -8548,9 +8556,9 @@ export type CorrectMeetingWordsError = CorrectMeetingWordsErrors[keyof CorrectMe
 
 export type CorrectMeetingWordsResponses = {
     /**
-     * The meeting with the line rewritten
+     * The line as it now reads and the correction recorded for it
      */
-    200: MeetingDetail;
+    200: MeetingCorrectionApplied;
 };
 
 export type CorrectMeetingWordsResponse = CorrectMeetingWordsResponses[keyof CorrectMeetingWordsResponses];
@@ -9065,9 +9073,9 @@ export type RevertMeetingCorrectionError = RevertMeetingCorrectionErrors[keyof R
 
 export type RevertMeetingCorrectionResponses = {
     /**
-     * The meeting with the line restored
+     * The line as it now reads and the reverted proposal
      */
-    200: MeetingDetail;
+    200: MeetingCorrectionApplied;
 };
 
 export type RevertMeetingCorrectionResponse = RevertMeetingCorrectionResponses[keyof RevertMeetingCorrectionResponses];
@@ -9111,9 +9119,9 @@ export type KeepMeetingWordingError = KeepMeetingWordingErrors[keyof KeepMeeting
 
 export type KeepMeetingWordingResponses = {
     /**
-     * The meeting, unchanged
+     * The declined proposal; no line changed
      */
-    200: MeetingDetail;
+    200: MeetingCorrection;
 };
 
 export type KeepMeetingWordingResponse = KeepMeetingWordingResponses[keyof KeepMeetingWordingResponses];
@@ -9161,9 +9169,9 @@ export type AcceptMeetingCorrectionError = AcceptMeetingCorrectionErrors[keyof A
 
 export type AcceptMeetingCorrectionResponses = {
     /**
-     * The meeting with the line rewritten
+     * The line as it now reads and the accepted proposal
      */
-    200: MeetingDetail;
+    200: MeetingCorrectionApplied;
 };
 
 export type AcceptMeetingCorrectionResponse = AcceptMeetingCorrectionResponses[keyof AcceptMeetingCorrectionResponses];

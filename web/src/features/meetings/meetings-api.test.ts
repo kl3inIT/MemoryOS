@@ -1,17 +1,22 @@
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import {
+  correctionsKey,
+  foldCorrection,
   invalidateMeetingList,
   meetingKey,
   meetingListKey,
   patchMeeting,
   transcribersKey,
   withAddedMinutesItem,
+  withCorrection,
   withMinutesItem,
   withoutMinutesItem,
   withSpeaker,
+  type MeetingCorrection,
   type MeetingDetail,
   type MeetingMinutesItem,
+  type MeetingUtterance,
 } from "./meetings-api";
 
 describe("invalidateMeetingList", () => {
@@ -144,6 +149,13 @@ describe("patching the cached meeting", () => {
     expect(rewritten.minutes.edited).toBe(true);
   });
 
+  it("never changes a topic, which no item answer carries", () => {
+    const cached = meeting();
+    const answered = withMinutesItem(cached, item("t1", { done: true }));
+
+    expect(answered.minutes.topics).toBe(cached.minutes.topics);
+  });
+
   it("puts an item written in after the others of its kind", () => {
     const added = withAddedMinutesItem(meeting(), "ACTION", item("a3", { edited: true }));
 
@@ -158,5 +170,93 @@ describe("patching the cached meeting", () => {
     expect(removed.minutes.actions.map((action) => action.id)).toEqual(["a2"]);
     expect(removed.minutes.topics.map((topic) => topic.id)).toEqual(["t1"]);
     expect(removed.minutes.edited).toBe(true);
+  });
+});
+
+function correction(id: string, patch: Partial<MeetingCorrection> = {}): MeetingCorrection {
+  return {
+    id,
+    utteranceId: "u1",
+    runId: "r1",
+    start: 5,
+    end: 14,
+    before: "ngân sách",
+    after: "ngân sách quý 4",
+    reason: "",
+    confidence: 0.5,
+    contextFit: 0.9,
+    meaningSafe: 0.9,
+    matchedGlossary: false,
+    status: "PENDING",
+    ...patch,
+  };
+}
+
+describe("folding one correction", () => {
+  const rewritten: MeetingUtterance = {
+    id: "u1",
+    track: "MIC",
+    speaker: "1",
+    startMs: 0,
+    endMs: 1000,
+    text: "Chốt ngân sách quý 4.",
+    confidence: 0.9,
+    spans: [],
+    editSource: "MODEL",
+  };
+
+  it("replaces the one line it rewrote and the proposal, and reads neither again", () => {
+    const cache = new QueryClient();
+    const cached = meeting();
+    cache.setQueryData(meetingKey(cached.id), cached);
+    cache.setQueryData(correctionsKey(cached.id), [correction("c1"), correction("c2")]);
+
+    foldCorrection(cache, cached.id, {
+      utterance: rewritten,
+      correction: correction("c1", { status: "ACCEPTED" }),
+    });
+
+    const patched = cache.getQueryData<MeetingDetail>(meetingKey(cached.id));
+    expect(patched?.utterances).toEqual([rewritten]);
+    expect(patched?.speakers).toBe(cached.speakers);
+    expect(
+      cache
+        .getQueryData<MeetingCorrection[]>(correctionsKey(cached.id))
+        ?.map((item) => [item.id, item.status]),
+    ).toEqual([
+      ["c1", "ACCEPTED"],
+      ["c2", "PENDING"],
+    ]);
+    expect(cache.getQueryState(correctionsKey(cached.id))?.isInvalidated).toBe(false);
+  });
+
+  it("leaves the transcript alone when a proposal is declined", () => {
+    const cache = new QueryClient();
+    const cached = meeting();
+    cache.setQueryData(meetingKey(cached.id), cached);
+    cache.setQueryData(correctionsKey(cached.id), [correction("c1")]);
+
+    foldCorrection(cache, cached.id, correction("c1", { status: "KEPT" }));
+
+    expect(cache.getQueryData(meetingKey(cached.id))).toBe(cached);
+    expect(cache.getQueryData<MeetingCorrection[]>(correctionsKey(cached.id))?.[0]?.status).toBe(
+      "KEPT",
+    );
+  });
+
+  it("puts a word written by hand after the corrections already made", () => {
+    expect(
+      withCorrection([correction("c1")], correction("c9", { status: "ACCEPTED" })).map(
+        (item) => item.id,
+      ),
+    ).toEqual(["c1", "c9"]);
+  });
+
+  it("leaves proposals that are not cached for their next read", () => {
+    const cache = new QueryClient();
+
+    foldCorrection(cache, "meeting-2", correction("c1", { status: "KEPT" }));
+
+    expect(cache.getQueryData(correctionsKey("meeting-2"))).toBeUndefined();
   });
 });
