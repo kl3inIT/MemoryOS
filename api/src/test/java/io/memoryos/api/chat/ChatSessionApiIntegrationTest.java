@@ -3272,6 +3272,7 @@ class ChatSessionApiIntegrationTest {
         UUID line = UUID.randomUUID();
         UUID decision = UUID.randomUUID();
         UUID action = UUID.randomUUID();
+        UUID topic = UUID.randomUUID();
         try {
             jdbc.sql("""
                     INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status,
@@ -3295,6 +3296,12 @@ class ChatSessionApiIntegrationTest {
                     INSERT INTO meeting_minutes_item(tenant_id, id, meeting_id, kind, position, text, owner, due)
                     VALUES (:tenant, :id, :meeting, 'ACTION', 0, 'Gửi bảng KPI', 'Chị Lan', 'chiều nay')
                     """).param("tenant", TENANT).param("id", action).param("meeting", meeting).update();
+            jdbc.sql("""
+                    INSERT INTO meeting_minutes_item(tenant_id, id, meeting_id, kind, position, text,
+                                                     source_utterance_id)
+                    VALUES (:tenant, :id, :meeting, 'TOPIC', 0, 'Ngân sách quý 4', :line)
+                    """).param("tenant", TENANT).param("id", topic).param("meeting", meeting).param("line", line)
+                    .update();
 
             var corrected = Json.mapper().readTree(mockMvc.perform(
                     put("/api/meetings/" + meeting + "/minutes/summary").with(authentication(actor)).with(csrf())
@@ -3357,6 +3364,21 @@ class ChatSessionApiIntegrationTest {
             mockMvc.perform(post("/api/meetings/" + meeting + "/minutes/items").with(authentication(actor))
                     .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
                     .content("{\"kind\":\"TOPIC\",\"text\":\"Ngân sách\"}")).andExpect(status().isBadRequest());
+            // A topic is the model's place in the timeline, not a line the owner answers for: it is not ticked off,
+            // rewritten or taken out, any more than one is written in.
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/" + topic).with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"done\":true}")).andExpect(status().isNotFound());
+            mockMvc.perform(put("/api/meetings/" + meeting + "/minutes/items/" + topic).with(authentication(actor))
+                    .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"text\":\"Ngân sách\"}")).andExpect(status().isNotFound());
+            mockMvc.perform(delete("/api/meetings/" + meeting + "/minutes/items/" + topic)
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isNotFound());
+            assertEquals("Ngân sách quý 4", jdbc.sql("""
+                    SELECT text FROM meeting_minutes_item WHERE tenant_id = :tenant AND id = :id AND NOT done
+                    """).param("tenant", TENANT).param("id", topic).query(String.class).single(),
+                    "the topic stands as the model wrote it");
             mockMvc.perform(delete("/api/meetings/" + meeting + "/minutes/items/" + decision)
                     .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
                     .andExpect(status().isNoContent());

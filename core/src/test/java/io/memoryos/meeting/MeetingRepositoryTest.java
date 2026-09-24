@@ -114,6 +114,17 @@ class MeetingRepositoryTest {
         assertTrue(meetings.markItem(tenant, other, item, false).isEmpty(), "another meeting's item is not there");
     }
 
+    @Test void aTopicIsNotTickedOff() {
+        UUID id = meeting(), topic = UUID.randomUUID();
+        jdbc.sql("""
+                INSERT INTO meeting_minutes_item(tenant_id, id, meeting_id, kind, position, text)
+                VALUES (:tenant, :id, :meeting, 'TOPIC', 0, 'Ngân sách quý 4')
+                """).param("tenant", tenant).param("id", topic).param("meeting", id).update();
+
+        assertTrue(meetings.markItem(tenant, id, topic, true).isEmpty());
+        assertFalse(meetings.lockItem(tenant, id, topic).orElseThrow().done());
+    }
+
     @Test void oneVoiceIsReadWithoutTheRestOfTheMeeting() {
         UUID id = meeting();
         var later = new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.MIC, "1", 5000, 6000, "Mình là Minh", 0.9);

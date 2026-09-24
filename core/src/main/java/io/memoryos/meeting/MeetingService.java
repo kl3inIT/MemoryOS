@@ -235,6 +235,8 @@ public class MeetingService {
         UUID tenant = tenant(actor);
         meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         var item = meetings.lockItem(tenant, id, itemId).orElseThrow(MeetingException::notFound);
+        // A topic is the model's place in the timeline, not a line of the minutes the owner answers for.
+        if (item.kind() == Meeting.ItemKind.TOPIC) throw MeetingException.notFound();
         String cleanText = text(itemText, MAX_ITEM, "An item");
         String cleanOwner = optional(owner, MAX_NAME, "An owner");
         String cleanDue = optional(due, MAX_DUE, "A deadline");
@@ -416,7 +418,7 @@ public class MeetingService {
         return unique;
     }
 
-    /** Ticks off a task the minutes found, and answers with that item as it now reads. */
+    /** Ticks off a task the minutes found and answers with that item as it now reads; a topic is not found. */
     @Transactional
     public Meeting.MinutesItem markItem(ActorId actor, UUID id, UUID item, boolean done) {
         UUID tenant = tenant(actor);

@@ -448,11 +448,14 @@ public class MeetingRepository {
                 .update();
     }
 
-    /** Marks an item done or not done and returns it as it now reads; empty when the meeting has no such item. */
+    /**
+     * Marks a decision or a piece of work done or not done and returns it as it now reads; empty when the meeting has
+     * no such item. A topic is a place in the timeline, not something to finish, so it is not found here.
+     */
     public Optional<Meeting.MinutesItem> markItem(UUID tenant, UUID meeting, UUID item, boolean done) {
         return jdbc.sql("""
                 UPDATE meeting_minutes_item SET done = :done
-                WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :item
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :item AND kind <> 'TOPIC'
                 RETURNING id, kind, text, owner, due, quote, source_utterance_id, done, edited
                 """).param("tenant", tenant).param("meeting", meeting).param("item", item).param("done", done)
                 .query(MeetingRepository::item).optional();

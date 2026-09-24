@@ -71,7 +71,7 @@ The same model call that writes the minutes also names the subjects the meeting 
 
 ## Correcting the minutes
 
-The minutes are the owner's to correct: a model that misheard one conclusion costs one edit, not a rerun of the whole meeting. `PUT /api/meetings/{id}/minutes/summary` rewrites the summary; `PUT /api/meetings/{id}/minutes/items/{itemId}` rewrites one decision or one piece of work, its owner and its deadline. A decision belongs to the meeting rather than to a person, so giving one an owner or a deadline is refused. `POST /api/meetings/{id}/minutes/items` writes in a `DECISION` or an `ACTION` the model missed, after the others of its kind, with at most 100 of a kind; `DELETE /api/meetings/{id}/minutes/items/{itemId}` takes one out. Both are events like any edit: an added item's history starts from empty, a removed one keeps its words as the event's `before`. Only the owner reaches any of these — a reader of a shared meeting gets 404.
+The minutes are the owner's to correct: a model that misheard one conclusion costs one edit, not a rerun of the whole meeting. `PUT /api/meetings/{id}/minutes/summary` rewrites the summary; `PUT /api/meetings/{id}/minutes/items/{itemId}` rewrites one decision or one piece of work, its owner and its deadline. A decision belongs to the meeting rather than to a person, so giving one an owner or a deadline is refused. `POST /api/meetings/{id}/minutes/items` writes in a `DECISION` or an `ACTION` the model missed, after the others of its kind, with at most 100 of a kind; `DELETE /api/meetings/{id}/minutes/items/{itemId}` takes one out. A topic is the model's place in the timeline rather than a line of the minutes the owner answers for, so ticking, rewriting or taking out a `TOPIC` answers 404 as for an item that is not there, and writing one in is refused. Both are events like any edit: an added item's history starts from empty, a removed one keeps its words as the event's `before`. Only the owner reaches any of these — a reader of a shared meeting gets 404.
 
 What the reader sees is the row, and the history is the events beside it: every change is a row in `meeting_minutes_event` carrying the field, who changed it, and what it said before, so the model's own words stay readable after they are replaced. `minutes.edited` and each item's `edited` say whether the words standing now are the owner's.
 
@@ -141,7 +141,7 @@ One call to the Tenant's model for `MEETING_MINUTES`, no tools and no conversati
 
 Each item cites the line it rests on; that line number becomes the utterance id, so the owner can jump from an item to what was said. An item without text is dropped, an owner or due date is at most 100 characters and text or a quote at most 2,000. The call's tokens are recorded as `MEETING_MINUTES` usage against the owner's Tenant.
 
-`PUT /api/meetings/{id}/minutes/{itemId}` ticks an action off; an item that is not the owner's answers `MEETING_NOT_FOUND`.
+`PUT /api/meetings/{id}/minutes/{itemId}` ticks an action off; an item that is not the owner's, or a topic, answers `MEETING_NOT_FOUND`.
 
 ## Taking the minutes into Chat
 
