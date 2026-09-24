@@ -101,6 +101,37 @@ Dependencies after step 2 (every list also includes `shared`):
 | `chat` | `iam :: tenant`, `iam :: group`, `iam :: identity`, `retrieval`, `connector`, `objectstorage`, `document`, `mcp`, `usage`, `audit` | the same and `ai` (Chat no longer needs `voice`) |
 | `meeting` | `iam :: group`, `chat :: voice`, `chat :: summary`, `objectstorage`, `usage` | `iam :: group`, `ai`, `voice`, `chat :: library`, `objectstorage`, `usage` |
 
+### Step 3: what `library` holds
+
+`library`'s root is its published API: the upload lifecycle and file reads (`ChatFileService`, `ChatFileContentService`, `ChatFileSearchService`, `UserFile`), the library listing, rename, star, copy and publish (`ChatLibraryService`, `ChatLibraryFile`), trash (`ChatLibraryTrashService`, `LibraryTrashProperties`), the storage limit (`ChatStorageQuotaService`, `ChatStorageProperties`), the upload limit (`ChatFileProperties`), archives (`ChatLibraryArchiveService` and its records), what an archive or Chat's export packs (`LibraryContents`), the extraction work the Worker runs (`UserFileWork`, `UserFileWorkPort`, `UserFileMaintenance`), `ImageThumbnails`, `ChatFileInUseException`, `LibraryException`, the two ports below and `LibraryWorkerComponents`. Internal: `library.persistence` (user files, the listing read model, archives) and `library.work` with its own `persistence` (the file work claim and completion). `UserFileWorkPort` keeps its implementation `DefaultUserFileWorkService`: the interface is the published API that `ingestion` and the Worker call, and the implementation is internal. The module has no JPA entity, so neither composition root's JPA package list changed.
+
+What stayed in `chat`: the files and images an answer generates (`chat_file_artifact`, `chat_image_artifact`), their byte-release sweep and the copy of an answer's artifacts into a branch (`JdbcChatArtifactRepository`), the descriptors a message records for its attachments (`ChatFileDescriptor`, an OpenAPI schema through `ChatMessageResponse`), agents, Projects and temporary conversations, and the conversation export, which packs the library through `LibraryContents`.
+
+Judgement calls made while moving:
+
+- **Chat's attachments are asked through a port.** Who may read an upload besides its owner (an agent they can use attaches it or shows it as its avatar) and what keeps it from being deleted (the agents and Projects holding it) are Chat's facts. `library` owns the `FileAttachments` port and `chat` implements it (`ChatFileAttachments`, `JdbcChatFileAttachmentRepository`, which compares the ids as the text `file_ids` stores). The library resolves the agent grant first and passes the granted ids into the statement that reads, and when admitting share-locks, the file row, so a read is still one statement over the file.
+- **The listing reads Chat's artifact tables by SQL; every change to them goes through a port.** A page must sort, count and total uploads and generated files together, so `JdbcChatLibraryRepository` keeps its one `UNION` over `chat_user_file`, `chat_file_artifact`, `chat_image_artifact` and, for one conversation's own files, `chat_session` and `chat_message`, and the artifact lookup a copy and an archive read. This is the same class of read as `ai` reading IAM's Group tables in step 2. Renaming, starring, restoring and purging a generated file or image is the `LibraryArtifacts` port, which `chat` implements (`ChatLibraryArtifacts`) over its interpreter and image repositories.
+- **The owner lock keeps Chat's key.** A turn admits files under Chat's per-person advisory lock; the library's writes take the same lock by the same key string (`chat-owner:<tenant>:<actor>`) from its own repository, so an upload deleted, restored or copied still cannot race its admission. The key is a shared protocol, not a Java dependency, and changing it on one side alone would break the exclusion.
+- **A temporary conversation's uploads.** `chat_user_file.temporary_session_id` is a Chat fact on a library row. The library publishes the two writes (`ChatFileService.claimTemporary` in the turn transaction, `UserFileMaintenance.releaseTemporary` in the purge transaction) and Chat calls them; Chat no longer writes the library's tables.
+- **Trash is one window.** `memoryos.chat.retention.trash-after` binds `LibraryTrashProperties`; Chat's `ChatRetentionProperties` binds the rest of the prefix (`hard-delete`, `deleted-after`, `temporary-after`), and Chat's image and interpreter services read the library's window when they trash an artifact.
+- **Thumbnails and image decoding are the library's.** `ImageThumbnails` moved with the untrusted-image decoding and area-averaged scaling it needs; Chat's image edits call `ImageThumbnails.decode`, `scale` and `smooth`, keeping the edit's decode subsampling (four times 1024 px).
+- **`ChatFileService.admit` answers `UserFile`**; Chat maps it to the `ChatFileDescriptor` its messages store, and a turn refusing an unreadable file now fails with `LibraryException` carrying the same `CHAT_UNAVAILABLE` code.
+- **`library → connector`** remains only for `SourceOperationTraceContext`, which the file work carries as its origin trace, as `ingestion` does.
+- **No events.** Every cross-module need is synchronous and inside the caller's transaction, so the ports are plain calls.
+- **Contracts keep their names.** `LibraryException` answers the `CHAT_` codes (`CHAT_UNAVAILABLE`, `CHAT_INVALID_REQUEST`, `CHAT_CONFLICT`, `CHAT_STORAGE_FULL`) and `ChatFileInUseException` `CHAT_FILE_IN_USE`; configuration keys (`memoryos.chat.files.*`, `memoryos.chat.storage.*`, `memoryos.chat.retention.trash-after`), log event names (`chat.library.*`), table names and the `Chat*` class prefixes are unchanged, so the OpenAPI document is identical. `document` and `ingestion` keep reading `chat_user_file` and `chat_file_work` by SQL as before.
+- **Nothing moved is session-serialized.** The JDBC session holds the security context, the invitation, provider logout and MCP and Google Drive authorization states; `V128` is unaffected.
+
+Dependencies after step 3 (every list also includes `shared`):
+
+| Module | Before | After |
+| --- | --- | --- |
+| `library` | — (inside `chat`) | `iam :: tenant`, `objectstorage`, `document`, `retrieval`, `connector` |
+| `chat` | `ai`, `iam :: tenant`, `iam :: group`, `iam :: identity`, `retrieval`, `connector`, `objectstorage`, `document`, `mcp`, `usage`, `audit` | the same and `library` |
+| `meeting` | `iam :: group`, `ai`, `voice`, `chat :: library`, `objectstorage`, `usage` | `iam :: group`, `ai`, `voice`, `library`, `objectstorage`, `usage` |
+| `ingestion` | `connector`, `document`, `objectstorage`, `retrieval`, `chat` | `connector`, `document`, `objectstorage`, `retrieval`, `library` |
+
+The `chat :: library` named interface is gone. The named interfaces that remain are IAM's six (`group`, `identity`, `invitation`, `tenant`, `tenant.bootstrap`, `user`), which step 4 collapses.
+
 ## Consequences
 
 - Meeting, Chat and ingestion depend on what they use; the orchestration in `MeetingController` returns to a module where Modulith checks it.

@@ -396,8 +396,12 @@ Receipts: [MEM-112 verification](../increments/active/mem-112-chat-mcp-client/ve
 
 ## File library (MEM-142)
 
+The file library is the `library` module ([ADR 0015 step 3](../decisions/0015-capability-module-map.md#step-3-what-library-holds)); its core tests live under `core/src/test/java/io/memoryos/library/` with their class names unchanged, while the tests that drive the library from a conversation (`ChatPersistenceIntegrationTest`, `ChatLifecycleIntegrationTest`, `ChatExportIntegrationTest`, `ChatSessionPurgeIntegrationTest`) stay in Chat's.
+
 | Contract | Test and boundary |
 | --- | --- |
+| `library` is a closed module that does not depend on `chat`; `chat`, `meeting` and `ingestion` depend on its root, and its persistence is private | `ModulithArchitectureTest`, `CoreDependencyRulesTest` |
+| The agents and Projects that hold an upload are read through Chat's `FileAttachments` implementation, and an upload a Project holds is named | `ChatPersistenceIntegrationTest.theFileLibraryUnionsEverySourceForItsOwnerAndHidesWhatWasDeleted` (through `JdbcChatFileAttachmentRepository`) |
 | The union lists the three sources for their owner only, with the derived category, the window totals, the conversation of an artifact and none for an upload, the name and prompt search matched literally, the source and category filters, the four sorts and offset paging | `ChatPersistenceIntegrationTest.theFileLibraryUnionsEverySourceForItsOwnerAndHidesWhatWasDeleted` |
 | A deleted artifact leaves the library, the serving and edit-source lookups and the pptx preview at once, stays in history as a tombstone, and a soft-deleted conversation withdraws its artifacts while the owner's upload remains | the same test |
 | A page past the end of the filter still reports the filter's totals, deleting twice succeeds including after the sweep removed the row, and another member still cannot delete the artifact | the same test |

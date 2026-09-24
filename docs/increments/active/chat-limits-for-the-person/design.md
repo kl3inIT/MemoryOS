@@ -60,3 +60,7 @@ per-person retention end to end (migration, persistence, service, API, worker, U
 Out: quotas per Tenant in any form, Project or Agent storage, the upload size limit
 (`memoryos.chat.files.max-size-bytes`, unchanged), and the conversation trash window
 (`memoryos.chat.retention.deleted-after`, unchanged — that is a deployment window, not a person's choice).
+
+## Module move (2026-09-25)
+
+[ADR 0015 step 3](../../../decisions/0015-capability-module-map.md#step-3-what-library-holds) moved the code this increment names into the `library` module with its class names unchanged: `ChatStorageQuotaService` and `ChatStorageProperties` are `io.memoryos.library`, and the trash window is `LibraryTrashProperties` there. The configuration keys (`memoryos.chat.storage.library-bytes`, `memoryos.chat.retention.trash-after`) and the `CHAT_STORAGE_FULL` code are unchanged; Chat's `ChatRetentionProperties` keeps only the conversation windows.

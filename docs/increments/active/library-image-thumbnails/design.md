@@ -67,3 +67,7 @@ picker and the conversation file panel all show a picture wherever one exists.
 
 Presigned URLs that would take the API out of the byte path, and re-encoding generated images to WebP at
 generation time, are both larger changes and are not in this increment.
+
+## Module move (2026-09-25)
+
+[ADR 0015 step 3](../../../decisions/0015-capability-module-map.md#step-3-what-library-holds) moved `ImageThumbnails` to `io.memoryos.library`, together with the untrusted-image decoding and scaling it uses, which Chat's `ImageEditImages` now calls there; the upload thumbnail path (`ChatFileContentService`) and its release in `DefaultUserFileWorkService` are the `library` module's. Generated-image thumbnails stay in Chat's `ImageArtifactService`, which calls the library's renderer.

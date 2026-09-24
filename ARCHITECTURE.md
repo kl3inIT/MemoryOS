@@ -56,6 +56,7 @@ flowchart TB
     ING[ingestion]
     RET[retrieval]
     CHAT[chat]
+    LIB[library]
     AI[ai]
     VOICE[voice]
     MCP[mcp]
@@ -73,6 +74,7 @@ flowchart TB
     ING --> CON
     ING --> DOC
     ING --> RET
+    ING --> LIB
     RET --> IAM
     RET --> OBJ
     RET --> CON
@@ -82,6 +84,12 @@ flowchart TB
     CHAT --> RET
     CHAT --> MCP
     CHAT --> AI
+    CHAT --> LIB
+    LIB --> IAM
+    LIB --> OBJ
+    LIB --> CON
+    LIB --> DOC
+    LIB --> RET
     AI --> IAM
     AI --> USAGE
     VOICE --> AI
@@ -90,7 +98,7 @@ flowchart TB
     MEET --> IAM
     MEET --> AI
     MEET --> VOICE
-    MEET -. library .-> CHAT
+    MEET --> LIB
     MEET --> OBJ
     IAM --> AUD
     CON --> AUD
@@ -109,6 +117,7 @@ flowchart TB
     API --> DOC
     API --> RET
     API --> CHAT
+    API --> LIB
     API --> AI
     API --> VOICE
     API --> MCP
@@ -120,14 +129,15 @@ flowchart TB
     WORKER --> DOC
     WORKER --> ING
     WORKER --> RET
+    WORKER --> LIB
     WORKER --> AUD
 ```
 
-Arrows show allowed use of public capability contracts. Every module depends on `shared`, the shared kernel that holds `TenantId` and `ActorId`; only the `audit` arrow to it is drawn. No module depends on IAM as a whole: each lists the IAM named interfaces it calls (`iam :: tenant`, `iam :: group`, `iam :: identity`), and `objectstorage`, `document` and `ingestion` do not depend on IAM at all. `chat`, `voice` and `meeting` run on `ai`, the model catalog and its providers; `meeting` records through `voice`, and reaches `chat` only through the `chat :: library` named interface (the dotted arrow) to publish its minutes until the file library becomes its own module. `ai` knows Chat's agents only by id, through the `AgentDirectory` port and the `ModelsRemoved` event that `chat` serves. `audit` sits below every capability that records into it (`iam`, `connector`, `chat`, `ai`, `voice`, `mcp`, `usage`) and depends only on `shared`: it carries typed Tenant and actor identifiers, and asks IAM who may read the stream through the `AuditReaders` port that `iam` implements. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided. The `api` and `worker` composition roots use only published module APIs, never a `persistence` package, and map core types to their own HTTP contracts. [ADR 0015](docs/decisions/0015-capability-module-map.md) records the target module map (`ai`, `voice` and `audit` are extracted; `library` is next) and the layout rule this structure is moving to.
+Arrows show allowed use of public capability contracts. Every module depends on `shared`, the shared kernel that holds `TenantId` and `ActorId`; only the `audit` arrow to it is drawn. No module depends on IAM as a whole: each lists the IAM named interfaces it calls (`iam :: tenant`, `iam :: group`, `iam :: identity`), and `objectstorage`, `document` and `ingestion` do not depend on IAM at all. `chat`, `voice` and `meeting` run on `ai`, the model catalog and its providers; `meeting` records through `voice` and publishes its minutes to `library`. `ai` knows Chat's agents only by id, through the `AgentDirectory` port and the `ModelsRemoved` event that `chat` serves. `library` holds a person's files and never depends on `chat`: `chat`, `meeting` and `ingestion` (the extraction of an upload) depend on it, and it asks Chat which agents grant an upload and what attaches one through the `FileAttachments` port, and changes Chat's generated files and images through the `LibraryArtifacts` port, both of which `chat` implements; its listing reads Chat's artifact tables by SQL, because one statement pages across both. `audit` sits below every capability that records into it (`iam`, `connector`, `chat`, `ai`, `voice`, `mcp`, `usage`) and depends only on `shared`: it carries typed Tenant and actor identifiers, and asks IAM who may read the stream through the `AuditReaders` port that `iam` implements. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided. The `api` and `worker` composition roots use only published module APIs, never a `persistence` package, and map core types to their own HTTP contracts. [ADR 0015](docs/decisions/0015-capability-module-map.md) records the target module map (`ai`, `voice`, `audit` and `library` are extracted) and the layout rule this structure is moving to.
 
 | Gradle module | Responsibility |
 | --- | --- |
-| `core` | Thirteen capability implementations, the `shared` kernel of identifier types and their public contracts; no dependency on `connector` or a deployable |
+| `core` | Fourteen capability implementations, the `shared` kernel of identifier types and their public contracts; no dependency on `connector` or a deployable |
 | `connector` | Shared provider integration and bounded content extraction bundle; depends only on public `core` APIs |
 | `api` | HTTP, security, migrations and interactive Chat composition |
 | `worker` | Redis/db-scheduler composition and durable background work |
@@ -142,7 +152,8 @@ Arrows show allowed use of public capability contracts. Every module depends on 
 | `document` | Current Document metadata, canonical extraction artifact and current chunk identity | [Document](docs/specs/document.md) |
 | `ingestion` | Durable selection, synchronization, extraction, indexing and cleanup orchestration | [Ingestion](docs/specs/ingestion.md) |
 | `retrieval` | Embedding/OpenSearch adapters, search configuration generations and embedding providers, authorized Search, document passages and original PDF readers | [Search](docs/specs/search.md) |
-| `chat` | Personas and the model each runs on, shared Document Sets, projects, sessions, message trees, turns, files, sharing, feedback and per-member voice settings | [Chat](docs/specs/chat.md) |
+| `chat` | Personas and the model each runs on, shared Document Sets, projects, sessions, message trees, turns, the files and images an answer generates, sharing, feedback and per-member voice settings | [Chat](docs/specs/chat.md) |
+| `library` | A person's uploads and their extraction work, the file library listing (uploads beside Chat's generated files and images), trash, the storage limit, thumbnails, copies, published files and ZIP archives | [Chat: file library](docs/specs/chat.md), [ADR 0015 step 3](docs/decisions/0015-capability-module-map.md#step-3-what-library-holds) |
 | `ai` | The Tenant's provider/model catalog, flow models, provider adapters (OpenAI) and their native clients, and single model calls outside a conversation such as meeting minutes and transcript corrections | [Model catalog](docs/specs/chat-models.md) |
 | `voice` | Tenant voice connections, batch and live transcription and speech synthesis; audio is never stored | [MEM-91 design](docs/increments/active/mem-91-chat-voice/design.md) |
 | `mcp` | Tenant-registered remote MCP servers, their OAuth clients, tool snapshots, sealed credentials and the Streamable HTTP client (MEM-112, in progress) | [MEM-112 design](docs/increments/active/mem-112-chat-mcp-client/design.md) |
