@@ -179,6 +179,17 @@ Schema:
 * **Hoàn tác:** làm được trong thời hạn giữ; hết hạn thì index cũ bị xoá và đếm bằng 0.
 * **Production:** dùng Qwen3-Embedding-0.6B qua TEI trên `serving`. Tìm kiếm một tài liệu tiếng Việt thử nghiệm trả đúng tài liệu. Nhãn hiện Nội bộ.
 
+## Sai khác khi làm part 2 (2026-09-24)
+
+* **Tài liệu được dựng lại:** mọi tài liệu tìm được (eligible, đã trích xuất, Tenant đang hoạt động), không chỉ tài liệu đã sẵn sàng ở `PRESENT`. `switchable` là "không còn tài liệu chờ và `FUTURE` giữ ít nhất số tài liệu `PRESENT` đang phục vụ", nên một tài liệu lỗi ở cả hai index không chặn việc chuyển.
+* **Nạp việc theo cửa sổ:** worker nạp tối đa 64 việc đang treo cho `FUTURE` mỗi 5 giây (`memoryos.search.rebuild-window`) thay vì xếp cả kho một lần, để việc của `PRESENT` không chờ sau hàng chục nghìn tài liệu.
+* **Báo các process:** repo chưa có bus sự kiện, nên không "phát sự kiện": mỗi process đọc một phiên bản của các thế hệ đang hoạt động (id, trạng thái, revision provider) tối đa mỗi 5 giây. Trong 5 giây đó process khác vẫn đọc index cũ, vẫn còn vì được giữ 7 ngày.
+* **Huỷ:** `FUTURE` bị huỷ thành `PAST` đã hết hạn giữ; index bị xoá ngay và thế hệ bị xoá sau khi đếm lại. Nếu xoá lỗi, dọn dẹp hằng giờ làm tiếp. Một việc đang chạy đúng lúc huỷ có thể ghi lại vào index vừa xoá và OpenSearch tự tạo một index không mapping; rủi ro nhỏ, chưa xử lý.
+* **Hợp đồng API:** thêm `cleanupBlocked` vào `SearchGenerationResponse`, vì trang phải cảnh báo khi dọn lỗi lặp lại mà hợp đồng chưa có trường nào; `past` gồm cả thế hệ hết hạn nhưng bị chặn. Mô tả 409 của chuyển, hoàn tác và sửa provider là mô tả chung (giới hạn của springdoc); mã lỗi `SEARCH_SETTINGS_*` vẫn phân biệt.
+* **Quy ước chunk:** release chỉ có một bộ chia chunk, nên trong lúc `FUTURE` tự động đang dựng, tài liệu đổi được ghi vào `PRESENT` với quy ước mới. Readiness ghi số chunk đã ghi vào từng index để sửa chữa của `PRESENT` không so với chunk mới. `FUTURE` tự động chỉ được tạo lúc khởi động: huỷ nó thì phải chờ lần khởi động sau. Một `FUTURE` do người tạo bằng release cũ vẫn ghi quy ước cũ; sau khi chuyển, lần khởi động sau sẽ dựng lại thêm một lần.
+* **Provider không có key:** gửi bearer giữ chỗ `no-key`, vì SDK bắt buộc có key; Ollama, LM Studio, TEI không `--api-key` bỏ qua nó.
+* **Lỗi kiểm tra kết nối:** trả câu của chính MemoryOS (key bị từ chối, không tới được, sai model hay số chiều, mã HTTP), không trả thông điệp của provider.
+
 ## Đã chốt (2026-09-23)
 
 Chủ sản phẩm chọn làm toàn bộ MEM-135 trong một PR riêng, xếp sau PR của MEM-192. Ba điểm còn treo lấy theo đề xuất:

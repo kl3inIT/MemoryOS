@@ -47,24 +47,31 @@ Làm song song với Phase B, vì hai phase không phụ thuộc nhau.
 
 ## Phase C — Bước 2: dựng lại ở nền và chuyển đổi (repo)
 
-1. Tạo `FUTURE`: khoá hàng `PRESENT`, kiểm tra kết nối bằng một lần embed thật, rồi ghi `FUTURE` và tạo index trong cùng một bước. Đã có `FUTURE` thì trả `409`.
-2. Worker:
-   * reconcile cho mỗi thế hệ đang hoạt động;
-   * INDEX của `FUTURE` đọc các đoạn đã lưu;
-   * `DocumentChanged` xếp việc cho cả `PRESENT` và `FUTURE`;
-   * giới hạn đồng thời theo provider.
-3. Tiến độ: đếm `document_search_projection` sẵn sàng theo `identity`, so với `PRESENT`. Việc lỗi được đếm riêng.
-4. Chuyển: chỉ khi đủ và không còn việc treo. Đổi trạng thái trong một transaction, rồi phát sự kiện để các process nạp lại thế hệ.
-5. Huỷ: xoá `FUTURE` và index của nó, rồi huỷ các việc đang xếp.
-6. **Test tích hợp (Testcontainers OpenSearch và PostgreSQL, embedding giả):**
-   * trong lúc dựng, tìm kiếm vẫn trả kết quả từ `PRESENT`;
-   * dựng xong vẫn còn dữ liệu nếu restart giữa chừng;
-   * sửa tài liệu trong lúc dựng thì bản mới có ở cả hai index;
-   * sau khi chuyển, truy vấn dùng tiền tố mới.
+1. [x] Tạo `FUTURE`: kiểm tra kết nối bằng một lần embed thật (ngoài transaction), rồi khoá Tenant, ghi `FUTURE` và tạo index trong cùng một transaction; lỗi ở bước nào cũng không để lại gì. Đã có `FUTURE` thì trả `409`.
+2. [x] Worker:
+   * mỗi việc trong `search_index_operations` mang index của nó; claim việc của index không còn là `PRESENT`/`FUTURE` thì huỷ (`SEARCH_OBSOLETE`), reconcile mỗi phút huỷ phần còn lại;
+   * INDEX của `FUTURE` đọc các đoạn đã lưu (chỉ chia lại từ artifact khi quy ước chunk đổi), không kéo nguồn, không OCR;
+   * `DocumentChanged`, đổi quyền Source và ảnh chụp quyền Drive xếp việc cho cả `PRESENT` và `FUTURE`;
+   * `memoryos-search-rebuild-v1` mỗi 5 giây nạp thêm việc cho `FUTURE`, tối đa `memoryos.search.rebuild-window` (64) việc đang treo, nên việc của `PRESENT` không phải chờ cả kho; mọi trạng thái nằm trong PostgreSQL nên worker khởi động lại thì làm tiếp;
+   * giới hạn đồng thời theo provider: `PRESENT` và `FUTURE` cùng provider dùng chung một bộ permit.
+   * chỉ index đang phục vụ mới ghi cột trạng thái trên `documents`; dựng lại không làm tài liệu biến khỏi `PRESENT`, lỗi của `FUTURE` không hiện trên Source.
+3. [x] Tiến độ: đếm theo `document_search_projection` của `FUTURE` trên các tài liệu tìm được; việc lỗi đếm riêng; ước lượng thời gian còn lại theo tốc độ từ lúc tạo `FUTURE`; `switchable` khi không còn tài liệu chờ và `FUTURE` giữ ít nhất số tài liệu `PRESENT` đang phục vụ.
+4. [x] Chuyển: chỉ khi `switchable`; một transaction đổi `PRESENT` → `PAST` (giữ 7 ngày), `FUTURE` → `PRESENT`, và cột trạng thái trên `documents` theo index mới. Không có bus sự kiện sẵn trong repo, nên mỗi process đọc lại một "phiên bản" của các thế hệ đang hoạt động (id, trạng thái, revision của provider) tối đa mỗi 5 giây; `_meta` của index phải ghi đúng id thế hệ.
+5. [x] Huỷ: huỷ việc đang xếp, xoá index của `FUTURE` ngay, rồi xoá thế hệ; xoá index lỗi thì dọn dẹp hằng giờ làm lại.
+6. [x] Hoàn tác trong thời hạn giữ; bị từ chối khi đang có `FUTURE` hoặc hết hạn.
+7. [x] Quy ước chunk đổi: lúc khởi động, api hoặc worker (tiến trình nào lên trước) tạo một `FUTURE` tự động cùng provider và model, không cần gọi embed; nó tự chuyển khi đủ. Thay cho log `search.generation.chunk_convention_outdated` của part 1.
+8. [x] **Test tích hợp** `SearchRebuildIntegrationTest` (PostgreSQL và OpenSearch Testcontainers, server `/v1/embeddings` giả), 10 test:
+   * trong lúc dựng, tìm kiếm vẫn trả kết quả từ `PRESENT` bằng model cũ;
+   * process khác thấy thế hệ mới sau khi chuyển mà không cần khởi động lại;
+   * worker chết giữa chừng, worker mới làm tiếp cả việc bị bỏ dở;
+   * sửa tài liệu trong lúc dựng thì bản mới có ở index mới;
+   * sau khi chuyển, truy vấn dùng model mới và tiền tố mới;
+   * huỷ xoá index và hàng đợi; hoàn tác trong thời hạn; dọn sau thời hạn có đếm lại; lỗi dọn lặp lại thì bị chặn;
+   * quy ước chunk đổi thì tự dựng và tự chuyển; `FUTURE` thứ hai bị `409`; provider từ chối key thì không bắt đầu dựng.
 
 ## Phase D — Trang Cấu hình tìm kiếm (web)
 
-**Đã làm phía web (2026-09-23), chờ backend.** Backend chưa có, nên hợp đồng được viết tay vào `openapi.yml` theo đúng bảng "Hợp đồng API" của design; controller phải sinh ra đúng các tên dưới đây để `OpenApiContractTest` khớp.
+**Đã làm (2026-09-23 web, 2026-09-24 backend).** Hợp đồng từng được viết tay vào `openapi.yml` theo bảng "Hợp đồng API" của design để web làm trước; nay controller sinh ra nó (mục 6).
 
 1. **Hợp đồng trong `openapi.yml`:** tag `Search settings`, lỗi `ApiProblem`, mọi thao tác ghi đòi header `X-MemoryOS-CSRF`. `operationId`:
    * `getSearchSettings`, `createSearchFutureGeneration` (201), `cancelSearchFutureGeneration` (204), `switchSearchFutureGeneration`, `restoreSearchPastGeneration`;
@@ -84,13 +91,15 @@ Làm song song với Phase B, vì hai phase không phụ thuộc nhau.
    * `pnpm vitest run src/features/search-settings`: điền sẵn, định dạng tiến độ và thời gian còn lại, nút nào bật ở trạng thái nào, lỗi theo từng thao tác, kết quả kiểm tra.
    * `pnpm exec playwright test tests/e2e/search-settings.spec.ts`: đổi model tạo future, poll tới khi chuyển được rồi chuyển, hủy, thế hệ tự động, hoàn tác, kiểm tra provider, 409 khi xoá, 403, người không có quyền; chạy ở 1440px và 390px. `MEMORYOS_SCREENSHOTS=1` ghi ảnh sáng/tối vào `.tmp/mem-135-screens` để tự soát.
    * `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm check:i18n`, `pnpm format:check` đều qua.
-6. **Còn lại:** chạy lại `pnpm generate:api` sau khi backend sinh `openapi.yml` thật; nếu lệch tên hay kiểu thì sửa backend cho khớp, không sửa trang.
+6. [x] `openapi.yml` nay sinh từ `SearchSettingsController` (`OpenApiContractTest` qua) và client web được sinh lại. Hai chỗ khác bản viết tay: `SearchGenerationResponse` thêm `cleanupBlocked` (bắt buộc), và mô tả 409 của switch, restore, sửa provider thành mô tả chung của tag vì springdoc để phản hồi cấp class đè lên method có nhiều `@ApiResponse`. Trang không đổi hành vi vì chỉ rẽ nhánh theo status.
+7. [x] Thẻ "Đang dựng lại" gọn lại: `model cũ → model mới`, provider và nhãn dữ liệu bên dưới, Hủy (tertiary, danger) và Chuyển index ở góc phải trên (xuống dòng dưới model trên điện thoại), thanh tiến độ mảnh, một dòng trạng thái màu nhạt; bỏ đoạn "Sẵn sàng chuyển". Index cũ bị chặn xoá hiện nhãn "Không xoá được index". Ảnh 1440/390 sáng/tối trong `.tmp/mem-135-screens`.
+8. [x] API: `SearchSettingsApiTest` kiểm quyền (thiếu `MODELS_MANAGE`, Tenant khác, chưa đăng nhập) và mã trạng thái của cả 11 thao tác.
 
 ## Phase E — Bước 3: dọn index cũ (repo)
 
-* `PAST` giữ 7 ngày, rồi xoá có đếm lại.
-* Lỗi lặp lại thì chuyển sang trạng thái chặn, và trang quản trị cảnh báo.
-* Test: hoàn tác trong thời hạn; hết hạn thì đếm bằng 0.
+* [x] `PAST` giữ 7 ngày; `memoryos-search-generation-cleanup-v1` mỗi giờ xoá index và pipeline, kiểm lại index đã mất (đếm lại), rồi mới xoá thế hệ cùng các hàng readiness và việc của nó.
+* [x] Lỗi xoá được đếm (V126 `cleanup_attempts`); từ lần thứ ba thế hệ bị đánh dấu chặn (`cleanup_blocked_at`), log ERROR `search.generation.cleanup_blocked`, trang quản trị hiện cảnh báo, và vẫn được thử lại.
+* [x] Test: hoàn tác trong thời hạn; hết hạn thì index bị xoá và đếm bằng 0; ba lần lỗi thì bị chặn rồi vẫn dọn được.
 
 ## Phase F — Đưa production sang Qwen3-0.6B
 
