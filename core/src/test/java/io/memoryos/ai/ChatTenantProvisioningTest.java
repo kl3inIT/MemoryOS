@@ -21,21 +21,21 @@ import io.memoryos.ai.persistence.JpaChatModelDefaultRepository;
 import io.memoryos.ai.persistence.JpaLlmProviderRepository;
 import io.memoryos.ai.persistence.JpaModelConfigurationRepository;
 import io.memoryos.ai.persistence.ModelCatalogRepository;
-import io.memoryos.iam.group.DefaultGroupProvisioner;
+import io.memoryos.iam.group.GroupProvisioner;
 import io.memoryos.iam.group.DefaultIamAuthorization;
-import io.memoryos.iam.group.GroupScopeService;
+import io.memoryos.iam.GroupScopeService;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
 import io.memoryos.iam.group.persistence.GroupMembershipRepository;
 import io.memoryos.iam.group.persistence.GroupRepository;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.group.persistence.IamLockRepository;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.identity.ExternalIdentity;
+import io.memoryos.iam.ExternalIdentity;
 import io.memoryos.iam.identity.persistence.JpaExternalIdentityRegistry;
 import io.memoryos.shared.TenantId;
-import io.memoryos.iam.tenant.bootstrap.DefaultInitialTenantBootstrapper;
-import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapRequest;
-import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapper;
+import io.memoryos.iam.tenant.DefaultInitialTenantBootstrapper;
+import io.memoryos.iam.InitialTenantBootstrapRequest;
+import io.memoryos.iam.InitialTenantBootstrapper;
 import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -213,7 +213,7 @@ class ChatTenantProvisioningTest {
     private InitialTenantBootstrapper bootstrapper(ApplicationEventPublisher events) {
         var tenants = new JpaTenantRepository(jpa.entityManager());
         var identities = new JpaExternalIdentityRegistry(jpa.entityManager());
-        var groups = new DefaultGroupProvisioner(new GroupRepository(jpa.entityManager()),
+        var groups = new GroupProvisioner(new GroupRepository(jpa.entityManager()),
                 new GroupMembershipRepository(jpa.entityManager()), new GroupCapabilityGrantRepository(jpa.entityManager()));
         return TestDatabase.transactionalProxy(new DefaultInitialTenantBootstrapper(tenants, new IamLockRepository(jdbc),
                 identities, identities, groups, events), InitialTenantBootstrapper.class, jpa.transactionManager());

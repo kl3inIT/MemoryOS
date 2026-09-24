@@ -1,7 +1,7 @@
 package io.memoryos.iam.keycloak;
 
-import io.memoryos.iam.invitation.IdentityProvisioningException;
-import io.memoryos.iam.invitation.IdentityProvisioningFailureReason;
+import io.memoryos.iam.IdentityProvisioningException;
+import io.memoryos.iam.IdentityProvisioningFailureReason;
 import io.memoryos.iam.invitation.KeycloakRecipientProvisioner;
 import io.memoryos.iam.invitation.KeycloakRecipientProvisioning;
 import jakarta.ws.rs.ProcessingException;

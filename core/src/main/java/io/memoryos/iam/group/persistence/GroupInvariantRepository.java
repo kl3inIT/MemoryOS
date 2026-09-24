@@ -1,7 +1,7 @@
 package io.memoryos.iam.group.persistence;
 
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.group.GroupId;
+import io.memoryos.iam.GroupId;
 import io.memoryos.shared.TenantId;
 
 import java.sql.ResultSet;

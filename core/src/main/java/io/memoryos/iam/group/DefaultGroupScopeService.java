@@ -1,5 +1,9 @@
 package io.memoryos.iam.group;
 
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupIdentityPage;
+import io.memoryos.iam.GroupQuery;
+import io.memoryos.iam.GroupScopeService;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;

@@ -4,7 +4,7 @@ import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ImageMode;
 import io.memoryos.chat.WebSearchMode;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;

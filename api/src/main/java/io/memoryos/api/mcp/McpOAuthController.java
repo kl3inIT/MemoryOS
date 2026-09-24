@@ -6,7 +6,7 @@ import io.memoryos.api.mcp.contract.McpOAuthClientRequest;
 import io.memoryos.api.mcp.contract.McpOAuthClientResponse;
 import io.memoryos.api.mcp.contract.McpOAuthDiscoveryResponse;
 import io.memoryos.api.mcp.contract.McpOAuthRegistrationRequest;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.mcp.McpOAuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

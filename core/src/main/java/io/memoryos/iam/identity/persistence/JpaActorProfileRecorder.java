@@ -1,8 +1,8 @@
 package io.memoryos.iam.identity.persistence;
 
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.identity.ActorProfileRecorder;
-import io.memoryos.iam.identity.ExternalIdentity;
+import io.memoryos.iam.ActorProfileRecorder;
+import io.memoryos.iam.ExternalIdentity;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;

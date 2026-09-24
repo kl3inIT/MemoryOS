@@ -3,9 +3,9 @@ package io.memoryos.api.security;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
-import io.memoryos.iam.identity.IdentityContext;
-import io.memoryos.iam.identity.ProviderSessionTerminator;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.ProviderSessionTerminator;
+import io.memoryos.iam.TenantAccessResolver;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

@@ -10,11 +10,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
+import io.memoryos.iam.InvitationAcceptance;
+import io.memoryos.iam.InvitationException;
+import io.memoryos.iam.InvitationFailureReason;
+import io.memoryos.iam.InvitationService;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.identity.ExternalIdentity;
+import io.memoryos.iam.ExternalIdentity;
 import io.memoryos.iam.group.GroupProvisioner;
-import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapRequest;
-import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapper;
+import io.memoryos.iam.InitialTenantBootstrapRequest;
+import io.memoryos.iam.InitialTenantBootstrapper;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.tenant.TenantMembershipProvisioner;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
@@ -43,9 +47,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import io.memoryos.iam.group.DefaultGroupProvisioner;
 import io.memoryos.iam.group.DefaultIamAuthorization;
-import io.memoryos.iam.tenant.bootstrap.DefaultInitialTenantBootstrapper;
+import io.memoryos.iam.tenant.DefaultInitialTenantBootstrapper;
 
 @Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
@@ -67,7 +70,7 @@ class PostgresInvitationAcceptanceConcurrencyTest {
             var tenants = new JpaTenantRepository(jpa.entityManager());
             var identities = new JpaExternalIdentityRegistry(jpa.entityManager());
             var locks = new IamLockRepository(jdbcClient);
-            GroupProvisioner groups = new DefaultGroupProvisioner(
+            GroupProvisioner groups = new GroupProvisioner(
                     new GroupRepository(jpa.entityManager()),
                     new GroupMembershipRepository(jpa.entityManager()),
                     new GroupCapabilityGrantRepository(jpa.entityManager())

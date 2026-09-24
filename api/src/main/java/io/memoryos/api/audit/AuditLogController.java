@@ -4,7 +4,7 @@ import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditEventClass;
 import io.memoryos.audit.AuditLog;
 import io.memoryos.audit.AuditOutcome;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.shared.ActorId;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

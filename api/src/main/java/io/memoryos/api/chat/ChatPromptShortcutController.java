@@ -6,7 +6,7 @@ import io.memoryos.api.chat.contract.ChatPromptShortcutResponse;
 import io.memoryos.chat.ChatPromptShortcutService.PromptShortcutPreferences;
 import io.memoryos.chat.ChatPromptShortcutService.ShortcutInput;
 import io.memoryos.chat.ChatPromptShortcutService;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

@@ -16,7 +16,7 @@ import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectWriteService;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.SearchHit;
 import java.time.Instant;

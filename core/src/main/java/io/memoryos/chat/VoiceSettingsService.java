@@ -2,7 +2,7 @@ package io.memoryos.chat;
 
 import io.memoryos.chat.preferences.persistence.JdbcVoiceSettingsRepository;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.TenantAccessResolver;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

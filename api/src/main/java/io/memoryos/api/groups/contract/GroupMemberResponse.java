@@ -1,8 +1,8 @@
 package io.memoryos.api.groups.contract;
 
-import io.memoryos.iam.identity.AccountType;
-import io.memoryos.iam.group.GroupMember;
-import io.memoryos.iam.tenant.TenantMembershipStatus;
+import io.memoryos.iam.AccountType;
+import io.memoryos.iam.GroupMember;
+import io.memoryos.iam.TenantMembershipStatus;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

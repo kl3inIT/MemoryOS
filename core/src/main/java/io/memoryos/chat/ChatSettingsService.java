@@ -7,10 +7,10 @@ import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.preferences.persistence.ChatSettingsEntity;
 import io.memoryos.chat.preferences.persistence.JpaChatSettingsRepository;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.TenantAccessResolver;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

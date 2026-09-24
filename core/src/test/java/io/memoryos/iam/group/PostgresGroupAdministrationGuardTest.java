@@ -35,7 +35,7 @@ class PostgresGroupAdministrationGuardTest {
 
     private JdbcClient jdbc;
     private TransactionTemplate transaction;
-    private DefaultGroupAdministrationGuard guard;
+    private GroupAdministrationGuard guard;
     private HikariDataSource dataSource;
 
     @AfterEach
@@ -50,7 +50,7 @@ class PostgresGroupAdministrationGuardTest {
         dataSource = TestDatabase.freshPostgres();
         jdbc = JdbcClient.create(dataSource);
         transaction = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
-        guard = new DefaultGroupAdministrationGuard(new GroupInvariantRepository(jdbc));
+        guard = new GroupAdministrationGuard(new GroupInvariantRepository(jdbc));
         jdbc.sql("""
                         INSERT INTO tenants (
                             id, slug, display_name, status, bootstrap_reference, deployment_slot

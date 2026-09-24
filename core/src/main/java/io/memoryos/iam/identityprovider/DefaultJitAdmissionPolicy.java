@@ -1,5 +1,6 @@
 package io.memoryos.iam.identityprovider;
 
+import io.memoryos.iam.JitAdmissionPolicy;
 import io.memoryos.iam.identityprovider.persistence.JitAllowlistRepository;
 
 import java.util.Objects;

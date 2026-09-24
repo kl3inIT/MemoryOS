@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
+import io.memoryos.iam.JitAllowlistSeeder;
 import io.memoryos.iam.identityprovider.persistence.JitAllowlistRepository;
 import java.sql.SQLException;
 import java.util.List;

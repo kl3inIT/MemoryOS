@@ -1,6 +1,6 @@
 package io.memoryos.connector;
 
-import io.memoryos.iam.group.GroupId;
+import io.memoryos.iam.GroupId;
 import io.memoryos.shared.ActorId;
 import java.time.Instant;
 import java.util.List;

@@ -154,8 +154,8 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Accepted command(ActorId actor, UUID session, ChatCommand command) {
-        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_WRITE);
-        if (command.image() != ImageMode.off) persistence.require(actor, io.memoryos.iam.group.IamCapability.IMAGE_GENERATE);
+        persistence.require(actor, io.memoryos.iam.IamCapability.CHAT_WRITE);
+        if (command.image() != ImageMode.off) persistence.require(actor, io.memoryos.iam.IamCapability.IMAGE_GENERATE);
         var lock = commandLock(session);
         Admission admission;
         lock.lock();
@@ -285,7 +285,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Cancellation cancel(ActorId actor, UUID session, UUID assistant) {
-        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_WRITE);
+        persistence.require(actor, io.memoryos.iam.IamCapability.CHAT_WRITE);
         var lock = commandLock(session);
         lock.lock();
         try {
@@ -297,7 +297,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Supplier<StreamBufferWriter.Reader> subscribe(ActorId actor, UUID session, UUID assistant, long after) {
-        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_READ);
+        persistence.require(actor, io.memoryos.iam.IamCapability.CHAT_READ);
         var lock = commandLock(session);
         lock.lock();
         try {
@@ -310,7 +310,7 @@ public final class ChatTurnService implements AutoCloseable {
                     persistence.authorizeReply(actor, session, assistant);
                     // The reader re-authorizes on every liveness check, so a revoked membership ends a long stream.
                     return streams.subscribe(assistant, after, () -> {
-                        persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_READ);
+                        persistence.require(actor, io.memoryos.iam.IamCapability.CHAT_READ);
                         return persistence.authorizeReply(actor, session, assistant) == ChatMessage.Status.RUNNING;
                     });
                 }

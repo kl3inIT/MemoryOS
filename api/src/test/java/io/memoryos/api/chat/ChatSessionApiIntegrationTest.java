@@ -63,7 +63,7 @@ import com.nimbusds.jwt.SignedJWT;
 import io.memoryos.api.ApiPostgresDatabase;
 import io.memoryos.api.security.ActorAuthenticationToken;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.core.util.Json;
 
 import java.io.IOException;

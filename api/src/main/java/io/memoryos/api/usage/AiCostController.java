@@ -4,7 +4,7 @@ import io.memoryos.api.usage.contract.AiCostDayResponse;
 import io.memoryos.api.usage.contract.AiCostDetailResponse;
 import io.memoryos.api.usage.contract.AiCostRowResponse;
 import io.memoryos.api.usage.contract.AiCostSummaryResponse;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.usage.AiCostDimension;
 import io.memoryos.usage.AiCostService;
 import io.memoryos.usage.AiCostSplit;

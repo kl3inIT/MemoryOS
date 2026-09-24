@@ -18,7 +18,7 @@ import io.memoryos.library.LibraryArchiveItem;
 import io.memoryos.library.LibraryFile;
 import io.memoryos.library.LibraryService;
 import io.memoryos.library.LibraryArchiveService;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

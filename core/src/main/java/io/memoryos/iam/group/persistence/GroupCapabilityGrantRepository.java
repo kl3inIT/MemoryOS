@@ -1,7 +1,7 @@
 package io.memoryos.iam.group.persistence;
 
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.group.GroupSystemKey;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.GroupSystemKey;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
 

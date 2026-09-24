@@ -226,7 +226,7 @@ class WorkerFileProcessingIntegrationTest {
     @Autowired
     private RedisExecutionTopology topology;
 
-    @Autowired private io.memoryos.iam.tenant.TenantAccessResolver tenants;
+    @Autowired private io.memoryos.iam.TenantAccessResolver tenants;
     @Autowired private io.memoryos.objectstorage.ObjectUploadService objectUploads;
     @Autowired private io.memoryos.objectstorage.ObjectUploadCleanupPort objectCleanup;
     @Autowired private org.springframework.transaction.PlatformTransactionManager transactions;

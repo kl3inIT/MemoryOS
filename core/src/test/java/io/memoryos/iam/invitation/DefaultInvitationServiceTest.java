@@ -21,12 +21,23 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
+import io.memoryos.iam.IdentityProvisioningException;
+import io.memoryos.iam.IdentityProvisioningFailureReason;
+import io.memoryos.iam.InvitationAcceptance;
+import io.memoryos.iam.InvitationDelivery;
+import io.memoryos.iam.InvitationException;
+import io.memoryos.iam.InvitationFailureReason;
+import io.memoryos.iam.InvitationQuery;
+import io.memoryos.iam.InvitationService;
+import io.memoryos.iam.InvitationSort;
+import io.memoryos.iam.InvitationStatus;
+import io.memoryos.iam.VerifiedEmailInvitationAcceptance;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.identity.ExternalIdentity;
+import io.memoryos.iam.ExternalIdentity;
 import io.memoryos.iam.group.GroupProvisioner;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapRequest;
-import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapper;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.InitialTenantBootstrapRequest;
+import io.memoryos.iam.InitialTenantBootstrapper;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
 import io.memoryos.iam.group.persistence.GroupMembershipRepository;
@@ -38,9 +49,8 @@ import io.memoryos.iam.identity.persistence.JpaExternalIdentityRegistry;
 import io.memoryos.iam.invitation.persistence.JpaInvitationRepository;
 import io.memoryos.iam.tenant.persistence.JpaTenantMembershipProvisioner;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
-import io.memoryos.iam.group.DefaultGroupProvisioner;
 import io.memoryos.iam.group.DefaultIamAuthorization;
-import io.memoryos.iam.tenant.bootstrap.DefaultInitialTenantBootstrapper;
+import io.memoryos.iam.tenant.DefaultInitialTenantBootstrapper;
 
 @Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
@@ -57,7 +67,7 @@ class DefaultInvitationServiceTest {
     private JpaTenantRepository tenants;
     private JpaExternalIdentityRegistry identities;
     private IamLockRepository locks;
-    private DefaultGroupProvisioner groups;
+    private GroupProvisioner groups;
     private DefaultIamAuthorization authorization;
     private MutableClock clock;
     private ActorId ownerActorId;
@@ -72,7 +82,7 @@ class DefaultInvitationServiceTest {
         tenants = new JpaTenantRepository(jpa.entityManager());
         identities = new JpaExternalIdentityRegistry(jpa.entityManager());
         locks = new IamLockRepository(jdbcClient);
-        groups = new DefaultGroupProvisioner(
+        groups = new GroupProvisioner(
                 new GroupRepository(jpa.entityManager()),
                 new GroupMembershipRepository(jpa.entityManager()),
                 new GroupCapabilityGrantRepository(jpa.entityManager())
@@ -312,17 +322,10 @@ class DefaultInvitationServiceTest {
     void rollsBackActorBindingMembershipAndGroupEdgeWhenBasicProvisioningFails() {
         var issued = invitations.issue(ownerActorId, "member@example.com");
         var continuation = invitations.intake(issued.plaintextSecret());
-        GroupProvisioner failingGroups = new GroupProvisioner() {
-            @Override
-            public void bootstrap(TenantId tenantId, ActorId configuredOwner) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public void addToBasicGroup(TenantId tenantId, ActorId actorId) {
-                throw new IllegalStateException("Basic group write failed");
-            }
-        };
+        GroupProvisioner failingGroups = org.mockito.Mockito.mock(GroupProvisioner.class);
+        org.mockito.Mockito.doThrow(new UnsupportedOperationException()).when(failingGroups).bootstrap(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.doThrow(new IllegalStateException("Basic group write failed"))
+                .when(failingGroups).addToBasicGroup(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
         InvitationService failingService = invitationService(failingGroups);
 
         assertThrows(IllegalStateException.class, () -> failingService.accept(new InvitationAcceptance(
@@ -343,18 +346,16 @@ class DefaultInvitationServiceTest {
     @Test
     void expiryDuringAcceptanceReturnsNotAvailableAndRollsBackNewAuthority() {
         var issued = invitations.issue(ownerActorId, "expiring@example.com");
-        GroupProvisioner expiringGroups = new GroupProvisioner() {
-            @Override
-            public void bootstrap(TenantId tenantId, ActorId configuredOwner) {
-                groups.bootstrap(tenantId, configuredOwner);
-            }
-
-            @Override
-            public void addToBasicGroup(TenantId tenantId, ActorId actorId) {
-                groups.addToBasicGroup(tenantId, actorId);
-                clock.advance(Duration.between(clock.instant(), issued.invitation().expiresAt()));
-            }
-        };
+        GroupProvisioner expiringGroups = org.mockito.Mockito.mock(GroupProvisioner.class);
+        org.mockito.Mockito.doAnswer(call -> {
+            groups.bootstrap(call.getArgument(0), call.getArgument(1));
+            return null;
+        }).when(expiringGroups).bootstrap(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.doAnswer(call -> {
+            groups.addToBasicGroup(call.getArgument(0), call.getArgument(1));
+            clock.advance(Duration.between(clock.instant(), issued.invitation().expiresAt()));
+            return null;
+        }).when(expiringGroups).addToBasicGroup(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
         InvitationService expiringService = invitationService(expiringGroups);
 
         InvitationException failure = assertThrows(

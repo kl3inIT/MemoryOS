@@ -14,7 +14,7 @@ import io.memoryos.document.DocumentContent;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.persistence.JdbcDocumentRepository;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.IamLockRepository;
 import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;

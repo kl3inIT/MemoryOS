@@ -227,7 +227,7 @@ public final class TestDatabase {
         var audit = org.mockito.Mockito.mock(AuditTrail.class);
         org.mockito.Mockito.when(audit.person(org.mockito.ArgumentMatchers.any())).thenAnswer(call ->
                 new AuditTrail.Person(
-                        call.<java.util.UUID>getArgument(0).toString(), null));
+                        call.<io.memoryos.shared.ActorId>getArgument(0).value().toString(), null));
         return audit;
     }
 }

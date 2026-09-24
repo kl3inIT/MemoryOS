@@ -3,7 +3,7 @@ package io.memoryos.api.chat;
 import io.memoryos.api.search.DocumentOriginalResponses;
 import io.memoryos.api.search.contract.DocumentSpreadsheetResponse;
 import io.memoryos.api.search.contract.SearchDocumentResponse;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.retrieval.DocumentOriginalService;
 import io.memoryos.retrieval.DocumentSearchService;
 import jakarta.servlet.http.HttpServletResponse;

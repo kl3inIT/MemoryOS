@@ -1,6 +1,6 @@
 package io.memoryos.api.security;
 
-import io.memoryos.iam.identity.ProviderSessionTerminator;
+import io.memoryos.iam.ProviderSessionTerminator;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;

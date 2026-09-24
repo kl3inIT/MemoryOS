@@ -204,3 +204,50 @@ No renamed type is an OpenAPI schema source: the `ChatLibraryFile` and `ChatLibr
 **Library search.** A file search reads the readable files, searches outside a transaction and reads them again, so a share revoked during the search still hides its passages. The second read, with its agent-grant query, now covers only the files whose documents the search returned and is skipped when nothing was returned. Running the grant query once would drop that revocation check, so it still runs twice when there are hits.
 
 **Composition roots.** `api`'s JPA lists name `io.memoryos.chat` instead of `io.memoryos.chat.persistence`, as they name `io.memoryos.iam`, because Chat's entities now live in several feature packages; `TestDatabase` follows. `CoreDependencyRulesTest` used to match `io.memoryos.<capability>.persistence..` only, which no longer covered Chat's feature `persistence` packages; the rule now matches `io.memoryos.<capability>..persistence..`, every nested `persistence` package of a capability.
+
+## Step 4 — connector, iam
+
+Both modules now follow the layout rule: the root package is the published API, and every feature package, with its own `persistence`, is internal. Every file moved with `git mv`; behaviour, SQL, transaction boundaries and the [ADR 0007](0007-unified-jpa-iam-and-group-authorization.md) authorization semantics are unchanged.
+
+### `connector`
+
+The root keeps what other modules, the deployables and the connector bundle use: the ports (`ConnectorSyncPort`, `ConnectorIndexingPort`, `ConnectorCleanupPort` and their work records), Source, item, operation and credential identifiers, views, pages, events and exceptions, the published service interfaces (`SourceManagementService`, `SourceRunHistoryService`, `SourceRunHistoryMaintenance`, `SourceDocumentAccessResolver`, the Google Drive authorization, service-account, Source and selection services, the SharePoint credential, Source and selection services), `SourceSearchService`, `SourceCollectionScopeResolver`, and the provider SPI the bundle implements (`GoogleDriveProvider`, `SharePointProvider`, `GoogleDriveLinkReader`, `GoogleDriveOAuthClient`, their exceptions, `GoogleDriveServiceAccountKey`, `SourceInputDescriptor`). `application` and `persistence` are replaced by:
+
+| Package | Holds |
+| --- | --- |
+| `source` | Source management, run history and its pruning, document access, `SourceAccessPolicy`; `source.persistence`: the `JdbcSource*` repositories, `SourceScopeSql`, `SourceHistoryCursor` and `CredentialCipher` |
+| `sync` | `DefaultConnectorSyncService` (the `ConnectorSyncPort`), `DefaultConnectorCleanupService`, `ProviderAuthorityService`; `sync.persistence`: `JdbcSourceSyncRepository`, `JdbcIndexAttemptRepository`, `JdbcCleanupAttemptRepository`, `WorkLeases` |
+| `googledrive` | the Google Drive services, connection, selection tree and policy, metadata cache, linked discovery, Google Group sync; `googledrive.persistence`: credentials, Sources, selections, ACLs, Google Groups |
+| `sharepoint` | the SharePoint services, connection, sync, selection policy, `SharePointAuthentication`, `SharePointCertificate`, `SharePointGlob`, `SharePointUrl`; `sharepoint.persistence`: credentials, Sources, selections, sync |
+
+Judgement calls:
+
+- **Three pairs collapse.** `GoogleDriveConnectionService`, `SharePointConnectionService` and `ProviderAuthorityService` were interfaces with one `Default*` implementation and no consumer outside the module; each is now one class in its feature package. The other `Default*` implementations keep their names and stay behind a root interface, as `UserFileWorkPort` does in step 3.
+- **The two sync engines are placed, not merged.** `DefaultConnectorSyncService` implements the provider-neutral port but is still the Google Drive traversal and calls `DefaultSharePointSyncService`; it sits in `sync` next to the attempt and lease machinery, and separating a Google Drive engine from the dispatch is left to the later de-duplication.
+- **Shared persistence helpers became public.** `WorkLeases` (used by the attempt, Source, Google Drive and SharePoint repositories), `SourceHistoryCursor`, `GoogleDriveRootValidation` and two `JdbcSourceRepository` row helpers were package-private in the old flat packages; inside a closed module that is still internal.
+- **`CredentialCipher` is Source persistence.** Both providers' credential repositories encrypt with it, and credentials exist only to authorize Sources.
+- **`GoogleDriveAclReader` stays published** although nothing calls it yet: `GoogleDriveAclChanged` tells listeners to re-read the snapshot through it.
+- The nested-package ownership rule of `CoreDependencyRulesTest` (above) also guards the four connector `persistence` packages and IAM's feature `persistence` packages, which the old pattern never matched.
+
+### `iam`
+
+The six named interfaces are gone, and the root package is IAM's whole published API: Tenant access and membership (`TenantAccessResolver`, `TenantMembership`, `TenantMemberManagement`, `TenantBootstrapped`, initial bootstrap), the authorization decision and Groups (`IamAuthorization`, `IamCapability`, `Authority`, `IamAccess`, `GroupScopeService`, `GroupService`, `GroupId` and the Group views), identity (`IdentityContext`, `ExternalIdentity`, `ExternalIdentityResolver`, `TrustedIdentityAdmission`, `ActorProfileReader`, `ActorProfileRecorder`, `ActorLanguageService`, `ProviderSessionTerminator`, `AccountType`), users (`UserQueryService` and its records), invitations (`InvitationService` and its records and exceptions) and identity providers (`IdentityProviderAdministration`, its commands and views, `DiscoveredOidcProvider`, `JitAdmissionPolicy`, `JitAllowlistSeeder`). A flat root of about seventy types was preferred to keeping `tenant`, `group` and `identity` as named interfaces, because this ADR already fixed the root as the published surface and a named interface is kept only for a deliberate extra surface.
+
+The feature packages `group`, `identity`, `identityprovider`, `invitation`, `keycloak`, `tenant` and `user` keep the implementations and their JPA persistence. Their package names did not change, so neither composition root's JPA scan strings nor the Worker's scan list changed. `tenant.bootstrap` held only the bootstrapper once its API moved up, and joined `tenant`.
+
+- **Pairs.** The ten `Default*` implementations behind a root interface stay (`DefaultIamAuthorization`, `DefaultGroupService`, `DefaultGroupScopeService`, `DefaultTrustedIdentityAdmission`, `DefaultIdentityProviderAdministration`, `DefaultJitAdmissionPolicy`, `DefaultInvitationService`, `DefaultTenantMemberManagement`, `DefaultInitialTenantBootstrapper`, `DefaultUserQueryService`). `GroupAdministrationGuard` and `GroupProvisioner` were used only inside IAM and collapse into one class each; the tests that replaced them with anonymous classes now stub them with Mockito.
+- **Internal seams stay interfaces.** `ExternalIdentityRegistrar`, `TenantMembershipProvisioner`, `IdentityProviderGateway` and `KeycloakRecipientProvisioner` are implemented by persistence or Keycloak adapters and replaced by test doubles; they are not part of the published API. The API's `TestKeycloakProvisioningConfiguration` still substitutes the Keycloak provisioner, as test code may.
+- **The Worker names no implementation.** It imports `IamWorkerComponents`, a root class that imports the authorization, Group scope and audit-reader beans, as `LibraryWorkerComponents` does.
+- **The session principal moved.** `IdentityContext` is stored Java-serialized in the JDBC session and is now `io.memoryos.iam.IdentityContext`; `V128`, already on this branch, deletes every session, so this move needs nothing more.
+- **Not done here.** The `ai` catalog still reads `iam_groups` and `iam_group_memberships` by SQL (step 2); replacing it with an IAM call belongs to the `ai` work.
+
+Dependencies after step 4 (every list also includes `shared`):
+
+| Module | Before | After |
+| --- | --- | --- |
+| `ai`, `voice`, `connector`, `retrieval` | `iam :: tenant`, `iam :: group` | `iam` |
+| `chat` | `iam :: tenant`, `iam :: group`, `iam :: identity` | `iam` |
+| `library` | `iam :: tenant` | `iam` |
+| `mcp`, `meeting`, `usage` | `iam :: group` | `iam` |
+
+The deployables' main code imports no internal package of `connector` or `iam`. Two API tests still name internal types: `SharePointSourceApiTest` mocks `DefaultSharePointSourceService`, because the selection processor injects the concrete service, and `TestKeycloakProvisioningConfiguration` above. The OpenAPI document is unchanged: no class behind an HTTP body was renamed.

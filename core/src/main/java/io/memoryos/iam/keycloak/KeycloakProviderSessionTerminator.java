@@ -1,6 +1,6 @@
 package io.memoryos.iam.keycloak;
 
-import io.memoryos.iam.identity.ProviderSessionTerminator;
+import io.memoryos.iam.ProviderSessionTerminator;
 
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.ProcessingException;

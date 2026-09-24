@@ -1,15 +1,21 @@
 package io.memoryos.iam.identityprovider;
 
+import io.memoryos.iam.IdentityProviderAdministration;
+import io.memoryos.iam.IdentityProviderCommand;
+import io.memoryos.iam.IdentityProviderException;
+import io.memoryos.iam.IdentityProviderFailureReason;
+import io.memoryos.iam.IdentityProviderUpdate;
+import io.memoryos.iam.IdentityProviderView;
 import io.memoryos.shared.TenantId;
 
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.identityprovider.persistence.JitAllowlistRepository;
-import io.memoryos.iam.keycloak.DiscoveredOidcProvider;
+import io.memoryos.iam.DiscoveredOidcProvider;
 import io.memoryos.iam.keycloak.OidcDiscoveryClient;
 
 import java.util.HashMap;

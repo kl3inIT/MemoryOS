@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.group.DefaultIamAuthorization;
 
 import java.util.List;
@@ -21,7 +21,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import io.memoryos.iam.group.Authority;
+import io.memoryos.iam.Authority;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class GroupMigrationSeedTest {
@@ -635,7 +635,7 @@ class GroupMigrationSeedTest {
         assertEquals(version + 1, jdbc.sql("SELECT authorization_version FROM tenants WHERE id=:tenant")
                 .param("tenant", TENANT).query(Long.class).single());
         assertEquals(adminCapabilities, authorization.effectiveCapabilities(new ActorId(OWNER)));
-        assertEquals(io.memoryos.iam.group.Authority.GLOBAL,
+        assertEquals(io.memoryos.iam.Authority.GLOBAL,
                 authorization.require(new ActorId(OWNER), IamCapability.SOURCES_MANAGE, false).authority());
         UUID source = uuid("a0000000-0000-0000-0000-000000000058");
         for (UUID systemGroup : systemGroups) {

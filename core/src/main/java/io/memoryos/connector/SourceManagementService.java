@@ -1,9 +1,9 @@
 package io.memoryos.connector;
 
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.GroupIdentity;
-import io.memoryos.iam.group.GroupIdentityPage;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupIdentity;
+import io.memoryos.iam.GroupIdentityPage;
 import io.memoryos.objectstorage.ObjectUploadAuthorization;
 import io.memoryos.objectstorage.ObjectUploadId;
 import io.memoryos.objectstorage.ObjectUploadSpecification;

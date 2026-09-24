@@ -11,7 +11,7 @@ import io.memoryos.ai.ProviderCredentials;
 import io.memoryos.chat.image.ImageConnectionService;
 import io.memoryos.chat.image.ImageProvider;
 import io.memoryos.chat.image.ImageProviderClient;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

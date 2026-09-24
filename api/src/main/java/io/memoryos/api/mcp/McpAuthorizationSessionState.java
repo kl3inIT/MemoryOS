@@ -1,6 +1,6 @@
 package io.memoryos.api.mcp;
 
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.mcp.McpException;
 import io.memoryos.mcp.McpOAuthService;
 import jakarta.servlet.http.HttpServletRequest;

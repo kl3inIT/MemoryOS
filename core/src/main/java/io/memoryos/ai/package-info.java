@@ -4,7 +4,7 @@
  * run on these models; the catalog knows Chat's agents only by id.
  */
 @ApplicationModule(displayName = "AI models", type = ApplicationModule.Type.CLOSED,
-        allowedDependencies = {"shared", "iam :: tenant", "iam :: group", "audit", "usage"})
+        allowedDependencies = {"shared", "iam", "audit", "usage"})
 package io.memoryos.ai;
 
 import org.springframework.modulith.ApplicationModule;

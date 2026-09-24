@@ -3,8 +3,8 @@ package io.memoryos.api.source;
 import io.memoryos.api.source.contract.GroupSourcesResponse;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceManagementService;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.IdentityContext;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

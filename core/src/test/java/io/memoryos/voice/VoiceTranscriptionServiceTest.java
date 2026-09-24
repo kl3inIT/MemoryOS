@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import com.sun.net.httpserver.HttpServer;
-import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.IamAuthorization;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.net.InetAddress;

@@ -1,7 +1,8 @@
 package io.memoryos.iam.keycloak;
 
-import io.memoryos.iam.identityprovider.IdentityProviderException;
-import io.memoryos.iam.identityprovider.IdentityProviderFailureReason;
+import io.memoryos.iam.DiscoveredOidcProvider;
+import io.memoryos.iam.IdentityProviderException;
+import io.memoryos.iam.IdentityProviderFailureReason;
 
 import java.io.IOException;
 import java.net.URI;

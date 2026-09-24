@@ -2,8 +2,8 @@ package io.memoryos.voice;
 
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;

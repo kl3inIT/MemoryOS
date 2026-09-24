@@ -10,24 +10,27 @@ import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.group.DefaultGroupProvisioner;
-import io.memoryos.iam.group.DefaultIamAuthorization;
+import io.memoryos.iam.IdentityProviderCommand;
+import io.memoryos.iam.IdentityProviderException;
+import io.memoryos.iam.IdentityProviderFailureReason;
+import io.memoryos.iam.IdentityProviderUpdate;
 import io.memoryos.iam.group.GroupProvisioner;
+import io.memoryos.iam.group.DefaultIamAuthorization;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
 import io.memoryos.iam.group.persistence.GroupMembershipRepository;
 import io.memoryos.iam.group.persistence.GroupRepository;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.group.persistence.IamLockRepository;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.identity.ExternalIdentity;
+import io.memoryos.iam.ExternalIdentity;
 import io.memoryos.iam.identity.persistence.JpaExternalIdentityRegistry;
 import io.memoryos.iam.identityprovider.persistence.JitAllowlistRepository;
-import io.memoryos.iam.keycloak.DiscoveredOidcProvider;
+import io.memoryos.iam.DiscoveredOidcProvider;
 import io.memoryos.iam.keycloak.OidcDiscoveryClient;
 import io.memoryos.shared.TenantId;
-import io.memoryos.iam.tenant.bootstrap.DefaultInitialTenantBootstrapper;
-import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapRequest;
-import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapper;
+import io.memoryos.iam.tenant.DefaultInitialTenantBootstrapper;
+import io.memoryos.iam.InitialTenantBootstrapRequest;
+import io.memoryos.iam.InitialTenantBootstrapper;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
 
 import com.zaxxer.hikari.HikariDataSource;
@@ -79,7 +82,7 @@ class DefaultIdentityProviderAdministrationTest {
         var tenants = new JpaTenantRepository(jpa.entityManager());
         var identities = new JpaExternalIdentityRegistry(jpa.entityManager());
         var locks = new IamLockRepository(jdbc);
-        GroupProvisioner groups = new DefaultGroupProvisioner(
+        GroupProvisioner groups = new GroupProvisioner(
                 new GroupRepository(jpa.entityManager()),
                 new GroupMembershipRepository(jpa.entityManager()),
                 new GroupCapabilityGrantRepository(jpa.entityManager())

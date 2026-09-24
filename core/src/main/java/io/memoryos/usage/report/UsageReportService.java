@@ -1,7 +1,7 @@
 package io.memoryos.usage.report;
 
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectContent;
