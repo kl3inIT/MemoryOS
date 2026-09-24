@@ -15,7 +15,7 @@ import io.memoryos.TestDatabase;
 import io.memoryos.chat.application.ChatLibraryArchiveService;
 import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.InterpreterService;
-import io.memoryos.chat.interpreter.JdbcInterpreterRepository;
+import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.chat.persistence.JdbcChatLibraryArchiveRepository;
 import io.memoryos.chat.persistence.JdbcChatLibraryArchiveRepository.Requested;
 import io.memoryos.chat.persistence.JdbcChatLibraryRepository;
