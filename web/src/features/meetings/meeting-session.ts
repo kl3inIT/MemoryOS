@@ -6,7 +6,7 @@ import {
   finishMeeting,
   issueMeetingTicket,
   meetingKey,
-  meetingsKey,
+  invalidateMeetingList,
   type MeetingDetail,
 } from "./meetings-api";
 
@@ -91,7 +91,7 @@ export async function endMeeting(meetingId: string, cache: QueryClient) {
   if (active?.meetingId === meetingId) await stopRecording();
   const ended = await finishMeeting(meetingId);
   cache.setQueryData(meetingKey(meetingId), ended);
-  void cache.invalidateQueries({ queryKey: meetingsKey, exact: true });
+  void invalidateMeetingList(cache);
   return ended;
 }
 
@@ -114,5 +114,5 @@ function appendUtterance(cache: QueryClient, meetingId: string, utterance: Strea
     );
     return { ...meeting, speakers, utterances };
   });
-  void cache.invalidateQueries({ queryKey: meetingsKey, exact: true });
+  void invalidateMeetingList(cache);
 }

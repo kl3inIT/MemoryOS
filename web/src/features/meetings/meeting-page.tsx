@@ -70,7 +70,7 @@ import {
   loadMeeting,
   markMinutesItem,
   meetingKey,
-  meetingsKey,
+  invalidateMeetingList,
   nameSpeaker,
   publishMinutes,
   removeMeeting,
@@ -595,7 +595,7 @@ export function MeetingPage({
                 onConfirm={async () => {
                   await removeMeeting(meetingId);
                   cache.removeQueries({ queryKey: meetingKey(meetingId) });
-                  void cache.invalidateQueries({ queryKey: meetingsKey, exact: true });
+                  void invalidateMeetingList(cache);
                   await navigate({ to: "/meetings" });
                 }}
               />

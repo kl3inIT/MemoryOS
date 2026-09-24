@@ -24,7 +24,7 @@ import { startRecording } from "./meeting-session";
 import { MeetingShareField, type MeetingAudience } from "./meeting-share-field";
 import {
   meetingKey,
-  meetingsKey,
+  invalidateMeetingList,
   shareMeeting,
   startMeeting,
   type MeetingKind,
@@ -105,7 +105,7 @@ export function NewMeetingDialog({
             )
           : meeting;
       cache.setQueryData(meetingKey(shared.id), shared);
-      void cache.invalidateQueries({ queryKey: meetingsKey, exact: true });
+      void invalidateMeetingList(cache);
       await startRecording(
         meeting.id,
         [

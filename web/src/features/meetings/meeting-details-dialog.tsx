@@ -15,7 +15,12 @@ import { Label } from "@/components/ui/label";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
-import { meetingKey, meetingsKey, updateMeetingDetails, type MeetingDetail } from "./meetings-api";
+import {
+  invalidateMeetingList,
+  meetingKey,
+  updateMeetingDetails,
+  type MeetingDetail,
+} from "./meetings-api";
 
 /**
  * The name and the people, filled in once the meeting is running: the start form asks only what the recording needs,
@@ -46,7 +51,7 @@ export function MeetingDetailsDialog({ meeting }: { meeting: MeetingDetail }) {
         meetingKey(meeting.id),
         await updateMeetingDetails(meeting.id, title, names),
       );
-      void cache.invalidateQueries({ queryKey: meetingsKey, exact: true });
+      void invalidateMeetingList(cache);
       setOpen(false);
     } catch (failed) {
       setError(problemMessage(presentProblem(failed, "mutation").message));

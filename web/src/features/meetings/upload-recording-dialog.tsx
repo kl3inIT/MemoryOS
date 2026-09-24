@@ -22,7 +22,7 @@ import { MeetingShareField, type MeetingAudience } from "./meeting-share-field";
 import {
   loadTranscribers,
   meetingKey,
-  meetingsKey,
+  invalidateMeetingList,
   shareMeeting,
   startMeeting,
   transcribersKey,
@@ -122,7 +122,7 @@ export function UploadRecordingDialog({
             )
           : uploaded;
       cache.setQueryData(meetingKey(shared.id), shared);
-      void cache.invalidateQueries({ queryKey: meetingsKey, exact: true });
+      void invalidateMeetingList(cache);
       onOpenChange(false);
       await navigate({ to: "/meetings/$meetingId", params: { meetingId: uploaded.id } });
     } catch (failed) {
