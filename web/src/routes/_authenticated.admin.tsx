@@ -1,10 +1,10 @@
 import { createFileRoute, Outlet, useMatchRoute, useRouterState } from "@tanstack/react-router";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { AppShell, type SourceSetupProgress } from "@/components/app-shell/app-shell";
-import { sharePointSetupSteps } from "@/features/sources/sharepoint-setup-search";
+import { sharePointSetupSteps } from "@/features/sources/sharepoint/sharepoint-setup-search";
 import { AccessDeniedScreen } from "@/features/identity/session-states";
 import { useAdminAccess } from "@/features/identity/application-session-context";
-import { SourceUploadRecoveryProvider } from "@/features/sources/source-upload-recovery-provider";
+import { SourceUploadRecoveryProvider } from "@/features/sources/upload/source-upload-recovery-provider";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   component: function AdministrationLayout() {

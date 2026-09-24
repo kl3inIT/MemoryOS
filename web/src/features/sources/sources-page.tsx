@@ -41,9 +41,15 @@ import {
   findSourceProvider,
   sourceProviders,
   type SourceProvider,
-} from "./source-provider-catalog";
-import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
-import { sourceAccessOptions, sourceStatusOptions } from "./source-status-presentation";
+} from "@/features/sources/shared/source-provider-catalog";
+import {
+  SourceAccessBadge,
+  SourceStatusBadge,
+} from "@/features/sources/shared/source-status-badge";
+import {
+  sourceAccessOptions,
+  sourceStatusOptions,
+} from "@/features/sources/shared/source-status-presentation";
 
 /** Radix selects reject an empty option value, so "any" stands for an unset filter. */
 const anyFilterValue = "any";

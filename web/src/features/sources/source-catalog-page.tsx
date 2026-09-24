@@ -5,7 +5,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
-import { sourceCategories, sourceProviders } from "./source-provider-catalog";
+import {
+  sourceCategories,
+  sourceProviders,
+} from "@/features/sources/shared/source-provider-catalog";
 
 export function SourceCatalogPage() {
   const ui = useAppTranslation();

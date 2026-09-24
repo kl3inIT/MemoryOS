@@ -133,6 +133,12 @@ Domain Story and Consumer
 - Every API change refreshes `openapi.yml` and the committed Hey API client in the same change. Backend tests reject contract drift; frontend checks reject generated-client drift.
 - The web Hey API client owns two defaults in `web/src/lib/api.ts`: every SDK call rejects with `ApiError` on a non-2xx response (`throwOnError` is set in the generator config and in `client.setConfig`), and a request interceptor adds `X-MemoryOS-CSRF: 1` to every request other than GET, HEAD and OPTIONS. Call sites pass neither; a caller that treats a status as an outcome catches the `ApiError` (for example `isNotFound`). Requests outside the SDK, such as the `/logout` fetch, still send `sameOriginMutationHeaders` themselves.
 
+## Frontend feature folders
+
+- A folder under `web/src/features` is named after the backend capability whose screens it holds ([ADR 0015](decisions/0015-capability-module-map.md#step-5-web)): `chat`, `library`, `sources` (connector), `models` (the `ai` admin UI), `voice`, `meetings`, and so on. A page that serves another capability's data still lives with the capability that owns it.
+- A feature with more than about 25 files gets one level of sub-folders by sub-feature (for example `chat/thread`, `chat/composer`, `sources/google-drive`); the feature root keeps its entry pages and the modules its sub-folders share. Smaller features stay flat.
+- Files keep the feature prefix they are known by; a moved file drops only a prefix that names the capability it no longer belongs to. Tests sit next to their subject. Imports across folders use `@/features/...`; `./` stays for siblings.
+
 ## Component and library reuse
 
 - Before building or extending a component, always check the existing project components and the relevant library's shipped components, hooks, adapters, and runtime behavior. Reuse them whenever they meet the actual requirement; this applies to behavior and state, not just visual markup.

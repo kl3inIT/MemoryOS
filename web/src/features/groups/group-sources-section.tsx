@@ -23,7 +23,7 @@ import {
 import { listSourceGroups, removeGroupSource, updateSourceGroups } from "@/lib/hey-api/sdk.gen";
 import type { GroupSummary, SourceSummary } from "@/lib/hey-api/types.gen";
 import { groupMutationError } from "./group-errors";
-import { findSourceProvider } from "@/features/sources/source-provider-catalog";
+import { findSourceProvider } from "@/features/sources/shared/source-provider-catalog";
 import { can } from "@/lib/resource-permissions";
 import { type GroupDraftSectionHandle, type GroupDraftStateChange } from "./group-draft-section";
 

@@ -5,7 +5,7 @@ import {
   writeChatModelPreference,
 } from "./chat-models";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useAttachOnOpen } from "./use-attach-on-open";
+import { useAttachOnOpen } from "@/features/chat/composer/use-attach-on-open";
 import { useAuiState } from "@assistant-ui/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
@@ -26,17 +26,24 @@ import {
   pinChatReasoningEffort,
 } from "@/lib/hey-api/sdk.gen";
 import type { Accepted, ReasoningSelection } from "@/lib/hey-api/types.gen";
-import type { MemoryOsChatTransport } from "./chat-transport";
-import { ChatThread } from "./chat-thread";
+import type { MemoryOsChatTransport } from "@/features/chat/runtime/chat-transport";
+import { ChatThread } from "@/features/chat/thread/chat-thread";
 import { ChatModelPicker } from "./chat-model-picker";
-import { ChatComposerMenu } from "./chat-composer-menu";
-import type { WebSearchMode } from "./chat-web-preference";
-import type { ImageMode } from "./chat-image";
-import { ChatEditingContext } from "./chat-editing-context";
-import { ChatImageEditContext } from "./chat-image-edit-context";
-import { ChatSessionSettings, ChatStarterPrompts } from "./chat-session-settings";
-import { ChatTemporaryBadge, ChatTemporaryNotice, ChatTemporaryToggle } from "./chat-temporary";
-import { ChatConversationSearch } from "./chat-conversation-search";
+import { ChatComposerMenu } from "@/features/chat/composer/chat-composer-menu";
+import type { WebSearchMode } from "@/features/chat/web-search/chat-web-preference";
+import type { ImageMode } from "@/features/chat/image/chat-image";
+import { ChatEditingContext } from "@/features/chat/thread/chat-editing-context";
+import { ChatImageEditContext } from "@/features/chat/image/chat-image-edit-context";
+import {
+  ChatSessionSettings,
+  ChatStarterPrompts,
+} from "@/features/chat/session/chat-session-settings";
+import {
+  ChatTemporaryBadge,
+  ChatTemporaryNotice,
+  ChatTemporaryToggle,
+} from "@/features/chat/session/chat-temporary";
+import { ChatConversationSearch } from "@/features/chat/thread/chat-conversation-search";
 import {
   branchSchema,
   feedbackSchema,
@@ -45,12 +52,15 @@ import {
   type Project,
   type Feedback,
 } from "./chat-workspace-api";
-import { ProjectContextPanel, ProjectConversationList } from "./chat-projects-page";
+import {
+  ProjectContextPanel,
+  ProjectConversationList,
+} from "@/features/chat/projects/chat-projects-page";
 import { useTranslation } from "react-i18next";
 import { useProblemMessage } from "@/lib/use-problem-message";
-import { useChatThreads } from "./chat-threads-context";
-import type { ChatThreadController } from "./chat-thread-controller";
-import { branchSteps } from "./chat-library";
+import { useChatThreads } from "@/features/chat/runtime/chat-threads-context";
+import type { ChatThreadController } from "@/features/chat/runtime/chat-thread-controller";
+import { branchSteps } from "@/features/library/library";
 
 export function ChatPage() {
   const ui = useAppTranslation();

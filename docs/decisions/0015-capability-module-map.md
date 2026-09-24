@@ -141,3 +141,13 @@ The `chat :: library` named interface is gone. The named interfaces that remain 
 - OpenAPI schema names that came from repository records change, and the web client is regenerated with them. There are no external API consumers yet.
 - Package moves touch many files. The JPA package lists in both composition roots (`@EntityScan`, `@EnableJpaRepositories`) name persistence packages by string and must follow each move; they are bootstrap configuration, not a use of those packages.
 - The deployables' boundary depends on review, not a test. If review misses it in practice, extending `CoreDependencyRulesTest` to the `api` and `worker` classpaths is the fallback.
+
+## Step 5 (web)
+
+The web feature folders follow the module map; the move changed imports only, not behaviour, and every file moved with `git mv`.
+
+- `features/library` is new and holds what the backend `library` module owns: the library page and its parts, the picker, the file preview and its image crop, the storage page and meter, and the user-file upload and picker (`chat-files.ts` became `files.ts`). Files that moved out of `chat` lost their `chat-` prefix; exported names are unchanged.
+- `features/chat` keeps the page, `chat-api`, `chat-workspace-api`, the shared dialog and action helpers and the model picker at its root, and groups the rest as `runtime/`, `thread/`, `composer/`, `session/`, `projects/`, `sources/` (citations), `activity/`, `research/`, `mcp/`, `image/`, `web-search/`, `interpreter/`, `settings/`, and `history/`, the former `features/chat-history`, because the backend `chat` module owns history.
+- `features/sources` (the `connector` UI) keeps the list, catalog and detail pages at its root and splits into `google-drive/`, `sharepoint/`, `upload/`, `history/` and `shared/`.
+- `features/models` is the admin UI of `ai` and keeps its name; `voice`, `meetings` and the smaller features stay flat.
+- `library` still imports from `chat`, against the backend direction: the ask-about-this-file composer uses Chat's model picker and composer row, the library settings and storage page reuse Chat's retention section, the library page adds files to a project, and several files use Chat's dialog and action helpers, `chat-api`, and the file size and artifact URL helpers of `interpreter/chat-code` and `image/chat-image`. The web has no module check, and splitting those files was outside a pure move.
