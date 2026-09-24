@@ -82,11 +82,13 @@ public class OpenSearchIndexService implements SearchIndex {
      */
     @EventListener(ApplicationReadyEvent.class)
     public void verifyOnStartup() {
-        var active = generations.present();
+        String identity = null;
         try {
-            if (gateway.exists("/" + active.identity())) ensureIndex(active);
+            var active = generations.present();
+            identity = active.identity();
+            if (gateway.exists("/" + identity)) ensureIndex(active);
         } catch (SearchUnavailableException unavailable) {
-            LOGGER.atWarn().addKeyValue("event", "search.index.unverified").addKeyValue("identity", active.identity())
+            LOGGER.atWarn().addKeyValue("event", "search.index.unverified").addKeyValue("identity", identity)
                     .log("Could not verify the search index against its generation at startup");
         }
     }
