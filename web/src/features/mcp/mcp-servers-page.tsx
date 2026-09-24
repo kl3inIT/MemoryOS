@@ -45,19 +45,24 @@ export function McpServersPage() {
 
   const list = useQuery({
     queryKey: servers.queryKey,
-    queryFn: async () => (await listMcpServers()).data ?? [],
+    queryFn: async () => (await listMcpServers({ throwOnError: true })).data,
   });
   const invalidate = () => client.invalidateQueries({ queryKey: servers.queryKey });
 
   const save = useMutation({
     mutationFn: async ({ input, revision }: { input: McpServerInput; revision?: number }) =>
       revision === undefined
-        ? await createMcpServer({ body: input, headers: sameOriginMutationHeaders })
+        ? await createMcpServer({
+            body: input,
+            headers: sameOriginMutationHeaders,
+            throwOnError: true,
+          })
         : await updateMcpServer({
             path: { serverId: (editing as McpServerView).id },
             query: { revision },
             body: input,
             headers: sameOriginMutationHeaders,
+            throwOnError: true,
           }),
     onSuccess: async () => {
       setEditing(null);
@@ -73,12 +78,12 @@ export function McpServersPage() {
         path: { serverId: server.id },
         query: { revision: server.revision },
         headers: sameOriginMutationHeaders,
+        throwOnError: true,
       }),
     onSuccess: async () => {
       setRemoving(null);
       await invalidate();
     },
-    onError: (failure) => setError(message(failure)),
   });
 
   const refresh = useMutation({
@@ -86,6 +91,7 @@ export function McpServersPage() {
       await refreshMcpServerTools({
         path: { serverId: server.id },
         headers: sameOriginMutationHeaders,
+        throwOnError: true,
       }),
     onSuccess: async (_, server) => {
       setError(undefined);
@@ -117,6 +123,11 @@ export function McpServersPage() {
       {error ? (
         <p role="alert" className="font-secondary-body text-status-danger-content">
           {error}
+        </p>
+      ) : null}
+      {list.isError ? (
+        <p role="alert" className="font-secondary-body text-status-danger-content">
+          {problem(presentProblem(list.error, "initialLoad").message)}
         </p>
       ) : null}
 
@@ -257,6 +268,7 @@ export function McpServersPage() {
           onConfirm={async () => {
             await remove.mutateAsync(removing);
           }}
+          errorMessage={(failure) => presentProblem(failure, "mutation").message}
           onOpenChange={(open) => {
             if (!open) setRemoving(null);
           }}
@@ -284,10 +296,15 @@ function ConnectionOutcome({ outcome }: { outcome: string }) {
 
 function McpToolList({ serverId }: { serverId: string }) {
   const ui = useAppTranslation();
+  const problem = useProblemMessage();
   const client = useQueryClient();
+  const [error, setError] = useState<string>();
+  const failed = (failure: unknown) =>
+    setError(problem(presentProblem(failure, "mutation").message));
   const tools = useQuery({
     queryKey: ["mcp", "tools", serverId],
-    queryFn: async () => (await listMcpServerTools({ path: { serverId } })).data ?? [],
+    queryFn: async () =>
+      (await listMcpServerTools({ path: { serverId }, throwOnError: true })).data,
   });
   const invalidate = () =>
     Promise.all([
@@ -310,8 +327,13 @@ function McpToolList({ serverId }: { serverId: string }) {
         query: { revision },
         body: { enabled },
         headers: sameOriginMutationHeaders,
+        throwOnError: true,
       }),
-    onSuccess: invalidate,
+    onSuccess: async () => {
+      setError(undefined);
+      await invalidate();
+    },
+    onError: failed,
   });
   const toggleAll = useMutation({
     mutationFn: async (enabled: boolean) =>
@@ -319,10 +341,22 @@ function McpToolList({ serverId }: { serverId: string }) {
         path: { serverId },
         body: { enabled },
         headers: sameOriginMutationHeaders,
+        throwOnError: true,
       }),
-    onSuccess: invalidate,
+    onSuccess: async () => {
+      setError(undefined);
+      await invalidate();
+    },
+    onError: failed,
   });
 
+  if (tools.isError) {
+    return (
+      <p role="alert" className="mt-4 font-secondary-body text-status-danger-content">
+        {problem(presentProblem(tools.error, "initialLoad").message)}
+      </p>
+    );
+  }
   if (tools.data && tools.data.length === 0) {
     return (
       <p className="mt-4 font-secondary-body text-content-muted">
@@ -343,6 +377,11 @@ function McpToolList({ serverId }: { serverId: string }) {
           </Button>
         </div>
       </div>
+      {error ? (
+        <p role="alert" className="font-secondary-body text-status-danger-content">
+          {error}
+        </p>
+      ) : null}
       <ul className="flex flex-col gap-2">
         {(tools.data ?? []).map((tool) => (
           <li key={tool.id} className="flex items-start justify-between gap-3">
