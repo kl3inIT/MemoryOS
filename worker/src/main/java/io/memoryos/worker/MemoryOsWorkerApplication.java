@@ -11,6 +11,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         "io.memoryos.ingestion",
         "io.memoryos.retrieval.embedding",
         "io.memoryos.retrieval.opensearch",
+        // MEM-135: the PRESENT search generation, its embedding provider and their persistence.
+        "io.memoryos.retrieval.settings",
         "io.memoryos.usage",
         "io.memoryos.iam.audit",
         "io.memoryos.iam.group.persistence",

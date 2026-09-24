@@ -1,7 +1,5 @@
 package io.memoryos.retrieval.opensearch;
 
-import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
-import io.micrometer.observation.ObservationRegistry;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,14 +18,9 @@ import org.opensearch.client.json.jackson.JacksonJsonpMapper;
 import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.transport.OpenSearchTransport;
 import org.opensearch.client.transport.httpclient5.ApacheHttpClient5TransportBuilder;
-import org.springframework.ai.document.MetadataMode;
-import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.openai.OpenAiEmbeddingModel;
-import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(SearchProperties.class)
@@ -61,28 +54,4 @@ public class SearchInfrastructureConfiguration {
     }
 
     @Bean OpenSearchClient searchClient(OpenSearchTransport transport) { return new OpenSearchClient(transport); }
-
-    /**
-     * Each attempt gets a short timeout and the SDK retries a hung or failed call (I/O errors, 408, 429, 5xx), so a
-     * connection that stalls costs one attempt instead of the whole search deadline.
-     */
-    @Bean @Lazy
-    EmbeddingModel searchEmbeddingModel(SearchProperties properties, ObservationRegistry observations) {
-        if (properties.apiKey().isBlank()) throw new IllegalStateException("embedding API key is not configured");
-        return OpenAiEmbeddingModel.builder().metadataMode(MetadataMode.NONE).observationRegistry(observations)
-                .options(OpenAiEmbeddingOptions.builder().apiKey(properties.apiKey()).baseUrl(properties.embeddingEndpoint())
-                        .model(properties.model()).dimensions(properties.dimensions())
-                        .maxRetries(properties.embeddingRetries()).timeout(properties.embeddingTimeout())
-                        .encodingFormat(OpenAiEmbeddingOptions.EncodingFormat.FLOAT).build()).build();
-    }
-
-    @Bean
-    ValidatedEmbeddingService validatedEmbeddingService(@Lazy EmbeddingModel model, SearchProperties properties,
-            org.springframework.beans.factory.ObjectProvider<io.memoryos.usage.AiUsageRecorder> usage,
-            @org.springframework.beans.factory.annotation.Value("${memoryos.search.embedding-input-price-per-million:}") String price) {
-        // Embedding pricing is deployment configuration, as the model is; without it the calls count as unknown cost.
-        return new ValidatedEmbeddingService(model, properties.model(), properties.dimensions(),
-                properties.embeddingBatchSize(), properties.embeddingConcurrency(), usage.getIfAvailable(),
-                java.net.URI.create(properties.embeddingEndpoint()).getHost(), price.isBlank() ? null : Double.valueOf(price));
-    }
 }

@@ -10,7 +10,10 @@ import io.memoryos.connector.SourceType;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.retrieval.SearchTimings;
+import io.memoryos.retrieval.embedding.OpenAiCompatibleEmbeddings;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
+import io.memoryos.retrieval.settings.SearchGeneration;
+import io.memoryos.retrieval.settings.SearchGenerations;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import java.net.URI;
@@ -47,7 +50,7 @@ public final class LiveSearchCorpus implements AutoCloseable {
             var config = new SearchInfrastructureConfiguration();
             var properties = new SearchProperties(URI.create("http://" + container.getHost() + ":" + container.getMappedPort(9200)),
                     "", "", "", "https://api.openai.com/v1", key, "text-embedding-3-large", 3072, 32, 2, Duration.ofSeconds(10), 2, 500, .5,
-                    .70, Duration.ofSeconds(30), "memoryos-acceptance", 0);
+                    .70, Duration.ofSeconds(30), "memoryos-acceptance", 0, "", "");
             opened = config.searchTransport(properties);
             transport = opened;
             var mapper = new ObjectMapper();
@@ -69,8 +72,14 @@ public final class LiveSearchCorpus implements AutoCloseable {
             when(chunks.currentGenerations(any(), any(), any())).thenReturn(generations);
             when(chunks.isCurrent(any(), any(), any(), any())).thenReturn(true);
             var gateway = new OpenSearchGateway(config.searchClient(transport), mapper);
-            index = new OpenSearchIndexService(gateway, new ValidatedEmbeddingService(
-                    config.searchEmbeddingModel(properties, ObservationRegistry.NOOP), properties.model(), 3072, 32, 2),
+            var embeddings = new ValidatedEmbeddingService(OpenAiCompatibleEmbeddings.model(properties.embeddingEndpoint(),
+                    properties.apiKey(), properties.model(), properties.dimensions(), properties.embeddingRetries(),
+                    properties.embeddingTimeout(), ObservationRegistry.NOOP), properties.model(), 3072, 32, 2);
+            var now = Instant.now();
+            var generation = new SearchGeneration(UUID.randomUUID(), tenant.value(), UUID.randomUUID(), properties.model(),
+                    properties.dimensions(), "", "", properties.minimumSemanticScore(), io.memoryos.document.DocumentChunk.CONVENTION,
+                    SearchGenerations.legacyIdentity(properties), SearchGeneration.Status.PRESENT, false, now, now, null);
+            index = new OpenSearchIndexService(gateway, SearchGenerations.fixed(generation, embeddings, properties),
                     properties, mapper, chunks, sources, new SearchTimings(meters, ObservationRegistry.NOOP));
             index.ensureIndex();
             var bulk = new StringBuilder();

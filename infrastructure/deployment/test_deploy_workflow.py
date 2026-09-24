@@ -219,6 +219,55 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertLess(checked, serving.index("compose up"))
         self.assertLess(applied, serving.index("compose up"), "the rule is current before containers publish")
 
+    def test_the_embedding_service_is_pinned_private_filtered_and_keyed_from_a_file(self):
+        # MEM-135: TEI serves Qwen3-Embedding-0.6B to the api and worker from the serving node.
+        deployment = ROOT / "infrastructure/deployment"
+        compose = (deployment / "compose.serving.yaml").read_text(encoding="utf-8")
+        environment = (deployment / "serving.env.example").read_text(encoding="utf-8")
+        serving = (deployment / "deploy-serving.sh").read_text(encoding="utf-8")
+        services = compose.split("\nservices:\n", 1)[1].split("\nvolumes:\n", 1)[0]
+
+        def block(name):
+            return re.search(r"\n  %s:\n(.*?)(?=\n  [a-z-]+:\n|\Z)" % re.escape(name), "\n" + services, re.S).group(1)
+
+        tei, download = block("tei"), block("tei-model-download")
+        # Every image on the node is pinned by digest, the embedding server and its downloader included.
+        for image in re.findall(r"image: \$\{[A-Z_]+:-([^}]+)\}", compose):
+            self.assertRegex(image, r"@sha256:[0-9a-f]{64}$", image)
+        self.assertIn("text-embeddings-inference:89-1.9.4@sha256:"
+                      "1a284d9ca1adcc20b78c261d4d052c06057f0a3cb49a15c5d2c00930f710fce2", tei)
+        # The model is one pinned revision downloaded once; TEI itself never reaches Hugging Face.
+        self.assertIn("MODEL_REVISION: 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3", download)
+        self.assertIn('restart: "no"', download)
+        self.assertRegex(tei, r"tei-model-download:\n\s+condition: service_completed_successfully")
+        self.assertIn('HF_HUB_OFFLINE: "1"', tei)
+        self.assertIn("tei-models:/models:ro", tei)
+        # The served name is what /v1/embeddings reports, which the embedding client checks against its generation.
+        for flag in ("--max-client-batch-size 32", "--auto-truncate", "--port 8080", "--served-model-name Qwen/Qwen3-Embedding-0.6B"):
+            self.assertIn(flag, tei)
+        self.assertIn("memory: ${MEMORYOS_TEI_MEMORY_LIMIT:-3g}", tei)
+        # Published on the private address only, on a port the firewall filters.
+        published = re.findall(r"- (\$\{[^}]+\}):\$\{MEMORYOS_TEI_PORT:-(\d+)\}:8080", tei)
+        self.assertEqual([("${MEMORYOS_SERVING_PRIVATE_ADDRESS:?the serving node private address}", "18090")], published)
+        ports = re.search(r"(?m)^MEMORYOS_SERVING_PORTS=(.*)$", environment).group(1).split()
+        for port in re.findall(r"_PORT:-(\d+)\}:", compose):
+            self.assertIn(port, ports, "every published port is one the firewall filters")
+        self.assertIn("MEMORYOS_TEI_PORT=18090", environment)
+        # The key is a file on the node that reaches TEI as a variable, never as an argument ps shows.
+        self.assertIn("/apps/memoryos-serving/secrets/tei/api-key.txt", compose)
+        self.assertIn('API_KEY="$$(cat /run/secrets/tei_api_key)"', tei)
+        self.assertNotIn("--api-key", compose)
+        # The health check fails when the server stops refusing a request without the key.
+        self.assertIn('/v1/embeddings)" = 401', tei)
+        # A missing key file stops the rollout before anything starts, and only its path is printed.
+        checked = serving.index("Missing Compose secret file: $file")
+        self.assertLess(checked, serving.index("compose up"))
+        self.assertLess(checked, serving.index('/usr/local/sbin/memoryos-serving-firewall "$allowed"'))
+        # The exited one-shot download counts only when it succeeded; every other service must be healthy.
+        self.assertIn('.Service == "tei-model-download" and .State == "exited" and .ExitCode == 0', serving)
+        self.assertNotRegex(serving, r"cat [^\n]*secret")
+        self.assertNotIn("set -x", serving)
+
     def test_one_release_from_two_transactions_is_not_a_mixed_runtime(self):
         # Staging, 2026-09-23: redeploying the running release recreated only the api; worker, web and
         # interpreter kept the earlier transaction's labels and every later deployment stopped here.

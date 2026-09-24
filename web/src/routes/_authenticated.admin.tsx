@@ -53,6 +53,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const groupsSelected = Boolean(matchRoute({ to: "/admin/groups", fuzzy: true }));
     const providersSelected = Boolean(matchRoute({ to: "/admin/identity-providers" }));
     const modelsSelected = Boolean(matchRoute({ to: "/admin/models" }));
+    const searchSettingsSelected = Boolean(matchRoute({ to: "/admin/search-settings" }));
     const webSearchSelected = Boolean(matchRoute({ to: "/admin/web-search" }));
     const voiceSelected = Boolean(matchRoute({ to: "/admin/voice" }));
     const imageGenerationSelected = Boolean(matchRoute({ to: "/admin/image-generation" }));
@@ -72,29 +73,31 @@ export const Route = createFileRoute("/_authenticated/admin")({
           ? "providers"
           : modelsSelected
             ? "models"
-            : webSearchSelected
-              ? "web"
-              : voiceSelected
-                ? "voice"
-                : imageGenerationSelected
-                  ? "images"
-                  : interpreterSelected
-                    ? "interpreter"
-                    : mcpSelected
-                      ? "mcp"
-                      : agentsSelected
-                        ? "agents"
-                        : costsSelected
-                          ? "costs"
-                          : auditSelected
-                            ? "audit"
-                            : chatHistorySelected
-                              ? "chatHistory"
-                              : documentSetsSelected
-                                ? "documentSets"
-                                : addSourceSelected
-                                  ? "addSource"
-                                  : "sources";
+            : searchSettingsSelected
+              ? "searchSettings"
+              : webSearchSelected
+                ? "web"
+                : voiceSelected
+                  ? "voice"
+                  : imageGenerationSelected
+                    ? "images"
+                    : interpreterSelected
+                      ? "interpreter"
+                      : mcpSelected
+                        ? "mcp"
+                        : agentsSelected
+                          ? "agents"
+                          : costsSelected
+                            ? "costs"
+                            : auditSelected
+                              ? "audit"
+                              : chatHistorySelected
+                                ? "chatHistory"
+                                : documentSetsSelected
+                                  ? "documentSets"
+                                  : addSourceSelected
+                                    ? "addSource"
+                                    : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
@@ -103,6 +106,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
           : page === "providers"
             ? canManageProviders
             : page === "models" ||
+                page === "searchSettings" ||
                 page === "web" ||
                 page === "voice" ||
                 page === "images" ||
@@ -136,29 +140,31 @@ export const Route = createFileRoute("/_authenticated/admin")({
                 ? "Sign-in providers"
                 : page === "models"
                   ? "Models"
-                  : page === "web"
-                    ? "Tìm kiếm Web"
-                    : page === "voice"
-                      ? "Giọng nói"
-                      : page === "images"
-                        ? "Tạo ảnh"
-                        : page === "interpreter"
-                          ? "Code Interpreter"
-                          : page === "mcp"
-                            ? "Máy chủ MCP"
-                            : page === "agents"
-                              ? "Quản lý trợ lý"
-                              : page === "costs"
-                                ? "AI costs"
-                                : page === "audit"
-                                  ? "Audit log"
-                                  : page === "chatHistory"
-                                    ? "Conversation history"
-                                    : page === "documentSets"
-                                      ? "Bộ tài liệu"
-                                      : page === "addSource"
-                                        ? "Add a source"
-                                        : "Sources",
+                  : page === "searchSettings"
+                    ? "Cấu hình tìm kiếm"
+                    : page === "web"
+                      ? "Tìm kiếm Web"
+                      : page === "voice"
+                        ? "Giọng nói"
+                        : page === "images"
+                          ? "Tạo ảnh"
+                          : page === "interpreter"
+                            ? "Code Interpreter"
+                            : page === "mcp"
+                              ? "Máy chủ MCP"
+                              : page === "agents"
+                                ? "Quản lý trợ lý"
+                                : page === "costs"
+                                  ? "AI costs"
+                                  : page === "audit"
+                                    ? "Audit log"
+                                    : page === "chatHistory"
+                                      ? "Conversation history"
+                                      : page === "documentSets"
+                                        ? "Bộ tài liệu"
+                                        : page === "addSource"
+                                          ? "Add a source"
+                                          : "Sources",
         )}
         sourceSetup={sourceSetup}
       >

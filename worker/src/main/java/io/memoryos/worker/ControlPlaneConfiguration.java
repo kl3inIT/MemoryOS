@@ -235,6 +235,28 @@ class ControlPlaneConfiguration {
                 .execute((_, _) -> maintenance.reconcile());
     }
 
+    /**
+     * MEM-135: feeds the FUTURE index being rebuilt a bounded window at a time from stored chunks, and switches an
+     * automatic rebuild (a new chunk convention) once it holds every document. All state is in PostgreSQL, so a
+     * restarted worker resumes.
+     */
+    @Bean
+    RecurringTask<Void> searchRebuildTask(SearchProjectionMaintenance maintenance,
+            io.memoryos.retrieval.settings.SearchSettingsService settings) {
+        return Tasks.recurring("memoryos-search-rebuild-v1", FixedDelay.of(Duration.ofSeconds(5)))
+                .execute((_, _) -> {
+                    maintenance.rebuild();
+                    settings.switchAutomaticWhenComplete();
+                });
+    }
+
+    /** MEM-135: deletes the index of a PAST search generation once its retention ended, with a recount. */
+    @Bean
+    RecurringTask<Void> searchGenerationCleanupTask(io.memoryos.retrieval.settings.SearchSettingsService settings) {
+        return Tasks.recurring("memoryos-search-generation-cleanup-v1", FixedDelay.of(Duration.ofHours(1)))
+                .execute((_, _) -> settings.cleanupExpired());
+    }
+
     @Bean
     AbandonedObjectUploadCleanupTask abandonedObjectUploadCleanupTask(ObjectUploadCleanupPort cleanup) {
         return new AbandonedObjectUploadCleanupTask(cleanup);

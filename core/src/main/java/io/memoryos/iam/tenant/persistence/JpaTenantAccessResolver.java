@@ -44,6 +44,12 @@ public class JpaTenantAccessResolver implements TenantAccessResolver {
 
     @Override
     @Transactional(readOnly = true)
+    public Optional<TenantId> operatingTenant() {
+        return tenants.findBootstrapTenant();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<TenantMembership> findActiveMembership(ActorId actorId) {
         List<TenantMembershipEntity> memberships = tenants.findActiveMemberships(
                 Objects.requireNonNull(actorId, "actorId must not be null")
