@@ -31,7 +31,7 @@ import {
   updatePublicChatPromptShortcut,
 } from "@/lib/hey-api/sdk.gen";
 import { cn } from "@/lib/utils";
-import { chatActionError, chatField } from "@/features/chat/chat-action-utils";
+import { actionErrorText, formField } from "@/lib/action-errors";
 
 const shortcutSchema = z.object({
   id: z.string().uuid(),
@@ -224,7 +224,7 @@ export function PersonalPromptShortcuts() {
                   });
                   await cache.invalidateQueries({ queryKey: shortcutsKey });
                 } catch (cause) {
-                  notify({ title: chatActionError(cause), tone: "error" });
+                  notify({ title: actionErrorText(cause), tone: "error" });
                 }
               }}
             />
@@ -376,7 +376,7 @@ function ContentInput({
     <textarea
       aria-label={ui("Nội dung lệnh tắt")}
       aria-invalid={invalid || undefined}
-      className={cn(chatField, "resize-y", readOnly && "bg-surface-sunken text-content-secondary")}
+      className={cn(formField, "resize-y", readOnly && "bg-surface-sunken text-content-secondary")}
       rows={3}
       maxLength={8000}
       readOnly={readOnly}
@@ -446,7 +446,7 @@ function ShortcutFields({
       }
       await cache.invalidateQueries({ queryKey: shortcutsKey });
     } catch (cause) {
-      setError(chatActionError(cause));
+      setError(actionErrorText(cause));
     } finally {
       saving.current = false;
     }
@@ -474,7 +474,7 @@ function ShortcutFields({
       notify({ title: ui("Đã xóa lệnh tắt"), tone: "success" });
       await cache.invalidateQueries({ queryKey: shortcutsKey });
     } catch (cause) {
-      setError(chatActionError(cause));
+      setError(actionErrorText(cause));
       setRemoving(false);
     }
   }
@@ -550,7 +550,7 @@ function SharedShortcut({ shortcut }: { shortcut: Shortcut }) {
             });
             await cache.invalidateQueries({ queryKey: shortcutsKey });
           } catch (cause) {
-            notify({ title: chatActionError(cause), tone: "error" });
+            notify({ title: actionErrorText(cause), tone: "error" });
             setPending(false);
           }
         }}

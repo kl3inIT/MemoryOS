@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { i18n } from "@/i18n/index";
 import { ChatGeneratedFiles } from "./chat-generated-files";
 import { ChatPanelContext } from "@/features/chat/thread/chat-panel-context";
-import { fileSize, parseGeneratedFiles } from "./chat-code";
+import { parseGeneratedFiles } from "./chat-code";
 
 const file = {
   id: "6f1d2c3a-9b4e-4f77-8a21-5c0e7b8d9a10",
@@ -97,13 +97,6 @@ describe("files run_python generated", () => {
     expect(parseGeneratedFiles([file])).toEqual([file]);
     expect(parseGeneratedFiles([{ ...file, id: "not-a-uuid" }])).toEqual([]);
     expect(parseGeneratedFiles(undefined)).toEqual([]);
-  });
-
-  it("states the size in the reader's locale", () => {
-    expect(fileSize(900, "en")).toBe("900 B");
-    expect(fileSize(12_698, "en")).toBe("12.4 KB");
-    expect(fileSize(12_698, "vi")).toBe("12,4 KB");
-    expect(fileSize(5 * 1024 * 1024, "en")).toBe("5 MB");
   });
 });
 

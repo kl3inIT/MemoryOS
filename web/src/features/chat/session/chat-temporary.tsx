@@ -3,7 +3,7 @@ import { Clock, EyeOff, FolderX, MessageSquareOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
-import { ChatDialog } from "@/features/chat/chat-dialog";
+import { FormDialog } from "@/components/composites/form-dialog";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 
 /**
@@ -38,7 +38,7 @@ export function ChatTemporaryToggle({
         <EyeOff />
       </IconButton>
       {explaining && (
-        <ChatDialog
+        <FormDialog
           open
           onOpenChange={(open) => !open && setExplaining(false)}
           title={ui("Chat tạm thời")}
@@ -66,7 +66,7 @@ export function ChatTemporaryToggle({
               description={ui("Không tạo được liên kết chia sẻ và không thêm được vào dự án.")}
             />
           </ul>
-        </ChatDialog>
+        </FormDialog>
       )}
     </>
   );

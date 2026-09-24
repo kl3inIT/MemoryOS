@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { shareChatPersona } from "@/lib/hey-api/sdk.gen";
 import { can } from "@/lib/resource-permissions";
-import { ChatDialog } from "@/features/chat/chat-dialog";
+import { FormDialog } from "@/components/composites/form-dialog";
 import {
   personLabel,
   type AgentPermission,
@@ -93,7 +93,7 @@ export function AgentShareDialog({ agent, onClose }: { agent: Persona; onClose: 
   if (transferring) return <AgentTransferDialog agent={agent} onClose={onClose} />;
 
   return (
-    <ChatDialog
+    <FormDialog
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -272,7 +272,7 @@ export function AgentShareDialog({ agent, onClose }: { agent: Persona; onClose: 
           </Button>
         </div>
       </div>
-    </ChatDialog>
+    </FormDialog>
   );
 }
 

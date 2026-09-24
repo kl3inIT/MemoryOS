@@ -24,8 +24,8 @@ import {
   restoreChatPersona,
   setChatPersonaListing,
 } from "@/lib/hey-api/sdk.gen";
-import { ChatDialog } from "@/features/chat/chat-dialog";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { FormDialog } from "@/components/composites/form-dialog";
+import { actionErrorText } from "@/lib/action-errors";
 import {
   agentLabelSchema,
   agentVisibility,
@@ -82,7 +82,7 @@ export function AdminAgentsPage() {
       });
       await refresh();
     } catch (cause) {
-      setError(chatActionError(cause));
+      setError(actionErrorText(cause));
     }
   }
 
@@ -108,7 +108,7 @@ export function AdminAgentsPage() {
         });
       await refresh();
     } catch (cause) {
-      setError(chatActionError(cause));
+      setError(actionErrorText(cause));
     }
   }
 
@@ -130,7 +130,7 @@ export function AdminAgentsPage() {
       });
     } catch (cause) {
       cache.setQueryData(key, previous);
-      setError(chatActionError(cause));
+      setError(actionErrorText(cause));
     }
     await refresh();
   }
@@ -269,7 +269,7 @@ function AgentLabels() {
         ))}
       </ul>
       {renaming && (
-        <ChatDialog
+        <FormDialog
           open
           onOpenChange={(open) => !open && setRenaming(undefined)}
           title={ui("Đổi tên nhãn")}
@@ -288,7 +288,7 @@ function AgentLabels() {
             <span>{ui("Tên nhãn")}</span>
             <Input maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />
           </label>
-        </ChatDialog>
+        </FormDialog>
       )}
       <ConfirmDialog
         open={removing !== undefined}
@@ -298,7 +298,7 @@ function AgentLabels() {
         confirmLabel={ui("Xóa nhãn")}
         pendingLabel={ui("Đang lưu…")}
         confirmTone="danger"
-        errorMessage={chatActionError}
+        errorMessage={actionErrorText}
         onConfirm={async () => {
           if (!removing) return;
           await deleteChatPersonaLabel({

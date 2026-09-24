@@ -36,7 +36,7 @@ import {
   type Persona,
   type Project,
 } from "@/features/chat/chat-workspace-api";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { actionErrorText } from "@/lib/action-errors";
 import {
   useChatThreads,
   useOptionalChatThreads,
@@ -190,7 +190,7 @@ function PinnedAgents({ onNavigate }: { onNavigate?: () => void }) {
     try {
       await updatePins(change);
     } catch (cause) {
-      setError(chatActionError(cause));
+      setError(actionErrorText(cause));
       await cache.invalidateQueries({ queryKey: ["chat-persona-pins"] });
     }
   }
@@ -204,7 +204,7 @@ function PinnedAgents({ onNavigate }: { onNavigate?: () => void }) {
       await navigate({ to: "/chat/$sessionId", params: { sessionId: session.id } });
       onNavigate?.();
     } catch (cause) {
-      setError(chatActionError(cause));
+      setError(actionErrorText(cause));
     } finally {
       setPending(undefined);
     }
@@ -410,7 +410,7 @@ function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?:
               cache.invalidateQueries({ queryKey: ["chat-session", sessionId] }),
             ]);
           })
-          .catch((cause: unknown) => setError(chatActionError(cause)))
+          .catch((cause: unknown) => setError(actionErrorText(cause)))
           .finally(() => {
             busy.current = false;
             setPending(false);

@@ -11,7 +11,7 @@ import { connectionStatus, needsUserAction, usableInTurn } from "@/features/mcp/
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { saveMcpConnectionApiKey, startMcpConnectionAuthorization } from "@/lib/hey-api/sdk.gen";
 import type { McpConnection } from "@/lib/hey-api/types.gen";
-import { composerMenuRow } from "@/features/chat/composer/chat-composer-menu-row";
+import { menuRow } from "@/components/composites/menu-row";
 import { mcpConnectionsKey, useMcpConnections } from "./chat-mcp-connections";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
@@ -29,7 +29,7 @@ export function ChatMcpToggle({
   const ui = useAppTranslation();
   if (available === 0) return null;
   return (
-    <button type="button" className={composerMenuRow} onClick={onOpen}>
+    <button type="button" className={menuRow} onClick={onOpen}>
       <Blocks aria-hidden="true" />
       <span className="flex-1">{ui("Công cụ MCP")}</span>
       {selected.length > 0 ? (

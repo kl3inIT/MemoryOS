@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { DocumentKindIcon } from "@/features/search/document-source-icon";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
-import { fileSize } from "@/features/chat/interpreter/chat-code";
+import { fileSize } from "@/lib/file-size";
 import { highlightParts, type ContentMatch } from "./library";
 
 /**

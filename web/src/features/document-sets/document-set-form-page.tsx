@@ -12,7 +12,7 @@ import { HelpPopover } from "@/components/ui/help-popover";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { useActionNotifications } from "@/components/ui/action-notifications";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { actionErrorText } from "@/lib/action-errors";
 import {
   documentSetSchema,
   documentSetsKey,
@@ -93,7 +93,7 @@ export function DocumentSetFormPage({ documentSetId }: { documentSetId?: string 
         <p role="status">{ui("Đang tải bộ tài liệu…")}</p>
       ) : existing.isError ? (
         <p role="alert" className="text-status-danger-content">
-          {chatActionError(existing.error)}
+          {actionErrorText(existing.error)}
         </p>
       ) : existing.data.permissions.edit ? (
         <DocumentSetForm key={existing.data.revision} existing={existing.data} />
@@ -184,7 +184,7 @@ function DocumentSetForm({ existing }: { existing?: DocumentSet }) {
         await cache.invalidateQueries({ queryKey: documentSetsKey });
         notify({
           title: ui("Đã lưu bộ tài liệu nhưng chưa lưu được chia sẻ"),
-          description: chatActionError(cause),
+          description: actionErrorText(cause),
           tone: "error",
           surviveNavigation: true,
         });
@@ -196,7 +196,7 @@ function DocumentSetForm({ existing }: { existing?: DocumentSet }) {
           });
         return;
       }
-      setError(chatActionError(cause));
+      setError(actionErrorText(cause));
     } finally {
       setSaving(false);
     }

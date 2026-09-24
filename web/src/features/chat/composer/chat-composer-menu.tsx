@@ -17,7 +17,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ChatFilePickerContent } from "@/features/library/file-picker";
 import { ChatLibraryPicker } from "@/features/library/library-picker";
-import { composerMenuRow } from "./chat-composer-menu-row";
+import { menuRow } from "@/components/composites/menu-row";
 import { ChatWebModes, ChatWebToggle } from "@/features/chat/web-search/chat-web-options";
 import type { WebSearchMode } from "@/features/chat/web-search/chat-web-preference";
 import { ChatImageToggle } from "@/features/chat/image/chat-image-options";
@@ -109,17 +109,12 @@ export function ChatComposerMenu({
           {view === "root" && (
             <div className="flex flex-col">
               <ComposerPrimitive.AddAttachment asChild>
-                <button
-                  type="button"
-                  className={composerMenuRow}
-                  disabled={files.full}
-                  onClick={close}
-                >
+                <button type="button" className={menuRow} disabled={files.full} onClick={close}>
                   <Upload aria-hidden="true" />
                   {ui("Tải tệp lên")}
                 </button>
               </ComposerPrimitive.AddAttachment>
-              <button type="button" className={composerMenuRow} onClick={() => setView("files")}>
+              <button type="button" className={menuRow} onClick={() => setView("files")}>
                 <FileText aria-hidden="true" />
                 <span className="flex-1">{ui("Chọn tệp đã có")}</span>
                 <ChevronRight aria-hidden="true" />

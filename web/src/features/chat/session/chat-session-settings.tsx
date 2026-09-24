@@ -8,7 +8,7 @@ import { Select } from "@/components/ui/select";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { configureChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
-import { ChatDialog } from "@/features/chat/chat-dialog";
+import { FormDialog } from "@/components/composites/form-dialog";
 import { loadPersonas, loadProjects } from "@/features/chat/chat-workspace-api";
 import { ChatBranchOrigin } from "@/features/chat/thread/chat-branch-action";
 import { ChatSessionFiles } from "./chat-session-files";
@@ -69,7 +69,7 @@ export function ChatSessionSettings({
         }}
       />
       {settingsOpen && (
-        <ChatDialog
+        <FormDialog
           open
           onOpenChange={setSettingsOpen}
           title={ui("Cấu hình hội thoại")}
@@ -139,7 +139,7 @@ export function ChatSessionSettings({
               </Button>
             </p>
           )}
-        </ChatDialog>
+        </FormDialog>
       )}
     </div>
   );

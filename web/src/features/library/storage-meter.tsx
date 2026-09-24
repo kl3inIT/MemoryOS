@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
-import { fileSize } from "@/features/chat/interpreter/chat-code";
+import { fileSize } from "@/lib/file-size";
 import { type loadLibraryUsage, type LibraryCategory } from "./library";
 import { categoryLabels } from "./library-labels";
 import { CATEGORY_ICONS } from "./library-icons";

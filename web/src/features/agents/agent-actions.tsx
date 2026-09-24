@@ -7,7 +7,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { deleteChatPersona, leaveChatPersona } from "@/lib/hey-api/sdk.gen";
 import { can } from "@/lib/resource-permissions";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { actionErrorText } from "@/lib/action-errors";
 import type { Persona } from "@/features/chat/chat-workspace-api";
 import { AgentTransferDialog } from "./agent-transfer-dialog";
 
@@ -85,7 +85,7 @@ export function AgentActions({ agent }: { agent: Persona }) {
         confirmLabel={ui("Xóa trợ lý")}
         pendingLabel={ui("Đang lưu…")}
         confirmTone="danger"
-        errorMessage={chatActionError}
+        errorMessage={actionErrorText}
         onConfirm={async () => {
           await deleteChatPersona({
             path: { personaId: agent.id },
@@ -105,7 +105,7 @@ export function AgentActions({ agent }: { agent: Persona }) {
         )}
         confirmLabel={ui("Rời khỏi")}
         pendingLabel={ui("Đang lưu…")}
-        errorMessage={chatActionError}
+        errorMessage={actionErrorText}
         onConfirm={async () => {
           await leaveChatPersona({
             path: { personaId: agent.id },

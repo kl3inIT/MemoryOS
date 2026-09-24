@@ -1,7 +1,7 @@
 import { Check, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { composerMenuRow } from "@/features/chat/composer/chat-composer-menu-row";
+import { menuRow } from "@/components/composites/menu-row";
 import type { ImageMode } from "./chat-image";
 
 /** The image-generation row of the composer menu: enables image generation for the next turn. */
@@ -30,7 +30,7 @@ export function ChatImageToggle({
         type="button"
         aria-pressed={value !== "off"}
         disabled={!available}
-        className={composerMenuRow}
+        className={menuRow}
         onClick={() => {
           onChange(value === "off" ? "auto" : "off");
           onDone();

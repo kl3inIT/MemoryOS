@@ -36,7 +36,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
 import { retryChatFile } from "@/lib/hey-api/sdk.gen";
-import { fileSize } from "@/features/chat/interpreter/chat-code";
+import { fileSize } from "@/lib/file-size";
 import { downloadUrl } from "./file-preview";
 import {
   groupByDate,

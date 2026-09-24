@@ -8,7 +8,7 @@ import { useDictationInput } from "@/features/voice/use-dictation-input";
 import { useVoiceAvailability } from "@/features/voice/use-voice-availability";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
-import { composerMenuRow } from "@/features/chat/composer/chat-composer-menu-row";
+import { menuRow } from "@/components/composites/menu-row";
 import { ChatLibraryPicker } from "./library-picker";
 import { ChatModelPicker } from "@/features/chat/chat-model-picker";
 import { readChatModelPreference, writeChatModelPreference } from "@/features/chat/chat-models";
@@ -142,7 +142,7 @@ export function ChatFileAskComposer({
               <div className="flex flex-col">
                 <button
                   type="button"
-                  className={composerMenuRow}
+                  className={menuRow}
                   disabled={room <= 0}
                   onClick={() => {
                     setMenu(false);
@@ -154,7 +154,7 @@ export function ChatFileAskComposer({
                 </button>
                 <button
                   type="button"
-                  className={composerMenuRow}
+                  className={menuRow}
                   disabled={room <= 0}
                   onClick={() => {
                     setMenu(false);

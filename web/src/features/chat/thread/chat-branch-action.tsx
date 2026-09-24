@@ -6,7 +6,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { branchChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { actionErrorText } from "@/lib/action-errors";
 import { chatSessionsKey } from "@/features/chat/chat-api";
 
 /**
@@ -53,7 +53,7 @@ export function ChatBranchAction({
               await cache.invalidateQueries({ queryKey: chatSessionsKey });
               await navigate({ to: "/chat/$sessionId", params: { sessionId: data.id } });
             })
-            .catch((cause: unknown) => setError(chatActionError(cause)))
+            .catch((cause: unknown) => setError(actionErrorText(cause)))
             .finally(() => setBusy(false));
         }}
       >

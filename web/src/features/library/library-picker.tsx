@@ -20,8 +20,8 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
-import { ChatDialog } from "@/features/chat/chat-dialog";
-import { fileSize } from "@/features/chat/interpreter/chat-code";
+import { FormDialog } from "@/components/composites/form-dialog";
+import { fileSize } from "@/lib/file-size";
 import { LibraryCategoryFilter } from "./library-toolbar";
 import {
   chatLibraryKey,
@@ -55,7 +55,7 @@ export function ChatLibraryPicker({
 }) {
   const ui = useAppTranslation();
   return (
-    <ChatDialog
+    <FormDialog
       wide
       fill
       open={open}
@@ -75,7 +75,7 @@ export function ChatLibraryPicker({
           }}
         />
       )}
-    </ChatDialog>
+    </FormDialog>
   );
 }
 

@@ -18,9 +18,9 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
 import { chatSessionsKey, newChatSession } from "@/features/chat/chat-api";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { actionErrorText } from "@/lib/action-errors";
 import { ChatAddToProjectDialog } from "@/features/chat/projects/chat-add-to-project";
-import { ChatDialog } from "@/features/chat/chat-dialog";
+import { FormDialog } from "@/components/composites/form-dialog";
 import { LibraryContentMatches } from "./library-content";
 import { LibraryDropZone, LibraryUploadButton, LibraryUploadTray } from "./library-uploads";
 import { LibraryRail, type LibraryView } from "./library-rail";
@@ -187,7 +187,7 @@ export function ChatLibraryPage() {
         } catch (failure) {
           const holders = refusedBy(failure);
           next.push(
-            `${file.filename}: ${holders.length > 0 ? ui("Đang dùng trong {{name}}", { name: holders.join(", ") }) : chatActionError(failure)}`,
+            `${file.filename}: ${holders.length > 0 ? ui("Đang dùng trong {{name}}", { name: holders.join(", ") }) : actionErrorText(failure)}`,
           );
         }
       }
@@ -223,7 +223,7 @@ export function ChatLibraryPage() {
         await run(file);
         succeeded += 1;
       } catch (failure) {
-        failures.push(`${file.filename}: ${chatActionError(failure)}`);
+        failures.push(`${file.filename}: ${actionErrorText(failure)}`);
       }
     }
     setRefusals(failures);
@@ -240,7 +240,7 @@ export function ChatLibraryPage() {
       const said = await run();
       notify({ title: typeof said === "string" ? said : done, tone: "success" });
     } catch (failure) {
-      setRefusals([chatActionError(failure)]);
+      setRefusals([actionErrorText(failure)]);
     } finally {
       await cache.invalidateQueries({ queryKey: chatLibraryKey });
     }
@@ -255,7 +255,7 @@ export function ChatLibraryPage() {
     try {
       await change(file, { favorite: !file.favorite });
     } catch (failure) {
-      notify({ title: chatActionError(failure), tone: "error" });
+      notify({ title: actionErrorText(failure), tone: "error" });
     }
   };
 
@@ -801,7 +801,7 @@ function RenameDialog({
   const ui = useAppTranslation();
   const [name, setName] = useState(file.filename);
   return (
-    <ChatDialog
+    <FormDialog
       open
       onOpenChange={onOpenChange}
       title={ui("Đổi tên tệp")}
@@ -819,6 +819,6 @@ function RenameDialog({
           autoFocus
         />
       </label>
-    </ChatDialog>
+    </FormDialog>
   );
 }

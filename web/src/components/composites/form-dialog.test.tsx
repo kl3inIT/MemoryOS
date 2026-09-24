@@ -5,7 +5,7 @@ import { expect, it, vi } from "vitest";
 import { useTranslation } from "react-i18next";
 import { FeedbackDialog } from "@/components/assistant-ui/elements/feedback-dialog";
 import { i18n } from "@/i18n";
-import { ChatDialog } from "./chat-dialog";
+import { FormDialog } from "./form-dialog";
 
 it("keeps feedback IDs and the draft when a failed submission is retranslated, without replaying it", async () => {
   const submit = vi.fn().mockRejectedValue({ status: 500, detail: "private diagnostic" });
@@ -14,7 +14,7 @@ it("keeps feedback IDs and the draft when a failed submission is retranslated, w
     const [reason, setReason] = useState("");
     const [note, setNote] = useState("");
     return (
-      <ChatDialog
+      <FormDialog
         open
         title={t("negativeTitle")}
         description={t("description")}
@@ -28,7 +28,7 @@ it("keeps feedback IDs and the draft when a failed submission is retranslated, w
           onNoteChange={setNote}
           onToggleReason={setReason}
         />
-      </ChatDialog>
+      </FormDialog>
     );
   }
   render(<Feedback />);
