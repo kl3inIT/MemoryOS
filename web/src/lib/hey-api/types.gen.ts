@@ -1848,6 +1848,93 @@ export type ChatSessionsArchived = {
     archived: number;
 };
 
+export type SearchSettingsResponse = {
+    present: SearchGenerationResponse;
+    future: SearchGenerationResponse | null;
+    past: Array<SearchGenerationResponse>;
+    rebuild: SearchRebuildProgressResponse | null;
+};
+
+export type SearchGenerationResponse = {
+    id: string;
+    status: 'PRESENT' | 'FUTURE' | 'PAST';
+    providerId: string;
+    providerName: string;
+    dataBoundary: 'INTERNAL' | 'EXTERNAL';
+    model: string;
+    dimensions: number;
+    queryPrefix: string;
+    documentPrefix: string;
+    minimumSemanticScore: number;
+    chunkConvention: string;
+    automatic: boolean;
+    documentCount: number;
+    createdAt: string;
+    activatedAt: string | null;
+    retainedUntil: string | null;
+};
+
+export type SearchRebuildProgressResponse = {
+    ready: number;
+    total: number;
+    failed: number;
+    pending: number;
+    estimatedSecondsRemaining: number | null;
+    switchable: boolean;
+};
+
+export type SearchGenerationRequest = {
+    providerId: string;
+    model: string;
+    dimensions: number;
+    queryPrefix: string;
+    documentPrefix: string;
+    minimumSemanticScore: number;
+};
+
+export type EmbeddingProviderResponse = {
+    id: string;
+    name: string;
+    endpoint: string;
+    dataBoundary: 'INTERNAL' | 'EXTERNAL';
+    hasApiKey: boolean;
+    revision: number;
+    inUse: boolean;
+};
+
+export type EmbeddingProviderRequest = {
+    name: string;
+    endpoint: string;
+    apiKey: string | null;
+    dataBoundary: 'INTERNAL' | 'EXTERNAL';
+    revision: number | null;
+};
+
+export type EmbeddingProviderTestRequest = {
+    providerId: string | null;
+    endpoint: string | null;
+    apiKey: string | null;
+    model: string;
+    dimensions: number | null;
+};
+
+export type EmbeddingProviderTestResponse = {
+    ok: boolean;
+    model: string | null;
+    dimensions: number | null;
+    latencyMs: number;
+    error: string | null;
+};
+
+export type EmbeddingModelPresetResponse = {
+    model: string;
+    label: string;
+    dimensions: number;
+    queryPrefix: string;
+    documentPrefix: string;
+    maxInputTokens: number;
+};
+
 export type ProviderTestInput = {
     adapterType: string;
     baseUrl: string;
@@ -13419,6 +13506,555 @@ export type GetSourceOperationResponses = {
 };
 
 export type GetSourceOperationResponse = GetSourceOperationResponses[keyof GetSourceOperationResponses];
+
+export type GetSearchSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/search/settings';
+};
+
+export type GetSearchSettingsErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting search settings state
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type GetSearchSettingsError = GetSearchSettingsErrors[keyof GetSearchSettingsErrors];
+
+export type GetSearchSettingsResponses = {
+    /**
+     * Successful result
+     */
+    200: SearchSettingsResponse;
+};
+
+export type GetSearchSettingsResponse = GetSearchSettingsResponses[keyof GetSearchSettingsResponses];
+
+export type CancelSearchFutureGenerationData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/search/settings/future';
+};
+
+export type CancelSearchFutureGenerationErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting search settings state
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CancelSearchFutureGenerationError = CancelSearchFutureGenerationErrors[keyof CancelSearchFutureGenerationErrors];
+
+export type CancelSearchFutureGenerationResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type CancelSearchFutureGenerationResponse = CancelSearchFutureGenerationResponses[keyof CancelSearchFutureGenerationResponses];
+
+export type CreateSearchFutureGenerationData = {
+    body: SearchGenerationRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/search/settings/future';
+};
+
+export type CreateSearchFutureGenerationErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * A future generation already exists
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CreateSearchFutureGenerationError = CreateSearchFutureGenerationErrors[keyof CreateSearchFutureGenerationErrors];
+
+export type CreateSearchFutureGenerationResponses = {
+    /**
+     * Created
+     */
+    201: SearchGenerationResponse;
+};
+
+export type CreateSearchFutureGenerationResponse = CreateSearchFutureGenerationResponses[keyof CreateSearchFutureGenerationResponses];
+
+export type SwitchSearchFutureGenerationData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/search/settings/future/switch';
+};
+
+export type SwitchSearchFutureGenerationErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * The future generation is not complete
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type SwitchSearchFutureGenerationError = SwitchSearchFutureGenerationErrors[keyof SwitchSearchFutureGenerationErrors];
+
+export type SwitchSearchFutureGenerationResponses = {
+    /**
+     * Successful result
+     */
+    200: SearchSettingsResponse;
+};
+
+export type SwitchSearchFutureGenerationResponse = SwitchSearchFutureGenerationResponses[keyof SwitchSearchFutureGenerationResponses];
+
+export type RestoreSearchPastGenerationData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        generationId: string;
+    };
+    query?: never;
+    url: '/api/search/settings/past/{generationId}/restore';
+};
+
+export type RestoreSearchPastGenerationErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * The retention period ended or a future generation exists
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RestoreSearchPastGenerationError = RestoreSearchPastGenerationErrors[keyof RestoreSearchPastGenerationErrors];
+
+export type RestoreSearchPastGenerationResponses = {
+    /**
+     * Successful result
+     */
+    200: SearchSettingsResponse;
+};
+
+export type RestoreSearchPastGenerationResponse = RestoreSearchPastGenerationResponses[keyof RestoreSearchPastGenerationResponses];
+
+export type ListEmbeddingProvidersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/search/embedding-providers';
+};
+
+export type ListEmbeddingProvidersErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting search settings state
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListEmbeddingProvidersError = ListEmbeddingProvidersErrors[keyof ListEmbeddingProvidersErrors];
+
+export type ListEmbeddingProvidersResponses = {
+    /**
+     * Successful result
+     */
+    200: Array<EmbeddingProviderResponse>;
+};
+
+export type ListEmbeddingProvidersResponse = ListEmbeddingProvidersResponses[keyof ListEmbeddingProvidersResponses];
+
+export type CreateEmbeddingProviderData = {
+    body: EmbeddingProviderRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/search/embedding-providers';
+};
+
+export type CreateEmbeddingProviderErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting search settings state
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type CreateEmbeddingProviderError = CreateEmbeddingProviderErrors[keyof CreateEmbeddingProviderErrors];
+
+export type CreateEmbeddingProviderResponses = {
+    /**
+     * Created
+     */
+    201: EmbeddingProviderResponse;
+};
+
+export type CreateEmbeddingProviderResponse = CreateEmbeddingProviderResponses[keyof CreateEmbeddingProviderResponses];
+
+export type DeleteEmbeddingProviderData = {
+    body?: never;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        providerId: string;
+    };
+    query?: never;
+    url: '/api/search/embedding-providers/{providerId}';
+};
+
+export type DeleteEmbeddingProviderErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * A search generation still uses the provider
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type DeleteEmbeddingProviderError = DeleteEmbeddingProviderErrors[keyof DeleteEmbeddingProviderErrors];
+
+export type DeleteEmbeddingProviderResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteEmbeddingProviderResponse = DeleteEmbeddingProviderResponses[keyof DeleteEmbeddingProviderResponses];
+
+export type UpdateEmbeddingProviderData = {
+    body: EmbeddingProviderRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path: {
+        providerId: string;
+    };
+    query?: never;
+    url: '/api/search/embedding-providers/{providerId}';
+};
+
+export type UpdateEmbeddingProviderErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Stale revision
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type UpdateEmbeddingProviderError = UpdateEmbeddingProviderErrors[keyof UpdateEmbeddingProviderErrors];
+
+export type UpdateEmbeddingProviderResponses = {
+    /**
+     * Successful result
+     */
+    200: EmbeddingProviderResponse;
+};
+
+export type UpdateEmbeddingProviderResponse = UpdateEmbeddingProviderResponses[keyof UpdateEmbeddingProviderResponses];
+
+export type TestEmbeddingProviderData = {
+    body: EmbeddingProviderTestRequest;
+    headers: {
+        /**
+         * Same-origin non-simple request guard for browser-session mutations.
+         */
+        'X-MemoryOS-CSRF': '1';
+    };
+    path?: never;
+    query?: never;
+    url: '/api/search/embedding-providers/test';
+};
+
+export type TestEmbeddingProviderErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting search settings state
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type TestEmbeddingProviderError = TestEmbeddingProviderErrors[keyof TestEmbeddingProviderErrors];
+
+export type TestEmbeddingProviderResponses = {
+    /**
+     * The outcome of one embedding call
+     */
+    200: EmbeddingProviderTestResponse;
+};
+
+export type TestEmbeddingProviderResponse = TestEmbeddingProviderResponses[keyof TestEmbeddingProviderResponses];
+
+export type ListEmbeddingModelPresetsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/search/embedding-models';
+};
+
+export type ListEmbeddingModelPresetsErrors = {
+    /**
+     * Invalid configuration
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Model management of the operating Tenant or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Resource not accessible
+     */
+    404: ApiProblem;
+    /**
+     * Conflicting search settings state
+     */
+    409: ApiProblem;
+    /**
+     * Embedding provider, encryption key or index unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListEmbeddingModelPresetsError = ListEmbeddingModelPresetsErrors[keyof ListEmbeddingModelPresetsErrors];
+
+export type ListEmbeddingModelPresetsResponses = {
+    /**
+     * Successful result
+     */
+    200: Array<EmbeddingModelPresetResponse>;
+};
+
+export type ListEmbeddingModelPresetsResponse = ListEmbeddingModelPresetsResponses[keyof ListEmbeddingModelPresetsResponses];
 
 export type GetSearchDocumentData = {
     body?: never;

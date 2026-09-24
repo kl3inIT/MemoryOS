@@ -3,8 +3,11 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { handleAuthorizationFailure } from "@/lib/query-client";
 import { isCatalogConflict, modelActionError } from "./model-catalog";
 
-/** Direct SDK operations never retain request bodies or raw provider errors in a cache. */
-export function useModelAction() {
+/**
+ * Direct SDK operations never retain request bodies or raw provider errors in a cache. `describe` turns a failure
+ * into the page's own static copy.
+ */
+export function useModelAction(describe: (cause: unknown) => string = modelActionError) {
   const client = useQueryClient();
   const controller = useRef<AbortController | null>(null);
   const active = useRef(true);
@@ -52,13 +55,11 @@ export function useModelAction() {
     } catch (cause) {
       if (!operation.signal.aborted && active.current) {
         handleAuthorizationFailure(client, cause);
-        setError(modelActionError(cause));
+        setError(describe(cause));
         if (isCatalogConflict(cause)) setConflict(true);
       }
       // Never let an SDK cause (which can include a request) escape into retained UI state.
-      throw new Error(
-        operation.signal.aborted ? "The operation was discarded." : modelActionError(cause),
-      );
+      throw new Error(operation.signal.aborted ? "The operation was discarded." : describe(cause));
     } finally {
       if (controller.current === operation) {
         controller.current = null;

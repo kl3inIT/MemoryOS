@@ -63,16 +63,27 @@ Làm song song với Phase B, vì hai phase không phụ thuộc nhau.
 
 ## Phase D — Trang Cấu hình tìm kiếm (web)
 
-1. Kiểm tra thư viện và component sẵn có trước khi viết mới, theo quy ước dùng lại component. Dùng lại `provider-editor`, `data-boundary` và `provider-test` của `features/models`.
-2. Trang `/admin/search-settings`, mục menu dưới Mô hình:
-   * thẻ Đang dùng;
-   * danh sách provider embedding;
-   * luồng đổi model, với model đã biết thì điền sẵn;
-   * tiến độ (poll), huỷ, chuyển;
-   * index cũ và hoàn tác.
-3. Bản dịch tiếng Việt, giữ các thuật ngữ `model`, `provider`, `embedding` bằng tiếng Anh.
-4. **Test:** unit cho logic điền sẵn và trạng thái; Playwright cho luồng đổi model với API giả, ở 1440px và 390px, có ảnh chụp tự soát.
-5. `pnpm typecheck` và `pnpm build`.
+**Đã làm phía web (2026-09-23), chờ backend.** Backend chưa có, nên hợp đồng được viết tay vào `openapi.yml` theo đúng bảng "Hợp đồng API" của design; controller phải sinh ra đúng các tên dưới đây để `OpenApiContractTest` khớp.
+
+1. **Hợp đồng trong `openapi.yml`:** tag `Search settings`, lỗi `ApiProblem`, mọi thao tác ghi đòi header `X-MemoryOS-CSRF`. `operationId`:
+   * `getSearchSettings`, `createSearchFutureGeneration` (201), `cancelSearchFutureGeneration` (204), `switchSearchFutureGeneration`, `restoreSearchPastGeneration`;
+   * `listEmbeddingProviders`, `createEmbeddingProvider` (201), `updateEmbeddingProvider`, `deleteEmbeddingProvider` (204), `testEmbeddingProvider`, `listEmbeddingModelPresets`.
+   * Chi tiết phải tự chốt: `revision` của `EmbeddingProviderRequest` nằm trong body (khác provider chat, để ở query); `apiKey`, `revision`, cả ba trường `providerId`/`endpoint`/`apiKey` của yêu cầu kiểm tra, `future`, `rebuild`, `activatedAt`, `retainedUntil`, `estimatedSecondsRemaining`, `model`/`dimensions`/`error` của kết quả kiểm tra đều nullable nhưng vẫn `required`. Số đếm là `int64`, số chiều `int32`, ngưỡng `double`.
+2. **Trang `/admin/search-settings`** (`web/src/features/search-settings`), mục menu "Cấu hình tìm kiếm" ngay dưới Mô hình, quyền `MODELS_MANAGE`:
+   * Đang dùng: model, provider, nhãn Nội bộ/Bên ngoài, số chiều, số tài liệu, thời điểm kích hoạt; nút Đổi model bị khoá khi đang có `FUTURE`.
+   * Đang dựng lại: model đích, thanh tiến độ ready/total, số lỗi, thời gian còn lại; Chuyển index chỉ bật khi `switchable`; Hủy có xác nhận. Thế hệ `automatic` hiện nhãn Tự động và không có nút Chuyển.
+   * Đổi model: chọn provider và model đã biết (điền sẵn số chiều và tiền tố, sửa được), ngưỡng ngữ nghĩa, kiểm tra kết nối, xác nhận rồi mới `POST` future.
+   * Provider embedding: thêm, sửa, xoá; kiểm tra bằng một lần `/v1/embeddings` và hiện model, số chiều, độ trễ trả về. Key không bao giờ hiện lại. Xoá bị 409 thì hiện câu của trang kèm `detail` của server.
+   * Index cũ: hạn giữ và Hoàn tác có xác nhận.
+   * Poll `GET /api/search/settings` mỗi 5 giây khi có `FUTURE`, dừng khi không còn.
+   * 403 từ Tenant không vận hành hiện trạng thái Không có quyền; người không có `MODELS_MANAGE` không gửi request nào.
+3. **Dùng lại:** `CatalogDialog`, `DataBoundaryField`/`DataBoundaryTag`, `useModelAction` (thêm tham số mô tả lỗi) và `useProviderTest` (tách thành `useConnectionTest` nhận hàm gọi; `useProviderTest` giữ nguyên hành vi). **Không** dùng `ProviderEditor`: nó gắn với adapter, Group, Persona và API của provider chat. Trình sửa provider embedding viết mới nhưng theo đúng cách giữ key của nó (key trong `ref`, xoá khi `pagehide`).
+4. Bản dịch: khoá tiếng Việt, bản tiếng Anh trong `app-translations.ts`; giữ `model`, `provider`, `embedding`, `index`.
+5. **Kiểm thử:**
+   * `pnpm vitest run src/features/search-settings`: điền sẵn, định dạng tiến độ và thời gian còn lại, nút nào bật ở trạng thái nào, lỗi theo từng thao tác, kết quả kiểm tra.
+   * `pnpm exec playwright test tests/e2e/search-settings.spec.ts`: đổi model tạo future, poll tới khi chuyển được rồi chuyển, hủy, thế hệ tự động, hoàn tác, kiểm tra provider, 409 khi xoá, 403, người không có quyền; chạy ở 1440px và 390px. `MEMORYOS_SCREENSHOTS=1` ghi ảnh sáng/tối vào `.tmp/mem-135-screens` để tự soát.
+   * `pnpm lint`, `pnpm typecheck`, `pnpm build`, `pnpm check:i18n`, `pnpm format:check` đều qua.
+6. **Còn lại:** chạy lại `pnpm generate:api` sau khi backend sinh `openapi.yml` thật; nếu lệch tên hay kiểu thì sửa backend cho khớp, không sửa trang.
 
 ## Phase E — Bước 3: dọn index cũ (repo)
 

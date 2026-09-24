@@ -37,10 +37,14 @@ Giao thức duy nhất là **OpenAI-compatible `/v1/embeddings`**. Nó phủ Ope
 
 ### Một thế hệ cấu hình tìm kiếm là một index
 
-`search_settings` gồm: provider, tên model, số chiều, tiền tố câu hỏi và tiền tố tài liệu, ngưỡng ngữ nghĩa, `identity` (tên index, băm như hiện nay có thêm tiền tố) và trạng thái `PRESENT | FUTURE | PAST`.
+`search_settings` gồm: provider, tên model, số chiều, tiền tố câu hỏi và tiền tố tài liệu, ngưỡng ngữ nghĩa, **quy ước chunk** (`DocumentChunk.CONVENTION` lúc tạo), `identity` và trạng thái `PRESENT | FUTURE | PAST`.
+
+**`identity` là của thế hệ, không phải mã băm của cấu hình** (quyết định 2026-09-23). Tên index là tiền tố cộng id của thế hệ. Hiện nay tên index băm cả endpoint, nên chuyển TEI sang IP hay cổng khác cũng tạo index rỗng và phải dựng lại toàn bộ. Endpoint thuộc về provider và sửa được mà không đổi index. Thứ quyết định vector là model, số chiều, tiền tố tài liệu và quy ước chunk: bốn thứ đó ghi trên thế hệ và trong `_meta` của index, và lệch nhau thì báo lỗi.
+
+**Đổi quy ước chunk tự sinh một `FUTURE`.** Khi release mang `DocumentChunk.CONVENTION` khác với thế hệ `PRESENT`, lúc khởi động hệ thống tạo `FUTURE` cùng model và provider, dựng lại chunk và vector từ artifact đã lưu ở nền, rồi tự chuyển khi đủ (không cần người bấm, vì model không đổi). Tìm kiếm vẫn chạy trên `PRESENT` suốt lúc đó. MEM-192 vừa đổi quy ước sang v3; không có cơ chế này thì staging mất kết quả tìm kiếm cho tới khi index lại xong.
 
 * Mỗi Tenant có **đúng một** `PRESENT` và **tối đa một** `FUTURE`, giữ bằng unique index có điều kiện, cùng với khoá hàng.
-* Deployment này có một Tenant. Index vẫn dùng chung cho mọi Tenant như hiện nay, nên **cấu hình tìm kiếm thuộc về deployment**: chỉ Tenant vận hành (Tenant đầu tiên) sửa được. Đây là giả định cần chốt (xem cuối trang).
+* Deployment này có một Tenant. Index vẫn dùng chung cho mọi Tenant như hiện nay, nên **cấu hình tìm kiếm thuộc về deployment**: chỉ Tenant vận hành (Tenant đầu tiên) sửa được. Đã chốt ngày 2026-09-23.
 
 ### Trạng thái sẵn sàng theo từng index
 
@@ -87,10 +91,49 @@ Tài liệu mới hoặc vừa thay đổi trong lúc dựng được ghi vào *
 
 **Quyền:** `MODELS_MANAGE`, cùng quyền với catalog model, vì cùng là quyền cấu hình endpoint và credential ra ngoài.
 
+### Hợp đồng API
+
+Chốt trước để trang quản trị và backend làm song song (2026-09-23). `openapi.yml` được sinh từ controller và `OpenApiContractTest` bắt mọi chỗ lệch, nên backend phải khớp đúng các tên dưới đây. Tag OpenAPI `Search settings`. Mọi thao tác yêu cầu `MODELS_MANAGE` của Tenant vận hành; Tenant khác nhận 403. Lỗi dùng `ProblemDetail` như các API khác.
+
+| Method | Path | Body | Trả về |
+| --- | --- | --- | --- |
+| GET | `/api/search/settings` | | `SearchSettingsResponse` |
+| POST | `/api/search/settings/future` | `SearchGenerationRequest` | `SearchGenerationResponse`; 409 khi đã có `FUTURE` |
+| DELETE | `/api/search/settings/future` | | 204; huỷ dựng lại, xoá index của `FUTURE` |
+| POST | `/api/search/settings/future/switch` | | `SearchSettingsResponse`; 409 khi chưa đủ |
+| POST | `/api/search/settings/past/{generationId}/restore` | | `SearchSettingsResponse`; 409 khi hết hạn giữ hoặc đang có `FUTURE` |
+| GET | `/api/search/embedding-providers` | | `EmbeddingProviderResponse[]` |
+| POST | `/api/search/embedding-providers` | `EmbeddingProviderRequest` | `EmbeddingProviderResponse` |
+| PUT | `/api/search/embedding-providers/{providerId}` | `EmbeddingProviderRequest` | `EmbeddingProviderResponse`; 409 khi `revision` cũ |
+| DELETE | `/api/search/embedding-providers/{providerId}` | | 204; 409 khi thế hệ nào còn dùng |
+| POST | `/api/search/embedding-providers/test` | `EmbeddingProviderTestRequest` | `EmbeddingProviderTestResponse` |
+| GET | `/api/search/embedding-models` | | `EmbeddingModelPresetResponse[]` |
+
+Schema:
+
+* `SearchSettingsResponse`: `present` (`SearchGenerationResponse`), `future` (`SearchGenerationResponse` hoặc `null`), `past` (`SearchGenerationResponse[]`, chỉ những thế hệ còn trong hạn giữ), `rebuild` (`SearchRebuildProgressResponse` hoặc `null`).
+* `SearchGenerationResponse`: `id` (uuid), `status` (`PRESENT` | `FUTURE` | `PAST`), `providerId` (uuid), `providerName`, `dataBoundary` (`INTERNAL` | `EXTERNAL`), `model`, `dimensions`, `queryPrefix`, `documentPrefix`, `minimumSemanticScore` (number), `chunkConvention`, `automatic` (boolean: sinh vì đổi quy ước chunk, tự chuyển khi đủ), `documentCount`, `createdAt`, `activatedAt` (hoặc `null`), `retainedUntil` (chỉ `PAST`, hoặc `null`).
+* `SearchRebuildProgressResponse`: `ready`, `total`, `failed`, `pending` (số tài liệu), `estimatedSecondsRemaining` (hoặc `null`), `switchable` (boolean).
+* `SearchGenerationRequest`: `providerId`, `model`, `dimensions`, `queryPrefix`, `documentPrefix`, `minimumSemanticScore`.
+* `EmbeddingProviderResponse`: `id`, `name`, `endpoint`, `dataBoundary`, `hasApiKey` (key không bao giờ trả về), `revision`, `inUse` (boolean).
+* `EmbeddingProviderRequest`: `name`, `endpoint`, `apiKey` (`null` giữ key cũ, chuỗi rỗng xoá key), `dataBoundary`, `revision` (chỉ khi sửa).
+* `EmbeddingProviderTestRequest`: `providerId` hoặc `endpoint` + `apiKey`, cùng `model` và `dimensions` (có thể `null`). Gọi `/v1/embeddings` thật một lần.
+* `EmbeddingProviderTestResponse`: `ok`, `model` (tên provider trả về), `dimensions` (số chiều thật), `latencyMs`, `error` (hoặc `null`).
+* `EmbeddingModelPresetResponse`: `model`, `label`, `dimensions`, `queryPrefix`, `documentPrefix`, `maxInputTokens`: các model đã biết để điền sẵn (Qwen3-Embedding 0.6B/4B/8B, BGE-M3, OpenAI `text-embedding-3-small/large`, multilingual-e5-large-instruct).
+
 ## Model và nơi chạy
 
 * **Model:** `Qwen/Qwen3-Embedding-0.6B`, 1024 chiều, giấy phép Apache-2.0. Tiền tố câu hỏi: `Instruct: Given a question, retrieve passages that answer it\nQuery: `. Tài liệu không có tiền tố.
-* **Dịch vụ:** Hugging Face Text Embeddings Inference (TEI), bản CUDA, ghim theo digest. TEI nhẹ và không giữ trước toàn bộ VRAM như vLLM. Nó có API OpenAI-compatible `/v1/embeddings` và hỗ trợ `--api-key`.
+* **Dịch vụ:** Hugging Face Text Embeddings Inference (TEI) v1.9.4, image cho Ada Lovelace `ghcr.io/huggingface/text-embeddings-inference:89-1.9.4`, ghim theo digest. TEI nhẹ và không giữ trước toàn bộ VRAM như vLLM. Nó có API OpenAI-compatible `/v1/embeddings` và hỗ trợ `--api-key`; key là secret file sinh tại chỗ trên `serving`, cùng cách với các secret khác.
+* **Model không nằm trong image.** Một bước bootstrap chạy một lần trong `compose.serving.yaml` tải đúng revision đã ghim vào volume, rồi TEI chạy `HF_HUB_OFFLINE=1` với `depends_on: service_completed_successfully`, theo mẫu `minio-bootstrap`.
+* **RAM.** Hai service PaddleOCR-VL giới hạn 7 GiB và 4 GiB trên node 15 GiB, nên TEI chỉ còn khoảng 2–3 GiB. Giới hạn đặt theo số đo khi PaddleOCR-VL đang chạy.
+* **Spike 2026-09-23** trên `serving`, image `89-1.9.4@sha256:1a284d9ca1adcc20b78c261d4d052c06057f0a3cb49a15c5d2c00930f710fce2`, model `Qwen/Qwen3-Embedding-0.6B` revision `97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3` (Apache-2.0), chạy FlashQwen3 trên CUDA:
+  * `--api-key`: thiếu key và sai key đều nhận 401.
+  * `/v1/embeddings` trả `model` đúng tên đã gửi và 1024 chiều; `dimensions: 512` trả 512 chiều.
+  * Đầu vào 20 000 từ với `--auto-truncate` bị cắt ở 16 384 token và vẫn trả vector; chunk của MemoryOS tối đa 768 token nên không chạm giới hạn này.
+  * Lô 32 đoạn khoảng 700 từ: 0,38 giây.
+  * VRAM 1,6 GB, RAM khoảng 1 GB. Giới hạn container 3 GiB là đủ; cùng PaddleOCR-VL (khoảng 9,7 GB) node còn khoảng 13 GB VRAM cho MEM-193.
+  * Tải model lần đầu và nạp lên GPU mất khoảng 190 giây.
 * **Nơi chạy:** GPU RTX 4090 của node `serving`, dùng chung với OCR của [MEM-192](../mem-192-ocr-gpu/design.md) qua một file `compose.serving.yaml`. Chỉ mở trên mạng riêng tới node `application`.
 * **Lên 4B sau này:** đổi trên trang quản trị, cùng TEI; không cần release.
 
@@ -124,8 +167,10 @@ Tài liệu mới hoặc vừa thay đổi trong lúc dựng được ghi vào *
 * **Hoàn tác:** làm được trong thời hạn giữ; hết hạn thì index cũ bị xoá và đếm bằng 0.
 * **Production:** dùng Qwen3-Embedding-0.6B qua TEI trên `serving`. Tìm kiếm một tài liệu tiếng Việt thử nghiệm trả đúng tài liệu. Nhãn hiện Nội bộ.
 
-## Cần chốt
+## Đã chốt (2026-09-23)
 
-* **Ai được sửa:** cấu hình tìm kiếm thuộc về deployment, và chỉ Tenant vận hành sửa được. Đề xuất: `MODELS_MANAGE` của Tenant đầu tiên.
-* **Thời hạn giữ index cũ:** đề xuất 7 ngày.
-* **Ngưỡng ngữ nghĩa cho Qwen3-0.6B:** tạm dùng 0.70, chỉnh lại sau khi chạy benchmark MEM-141.
+Chủ sản phẩm chọn làm toàn bộ MEM-135 trong một PR riêng, xếp sau PR của MEM-192. Ba điểm còn treo lấy theo đề xuất:
+
+* **Ai được sửa:** `MODELS_MANAGE` của Tenant vận hành (Tenant đầu tiên); cấu hình tìm kiếm thuộc về deployment.
+* **Thời hạn giữ index cũ:** 7 ngày.
+* **Ngưỡng ngữ nghĩa cho Qwen3-0.6B:** 0.70 tạm thời, chỉnh sau benchmark MEM-141.

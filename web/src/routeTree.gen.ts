@@ -33,6 +33,7 @@ import { Route as AuthenticatedAdminIdentityProvidersRouteImport } from './route
 import { Route as AuthenticatedAdminImageGenerationRouteImport } from './routes/_authenticated.admin.image-generation'
 import { Route as AuthenticatedAdminMcpRouteImport } from './routes/_authenticated.admin.mcp'
 import { Route as AuthenticatedAdminModelsRouteImport } from './routes/_authenticated.admin.models'
+import { Route as AuthenticatedAdminSearchSettingsRouteImport } from './routes/_authenticated.admin.search-settings'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
 import { Route as AuthenticatedAdminVoiceRouteImport } from './routes/_authenticated.admin.voice'
 import { Route as AuthenticatedAdminWebSearchRouteImport } from './routes/_authenticated.admin.web-search'
@@ -187,6 +188,12 @@ const AuthenticatedAdminModelsRoute =
   AuthenticatedAdminModelsRouteImport.update({
     id: '/models',
     path: '/models',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminSearchSettingsRoute =
+  AuthenticatedAdminSearchSettingsRouteImport.update({
+    id: '/search-settings',
+    path: '/search-settings',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
 const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
@@ -384,6 +391,7 @@ export interface FileRoutesByFullPath {
   '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
+  '/admin/search-settings': typeof AuthenticatedAdminSearchSettingsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
@@ -434,6 +442,7 @@ export interface FileRoutesByTo {
   '/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/admin/models': typeof AuthenticatedAdminModelsRoute
+  '/admin/search-settings': typeof AuthenticatedAdminSearchSettingsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
@@ -488,6 +497,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/image-generation': typeof AuthenticatedAdminImageGenerationRoute
   '/_authenticated/admin/mcp': typeof AuthenticatedAdminMcpRoute
   '/_authenticated/admin/models': typeof AuthenticatedAdminModelsRoute
+  '/_authenticated/admin/search-settings': typeof AuthenticatedAdminSearchSettingsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/admin/voice': typeof AuthenticatedAdminVoiceRoute
   '/_authenticated/admin/web-search': typeof AuthenticatedAdminWebSearchRoute
@@ -544,6 +554,7 @@ export interface FileRouteTypes {
     | '/admin/image-generation'
     | '/admin/mcp'
     | '/admin/models'
+    | '/admin/search-settings'
     | '/admin/users'
     | '/admin/voice'
     | '/admin/web-search'
@@ -594,6 +605,7 @@ export interface FileRouteTypes {
     | '/admin/image-generation'
     | '/admin/mcp'
     | '/admin/models'
+    | '/admin/search-settings'
     | '/admin/users'
     | '/admin/voice'
     | '/admin/web-search'
@@ -647,6 +659,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/image-generation'
     | '/_authenticated/admin/mcp'
     | '/_authenticated/admin/models'
+    | '/_authenticated/admin/search-settings'
     | '/_authenticated/admin/users'
     | '/_authenticated/admin/voice'
     | '/_authenticated/admin/web-search'
@@ -855,6 +868,13 @@ declare module '@tanstack/react-router' {
       path: '/models'
       fullPath: '/admin/models'
       preLoaderRoute: typeof AuthenticatedAdminModelsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/search-settings': {
+      id: '/_authenticated/admin/search-settings'
+      path: '/search-settings'
+      fullPath: '/admin/search-settings'
+      preLoaderRoute: typeof AuthenticatedAdminSearchSettingsRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
     '/_authenticated/admin/users': {
@@ -1132,6 +1152,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminImageGenerationRoute: typeof AuthenticatedAdminImageGenerationRoute
   AuthenticatedAdminMcpRoute: typeof AuthenticatedAdminMcpRoute
   AuthenticatedAdminModelsRoute: typeof AuthenticatedAdminModelsRoute
+  AuthenticatedAdminSearchSettingsRoute: typeof AuthenticatedAdminSearchSettingsRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminVoiceRoute: typeof AuthenticatedAdminVoiceRoute
   AuthenticatedAdminWebSearchRoute: typeof AuthenticatedAdminWebSearchRoute
@@ -1157,6 +1178,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
     AuthenticatedAdminImageGenerationRoute,
   AuthenticatedAdminMcpRoute: AuthenticatedAdminMcpRoute,
   AuthenticatedAdminModelsRoute: AuthenticatedAdminModelsRoute,
+  AuthenticatedAdminSearchSettingsRoute: AuthenticatedAdminSearchSettingsRoute,
   AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
   AuthenticatedAdminVoiceRoute: AuthenticatedAdminVoiceRoute,
   AuthenticatedAdminWebSearchRoute: AuthenticatedAdminWebSearchRoute,

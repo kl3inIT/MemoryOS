@@ -226,12 +226,12 @@ What the node must already have, beyond the list above:
 
 | Item | Value |
 | --- | --- |
-| Tree | `/apps/memoryos-serving` and `/apps/memoryos-serving/incoming`, root-owned, `0755` |
+| Tree | `/apps/memoryos-serving` root-owned `0755`; `/apps/memoryos-serving/incoming` owned by `memoryos-ci`, `0770`, because the workflow creates each release directory as that user, as on the application node |
 | Environment | `/apps/memoryos-serving/.env.serving`, root, `0600`, from [`serving.env.example`](../../infrastructure/deployment/serving.env.example); it holds no secret |
-| Deployment user | `memoryos-ci`, not in `docker`, key only, with `memoryos-ci ALL=(root) NOPASSWD: /usr/bin/bash /apps/memoryos-serving/incoming/*/deploy-serving.sh *` checked by `visudo -c` |
+| Deployment user | `memoryos-ci`, password locked, not in `docker`, key only, with `memoryos-ci ALL=(root) NOPASSWD: /usr/bin/bash /apps/memoryos-serving/incoming/*/deploy-serving.sh *` checked by `visudo -c` |
 | GitHub `production` environment | variables `PRODUCTION_SERVING_HOST` (`172.24.244.79`) and `PRODUCTION_SERVING_USER`, secret `PRODUCTION_SERVING_SSH_KEY` (its own key, not the application node's), and the node's host key appended to `PRODUCTION_KNOWN_HOSTS` under `172.24.244.79` |
 
-The jump is an SSH forward through the application node's deployment user, which needs no further rights there. The firewall reads `MEMORYOS_SERVING_ALLOWED_SOURCE` and `MEMORYOS_SERVING_PORTS` from the same environment file; after changing them, restart the unit and confirm that the application node still reaches the port and another address does not. On 2026-09-23 the rule admitted the application node (HTTP 200), refused it once another source was configured, and left one rule after two runs.
+The jump is an SSH forward through the application node's deployment user, which needs no further rights there. The firewall reads `MEMORYOS_SERVING_ALLOWED_SOURCE` and `MEMORYOS_SERVING_PORTS` from the same environment file; after changing them, restart the unit and confirm that the application node still reaches the port and another address does not. Provisioned on 2026-09-23: the user, tree, environment file and sudo rule above, the deployment key in GitHub, and the node's host key in `PRODUCTION_KNOWN_HOSTS`; `sudo -l` for `memoryos-ci` lists only the deployment script. On 2026-09-23 the rule admitted the application node (HTTP 200), refused it once another source was configured, and left one rule after two runs.
 
 ## Deploy and accept
 

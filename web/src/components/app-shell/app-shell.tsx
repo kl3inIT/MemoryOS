@@ -21,6 +21,7 @@ import {
   MessagesSquare,
   ScrollText,
   Settings,
+  ScanSearch,
   Sparkles,
   SquareTerminal,
   User,
@@ -56,6 +57,7 @@ export type AdminPage =
   | "interpreter"
   | "providers"
   | "models"
+  | "searchSettings"
   | "mcp"
   | "agents"
   | "costs"
@@ -297,6 +299,15 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Mô hình")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/search-settings"
+                  icon={<ScanSearch className="size-4" />}
+                  selected={adminPage === "searchSettings"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Cấu hình tìm kiếm")}
                 </SidebarTab>
                 <SidebarTab
                   to="/admin/web-search"
