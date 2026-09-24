@@ -84,7 +84,7 @@ Renderer/presentation coverage: `code-renderers.test.tsx` exercises real Shiki/M
 | Missing authentication/CSRF and input bounds on session/send operations | `ChatSessionApiIntegrationTest` |
 | Native runner send, usage persistence, same-request retry without another inference, partial EOF and local Stop | `ChatSessionApiIntegrationTest`; model transport mocked, native framework/IAM/PostgreSQL execute |
 | Cross-owner Stop denied, cancel committed before completion wins, expired rows cannot be resurrected | `ChatPersistenceIntegrationTest` |
-| Stop before task starts, admission before reservation and rejected dispatch cleanup | `ChatTurnServiceTest` |
+| Stop before task starts, admission before reservation and rejected dispatch cleanup; a slow MCP open holds no session lock (other session on the same stripe sends, stops and subscribes), a repeated request during it reserves once, Stop during it cancels without a model call, and its failure fails the reserved turn | `ChatTurnServiceTest` |
 | Real OpenAI transport through product send/native execution/persistence | `ChatSessionApiIntegrationTest.realProviderRunsThroughSendNativeRunnerAndPersistedHistory`; explicitly enabled with MEMORYOS_CHAT_LIVE_TEST=true and SPRING_AI_OPENAI_API_KEY |
 | DB control outage does not cancel a healthy turn; shutdown drains partial from a virtual task | `ChatTurnServiceTest.transientControlFailureDoesNotCancelAnOtherwiseHealthyTurn`, `shutdownWaitsForCanceledVirtualTaskToPersistPartial` |
 | Oversize question rolls back before tree mutation; builtin editor configuration survives a send | `ChatPersistenceIntegrationTest.oversizedQuestionRollsBackBeforeTreeAdvancesAndBuiltinConfigurationSurvivesSend` |

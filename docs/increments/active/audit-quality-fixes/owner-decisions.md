@@ -12,7 +12,7 @@ Nguồn: [audit.md](audit.md) (audit toàn repo trên origin/main 645340f2, 2026
 - [ ] **Mutation nhỏ của meeting trả về toàn bộ transcript** (star, bookmark, tick item, đặt tên speaker…: ~9 query + serialize mọi utterance). Đề xuất response hẹp — **đổi contract OpenAPI** và web client.
 - [ ] **`useModelAction` tự viết thay `useMutation`** (lý do trong file: không giữ provider key trong mutation cache). Có thể thay bằng `useMutation` với `gcTime: 0`. Giữ hay đổi?
 - [ ] **Hai lifecycle upload/write trong `objectstorage`** (spec cố ý tách). Giữ hay gộp phần reserve/key trùng?
-- [ ] **Session lock striped của Chat giữ qua `mcp.open`** (network, OAuth refresh) → session khác cùng stripe bị chặn. Đề xuất thả lock sau khi reservation commit; cần kiểm tra concurrency kỹ.
+- [x] **Session lock striped của Chat giữ qua `mcp.open`** (network, OAuth refresh) → session khác cùng stripe bị chặn. Đề xuất thả lock sau khi reservation commit; cần kiểm tra concurrency kỹ. **Duyệt 2026-09-24; đã làm** trên nhánh `dathip04/chat-send-lock-scope`: lock chỉ giữ tới khi đăng ký run, `mcp.open` chạy ngoài lock — xem [Chat send lock scope](../chat-send-lock-scope/design.md).
 
 ## 2. Tái cấu trúc thư mục kiểu `iam` (Lane 2)
 
