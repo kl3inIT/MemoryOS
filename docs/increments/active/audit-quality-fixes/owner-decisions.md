@@ -17,7 +17,7 @@ Nguồn: [audit.md](audit.md) (audit toàn repo trên origin/main 645340f2, 2026
 
 Mô hình `iam`: gốc module gần như trống; mỗi sub-capability là sub-package có type public + `persistence/` riêng, expose bằng `@NamedInterface`.
 
-- [ ] **Bước tiền đề:** gỡ các import persistence từ `api`/`worker` (`chat.persistence` ×10, `chat.history.persistence`, `usage.persistence`, `ingestion.persistence`; ví dụ `JdbcAgentRepository.AgentRef`, `JdbcChatHistoryRepository.Query`, `AiCostQueries.Split` đang là body HTTP) và thêm một test ArchUnit trong `api` cấm `..persistence..`. `ModulithArchitectureTest` chỉ kiểm core nên hiện không gì chặn. **Có thể đổi schema OpenAPI.**
+- [ ] **Bước tiền đề:** gỡ các import persistence từ `api`/`worker` (`chat.persistence` ×10, `chat.history.persistence`, `usage.persistence`, `ingestion.persistence`; ví dụ `JdbcAgentRepository.AgentRef`, `JdbcChatHistoryRepository.Query`, `AiCostQueries.Split` đang là body HTTP). Chủ repo quyết định 2026-09-24: **không thêm ArchUnit**; `ModulithArchitectureTest` chỉ kiểm core nên ranh giới này giữ bằng review. **Có thể đổi schema OpenAPI.**
 - [ ] **`connector`** (75 file ở gốc, `application/` 25, `persistence/` 27, Google và SharePoint trộn lẫn) → `source/`, `googledrive/`, `sharepoint/`, `sync/` (engine trung lập), mỗi cái có `persistence/`.
 - [ ] **`chat`** (47 file ở gốc, `persistence/` 45 file dùng chung) → `session/`, `library/`, `persona/`, `project/`, `settings/`; `catalog/voice/image/web/interpreter` nhận `persistence/` riêng.
 - [ ] Giữ nguyên các module nhỏ (`mcp`, `meeting`, `usage`, `retrieval`, `objectstorage`, `document`, `ingestion`) theo "prefer fewer modules".
