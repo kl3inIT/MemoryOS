@@ -99,35 +99,46 @@ public class MeetingService {
         return readable(tenant(actor), actor, id);
     }
 
-    /** Names a diarized voice; a blank name restores the automatic label. */
+    /**
+     * Names a diarized voice; a blank name restores the automatic label. Answers with that one speaker: a voice left
+     * without a name is offered the name it gave itself again, read from its own lines only.
+     */
     @Transactional
-    public Meeting.Detail nameSpeaker(ActorId actor, UUID id, Meeting.Track track, String label, @Nullable String name) {
+    public Meeting.Speaker nameSpeaker(ActorId actor, UUID id, Meeting.Track track, String label, @Nullable String name) {
         UUID tenant = tenant(actor);
-        meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         String clean = name == null || name.isBlank() ? null : name.strip();
         if (clean != null && (clean.length() > MAX_NAME || clean.chars().anyMatch(Character::isISOControl)))
             throw MeetingException.invalid("A speaker name has 1 to 200 characters.");
         if (!meetings.nameSpeaker(tenant, id, track, label, clean)) throw MeetingException.notFound();
-        return detail(tenant, actor, id);
+        if (clean != null) return new Meeting.Speaker(track, label, clean);
+        var voice = new Meeting.Speaker(track, label, null);
+        boolean asking = meetings.speakersAskingForAName(tenant, id).stream()
+                .anyMatch(speaker -> speaker.track() == track && speaker.label().equals(label));
+        if (!asking) return voice;
+        var offered = SpeakerIntroductions.suggest(meetings.utterancesOf(tenant, id, track, label),
+                meeting.participants(), List.of(voice)).get(SpeakerIntroductions.key(track, label));
+        return offered == null ? voice : new Meeting.Speaker(track, label, null, offered);
     }
 
     /** Keeps the automatic label and stops offering the name this voice gave itself. */
     @Transactional
-    public Meeting.Detail dismissSpeakerSuggestion(ActorId actor, UUID id, Meeting.Track track, String label) {
+    public Meeting.Speaker dismissSpeakerSuggestion(ActorId actor, UUID id, Meeting.Track track, String label) {
         UUID tenant = tenant(actor);
         meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         if (!meetings.dismissSuggestion(tenant, id, track, label)) throw MeetingException.notFound();
-        return detail(tenant, actor, id);
+        return meetings.speakers(tenant, id).stream()
+                .filter(speaker -> speaker.track() == track && speaker.label().equals(label)).findFirst()
+                .orElseThrow(MeetingException::notFound);
     }
 
     @Transactional
-    public Meeting.Detail updateNotes(ActorId actor, UUID id, String notes, long revision) {
+    public Meeting.Notes updateNotes(ActorId actor, UUID id, String notes, long revision) {
         UUID tenant = tenant(actor);
         var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         if (meeting.revision() != revision) throw MeetingException.conflict();
         if (notes == null || notes.length() > MAX_NOTES) throw MeetingException.invalid("Notes have at most 50,000 characters.");
-        meetings.updateNotes(tenant, id, notes);
-        return detail(tenant, actor, id);
+        return new Meeting.Notes(notes, meetings.updateNotes(tenant, id, notes));
     }
 
     /**
@@ -135,12 +146,12 @@ public class MeetingService {
      * so these are filled in once the meeting is under way. Kind, language and terms stay as recorded.
      */
     @Transactional
-    public Meeting.Detail updateDetails(ActorId actor, UUID id, String title, @Nullable List<String> participants) {
+    public Meeting.Particulars updateDetails(ActorId actor, UUID id, String title, @Nullable List<String> participants) {
         UUID tenant = tenant(actor);
         var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         var clean = validate(new Meeting.Draft(title, meeting.kind(), meeting.language(), participants, List.of()));
-        meetings.updateDetails(tenant, id, clean.title(), clean.participants());
-        return detail(tenant, actor, id);
+        long next = meetings.updateDetails(tenant, id, clean.title(), clean.participants());
+        return new Meeting.Particulars(clean.title(), clean.participants(), next);
     }
 
     /** The biên bản heading as the owner last saved it; a reader who exports starts from the owner's. */
@@ -203,23 +214,23 @@ public class MeetingService {
 
     /** Rewrites the summary in the owner's own words. What the model wrote stays in the events beside it. */
     @Transactional
-    public Meeting.Detail editSummary(ActorId actor, UUID id, String summary) {
+    public Meeting.MinutesSummary editSummary(ActorId actor, UUID id, String summary) {
         UUID tenant = tenant(actor);
         var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         if (meeting.minutesStatus() != Meeting.MinutesStatus.READY)
             throw MeetingException.invalid("The minutes are not written yet.");
         String clean = text(summary, MAX_SUMMARY, "A summary");
-        if (!clean.equals(meeting.minutesSummary())) {
-            meetings.recordMinutesEdit(tenant, id, null, Meeting.MinutesField.SUMMARY, actor.value(),
-                    meeting.minutesSummary(), clean);
-            meetings.rewriteSummary(tenant, id, clean);
-        }
-        return detail(tenant, actor, id);
+        if (clean.equals(meeting.minutesSummary()))
+            return new Meeting.MinutesSummary(clean, meeting.minutesEdited());
+        meetings.recordMinutesEdit(tenant, id, null, Meeting.MinutesField.SUMMARY, actor.value(),
+                meeting.minutesSummary(), clean);
+        meetings.rewriteSummary(tenant, id, clean);
+        return new Meeting.MinutesSummary(clean, true);
     }
 
     /** Rewrites one decision or one piece of work: what it says, who owns it, when it is due. */
     @Transactional
-    public Meeting.Detail editItem(ActorId actor, UUID id, UUID itemId, String itemText, @Nullable String owner,
+    public Meeting.MinutesItem editItem(ActorId actor, UUID id, UUID itemId, String itemText, @Nullable String owner,
             @Nullable String due) {
         UUID tenant = tenant(actor);
         meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
@@ -240,13 +251,14 @@ public class MeetingService {
         if (!java.util.Objects.equals(cleanDue, item.due()))
             changes.add(new Change(Meeting.MinutesField.DUE, item.due() == null ? "" : item.due(),
                     cleanDue == null ? "" : cleanDue));
-        if (changes.isEmpty()) return detail(tenant, actor, id);
+        if (changes.isEmpty()) return item;
         for (var change : changes)
             meetings.recordMinutesEdit(tenant, id, itemId, change.field(), actor.value(), change.before(),
                     change.after());
-        meetings.rewriteItem(tenant, id, new Meeting.MinutesItem(item.id(), item.kind(), cleanText, cleanOwner,
-                cleanDue, item.quote(), item.sourceUtteranceId(), item.done(), true));
-        return detail(tenant, actor, id);
+        var rewritten = new Meeting.MinutesItem(item.id(), item.kind(), cleanText, cleanOwner, cleanDue, item.quote(),
+                item.sourceUtteranceId(), item.done(), true);
+        meetings.rewriteItem(tenant, id, rewritten);
+        return rewritten;
     }
 
     /**
@@ -254,7 +266,7 @@ public class MeetingService {
      * event from nothing, so the record still says who wrote it.
      */
     @Transactional
-    public Meeting.Detail addItem(ActorId actor, UUID id, Meeting.@Nullable ItemKind kind, String itemText,
+    public Meeting.MinutesItem addItem(ActorId actor, UUID id, Meeting.@Nullable ItemKind kind, String itemText,
             @Nullable String owner, @Nullable String due) {
         UUID tenant = tenant(actor);
         var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
@@ -270,22 +282,21 @@ public class MeetingService {
         if (meetings.minutesItems(tenant, id).stream().filter(item -> item.kind() == kind).count() >= MAX_ITEMS)
             throw MeetingException.invalid("The minutes hold at most " + MAX_ITEMS + " items of a kind.");
         UUID itemId = UUID.randomUUID();
-        meetings.addItem(tenant, id, new Meeting.MinutesItem(itemId, kind, cleanText, cleanOwner, cleanDue, null,
-                null, false, true));
+        var added = new Meeting.MinutesItem(itemId, kind, cleanText, cleanOwner, cleanDue, null, null, false, true);
+        meetings.addItem(tenant, id, added);
         meetings.recordMinutesEdit(tenant, id, itemId, Meeting.MinutesField.TEXT, actor.value(), "", cleanText);
-        return detail(tenant, actor, id);
+        return added;
     }
 
     /** Takes out a decision or a piece of work that should not be in the minutes; its words stay in the events. */
     @Transactional
-    public Meeting.Detail removeItem(ActorId actor, UUID id, UUID itemId) {
+    public void removeItem(ActorId actor, UUID id, UUID itemId) {
         UUID tenant = tenant(actor);
         meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         var item = meetings.lockItem(tenant, id, itemId).orElseThrow(MeetingException::notFound);
         if (item.kind() == Meeting.ItemKind.TOPIC) throw MeetingException.notFound();
         meetings.recordMinutesEdit(tenant, id, itemId, Meeting.MinutesField.TEXT, actor.value(), item.text(), "");
         meetings.removeItem(tenant, id, itemId);
-        return detail(tenant, actor, id);
     }
 
     private static String text(@Nullable String value, int limit, String what) {
@@ -381,7 +392,7 @@ public class MeetingService {
      * who they meant, as sharing an Agent or a Document Set does.
      */
     @Transactional
-    public Meeting.Detail share(ActorId actor, UUID id, List<UUID> members, List<UUID> groups) {
+    public List<Meeting.Reader> share(ActorId actor, UUID id, List<UUID> members, List<UUID> groups) {
         UUID tenant = tenant(actor);
         meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         var people = distinct(members, "members");
@@ -394,7 +405,7 @@ public class MeetingService {
         var teamsNamed = meetings.groups(tenant, List.copyOf(teams));
         if (teamsNamed.size() != teams.size()) throw MeetingException.invalid("A chosen Group is unavailable.");
         meetings.share(tenant, id, named, teamsNamed);
-        return detail(tenant, actor, id);
+        return meetings.readers(tenant, id);
     }
 
     private static LinkedHashSet<UUID> distinct(@Nullable List<UUID> ids, String what) {
@@ -405,13 +416,12 @@ public class MeetingService {
         return unique;
     }
 
-    /** Ticks off a task the minutes found. */
+    /** Ticks off a task the minutes found, and answers with that item as it now reads. */
     @Transactional
-    public Meeting.Detail markItem(ActorId actor, UUID id, UUID item, boolean done) {
+    public Meeting.MinutesItem markItem(ActorId actor, UUID id, UUID item, boolean done) {
         UUID tenant = tenant(actor);
         meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
-        if (!meetings.markItem(tenant, id, item, done)) throw MeetingException.notFound();
-        return detail(tenant, actor, id);
+        return meetings.markItem(tenant, id, item, done).orElseThrow(MeetingException::notFound);
     }
 
     @Transactional
@@ -515,15 +525,15 @@ public class MeetingService {
                 meetings.read(tenant, actor.value(), id).orElseThrow(MeetingException::notFound));
     }
 
-    /** Stars a line for the caller alone, or takes the star off again. */
+    /** Stars a line for the caller alone, or takes the star off again; answers with every line the caller starred. */
     @Transactional
-    public Meeting.Detail star(ActorId actor, UUID id, UUID utteranceId, boolean starred) {
+    public List<UUID> star(ActorId actor, UUID id, UUID utteranceId, boolean starred) {
         UUID tenant = tenant(actor);
         meetings.read(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         if (!meetings.hasUtterance(tenant, id, utteranceId)) throw MeetingException.notFound();
         if (starred) meetings.star(tenant, id, utteranceId, actor.value());
         else meetings.unstar(tenant, utteranceId, actor.value());
-        return readable(tenant, actor, id);
+        return meetings.starred(tenant, id, actor.value());
     }
 
     /**
@@ -531,7 +541,7 @@ public class MeetingService {
      * attach it to; the label is the caller's, or the next number when they do not give one.
      */
     @Transactional
-    public Meeting.Detail bookmark(ActorId actor, UUID id, long atMs, @Nullable String label) {
+    public List<Meeting.Bookmark> bookmark(ActorId actor, UUID id, long atMs, @Nullable String label) {
         UUID tenant = tenant(actor);
         meetings.read(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         if (atMs < 0 || atMs > MAX_TRACK.toMillis()) throw MeetingException.invalid("A bookmark sits inside the recording.");
@@ -542,15 +552,16 @@ public class MeetingService {
             throw MeetingException.invalid("A bookmark label has at most 200 characters.");
         if (clean.isEmpty()) clean = "Đánh dấu " + (mine.size() + 1);
         meetings.addBookmark(tenant, id, actor.value(), new Meeting.Bookmark(UUID.randomUUID(), atMs, clean));
-        return readable(tenant, actor, id);
+        return meetings.bookmarks(tenant, id, actor.value());
     }
 
+    /** Takes back one of the caller's own marks; answers with the marks they still have. */
     @Transactional
-    public Meeting.Detail removeBookmark(ActorId actor, UUID id, UUID bookmarkId) {
+    public List<Meeting.Bookmark> removeBookmark(ActorId actor, UUID id, UUID bookmarkId) {
         UUID tenant = tenant(actor);
         meetings.read(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         if (!meetings.deleteBookmark(tenant, id, actor.value(), bookmarkId)) throw MeetingException.notFound();
-        return readable(tenant, actor, id);
+        return meetings.bookmarks(tenant, id, actor.value());
     }
 
     /**

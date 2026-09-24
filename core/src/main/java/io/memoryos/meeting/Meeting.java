@@ -89,6 +89,15 @@ public final class Meeting {
         }
     }
 
+    /** The owner's notes as stored, and the revision the next save must name. */
+    public record Notes(String notes, long revision) {}
+
+    /** The name and the people of a meeting as stored, and the revision the next save must name. */
+    public record Particulars(String title, List<String> participants, long revision) {}
+
+    /** The summary as it now reads, and whether the words standing in the minutes are the owner's. */
+    public record MinutesSummary(String summary, boolean edited) {}
+
     /**
      * A moment somebody marked while the meeting was still running, when there was no line yet to star. Times are
      * milliseconds from the start of the recording, the same clock the utterances are on.
