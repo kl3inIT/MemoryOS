@@ -3,8 +3,8 @@ package io.memoryos.chat.execution;
 import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.Budget;
 import com.embabel.common.ai.model.LlmMetadata;
-import io.memoryos.ai.ChatAdmissionLedger;
-import io.memoryos.ai.ChatRequestPolicy;
+import io.memoryos.ai.ModelAdmissionLedger;
+import io.memoryos.ai.ModelRequestPolicy;
 import io.memoryos.ai.ModelGuard;
 import io.memoryos.chat.prompts.ChatPrompts;
 import io.memoryos.retrieval.SearchTasks;
@@ -22,13 +22,13 @@ public final class ChatModelGuard extends ModelGuard {
     private String taskPrompt = "";
 
     public ChatModelGuard(ChatModel delegate, AgentProcess process, LlmMetadata model, Budget budget,
-            int cycles, Runnable checkActive, ChatRequestPolicy policy, int inputLimit, UnaryOperator<Prompt> finalRequest) {
+            int cycles, Runnable checkActive, ModelRequestPolicy policy, int inputLimit, UnaryOperator<Prompt> finalRequest) {
         super(delegate, process, model, budget, cycles, checkActive, policy, inputLimit, finalRequest);
     }
 
     public ChatModelGuard(ChatModel delegate, AgentProcess process, LlmMetadata model, Budget budget,
-            int cycles, Runnable checkActive, ChatRequestPolicy policy, int inputLimit, UnaryOperator<Prompt> finalRequest,
-            ChatAdmissionLedger ledger) {
+            int cycles, Runnable checkActive, ModelRequestPolicy policy, int inputLimit, UnaryOperator<Prompt> finalRequest,
+            ModelAdmissionLedger ledger) {
         super(delegate, process, model, budget, cycles, checkActive, policy, inputLimit, finalRequest, ledger);
     }
 

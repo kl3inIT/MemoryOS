@@ -39,8 +39,8 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import io.memoryos.ai.ModelSettings;
 import io.memoryos.ai.ModelCatalogService;
-import io.memoryos.ai.openai.OpenAiChatProviderAdapter;
-import io.memoryos.ai.openai.OpenAiChatProviderConfiguration;
+import io.memoryos.ai.openai.OpenAiProviderAdapter;
+import io.memoryos.ai.openai.OpenAiProviderConfiguration;
 import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.retrieval.SearchHit;
@@ -88,8 +88,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import com.embabel.common.ai.model.PricingModel;
 import com.embabel.chat.UserMessage;
-import io.memoryos.ai.ChatModelBinding;
-import io.memoryos.ai.ChatRequestPolicy;
+import io.memoryos.ai.ModelBinding;
+import io.memoryos.ai.ModelRequestPolicy;
 import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.chat.execution.ChatModelExecutor;
@@ -126,7 +126,7 @@ import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
-import io.memoryos.ai.ChatProviderAdapter;
+import io.memoryos.ai.ProviderAdapter;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import reactor.core.publisher.Mono;
@@ -206,7 +206,7 @@ class ChatSessionApiIntegrationTest {
     @MockitoBean(name = "chatProviderModel")
     private ChatModel model;
     @MockitoSpyBean
-    private OpenAiChatProviderAdapter providerAdapter;
+    private OpenAiProviderAdapter providerAdapter;
     @MockitoBean private OpenSearchIndexService searchIndex;
     @Autowired private ChatLibraryArchiveService libraryArchives;
     @MockitoBean private DocumentChunkPort chunks;
@@ -243,7 +243,7 @@ class ChatSessionApiIntegrationTest {
         org.mockito.Mockito.doReturn(false).when(providerAdapter).listsModels();
         when(sourceSearch.scope(any())).thenAnswer(call -> new io.memoryos.connector.SourceSearchScope(new TenantId(TENANT), call.getArgument(0),
                 Map.of(searchSource, io.memoryos.connector.SourceType.FILE)));
-        doAnswer(call -> new ChatProviderAdapter.Client(OpenAiChatProviderAdapter.binding(
+        doAnswer(call -> new ProviderAdapter.Client(OpenAiProviderAdapter.binding(
                 call.getArgument(1), call.getArgument(2), model, new JTokkitTokenCountEstimator(EncodingType.O200K_BASE)), () -> {}))
                 .when(providerAdapter).create(any(), any(), any(), any());
         actor = actor();
@@ -1716,7 +1716,7 @@ class ChatSessionApiIntegrationTest {
         var service = new SpringAiLlmService("fixture-model", "fixture-provider", provider,
                 (_, name) -> ChatOptions.builder().model(name).temperature(0.25).build(),
                 null, List.of(), PricingModel.usdPer1MTokens(1, 2));
-        var binding = new ChatModelBinding(service, prompt -> prompt, ChatRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
+        var binding = new ModelBinding(service, prompt -> prompt, ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
         for (int turn = 0; turn < 2; turn++) {
             var setup = new ChatTurnSetup(UUID.randomUUID(), UUID.randomUUID(), actor.getPrincipal().actorId(),
                     new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), binding);
@@ -2696,8 +2696,8 @@ class ChatSessionApiIntegrationTest {
     @NullMarked
     static class LocalAdapterFixture {
         @Bean
-        ChatProviderAdapter fixtureLocalAdapter() {
-            return new ChatProviderAdapter() {
+        ProviderAdapter fixtureLocalAdapter() {
+            return new ProviderAdapter() {
                 @Override public String type() { return "fixture-local"; }
                 @Override public CredentialRequirement credentialRequirement() { return CredentialRequirement.NONE; }
                 @Override public List<TokenizerProfile> tokenizerProfiles() {
@@ -2711,7 +2711,7 @@ class ChatSessionApiIntegrationTest {
                         @Override public ChatResponse call(Prompt prompt) { throw new UnsupportedOperationException(); }
                         @Override public Flux<ChatResponse> stream(Prompt prompt) { return Flux.just(response("Local adapter answer", "stop", 2)); }
                     };
-                    return new Client(new ChatModelBinding(new SpringAiLlmService(name, "Fixture Local", nativeModel), p -> p, ChatRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling(), settings.capabilities().vision()), () -> {});
+                    return new Client(new ModelBinding(new SpringAiLlmService(name, "Fixture Local", nativeModel), p -> p, ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling(), settings.capabilities().vision()), () -> {});
                 }
             };
         }
@@ -5361,7 +5361,7 @@ class ChatSessionApiIntegrationTest {
     void realProviderRunsThroughSendNativeRunnerAndPersistedHistory() throws Exception {
         String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
         assertTrue(key != null && !key.isBlank(), "SPRING_AI_OPENAI_API_KEY is required for this explicitly enabled check");
-        var configuration = new OpenAiChatProviderConfiguration();
+        var configuration = new OpenAiProviderConfiguration();
         var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var meters = new SimpleMeterRegistry();
@@ -5468,7 +5468,7 @@ class ChatSessionApiIntegrationTest {
         assertTrue(key != null && !key.isBlank());
         String corpusFile = System.getenv("MEMORYOS_CHAT_CORPUS_FILE");
         assertTrue(corpusFile != null && !corpusFile.isBlank(), "MEMORYOS_CHAT_CORPUS_FILE is required for this opt-in check");
-        var configuration = new OpenAiChatProviderConfiguration();
+        var configuration = new OpenAiProviderConfiguration();
         var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var receipts = new ArrayList<Map<String, Object>>();
@@ -5562,7 +5562,7 @@ class ChatSessionApiIntegrationTest {
     void realGroundedAnswersHandleNeighborsFollowUpMissingEvidenceAndDocumentInjection() throws Exception {
         String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
         assertTrue(key != null && !key.isBlank(), "A managed OpenAI key is required for this opt-in check");
-        var configuration = new OpenAiChatProviderConfiguration();
+        var configuration = new OpenAiProviderConfiguration();
         var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var meters = new SimpleMeterRegistry();

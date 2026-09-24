@@ -1,6 +1,6 @@
 package io.memoryos.chat.execution;
 
-import io.memoryos.ai.ChatModelTurns;
+import io.memoryos.ai.ModelTurns;
 import io.memoryos.chat.ChatActivityEvent;
 import io.memoryos.chat.ChatEvidence;
 import io.memoryos.chat.ChatReasoningDelta;
@@ -16,13 +16,13 @@ import java.util.function.Consumer;
  * Turns what a provider reports during a turn into Chat activity: reasoning deltas, hosted Web search steps and the
  * pages it cites as turn evidence.
  */
-public record ChatTurnListener(ChatEvidence evidence, Consumer<ChatActivityEvent> events) implements ChatModelTurns.Listener {
+public record ChatTurnListener(ChatEvidence evidence, Consumer<ChatActivityEvent> events) implements ModelTurns.Listener {
     private static final String WEB_SEARCH = "web_search";
 
     /** The provider-side turn view for this Chat turn. */
-    public static ChatModelTurns.Turn turn(ChatEvidence evidence, Consumer<ChatActivityEvent> events, boolean webSearch,
+    public static ModelTurns.Turn turn(ChatEvidence evidence, Consumer<ChatActivityEvent> events, boolean webSearch,
                                            Runnable checkActive) {
-        return new ChatModelTurns.Turn(new ChatTurnListener(evidence, events), webSearch, checkActive);
+        return new ModelTurns.Turn(new ChatTurnListener(evidence, events), webSearch, checkActive);
     }
 
     @Override

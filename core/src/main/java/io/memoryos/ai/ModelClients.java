@@ -13,20 +13,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Bounded ownership of native clients. Leases are per turn, never per SSE subscriber. */
-public final class ChatModelClients implements AutoCloseable {
-    private static final Logger LOG = LoggerFactory.getLogger(ChatModelClients.class);
+public final class ModelClients implements AutoCloseable {
+    private static final Logger LOG = LoggerFactory.getLogger(ModelClients.class);
     private final int capacity;
     private final LinkedHashMap<UUID, Entry> current = new LinkedHashMap<>(16, .75f, true);
     private final List<Entry> live = new ArrayList<>();
     private boolean closed;
 
-    public ChatModelClients(int capacity) {
+    public ModelClients(int capacity) {
         if (capacity < 1 || capacity > 1024) throw new IllegalArgumentException("Invalid model client capacity");
         this.capacity = capacity;
     }
 
     @SuppressWarnings("resource") // The cache owns the shared client; this call returns a lease, not client ownership.
-    public Lease acquire(UUID id, String revision, Supplier<ChatProviderAdapter.Client> factory) {
+    public Lease acquire(UUID id, String revision, Supplier<ProviderAdapter.Client> factory) {
         var cleanup = new ArrayList<Entry>();
         Entry entry;
         boolean initialize = false;
@@ -60,7 +60,7 @@ public final class ChatModelClients implements AutoCloseable {
                 // Reservations include the initializing caller and same-key waiters.
                 entry.references++;
             }
-        } finally { cleanup.forEach(ChatModelClients::dispose); }
+        } finally { cleanup.forEach(ModelClients::dispose); }
         if (initialize) {
             try { entry.client.complete(Objects.requireNonNull(factory.get())); }
             catch (Throwable failure) {
@@ -113,15 +113,15 @@ public final class ChatModelClients implements AutoCloseable {
             current.clear();
             for (var entry : List.copyOf(live)) retire(entry, cleanup);
         }
-        cleanup.forEach(ChatModelClients::dispose);
+        cleanup.forEach(ModelClients::dispose);
     }
 
     public final class Lease implements AutoCloseable {
         private final Entry entry;
-        private final ChatModelBinding binding;
+        private final ModelBinding binding;
         private final AtomicBoolean released = new AtomicBoolean();
-        private Lease(Entry entry, ChatModelBinding binding) { this.entry = entry; this.binding = binding; }
-        public ChatModelBinding binding() { return binding; }
+        private Lease(Entry entry, ModelBinding binding) { this.entry = entry; this.binding = binding; }
+        public ModelBinding binding() { return binding; }
         @Override public void close() {
             if (released.compareAndSet(false, true)) release(entry);
         }
@@ -129,7 +129,7 @@ public final class ChatModelClients implements AutoCloseable {
 
     private static final class Entry {
         final String revision;
-        final CompletableFuture<ChatProviderAdapter.Client> client = new CompletableFuture<>();
+        final CompletableFuture<ProviderAdapter.Client> client = new CompletableFuture<>();
         int references;
         boolean retired;
         Entry(String revision) {

@@ -14,7 +14,7 @@ import io.memoryos.chat.ChatPersonaService;
 import io.memoryos.chat.ChatModelAccess;
 import io.memoryos.chat.persona.ChatTenantProvisioner;
 import io.memoryos.chat.PersonaProperties;
-import io.memoryos.ai.openai.OpenAiChatProviderAdapter;
+import io.memoryos.ai.openai.OpenAiProviderAdapter;
 import io.memoryos.chat.persona.persistence.JdbcAgentModelRepository;
 import io.memoryos.chat.session.persistence.JdbcChatRepository;
 import io.memoryos.ai.persistence.JpaChatModelDefaultRepository;
@@ -65,7 +65,7 @@ class ChatTenantProvisioningTest {
     private JdbcClient jdbc;
     private TestDatabase.JpaHarness jpa;
     private ModelCatalogRepository catalog;
-    private ChatProviderAdapters adapters;
+    private ProviderAdapters adapters;
     private AnnotationConfigApplicationContext context;
 
     @BeforeEach
@@ -75,7 +75,7 @@ class ChatTenantProvisioningTest {
         jpa = TestDatabase.jpa(dataSource);
         catalog = new ModelCatalogRepository(jdbc, jpa.repository(JpaLlmProviderRepository.class),
                 jpa.repository(JpaModelConfigurationRepository.class), jpa.repository(JpaChatModelDefaultRepository.class));
-        adapters = new ChatProviderAdapters(List.of(new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, new SimpleMeterRegistry())));
+        adapters = new ProviderAdapters(List.of(new OpenAiProviderAdapter(ObservationRegistry.NOOP, new SimpleMeterRegistry())));
     }
 
     @AfterEach

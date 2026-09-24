@@ -11,8 +11,8 @@ import io.memoryos.chat.session.ChatTurnPersistence;
 import io.memoryos.chat.session.DefaultChatSessionService;
 import io.memoryos.ai.ModelCatalogService;
 import io.memoryos.ai.ModelSettings;
-import io.memoryos.ai.ChatModelBinding;
-import io.memoryos.ai.ChatRequestPolicy;
+import io.memoryos.ai.ModelBinding;
+import io.memoryos.ai.ModelRequestPolicy;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.persona.persistence.JdbcAgentRepository;
 import io.memoryos.chat.session.persistence.JdbcChatRepository;
@@ -611,8 +611,8 @@ class ChatPersistenceIntegrationTest {
         assertTrue(sessions.history(owner, session.id(), null, 100).isEmpty());
         jdbc.sql("UPDATE persona SET instructions = 'Answer' WHERE id = :id").param("id", session.personaId()).update();
         var tokens = new JTokkitTokenCountEstimator(EncodingType.O200K_BASE);
-        var policy = ChatRequestPolicy.hosted(tokens, p -> p);
-        var binding = new ChatModelBinding(new SpringAiLlmService("fixture", "fixture",
+        var policy = ModelRequestPolicy.hosted(tokens, p -> p);
+        var binding = new ModelBinding(new SpringAiLlmService("fixture", "fixture",
                 org.mockito.Mockito.mock(ChatModel.class)), p -> p, policy, 32000, 4096, false, false);
         String contribution = "Current date: 2026-09-11\n";
         // Reservation validates and stores the resolved prompt, including the account-language block.

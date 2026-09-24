@@ -6,12 +6,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /** Protocol dispatch only; product selection/access belongs to the catalog service. */
-public final class ChatProviderAdapters {
-    private final Map<String, ChatProviderAdapter> adapters;
-    public ChatProviderAdapters(List<ChatProviderAdapter> adapters) {
-        this.adapters = adapters.stream().collect(Collectors.toUnmodifiableMap(ChatProviderAdapter::type, Function.identity()));
+public final class ProviderAdapters {
+    private final Map<String, ProviderAdapter> adapters;
+    public ProviderAdapters(List<ProviderAdapter> adapters) {
+        this.adapters = adapters.stream().collect(Collectors.toUnmodifiableMap(ProviderAdapter::type, Function.identity()));
     }
-    public ChatProviderAdapter require(String type) {
+    public ProviderAdapter require(String type) {
         var adapter = adapters.get(type);
         if (adapter == null) throw AiException.invalid("Unsupported provider adapter.");
         return adapter;
@@ -22,9 +22,9 @@ public final class ChatProviderAdapters {
                 .map(a -> new Descriptor(a.type(), a.credentialRequirement(), a.tokenizerProfiles(), a.nativeWebSearch(), a.knownModels()))
                 .sorted(java.util.Comparator.comparing(Descriptor::type)).toList();
     }
-    public record Descriptor(String type, ChatProviderAdapter.CredentialRequirement credentialRequirement,
-                             List<ChatProviderAdapter.TokenizerProfile> tokenizerProfiles, boolean nativeWebSearch,
-                             List<ChatProviderAdapter.KnownModel> knownModels) {
+    public record Descriptor(String type, ProviderAdapter.CredentialRequirement credentialRequirement,
+                             List<ProviderAdapter.TokenizerProfile> tokenizerProfiles, boolean nativeWebSearch,
+                             List<ProviderAdapter.KnownModel> knownModels) {
         public Descriptor {
             tokenizerProfiles = List.copyOf(tokenizerProfiles);
             knownModels = List.copyOf(knownModels);

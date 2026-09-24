@@ -1,7 +1,7 @@
 package io.memoryos.chat.execution;
 
-import io.memoryos.ai.ChatRequestPolicy;
-import io.memoryos.ai.ChatAdmissionLedger;
+import io.memoryos.ai.ModelRequestPolicy;
+import io.memoryos.ai.ModelAdmissionLedger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -40,7 +40,7 @@ class ChatModelGuardTest {
     private final ChatModel provider = mock(ChatModel.class);
     private final AgentProcess process = mock(AgentProcess.class);
     private final Budget budget = mock(Budget.class, RETURNS_DEEP_STUBS);
-    private final ChatRequestPolicy policy = ChatRequestPolicy.hosted(new JTokkitTokenCountEstimator(), p -> p);
+    private final ModelRequestPolicy policy = ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(), p -> p);
     private final ChatModelGuard guard = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 1, () -> {}, policy, 32000,
             request -> new Prompt(request.getInstructions(), assertInstanceOf(OpenAiChatOptions.class, request.getOptions()).mutate()
                     .toolCallbacks(List.of()).toolChoice(null).build()));
@@ -190,7 +190,7 @@ class ChatModelGuardTest {
     @Test
     void budgetPolicyRejectsExpandedContinuationBeforeAnotherProviderCall() {
         var tokens = new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(com.knuddels.jtokkit.api.EncodingType.O200K_BASE);
-        var policy = ChatRequestPolicy.hosted(tokens, p -> p);
+        var policy = ModelRequestPolicy.hosted(tokens, p -> p);
         var guarded = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {},
                 policy, 64, p -> p);
         when(provider.stream(any(Prompt.class))).thenReturn(Flux.just(response("first", "stop", 12)));
@@ -232,7 +232,7 @@ class ChatModelGuardTest {
     @Test
     void guardsSharingALedgerAdmitAgainstOneTurnBudget() {
         when(budget.getTokens()).thenReturn(300);
-        var ledger = new ChatAdmissionLedger();
+        var ledger = new ModelAdmissionLedger();
         var first = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {}, policy, 32000, p -> p, ledger);
         var second = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {}, policy, 32000, p -> p, ledger);
         var separate = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {}, policy, 32000, p -> p);

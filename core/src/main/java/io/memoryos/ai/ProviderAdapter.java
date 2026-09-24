@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Public extension point: register a bean per protocol; keep SDK options out of the executor. */
-public interface ChatProviderAdapter {
+public interface ProviderAdapter {
     String type();
     CredentialRequirement credentialRequirement();
     List<TokenizerProfile> tokenizerProfiles();
@@ -96,14 +96,14 @@ public interface ChatProviderAdapter {
     }
 
     final class Client implements AutoCloseable {
-        private final ChatModelBinding binding;
+        private final ModelBinding binding;
         private final Runnable cleanup;
         private final AtomicBoolean closed = new AtomicBoolean();
-        public Client(ChatModelBinding binding, Runnable cleanup) {
+        public Client(ModelBinding binding, Runnable cleanup) {
             this.binding = java.util.Objects.requireNonNull(binding);
             this.cleanup = java.util.Objects.requireNonNull(cleanup);
         }
-        public ChatModelBinding binding() { return binding; }
+        public ModelBinding binding() { return binding; }
         @Override public void close() { if (closed.compareAndSet(false, true)) cleanup.run(); }
     }
 }

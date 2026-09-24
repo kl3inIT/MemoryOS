@@ -12,7 +12,7 @@ import com.openai.models.responses.ResponseOutputItem;
 import com.openai.models.responses.ResponseOutputMessage;
 import com.openai.models.responses.ResponseStreamEvent;
 import com.openai.models.responses.Tool;
-import io.memoryos.ai.ChatModelTurns;
+import io.memoryos.ai.ModelTurns;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -48,7 +48,7 @@ import reactor.core.publisher.FluxSink;
  * needed by the next tool cycle ride in assistant message properties.
  */
 @org.jspecify.annotations.NullMarked
-final class OpenAiResponsesChatModel implements ChatModel, ChatModelTurns {
+final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(OpenAiResponsesChatModel.class);
     static final String OUTPUT_ITEMS = "memoryos.openai.responses.output";
     private static final tools.jackson.databind.ObjectMapper JSON = new tools.jackson.databind.ObjectMapper();

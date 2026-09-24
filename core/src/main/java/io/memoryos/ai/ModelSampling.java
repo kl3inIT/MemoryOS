@@ -10,15 +10,15 @@ import org.jspecify.annotations.Nullable;
  * <p>{@code pinnedReasoning} distinguishes Onyx's two sources: a level pinned on this conversation outranks the model
  * configuration, while a member's default only applies to a model whose configuration names no level.
  */
-public record ChatSampling(@Nullable Double temperature, @Nullable ReasoningEffort reasoningEffort,
+public record ModelSampling(@Nullable Double temperature, @Nullable ReasoningEffort reasoningEffort,
                            boolean pinnedReasoning) {
-    public static final ChatSampling NONE = new ChatSampling(null, null, false);
+    public static final ModelSampling NONE = new ModelSampling(null, null, false);
 
-    public ChatSampling(@Nullable Double temperature, @Nullable ReasoningEffort reasoningEffort) {
+    public ModelSampling(@Nullable Double temperature, @Nullable ReasoningEffort reasoningEffort) {
         this(temperature, reasoningEffort, false);
     }
 
-    public ChatSampling {
+    public ModelSampling {
         if (temperature != null && (!Double.isFinite(temperature) || temperature < 0 || temperature > 2))
             throw AiException.invalid("Creativity must be between 0 and 2.");
     }

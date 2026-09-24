@@ -14,8 +14,8 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Component;
 
 @Component
-public final class ChatModelValidation {
-    private final ChatModelResolver models;
+public final class ModelValidation {
+    private final ModelResolver models;
     private final int maxOutputTokens;
     private final Semaphore permits = new Semaphore(2);
     /** Declared so the provider validates tools beside this entry's options; tool_choice=none keeps it uncalled. */
@@ -27,7 +27,7 @@ public final class ChatModelValidation {
         }
         @Override public String call(String toolInput) { return "{}"; }
     };
-    ChatModelValidation(ChatModelResolver models, @Value("${memoryos.chat.execution.max-output-tokens}") int maxOutputTokens) {
+    ModelValidation(ModelResolver models, @Value("${memoryos.chat.execution.max-output-tokens}") int maxOutputTokens) {
         this.models = models;
         this.maxOutputTokens = maxOutputTokens;
     }

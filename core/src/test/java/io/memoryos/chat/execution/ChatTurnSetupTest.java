@@ -1,6 +1,6 @@
 package io.memoryos.chat.execution;
-import io.memoryos.ai.ChatModelBinding;
-import io.memoryos.ai.ChatRequestPolicy;
+import io.memoryos.ai.ModelBinding;
+import io.memoryos.ai.ModelRequestPolicy;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -67,7 +67,7 @@ class ChatTurnSetupTest {
         var question = new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.USER,
                 "Compare", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(first, second));
         var base = binding();
-        var vision = new ChatModelBinding(base.service(), base.finalRequest(), base.policy(), base.contextWindow(), base.maxOutputTokens(), false, true);
+        var vision = new ModelBinding(base.service(), base.finalRequest(), base.policy(), base.contextWindow(), base.maxOutputTokens(), false, true);
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context(List.of(question)), 32000, vision, "");
         assertEquals(List.of(first, second), setup.images().get(1));
         var content = mock(ChatFileContentService.class);
@@ -87,13 +87,13 @@ class ChatTurnSetupTest {
         var question = new ChatMessage(UUID.randomUUID(), UUID.randomUUID(), null, null, ChatMessage.Role.USER,
                 "", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(file));
         var base = binding();
-        var vision = new ChatModelBinding(base.service(), base.finalRequest(), base.policy(), base.contextWindow(), base.maxOutputTokens(), false, true);
+        var vision = new ModelBinding(base.service(), base.finalRequest(), base.policy(), base.contextWindow(), base.maxOutputTokens(), false, true);
         assertThrows(ChatException.class, () -> ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context(List.of(question)), 2000, vision, ""));
     }
 
-    private static ChatModelBinding binding() {
-        return new ChatModelBinding(new SpringAiLlmService(
-                "binding-model", "fixture", mock(ChatModel.class)), p -> p, ChatRequestPolicy.hosted(
+    private static ModelBinding binding() {
+        return new ModelBinding(new SpringAiLlmService(
+                "binding-model", "fixture", mock(ChatModel.class)), p -> p, ModelRequestPolicy.hosted(
         new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(com.knuddels.jtokkit.api.EncodingType.O200K_BASE), p -> p), 32000, 4096, false, false);
     }
     @Test
@@ -176,16 +176,16 @@ class ChatTurnSetupTest {
                 "Answer", List.of(question), io.memoryos.chat.ChatTurnOptions.DEFAULT,
                 java.util.Map.of(file.id(), new ChatFileService.FileText("text", 0, 4)), List.of());
         var base = binding();
-        var policy = new ChatRequestPolicy(base.policy().tokens(),
+        var policy = new ModelRequestPolicy(base.policy().tokens(),
                 prompt -> base.policy().framing().applyAsInt(prompt)
                         + Math.max(0, prompt.getInstructions().size() - 2) * 10000,
                 prompt -> prompt, ignored -> {});
-        var tools = new ChatModelBinding(base.service(), base.finalRequest(), policy, 32000, 4096, true, false);
+        var tools = new ModelBinding(base.service(), base.finalRequest(), policy, 32000, 4096, true, false);
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 2000, tools, "");
         assertEquals(java.util.Set.of(file.id()), setup.fileIds());
         org.junit.jupiter.api.Assertions.assertTrue(setup.messages().getLast().getContent().startsWith("Summarize"));
         org.junit.jupiter.api.Assertions.assertTrue(setup.evidence().snapshot().isEmpty());
-        var noTools = new ChatModelBinding(base.service(), base.finalRequest(), policy, 32000, 4096, false, false);
+        var noTools = new ModelBinding(base.service(), base.finalRequest(), policy, 32000, 4096, false, false);
         assertThrows(ChatException.class, () -> ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 2000, noTools, ""));
     }
 

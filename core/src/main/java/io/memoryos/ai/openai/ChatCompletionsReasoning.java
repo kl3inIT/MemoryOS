@@ -1,6 +1,6 @@
 package io.memoryos.ai.openai;
 
-import io.memoryos.ai.ChatModelTurns;
+import io.memoryos.ai.ModelTurns;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.ChatOptions;
@@ -14,7 +14,7 @@ import reactor.core.publisher.Flux;
  * {@code reasoning_content} and emits reasoning packets, the new part of each chunk is published as turn reasoning, so
  * the answer shows what the model is thinking instead of standing still.
  */
-final class ChatCompletionsReasoning implements ChatModel, ChatModelTurns {
+final class ChatCompletionsReasoning implements ChatModel, ModelTurns {
     static final String REASONING = "reasoningContent";
     private static final int MAX_EVENT_CHARACTERS = 4000;
     private final ChatModel delegate;

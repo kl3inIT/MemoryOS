@@ -9,8 +9,8 @@ import java.time.Duration;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-class OpenAiChatProviderConfigurationTest {
-    private final OpenAiChatProviderConfiguration configuration = new OpenAiChatProviderConfiguration();
+class OpenAiProviderConfigurationTest {
+    private final OpenAiProviderConfiguration configuration = new OpenAiProviderConfiguration();
     private final ChatExecutionProperties limits = new ChatExecutionProperties(1, Duration.ofMinutes(30), Duration.ofSeconds(60), Duration.ofSeconds(30),
             6, 1024, 32000, 10000, null, null, 10, Duration.ofSeconds(60));
 

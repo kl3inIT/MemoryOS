@@ -1,11 +1,11 @@
 package io.memoryos.chat;
 
-import io.memoryos.ai.ChatModelTurns;
+import io.memoryos.ai.ModelTurns;
 import io.memoryos.ai.ModelAccounting;
 import io.memoryos.chat.session.ChatTurnPersistence;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
-import io.memoryos.ai.ChatModelResolver;
+import io.memoryos.ai.ModelResolver;
 import io.memoryos.ai.ModelFlow;
 import io.memoryos.usage.AiUsageFlow;
 import org.jspecify.annotations.Nullable;
@@ -140,7 +140,7 @@ public final class ChatTurnService implements AutoCloseable {
         } finally { permits.release(); }
     }
 
-    private void recordNaming(ActorId actor, ChatModelResolver.Resolved selected, ModelAccounting accounting) {
+    private void recordNaming(ActorId actor, ModelResolver.Resolved selected, ModelAccounting accounting) {
         try {
             persistence.recordUsage(new ChatTurnPersistence.Usage(null, actor, AiUsageFlow.CHAT_NAMING, selected.modelConfigurationId(),
                     selected.provenance(), selected.binding().service().getName(), accounting));
@@ -210,7 +210,7 @@ public final class ChatTurnService implements AutoCloseable {
         if (spending != null) spending.enforce(actor);
         if (!accepting.get() || !permits.tryAcquire()) throw ChatException.busy();
         ChatTurnPersistence.Reservation reserved = null;
-        ChatModelResolver.Resolved resolved = null;
+        ModelResolver.Resolved resolved = null;
         boolean transferred = false;
         try {
             resolved = models.resolve(actor, session, command.modelConfigurationId());
@@ -229,7 +229,7 @@ public final class ChatTurnService implements AutoCloseable {
             var webAccess = new io.memoryos.chat.web.WebConnectionService.Access(null, null);
             if (command.webSearch() != WebSearchMode.off) {
                 // Provider-hosted search needs no external connection; external search needs one.
-                boolean nativeSearch = binding.service().getChatModel() instanceof ChatModelTurns turns && turns.nativeWebSearch();
+                boolean nativeSearch = binding.service().getChatModel() instanceof ModelTurns turns && turns.nativeWebSearch();
                 // Research agents always search through the Web tools, as Onyx does, even when the model hosts search.
                 boolean externalSearch = !nativeSearch || command.deepResearch();
                 if (!binding.toolCalling() || (externalSearch && web == null)) {
@@ -516,7 +516,7 @@ public final class ChatTurnService implements AutoCloseable {
     private static final class Active {
         // Replaced once, by the sending thread, when MCP tools open after registration and before dispatch.
         volatile ChatTurnSetup setup;
-        final ChatModelResolver.Resolved resolved;
+        final ModelResolver.Resolved resolved;
         final StringBuilder content = new StringBuilder();
         final List<ChatSource> sources = new ArrayList<>();
         final ChatActivityRecorder recorder = new ChatActivityRecorder();
@@ -535,7 +535,7 @@ public final class ChatTurnService implements AutoCloseable {
         final ReentrantLock finalizing = new ReentrantLock();
         volatile Outcome outcome;
         volatile ModelAccounting accounting = ModelAccounting.NONE;
-        Active(ChatTurnSetup setup, ChatModelResolver.Resolved resolved) { this.setup = setup; this.resolved = resolved; }
+        Active(ChatTurnSetup setup, ModelResolver.Resolved resolved) { this.setup = setup; this.resolved = resolved; }
         synchronized void cancel(StopReason reason) {
             if (outcome != null) return;
             stopReason.compareAndSet(null, reason);

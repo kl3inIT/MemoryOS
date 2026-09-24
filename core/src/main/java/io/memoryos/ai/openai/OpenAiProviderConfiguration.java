@@ -22,7 +22,7 @@ import org.springframework.context.annotation.Lazy;
  * One supported protocol, using native Spring AI clients and Embabel service/options.
  */
 @Configuration(proxyBeanMethods = false)
-public class OpenAiChatProviderConfiguration {
+public class OpenAiProviderConfiguration {
     @Bean(destroyMethod = "close")
     @Lazy
     public OpenAiCancellation chatOpenAiClient(@Value("${memoryos.chat.provider.api-key:}") String key,
@@ -30,7 +30,7 @@ public class OpenAiChatProviderConfiguration {
                                               @Value("${memoryos.chat.execution.provider-read-timeout}") Duration providerReadTimeout) {
         requireCredential(key);
         requireEndpoint(baseUrl);
-        return OpenAiChatProviderAdapter.asyncClient(baseUrl, key, providerReadTimeout);
+        return OpenAiProviderAdapter.asyncClient(baseUrl, key, providerReadTimeout);
     }
 
     @Bean(destroyMethod = "close")
@@ -55,16 +55,16 @@ public class OpenAiChatProviderConfiguration {
     }
 
     @Bean
-    public OpenAiChatProviderAdapter openAiChatProviderAdapter(ObservationRegistry observations, MeterRegistry meters) {
-        return new OpenAiChatProviderAdapter(observations, meters);
+    public OpenAiProviderAdapter openAiChatProviderAdapter(ObservationRegistry observations, MeterRegistry meters) {
+        return new OpenAiProviderAdapter(observations, meters);
     }
 
     // Embabel's platform default metadata; Chat turns select their explicit catalog service.
     @Bean
     SpringAiLlmService chatLlmService(@Lazy ChatModel chatProviderModel,
                                      ModelCatalogService.Deployment deployment) {
-        return OpenAiChatProviderAdapter.binding(deployment.modelName(), deployment.settings(), chatProviderModel,
-                ChatTokenizerProfiles.hostedTokens()).service();
+        return OpenAiProviderAdapter.binding(deployment.modelName(), deployment.settings(), chatProviderModel,
+                TokenizerProfiles.hostedTokens()).service();
     }
 
 

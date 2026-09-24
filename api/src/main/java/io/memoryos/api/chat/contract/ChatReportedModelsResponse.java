@@ -1,6 +1,6 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.ai.ChatModelResolver;
+import io.memoryos.ai.ModelResolver;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -11,7 +11,7 @@ public record ChatReportedModelsResponse(
 ) {
     public ChatReportedModelsResponse { models = List.copyOf(models); }
 
-    public static ChatReportedModelsResponse from(List<ChatModelResolver.ReportedModelSpec> specs) {
+    public static ChatReportedModelsResponse from(List<ModelResolver.ReportedModelSpec> specs) {
         return new ChatReportedModelsResponse(specs.stream().map(spec -> new ReportedModel(spec.modelName(),
                 spec.contextWindow(), spec.maxOutputTokens(),
                 new Capabilities(spec.capabilities().toolCalling(), spec.capabilities().vision(), spec.capabilities().reasoning()),

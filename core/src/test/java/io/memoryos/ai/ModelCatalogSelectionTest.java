@@ -131,11 +131,11 @@ class ModelCatalogSelectionTest {
             when(tenants.findActiveMembership(actor)).thenReturn(Optional.of(membership));
             when(chats.usablePersona(new TenantId(tenant), actor, persona, false)).thenReturn(true);
             when(authorization.effectiveCapabilities(actor)).thenReturn(Set.of());
-            var adapters = mock(ChatProviderAdapters.class);
-            var adapter = mock(ChatProviderAdapter.class);
+            var adapters = mock(ProviderAdapters.class);
+            var adapter = mock(ProviderAdapter.class);
             when(adapters.supports("test")).thenReturn(true);
             when(adapters.require("test")).thenReturn(adapter);
-            when(adapter.credentialRequirement()).thenReturn(ChatProviderAdapter.CredentialRequirement.NONE);
+            when(adapter.credentialRequirement()).thenReturn(ProviderAdapter.CredentialRequirement.NONE);
             when(catalog.actorGroups(tenant, actor.value())).thenReturn(Set.of());
             when(catalog.providers(tenant)).thenReturn(List.of(provider, otherProvider));
             when(catalog.models(tenant)).thenReturn(List.of(defaultModel, otherModel));

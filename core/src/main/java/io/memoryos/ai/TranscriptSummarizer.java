@@ -29,11 +29,11 @@ public class TranscriptSummarizer {
     static final int MAX_TOPICS = 30;
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(TranscriptSummarizer.class);
 
-    private final ChatModelResolver models;
+    private final ModelResolver models;
     private final ModelCalls calls;
     private final @Nullable AiUsageRecorder usage;
 
-    public TranscriptSummarizer(ChatModelResolver models, ModelCalls calls, ObjectProvider<AiUsageRecorder> usage) {
+    public TranscriptSummarizer(ModelResolver models, ModelCalls calls, ObjectProvider<AiUsageRecorder> usage) {
         this.models = models;
         this.calls = calls;
         this.usage = usage.getIfAvailable();
@@ -153,7 +153,7 @@ public class TranscriptSummarizer {
         return value == null || value.isBlank() ? null : value.strip();
     }
 
-    private void record(UUID tenant, ActorId actor, ChatModelResolver.Resolved selected, ModelAccounting accounting) {
+    private void record(UUID tenant, ActorId actor, ModelResolver.Resolved selected, ModelAccounting accounting) {
         if (usage == null || !accounting.used()) return;
         try {
             usage.record(AiUsage.tokens(tenant, actor.value(), AiUsageFlow.MEETING_MINUTES,

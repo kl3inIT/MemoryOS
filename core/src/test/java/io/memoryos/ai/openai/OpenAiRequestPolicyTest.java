@@ -25,12 +25,12 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import reactor.core.publisher.Flux;
 
-class OpenAiChatRequestPolicyTest {
+class OpenAiRequestPolicyTest {
     @Test
     void textOnlyPolicyRemovesConvertedToolsAndBoundsEveryCallNotJustLastCycle() {
         var settings = new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false),
-                Map.of(), null, ChatTokenizerProfiles.HOSTED);
-        var policy = OpenAiChatRequestPolicy.create(settings, ChatTokenizerProfiles.hostedTokens());
+                Map.of(), null, TokenizerProfiles.HOSTED);
+        var policy = OpenAiRequestPolicy.create(settings, TokenizerProfiles.hostedTokens());
         var model = mock(ChatModel.class);
         var process = mock(AgentProcess.class);
         var budget = mock(Budget.class, RETURNS_DEEP_STUBS);
@@ -50,7 +50,7 @@ class OpenAiChatRequestPolicyTest {
                     ChatGenerationMetadata.builder().finishReason("stop").build()))));
         });
         var guard = new ChatModelGuard(model, process, mock(LlmMetadata.class), budget, 3, () -> {},
-                policy, 896, OpenAiChatRequestPolicy::withoutTools);
+                policy, 896, OpenAiRequestPolicy::withoutTools);
         var options = OpenAiChatOptions.builder().model("any-name").maxTokens(1000).maxCompletionTokens(1000)
                 .toolCallbacks(List.of(toolCallback())).toolChoice("required").parallelToolCalls(true)
                 .toolContext(Map.of("unexpected", "context")).reasoningEffort("high").build();
@@ -66,9 +66,9 @@ class OpenAiChatRequestPolicyTest {
 
     @Test
     void hostedVisionCountsNativeMediaAndRejectsItForTextOnlyBindings() {
-        var tokens = ChatTokenizerProfiles.hostedTokens();
-        var vision = OpenAiChatRequestPolicy.create(new ModelSettings(8192, 128,
-                new ModelSettings.Capabilities(true, false, true, false), Map.of(), null, ChatTokenizerProfiles.HOSTED), tokens);
+        var tokens = TokenizerProfiles.hostedTokens();
+        var vision = OpenAiRequestPolicy.create(new ModelSettings(8192, 128,
+                new ModelSettings.Capabilities(true, false, true, false), Map.of(), null, TokenizerProfiles.HOSTED), tokens);
         var media = new org.springframework.ai.content.Media(org.springframework.util.MimeTypeUtils.IMAGE_PNG,
                 new org.springframework.core.io.ByteArrayResource(new byte[]{1, 2, 3}));
         var message = org.springframework.ai.chat.messages.UserMessage.builder().text("Inspect").media(List.of(media)).build();
@@ -81,17 +81,17 @@ class OpenAiChatRequestPolicyTest {
         var accepted = vision.request(prompt, imageBudget);
         assertEquals(List.of(media), assertInstanceOf(org.springframework.ai.chat.messages.UserMessage.class,
                 accepted.getInstructions().getFirst()).getMedia());
-        var textOnly = OpenAiChatRequestPolicy.create(new ModelSettings(8192, 128,
-                new ModelSettings.Capabilities(true, false, false, false), Map.of(), null, ChatTokenizerProfiles.HOSTED), tokens);
+        var textOnly = OpenAiRequestPolicy.create(new ModelSettings(8192, 128,
+                new ModelSettings.Capabilities(true, false, false, false), Map.of(), null, TokenizerProfiles.HOSTED), tokens);
         assertThrows(AiException.class, () -> textOnly.request(prompt, imageBudget));
     }
 
     @Test
     void aModelWithoutAPublishedOutputLimitSendsNoCapUnlessTheRequestSetsOne() {
         // Onyx llm_loop passes no max_tokens: the provider's own default applies.
-        var policy = OpenAiChatRequestPolicy.create(new ModelSettings(131_072, null,
-                new ModelSettings.Capabilities(true, true, false, false), Map.of(), null, ChatTokenizerProfiles.HOSTED),
-                ChatTokenizerProfiles.hostedTokens());
+        var policy = OpenAiRequestPolicy.create(new ModelSettings(131_072, null,
+                new ModelSettings.Capabilities(true, true, false, false), Map.of(), null, TokenizerProfiles.HOSTED),
+                TokenizerProfiles.hostedTokens());
         var open = assertInstanceOf(OpenAiChatOptions.class, policy.request(new Prompt("Question",
                 OpenAiChatOptions.builder().model("grok-4").build()), 1000).getOptions());
         assertNull(open.getMaxTokens());
@@ -104,18 +104,18 @@ class OpenAiChatRequestPolicyTest {
     @Test
     void requiredToolChoiceAppliesOnlyToRequestsWithTools() {
         var plain = new Prompt("Question", OpenAiChatOptions.builder().model("gpt-5-mini").build());
-        assertSame(plain, OpenAiChatRequestPolicy.requireTools(plain), "A tool-free research inference keeps its request");
+        assertSame(plain, OpenAiRequestPolicy.requireTools(plain), "A tool-free research inference keeps its request");
         var withTools = new Prompt("Question", OpenAiChatOptions.builder().model("gpt-5-mini")
                 .toolCallbacks(List.of(mock(ToolCallback.class))).toolChoice("auto").build());
-        assertEquals("required", assertInstanceOf(OpenAiChatOptions.class, OpenAiChatRequestPolicy.requireTools(withTools).getOptions()).getToolChoice());
-        assertThrows(IllegalArgumentException.class, () -> OpenAiChatRequestPolicy.requireTools(new Prompt("Question")));
+        assertEquals("required", assertInstanceOf(OpenAiChatOptions.class, OpenAiRequestPolicy.requireTools(withTools).getOptions()).getToolChoice());
+        assertThrows(IllegalArgumentException.class, () -> OpenAiRequestPolicy.requireTools(new Prompt("Question")));
     }
 
     @Test
     void profileValidationRejectsUnknownProfilesLocally() {
         var meters = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
         try {
-            var adapter = new OpenAiChatProviderAdapter(io.micrometer.observation.ObservationRegistry.NOOP, meters);
+            var adapter = new OpenAiProviderAdapter(io.micrometer.observation.ObservationRegistry.NOOP, meters);
             assertThrows(AiException.class, () -> adapter.validate("http://private/v1", "model",
                     new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false), Map.of(), null, "unknown")));
         } finally { meters.close(); }

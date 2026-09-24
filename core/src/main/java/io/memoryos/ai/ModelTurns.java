@@ -8,7 +8,7 @@ import org.springframework.ai.chat.model.ChatModel;
  * Clients are shared across turns, so the turn's listener and Web intent attach to a per-turn view. The conversation
  * that owns the turn translates what the listener hears into its own events and evidence.
  */
-public interface ChatModelTurns {
+public interface ModelTurns {
     record Turn(Listener listener, boolean webSearch, Runnable checkActive) {}
 
     /** What a provider reports while it answers, in provider-neutral terms. */

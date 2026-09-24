@@ -8,12 +8,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Resolve product configuration first, then acquire native clients outside the DB transaction. */
-public final class ChatModelResolver {
-    private static final Logger LOG = LoggerFactory.getLogger(ChatModelResolver.class);
+public final class ModelResolver {
+    private static final Logger LOG = LoggerFactory.getLogger(ModelResolver.class);
     private final ModelCatalogService catalog;
-    private final ChatProviderAdapters adapters;
+    private final ProviderAdapters adapters;
     private final ProviderCredentials credentials;
-    private final ChatModelClients clients;
+    private final ModelClients clients;
     private final Duration providerReadTimeout;
     private final boolean costCapped;
 
@@ -21,8 +21,8 @@ public final class ChatModelResolver {
      * {@code providerReadTimeout} bounds connecting and each read gap of a provider call; {@code costCapped} says the
      * deployment caps spending, so every model must carry its pricing.
      */
-    public ChatModelResolver(ModelCatalogService catalog, ChatProviderAdapters adapters, ProviderCredentials credentials,
-                             ChatModelClients clients, Duration providerReadTimeout, boolean costCapped) {
+    public ModelResolver(ModelCatalogService catalog, ProviderAdapters adapters, ProviderCredentials credentials,
+                             ModelClients clients, Duration providerReadTimeout, boolean costCapped) {
         this.catalog = catalog;
         this.adapters = adapters;
         this.credentials = credentials;
@@ -65,13 +65,13 @@ public final class ChatModelResolver {
         var adapter = adapters.require(connection.adapterType());
         try {
             var reported = adapter.reportedModels(
-                            new ChatProviderAdapter.Connection(connection.baseUrl(), connection.credential()),
+                            new ProviderAdapter.Connection(connection.baseUrl(), connection.credential()),
                             providerReadTimeout);
             var seen = new java.util.HashSet<String>();
             return reported.stream()
                     .filter(model -> !model.modelName().isBlank() && model.modelName().length() <= 200)
                     .filter(model -> seen.add(model.modelName()))
-                    .sorted(java.util.Comparator.comparing(ChatProviderAdapter.ReportedModel::modelName))
+                    .sorted(java.util.Comparator.comparing(ProviderAdapter.ReportedModel::modelName))
                     .limit(1000)
                     .map(model -> spec(model, adapter.knownModels()))
                     .toList();
@@ -90,7 +90,7 @@ public final class ChatModelResolver {
         var adapter = adapters.require(connection.adapterType());
         if (!adapter.listsModels()) return -1;
         try {
-            return adapter.reportedModels(new ChatProviderAdapter.Connection(connection.baseUrl(), connection.credential()),
+            return adapter.reportedModels(new ProviderAdapter.Connection(connection.baseUrl(), connection.credential()),
                     providerReadTimeout).size();
         } catch (AiException expected) { throw expected; }
         catch (RuntimeException failure) {
@@ -101,7 +101,7 @@ public final class ChatModelResolver {
 
     public static final int FALLBACK_CONTEXT_WINDOW = 32_000;
 
-    public static ReportedModelSpec spec(ChatProviderAdapter.ReportedModel reported, java.util.List<ChatProviderAdapter.KnownModel> known) {
+    public static ReportedModelSpec spec(ProviderAdapter.ReportedModel reported, java.util.List<ProviderAdapter.KnownModel> known) {
         var catalogModel = findKnown(reported.modelName(), known);
         Integer context = valid(reported.contextWindow(), 256, 10_000_000);
         Integer output = reported.maxOutputTokens();
@@ -133,7 +133,7 @@ public final class ChatModelResolver {
     }
 
     /** Catalog names are bare (gpt-5-mini); endpoints may prefix them (models/gemini-2.5-pro, openai/gpt-5-mini). */
-    public static ChatProviderAdapter.@Nullable KnownModel findKnown(String reported, java.util.List<ChatProviderAdapter.KnownModel> known) {
+    public static ProviderAdapter.@Nullable KnownModel findKnown(String reported, java.util.List<ProviderAdapter.KnownModel> known) {
         String name = reported.startsWith("models/") ? reported.substring("models/".length()) : reported;
         for (var candidate : new String[] {name, name.substring(name.lastIndexOf('/') + 1)})
             for (var model : known) if (model.modelName().equals(candidate)) return model;
@@ -157,10 +157,10 @@ public final class ChatModelResolver {
         var lease = clients.acquire(model.id(), provider.revision() + ":" + model.revision(), () -> {
             var adapter = adapters.require(provider.adapterType());
             var key = credentials.resolve(provider.tenantId(), provider.id(), provider.credential());
-            if (adapter.credentialRequirement() == ChatProviderAdapter.CredentialRequirement.REQUIRED && key.isBlank())
+            if (adapter.credentialRequirement() == ProviderAdapter.CredentialRequirement.REQUIRED && key.isBlank())
                 throw AiException.providerUnavailable();
             try {
-                return adapter.create(new ChatProviderAdapter.Connection(provider.baseUrl(), key), model.modelName(), model.settings(), providerReadTimeout);
+                return adapter.create(new ProviderAdapter.Connection(provider.baseUrl(), key), model.modelName(), model.settings(), providerReadTimeout);
             } catch (AiException expected) { throw expected; }
             catch (RuntimeException failure) {
                 LOG.warn("Chat model {} client initialization failed ({})", model.id(), failure.getClass().getSimpleName());
@@ -180,16 +180,16 @@ public final class ChatModelResolver {
         public static final Provenance UNKNOWN = new Provenance(null, "unknown", null);
     }
 
-    public record Resolved(UUID modelConfigurationId, @Nullable String fallbackReason, ChatModelClients.Lease lease,
+    public record Resolved(UUID modelConfigurationId, @Nullable String fallbackReason, ModelClients.Lease lease,
                            @Nullable String contextRevision, Provenance provenance) implements AutoCloseable {
-        public Resolved(UUID modelConfigurationId, @Nullable String fallbackReason, ChatModelClients.Lease lease) {
+        public Resolved(UUID modelConfigurationId, @Nullable String fallbackReason, ModelClients.Lease lease) {
             this(modelConfigurationId, fallbackReason, lease, null, Provenance.UNKNOWN);
         }
-        public Resolved(UUID modelConfigurationId, @Nullable String fallbackReason, ChatModelClients.Lease lease,
+        public Resolved(UUID modelConfigurationId, @Nullable String fallbackReason, ModelClients.Lease lease,
                         @Nullable String contextRevision) {
             this(modelConfigurationId, fallbackReason, lease, contextRevision, Provenance.UNKNOWN);
         }
-        public ChatModelBinding binding() { return lease.binding(); }
+        public ModelBinding binding() { return lease.binding(); }
         @Override public void close() { lease.close(); }
     }
 }

@@ -10,14 +10,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ExecutionException;
 import org.junit.jupiter.api.Test;
 
-class ChatModelClientsTest {
+class ModelClientsTest {
     @Test
     void slowInitializationDoesNotBlockCachedModelsAndSameKeyCreatesOnlyOnce() throws Exception {
         var entered = new CountDownLatch(1);
         var proceed = new CountDownLatch(1);
         var created = new AtomicInteger();
         var closed = new AtomicInteger();
-        try (var clients = new ChatModelClients(2); var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        try (var clients = new ModelClients(2); var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var cachedId = UUID.randomUUID();
             var slowId = UUID.randomUUID();
             try (var cached = clients.acquire(cachedId, "1", () -> client(created, closed))) {
@@ -47,7 +47,7 @@ class ChatModelClientsTest {
     void initializationFailureReleasesCapacityAndCanBeRetried() throws Exception {
         var entered = new CountDownLatch(1);
         var proceed = new CountDownLatch(1);
-        try (var clients = new ChatModelClients(1); var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        try (var clients = new ModelClients(1); var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var id = UUID.randomUUID();
             var first = executor.submit(() -> clients.acquire(id, "1", () -> {
                 entered.countDown();
@@ -70,10 +70,10 @@ class ChatModelClientsTest {
     void slowCleanupDoesNotBlockAnotherModelLease() throws Exception {
         var entered = new CountDownLatch(1);
         var proceed = new CountDownLatch(1);
-        try (var clients = new ChatModelClients(3); var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        try (var clients = new ModelClients(3); var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var oldId = UUID.randomUUID();
             var cachedId = UUID.randomUUID();
-            var old = clients.acquire(oldId, "1", () -> new ChatProviderAdapter.Client(mock(ChatModelBinding.class), () -> {
+            var old = clients.acquire(oldId, "1", () -> new ProviderAdapter.Client(mock(ModelBinding.class), () -> {
                 entered.countDown();
                 await(proceed);
             }));
@@ -101,7 +101,7 @@ class ChatModelClientsTest {
         var closed = new AtomicInteger();
         var created = new AtomicInteger();
         var id = UUID.randomUUID();
-        try (var clients = new ChatModelClients(2)) {
+        try (var clients = new ModelClients(2)) {
             var first = clients.acquire(id, "1", () -> client(created, closed));
             var same = clients.acquire(id, "1", () -> client(created, closed));
             assertSame(first.binding(), same.binding());
@@ -123,7 +123,7 @@ class ChatModelClientsTest {
     void boundsLiveAndRetiredClientsAndDoesNotCloseActiveCallsDuringShutdown() {
         var closed = new AtomicInteger();
         var created = new AtomicInteger();
-        var clients = new ChatModelClients(1);
+        var clients = new ModelClients(1);
         var lease = clients.acquire(UUID.randomUUID(), "1", () -> client(created, closed));
         assertThrows(AiException.class, () -> clients.acquire(UUID.randomUUID(), "1", () -> client(created, closed)));
         clients.close();
@@ -133,8 +133,8 @@ class ChatModelClientsTest {
         assertEquals(1, closed.get());
     }
 
-    private static ChatProviderAdapter.Client client(AtomicInteger created, AtomicInteger closed) {
+    private static ProviderAdapter.Client client(AtomicInteger created, AtomicInteger closed) {
         created.incrementAndGet();
-        return new ChatProviderAdapter.Client(mock(ChatModelBinding.class), closed::incrementAndGet);
+        return new ProviderAdapter.Client(mock(ModelBinding.class), closed::incrementAndGet);
     }
 }

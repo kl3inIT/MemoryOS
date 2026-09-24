@@ -9,7 +9,7 @@ import org.springframework.ai.chat.metadata.Usage;
  * Token and cost allowance admitted for one turn. Deep research guards share one ledger, so parallel research agents
  * cannot each spend the whole turn budget. Admission bounds only: Embabel remains the invocation, usage and cost ledger.
  */
-public final class ChatAdmissionLedger {
+public final class ModelAdmissionLedger {
     private long admittedTokens;
     private double admittedCost;
 

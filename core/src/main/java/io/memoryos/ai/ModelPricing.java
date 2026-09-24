@@ -6,12 +6,12 @@ import com.embabel.common.ai.model.PricingModel;
  * Embabel pricing for a catalog model that also knows its cached-input rate. Embabel prices every input token at the
  * input rate, so a turn's cost is corrected with {@link #cacheDiscount(long)} once its cached tokens are known.
  */
-public final class ChatModelPricing implements PricingModel {
+public final class ModelPricing implements PricingModel {
     private final ModelSettings.Pricing pricing;
 
-    private ChatModelPricing(ModelSettings.Pricing pricing) { this.pricing = pricing; }
+    private ModelPricing(ModelSettings.Pricing pricing) { this.pricing = pricing; }
 
-    public static ChatModelPricing of(ModelSettings.Pricing pricing) { return new ChatModelPricing(pricing); }
+    public static ModelPricing of(ModelSettings.Pricing pricing) { return new ModelPricing(pricing); }
 
     @Override public double usdPerInputToken() { return pricing.inputPerMillion() / 1_000_000; }
 

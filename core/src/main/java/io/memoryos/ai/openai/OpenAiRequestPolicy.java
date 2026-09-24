@@ -1,9 +1,9 @@
 package io.memoryos.ai.openai;
 
-import io.memoryos.ai.ChatSampling;
+import io.memoryos.ai.ModelSampling;
 import io.memoryos.ai.AiException;
 import io.memoryos.ai.ModelSettings;
-import io.memoryos.ai.ChatRequestPolicy;
+import io.memoryos.ai.ModelRequestPolicy;
 import java.util.List;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -17,12 +17,12 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.tokenizer.TokenCountEstimator;
 
 /** Native policy applied after Embabel has converted messages, tool callbacks and options. */
-final class OpenAiChatRequestPolicy {
-    private OpenAiChatRequestPolicy() {}
+final class OpenAiRequestPolicy {
+    private OpenAiRequestPolicy() {}
 
-    static ChatRequestPolicy create(ModelSettings settings, TokenCountEstimator tokens) {
+    static ModelRequestPolicy create(ModelSettings settings, TokenCountEstimator tokens) {
         var capabilities = settings.capabilities();
-        return new ChatRequestPolicy(tokens,
+        return new ModelRequestPolicy(tokens,
                 prompt -> hostedCount(prompt, tokens),
                 prompt -> {
                     if (!(prompt.getOptions() instanceof OpenAiChatOptions options))
@@ -49,7 +49,7 @@ final class OpenAiChatRequestPolicy {
      * a reasoning model takes no sampling temperature, which is the pairing the model editor already enforces.
      */
     static ChatOptions withSampling(ChatOptions converted, LlmOptions requested,
-                                    ChatSampling sampling, ModelSettings settings) {
+                                    ModelSampling sampling, ModelSettings settings) {
         if (sampling.isEmpty() || !(converted instanceof OpenAiChatOptions options)) return converted;
         boolean helper = requested.getThinking() != null && !requested.getThinking().getEnabled();
         if (helper) return converted;
@@ -97,7 +97,7 @@ final class OpenAiChatRequestPolicy {
         for (var message : prompt.getInstructions()) {
             count = Math.addExact(count, tokens.estimate(message.getText()) + 32);
             if (message instanceof MediaContent media)
-                count = Math.addExact(count, Math.multiplyExact(media.getMedia().size(), ChatRequestPolicy.IMAGE_INPUT_TOKENS));
+                count = Math.addExact(count, Math.multiplyExact(media.getMedia().size(), ModelRequestPolicy.IMAGE_INPUT_TOKENS));
             if (message instanceof ToolResponseMessage tool)
                 for (var result : tool.getResponses()) count = Math.addExact(count, tokens.estimate(result.responseData()) + 32);
             if (message instanceof AssistantMessage assistant)

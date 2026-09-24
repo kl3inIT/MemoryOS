@@ -14,16 +14,16 @@ import org.jspecify.annotations.Nullable;
  * request with tools require a tool call (Onyx { tool_choice=REQUIRED} on research cycles); an adapter without it
  * leaves requests unchanged.
  */
-public record ChatModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
-                               ChatRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision,
+public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
+                               ModelRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision,
                                UnaryOperator<Prompt> requiredTools,
-                               BiFunction<SpringAiLlmService, ChatSampling, SpringAiLlmService> sampling) {
-    public ChatModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
-                            ChatRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision) {
+                               BiFunction<SpringAiLlmService, ModelSampling, SpringAiLlmService> sampling) {
+    public ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
+                            ModelRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision) {
         this(service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision, UnaryOperator.identity());
     }
-    public ChatModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
-                            ChatRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision,
+    public ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> finalRequest,
+                            ModelRequestPolicy policy, int contextWindow, @Nullable Integer maxOutputTokens, boolean toolCalling, boolean vision,
                             UnaryOperator<Prompt> requiredTools) {
         this(service, finalRequest, policy, contextWindow, maxOutputTokens, toolCalling, vision, requiredTools,
                 (llmService, ignored) -> llmService);
@@ -33,14 +33,14 @@ public record ChatModelBinding(SpringAiLlmService service, UnaryOperator<Prompt>
      * runs per inference and can still tell a helper call from an answer, so the cached client and its lease are
      * untouched and helper calls keep their own low effort.
      */
-    public ChatModelBinding forOptions(ChatSampling turnSampling, @Nullable Integer outputTokenLimit) {
-        return new ChatModelBinding(
+    public ModelBinding forOptions(ModelSampling turnSampling, @Nullable Integer outputTokenLimit) {
+        return new ModelBinding(
                 turnSampling.isEmpty() ? service : sampling.apply(service, turnSampling),
                 finalRequest, policy, contextWindow,
                 outputTokenLimit == null ? maxOutputTokens : Integer.valueOf(outputAtMost(outputTokenLimit)),
                 toolCalling, vision, requiredTools, sampling);
     }
-    public ChatModelBinding {
+    public ModelBinding {
         Objects.requireNonNull(service);
         Objects.requireNonNull(finalRequest);
         Objects.requireNonNull(requiredTools);

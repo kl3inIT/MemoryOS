@@ -1,6 +1,6 @@
 package io.memoryos.ai.openai;
 
-import io.memoryos.ai.ChatModelTurns;
+import io.memoryos.ai.ModelTurns;
 import com.openai.client.OpenAIClientAsync;
 import com.openai.client.OpenAIClientAsyncImpl;
 import com.openai.core.ClientOptions;
@@ -85,7 +85,7 @@ public final class OpenAiCancellation implements AutoCloseable {
         return new Native(modelFactory.apply(client), modelFactory, null);
     }
 
-    private final class Native implements ChatModel, ChatModelTurns {
+    private final class Native implements ChatModel, ModelTurns {
         private final ChatModel model;
         private final Function<OpenAIClientAsync, ChatModel> modelFactory;
         private final @Nullable Turn turn;
@@ -98,7 +98,7 @@ public final class OpenAiCancellation implements AutoCloseable {
 
         @Override public ChatModel forTurn(Turn value) { return new Native(model, modelFactory, value); }
         @Override public boolean nativeWebSearch() {
-            return model instanceof ChatModelTurns turns && turns.nativeWebSearch();
+            return model instanceof ModelTurns turns && turns.nativeWebSearch();
         }
         @Override public ChatResponse call(Prompt prompt) { return model.call(prompt); }
         @Override public Flux<ChatResponse> stream(Prompt prompt) {
@@ -107,7 +107,7 @@ public final class OpenAiCancellation implements AutoCloseable {
                 try {
                     var view = client.withOptions(options -> options.httpClient(scope));
                     var rebuilt = modelFactory.apply(view);
-                    var streaming = turn != null && rebuilt instanceof ChatModelTurns turnModel
+                    var streaming = turn != null && rebuilt instanceof ModelTurns turnModel
                             ? turnModel.forTurn(turn) : rebuilt;
                     return streaming.stream(prompt)
                             .doOnCancel(scope::close)

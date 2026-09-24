@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.memoryos.ai.ChatModelResolver;
-import io.memoryos.ai.ChatProviderAdapter.ReportedModel;
+import io.memoryos.ai.ModelResolver;
+import io.memoryos.ai.ProviderAdapter.ReportedModel;
 import io.memoryos.ai.ModelSettings;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -18,7 +18,7 @@ class OpenAiReportedModelsTest {
 
     private static ReportedModel parse(String json) throws Exception {
         var node = JSON.readTree(json);
-        return OpenAiChatProviderAdapter.reported(node.path("id").asText(), node);
+        return OpenAiProviderAdapter.reported(node.path("id").asText(), node);
     }
 
     @Test
@@ -58,13 +58,13 @@ class OpenAiReportedModelsTest {
         assertEquals(true, luna.toolCalling());
         assertEquals(true, luna.vision());
         assertEquals(true, luna.reasoning());
-        var spec = ChatModelResolver.spec(luna, ChatKnownModels.models());
-        assertEquals(ChatModelResolver.ReportedModelSpec.Source.PROVIDER, spec.source());
+        var spec = ModelResolver.spec(luna, KnownModels.models());
+        assertEquals(ModelResolver.ReportedModelSpec.Source.PROVIDER, spec.source());
         assertEquals(272_000, spec.contextWindow());
         // A 9Router combo names a routing rule, not a model: nothing is published, so Onyx's defaults apply.
-        var combo = ChatModelResolver.spec(parse("{\"id\":\"oc\",\"object\":\"model\",\"owned_by\":\"combo\"}"),
-                ChatKnownModels.models());
-        assertEquals(ChatModelResolver.ReportedModelSpec.Source.NONE, combo.source());
+        var combo = ModelResolver.spec(parse("{\"id\":\"oc\",\"object\":\"model\",\"owned_by\":\"combo\"}"),
+                KnownModels.models());
+        assertEquals(ModelResolver.ReportedModelSpec.Source.NONE, combo.source());
         assertEquals(32_000, combo.contextWindow());
     }
 
@@ -105,31 +105,31 @@ class OpenAiReportedModelsTest {
 
     @Test
     void theInstalledCatalogFillsWhatTheEndpointDoesNotPublish() {
-        var known = ChatKnownModels.models();
+        var known = KnownModels.models();
         // OpenAI and Gemini name models only: the catalog supplies limits, capabilities and prices by name.
-        var openAi = ChatModelResolver.spec(ReportedModel.named("gpt-5-mini"), known);
-        assertEquals(ChatModelResolver.ReportedModelSpec.Source.CATALOG, openAi.source());
+        var openAi = ModelResolver.spec(ReportedModel.named("gpt-5-mini"), known);
+        assertEquals(ModelResolver.ReportedModelSpec.Source.CATALOG, openAi.source());
         assertEquals(272_000, openAi.contextWindow());
         assertEquals(128_000, openAi.maxOutputTokens());
         assertTrue(openAi.capabilities().toolCalling());
         assertEquals(new ModelSettings.Pricing(0.25, 2.0, 0.025), openAi.pricing());
-        assertEquals(ChatModelResolver.ReportedModelSpec.Source.CATALOG, ChatModelResolver.spec(ReportedModel.named("models/gemini-2.5-pro"), known).source());
+        assertEquals(ModelResolver.ReportedModelSpec.Source.CATALOG, ModelResolver.spec(ReportedModel.named("models/gemini-2.5-pro"), known).source());
         // The GPT-6 family, which api.openai.com lists by name only, is described by the catalog rather than budgeted
         // as the 32,000-token fallback.
         for (var name : List.of("gpt-6-luna", "gpt-6-sol", "gpt-6-astra")) {
-            var gpt6 = ChatModelResolver.spec(ReportedModel.named(name), known);
-            assertEquals(ChatModelResolver.ReportedModelSpec.Source.CATALOG, gpt6.source(), name);
+            var gpt6 = ModelResolver.spec(ReportedModel.named(name), known);
+            assertEquals(ModelResolver.ReportedModelSpec.Source.CATALOG, gpt6.source(), name);
             assertEquals(922_000, gpt6.contextWindow(), name);
             assertEquals(128_000, gpt6.maxOutputTokens(), name);
         }
         assertEquals(new ModelSettings.Pricing(0.1, 0.5, 0.01),
-                ChatModelResolver.spec(ReportedModel.named("gpt-6-luna"), known).pricing());
+                ModelResolver.spec(ReportedModel.named("gpt-6-luna"), known).pricing());
 
         // OpenRouter's own answer limit, capabilities and prices win; its total window (400,000) exceeds OpenAI's
         // 272,000-token input cap, so the smaller catalog window is kept.
-        var routed = ChatModelResolver.spec(new ReportedModel("openai/gpt-5-mini", 400_000, 100_000, true, false, true,
+        var routed = ModelResolver.spec(new ReportedModel("openai/gpt-5-mini", 400_000, 100_000, true, false, true,
                 new ModelSettings.Pricing(0.3, 2.1)), known);
-        assertEquals(ChatModelResolver.ReportedModelSpec.Source.PROVIDER, routed.source());
+        assertEquals(ModelResolver.ReportedModelSpec.Source.PROVIDER, routed.source());
         assertEquals(272_000, routed.contextWindow());
         assertEquals(100_000, routed.maxOutputTokens());
         assertFalse(routed.capabilities().vision());
@@ -137,18 +137,18 @@ class OpenAiReportedModelsTest {
 
         // xAI publishes a context window and no answer limit: the limit is left empty, never guessed, and the model is
         // added as is so the provider's default applies (Onyx).
-        var grok = ChatModelResolver.spec(new ReportedModel("grok-code-9", 256_000, null, true, false, true, null), known);
+        var grok = ModelResolver.spec(new ReportedModel("grok-code-9", 256_000, null, true, false, true, null), known);
         assertEquals(256_000, grok.contextWindow());
         assertNull(grok.maxOutputTokens());
         // vLLM publishes only its context window: as Onyx, tools are assumed and vision and reasoning stay off.
-        var local = ChatModelResolver.spec(new ReportedModel("local-qwen", 32_768, null, null, null, null, null), known);
+        var local = ModelResolver.spec(new ReportedModel("local-qwen", 32_768, null, null, null, null, null), known);
         assertEquals(32_768, local.contextWindow());
         assertNull(local.maxOutputTokens());
         assertEquals(new ModelSettings.Capabilities(true, true, false, false), local.capabilities());
 
         // A name nobody describes gets Onyx's 32,000-token fallback window and is marked for review.
-        var unknown = ChatModelResolver.spec(ReportedModel.named("acme-internal-7b"), known);
-        assertEquals(ChatModelResolver.ReportedModelSpec.Source.NONE, unknown.source());
+        var unknown = ModelResolver.spec(ReportedModel.named("acme-internal-7b"), known);
+        assertEquals(ModelResolver.ReportedModelSpec.Source.NONE, unknown.source());
         assertEquals(32_000, unknown.contextWindow());
         assertNull(unknown.maxOutputTokens());
         assertNull(unknown.pricing());
@@ -156,8 +156,8 @@ class OpenAiReportedModelsTest {
 
     @Test
     void aPublishedAnswerLimitAtOrAboveTheWindowFallsBackToTheCatalog() {
-        var known = List.copyOf(ChatKnownModels.models());
-        var spec = ChatModelResolver.spec(new ReportedModel("gpt-5-mini", 272_000, 272_000, null, null, null, null), known);
+        var known = List.copyOf(KnownModels.models());
+        var spec = ModelResolver.spec(new ReportedModel("gpt-5-mini", 272_000, 272_000, null, null, null, null), known);
         assertEquals(128_000, spec.maxOutputTokens());
     }
 }

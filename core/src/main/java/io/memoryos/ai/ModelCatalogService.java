@@ -37,13 +37,13 @@ public class ModelCatalogService {
     private final ApplicationEventPublisher events;
     private final TenantAccessResolver tenants;
     private final IamAuthorization authorization;
-    private final ChatProviderAdapters adapters;
+    private final ProviderAdapters adapters;
     private final ProviderCredentials credentials;
     private final GroupScopeService groups;
     private final AuditTrail audit;
 
     public ModelCatalogService(ModelCatalogRepository catalog, AgentDirectory agents, ApplicationEventPublisher events,
-            TenantAccessResolver tenants, IamAuthorization authorization, ChatProviderAdapters adapters,
+            TenantAccessResolver tenants, IamAuthorization authorization, ProviderAdapters adapters,
             ProviderCredentials credentials, GroupScopeService groups, AuditTrail audit) {
         this.audit = audit;
         this.catalog = catalog;
@@ -414,7 +414,7 @@ public class ModelCatalogService {
         return p.enabled() && p.isPublic() && p.personaIds().isEmpty() && credentialUsable(p);
     }
     private boolean credentialUsable(LlmProvider p) {
-        return adapters.supports(p.adapterType()) && (adapters.require(p.adapterType()).credentialRequirement() != ChatProviderAdapter.CredentialRequirement.REQUIRED
+        return adapters.supports(p.adapterType()) && (adapters.require(p.adapterType()).credentialRequirement() != ProviderAdapter.CredentialRequirement.REQUIRED
                 || credentials.configured(p.credential()));
     }
     /** Model-manager reads run in read-only transactions, which cannot take the shared Tenant row lock. */
@@ -438,9 +438,9 @@ public class ModelCatalogService {
         if (!catalog.groupsExist(tenant, groups) || !agents.exist(new TenantId(tenant), personas))
             throw AiException.invalid("Provider associations must belong to this Tenant.");
         String stored = credentials.update(tenant, id, previous, input.credential());
-        if (adapter.credentialRequirement() == ChatProviderAdapter.CredentialRequirement.NONE && stored != null)
+        if (adapter.credentialRequirement() == ProviderAdapter.CredentialRequirement.NONE && stored != null)
             throw AiException.invalid("This adapter does not accept credentials.");
-        if (input.enabled() && adapter.credentialRequirement() == ChatProviderAdapter.CredentialRequirement.REQUIRED && !credentials.configured(stored))
+        if (input.enabled() && adapter.credentialRequirement() == ProviderAdapter.CredentialRequirement.REQUIRED && !credentials.configured(stored))
             throw AiException.invalid("An enabled provider requires credentials.");
         return new LlmProvider(id, tenant, input.name(), input.adapterType(), input.baseUrl(), input.enabled(), input.isPublic(), stored, revision, groups, personas,
                 input.dataBoundary());
@@ -455,7 +455,7 @@ public class ModelCatalogService {
     private void validateModel(LlmProvider provider, String name, ModelSettings settings) {
         validateModel(adapters, provider, name, settings);
     }
-    static void validateModel(ChatProviderAdapters adapters, LlmProvider provider, String name, ModelSettings settings) {
+    static void validateModel(ProviderAdapters adapters, LlmProvider provider, String name, ModelSettings settings) {
         if (settings == null || !settings.capabilities().streaming()) throw AiException.invalid("Chat requires a streaming model.");
         var adapter = adapters.require(provider.adapterType());
         if (adapter.tokenizerProfiles().stream().noneMatch(profile -> profile.id().equals(settings.tokenizerProfile())))

@@ -13,9 +13,9 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.tokenizer.TokenCountEstimator;
 
 /** Immutable binding policy shared by admission, history selection and every native request. */
-public record ChatRequestPolicy(TokenCountEstimator tokens, ToIntFunction<Prompt> framing,
+public record ModelRequestPolicy(TokenCountEstimator tokens, ToIntFunction<Prompt> framing,
                                 UnaryOperator<Prompt> options, Consumer<ChatResponse> response) {
-    public ChatRequestPolicy {
+    public ModelRequestPolicy {
         Objects.requireNonNull(tokens);
         Objects.requireNonNull(framing);
         Objects.requireNonNull(options);
@@ -26,8 +26,8 @@ public record ChatRequestPolicy(TokenCountEstimator tokens, ToIntFunction<Prompt
     public static final int IMAGE_INPUT_TOKENS = 4096;
 
     /** The hosted contract is a conservative estimate, not an assertion about a server template. */
-    public static ChatRequestPolicy hosted(TokenCountEstimator tokens, UnaryOperator<Prompt> options) {
-        return new ChatRequestPolicy(tokens, prompt -> {
+    public static ModelRequestPolicy hosted(TokenCountEstimator tokens, UnaryOperator<Prompt> options) {
+        return new ModelRequestPolicy(tokens, prompt -> {
             int count = 0;
             for (var message : prompt.getInstructions()) {
                 count = Math.addExact(count, tokens.estimate(message.getText()) + 32);

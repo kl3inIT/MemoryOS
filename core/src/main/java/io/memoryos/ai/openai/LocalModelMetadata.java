@@ -2,7 +2,7 @@ package io.memoryos.ai.openai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.memoryos.ai.ChatProviderAdapter.ReportedModel;
+import io.memoryos.ai.ProviderAdapter.ReportedModel;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;

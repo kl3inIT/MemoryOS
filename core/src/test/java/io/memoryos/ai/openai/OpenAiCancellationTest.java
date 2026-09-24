@@ -2,7 +2,7 @@ package io.memoryos.ai.openai;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import io.memoryos.ai.ChatProviderAdapter;
+import io.memoryos.ai.ProviderAdapter;
 import io.memoryos.ai.ModelSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
@@ -25,7 +25,7 @@ class OpenAiCancellationTest {
     @Test
     void cancelBeforeHeadersClosesOnlyThatNativeSubscription() throws Exception {
         var meters = new SimpleMeterRegistry();
-        var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
+        var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
         try (var server = new ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"));
              var executor = Executors.newVirtualThreadPerTaskExecutor();
              var client = client(adapter, server)) {
@@ -51,7 +51,7 @@ class OpenAiCancellationTest {
     @Test
     void cancelAfterContentClosesTheNativeStream() throws Exception {
         var meters = new SimpleMeterRegistry();
-        var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
+        var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
         try (var server = new ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"));
              var executor = Executors.newVirtualThreadPerTaskExecutor();
              var client = client(adapter, server)) {
@@ -80,7 +80,7 @@ class OpenAiCancellationTest {
     @Test
     void streamOutlivesTheReadTimeoutWhileTokensArriveAndFailsOnASilentGap() throws Exception {
         var meters = new SimpleMeterRegistry();
-        var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
+        var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
         try (var server = new ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"));
              var executor = Executors.newVirtualThreadPerTaskExecutor();
              var client = client(adapter, server, Duration.ofSeconds(1))) {
@@ -125,14 +125,14 @@ class OpenAiCancellationTest {
         } finally { meters.close(); }
     }
 
-    private static ChatProviderAdapter.Client client(OpenAiChatProviderAdapter adapter, ServerSocket server) {
+    private static ProviderAdapter.Client client(OpenAiProviderAdapter adapter, ServerSocket server) {
         return client(adapter, server, Duration.ofSeconds(30));
     }
 
-    private static ChatProviderAdapter.Client client(OpenAiChatProviderAdapter adapter, ServerSocket server, Duration readTimeout) {
-        return adapter.create(new ChatProviderAdapter.Connection("http://127.0.0.1:" + server.getLocalPort() + "/v1", "fixture-key"),
+    private static ProviderAdapter.Client client(OpenAiProviderAdapter adapter, ServerSocket server, Duration readTimeout) {
+        return adapter.create(new ProviderAdapter.Connection("http://127.0.0.1:" + server.getLocalPort() + "/v1", "fixture-key"),
                 "fixture", new ModelSettings(1024, 128, new ModelSettings.Capabilities(true, false, false, false),
-                        Map.of(), null, ChatTokenizerProfiles.HOSTED), readTimeout);
+                        Map.of(), null, TokenizerProfiles.HOSTED), readTimeout);
     }
 
     private static void readRequest(java.io.InputStream input) throws java.io.IOException {

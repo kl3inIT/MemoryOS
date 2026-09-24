@@ -1,8 +1,8 @@
 package io.memoryos.chat.execution;
 
 import io.memoryos.chat.ChatExecutionProperties;
-import io.memoryos.ai.ChatModelBinding;
-import io.memoryos.ai.ChatModelTurns;
+import io.memoryos.ai.ModelBinding;
+import io.memoryos.ai.ModelTurns;
 import io.memoryos.ai.ModelAccounting;
 import com.embabel.agent.api.common.ExecutingOperationContext;
 import com.embabel.agent.api.streaming.StreamingPromptRunnerBuilder;
@@ -106,12 +106,12 @@ public final class ChatModelExecutor {
     }
 
     /** Separate best-effort naming invocation: no tools, no attachment bytes, no answer mutation. */
-    public String generateTitle(ChatModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history) {
+    public String generateTitle(ModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history) {
         return generateTitle(selected, history, ignored -> {});
     }
 
-    /** As {@link #generateTitle(ChatModelBinding, java.util.List)}; {@code accounting} receives its usage even when naming fails. */
-    public String generateTitle(ChatModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history,
+    /** As {@link #generateTitle(ModelBinding, java.util.List)}; {@code accounting} receives its usage even when naming fails. */
+    public String generateTitle(ModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history,
                                 Consumer<ModelAccounting> accounting) {
         var context = contexts.getObject();
         var process = context.getProcessContext().getAgentProcess();
@@ -195,9 +195,9 @@ public final class ChatModelExecutor {
         Integer maxOutput = selected.maxOutputTokens();
         int outputBound = selected.outputBound();
         boolean nativeWeb = selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off
-                && metadata.getChatModel() instanceof ChatModelTurns hosted && hosted.nativeWebSearch();
+                && metadata.getChatModel() instanceof ModelTurns hosted && hosted.nativeWebSearch();
         var delegate = metadata.getChatModel();
-        if (delegate instanceof ChatModelTurns turns)
+        if (delegate instanceof ModelTurns turns)
             delegate = turns.forTurn(ChatTurnListener.turn(setup.evidence(), events, nativeWeb, checkActive));
         int contextLimit = Math.min(limits.contextCap(), selected.inputLimit(limits.maxOutputTokens()));
         if (setup.options().contextTokenLimit() != null) contextLimit = Math.min(contextLimit, setup.options().contextTokenLimit());

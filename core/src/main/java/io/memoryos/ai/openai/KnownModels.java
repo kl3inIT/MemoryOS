@@ -2,7 +2,7 @@ package io.memoryos.ai.openai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.memoryos.ai.ChatProviderAdapter.KnownModel;
+import io.memoryos.ai.ProviderAdapter.KnownModel;
 import io.memoryos.ai.ModelSettings;
 import java.io.IOException;
 import java.io.InputStream;
@@ -13,10 +13,10 @@ import java.util.List;
  * Installed model metadata shipped with the build. Regenerate with
  * {@code node scripts/sync-chat-known-models.mjs}; the resource records its own provenance.
  */
-public final class ChatKnownModels {
+public final class KnownModels {
     private static final String RESOURCE = "/chat/known-models.json";
 
-    private ChatKnownModels() {}
+    private KnownModels() {}
 
     private static final class Loaded {
         private static final List<KnownModel> MODELS = read();
@@ -25,7 +25,7 @@ public final class ChatKnownModels {
     public static List<KnownModel> models() { return Loaded.MODELS; }
 
     private static List<KnownModel> read() {
-        try (InputStream stream = ChatKnownModels.class.getResourceAsStream(RESOURCE)) {
+        try (InputStream stream = KnownModels.class.getResourceAsStream(RESOURCE)) {
             if (stream == null) throw new IllegalStateException("Missing model metadata " + RESOURCE);
             JsonNode root = new ObjectMapper().readTree(stream);
             var models = new ArrayList<KnownModel>();

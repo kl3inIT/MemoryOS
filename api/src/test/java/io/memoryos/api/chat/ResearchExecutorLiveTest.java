@@ -17,10 +17,10 @@ import io.memoryos.chat.ChatReasoningDelta;
 import io.memoryos.chat.ChatResearchEvent;
 import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.ChatToolEvent;
-import io.memoryos.ai.ChatProviderAdapter;
+import io.memoryos.ai.ProviderAdapter;
 import io.memoryos.ai.ModelSettings;
-import io.memoryos.ai.openai.ChatTokenizerProfiles;
-import io.memoryos.ai.openai.OpenAiChatProviderAdapter;
+import io.memoryos.ai.openai.TokenizerProfiles;
+import io.memoryos.ai.openai.OpenAiProviderAdapter;
 import io.memoryos.chat.execution.ChatModelGuard;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.research.ResearchExecutor;
@@ -60,14 +60,14 @@ class ResearchExecutorLiveTest {
         String model = System.getenv().getOrDefault("MEMORYOS_DR_LIVE_MODEL", "gpt-5-mini");
         var meters = new SimpleMeterRegistry();
         var settings = new ModelSettings(128000, 16000, new ModelSettings.Capabilities(true, true, false, true),
-                Map.of("maxCompletionTokens", true, "reasoningEffort", "low", "helperReasoningEffort", "minimal"), null, ChatTokenizerProfiles.HOSTED);
+                Map.of("maxCompletionTokens", true, "reasoningEffort", "low", "helperReasoningEffort", "minimal"), null, TokenizerProfiles.HOSTED);
         var process = mock(AgentProcess.class);
         var budget = mock(Budget.class, RETURNS_DEEP_STUBS);
         when(budget.earlyTerminationPolicy().shouldTerminate(process)).thenReturn(null);
         when(budget.getTokens()).thenReturn(2_000_000);
         when(budget.getCost()).thenReturn(100.0);
-        var adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
-        try (var client = adapter.create(new ChatProviderAdapter.Connection("https://api.openai.com/v1", key), model, settings, Duration.ofSeconds(60));
+        var adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
+        try (var client = adapter.create(new ProviderAdapter.Connection("https://api.openai.com/v1", key), model, settings, Duration.ofSeconds(60));
              var work = new SearchTasks.Scope(Duration.ofSeconds(5))) {
             var setup = new ChatTurnSetup(UUID.randomUUID(), UUID.randomUUID(), new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()),
                     model, List.of(new SystemMessage("Persona instructions are not used by research."),
