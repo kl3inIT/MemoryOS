@@ -1,6 +1,6 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.chat.UserFile;
+import io.memoryos.library.UserFile;
 import java.time.Instant;
 import java.util.UUID;
 

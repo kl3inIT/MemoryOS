@@ -5,7 +5,10 @@ import io.memoryos.ai.ChatSampling;
 import io.memoryos.ai.ModelAccounting;
 import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatException;
-import io.memoryos.chat.ChatFileService;
+import io.memoryos.chat.ChatFileDescriptor;
+import io.memoryos.library.ChatFileService;
+import io.memoryos.library.LibraryException;
+import io.memoryos.library.UserFile;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.ChatTurnOptions;
@@ -196,15 +199,14 @@ public class ChatTurnPersistence {
         }
         UUID user = command.operation() == ChatCommand.Operation.REGENERATE ? target.id() : UUID.randomUUID();
         var attachments = command.operation() == ChatCommand.Operation.REGENERATE ? target.files()
-                : files.admit(tenant, actor, command.fileIds());
+                : descriptors(files.admit(tenant, actor, command.fileIds()));
         UUID assistant = UUID.randomUUID();
         if (command.operation() == ChatCommand.Operation.REGENERATE) chats.insertAssistant(sessionId, user, assistant, lease);
         else chats.insertPair(sessionId, parentId, command.requestId(), user, assistant, text, lease, attachments);
         // An upload sent into a temporary conversation belongs to it (MEM-153): the library stops listing the
         // file, and the purge releases its bytes with the conversation.
         if (session.temporary()) {
-            chats.claimTemporaryUploads(tenant, actor, sessionId,
-                    attachments.stream().map(io.memoryos.chat.ChatFileDescriptor::id).toList());
+            files.claimTemporary(tenant, actor, sessionId, attachments.stream().map(ChatFileDescriptor::id).toList());
         }
         if (selection != null) chats.saveModelSelection(sessionId,
                 command.operation() == ChatCommand.Operation.REGENERATE ? assistant : user,
@@ -279,13 +281,13 @@ public class ChatTurnPersistence {
 
     private TurnContext context(ActorId actor, TenantId tenant, UUID session, UUID user, JdbcChatRepository.Persona settings, String instructions) {
         var history = chats.context(session, user, 200);
-        var workspaceFiles = files.admit(tenant, actor, settings.fileIds());
+        var workspaceFiles = descriptors(files.admit(tenant, actor, settings.fileIds()));
         var plaintext = new LinkedHashMap<UUID, ChatFileService.FileText>();
         java.util.stream.Stream.concat(history.stream().flatMap(message -> message.files().stream()), workspaceFiles.stream())
-                .map(io.memoryos.chat.ChatFileDescriptor::id)
+                .map(ChatFileDescriptor::id)
                 .distinct().limit(20).forEach(id -> {
                     try { plaintext.put(id, files.read(actor, tenant, id, 0, 16000)); }
-                    catch (ChatException unavailable) { /* Old descriptors survive deletion, not authority. */ }
+                    catch (LibraryException unavailable) { /* Old descriptors survive deletion, not authority. */ }
                 });
         // History keeps assistant replies as text; name their images so a later turn can edit one.
         var generated = new LinkedHashMap<UUID, List<UUID>>();
@@ -297,17 +299,22 @@ public class ChatTurnPersistence {
                 languages.read(actor), generated);
     }
 
+    /** A message's attachments as Chat records them, from the library files it admitted. */
+    private static List<ChatFileDescriptor> descriptors(List<UserFile> files) {
+        return files.stream().map(ChatFileDescriptor::from).toList();
+    }
+
     public record TurnContext(ActorId actor, TenantId tenant, String model, String instructions,
                               List<ChatMessage> newestFirst, ChatTurnOptions options,
-                              Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles,
+                              Map<UUID, ChatFileService.FileText> fileTexts, List<ChatFileDescriptor> workspaceFiles,
                               @Nullable String uiLanguage, Map<UUID, List<UUID>> generatedImages) {
         public TurnContext { newestFirst = List.copyOf(newestFirst); fileTexts = Map.copyOf(fileTexts); workspaceFiles = List.copyOf(workspaceFiles); generatedImages = Map.copyOf(generatedImages); }
         public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, ChatTurnOptions options,
-                           Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles, @Nullable String uiLanguage) {
+                           Map<UUID, ChatFileService.FileText> fileTexts, List<ChatFileDescriptor> workspaceFiles, @Nullable String uiLanguage) {
             this(actor, tenant, model, instructions, newestFirst, options, fileTexts, workspaceFiles, uiLanguage, Map.of());
         }
         public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, ChatTurnOptions options,
-                           Map<UUID, ChatFileService.FileText> fileTexts, List<io.memoryos.chat.ChatFileDescriptor> workspaceFiles) {
+                           Map<UUID, ChatFileService.FileText> fileTexts, List<ChatFileDescriptor> workspaceFiles) {
             this(actor, tenant, model, instructions, newestFirst, options, fileTexts, workspaceFiles, null);
         }
         public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, ChatTurnOptions options) {

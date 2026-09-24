@@ -3,7 +3,7 @@ package io.memoryos.chat.application;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSession;
-import io.memoryos.chat.persistence.JdbcChatLibraryRepository;
+import io.memoryos.chat.persistence.JdbcChatArtifactRepository;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
@@ -45,13 +45,13 @@ public class ChatBranchService {
 
     private final TenantAccessResolver tenants;
     private final JdbcChatRepository chats;
-    private final JdbcChatLibraryRepository library;
+    private final JdbcChatArtifactRepository library;
     private final ObjectStorage storage;
     private final ObjectWriteService writes;
     private final TransactionTemplate tx;
 
     public ChatBranchService(TenantAccessResolver tenants, JdbcChatRepository chats,
-                             JdbcChatLibraryRepository library, ObjectStorage storage, ObjectWriteService writes,
+                             JdbcChatArtifactRepository library, ObjectStorage storage, ObjectWriteService writes,
                              PlatformTransactionManager transactionManager) {
         this.tenants = tenants;
         this.chats = chats;
@@ -174,7 +174,7 @@ public class ChatBranchService {
         }
     }
 
-    private byte[] read(JdbcChatLibraryRepository.MessageArtifact artifact) {
+    private byte[] read(JdbcChatArtifactRepository.MessageArtifact artifact) {
         try (var content = storage.open(artifact.key())) {
             byte[] bytes = content.inputStream().readNBytes((int) MAX_ONE_ARTIFACT_BYTES + 1);
             // A file whose bytes are gone cannot be copied, and a branch missing them is not the conversation.
@@ -203,6 +203,6 @@ public class ChatBranchService {
         return title.length() <= MAX_TITLE ? title : title.substring(0, MAX_TITLE);
     }
 
-    private record Staged(JdbcChatLibraryRepository.MessageArtifact artifact, ObjectWriteService.StagedObject staged,
+    private record Staged(JdbcChatArtifactRepository.MessageArtifact artifact, ObjectWriteService.StagedObject staged,
                           UUID messageCopyId) {}
 }

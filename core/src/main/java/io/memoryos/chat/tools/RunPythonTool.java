@@ -1,9 +1,9 @@
 package io.memoryos.chat.tools;
 
 import com.embabel.agent.api.annotation.LlmTool;
-import io.memoryos.chat.ChatFileContentService;
+import io.memoryos.library.ChatFileContentService;
 import io.memoryos.chat.ChatToolActivity;
-import io.memoryos.chat.UserFile;
+import io.memoryos.library.UserFile;
 import io.memoryos.chat.interpreter.InterpreterClient;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.shared.ActorId;

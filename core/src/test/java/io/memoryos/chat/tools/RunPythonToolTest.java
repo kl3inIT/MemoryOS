@@ -15,9 +15,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.memoryos.chat.ChatFileContentService;
+import io.memoryos.library.ChatFileContentService;
 import io.memoryos.chat.ChatToolActivity;
-import io.memoryos.chat.UserFile;
+import io.memoryos.library.UserFile;
 import io.memoryos.chat.interpreter.InterpreterClient;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.shared.ActorId;

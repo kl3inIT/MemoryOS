@@ -1,6 +1,7 @@
 package io.memoryos.worker;
 
 import io.memoryos.chat.application.ChatWorkerComponents;
+import io.memoryos.library.LibraryWorkerComponents;
 import io.memoryos.retrieval.SearchTimings;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -24,8 +25,8 @@ import org.springframework.context.annotation.Import;
         "io.memoryos.iam.tenant.persistence",
         "io.memoryos.iam.user.persistence"
 })
-// MEM-9, MEM-142, MEM-143, MEM-152 and MEM-153: the Chat work the Worker runs, named by Chat itself.
-@Import({SearchTimings.class, ChatWorkerComponents.class})
+// MEM-9, MEM-142, MEM-143, MEM-152 and MEM-153: the library and Chat work the Worker runs, each named by its module.
+@Import({SearchTimings.class, LibraryWorkerComponents.class, ChatWorkerComponents.class})
 public class MemoryOsWorkerApplication {
 
     public static void main(String[] args) {

@@ -15,6 +15,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
+import io.memoryos.library.persistence.JdbcUserFileRepository;
+import io.memoryos.library.UserFileMaintenance;
+import io.memoryos.library.work.persistence.JdbcUserFileWorkRepository;
 
 /** With the deployment switch on, a deleted conversation stops existing and its artifacts reach the sweep. */
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
@@ -202,8 +205,8 @@ class ChatSessionPurgeIntegrationTest {
 
     private ChatSessionPurgeService service(boolean hardDelete, java.time.Duration deletedAfter) {
         return new ChatSessionPurgeService(repository,
-                new ChatRetentionProperties(hardDelete, java.time.Duration.ofDays(30), deletedAfter,
-                        java.time.Duration.ofHours(24)),
+                new UserFileMaintenance(new JdbcUserFileWorkRepository(jdbc), new JdbcUserFileRepository(jdbc)),
+                new ChatRetentionProperties(hardDelete, deletedAfter, java.time.Duration.ofHours(24)),
                 jpa.transactionManager());
     }
 
@@ -288,7 +291,7 @@ class ChatSessionPurgeIntegrationTest {
             new io.memoryos.objectstorage.persistence.JdbcObjectUploadRepository(jdbc).create(tenant,
                     new io.memoryos.objectstorage.ObjectUploadId(uploadId),
                     new io.memoryos.objectstorage.StoredObjectId(objectId), spec.purpose());
-            return new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc).create(tenant, owner, UUID.randomUUID(),
+            return new JdbcUserFileRepository(jdbc).create(tenant, owner, UUID.randomUUID(),
                     new io.memoryos.objectstorage.ObjectUploadId(uploadId), spec);
         }));
     }

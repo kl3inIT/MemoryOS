@@ -24,7 +24,8 @@ class ModulithArchitectureTest {
             "meeting",
             "audit",
             "shared",
-            "voice"
+            "voice",
+            "library"
     );
 
     private final ApplicationModules modules = ApplicationModules.of(MemoryOsModules.class);

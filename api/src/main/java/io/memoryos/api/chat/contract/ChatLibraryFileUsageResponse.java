@@ -1,6 +1,6 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.chat.ChatLibraryFile;
+import io.memoryos.library.ChatLibraryFile;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.UUID;
 

@@ -2,7 +2,7 @@ package io.memoryos.api.error;
 
 import io.memoryos.BusinessException;
 import io.memoryos.FailureCategory;
-import io.memoryos.chat.ChatFileInUseException;
+import io.memoryos.library.ChatFileInUseException;
 import io.memoryos.connector.GoogleDriveProviderException;
 
 import java.net.URI;

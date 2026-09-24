@@ -35,6 +35,9 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
+import io.memoryos.library.ChatFileContentService;
+import io.memoryos.library.ChatFileSearchService;
+import io.memoryos.library.ChatFileService;
 
 /** Calls the public native runner. There is no MemoryOS inference/tool loop here. */
 public final class ChatModelExecutor {
@@ -45,9 +48,9 @@ public final class ChatModelExecutor {
     private final ChatSearchProperties searchLimits;
     private final Scheduler scheduler;
     private final SearchTimings timings;
-    private final io.memoryos.chat.ChatFileService files;
-    private final io.memoryos.chat.ChatFileSearchService fileSearch;
-    private final io.memoryos.chat.ChatFileContentService fileContent;
+    private final ChatFileService files;
+    private final ChatFileSearchService fileSearch;
+    private final ChatFileContentService fileContent;
     private final io.memoryos.chat.web.@Nullable WebProviderClient web;
     private final @Nullable ImageProviderClient image;
     private final ImageArtifactService imageArtifacts;
@@ -59,14 +62,14 @@ public final class ChatModelExecutor {
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
-            io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
+            ChatFileService files, ChatFileSearchService fileSearch, ChatFileContentService fileContent,
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts) {
         this(contexts, processes, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, null, null, null, null, null, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
     }
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
-            io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
+            ChatFileService files, ChatFileSearchService fileSearch, ChatFileContentService fileContent,
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts,
             io.memoryos.chat.interpreter.@Nullable InterpreterClient interpreter,
             io.memoryos.chat.interpreter.@Nullable InterpreterService interpreterSettings,

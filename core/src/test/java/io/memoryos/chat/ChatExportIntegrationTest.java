@@ -13,18 +13,18 @@ import static org.mockito.Mockito.when;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.chat.application.ChatExportService;
-import io.memoryos.chat.application.ChatFileProperties;
+import io.memoryos.library.ChatFileProperties;
 import io.memoryos.chat.application.ChatTurnPersistence;
 import io.memoryos.chat.application.DefaultChatSessionService;
 import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.chat.persistence.JdbcChatExportRepository;
-import io.memoryos.chat.persistence.JdbcChatLibraryRepository;
+import io.memoryos.library.persistence.JdbcChatLibraryRepository;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.JdbcChatSearchRepository;
 import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
-import io.memoryos.chat.persistence.JdbcUserFileRepository;
+import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.persistence.IamLockRepository;
 import io.memoryos.shared.ActorId;
@@ -66,6 +66,13 @@ import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
+import io.memoryos.library.ChatStorageProperties;
+import io.memoryos.library.ChatStorageQuotaService;
+import io.memoryos.chat.application.ChatFileAttachments;
+import io.memoryos.chat.persistence.JdbcChatFileAttachmentRepository;
+import io.memoryos.library.LibraryTrashProperties;
+import io.memoryos.library.LibraryContents;
+import io.memoryos.library.ChatFileService;
 
 /**
  * Taking one's own data out (MEM-153): the Worker packs every conversation as JSON and as a readable page,
@@ -120,12 +127,11 @@ class ChatExportIntegrationTest {
         sessions = TestDatabase.transactionalProxy(new DefaultChatSessionService(tenants, authorization, chats,
                 new JdbcChatSearchRepository(jdbc)), ChatSessionService.class,
                 jpa.transactionManager());
-        var quotas = new io.memoryos.chat.ChatStorageQuotaService(tenants,
-                new io.memoryos.chat.application.ChatStorageProperties(0), new JdbcChatLibraryRepository(jdbc));
-        var files = new ChatFileService(tenants, chats, new JdbcUserFileRepository(jdbc),
+        var quotas = new ChatStorageQuotaService(tenants,
+                new ChatStorageProperties(0), new JdbcChatLibraryRepository(jdbc));
+        var files = new ChatFileService(tenants, new JdbcUserFileRepository(jdbc), new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbc)),
                 mock(ObjectUploadService.class), new ChatFileProperties(104857600, 262144000), quotas,
-                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
-                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)), jpa.transactionManager());
+                new LibraryTrashProperties(java.time.Duration.ZERO), jpa.transactionManager());
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(jpa.transactionManager());
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
@@ -142,12 +148,12 @@ class ChatExportIntegrationTest {
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5),
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
         interpreter = new InterpreterService(new JdbcInterpreterRepository(jdbc), new InterpreterProperties(null, null),
-                authorization, tenants, writes, storage, quotas, new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
-                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
+                authorization, tenants, writes, storage, quotas, new LibraryTrashProperties(java.time.Duration.ZERO),
                 jpa.transactionManager(), io.memoryos.TestDatabase.noAudit());
         // Constructed directly: the service owns its own transaction template, as the archive service does.
         exports = new ChatExportService(tenants, new JdbcChatExportRepository(jdbc), chats,
-                new JdbcChatLibraryRepository(jdbc), new JdbcUserFileRepository(jdbc), writes, storage,
+                new LibraryContents(new JdbcChatLibraryRepository(jdbc), new JdbcUserFileRepository(jdbc), storage),
+                writes, storage,
                 new DefaultStoredObjectRegistry(objects), jpa.transactionManager());
         seedTenant();
     }

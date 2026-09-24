@@ -57,6 +57,21 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
 import org.springframework.transaction.support.TransactionTemplate;
+import io.memoryos.library.ChatFileProperties;
+import io.memoryos.library.ChatStorageProperties;
+import io.memoryos.library.ChatStorageQuotaService;
+import io.memoryos.library.persistence.JdbcChatLibraryRepository;
+import io.memoryos.library.persistence.JdbcUserFileRepository;
+import io.memoryos.chat.application.ChatFileAttachments;
+import io.memoryos.chat.persistence.JdbcChatFileAttachmentRepository;
+import io.memoryos.library.LibraryTrashProperties;
+import io.memoryos.library.ChatFileContentService;
+import io.memoryos.library.ChatFileService;
+import io.memoryos.library.ChatLibraryFile;
+import io.memoryos.library.UserFile;
+import io.memoryos.chat.persistence.JdbcChatArtifactRepository;
+import io.memoryos.library.FileAttachments;
+import io.memoryos.library.LibraryException;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class ChatPersistenceIntegrationTest {
@@ -94,13 +109,12 @@ class ChatPersistenceIntegrationTest {
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(jpa.transactionManager());
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
-        var fileService = new ChatFileService(tenants, repository, new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc),
+        var fileService = new ChatFileService(tenants, new JdbcUserFileRepository(jdbc), new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbc)),
                 mock(io.memoryos.objectstorage.ObjectUploadService.class),
-                new io.memoryos.chat.application.ChatFileProperties(104857600, 262144000),
-                new io.memoryos.chat.ChatStorageQuotaService(tenants,
-                new io.memoryos.chat.application.ChatStorageProperties(0), new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc)),
-                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
-                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
+                new ChatFileProperties(104857600, 262144000),
+                new ChatStorageQuotaService(tenants,
+                new ChatStorageProperties(0), new JdbcChatLibraryRepository(jdbc)),
+                new LibraryTrashProperties(java.time.Duration.ZERO),
                 jpa.transactionManager());
         var factory = new ProxyFactory(new ChatTurnPersistence(tenants, authorization, repository, fileService,
                 new ActorLanguageService(jpa.repository(JpaActorRepository.class,
@@ -126,7 +140,7 @@ class ChatPersistenceIntegrationTest {
         personas = service(new ChatPersonaService(tenants, authorization, repository, jpa.repository(JpaPersonaRepository.class),
                 agentRows, new io.memoryos.chat.persistence.PersonaRevisions(jpa.entityManager()),
                 new PersonaProperties(), models, sources, documentSets, documentSetRows, fileService,
-                new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc), mock(ChatFileContentService.class)), ChatPersonaService.class);
+                mock(ChatFileContentService.class)), ChatPersonaService.class);
         projects = service(new ChatProjectService(tenants, authorization, repository, jpa.repository(JpaProjectRepository.class), sessions, fileService), ChatProjectService.class);
         shortcuts = service(new ChatPromptShortcutService(tenants, authorization, repository,
                 new io.memoryos.chat.persistence.JdbcPromptShortcutRepository(jdbc)), ChatPromptShortcutService.class);
@@ -309,7 +323,8 @@ class ChatPersistenceIntegrationTest {
 
     @Test
     void theFileLibraryUnionsEverySourceForItsOwnerAndHidesWhatWasDeleted() {
-        var library = new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc);
+        var library = new JdbcChatLibraryRepository(jdbc);
+        var artifacts = new JdbcChatArtifactRepository(jdbc);
         var interpreter = new io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository(jdbc);
         var images = new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc);
         var scope = new TenantId(tenant);
@@ -325,7 +340,7 @@ class ChatPersistenceIntegrationTest {
                 new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/pic.png"), "image/png", ".png", 512,
                 "a red shirt", null, null);
 
-        var all = library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50);
+        var all = library.page(scope, owner, JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50);
         assertEquals(3, all.totalCount());
         assertEquals(4 + 2048 + 512, all.totalBytes());
         assertEquals(List.of(ChatLibraryFile.Source.IMAGE, ChatLibraryFile.Source.GENERATED, ChatLibraryFile.Source.UPLOAD),
@@ -340,24 +355,24 @@ class ChatPersistenceIntegrationTest {
         var picture = all.items().stream().filter(file -> file.id().equals(image)).findFirst().orElseThrow();
         assertTrue(picture.filename().startsWith("image-") && picture.filename().endsWith(".png"), picture.filename());
         assertEquals(512, picture.sizeBytes());
-        assertEquals(List.of(image), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("red shirt", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(image), ids(library.page(scope, owner, JdbcChatLibraryRepository.Filter.of("red shirt", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
 
-        assertEquals(List.of(generated), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("doanh", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
-        assertEquals(List.of(generated), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of("GENERATED"), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
-        assertEquals(List.of(upload), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of("DOCUMENT"), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(generated), ids(library.page(scope, owner, JdbcChatLibraryRepository.Filter.of("doanh", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(generated), ids(library.page(scope, owner, JdbcChatLibraryRepository.Filter.of("", Set.of("GENERATED"), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(upload), ids(library.page(scope, owner, JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of("DOCUMENT"), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
         assertEquals(List.of(generated, image, upload),
-                ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.LARGEST, 0, 50)));
-        var second = library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 1, 1);
+                ids(library.page(scope, owner, JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.LARGEST, 0, 50)));
+        var second = library.page(scope, owner, JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 1, 1);
         assertEquals(3, second.totalCount());
         assertEquals(List.of(generated), ids(second));
         // A page past the end still reports the filter's totals; they describe the filter, not the page.
-        var beyond = library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 10, 50);
+        var beyond = library.page(scope, owner, JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 10, 50);
         assertEquals(List.of(), ids(beyond));
         assertEquals(3, beyond.totalCount());
         assertEquals(4 + 2048 + 512, beyond.totalBytes());
         // A search term is matched literally, not as an ILIKE pattern.
-        assertEquals(List.of(), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("%", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
-        assertEquals(0, library.page(scope, other, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50).totalCount());
+        assertEquals(List.of(), ids(library.page(scope, owner, JdbcChatLibraryRepository.Filter.of("%", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(0, library.page(scope, other, JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50).totalCount());
 
         // Deleting a generated file hides it everywhere and refuses a preview that was converting meanwhile.
         assertTrue(interpreter.markArtifactDeleted(scope, owner, generated, java.time.Duration.ZERO));
@@ -370,7 +385,7 @@ class ChatPersistenceIntegrationTest {
         assertTrue(images.markDeleted(scope, owner, image, java.time.Duration.ZERO));
         assertFalse(images.markDeleted(scope, other, image, java.time.Duration.ZERO));
         assertTrue(images.inSession(scope, owner, session.id(), image).isEmpty());
-        assertEquals(List.of(upload), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(upload), ids(library.page(scope, owner, JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
         // History keeps both as tombstones so the answer does not silently lose its cards.
         assertTrue(interpreter.byMessages(scope, List.of(reply.assistantMessageId()))
                 .get(reply.assistantMessageId()).getFirst().deleted());
@@ -387,21 +402,21 @@ class ChatPersistenceIntegrationTest {
         var keptFile = UUID.randomUUID();
         interpreter.insertArtifact(scope, keptReply.assistantMessageId(), keptFile, UUID.randomUUID(),
                 new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/notes.pdf"), "notes.pdf", "application/pdf", 8, null);
-        assertEquals(List.of(keptFile, upload), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(keptFile, upload), ids(library.page(scope, owner, JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
         turns.delete(owner, kept.id());
-        assertEquals(List.of(upload), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(upload), ids(library.page(scope, owner, JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
 
         // An upload a project holds is named rather than silently undeletable.
         var project = projects.create(owner, new ChatProjectService.ProjectInput("Kế hoạch", "", "", List.of(upload)));
-        var usage = new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc).usage(scope, List.of(upload));
-        assertEquals(List.of("Kế hoạch"), usage.stream().map(io.memoryos.chat.persistence.JdbcUserFileRepository.Usage::name).toList());
-        assertEquals(io.memoryos.chat.persistence.JdbcUserFileRepository.Usage.Kind.PROJECT, usage.getFirst().kind());
+        var usage = new JdbcChatFileAttachmentRepository(jdbc).holders(scope, List.of(upload));
+        assertEquals(List.of("Kế hoạch"), usage.stream().map(FileAttachments.Holder::name).toList());
+        assertEquals(ChatLibraryFile.Usage.Kind.PROJECT, usage.getFirst().kind());
         assertEquals(project.id(), usage.getFirst().id());
     }
 
     @Test
     void aConversationsOwnFilesAreItsArtifactsAndTheUploadsAttachedInIt() {
-        var library = new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc);
+        var library = new JdbcChatLibraryRepository(jdbc);
         var images = new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc);
         var scope = new TenantId(tenant);
         var session = sessions.create(owner, "Có tệp");
@@ -421,7 +436,7 @@ class ChatPersistenceIntegrationTest {
                 new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/elsewhere.png"), "image/png", ".png", 32,
                 null, null, null);
 
-        var inSession = library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), session.id()), ChatLibraryFile.Sort.NEWEST, 0, 50);
+        var inSession = library.page(scope, owner, JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), session.id()), ChatLibraryFile.Sort.NEWEST, 0, 50);
         assertEquals(List.of(image, attached), ids(inSession));
         assertEquals(64 + 4, inSession.totalBytes());
         // Each row names the message to scroll to: the answer that made the image, the question that attached the file.
@@ -432,16 +447,17 @@ class ChatPersistenceIntegrationTest {
         assertFalse(ids(inSession).contains(otherImage));
         assertFalse(ids(inSession).contains(unattached));
         // Without the filter both conversations' files are listed.
-        assertTrue(ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50))
+        assertTrue(ids(library.page(scope, owner, JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50))
                 .containsAll(List.of(image, otherImage, attached, unattached)));
         // A conversation the caller does not own matches nothing, including their own upload used in it.
-        assertEquals(List.of(), ids(library.page(scope, other, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), session.id()), ChatLibraryFile.Sort.NEWEST, 0, 50)));
-        assertEquals(List.of(), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), UUID.randomUUID()), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(), ids(library.page(scope, other, JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), session.id()), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(), ids(library.page(scope, owner, JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), UUID.randomUUID()), ChatLibraryFile.Sort.NEWEST, 0, 50)));
     }
 
     @Test
     void theLibraryRenamesStarsAndListsPendingUploadsOnlyForTheirOwner() {
-        var library = new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc);
+        var library = new JdbcChatLibraryRepository(jdbc);
+        var artifacts = new JdbcChatArtifactRepository(jdbc);
         var interpreter = new io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository(jdbc);
         var scope = new TenantId(tenant);
         var session = sessions.create(owner, "Tệp");
@@ -453,42 +469,42 @@ class ChatPersistenceIntegrationTest {
         interpreter.insertArtifact(scope, reply.assistantMessageId(), generated, UUID.randomUUID(),
                 new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/bang.xlsx"), "bang.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 64, null);
-        var filter = io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null);
+        var filter = JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null);
 
         // The READY list is unchanged; the pending list holds only the failed upload, with its reason.
         assertEquals(List.of(generated, upload), ids(library.page(scope, owner, filter, ChatLibraryFile.Sort.NEWEST, 0, 50)));
-        var pending = library.page(scope, owner, new io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter("",
+        var pending = library.page(scope, owner, new JdbcChatLibraryRepository.Filter("",
                 Set.of(), Set.of(), null, false, true, null), ChatLibraryFile.Sort.NEWEST, 0, 50);
         assertEquals(List.of(failed), ids(pending));
         assertEquals(UserFile.Status.FAILED, pending.items().getFirst().status());
         assertEquals("EXTRACTION_FAILED", pending.items().getFirst().errorCode());
 
         // A rename rewrites the file's own name, so the name search and the listing follow it.
-        assertTrue(library.update(scope, owner, ChatLibraryFile.Source.GENERATED, generated, "Doanh thu quý 3.xlsx", null));
-        assertTrue(library.update(scope, owner, ChatLibraryFile.Source.UPLOAD, upload, null, true));
+        assertTrue(artifacts.update(scope, owner, ChatLibraryFile.Source.GENERATED, generated, "Doanh thu quý 3.xlsx", null));
+        assertTrue(library.update(scope, owner, upload, null, true));
         assertEquals(List.of(generated), ids(library.page(scope, owner,
-                io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("quý 3", Set.of(), Set.of(), null),
+                JdbcChatLibraryRepository.Filter.of("quý 3", Set.of(), Set.of(), null),
                 ChatLibraryFile.Sort.NEWEST, 0, 50)));
         assertEquals(List.of(generated, upload), ids(library.page(scope, owner, filter, ChatLibraryFile.Sort.NAME, 0, 50)));
-        var starred = library.page(scope, owner, new io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter("",
+        var starred = library.page(scope, owner, new JdbcChatLibraryRepository.Filter("",
                 Set.of(), Set.of(), null, true, false, null), ChatLibraryFile.Sort.NEWEST, 0, 50);
         assertEquals(List.of(upload), ids(starred));
         assertTrue(starred.items().getFirst().favorite());
         // Unstarring clears it; another member can neither rename nor star the file.
-        assertTrue(library.update(scope, owner, ChatLibraryFile.Source.UPLOAD, upload, null, false));
-        assertEquals(List.of(), ids(library.page(scope, owner, new io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter("",
+        assertTrue(library.update(scope, owner, upload, null, false));
+        assertEquals(List.of(), ids(library.page(scope, owner, new JdbcChatLibraryRepository.Filter("",
                 Set.of(), Set.of(), null, true, false, null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
-        assertFalse(library.update(scope, other, ChatLibraryFile.Source.GENERATED, generated, "x.xlsx", true));
-        assertFalse(library.update(scope, owner, ChatLibraryFile.Source.IMAGE, generated, "x.png", null));
+        assertFalse(artifacts.update(scope, other, ChatLibraryFile.Source.GENERATED, generated, "x.xlsx", true));
+        assertFalse(artifacts.update(scope, owner, ChatLibraryFile.Source.IMAGE, generated, "x.png", null));
         // A deleted artifact is no longer the owner's to change either.
         jdbc.sql("UPDATE chat_file_artifact SET deleted_at = CURRENT_TIMESTAMP WHERE id = :id").param("id", generated).update();
-        assertFalse(library.update(scope, owner, ChatLibraryFile.Source.GENERATED, generated, null, true));
+        assertFalse(artifacts.update(scope, owner, ChatLibraryFile.Source.GENERATED, generated, null, true));
         // Only the listed ids remain when the filter names them.
-        assertEquals(List.of(upload), ids(library.page(scope, owner, new io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter("",
+        assertEquals(List.of(upload), ids(library.page(scope, owner, new JdbcChatLibraryRepository.Filter("",
                 Set.of(), Set.of(), null, false, false, Set.of(upload)), ChatLibraryFile.Sort.NEWEST, 0, 50)));
     }
 
-    private static List<UUID> ids(io.memoryos.chat.persistence.JdbcChatLibraryRepository.Page page) {
+    private static List<UUID> ids(JdbcChatLibraryRepository.Page page) {
         return page.items().stream().map(ChatLibraryFile::id).toList();
     }
 
@@ -1179,7 +1195,9 @@ class ChatPersistenceIntegrationTest {
         var a = readyFile(owner); var b = readyFile(owner); var foreign = readyFile(other);
         var session = sessions.create(owner, "Files");
         var denied = new ChatCommand(ChatCommand.Operation.SEND, session.rootMessageId(), UUID.randomUUID(), "", null, List.of(foreign));
-        assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(), denied, Duration.ofMinutes(2), 32000, null));
+        // The library refuses the file; its failure answers the same CHAT_UNAVAILABLE problem Chat's would.
+        var refused = assertThrows(LibraryException.class, () -> turns.reserve(owner, session.id(), denied, Duration.ofMinutes(2), 32000, null));
+        assertEquals("CHAT_UNAVAILABLE", refused.code());
         assertTrue(sessions.history(owner, session.id(), null, 100).isEmpty());
         var command = new ChatCommand(ChatCommand.Operation.SEND, session.rootMessageId(), UUID.randomUUID(), "", null, List.of(b, a));
         var first = turns.reserve(owner, session.id(), command, Duration.ofMinutes(2), 32000, null);
@@ -1254,7 +1272,7 @@ class ChatPersistenceIntegrationTest {
             new io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository(jdbc).create(tenantId, objectId,
                     new io.memoryos.objectstorage.ObjectKey("raw/" + tenant + "/" + objectId.value()), spec, java.time.Instant.now().plusSeconds(600));
             new io.memoryos.objectstorage.persistence.JdbcObjectUploadRepository(jdbc).create(tenantId, uploadId, objectId, spec.purpose());
-            var id = new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc).create(tenantId, actor, UUID.randomUUID(), uploadId, spec);
+            var id = new JdbcUserFileRepository(jdbc).create(tenantId, actor, UUID.randomUUID(), uploadId, spec);
             // This suite tests message transactions; worker/adoption publication is exercised separately.
             jdbc.sql("UPDATE chat_user_file SET status='READY',plaintext='Test',detected_media_type='text/plain',"
                     + "stored_object_id=:object WHERE id=:id").param("object", objectId.value()).param("id", id).update();

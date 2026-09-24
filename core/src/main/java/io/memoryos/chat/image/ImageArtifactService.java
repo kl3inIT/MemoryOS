@@ -2,6 +2,9 @@ package io.memoryos.chat.image;
 
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
+import io.memoryos.library.ChatStorageQuotaService;
+import io.memoryos.library.ImageThumbnails;
+import io.memoryos.library.LibraryTrashProperties;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
@@ -33,15 +36,15 @@ public class ImageArtifactService {
     private final TenantAccessResolver tenants;
     private final TransactionTemplate tx;
 
-    private final io.memoryos.chat.ChatStorageQuotaService quotas;
-    private final io.memoryos.chat.application.ChatRetentionProperties retention;
+    private final ChatStorageQuotaService quotas;
+    private final LibraryTrashProperties trash;
 
     public ImageArtifactService(ObjectWriteService writes, ObjectStorage storage, JdbcImageArtifactRepository artifacts,
-                                TenantAccessResolver tenants, io.memoryos.chat.ChatStorageQuotaService quotas,
-                                io.memoryos.chat.application.ChatRetentionProperties retention,
+                                TenantAccessResolver tenants, ChatStorageQuotaService quotas,
+                                LibraryTrashProperties trash,
                                 PlatformTransactionManager transactionManager) {
         this.writes = writes; this.storage = storage; this.artifacts = artifacts; this.tenants = tenants;
-        this.quotas = quotas; this.retention = retention; this.tx = new TransactionTemplate(transactionManager);
+        this.quotas = quotas; this.trash = trash; this.tx = new TransactionTemplate(transactionManager);
     }
 
     /** Which rendering of an image a caller wants: the artifact itself, or the library's small one. */
@@ -168,7 +171,7 @@ public class ImageArtifactService {
     public void delete(ActorId actor, UUID id) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         tx.executeWithoutResult(ignored -> {
-            if (!artifacts.markDeleted(tenant, actor, id, retention.trashAfter())) throw ChatException.unavailable();
+            if (!artifacts.markDeleted(tenant, actor, id, trash.trashAfter())) throw ChatException.unavailable();
         });
         LOGGER.atInfo().addKeyValue("event", "chat.artifact.deleted").addKeyValue("artifact_kind", "IMAGE")
                 .log("Generated image hidden; the cleanup sweep releases its bytes");

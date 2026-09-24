@@ -5,7 +5,7 @@ import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerCustomizer;
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask;
 import com.github.kagkarlsson.scheduler.task.helper.Tasks;
 import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay;
-import io.memoryos.chat.application.UserFileMaintenance;
+import io.memoryos.library.UserFileMaintenance;
 import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import io.memoryos.library.ChatLibraryArchiveService;
 
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(name = "db-scheduler.enabled", havingValue = "true", matchIfMissing = true)
@@ -221,7 +222,7 @@ class ControlPlaneConfiguration {
 
     /** Packs requested library archives and releases the ones that expired (MEM-152). */
     @Bean
-    RecurringTask<Void> chatLibraryArchiveTask(io.memoryos.chat.application.ChatLibraryArchiveService archives) {
+    RecurringTask<Void> chatLibraryArchiveTask(ChatLibraryArchiveService archives) {
         return Tasks.recurring("memoryos-chat-library-archive-v1", FixedDelay.of(Duration.ofSeconds(5)))
                 .execute((_, _) -> {
                     for (int packed = 0; packed < 4 && archives.buildNext(); packed++) {

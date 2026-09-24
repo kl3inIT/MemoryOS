@@ -1,6 +1,6 @@
 package io.memoryos.worker;
 
-import io.memoryos.chat.UserFileWorkPort;
+import io.memoryos.library.UserFileWorkPort;
 import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.ConnectorIndexingPort;
 import io.memoryos.connector.ConnectorSyncPort;

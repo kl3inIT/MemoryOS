@@ -6,6 +6,8 @@ import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.library.ChatStorageQuotaService;
+import io.memoryos.library.LibraryTrashProperties;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
@@ -32,18 +34,18 @@ public class InterpreterService {
     private final TransactionTemplate tx;
     private final AuditTrail audit;
 
-    private final io.memoryos.chat.ChatStorageQuotaService quotas;
-    private final io.memoryos.chat.application.ChatRetentionProperties retention;
+    private final ChatStorageQuotaService quotas;
+    private final LibraryTrashProperties trash;
 
     public InterpreterService(JdbcInterpreterRepository repository, InterpreterProperties properties, IamAuthorization authorization,
                               TenantAccessResolver tenants, ObjectWriteService writes, ObjectStorage storage,
-                              io.memoryos.chat.ChatStorageQuotaService quotas,
-                              io.memoryos.chat.application.ChatRetentionProperties retention,
+                              ChatStorageQuotaService quotas,
+                              LibraryTrashProperties trash,
                               PlatformTransactionManager transactionManager, AuditTrail audit) {
         this.audit = audit;
         this.repository = repository; this.properties = properties; this.authorization = authorization;
         this.tenants = tenants; this.writes = writes; this.storage = storage; this.quotas = quotas;
-        this.retention = retention; this.tx = new TransactionTemplate(transactionManager);
+        this.trash = trash; this.tx = new TransactionTemplate(transactionManager);
     }
 
     /**
@@ -108,7 +110,7 @@ public class InterpreterService {
     public void delete(ActorId actor, UUID id) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         tx.executeWithoutResult(ignored -> {
-            if (!repository.markArtifactDeleted(tenant, actor, id, retention.trashAfter())) throw ChatException.unavailable();
+            if (!repository.markArtifactDeleted(tenant, actor, id, trash.trashAfter())) throw ChatException.unavailable();
         });
         LOGGER.atInfo().addKeyValue("event", "chat.artifact.deleted").addKeyValue("artifact_kind", "GENERATED_FILE")
                 .log("Generated file hidden; the cleanup sweep releases its bytes");

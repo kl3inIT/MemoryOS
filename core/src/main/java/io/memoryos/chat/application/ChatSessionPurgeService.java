@@ -1,6 +1,7 @@
 package io.memoryos.chat.application;
 
 import io.memoryos.chat.persistence.JdbcChatSessionPurgeRepository;
+import io.memoryos.library.UserFileMaintenance;
 import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,12 +30,13 @@ public class ChatSessionPurgeService {
     private static final int TEMPORARY_BATCH = 100;
 
     private final JdbcChatSessionPurgeRepository sessions;
+    private final UserFileMaintenance files;
     private final ChatRetentionProperties retention;
     private final TransactionTemplate tx;
 
-    public ChatSessionPurgeService(JdbcChatSessionPurgeRepository sessions, ChatRetentionProperties retention,
-                                   PlatformTransactionManager transactionManager) {
-        this.sessions = sessions; this.retention = retention;
+    public ChatSessionPurgeService(JdbcChatSessionPurgeRepository sessions, UserFileMaintenance files,
+                                   ChatRetentionProperties retention, PlatformTransactionManager transactionManager) {
+        this.sessions = sessions; this.files = files; this.retention = retention;
         this.tx = new TransactionTemplate(transactionManager);
     }
 
@@ -46,7 +48,7 @@ public class ChatSessionPurgeService {
             for (var session : sessions.claim(retention.batchSize(), retention.deletedAfter())) {
                 sessions.releaseArtifacts(session);
                 // Only a temporary conversation owns uploads; for any other this releases nothing.
-                sessions.releaseTemporaryUploads(session);
+                files.releaseTemporary(session);
                 sessions.purge(session);
                 count++;
             }

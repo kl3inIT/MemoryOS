@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import io.memoryos.chat.UserFileWork;
-import io.memoryos.chat.UserFileWorkPort;
+import io.memoryos.library.UserFileWork;
+import io.memoryos.library.UserFileWorkPort;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionArtifactPort;

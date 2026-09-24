@@ -1,9 +1,9 @@
 package io.memoryos.meeting;
 
-import io.memoryos.chat.ChatFileInUseException;
-import io.memoryos.chat.ChatFileService;
-import io.memoryos.chat.ChatLibraryFile;
-import io.memoryos.chat.ChatLibraryService;
+import io.memoryos.library.ChatFileInUseException;
+import io.memoryos.library.ChatFileService;
+import io.memoryos.library.ChatLibraryFile;
+import io.memoryos.library.ChatLibraryService;
 import io.memoryos.shared.ActorId;
 import java.util.UUID;
 import org.slf4j.Logger;

@@ -13,7 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import io.memoryos.chat.ChatFileContentService;
+import io.memoryos.library.ChatFileContentService;
 import io.memoryos.chat.ChatImageEvent;
 import io.memoryos.chat.image.ImageArtifactService;
 import io.memoryos.chat.image.ImageConnectionService;

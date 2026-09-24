@@ -152,6 +152,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import io.memoryos.library.ChatLibraryArchiveService;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "memoryos.chat.provider.api-key=test-only-model-is-mocked",
@@ -207,7 +208,7 @@ class ChatSessionApiIntegrationTest {
     @MockitoSpyBean
     private OpenAiChatProviderAdapter providerAdapter;
     @MockitoBean private OpenSearchIndexService searchIndex;
-    @Autowired private io.memoryos.chat.application.ChatLibraryArchiveService libraryArchives;
+    @Autowired private ChatLibraryArchiveService libraryArchives;
     @MockitoBean private DocumentChunkPort chunks;
     @MockitoBean private SourceDocumentAccessResolver sourceAccess;
     @MockitoBean private io.memoryos.connector.SourceSearchService sourceSearch;

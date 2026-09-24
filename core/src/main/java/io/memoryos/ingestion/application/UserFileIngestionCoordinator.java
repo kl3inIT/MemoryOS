@@ -1,7 +1,7 @@
 package io.memoryos.ingestion.application;
 
-import io.memoryos.chat.UserFileWork;
-import io.memoryos.chat.UserFileWorkPort;
+import io.memoryos.library.UserFileWork;
+import io.memoryos.library.UserFileWorkPort;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.ingestion.ExtractionException;

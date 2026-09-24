@@ -5,8 +5,8 @@ import static org.mockito.Mockito.*;
 
 import io.memoryos.chat.ChatEvidence;
 import io.memoryos.chat.ChatException;
-import io.memoryos.chat.ChatFileService;
-import io.memoryos.chat.ChatFileSearchService;
+import io.memoryos.library.ChatFileService;
+import io.memoryos.library.ChatFileSearchService;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.SearchTasks;

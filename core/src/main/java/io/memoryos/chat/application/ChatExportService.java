@@ -2,18 +2,16 @@ package io.memoryos.chat.application;
 
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatExport;
-import io.memoryos.chat.ChatLibraryFile;
+import io.memoryos.library.ChatLibraryFile;
+import io.memoryos.library.LibraryContents;
 import io.memoryos.chat.ChatSession;
 import io.memoryos.chat.persistence.JdbcChatExportRepository.Claim;
 import io.memoryos.chat.persistence.JdbcChatExportRepository;
-import io.memoryos.chat.persistence.JdbcChatLibraryRepository;
 import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.chat.persistence.JdbcUserFileRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectContent;
-import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.objectstorage.ObjectStorageFailureCode;
@@ -70,19 +68,18 @@ public class ChatExportService {
     private final TenantAccessResolver tenants;
     private final JdbcChatExportRepository exports;
     private final JdbcChatRepository chats;
-    private final JdbcChatLibraryRepository library;
-    private final JdbcUserFileRepository files;
+    private final LibraryContents library;
     private final ObjectWriteService writes;
     private final ObjectStorage storage;
     private final StoredObjectRegistry storedObjects;
     private final TransactionTemplate tx;
 
     public ChatExportService(TenantAccessResolver tenants, JdbcChatExportRepository exports,
-                             JdbcChatRepository chats, JdbcChatLibraryRepository library,
-                             JdbcUserFileRepository files, ObjectWriteService writes, ObjectStorage storage,
+                             JdbcChatRepository chats, LibraryContents library,
+                             ObjectWriteService writes, ObjectStorage storage,
                              StoredObjectRegistry storedObjects, PlatformTransactionManager transactionManager) {
         this.tenants = tenants; this.exports = exports; this.chats = chats; this.library = library;
-        this.files = files; this.writes = writes; this.storage = storage; this.storedObjects = storedObjects;
+        this.writes = writes; this.storage = storage; this.storedObjects = storedObjects;
         this.tx = new TransactionTemplate(transactionManager);
     }
 
@@ -253,30 +250,15 @@ public class ChatExportService {
 
     /** The files the owner's library lists right now, newest first; the library already hides what is gone. */
     private List<ChatLibraryFile> libraryFiles(TenantId tenant, ActorId owner) {
-        // A null id set is what asks for every file; an empty one would ask for none.
-        var filter = new JdbcChatLibraryRepository.Filter("", Set.of(), Set.of(), null, false, false, null);
-        return library.page(tenant, owner, filter, ChatLibraryFile.Sort.NEWEST, 0, MAX_FILES).items();
+        return library.listed(tenant, owner, null, MAX_FILES);
     }
 
-    /** An upload's bytes come from its adopted upload, an artifact's from its own object. */
     private Optional<byte[]> read(TenantId tenant, ActorId owner, ChatLibraryFile file) {
-        Optional<ObjectKey> key = file.source() == ChatLibraryFile.Source.UPLOAD
-                ? files.raw(tenant, owner, file.id()).map(row -> row.reference().key())
-                : library.artifact(tenant, owner, file.source(), file.id())
-                        .map(JdbcChatLibraryRepository.Artifact::key);
-        if (key.isEmpty()) return Optional.empty();
-        try (var content = storage.open(key.get())) {
-            return Optional.of(content.inputStream().readAllBytes());
-        } catch (ObjectStorageException failure) {
-            if (failure.code() == ObjectStorageFailureCode.NOT_FOUND) return Optional.empty();
-            throw failure;
-        } catch (IOException broken) {
-            throw new UncheckedIOException(broken);
-        }
+        return library.read(tenant, owner, file);
     }
 
     private static void write(ZipOutputStream zip, Set<String> taken, String name, byte[] bytes) throws IOException {
-        zip.putNextEntry(new ZipEntry(ChatLibraryArchiveService.unique(taken, name)));
+        zip.putNextEntry(new ZipEntry(LibraryContents.unique(taken, name)));
         zip.write(bytes);
         zip.closeEntry();
     }

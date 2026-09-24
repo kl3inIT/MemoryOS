@@ -1,11 +1,13 @@
 package io.memoryos.chat;
 
 import io.memoryos.chat.application.PersonaProperties;
+import io.memoryos.library.ChatFileContentService;
+import io.memoryos.library.ChatFileService;
+import io.memoryos.library.UserFile;
 import io.memoryos.chat.persistence.JdbcAgentRepository.Access;
 import io.memoryos.chat.persistence.JdbcAgentRepository;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.JdbcDocumentSetRepository;
-import io.memoryos.chat.persistence.JdbcUserFileRepository;
 import io.memoryos.chat.persistence.JpaPersonaRepository;
 import io.memoryos.chat.persistence.PersonaEntity;
 import io.memoryos.chat.persistence.PersonaRevisions;
@@ -57,17 +59,16 @@ public class ChatPersonaService {
     private final DocumentSetService documentSets;
     private final JdbcDocumentSetRepository documentSetRows;
     private final ChatFileService files;
-    private final JdbcUserFileRepository userFiles;
     private final ChatFileContentService content;
 
     public ChatPersonaService(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
             JpaPersonaRepository settings, JdbcAgentRepository agents, PersonaRevisions revisions, PersonaProperties defaults,
             ChatModelAccess models, SourceSearchService sources, DocumentSetService documentSets, JdbcDocumentSetRepository documentSetRows,
-            ChatFileService files, JdbcUserFileRepository userFiles, ChatFileContentService content) {
+            ChatFileService files, ChatFileContentService content) {
         this.tenants = tenants; this.authorization = authorization; this.chats = chats; this.settings = settings;
         this.agents = agents; this.revisions = revisions; this.defaults = defaults; this.models = models;
         this.sources = sources; this.documentSets = documentSets; this.documentSetRows = documentSetRows;
-        this.files = files; this.userFiles = userFiles; this.content = content;
+        this.files = files; this.content = content;
     }
 
     /**
@@ -381,7 +382,7 @@ public class ChatPersonaService {
         var entity = settings.findByTenantIdAndId(tenant.value(), id).orElseThrow(ChatException::unavailable);
         if (entity.avatarFileId() == null || entity.deleted() || !access(tenant, actor, manages(actor), id).uses())
             throw ChatException.unavailable();
-        var file = userFiles.readable(tenant, actor, entity.avatarFileId(), false).orElseThrow(ChatException::unavailable).file();
+        var file = files.readable(tenant, actor, entity.avatarFileId()).orElseThrow(ChatException::unavailable);
         return new Avatar(content.open(actor, tenant, entity.avatarFileId()), file.mediaType());
     }
 
@@ -414,8 +415,7 @@ public class ChatPersonaService {
         // A new image replaces the icon; choosing an icon removes the image; sending neither keeps the image.
         UUID avatar = input.avatarFileId() != null ? input.avatarFileId() : iconName == null ? entity.avatarFileId() : null;
         if (avatar != null && !avatar.equals(entity.avatarFileId())) {
-            var file = userFiles.readable(tenant, actor, avatar, false).orElseThrow(() -> ChatException.invalid("The avatar image is unavailable."))
-                    .file();
+            var file = files.readable(tenant, actor, avatar).orElseThrow(() -> ChatException.invalid("The avatar image is unavailable."));
             if (file.status() != UserFile.Status.READY || !AVATAR_TYPES.contains(file.mediaType()) || file.sizeBytes() > AVATAR_MAX_BYTES)
                 throw ChatException.invalid("Use a PNG, JPEG, WebP or GIF avatar of at most 2 MiB.");
         }

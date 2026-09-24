@@ -6,7 +6,7 @@ import com.embabel.chat.Message;
 import com.embabel.chat.TextPart;
 import com.embabel.chat.UserMessage;
 import io.memoryos.chat.ChatException;
-import io.memoryos.chat.ChatFileContentService;
+import io.memoryos.library.ChatFileContentService;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;

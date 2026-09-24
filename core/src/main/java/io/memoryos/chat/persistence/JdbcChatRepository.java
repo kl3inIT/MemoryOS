@@ -480,20 +480,6 @@ public class JdbcChatRepository {
                 .param("session", session).query(Boolean.class).optional().orElse(false));
     }
 
-    /**
-     * Marks the uploads a temporary conversation's question carried as belonging to that conversation, so the
-     * library stops listing them and the purge releases them with it.
-     */
-    public void claimTemporaryUploads(TenantId tenant, ActorId actor, UUID session, java.util.Collection<UUID> files) {
-        if (files.isEmpty()) return;
-        jdbc.sql("""
-                UPDATE chat_user_file SET temporary_session_id = :session
-                WHERE tenant_id = :tenant AND owner_actor_id = :actor AND id IN (:files)
-                  AND temporary_session_id IS NULL
-                """).param("session", session).param("tenant", tenant.value()).param("actor", actor.value())
-                .param("files", files).update();
-    }
-
     public void moveProject(UUID session, @Nullable UUID project) {
         jdbc.sql("UPDATE chat_session SET project_id=:project,updated_at=CURRENT_TIMESTAMP WHERE id=:session")
                 .param("session", session).param("project", project, Types.OTHER).update();

@@ -38,6 +38,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import io.memoryos.library.ChatStorageProperties;
+import io.memoryos.library.ChatStorageQuotaService;
+import io.memoryos.library.ImageThumbnails;
+import io.memoryos.library.persistence.JdbcChatLibraryRepository;
+import io.memoryos.library.LibraryTrashProperties;
+import io.memoryos.library.ChatLibraryFile;
 
 /**
  * Deleting a Chat artifact must release its bytes: the objects are adopted writes, which the generic reapers
@@ -99,17 +105,15 @@ class ChatArtifactCleanupIntegrationTest {
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
         artifacts = new JdbcInterpreterRepository(jdbc);
         pictures = new JdbcImageArtifactRepository(jdbc);
-        var quotas = new io.memoryos.chat.ChatStorageQuotaService(tenants,
-                new io.memoryos.chat.application.ChatStorageProperties(0), new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc));
+        var quotas = new ChatStorageQuotaService(tenants,
+                new ChatStorageProperties(0), new JdbcChatLibraryRepository(jdbc));
         interpreter = new InterpreterService(artifacts, new InterpreterProperties(null, null),
                 mock(IamAuthorization.class), tenants, writes, storage, quotas,
                 // This suite covers the release itself, so deletion releases at once.
-                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
-                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
+                new LibraryTrashProperties(java.time.Duration.ZERO),
                 jpa.transactionManager(), io.memoryos.TestDatabase.noAudit());
         images = new ImageArtifactService(writes, storage, pictures, tenants, quotas,
-                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
-                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
+                new LibraryTrashProperties(java.time.Duration.ZERO),
                 jpa.transactionManager());
         cleanup = new ChatArtifactCleanupService(new JdbcChatArtifactCleanupRepository(jdbc),
                 new DefaultStoredObjectRegistry(objects), writes, storage, jpa.transactionManager());
@@ -233,7 +237,7 @@ class ChatArtifactCleanupIntegrationTest {
 
     @Test
     void anImageWithNoThumbnailToMakeIsServedWhole() {
-        byte[] notAnImage = new byte[io.memoryos.chat.image.ImageThumbnails.MIN_SOURCE_BYTES + 1];
+        byte[] notAnImage = new byte[ImageThumbnails.MIN_SOURCE_BYTES + 1];
         var image = images.store(tenant, messageId, new io.memoryos.chat.image.ImageProviderClient.Result(
                 notAnImage, "image/webp", null));
 
@@ -261,8 +265,8 @@ class ChatArtifactCleanupIntegrationTest {
         assertTrue(pictures.byMessages(tenant, List.of(messageId), false).isEmpty());
 
         // The trash no longer offers it, and nothing can bring it back: the bytes are gone.
-        var trash = new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc).page(tenant, owner,
-                new io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter("", java.util.Set.of(),
+        var trash = new JdbcChatLibraryRepository(jdbc).page(tenant, owner,
+                new JdbcChatLibraryRepository.Filter("", java.util.Set.of(),
                         java.util.Set.of(), null, false, false, true, null),
                 ChatLibraryFile.Sort.DELETED, 0, 50);
         assertEquals(List.of(), trash.items());

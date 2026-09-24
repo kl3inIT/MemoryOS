@@ -23,6 +23,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
+import io.memoryos.library.ChatFileContentService;
+import io.memoryos.library.ChatFileSearchService;
+import io.memoryos.library.ChatFileService;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({ChatExecutionProperties.class, ChatStreamProperties.class, ChatSearchProperties.class,
@@ -52,7 +55,7 @@ class ChatRuntimeConfiguration {
     ChatModelExecutor chatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository repository,
                                         ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits,
                                         @Qualifier("chatInferenceScheduler") Scheduler scheduler, io.memoryos.retrieval.SearchTimings timings,
-                                        io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
+                                        ChatFileService files, ChatFileSearchService fileSearch, ChatFileContentService fileContent,
                                         io.memoryos.chat.web.WebProviderClient web, io.memoryos.chat.image.ImageProviderClient image,
                                         io.memoryos.chat.image.ImageArtifactService imageArtifacts,
                                         io.memoryos.chat.interpreter.InterpreterClient interpreter,

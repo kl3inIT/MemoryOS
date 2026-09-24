@@ -14,10 +14,10 @@ import io.memoryos.api.chat.contract.ChatLibraryTrashEmptiedResponse;
 import io.memoryos.api.chat.contract.ChatLibraryTrashWindowResponse;
 import io.memoryos.api.chat.contract.ChatLibraryUsageResponse;
 import io.memoryos.chat.ChatException;
-import io.memoryos.chat.ChatLibraryArchiveItem;
-import io.memoryos.chat.ChatLibraryFile;
-import io.memoryos.chat.ChatLibraryService;
-import io.memoryos.chat.application.ChatLibraryArchiveService;
+import io.memoryos.library.ChatLibraryArchiveItem;
+import io.memoryos.library.ChatLibraryFile;
+import io.memoryos.library.ChatLibraryService;
+import io.memoryos.library.ChatLibraryArchiveService;
 import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -46,6 +46,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import io.memoryos.library.ChatLibraryTrashService;
+import io.memoryos.library.ChatStorageQuotaService;
 
 @RestController
 @RequestMapping(value = "/api/chat/library", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -60,11 +62,11 @@ import org.springframework.web.bind.annotation.RestController;
 class ChatLibraryController {
     private final ChatLibraryService library;
     private final ChatLibraryArchiveService archives;
-    private final io.memoryos.chat.ChatStorageQuotaService quotas;
-    private final io.memoryos.chat.ChatLibraryTrashService trash;
+    private final ChatStorageQuotaService quotas;
+    private final ChatLibraryTrashService trash;
 
     ChatLibraryController(ChatLibraryService library, ChatLibraryArchiveService archives,
-            io.memoryos.chat.ChatStorageQuotaService quotas, io.memoryos.chat.ChatLibraryTrashService trash) {
+            ChatStorageQuotaService quotas, ChatLibraryTrashService trash) {
         this.library = library; this.archives = archives; this.quotas = quotas; this.trash = trash;
     }
 

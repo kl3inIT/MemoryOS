@@ -2,7 +2,7 @@ package io.memoryos.chat.tools;
 
 import com.embabel.agent.api.annotation.LlmTool;
 import io.memoryos.chat.ChatException;
-import io.memoryos.chat.ChatFileContentService;
+import io.memoryos.library.ChatFileContentService;
 import io.memoryos.chat.ChatImageEvent;
 import io.memoryos.chat.image.ImageArtifactService;
 import io.memoryos.chat.image.ImageConnectionService;

@@ -1,6 +1,6 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.chat.ChatFileService;
+import io.memoryos.library.ChatFileService;
 
 public record ChatFileTextResponse(String text, int offset, int nextOffset, int totalCharacters) {
     public static ChatFileTextResponse from(ChatFileService.FileText text) {

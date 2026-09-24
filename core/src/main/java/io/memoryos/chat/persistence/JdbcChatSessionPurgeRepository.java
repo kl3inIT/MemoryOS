@@ -103,37 +103,6 @@ public class JdbcChatSessionPurgeRepository {
     }
 
     /**
-     * Hands the uploads that belong to a temporary conversation to the file work, which releases their bytes
-     * the way a deleted upload's are released. An ordinary conversation's uploads are never touched.
-     */
-    public int releaseTemporaryUploads(UUID session) {
-        // The same two steps a deleted upload takes: stop the work it has queued, then queue its deletion, so
-        // the existing file worker releases the bytes rather than a second release path doing it here.
-        jdbc.sql("""
-                UPDATE chat_file_work SET status='CANCELLED', claim_token=NULL, lease_expires_at=NULL,
-                    dispatch_token=NULL, dispatch_lease_expires_at=NULL, completed_at=CURRENT_TIMESTAMP
-                WHERE status IN ('NOT_STARTED','IN_PROGRESS') AND file_id IN (
-                    SELECT id FROM chat_user_file WHERE temporary_session_id = :session)
-                """).param("session", session).update();
-        var released = jdbc.sql("""
-                UPDATE chat_user_file SET status = 'DELETING', updated_at = CURRENT_TIMESTAMP
-                WHERE temporary_session_id = :session AND status NOT IN ('DELETING', 'DELETED')
-                RETURNING id, tenant_id
-                """).param("session", session)
-                .query((row, ignored) -> new java.util.AbstractMap.SimpleEntry<>(
-                        row.getObject("id", UUID.class), row.getObject("tenant_id", UUID.class)))
-                .list();
-        for (var file : released) {
-            jdbc.sql("""
-                    INSERT INTO chat_file_work(id, tenant_id, file_id, action)
-                    VALUES (:id, :tenant, :file, 'DELETE')
-                    """).param("id", UUID.randomUUID()).param("tenant", file.getValue())
-                    .param("file", file.getKey()).update();
-        }
-        return released.size();
-    }
-
-    /**
      * Hands the conversation's generated files and images to the MEM-142 cleanup sweep, which owns the byte
      * release, and returns how many artifacts it marked.
      */
