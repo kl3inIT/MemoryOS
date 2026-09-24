@@ -1465,7 +1465,8 @@ function Notes({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
         maxLength={50_000}
         rows={12}
         onChange={(event) => change(event.target.value)}
-        onBlur={() => latest.current !== stored.current && flush()}
+        // Always queued: a save still in flight may store a value this one has to replace.
+        onBlur={flush}
       />
       <p className="text-xs text-content-muted" role="status">
         {state === "saving"
