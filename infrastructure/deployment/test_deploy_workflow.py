@@ -44,7 +44,7 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
             WORKFLOW.index("deploy '$RELEASE' '$DEPLOY_ENVIRONMENT' '$GITHUB_ACTOR'"),
             WORKFLOW.index("finish '$RELEASE'"),
         )
-        for guard in ("pg_dump", "pg_restore --list", "flock --nonblock", '--no-deps --pull never --wait', '.State.Health.Status == "healthy"', '.Image == $image', 'org.opencontainers.image.revision'):
+        for guard in ("pg_dump", "pg_restore --list", "flock --nonblock", '--no-deps --pull never --force-recreate --wait', '.State.Health.Status == "healthy"', '.Image == $image', 'org.opencontainers.image.revision'):
             self.assertIn(guard, SCRIPT)
 
     def test_failure_reports_without_automatic_rollback(self):
@@ -218,6 +218,38 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertLess(checked, applied, "a port the firewall would not filter stops the deployment first")
         self.assertLess(checked, serving.index("compose up"))
         self.assertLess(applied, serving.index("compose up"), "the rule is current before containers publish")
+
+    def test_one_release_from_two_transactions_is_not_a_mixed_runtime(self):
+        # Staging, 2026-09-23: redeploying the running release recreated only the api; worker, web and
+        # interpreter kept the earlier transaction's labels and every later deployment stopped here.
+        rollout = SCRIPT.split("rollout() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertEqual(rollout.count("compose up -d"), rollout.count("--force-recreate"))
+        program = SCRIPT.split("--argjson count \"${#previous_components[@]}\" '", 1)[1].split("\n    ')", 1)[0]
+        jq = shutil.which("jq")
+        if jq is None:
+            self.skipTest("jq is required to run the runtime check")
+
+        def container(name, transaction, revision="c" * 40, health="healthy"):
+            files = ",".join(f"/apps/memoryos/deployments/{transaction}/source/infrastructure/deployment/{file}"
+                             for file in ("compose.base.yaml", "compose.staging.yaml"))
+            return {"Name": "/memoryos-" + name, "Image": "sha256:" + "0" * 64,
+                    "State": {"Running": True, "Health": {"Status": health}},
+                    "Config": {"Labels": {"org.opencontainers.image.revision": revision,
+                                          "com.docker.compose.project.config_files": files}}}
+
+        def check(runtime):
+            return subprocess.run([jq, "--exit-status", "--argjson", "count", str(len(runtime)), program],
+                                  input=json.dumps(runtime), capture_output=True, text=True)
+
+        two_transactions = [container("api", "c-2-1"), container("worker", "c-1-1"), container("web", "c-1-1")]
+        self.assertEqual(0, check(two_transactions).returncode)
+        mixed_release = [container("api", "c-2-1"), container("worker", "c-1-1", revision="d" * 40), container("web", "c-1-1")]
+        self.assertIn("Unhealthy or mixed runtime", check(mixed_release).stderr)
+        unhealthy = [container("api", "c-2-1"), container("worker", "c-2-1", health="starting"), container("web", "c-2-1")]
+        self.assertIn("Unhealthy or mixed runtime", check(unhealthy).stderr)
+        other_files = two_transactions[:2] + [container("web", "c-1-1")]
+        other_files[2]["Config"]["Labels"]["com.docker.compose.project.config_files"] += ",/elsewhere/compose.yaml"
+        self.assertIn("Unhealthy or mixed runtime", check(other_files).stderr)
 
     def test_interpreter_is_reachable_only_on_the_internal_network(self):
         compose = (ROOT / "infrastructure/deployment/compose.base.yaml").read_text(encoding="utf-8")
