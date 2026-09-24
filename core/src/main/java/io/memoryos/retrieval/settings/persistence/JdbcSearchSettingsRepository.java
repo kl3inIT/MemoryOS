@@ -206,7 +206,8 @@ public class JdbcSearchSettingsRepository {
     /**
      * Rebuild progress of {@code future} over the documents that search can serve: eligible, extracted, of an active
      * Tenant. A document is ready when the index holds its current content generation, failed when the index work for
-     * that generation failed, and pending otherwise. {@code presentReady} counts the documents PRESENT serves.
+     * that generation failed, and pending otherwise. {@code uncovered} counts the documents PRESENT serves that are not
+     * ready in the rebuilt index: switching would drop them from search, whatever the totals say.
      */
     public Progress progress(String future, String present) {
         return jdbc.sql("""
@@ -216,14 +217,15 @@ public class JdbcSearchSettingsRepository {
                         SELECT 1 FROM search_index_operations w WHERE w.tenant_id=d.tenant_id AND w.document_id=d.id
                             AND w.generation=d.content_generation AND w.action='INDEX' AND w.index_identity=:future
                             AND w.status='FAILED')) AS failed,
-                    COUNT(p.generation) AS present_ready
+                    COUNT(*) FILTER (WHERE p.generation IS NOT NULL
+                        AND f.generation IS DISTINCT FROM d.content_generation) AS uncovered
                 FROM documents d JOIN tenants t ON t.id=d.tenant_id
                 LEFT JOIN document_search_projection f ON f.tenant_id=d.tenant_id AND f.document_id=d.id AND f.index_identity=:future
                 LEFT JOIN document_search_projection p ON p.tenant_id=d.tenant_id AND p.document_id=d.id AND p.index_identity=:present
                 WHERE d.status='ELIGIBLE' AND t.status='ACTIVE' AND d.extraction_artifact_id IS NOT NULL
                 """).param("future", future).param("present", present)
                 .query((rs, _) -> new Progress(rs.getLong("ready"), rs.getLong("total"), rs.getLong("failed"),
-                        rs.getLong("present_ready"))).single();
+                        rs.getLong("uncovered"))).single();
     }
 
     /** Documents ready per index identity, for the identities given. */
@@ -242,8 +244,8 @@ public class JdbcSearchSettingsRepository {
     public record GenerationRow(SearchGeneration generation, String providerName, EmbeddingProvider.DataBoundary dataBoundary,
             long documentCount, boolean cleanupBlocked) { }
 
-    /** Documents ready in the rebuilt index, all servable documents, failed ones, and those PRESENT serves. */
-    public record Progress(long ready, long total, long failed, long presentReady) {
+    /** Documents ready in the rebuilt index, all servable documents, failed ones, and PRESENT's not ready there. */
+    public record Progress(long ready, long total, long failed, long uncovered) {
         public long pending() { return Math.max(0, total - ready - failed); }
     }
 

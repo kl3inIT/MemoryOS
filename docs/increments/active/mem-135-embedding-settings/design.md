@@ -181,7 +181,7 @@ Schema:
 
 ## Sai khác khi làm part 2 (2026-09-24)
 
-* **Tài liệu được dựng lại:** mọi tài liệu tìm được (eligible, đã trích xuất, Tenant đang hoạt động), không chỉ tài liệu đã sẵn sàng ở `PRESENT`. `switchable` là "không còn tài liệu chờ và `FUTURE` giữ ít nhất số tài liệu `PRESENT` đang phục vụ", nên một tài liệu lỗi ở cả hai index không chặn việc chuyển.
+* **Tài liệu được dựng lại:** mọi tài liệu tìm được (eligible, đã trích xuất, Tenant đang hoạt động), không chỉ tài liệu đã sẵn sàng ở `PRESENT`. `switchable` là "không còn tài liệu chờ và mọi tài liệu `PRESENT` đang phục vụ đều sẵn sàng ở `FUTURE`", nên một tài liệu lỗi ở cả hai index không chặn việc chuyển. So số lượng thì không đủ: một tài liệu lỗi ở `FUTURE` có thể bị bù bởi một tài liệu chỉ có ở `FUTURE`, và chuyển sẽ làm mất tài liệu đầu khỏi tìm kiếm.
 * **Nạp việc theo cửa sổ:** worker nạp tối đa 64 việc đang treo cho `FUTURE` mỗi 5 giây (`memoryos.search.rebuild-window`) thay vì xếp cả kho một lần, để việc của `PRESENT` không chờ sau hàng chục nghìn tài liệu.
 * **Báo các process:** repo chưa có bus sự kiện, nên không "phát sự kiện": mỗi process đọc một phiên bản của các thế hệ đang hoạt động (id, trạng thái, revision provider) tối đa mỗi 5 giây. Trong 5 giây đó process khác vẫn đọc index cũ, vẫn còn vì được giữ 7 ngày.
 * **Huỷ:** `FUTURE` bị huỷ thành `PAST` đã hết hạn giữ; index bị xoá ngay và thế hệ bị xoá sau khi đếm lại. Nếu xoá lỗi, dọn dẹp hằng giờ làm tiếp. Một việc đang chạy đúng lúc huỷ có thể ghi lại vào index vừa xoá và OpenSearch tự tạo một index không mapping; rủi ro nhỏ, chưa xử lý.

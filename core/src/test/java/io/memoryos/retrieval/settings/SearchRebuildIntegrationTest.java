@@ -455,6 +455,41 @@ class SearchRebuildIntegrationTest {
     }
 
     @Test
+    void aDocumentPresentServesThatFailedInTheFutureBlocksTheSwitchEvenWhenTheTotalsMatch() {
+        var corpus = seedCorpus();
+        String present = process.generations.present().identity();
+        var future = startFuture();
+        process.rebuildCompletely();
+        jdbc.sql("UPDATE search_settings SET automatic=TRUE WHERE id=:id").param("id", future.id()).update();
+        // A is served by PRESENT but failed in FUTURE; B is ready only in FUTURE. The counts are equal (2 and 2).
+        var failed = corpus.get(0);
+        var onlyInFuture = corpus.get(1);
+        jdbc.sql("DELETE FROM document_search_projection WHERE document_id=:document AND index_identity=:future")
+                .param("document", failed.value()).param("future", future.identity()).update();
+        jdbc.sql("""
+                UPDATE search_index_operations SET status='FAILED',error_code='SEARCH_INDEX_FAILED',completed_at=CURRENT_TIMESTAMP
+                WHERE document_id=:document AND index_identity=:future AND action='INDEX'
+                """).param("document", failed.value()).param("future", future.identity()).update();
+        jdbc.sql("DELETE FROM document_search_projection WHERE document_id=:document AND index_identity=:present")
+                .param("document", onlyInFuture.value()).param("present", present).update();
+
+        var progress = process.settings.settings(admin).rebuild();
+        assertEquals(new SearchSettingsService.RebuildProgress(2, 3, 1, 0, 0L, false), progress);
+        var refused = assertThrows(SearchSettingsException.class, () -> process.settings.switchFuture(admin));
+        assertEquals("SEARCH_SETTINGS_REBUILD_INCOMPLETE", refused.code());
+        assertFalse(process.settings.switchAutomaticWhenComplete(), "The automatic rebuild does not switch either");
+        assertEquals(present, process.generations.present().identity());
+
+        // The failed work is retried by the rebuild; once A is ready in FUTURE the switch drops nothing.
+        jdbc.sql("UPDATE search_index_operations SET completed_at=CURRENT_TIMESTAMP - INTERVAL '1' HOUR WHERE status='FAILED'").update();
+        process.rebuildCompletely();
+        assertTrue(process.chunks.isCurrent(new TenantId(tenant), failed, generation(failed), future.identity()));
+        assertTrue(process.settings.settings(admin).rebuild().switchable());
+        assertTrue(process.settings.switchAutomaticWhenComplete());
+        assertEquals(future.identity(), process.generations.present().identity());
+    }
+
+    @Test
     void aSecondFutureIsRefusedWhileOneIsBeingRebuilt() {
         seedCorpus();
         var first = startFuture();

@@ -143,7 +143,8 @@ public class SearchSettingsService {
             long elapsed = Math.max(1, Duration.between(future.createdAt(), now).toSeconds());
             remaining = (long) Math.ceil((double) pending * elapsed / counts.ready());
         }
-        boolean switchable = pending == 0 && counts.ready() >= counts.presentReady();
+        // Every document PRESENT serves must be ready in FUTURE; equal totals can hide one swapped for another.
+        boolean switchable = pending == 0 && counts.uncovered() == 0;
         return new RebuildProgress(counts.ready(), counts.total(), counts.failed(), pending, remaining, switchable);
     }
 

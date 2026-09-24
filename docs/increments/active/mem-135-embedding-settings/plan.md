@@ -55,7 +55,7 @@ Làm song song với Phase B, vì hai phase không phụ thuộc nhau.
    * `memoryos-search-rebuild-v1` mỗi 5 giây nạp thêm việc cho `FUTURE`, tối đa `memoryos.search.rebuild-window` (64) việc đang treo, nên việc của `PRESENT` không phải chờ cả kho; mọi trạng thái nằm trong PostgreSQL nên worker khởi động lại thì làm tiếp;
    * giới hạn đồng thời theo provider: `PRESENT` và `FUTURE` cùng provider dùng chung một bộ permit.
    * chỉ index đang phục vụ mới ghi cột trạng thái trên `documents`; dựng lại không làm tài liệu biến khỏi `PRESENT`, lỗi của `FUTURE` không hiện trên Source.
-3. [x] Tiến độ: đếm theo `document_search_projection` của `FUTURE` trên các tài liệu tìm được; việc lỗi đếm riêng; ước lượng thời gian còn lại theo tốc độ từ lúc tạo `FUTURE`; `switchable` khi không còn tài liệu chờ và `FUTURE` giữ ít nhất số tài liệu `PRESENT` đang phục vụ.
+3. [x] Tiến độ: đếm theo `document_search_projection` của `FUTURE` trên các tài liệu tìm được; việc lỗi đếm riêng; ước lượng thời gian còn lại theo tốc độ từ lúc tạo `FUTURE`; `switchable` khi không còn tài liệu chờ và mọi tài liệu `PRESENT` đang phục vụ đều sẵn sàng ở `FUTURE` (một câu SQL trên `document_search_projection`).
 4. [x] Chuyển: chỉ khi `switchable`; một transaction đổi `PRESENT` → `PAST` (giữ 7 ngày), `FUTURE` → `PRESENT`, và cột trạng thái trên `documents` theo index mới. Không có bus sự kiện sẵn trong repo, nên mỗi process đọc lại một "phiên bản" của các thế hệ đang hoạt động (id, trạng thái, revision của provider) tối đa mỗi 5 giây; `_meta` của index phải ghi đúng id thế hệ.
 5. [x] Huỷ: huỷ việc đang xếp, xoá index của `FUTURE` ngay, rồi xoá thế hệ; xoá index lỗi thì dọn dẹp hằng giờ làm lại.
 6. [x] Hoàn tác trong thời hạn giữ; bị từ chối khi đang có `FUTURE` hoặc hết hạn.
