@@ -57,6 +57,7 @@ One pull request, in this order, each step compiling and passing its targeted te
 ## Consequences
 
 - Meeting, Chat and ingestion depend on what they use; the orchestration in `MeetingController` returns to a module where Modulith checks it.
+- `audit` sits below `iam` and depends on nothing, so for now it takes Tenant and actor identifiers as plain UUIDs at its boundary (callers pass `.value()`) and asks IAM who may read the stream through the `AuditReaders` port that `iam` implements. The planned next step is a shared-kernel module for identifier types (`TenantId`, `ActorId`, …) that every module may depend on, so audit regains typed identifiers and modules can drop their `iam :: *` dependency.
 - Most of the published surface of IAM and Chat becomes internal, which is the point and also the cost: every consumer of a subpackage has to move to the root API, and a few types have to be promoted to it.
 - OpenAPI schema names that came from repository records change, and the web client is regenerated with them. There are no external API consumers yet.
 - Package moves touch many files. The JPA package lists in both composition roots (`@EntityScan`, `@EnableJpaRepositories`) name persistence packages by string and must follow each move; they are bootstrap configuration, not a use of those packages.
