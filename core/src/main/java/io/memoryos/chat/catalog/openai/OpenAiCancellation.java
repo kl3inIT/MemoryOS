@@ -1,4 +1,4 @@
-package io.memoryos.api.chat;
+package io.memoryos.chat.catalog.openai;
 
 import com.openai.client.OpenAIClientAsync;
 import com.openai.client.OpenAIClientAsyncImpl;
@@ -27,7 +27,7 @@ import org.springframework.ai.chat.prompt.Prompt;
 import reactor.core.publisher.Flux;
 
 /** Owns the shared SDK client; subscription views own only their transport exchange. */
-final class OpenAiCancellation implements AutoCloseable {
+public final class OpenAiCancellation implements AutoCloseable {
     private final HttpClient transport;
     private final OpenAIClientAsync client;
 

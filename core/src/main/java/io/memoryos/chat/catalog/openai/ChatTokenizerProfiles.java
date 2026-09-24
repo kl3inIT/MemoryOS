@@ -1,4 +1,4 @@
-package io.memoryos.api.chat;
+package io.memoryos.chat.catalog.openai;
 
 import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.chat.ChatException;
@@ -8,9 +8,9 @@ import java.util.List;
 import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import org.springframework.ai.tokenizer.TokenCountEstimator;
 
-/** Composition-owned hosted estimator. Catalog metadata never initializes the vocabulary. */
-final class ChatTokenizerProfiles {
-    static final String HOSTED = "openai-o200k-v1";
+/** Hosted estimator. Catalog metadata never initializes the vocabulary. */
+public final class ChatTokenizerProfiles {
+    public static final String HOSTED = "openai-o200k-v1";
     static final List<TokenizerProfile> METADATA = List.of(
             new TokenizerProfile(HOSTED, "OpenAI O200K (hosted baseline)"));
 

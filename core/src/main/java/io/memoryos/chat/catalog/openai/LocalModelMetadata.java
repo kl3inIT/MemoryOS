@@ -1,4 +1,4 @@
-package io.memoryos.api.chat;
+package io.memoryos.chat.catalog.openai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

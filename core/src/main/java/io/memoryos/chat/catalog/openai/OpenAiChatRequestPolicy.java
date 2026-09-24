@@ -1,4 +1,4 @@
-package io.memoryos.api.chat;
+package io.memoryos.chat.catalog.openai;
 
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.catalog.ModelSettings;

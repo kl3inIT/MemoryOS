@@ -1,4 +1,4 @@
-package io.memoryos.api.chat;
+package io.memoryos.chat.catalog.openai;
 
 import com.openai.client.OpenAIClientAsync;
 import com.openai.core.JsonValue;

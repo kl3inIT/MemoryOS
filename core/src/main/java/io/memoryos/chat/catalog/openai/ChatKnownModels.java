@@ -1,4 +1,4 @@
-package io.memoryos.api.chat;
+package io.memoryos.chat.catalog.openai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,7 +13,7 @@ import java.util.List;
  * Installed model metadata shipped with the build. Regenerate with
  * {@code node scripts/sync-chat-known-models.mjs}; the resource records its own provenance.
  */
-final class ChatKnownModels {
+public final class ChatKnownModels {
     private static final String RESOURCE = "/chat/known-models.json";
 
     private ChatKnownModels() {}
@@ -22,7 +22,7 @@ final class ChatKnownModels {
         private static final List<KnownModel> MODELS = read();
     }
 
-    static List<KnownModel> models() { return Loaded.MODELS; }
+    public static List<KnownModel> models() { return Loaded.MODELS; }
 
     private static List<KnownModel> read() {
         try (InputStream stream = ChatKnownModels.class.getResourceAsStream(RESOURCE)) {

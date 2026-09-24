@@ -19,6 +19,7 @@ import io.memoryos.api.chat.contract.ChatProviderResponse;
 import io.memoryos.api.chat.contract.ChatProviderTestRequest;
 import io.memoryos.api.chat.contract.ChatProviderTestResponse;
 import io.memoryos.api.chat.contract.ChatReportedModelsResponse;
+import io.memoryos.chat.catalog.openai.ChatModelValidation;
 import io.memoryos.iam.group.GroupQuery;
 import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;

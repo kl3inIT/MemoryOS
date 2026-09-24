@@ -1,11 +1,10 @@
-package io.memoryos.api.chat;
+package io.memoryos.chat.catalog.openai;
 
 import com.embabel.common.ai.model.LlmOptions;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.catalog.ChatModelResolver;
 import io.memoryos.chat.execution.ChatExecutionProperties;
 import io.memoryos.iam.identity.ActorId;
-import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
@@ -17,7 +16,7 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Component;
 
 @Component
-final class ChatModelValidation {
+public final class ChatModelValidation {
     private final ChatModelResolver models;
     private final ChatExecutionProperties limits;
     private final Semaphore permits = new Semaphore(2);
@@ -31,9 +30,9 @@ final class ChatModelValidation {
         @Override public String call(String toolInput) { return "{}"; }
     };
     ChatModelValidation(ChatModelResolver models, ChatExecutionProperties limits) { this.models = models; this.limits = limits; }
-    record Result(boolean reachable, @Nullable String failureCode) {}
+    public record Result(boolean reachable, @Nullable String failureCode) {}
 
-    Result validate(ActorId actor, UUID id) {
+    public Result validate(ActorId actor, UUID id) {
         // Authorization precedes admission and provider I/O; it never becomes a provider error response.
         try (var resolved = models.forValidation(actor, id)) {
             if (!permits.tryAcquire()) throw ChatException.busy();

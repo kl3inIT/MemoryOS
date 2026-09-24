@@ -31,6 +31,8 @@ dependencies {
     implementation(libs.spring.ai.openai)
     implementation(libs.embabel.api)
     implementation(libs.embabel.openai)
+    // The OpenAI provider owns its OkHttp transport for raw-call cancellation (OpenAiCancellation).
+    implementation(libs.okhttp)
     implementation(libs.mcp)
     implementation(libs.opensearch.java)
     implementation(libs.httpclient5)

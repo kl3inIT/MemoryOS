@@ -1,6 +1,7 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.chat.application.PersonaProperties;
+import io.memoryos.chat.catalog.openai.ChatKnownModels;
 import io.memoryos.chat.execution.ChatExecutionProperties;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;

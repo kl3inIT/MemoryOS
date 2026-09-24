@@ -18,6 +18,8 @@ import com.embabel.common.ai.model.LlmOptions;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.chat.catalog.ChatProviderAdapter;
 import io.memoryos.chat.catalog.ModelSettings;
+import io.memoryos.chat.catalog.openai.ChatTokenizerProfiles;
+import io.memoryos.chat.catalog.openai.OpenAiChatProviderAdapter;
 import io.memoryos.chat.execution.ChatModelBinding;
 import io.memoryos.chat.execution.ChatModelGuard;
 import io.memoryos.chat.execution.StreamingLlmService;
