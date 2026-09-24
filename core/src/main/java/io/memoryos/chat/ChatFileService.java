@@ -8,6 +8,7 @@ import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.objectstorage.ContentSha256;
+import io.memoryos.objectstorage.ObjectUploadId;
 import io.memoryos.objectstorage.ObjectUploadPurpose;
 import io.memoryos.objectstorage.ObjectUploadService;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
@@ -61,7 +62,7 @@ public class ChatFileService {
                     throw ChatException.conflict();
                 }
                 return new UploadReceipt(row.file(), row.file().status() == UserFile.Status.UPLOADING
-                        ? uploads.resume(tenant, row.uploadId(), ObjectUploadPurpose.CHAT_FILE).authorization() : null);
+                        ? uploads.resume(tenant, uploadOf(row), ObjectUploadPurpose.CHAT_FILE).authorization() : null);
             }
             // Refused before the upload is authorized, so a file over the limit is never written at all.
             quotas.requireRoom(tenant, actor, spec.sizeBytes());
@@ -76,7 +77,7 @@ public class ChatFileService {
         var initial = owned(initialTenant, actor, id, false);
         if (initial.file().status() != UserFile.Status.UPLOADING) return initial.file();
         policy.validateSize(initial.file().sizeBytes());
-        var verified = uploads.verify(initialTenant, initial.uploadId(), ObjectUploadPurpose.CHAT_FILE);
+        var verified = uploads.verify(initialTenant, uploadOf(initial), ObjectUploadPurpose.CHAT_FILE);
         // Storage IO is outside locks. Membership and owner are checked again at commit.
         return Objects.requireNonNull(tx.execute(ignored -> {
             var tenant = write(actor);
@@ -84,8 +85,8 @@ public class ChatFileService {
             var current = owned(tenant, actor, id, true);
             if (current.file().status() != UserFile.Status.UPLOADING) return current.file();
             policy.validateSize(current.file().sizeBytes());
-            uploads.adopt(tenant, current.uploadId(), verified.token());
-            files.finalized(tenant, id);
+            uploads.adopt(tenant, uploadOf(current), verified.token());
+            files.finalized(tenant, id, verified.object().id());
             return owned(tenant, actor, id, false).file();
         }));
     }
@@ -151,6 +152,11 @@ public class ChatFileService {
 
     private JdbcUserFileRepository.Row owned(TenantId tenant, ActorId actor, UUID id, boolean lock) {
         return files.owned(tenant, actor, id, lock).orElseThrow(ChatException::unavailable);
+    }
+
+    /** Only a browser upload is ever UPLOADING; a server-written copy is handed to the worker as it is inserted. */
+    private static ObjectUploadId uploadOf(JdbcUserFileRepository.Row row) {
+        return Objects.requireNonNull(row.uploadId(), "an uploading file names its upload");
     }
 
     private TenantId tenant(ActorId actor) { return tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable); }

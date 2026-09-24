@@ -1257,8 +1257,8 @@ class ChatPersistenceIntegrationTest {
             new io.memoryos.objectstorage.persistence.JdbcObjectUploadRepository(jdbc).create(tenantId, uploadId, objectId, spec.purpose());
             var id = new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc).create(tenantId, actor, UUID.randomUUID(), uploadId, spec);
             // This suite tests message transactions; worker/adoption publication is exercised separately.
-            jdbc.sql("UPDATE chat_user_file SET status='READY',plaintext='Test',detected_media_type='text/plain' WHERE id=:id")
-                    .param("id", id).update();
+            jdbc.sql("UPDATE chat_user_file SET status='READY',plaintext='Test',detected_media_type='text/plain',"
+                    + "stored_object_id=:object WHERE id=:id").param("object", objectId.value()).param("id", id).update();
             return id;
         }));
     }

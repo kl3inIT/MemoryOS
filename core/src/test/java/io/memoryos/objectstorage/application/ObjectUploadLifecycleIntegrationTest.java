@@ -102,28 +102,6 @@ class ObjectUploadLifecycleIntegrationTest {
     }
 
     @Test
-    void aServerWriteIsAVerifiedUploadThatIsAdoptedOrReclaimedLikeABrowserOne() {
-        var chatFile = new ObjectUploadSpecification("test.txt", "text/plain", 4, CHECKSUM, ObjectUploadPurpose.CHAT_FILE);
-        var adopted = uploads.write(tenantId, chatFile, "test".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        assertEquals("VERIFIED", uploadStatus(adopted.uploadId().value()));
-        uploads.adopt(tenantId, adopted.uploadId(), adopted.token());
-        assertEquals("ADOPTED", uploadStatus(adopted.uploadId().value()));
-
-        // Bytes that disagree with their declared checksum are never verified.
-        var wrong = assertThrows(ObjectUploadException.class,
-                () -> uploads.write(tenantId, chatFile, "tent".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-        assertEquals("OBJECT_UPLOAD_INTEGRITY_MISMATCH", wrong.code());
-        assertThrows(IllegalArgumentException.class, () -> uploads.write(tenantId, chatFile, new byte[3]));
-
-        // A write its caller never adopts is reclaimed by the abandoned-upload cleanup.
-        var abandoned = uploads.write(tenantId, chatFile, "test".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        clock.advance(Duration.ofHours(1));
-        assertEquals(2, uploads.cleanupAbandoned());
-        assertEquals("EXPIRED", uploadStatus(abandoned.uploadId().value()));
-        assertEquals("ADOPTED", uploadStatus(adopted.uploadId().value()));
-    }
-
-    @Test
     void tenantIsolationIntegrityRetryAndReplayAreEnforced() {
         var authorization = uploads.initiate(tenantId, SPECIFICATION);
         var wrongTenant = new TenantId(UUID.randomUUID());

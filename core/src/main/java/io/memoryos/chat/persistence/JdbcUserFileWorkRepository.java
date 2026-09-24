@@ -46,8 +46,7 @@ public class JdbcUserFileWorkRepository {
                 )
                 SELECT work.*,f.owner_actor_id,o.id AS object_id,o.object_key,o.filename,o.size_bytes,o.declared_media_type,o.content_sha256
                 FROM claimed work JOIN chat_user_file f ON f.tenant_id=work.tenant_id AND f.id=work.file_id
-                JOIN object_uploads u ON u.tenant_id=f.tenant_id AND u.id=f.upload_id
-                JOIN stored_objects o ON o.tenant_id=u.tenant_id AND o.id=u.stored_object_id
+                JOIN stored_objects o ON o.tenant_id=f.tenant_id AND o.id=f.stored_object_id
                 """).param("tenant", tenant.value()).param("operation", operation).param("delivery", delivery).param("token", token)
                 .query((r, ignored) -> new UserFileWork(tenant, new ActorId(r.getObject("owner_actor_id", UUID.class)),
                         operation, r.getObject("file_id", UUID.class), token, UserFileWork.Action.valueOf(r.getString("action")),
@@ -87,29 +86,37 @@ public class JdbcUserFileWorkRepository {
     }
 
     /**
-     * What a released upload leaves behind: its adopted upload, its document, and the derived thumbnail the
-     * library wrote, if one was ever asked for. The thumbnail is an adopted write of this capability's own, so
-     * the caller releases it rather than the generic reapers.
+     * What a released file leaves behind: the browser upload it came from, or else the object the server wrote
+     * for a copy (V125); its document; and the derived thumbnail the library wrote, if one was ever asked for.
+     * The copy's object and the thumbnail are adopted writes of this capability's own, so the caller releases
+     * them rather than the generic reapers.
      */
-    public record DeletedReferences(ObjectUploadId upload, @Nullable DocumentId document,
+    public record DeletedReferences(@Nullable ObjectUploadId upload, @Nullable StoredObjectId object,
+                                    @Nullable ObjectKey objectKey, @Nullable DocumentId document,
                                     @Nullable StoredObjectId thumbnail, @Nullable ObjectKey thumbnailKey) {}
 
     public DeletedReferences detach(UserFileWork work) {
         var refs = jdbc.sql("""
-                SELECT upload_id,document_id,thumbnail_stored_object_id,thumbnail_object_key
-                FROM chat_user_file WHERE tenant_id=:tenant AND id=:file
+                SELECT f.upload_id,f.stored_object_id,o.object_key,f.document_id,f.thumbnail_stored_object_id,
+                    f.thumbnail_object_key
+                FROM chat_user_file f LEFT JOIN stored_objects o ON o.tenant_id=f.tenant_id AND o.id=f.stored_object_id
+                WHERE f.tenant_id=:tenant AND f.id=:file
                 """)
                 .param("tenant", work.tenantId().value()).param("file", work.fileId()).query((r, ignored) -> {
+                    var upload = r.getObject("upload_id", UUID.class);
+                    var object = r.getObject("stored_object_id", UUID.class);
+                    var key = r.getString("object_key");
                     var document = r.getObject("document_id", UUID.class);
                     var thumbnail = r.getObject("thumbnail_stored_object_id", UUID.class);
-                    return new DeletedReferences(new ObjectUploadId(r.getObject("upload_id", UUID.class)),
+                    return new DeletedReferences(upload == null ? null : new ObjectUploadId(upload),
+                            object == null ? null : new StoredObjectId(object), key == null ? null : new ObjectKey(key),
                             document == null ? null : new DocumentId(document),
                             thumbnail == null ? null : new StoredObjectId(thumbnail),
                             thumbnail == null ? null : new ObjectKey(r.getString("thumbnail_object_key")));
                 }).single();
         jdbc.sql("""
                 UPDATE chat_user_file SET status='DELETED',document_id=NULL,plaintext=NULL,updated_at=CURRENT_TIMESTAMP,
-                    thumbnail_stored_object_id=NULL,thumbnail_object_key=NULL,thumbnail_media_type=NULL
+                    stored_object_id=NULL,thumbnail_stored_object_id=NULL,thumbnail_object_key=NULL,thumbnail_media_type=NULL
                 WHERE tenant_id=:tenant AND id=:file
                 """).param("tenant", work.tenantId().value()).param("file", work.fileId()).update();
         finish(work, "COMPLETED");

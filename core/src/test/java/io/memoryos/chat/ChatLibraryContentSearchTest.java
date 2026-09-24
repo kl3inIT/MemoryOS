@@ -40,7 +40,7 @@ class ChatLibraryContentSearchTest {
     private final ChatFileSearchService fileSearch = mock(ChatFileSearchService.class);
     private final ChatLibraryService service = new ChatLibraryService(tenants, library, files,
             mock(JdbcChatRepository.class), mock(io.memoryos.objectstorage.ObjectStorage.class),
-            mock(io.memoryos.objectstorage.ObjectUploadService.class), new ChatFileProperties(104857600L, 104857600L),
+            mock(io.memoryos.objectstorage.ObjectWriteService.class), new ChatFileProperties(104857600L, 104857600L),
             mock(ChatStorageQuotaService.class),
             mock(org.springframework.transaction.PlatformTransactionManager.class), fileSearch);
 
