@@ -1,5 +1,6 @@
 package io.memoryos.chat.persistence;
 
+import io.memoryos.chat.PromptShortcut;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -11,7 +12,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcPromptShortcutRepository {
-    public record PromptShortcut(UUID id, String name, String content, boolean active, boolean isPublic, boolean hidden, long revision) {}
 
     private final JdbcClient jdbc;
 

@@ -2,7 +2,6 @@ package io.memoryos.chat;
 
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.JdbcPromptShortcutRepository;
-import io.memoryos.chat.persistence.JdbcPromptShortcutRepository.PromptShortcut;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.identity.ActorId;
