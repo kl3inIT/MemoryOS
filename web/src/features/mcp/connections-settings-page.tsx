@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { mcpConnectionsKey, useMcpConnections } from "@/features/chat/mcp/chat-mcp-connections";
-import { ConnectAction, McpApiKeyDialog } from "@/features/chat/mcp/chat-mcp-options";
-import { connectionStatus, needsUserAction } from "@/features/mcp/mcp-status";
+import { mcpConnectionsKey, useMcpConnections } from "@/features/mcp/mcp-connections";
+import { ConnectAction, McpApiKeyDialog } from "@/features/mcp/mcp-connect-actions";
+import { connectionStatus, needsUserAction } from "./mcp-status";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { disconnectMcpConnection } from "@/lib/hey-api/sdk.gen";
@@ -16,7 +16,7 @@ import type { McpConnection } from "@/lib/hey-api/types.gen";
 
 /**
  * Onyx Settings › Connectors: the MCP servers this member may use, connected with their own account. The actions
- * are the Chat composer's, returning here after an OAuth sign-in.
+ * are the ones the Chat composer offers, returning here after an OAuth sign-in.
  */
 export function ConnectionsSettingsPage() {
   const ui = useAppTranslation();

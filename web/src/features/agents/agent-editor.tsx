@@ -47,7 +47,7 @@ import { can } from "@/lib/resource-permissions";
 import { cn } from "@/lib/utils";
 import { actionErrorText, formField } from "@/lib/action-errors";
 import { ChatFilePicker } from "@/features/library/file-picker";
-import { useMcpConnections } from "@/features/chat/mcp/chat-mcp-connections";
+import { useMcpConnections } from "@/features/mcp/mcp-connections";
 import { ModelLogo } from "@/features/models/model-logo";
 import {
   agentLabelSchema,

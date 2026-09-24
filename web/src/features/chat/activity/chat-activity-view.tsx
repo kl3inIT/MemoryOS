@@ -28,7 +28,7 @@ import type { CodeRun } from "@/features/chat/interpreter/chat-code";
 import { HighlightedCode } from "@/components/assistant-ui/elements/code-renderers.aui";
 import { spokenDuration } from "./chat-duration";
 import type { ChatSource } from "@/features/chat/sources/chat-evidence";
-import { parseMcpToolName } from "@/features/chat/mcp/chat-mcp-connections";
+import { parseMcpToolName } from "@/features/mcp/mcp-connections";
 import { ChatMcpToolStep } from "@/features/chat/mcp/chat-mcp-step";
 
 type ToolPart = Extract<EnrichedPartState, { type: "tool-call" }>;
