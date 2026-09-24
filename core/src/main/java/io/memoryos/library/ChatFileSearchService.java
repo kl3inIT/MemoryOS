@@ -27,7 +27,8 @@ public class ChatFileSearchService {
         var scope = documents(tenant, actor, allowed);
         var readyDocuments = search.readyFiles(actor, tenant, scope);
         authorize(actor, tenant);
-        return documents(tenant, actor, allowed).entrySet().stream()
+        if (readyDocuments.isEmpty()) return Set.of();
+        return documents(tenant, actor, candidates(scope, readyDocuments)).entrySet().stream()
                 .filter(entry -> readyDocuments.contains(entry.getValue())).map(java.util.Map.Entry::getKey)
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
@@ -37,10 +38,22 @@ public class ChatFileSearchService {
         var scope = documents(tenant, actor, allowed);
         var hits = search.searchFiles(actor, tenant, scope, query);
         authorize(actor, tenant);
-        var current = documents(tenant, actor, allowed);
+        if (hits.isEmpty()) return List.of();
+        var current = documents(tenant, actor, candidates(scope, hits.stream().map(SearchHit::documentId)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet())));
         return hits.stream().flatMap(hit -> current.entrySet().stream().filter(entry -> entry.getValue().equals(hit.documentId()))
                 .map(entry -> new FileHit(entry.getKey(), hit))).toList();
     }
+    /**
+     * The files of {@code scope} whose document is among {@code found}. The search runs outside a transaction, so its
+     * result is checked again against what is readable afterwards; that re-check reads only the files the search
+     * returned, and is skipped when it returned nothing.
+     */
+    private static Set<UUID> candidates(java.util.Map<UUID, UUID> scope, Set<UUID> found) {
+        return scope.entrySet().stream().filter(entry -> found.contains(entry.getValue())).map(java.util.Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
     /** The indexed document of each readable file among {@code ids}, agent grants included. */
     private java.util.Map<UUID, UUID> documents(TenantId tenant, ActorId actor, Set<UUID> ids) {
         return files.documents(tenant, actor, ids, attachments.readableThroughAgents(tenant, actor, ids));
