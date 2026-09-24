@@ -13,6 +13,8 @@ import { saveMcpConnectionApiKey, startMcpConnectionAuthorization } from "@/lib/
 import type { McpConnection } from "@/lib/hey-api/types.gen";
 import { composerMenuRow } from "./chat-composer-menu-row";
 import { mcpConnectionsKey, useMcpConnections } from "./chat-mcp-connections";
+import { presentProblem } from "@/lib/problem-presentation";
+import { useProblemMessage } from "@/lib/use-problem-message";
 
 /** The composer row that opens the MCP submenu, with the count selected for this turn. */
 export function ChatMcpToggle({
@@ -140,6 +142,7 @@ export function ConnectAction({
 }) {
   const ui = useAppTranslation();
   const [choosing, setChoosing] = useState(false);
+  const problem = useProblemMessage();
   const authorize = useMutation({
     mutationFn: async (oauthClientId: string) =>
       await startMcpConnectionAuthorization({
@@ -167,16 +170,26 @@ export function ConnectAction({
   if (clients.length === 0) {
     return <StatusBadge tone="neutral">{ui("Chờ quản trị viên")}</StatusBadge>;
   }
+  const failure = authorize.isError ? (
+    <p role="alert" className="font-secondary-body text-status-danger-content">
+      {problem(presentProblem(authorize.error, "mutation").message)}
+    </p>
+  ) : null;
   if (clients.length === 1 || !choosing) {
     return (
-      <Button
-        size="sm"
-        prominence="secondary"
-        pending={authorize.isPending}
-        onClick={() => (clients.length === 1 ? authorize.mutate(clients[0].id) : setChoosing(true))}
-      >
-        {ui("Kết nối")}
-      </Button>
+      <div className="flex flex-col items-end gap-1">
+        <Button
+          size="sm"
+          prominence="secondary"
+          pending={authorize.isPending}
+          onClick={() =>
+            clients.length === 1 ? authorize.mutate(clients[0].id) : setChoosing(true)
+          }
+        >
+          {ui("Kết nối")}
+        </Button>
+        {failure}
+      </div>
     );
   }
   return (
@@ -192,6 +205,7 @@ export function ConnectAction({
           {client.label}
         </Button>
       ))}
+      {failure}
     </div>
   );
 }
