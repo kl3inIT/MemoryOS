@@ -68,7 +68,7 @@ The embedding model is a search configuration generation, not deployment configu
 
 **Switching.** `POST /api/search/settings/future/switch` is refused with 409 `SEARCH_SETTINGS_REBUILD_INCOMPLETE` until `switchable`. In one transaction PRESENT becomes PAST (`retained_until` now plus seven days), the FUTURE becomes PRESENT and the served-generation columns follow its index. From then on questions are embedded with the new model and query prefix.
 
-**Cancelling.** `DELETE /api/search/settings/future` retires the FUTURE with a retention that has already ended, cancels its queued and running work, and deletes its index at once; if that fails, the hourly cleanup retries it.
+**Cancelling.** `DELETE /api/search/settings/future` retires the FUTURE with a retention that has already ended, cancels its queued and running work, and deletes its index at once; if that fails, the hourly cleanup retries it. Chunk writes and access updates go to each index through its `-write` alias with `require_alias`, created with the index (and added to an older index on its first verification or write), so a write already under way when the index is deleted fails instead of letting OpenSearch create an unmapped index under that name. Such a write lost its claim to the cancellation; it is recorded as obsolete (`search.index.obsolete`), not as a failure of the document.
 
 **Restoring.** `POST /api/search/settings/past/{id}/restore` makes a PAST generation within its retention and whose index still exists PRESENT again, and the replaced PRESENT PAST for seven days; it is refused with 409 while a FUTURE exists or once the retention ended. Projection repair brings the restored index up to date with documents changed while it was PAST.
 

@@ -79,6 +79,8 @@ public class OpenSearchIndexService implements SearchIndex {
     }
     public int candidateLimit() { return properties.candidateLimit(); }
     private static String readAlias(String identity) { return identity + "-read"; }
+    /** Chunk writes go through this alias, so a write to a deleted index fails rather than recreating it. */
+    private static String writeAlias(String identity) { return identity + "-write"; }
     private static String pipeline(String identity) { return identity + "-hybrid"; }
 
     /**
@@ -121,7 +123,8 @@ public class OpenSearchIndexService implements SearchIndex {
 
     /**
      * Only PRESENT creates its index on first write, as a fresh deployment needs. A FUTURE index is created with its
-     * generation; one missing later was cancelled, and writing to it would let OpenSearch create an unmapped index.
+     * generation; one missing later was cancelled. Writes go through the write alias with {@code require_alias}, so a
+     * FUTURE deleted after this check still cannot be recreated as an unmapped index by a write already under way.
      */
     private synchronized void ensureIndex(SearchGenerations.Active active, boolean create) {
         var generation = active.generation();
@@ -144,7 +147,7 @@ public class OpenSearchIndexService implements SearchIndex {
                     "settings", Map.of("index.knn", true, "number_of_shards", 1, "number_of_replicas", properties.replicas(),
                             "analysis", Map.of("analyzer", Map.of("folded", Map.of("tokenizer", "standard", "filter", List.of("lowercase", "asciifolding"))))),
                     "mappings", Map.of("dynamic", "strict", "_meta", meta(generation), "properties", fields),
-                    "aliases", Map.of(readAlias(identity), Map.of())));
+                    "aliases", Map.of(readAlias(identity), Map.of(), writeAlias(identity), Map.of())));
         }
         var mapping = gateway.json("GET", "/" + identity + "/_mapping", Map.of(), null).path(identity).path("mappings");
         verifyGeneration(generation, mapping);
@@ -159,11 +162,12 @@ public class OpenSearchIndexService implements SearchIndex {
                                 "authors", Map.of("type", "text", "index", false))))));
         if (!mapping.path("properties").has("access_control_list")) gateway.json("PUT", "/" + identity + "/_mapping", Map.of(),
                 Map.of("properties", Map.of("access_public", Map.of("type", "boolean"), "access_control_list", Map.of("type", "keyword"))));
-        if (!gateway.exists("/" + readAlias(identity))) {
-            gateway.json("PUT", "/" + identity + "/_alias/" + readAlias(identity), Map.of(), Map.of());
+        // An index created before the write alias existed receives it here, on its first verification or write.
+        for (String alias : List.of(readAlias(identity), writeAlias(identity))) {
+            if (!gateway.exists("/" + alias)) gateway.json("PUT", "/" + identity + "/_alias/" + alias, Map.of(), Map.of());
+            var aliases = gateway.json("GET", "/" + alias + "/_alias/" + alias, Map.of(), null);
+            if (aliases.size() != 1 || !aliases.has(identity)) throw new SearchUnavailableException();
         }
-        var aliases = gateway.json("GET", "/" + readAlias(identity) + "/_alias/" + readAlias(identity), Map.of(), null);
-        if (aliases.size() != 1 || !aliases.has(identity)) throw new SearchUnavailableException();
         gateway.json("PUT", "/_search/pipeline/" + pipeline(identity), Map.of(), Map.of("phase_results_processors", List.of(
                 Map.of("normalization-processor", Map.of("normalization", Map.of("technique", "min_max"),
                         "combination", Map.of("technique", "arithmetic_mean", "parameters",
@@ -261,7 +265,8 @@ public class OpenSearchIndexService implements SearchIndex {
                 source.put("vector", found.get(chunk.contentSha256()));
                 body.append(mapper.writeValueAsString(source)).append('\n');
             }
-            var response = gateway.bulk("/" + identity + "/_bulk", body.toString());
+            // A cancelled FUTURE's index can be deleted while its chunks are embedded; the alias went with it.
+            var response = gateway.bulkThroughAlias(writeAlias(identity), body.toString());
             if (response.path("errors").asBoolean(true) || response.path("items").size() != batch.size()) throw new SearchUnavailableException();
             int acknowledged = 0;
             for (JsonNode item : response.path("items")) {
@@ -491,7 +496,7 @@ public class OpenSearchIndexService implements SearchIndex {
             for (String id : batch) {
                 body.append(mapper.writeValueAsString(Map.of("update", Map.of("_id", id)))).append('\n').append(update).append('\n');
             }
-            var response = gateway.bulk("/" + identity + "/_bulk", body.toString());
+            var response = gateway.bulkThroughAlias(writeAlias(identity), body.toString());
             // Every chunk must accept the same fields; a missing chunk means a concurrent rewrite, so the work retries.
             if (response.path("errors").asBoolean(true) || response.path("items").size() != batch.size()) throw new SearchUnavailableException();
             for (JsonNode item : response.path("items")) {

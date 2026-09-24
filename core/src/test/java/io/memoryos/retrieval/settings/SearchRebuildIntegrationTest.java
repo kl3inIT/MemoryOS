@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -44,6 +46,7 @@ import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.retrieval.SearchHit;
 import io.memoryos.retrieval.SearchTimings;
+import io.memoryos.retrieval.opensearch.OpenSearchGateway;
 import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
 import io.memoryos.retrieval.opensearch.TestSearchGateways;
 import io.memoryos.retrieval.opensearch.SearchProperties;
@@ -68,6 +71,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -128,7 +132,9 @@ class SearchRebuildIntegrationTest {
         final SearchIngestionCoordinator coordinator;
         final SearchSettingsService settings;
 
-        Process(int rebuildWindow) throws Exception {
+        Process(int rebuildWindow) throws Exception { this(rebuildWindow, UnaryOperator.identity()); }
+
+        Process(int rebuildWindow, UnaryOperator<OpenSearchGateway> gateways) throws Exception {
             var mapper = new ObjectMapper();
             var repository = new JdbcSearchSettingsRepository(jdbc);
             var credentials = new EmbeddingProviderCredentials(MASTER_KEY, "deployment-key");
@@ -143,7 +149,7 @@ class SearchRebuildIntegrationTest {
             var sourceSearch = mock(SourceSearchService.class);
             when(sourceSearch.indexMetadata(any(), any(), any())).thenReturn(List.of());
             when(sourceSearch.indexAccess(any(), any())).thenReturn(new DocumentAccess(true, Set.of()));
-            var gateway = TestSearchGateways.gateway(properties, mapper);
+            var gateway = gateways.apply(TestSearchGateways.gateway(properties, mapper));
             index = new OpenSearchIndexService(gateway, generations, properties, mapper, chunks, sourceSearch,
                     new SearchTimings(new SimpleMeterRegistry(), ObservationRegistry.NOOP));
             work = new JdbcSearchWorkRepository(jdbc);
@@ -357,6 +363,48 @@ class SearchRebuildIntegrationTest {
         assertEquals(0, process.drain(), "Cancelled work is never processed");
         assertEquals(3, documentIds(process.search("chính sách nghỉ phép")).size(), "PRESENT keeps serving");
         assertThrows(SearchSettingsException.class, () -> process.settings.cancelFuture(admin));
+    }
+
+    @Test
+    void cancellingWhileAFutureWriteIsUnderWayLeavesNoIndexBehind() throws Exception {
+        seedCorpus();
+        var futureIdentity = new AtomicReference<String>();
+        var cancelled = new AtomicReference<Boolean>(false);
+        // A worker whose chunk write for the FUTURE arrives just after an administrator cancelled the rebuild elsewhere.
+        var worker = new Process(2, gateway -> {
+            var racing = spy(gateway);
+            doAnswer(call -> {
+                String alias = call.getArgument(0);
+                if (futureIdentity.get() != null && alias.startsWith(futureIdentity.get()) && !cancelled.get()) {
+                    cancelled.set(true);
+                    process.settings.cancelFuture(admin);
+                }
+                return call.callRealMethod();
+            }).when(racing).bulkThroughAlias(anyString(), anyString());
+            return racing;
+        });
+        // The worker has not yet seen the cancellation, as another process within its refresh interval.
+        worker.generations.refreshEvery(Duration.ofMinutes(5));
+        var future = startFuture();
+        futureIdentity.set(future.identity());
+        worker.generations.future().orElseThrow();
+        assertEquals(2, process.maintenance.rebuild());
+        var delivery = tx.execute(_ -> {
+            var claim = dispatch.claim(OperationWorkload.SEARCH, 1).getFirst();
+            dispatch.recordPublished(claim, "1000-0", Duration.ofMinutes(2));
+            return claim.delivery();
+        });
+
+        assertEquals(IngestionCoordinator.Outcome.SKIPPED, worker.coordinator.process(delivery));
+
+        assertTrue(cancelled.get(), "The write for the FUTURE ran after the cancellation");
+        assertFalse(process.index.indexExists(future.identity()), "The write did not recreate the deleted index");
+        assertFalse(process.index.indexExists(future.identity() + "-write"));
+        assertEquals(0, count("search_settings WHERE id='" + future.id() + "'"));
+        assertEquals(0, count("search_index_operations WHERE index_identity='" + future.identity() + "' AND status='FAILED'"),
+                "A cancelled rebuild's write is not a document failure");
+        assertEquals(0, count("documents WHERE search_error_code IS NOT NULL"));
+        assertEquals(3, documentIds(process.search("chính sách nghỉ phép")).size(), "PRESENT keeps serving");
     }
 
     @Test

@@ -92,10 +92,20 @@ public final class SearchIngestionCoordinator implements IngestionCoordinator {
             // Content rejections never heal on retry: finish FAILED at once with the specific code.
             boolean permanent = failure instanceof DocumentContentException;
             String errorCode = permanent ? ((DocumentContentException) failure).code() : "SEARCH_INDEX_FAILED";
-            transactions.executeWithoutResult(_ -> {
-                boolean finished = work.finish(claim, !permanent && claim.attempts() < 3 ? "NOT_STARTED" : "FAILED", errorCode);
-                if (finished && claim.index()) documents.markSearchFailed(claim.tenantId(), claim.documentId(), claim.generation(), errorCode, identity);
-            });
+            boolean finished = Boolean.TRUE.equals(transactions.execute(_ -> {
+                if (!work.finish(claim, !permanent && claim.attempts() < 3 ? "NOT_STARTED" : "FAILED", errorCode)) return false;
+                if (claim.index()) documents.markSearchFailed(claim.tenantId(), claim.documentId(), claim.generation(), errorCode, identity);
+                return true;
+            }));
+            if (!finished) {
+                // The claim was taken away, as cancelling a rebuild does while its index is deleted: not a document failure.
+                result = "obsolete";
+                LoggerFactory.getLogger(getClass()).atInfo().addKeyValue("event", "search.index.obsolete")
+                        .addKeyValue("error_type", failure.getClass().getName())
+                        .addKeyValue("identity", identity)
+                        .log("Search work lost its claim while failing; nothing is recorded against the document");
+                return Outcome.SKIPPED;
+            }
             LoggerFactory.getLogger(getClass()).atWarn().addKeyValue("event", "search.index.failed")
                     .addKeyValue("error_type", failure.getClass().getName())
                     .addKeyValue("error_code", errorCode)
