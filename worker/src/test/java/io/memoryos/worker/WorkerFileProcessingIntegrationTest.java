@@ -177,8 +177,8 @@ class WorkerFileProcessingIntegrationTest {
     @Container
     private static final GenericContainer<?> MINIO = new GenericContainer<>(
             DockerImageName.parse(
-                    "quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z"
-                            + "@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e"
+                    "ghcr.io/kl3init/memoryos-minio:RELEASE.2025-04-22T22-12-26Z"
+                            + "@sha256:159a90402c72e031227cdf0f3fb0ba82c54e517a110b2d0b462817dc849b0ac2"
             )
     )
             .withEnv("MINIO_ROOT_USER", "memoryos-test")
