@@ -99,7 +99,7 @@ flowchart TB
     WORKER --> RET
 ```
 
-Arrows show allowed use of public capability contracts. `meeting` reaches `chat` only through its `voice` and `summary` named interfaces. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided.
+Arrows show allowed use of public capability contracts. `meeting` reaches `chat` only through its `voice` and `summary` named interfaces. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided. The `api` and `worker` composition roots use only published module APIs, never a `persistence` package, and map core types to their own HTTP contracts. [ADR 0015](docs/decisions/0015-capability-module-map.md) records the target module map (`ai`, `voice`, `library` and `audit` extracted) and the layout rule this structure is moving to.
 
 | Gradle module | Responsibility |
 | --- | --- |
