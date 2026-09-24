@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
+import io.memoryos.audit.persistence.JdbcAuditEventRepository;
+import io.memoryos.audit.persistence.JdbcAuditLogQueryRepository;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
 import java.time.Duration;
@@ -44,7 +46,7 @@ class AuditLogTest {
             if (actor.equals(reader)) return tenant;
             throw new IamException(IamFailureReason.ACCESS_DENIED, "no audit read");
         };
-        log = TestDatabase.transactionalProxy(new AuditLog(jdbc, readers, trail), AuditLog.class, transactions);
+        log = TestDatabase.transactionalProxy(new AuditLog(new JdbcAuditLogQueryRepository(jdbc), readers, trail), AuditLog.class, transactions);
     }
 
     @AfterEach void close() { if (dataSource != null) dataSource.close(); }
@@ -110,7 +112,7 @@ class AuditLogTest {
                     """).param("id", UUID.randomUUID()).param("tenant", tenant)
                     .param("at", java.sql.Timestamp.from(Instant.now().minus(Duration.ofDays(400)))).update();
         });
-        var retention = TestDatabase.transactionalProxy(new AuditRetention(jdbc, Duration.ofDays(365)), AuditRetention.class,
+        var retention = TestDatabase.transactionalProxy(new AuditRetention(new JdbcAuditEventRepository(jdbc), Duration.ofDays(365)), AuditRetention.class,
                 new DataSourceTransactionManager(dataSource));
         assertEquals(1, retention.sweep());
         assertEquals(0, retention.sweep());

@@ -1,5 +1,6 @@
 package io.memoryos.audit;
 
+import io.memoryos.audit.persistence.JdbcAuditEventRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -7,7 +8,6 @@ import java.util.Map;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,21 +28,21 @@ public class AuditTrail {
     private static final ObjectMapper JSON = new ObjectMapper();
     static final int SCHEMA_VERSION = 1;
 
-    private final JdbcClient jdbc;
+    private final JdbcAuditEventRepository events;
     private final AuditRequestContext requestContext;
     private final MeterRegistry meters;
     private final org.springframework.transaction.support.TransactionTemplate separate;
 
     /** The API supplies the request it is serving; the Worker has none, and records the trace alone. */
     @org.springframework.beans.factory.annotation.Autowired
-    public AuditTrail(JdbcClient jdbc, org.springframework.beans.factory.ObjectProvider<AuditRequestContext> requestContext,
+    public AuditTrail(JdbcAuditEventRepository events, org.springframework.beans.factory.ObjectProvider<AuditRequestContext> requestContext,
                       MeterRegistry meters, org.springframework.transaction.PlatformTransactionManager transactions) {
-        this(jdbc, requestContext.getIfAvailable(() -> AuditRequestContext.TRACE_ONLY), meters, transactions);
+        this(events, requestContext.getIfAvailable(() -> AuditRequestContext.TRACE_ONLY), meters, transactions);
     }
 
-    public AuditTrail(JdbcClient jdbc, AuditRequestContext requestContext, MeterRegistry meters,
+    public AuditTrail(JdbcAuditEventRepository events, AuditRequestContext requestContext, MeterRegistry meters,
                       org.springframework.transaction.PlatformTransactionManager transactions) {
-        this.jdbc = jdbc;
+        this.events = events;
         this.requestContext = requestContext;
         this.meters = meters;
         this.separate = new org.springframework.transaction.support.TransactionTemplate(transactions);
@@ -89,40 +89,23 @@ public class AuditTrail {
         String actorLabel = event.actorLabel();
         String actorEmail = null;
         try {
-            jdbc.sql("SAVEPOINT memoryos_audit").update();
+            events.savepoint();
             // Inside the savepoint: in PostgreSQL any failed statement would otherwise abort the caller's transaction.
             Person actor = event.actor() == null ? null : person(event.actor());
             if (actorLabel == null && actor != null) actorLabel = actor.label();
             if (actor != null) actorEmail = actor.email();
-            jdbc.sql("""
-                    INSERT INTO audit_event(id, tenant_id, occurred_at, action, event_class, outcome, actor_id, actor_label,
-                        actor_email, resource_type, resource_id, resource_label, details, trace_id, endpoint, source_ip, schema_version)
-                    VALUES (:id, :tenant, :at, :action, :class, :outcome, :actor, :actorLabel, :actorEmail, :resourceType, :resourceId,
-                        :resourceLabel, CAST(:details AS jsonb), :trace, :endpoint, :ip, :version)
-                    """)
-                    .param("id", id).param("tenant", event.tenant()).param("at", java.sql.Timestamp.from(at))
-                    .param("action", event.action().value()).param("class", event.action().eventClass().name())
-                    .param("outcome", event.outcome().name())
-                    .param("actor", event.actor() == null ? null : event.actor(), java.sql.Types.OTHER)
-                    .param("actorLabel", actorLabel, java.sql.Types.VARCHAR)
-                    .param("actorEmail", actorEmail, java.sql.Types.VARCHAR)
-                    .param("resourceType", event.resourceType(), java.sql.Types.VARCHAR)
-                    .param("resourceId", event.resourceId(), java.sql.Types.VARCHAR)
-                    .param("resourceLabel", event.resourceLabel(), java.sql.Types.VARCHAR)
-                    .param("details", details)
-                    .param("trace", requestContext.traceId(), java.sql.Types.VARCHAR)
-                    .param("endpoint", requestContext.endpoint(), java.sql.Types.VARCHAR)
-                    .param("ip", requestContext.sourceIp(), java.sql.Types.VARCHAR)
-                    .param("version", SCHEMA_VERSION)
-                    .update();
-            jdbc.sql("RELEASE SAVEPOINT memoryos_audit").update();
+            events.insert(new JdbcAuditEventRepository.NewEvent(id, event.tenant(), at, event.action().value(),
+                    event.action().eventClass().name(), event.outcome().name(), event.actor(), actorLabel, actorEmail,
+                    event.resourceType(), event.resourceId(), event.resourceLabel(), details, requestContext.traceId(),
+                    requestContext.endpoint(), requestContext.sourceIp(), SCHEMA_VERSION));
+            events.releaseSavepoint();
         } catch (RuntimeException failure) {
             // The stream is evidence of what was recorded, not proof that nothing else happened: a gap shows up here.
             meters.counter("memoryos.audit.write.failures", "action", event.action().value()).increment();
             LOG.error("Audit event {} could not be stored; the change it records still committed", event.action().value(),
                     failure);
             try {
-                jdbc.sql("ROLLBACK TO SAVEPOINT memoryos_audit").update();
+                events.rollbackToSavepoint();
             } catch (RuntimeException lost) {
                 LOG.error("Audit savepoint could not be released; the caller's transaction may fail", lost);
             }
@@ -138,11 +121,7 @@ public class AuditTrail {
      * same change has just admitted.
      */
     public Person person(UUID actor) {
-        return jdbc.sql("""
-                SELECT COALESCE(NULLIF(display_name, ''), email, CAST(actor_id AS varchar)) AS label, email
-                FROM actor_profiles WHERE actor_id = :actor
-                """).param("actor", actor)
-                .query((r, ignored) -> new Person(r.getString("label"), r.getString("email"))).optional()
+        return events.person(actor)
                 .orElse(new Person(actor.toString(), null));
     }
 

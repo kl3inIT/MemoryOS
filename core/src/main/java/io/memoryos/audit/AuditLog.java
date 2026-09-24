@@ -1,9 +1,7 @@
 package io.memoryos.audit;
 
+import io.memoryos.audit.persistence.JdbcAuditLogQueryRepository;
 import java.nio.charset.StandardCharsets;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
@@ -12,10 +10,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.databind.ObjectMapper;
 
 /**
  * Reads the Tenant's audit stream for people IAM lets read it ({@link AuditReaders}). The stream only grows, so pages
@@ -28,14 +24,13 @@ public class AuditLog {
     /** Bounds one export, so a request cannot hold a connection over the whole history. */
     public static final int MAX_EXPORT = 50_000;
     static final Duration MAX_PERIOD = Duration.ofDays(366);
-    private static final ObjectMapper JSON = new ObjectMapper();
 
-    private final JdbcClient jdbc;
+    private final JdbcAuditLogQueryRepository events;
     private final AuditReaders readers;
     private final AuditTrail trail;
 
-    public AuditLog(JdbcClient jdbc, AuditReaders readers, AuditTrail trail) {
-        this.jdbc = jdbc;
+    public AuditLog(JdbcAuditLogQueryRepository events, AuditReaders readers, AuditTrail trail) {
+        this.events = events;
         this.readers = readers;
         this.trail = trail;
     }
@@ -76,9 +71,7 @@ public class AuditLog {
     @Transactional(readOnly = true)
     public Event get(UUID reader, UUID id) {
         var tenant = reader(reader);
-        return jdbc.sql("SELECT * FROM audit_event WHERE tenant_id = :tenant AND id = :id")
-                .param("tenant", tenant).param("id", id).query(AuditLog::event).optional()
-                .orElseThrow(AuditException::notFound);
+        return events.find(tenant, id).orElseThrow(AuditException::notFound);
     }
 
     /**
@@ -127,58 +120,7 @@ public class AuditLog {
     }
 
     private List<Event> select(UUID tenant, Query query, @Nullable Cursor after, int limit) {
-        return jdbc.sql("""
-                SELECT * FROM audit_event
-                WHERE tenant_id = :tenant
-                  AND (CAST(:from AS timestamptz) IS NULL OR occurred_at >= :from)
-                  AND (CAST(:to AS timestamptz) IS NULL OR occurred_at < :to)
-                  AND (CAST(:class AS varchar) IS NULL OR event_class = :class)
-                  AND (CAST(:action AS varchar) IS NULL OR action = :action)
-                  AND (CAST(:outcome AS varchar) IS NULL OR outcome = :outcome)
-                  AND (CAST(:actor AS uuid) IS NULL OR actor_id = :actor)
-                  AND (CAST(:resourceType AS varchar) IS NULL OR resource_type = :resourceType)
-                  AND (CAST(:resourceId AS varchar) IS NULL OR resource_id = :resourceId)
-                  AND (CAST(:text AS varchar) IS NULL OR actor_label ILIKE :pattern OR actor_email ILIKE :pattern
-                       OR resource_label ILIKE :pattern)
-                  AND (CAST(:afterAt AS timestamptz) IS NULL OR (occurred_at, id) < (:afterAt, :afterId))
-                ORDER BY occurred_at DESC, id DESC
-                LIMIT :limit
-                """)
-                .param("tenant", tenant)
-                .param("from", query.from() == null ? null : Timestamp.from(query.from()), java.sql.Types.TIMESTAMP)
-                .param("to", query.to() == null ? null : Timestamp.from(query.to()), java.sql.Types.TIMESTAMP)
-                .param("class", query.eventClass() == null ? null : query.eventClass().name(), java.sql.Types.VARCHAR)
-                .param("action", query.action(), java.sql.Types.VARCHAR)
-                .param("outcome", query.outcome() == null ? null : query.outcome().name(), java.sql.Types.VARCHAR)
-                .param("actor", query.actor(), java.sql.Types.OTHER)
-                .param("resourceType", query.resourceType(), java.sql.Types.VARCHAR)
-                .param("resourceId", query.resourceId(), java.sql.Types.VARCHAR)
-                .param("text", query.text(), java.sql.Types.VARCHAR)
-                .param("pattern", query.text() == null ? null : "%" + escape(query.text()) + "%", java.sql.Types.VARCHAR)
-                .param("afterAt", after == null ? null : Timestamp.from(after.at()), java.sql.Types.TIMESTAMP)
-                .param("afterId", after == null ? null : after.id(), java.sql.Types.OTHER)
-                .param("limit", limit)
-                .query(AuditLog::event).list();
-    }
-
-    /** A search for a literal percent sign or underscore finds that character, not everything. */
-    private static String escape(String text) {
-        return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Event event(ResultSet r, int ignored) throws SQLException {
-        Map<String, Object> details;
-        try {
-            details = JSON.readValue(r.getString("details"), Map.class);
-        } catch (RuntimeException unreadable) {
-            details = Map.of();
-        }
-        return new Event(r.getObject("id", UUID.class), r.getTimestamp("occurred_at").toInstant(), r.getString("action"),
-                AuditEventClass.valueOf(r.getString("event_class")), AuditOutcome.valueOf(r.getString("outcome")),
-                r.getObject("actor_id", UUID.class), r.getString("actor_label"), r.getString("actor_email"),
-                r.getString("resource_type"), r.getString("resource_id"), r.getString("resource_label"), details,
-                r.getString("trace_id"), r.getString("endpoint"), r.getString("source_ip"));
+        return events.select(tenant, query, after == null ? null : after.at(), after == null ? null : after.id(), limit);
     }
 
     /** An opaque position in the stream: the last event a page returned. */

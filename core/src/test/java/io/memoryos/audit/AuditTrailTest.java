@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
+import io.memoryos.audit.persistence.JdbcAuditEventRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.UUID;
@@ -30,7 +31,7 @@ class AuditTrailTest {
         var transactions = new DataSourceTransactionManager(dataSource);
         tx = new TransactionTemplate(transactions);
         meters = new SimpleMeterRegistry();
-        trail = new AuditTrail(jdbc, AuditRequestContext.TRACE_ONLY, meters, transactions);
+        trail = new AuditTrail(new JdbcAuditEventRepository(jdbc), AuditRequestContext.TRACE_ONLY, meters, transactions);
         tenant = tenant();
         manager = actor("Trần Thu Hà");
     }

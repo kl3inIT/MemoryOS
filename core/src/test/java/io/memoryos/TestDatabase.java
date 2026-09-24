@@ -218,7 +218,7 @@ public final class TestDatabase {
     /** The audit writer over the test database; it joins whatever transaction the service under test opened. */
     public static AuditTrail audit(org.springframework.jdbc.core.simple.JdbcClient jdbc,
                                                          PlatformTransactionManager transactions) {
-        return new AuditTrail(jdbc, AuditRequestContext.TRACE_ONLY,
+        return new AuditTrail(new io.memoryos.audit.persistence.JdbcAuditEventRepository(jdbc), AuditRequestContext.TRACE_ONLY,
                 new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), transactions);
     }
 
