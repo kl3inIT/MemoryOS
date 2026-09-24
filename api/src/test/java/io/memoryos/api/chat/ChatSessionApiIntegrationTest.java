@@ -2156,6 +2156,44 @@ class ChatSessionApiIntegrationTest {
         }
     }
 
+    /** The catalog asks Chat to let go of a model before deleting it, alone or with its provider (ModelsRemoved). */
+    @Test
+    void deletingTheModelOrProviderAnAgentRunsOnReturnsTheAgentToItsInheritedModel() throws Exception {
+        grantModelManagement();
+        String personaId = create().path("personaId").asText();
+        var byModel = createConfiguredModel(createProvider("http://agent-model.internal/v1", true), "agent-model", 0.4);
+        long revision = agentModel(personaId, byModel.path("id").asText());
+        mockMvc.perform(delete("/api/chat/models/" + byModel.path("id").asText()).param("revision", "1")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+        assertInherited(personaId, revision + 1);
+
+        var provider = createProvider("http://agent-provider.internal/v1", true);
+        var byProvider = createConfiguredModel(provider, "agent-provider-model", 0.4);
+        revision = agentModel(personaId, byProvider.path("id").asText());
+        mockMvc.perform(delete("/api/chat/providers/" + provider.path("id").asText()).param("revision", provider.path("revision").asText())
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+        assertInherited(personaId, revision + 1);
+    }
+
+    private void assertInherited(String personaId, long revision) throws Exception {
+        var model = Json.mapper().readTree(mockMvc.perform(get("/api/chat/personas/" + personaId + "/model").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertTrue(model.path("modelConfigurationId").isNull() || model.path("modelConfigurationId").isMissingNode());
+        assertEquals(revision, model.path("revision").asLong());
+    }
+
+    /** Sets the agent's model and answers the agent model revision it now has. */
+    private long agentModel(String personaId, String modelId) throws Exception {
+        var saved = Json.mapper().readTree(mockMvc.perform(get("/api/chat/personas/" + personaId + "/model").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        var set = Json.mapper().readTree(mockMvc.perform(put("/api/chat/personas/" + personaId + "/model")
+                        .param("revision", saved.path("revision").asText()).param("modelConfigurationId", modelId)
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertEquals(modelId, set.path("modelConfigurationId").asText());
+        return set.path("revision").asLong();
+    }
+
     @Test
     void restrictedProviderUsesGroupAccessAndPersonaAllowlistAlsoAppliesToManagers() throws Exception {
         grantModelManagement();

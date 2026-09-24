@@ -1,8 +1,7 @@
-package io.memoryos.chat.execution;
+package io.memoryos.chat;
 
 import io.memoryos.ai.ChatModelResolver;
 import io.memoryos.ai.ModelFlow;
-import io.memoryos.chat.ChatModelAccess;
 import io.memoryos.shared.ActorId;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;

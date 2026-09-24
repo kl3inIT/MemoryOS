@@ -7,7 +7,6 @@ import io.memoryos.chat.execution.ChatExecutionProperties;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.ai.ChatModelResolver;
-import io.memoryos.chat.execution.ChatModelSelector;
 import io.memoryos.ai.ModelFlow;
 import io.memoryos.usage.AiUsageFlow;
 import org.jspecify.annotations.Nullable;

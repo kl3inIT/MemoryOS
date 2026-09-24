@@ -1,7 +1,6 @@
 package io.memoryos.chat;
 
 import io.memoryos.ai.ChatRequestPolicy;
-import io.memoryos.chat.execution.ChatModelSelector;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;

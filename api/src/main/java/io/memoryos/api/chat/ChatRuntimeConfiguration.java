@@ -7,7 +7,7 @@ import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.execution.ChatExecutionProperties;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.ai.ModelCalls;
-import io.memoryos.chat.execution.ChatModelSelector;
+import io.memoryos.chat.ChatModelSelector;
 import io.memoryos.chat.streaming.ChatStreamProperties;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.memoryos.chat.tools.ChatSearchProperties;
