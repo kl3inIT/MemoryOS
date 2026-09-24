@@ -26,6 +26,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +41,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class McpServerService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(McpServerService.class);
     /** Refresh is an explicit administrator action; the configured request timeout still bounds each call. */
     private static final Duration REFRESH_DEADLINE = Duration.ofMinutes(2);
 
@@ -379,8 +382,13 @@ public class McpServerService {
                     servers.saveAndFlush(server);
                 }
             });
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException exception) {
             // The refresh failure the caller receives matters more than a status that could not be recorded.
+            LOGGER.atWarn().addKeyValue("event", "mcp.server.status.not_recorded")
+                    .addKeyValue("mcp_server_id", serverId)
+                    .addKeyValue("status", status.name())
+                    .addKeyValue("error_type", exception.getClass().getName())
+                    .log("MCP server refresh failure could not be recorded");
         }
     }
 
