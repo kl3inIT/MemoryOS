@@ -12,8 +12,6 @@ import static org.mockito.Mockito.when;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.library.ChatFileProperties;
-import io.memoryos.library.ChatStorageProperties;
 import io.memoryos.library.work.DefaultUserFileWorkService;
 import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.InterpreterService;

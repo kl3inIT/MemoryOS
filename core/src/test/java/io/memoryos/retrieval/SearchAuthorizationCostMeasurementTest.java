@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.SourceSearchService;
-import io.memoryos.connector.application.DefaultSourceDocumentAccessResolver;
-import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
+import io.memoryos.connector.source.DefaultSourceDocumentAccessResolver;
+import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.persistence.JdbcDocumentChunkRepository;
 import io.memoryos.shared.ActorId;

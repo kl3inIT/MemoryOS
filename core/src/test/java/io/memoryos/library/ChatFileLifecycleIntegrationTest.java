@@ -6,7 +6,6 @@ import static org.mockito.Mockito.*;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.library.ChatFileProperties;
 import io.memoryos.library.work.DefaultUserFileWorkService;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.library.work.persistence.JdbcUserFileWorkRepository;
@@ -39,8 +38,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
-import io.memoryos.library.ChatStorageProperties;
-import io.memoryos.library.ChatStorageQuotaService;
 import io.memoryos.library.persistence.JdbcChatLibraryRepository;
 import io.memoryos.chat.application.ChatFileAttachments;
 import io.memoryos.chat.persistence.JdbcChatFileAttachmentRepository;

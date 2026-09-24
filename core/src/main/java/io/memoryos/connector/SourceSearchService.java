@@ -1,6 +1,6 @@
 package io.memoryos.connector;
 
-import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
+import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.document.DocumentId;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;

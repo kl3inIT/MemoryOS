@@ -85,7 +85,7 @@ class SharePointSourceApiTest {
 
     // The selection processor needs the concrete service, so the mock replaces that bean rather than the port.
     @MockitoBean
-    private io.memoryos.connector.application.DefaultSharePointSourceService sources;
+    private io.memoryos.connector.sharepoint.DefaultSharePointSourceService sources;
 
     private ActorAuthenticationToken owner;
 

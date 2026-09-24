@@ -52,9 +52,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import io.memoryos.library.ChatStorageProperties;
-import io.memoryos.library.ChatStorageQuotaService;
-import io.memoryos.library.UserFile;
 import io.memoryos.chat.application.ChatLibraryArtifacts;
 import io.memoryos.chat.persistence.JdbcChatArtifactRepository;
 

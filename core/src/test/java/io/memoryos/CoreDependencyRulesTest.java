@@ -52,7 +52,7 @@ class CoreDependencyRulesTest {
 
     private static ArchRule persistencePackageIsOwnedBy(String capability) {
         String ownerPackage = "io.memoryos." + capability + "..";
-        String persistencePackage = "io.memoryos." + capability + ".persistence..";
+        String persistencePackage = "io.memoryos." + capability + "..persistence..";
 
         return noClasses()
                 .that().resideOutsideOfPackage(ownerPackage)

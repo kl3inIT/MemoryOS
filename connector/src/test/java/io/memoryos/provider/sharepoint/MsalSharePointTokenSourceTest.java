@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsServer;
-import io.memoryos.connector.SharePointCertificate;
+import io.memoryos.connector.sharepoint.SharePointCertificate;
 import io.memoryos.connector.SharePointProvider;
 import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.SharePointProviderException.Failure;
