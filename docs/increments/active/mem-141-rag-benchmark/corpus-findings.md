@@ -85,6 +85,35 @@ shared by the supervisory-board report and the financial statements.
 The six non-finance `group` questions now use `finance` as the denied actor, which turns them into
 cross-department leak tests rather than outsider tests.
 
+## Refresh, 2026-09-25
+
+Staging changed under the question set between 2026-09-23 and 2026-09-24, and the 2026-09-24 baseline
+(`emb-openai-3large-baseline`) errored on all 131 asks, so it is not a baseline:
+
+- The five Savico finance documents were deleted and uploaded again on 2026-09-23 with new document ids.
+  The titles are unchanged; the question set now names the new ids (58 references across gold and
+  forbidden lists).
+- Group `Savico Executive` was deleted on 2026-09-24, leaving `exec` with Basic only. It was recreated
+  through the administration API with `bm-exec` as its only member and attached beside the department
+  Group of each of the five Savico Sources, which restores the actor matrix above.
+- The Tasco Source and Group `Benchmark - Tasco` were deleted, and with them both `TTr-03` documents.
+  `cross_department-003` is removed and the `tasco` actor leaves `MEMORYOS_BENCHMARK_ACTORS`; the
+  category holds nine questions.
+- 55 documents (966 chunks) of the deleted Sources remain in `documents` without a Source mapping. No
+  actor reads them, so they do not affect the benchmark.
+
+The staging disk reached the OpenSearch flood-stage watermark on 2026-09-24, which set
+`read-only-allow-delete` on the chunk index. Every index write failed from then on, including the
+`ACCESS` refreshes queued by the Group change, and the write alias that `ensureIndex` adds could not be
+created. Removing superseded release images freed 46 GB; OpenSearch lifted the block, and saving the same
+Source Groups again queued the refreshes, which completed.
+
+After the refresh `check` reports 89 valid questions and no drift. The retrieval-only baseline
+`openai-3large-retrieval-0925` (127 asks, `text-embedding-3-large`) scores recall@5 0.977, recall@10 1.0
+and nDCG@5 0.842, with no leak and no error. With eleven readable documents, document-level recall is
+close to its ceiling, so it separates embedding models poorly; a model comparison needs passage-level
+gold or a larger corpus.
+
 ## Open points
 
 - `datasets/questions.jsonl` is tracked in Git and carries Tenant figures in `gold_answer`. The Savico
