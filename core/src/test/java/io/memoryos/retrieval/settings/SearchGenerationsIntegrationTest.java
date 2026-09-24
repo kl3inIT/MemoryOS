@@ -125,6 +125,35 @@ class SearchGenerationsIntegrationTest {
     }
 
     @Test
+    void aFutureWhoseKeyCannotBeReadPausesOnlyTheRebuildAndRecoversWithoutARestart() {
+        var properties = properties("https://api.openai.com/v1", "text-embedding-3-large", 3072);
+        var present = generations(properties).present().generation();
+        var repository = new JdbcSearchSettingsRepository(jdbc);
+        // This process has no catalog encryption key, so the sealed key of the FUTURE's provider cannot be read.
+        var provider = new EmbeddingProvider(UUID.randomUUID(), tenant, "serving-embedding", "http://10.0.0.5:8080/v1",
+                "v1:00", EmbeddingProvider.DataBoundary.INTERNAL, 1);
+        repository.insertProvider(provider);
+        var id = UUID.randomUUID();
+        var future = new SearchGeneration(id, tenant, provider.id(), "Qwen/Qwen3-Embedding-0.6B", 1024, "", "", .5,
+                DocumentChunk.CONVENTION, SearchGeneration.identityFor("memoryos-chunks", id), SearchGeneration.Status.FUTURE,
+                false, Instant.now(), null, null);
+        repository.insertGeneration(future);
+
+        var process = generations(properties);
+        process.refreshEvery(Duration.ZERO);
+        assertEquals(present.id(), process.present().generation().id(), "Search and PRESENT indexing keep their generation");
+        assertEquals(java.util.List.of(present.identity()), process.identities());
+        assertTrue(process.future().isEmpty());
+        assertTrue(process.active(future.identity()).isEmpty(), "No work is written to the FUTURE meanwhile");
+        assertTrue(process.active(present.identity()).isPresent());
+
+        // The key becomes readable without any change to the generations' version; the next refresh picks it up.
+        jdbc.sql("UPDATE embedding_provider SET credential=NULL WHERE id=:id").param("id", provider.id()).update();
+        assertEquals(id, process.future().orElseThrow().generation().id());
+        assertEquals(java.util.List.of(present.identity(), future.identity()), process.identities());
+    }
+
+    @Test
     void beforeTheOperatingTenantIsPublishedTheConfiguredGenerationIsServedUnsaved() {
         when(tenants.operatingTenant()).thenReturn(Optional.empty());
         var properties = properties("https://api.openai.com/v1", "text-embedding-3-large", 3072);

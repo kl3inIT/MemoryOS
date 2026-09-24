@@ -490,6 +490,33 @@ class SearchRebuildIntegrationTest {
     }
 
     @Test
+    void aFutureKeyThatCannotBeReadLeavesSearchAndPresentIndexingWorkingAndTheRebuildResumesOnceItCan() {
+        var corpus = seedCorpus();
+        String present = process.generations.present().identity();
+        var future = startFuture();
+        String sealed = jdbc.sql("SELECT credential FROM embedding_provider WHERE id=:id")
+                .param("id", future.providerId()).query(String.class).single();
+        jdbc.sql("UPDATE embedding_provider SET credential='v1:00',revision=revision+1 WHERE id=:id")
+                .param("id", future.providerId()).update();
+        process.generations.invalidate();
+
+        assertEquals(List.of(present), process.generations.identities());
+        assertEquals(ids(corpus), documentIds(process.search("chính sách nghỉ phép")), "Search keeps serving PRESENT");
+        var added = publish(null, "Nghỉ phép hằng năm", "Chính sách nghỉ phép hằng năm được cộng dồn.");
+        process.drain();
+        assertTrue(process.chunks.isCurrent(new TenantId(tenant), added, generation(added), present), "PRESENT keeps indexing");
+        assertTrue(process.index.indexExists(future.identity()), "The paused FUTURE keeps its index");
+
+        jdbc.sql("UPDATE embedding_provider SET credential=:sealed,revision=revision+1 WHERE id=:id")
+                .param("sealed", sealed).param("id", future.providerId()).update();
+        process.generations.invalidate();
+        assertEquals(List.of(present, future.identity()), process.generations.identities());
+        process.rebuildCompletely();
+        assertTrue(process.chunks.isCurrent(new TenantId(tenant), added, generation(added), future.identity()));
+        assertTrue(process.settings.settings(admin).rebuild().switchable());
+    }
+
+    @Test
     void aSecondFutureIsRefusedWhileOneIsBeingRebuilt() {
         seedCorpus();
         var first = startFuture();

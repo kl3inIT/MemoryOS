@@ -2,6 +2,7 @@ package io.memoryos.retrieval.settings;
 
 import io.memoryos.document.DocumentChunk;
 import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.retrieval.SearchUnavailableException;
 import io.memoryos.retrieval.embedding.OpenAiCompatibleEmbeddings;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
 import io.memoryos.retrieval.opensearch.SearchProperties;
@@ -60,9 +61,12 @@ public class SearchGenerations {
         public String identity() { return generation.identity(); }
     }
 
-    /** What this process serves: PRESENT, the FUTURE if one is being rebuilt, and the version they were read at. */
+    /**
+     * What this process serves: PRESENT, the FUTURE if one is being rebuilt, and the version they were read at.
+     * {@code futureUnavailable} marks a FUTURE whose client could not be built; it is retried at every refresh.
+     */
     private record Snapshot(Active present, @Nullable Active future, String version, long checkedAt,
-            Map<UUID, Long> providerRevisions) { }
+            Map<UUID, Long> providerRevisions, boolean futureUnavailable) { }
 
     private final @Nullable JdbcSearchSettingsRepository settings;
     private final @Nullable TenantAccessResolver tenants;
@@ -102,7 +106,7 @@ public class SearchGenerations {
         this.usage = null;
         this.inputPrice = null;
         this.properties = properties;
-        this.current = new Snapshot(fixed, null, "", Long.MAX_VALUE, Map.of());
+        this.current = new Snapshot(fixed, null, "", Long.MAX_VALUE, Map.of(), false);
     }
 
     /** A generation that never changes, for tests of index and search behavior. */
@@ -145,7 +149,8 @@ public class SearchGenerations {
     /** The next call rereads the generations; used after this process changed them. */
     public void invalidate() {
         var snapshot = current;
-        if (snapshot != null && settings != null) current = new Snapshot(snapshot.present(), snapshot.future(), "", 0, snapshot.providerRevisions());
+        if (snapshot != null && settings != null) current = new Snapshot(snapshot.present(), snapshot.future(), "", 0,
+                snapshot.providerRevisions(), snapshot.futureUnavailable());
     }
 
     private Snapshot snapshot() {
@@ -154,12 +159,13 @@ public class SearchGenerations {
         synchronized (this) {
             snapshot = current;
             if (fresh(snapshot)) return Objects.requireNonNull(snapshot);
-            if (snapshot != null && snapshot.present().persisted()) {
+            // A FUTURE whose client failed is not kept: the next refresh tries again, so a readable key recovers it.
+            if (snapshot != null && snapshot.present().persisted() && !snapshot.futureUnavailable()) {
                 var operating = Objects.requireNonNull(tenants).operatingTenant();
                 if (operating.isPresent() && Objects.requireNonNull(settings).version(operating.orElseThrow().value())
                         .equals(snapshot.version())) {
                     snapshot = new Snapshot(snapshot.present(), snapshot.future(), snapshot.version(), System.nanoTime(),
-                            snapshot.providerRevisions());
+                            snapshot.providerRevisions(), false);
                     current = snapshot;
                     return snapshot;
                 }
@@ -187,7 +193,7 @@ public class SearchGenerations {
             var unsaved = new UUID(0, 0);
             var generation = configured(properties, UUID.randomUUID(), unsaved, unsaved, Instant.now());
             return new Snapshot(new Active(generation, embeddings(generation, unsaved, properties.embeddingEndpoint(),
-                    properties.apiKey()), false), null, "", System.nanoTime(), Map.of());
+                    properties.apiKey()), false), null, "", System.nanoTime(), Map.of(), false);
         }
         UUID operating = tenant.orElseThrow().value();
         record Read(SearchGeneration present, @Nullable SearchGeneration future, String version) { }
@@ -197,16 +203,33 @@ public class SearchGenerations {
         }));
         var generations = new ArrayList<@Nullable Active>();
         var revisions = new HashMap<UUID, Long>();
+        boolean futureUnavailable = false;
         for (var generation : new @Nullable SearchGeneration[] {read.present(), read.future()}) {
             if (generation == null) { generations.add(null); continue; }
             var provider = repository.provider(operating, generation.providerId())
                     .orElseThrow(() -> new IllegalStateException("search generation without provider"));
             revisions.put(generation.id(), provider.revision());
             var reused = reusable(previous, generation, provider);
-            generations.add(reused != null ? reused : client(generation, provider));
+            if (reused != null || generation.status() == SearchGeneration.Status.PRESENT) {
+                generations.add(reused != null ? reused : client(generation, provider));
+                continue;
+            }
+            try {
+                generations.add(client(generation, provider));
+            } catch (SearchUnavailableException unreadable) {
+                // Only the rebuild stops: PRESENT keeps serving and indexing, and the FUTURE's work waits for its key.
+                futureUnavailable = true;
+                generations.add(null);
+                if (previous == null || !previous.futureUnavailable()) {
+                    LOGGER.atWarn().addKeyValue("event", "search.generation.future_unavailable")
+                            .addKeyValue("generation", generation.id()).addKeyValue("identity", generation.identity())
+                            .addKeyValue("provider", provider.id())
+                            .log("The rebuilt index's embedding provider key cannot be read; the rebuild pauses and PRESENT keeps serving");
+                }
+            }
         }
         return new Snapshot(Objects.requireNonNull(generations.get(0)), generations.get(1), read.version(), System.nanoTime(),
-                Map.copyOf(revisions));
+                Map.copyOf(revisions), futureUnavailable);
     }
 
     /** Keeps a client whose generation and provider did not change, and with it any in-flight embedding calls. */
