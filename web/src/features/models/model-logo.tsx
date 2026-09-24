@@ -1,9 +1,9 @@
 import { Bot } from "lucide-react";
 import { OpenAILogo, ClaudeLogo, GeminiLogo } from "@/components/assistant-ui/elements/logos";
 import { cn } from "@/lib/utils";
-import { modelVendor, vendorFiles } from "./chat-model-vendor";
+import { modelVendor, vendorFiles } from "./model-vendor";
 
-export function ChatModelLogo({ modelName, className }: { modelName: string; className?: string }) {
+export function ModelLogo({ modelName, className }: { modelName: string; className?: string }) {
   // Branding is display-only; configuration UUIDs still select and authorize the model.
   const vendor = modelVendor(modelName);
   const size = cn("size-4 shrink-0", className);

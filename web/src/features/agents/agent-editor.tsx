@@ -48,7 +48,7 @@ import { cn } from "@/lib/utils";
 import { actionErrorText, formField } from "@/lib/action-errors";
 import { ChatFilePicker } from "@/features/library/file-picker";
 import { useMcpConnections } from "@/features/chat/mcp/chat-mcp-connections";
-import { ChatModelLogo } from "@/features/chat/chat-model-logo";
+import { ModelLogo } from "@/features/models/model-logo";
 import {
   agentLabelSchema,
   agentTools,
@@ -269,7 +269,7 @@ function AgentEditor({ agent }: { agent?: Persona }) {
               id: model.id,
               name: model.displayName || model.modelName || ui("Model"),
               keywords: [model.modelName ?? "", model.providerName ?? ""],
-              icon: <ChatModelLogo modelName={model.modelName ?? ""} />,
+              icon: <ModelLogo modelName={model.modelName ?? ""} />,
             },
           ]
         : [],

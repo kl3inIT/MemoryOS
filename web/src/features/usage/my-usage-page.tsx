@@ -4,7 +4,7 @@ import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ChatModelLogo } from "@/features/chat/chat-model-logo";
+import { ModelLogo } from "@/features/models/model-logo";
 import { DailyChart } from "./daily-chart";
 import { appText, type AppCopy } from "@/i18n/app-text";
 import { formatUiDate, uiLocale } from "@/i18n/format";
@@ -246,7 +246,7 @@ export function MyUsagePage() {
                     <tr key={row.key} className="border-b border-border-subtle last:border-0">
                       <td className="px-4 py-2.5">
                         <span className="flex min-w-0 items-center gap-2">
-                          <ChatModelLogo modelName={row.label} />
+                          <ModelLogo modelName={row.label} />
                           <span className="min-w-0 break-all">{row.label}</span>
                         </span>
                         {price(models.data, row.label, ui)}
