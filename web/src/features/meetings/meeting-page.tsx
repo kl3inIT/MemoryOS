@@ -1414,6 +1414,10 @@ function Notes({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
   const [state, setState] = useState<"saved" | "saving" | "dirty" | "conflict">("saved");
   const revision = useRef(meeting.revision);
   const timer = useRef<number>(undefined);
+  const latest = useRef(meeting.notes);
+  const stored = useRef(meeting.notes);
+  // Saves run one after another, so the second never reuses the revision the first is about to replace.
+  const queue = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     revision.current = meeting.revision;
@@ -1421,21 +1425,33 @@ function Notes({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   function change(next: string) {
+    latest.current = next;
     setValue(next);
     setState("dirty");
     window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => void save(next), 1_200);
+    timer.current = window.setTimeout(flush, 1_200);
   }
 
-  async function save(next: string) {
+  function flush() {
+    window.clearTimeout(timer.current);
+    queue.current = queue.current.then(save);
+  }
+
+  async function save() {
+    const next = latest.current;
+    if (next === stored.current) {
+      setState((current) => (current === "conflict" ? current : "saved"));
+      return;
+    }
     setState("saving");
     try {
       const saved = await saveMeetingNotes(meeting.id, next, revision.current);
       revision.current = saved.revision;
+      stored.current = next;
       cache.setQueryData(meetingKey(meeting.id), (current: MeetingDetail | undefined) =>
         current ? { ...current, notes: saved.notes, revision: saved.revision } : saved,
       );
-      setState("saved");
+      setState(latest.current === next ? "saved" : "dirty");
     } catch (failed) {
       setState(failed instanceof ApiError && failed.status === 409 ? "conflict" : "dirty");
     }
@@ -1451,7 +1467,7 @@ function Notes({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
         maxLength={50_000}
         rows={12}
         onChange={(event) => change(event.target.value)}
-        onBlur={() => state === "dirty" && void save(value)}
+        onBlur={() => latest.current !== stored.current && flush()}
       />
       <p className="text-xs text-content-muted" role="status">
         {state === "saving"
