@@ -1,8 +1,9 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import type * as RouterModule from "@tanstack/react-router";
+import { ApiError } from "@/lib/api";
 import { createMemoryOsQueryClient } from "@/lib/query-client";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { ApplicationSessionBoundary } from "@/features/identity/application-session-boundary";
@@ -73,6 +74,24 @@ function deferredResponse() {
 }
 
 afterEach(() => vi.unstubAllGlobals());
+
+/** Everything a catalog mutation keeps: its variables, data, context and the error with its cause. */
+function retainedMutations(client: QueryClient) {
+  const mutations = client.getMutationCache().getAll();
+  for (const { state } of mutations)
+    expect(state.variables === undefined || state.variables instanceof AbortSignal).toBe(true);
+  return JSON.stringify(
+    mutations.map(({ state }) => ({
+      ...state,
+      variables: undefined,
+      error: state.error && { message: state.error.message, cause: state.error.cause },
+      failureReason: state.failureReason && {
+        message: state.failureReason.message,
+        cause: state.failureReason.cause,
+      },
+    })),
+  );
+}
 
 describe("provider connection check", () => {
   it("checks the typed key before saving and names a rejected key", async () => {
@@ -242,7 +261,9 @@ describe("provider secret lifetime and coherent Access", () => {
       credential: { action: "REPLACE", value: "synthetic-secret-not-for-storage" },
     });
     expect(requests[0]!.headers.get("X-MemoryOS-CSRF")).toBe("1");
-    expect(client.getMutationCache().getAll()).toHaveLength(0);
+    // The write in flight is a mutation, but its variables are only its AbortSignal.
+    expect(client.getMutationCache().getAll()).toHaveLength(1);
+    expect(retainedMutations(client)).not.toContain("synthetic-secret-not-for-storage");
     expect(
       JSON.stringify(
         client
@@ -265,6 +286,8 @@ describe("provider secret lifetime and coherent Access", () => {
       ),
     ).not.toContain("synthetic-secret-not-for-storage");
     expect(screen.queryByText(/Provider saved/)).not.toBeInTheDocument();
+    // Closing discarded the write, and nothing observes it any more, so it is collected at once.
+    await waitFor(() => expect(client.getMutationCache().getAll()).toHaveLength(0));
     client.clear();
   });
 
@@ -407,7 +430,18 @@ describe("provider secret lifetime and coherent Access", () => {
     expect(screen.getByLabelText("API key")).toHaveValue("");
     expect(screen.queryByText("synthetic-sensitive-provider-payload")).not.toBeInTheDocument();
     expect(writes).toBe(1);
-    expect(client.getMutationCache().getAll()).toHaveLength(0);
+    // The failed reconciliation stays observed for its feedback, keeping only its status and safe message.
+    const failures = client
+      .getMutationCache()
+      .getAll()
+      .map(({ state }) => state.error);
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toBeInstanceOf(ApiError);
+    expect(failures[0]).toMatchObject({ status: 503, cause: undefined });
+    expect(failures[0]?.message).toMatch(/^The provider could not be acquired/);
+    const retained = retainedMutations(client);
+    expect(retained).not.toContain("synthetic-sensitive-provider-payload");
+    expect(retained).not.toContain("synthetic-conflicted-key");
     client.clear();
   });
 });

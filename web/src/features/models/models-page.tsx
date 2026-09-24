@@ -15,6 +15,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { useLayoutEffect, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -64,7 +65,7 @@ import {
 } from "./model-catalog";
 import { ChatModelLogo } from "@/features/chat/chat-model-logo";
 import { useProviderTest } from "./provider-test";
-import { useModelAction } from "./use-model-action";
+import { useModelCatalogBusy, useModelMutation } from "./model-mutation";
 
 type Editor =
   | {
@@ -85,12 +86,16 @@ type Deletion =
   | { kind: "provider"; provider: ManagedProvider }
   | { kind: "model"; model: ManagedModel };
 
-/** Denial never mounts catalog queries; authority changes also retire every draft and direct call. */
+/**
+ * Denial never mounts catalog queries; authority changes also retire every draft and direct call. Leaving the page
+ * unmounts the administration synchronously, so every draft and key is dropped and every catalog mutation in flight is
+ * aborted before the page can enter the back/forward cache; returning mounts a fresh one.
+ */
 export function ModelsPage() {
   const session = useApplicationSession();
   const [active, setActive] = useState(true);
   useLayoutEffect(() => {
-    const hide = () => setActive(false);
+    const hide = () => flushSync(() => setActive(false));
     const show = () => setActive(true);
     window.addEventListener("pagehide", hide);
     window.addEventListener("pageshow", show);
@@ -456,12 +461,13 @@ function ModelsAdministration() {
   const models = configured.flatMap((query) => query.data ?? []);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [deletion, setDeletion] = useState<Deletion | null>(null);
-  const action = useModelAction();
+  const busy = useModelCatalogBusy();
+  const [conflict, setConflict] = useState(false);
   const catalogPending =
     providers.isPending || adapters.isPending || configured.some((query) => query.isPending);
   const catalogError =
     providers.isError || adapters.isError || configured.some((query) => query.isError);
-  const unavailable = catalogPending || catalogError || action.pending;
+  const unavailable = catalogPending || catalogError || busy;
   const modelProvider =
     editor?.kind === "model" || editor?.kind === "discovery"
       ? providers.data?.find((provider) => provider.id === editor.providerId)
@@ -469,26 +475,15 @@ function ModelsAdministration() {
   const tenantDefault = useQuery({ ...getChatModelDefaultOptions(), retry: false });
   const defaultModelId = tenantDefault.data?.modelConfigurationId ?? null;
 
-  async function reload() {
-    action.cancel();
-    try {
-      await action.run(async (signal) => {
-        await Promise.all([refreshModelCatalog(client), adapters.refetch({ throwOnError: true })]);
-        signal.throwIfAborted();
-        action.reconciled();
-      });
-    } catch {
-      /* Safe feedback below. */
-    }
-  }
+  const reloading = useModelMutation(async (signal) => {
+    await Promise.all([refreshModelCatalog(client), adapters.refetch({ throwOnError: true })]);
+    signal.throwIfAborted();
+    setConflict(false);
+  });
 
-  async function remove() {
-    if (!deletion || unavailable) throw new Error("Refresh the catalog before deleting.");
-    if (action.conflict)
-      throw new Error(
-        "Cancel this dialog, reload the catalog, and review the current configuration before deleting again.",
-      );
-    await action.run(async (signal) => {
+  const removing = useModelMutation(
+    async (signal) => {
+      if (!deletion) return;
       if (deletion.kind === "provider")
         await deleteChatProvider({
           path: { providerId: deletion.provider.id },
@@ -520,7 +515,27 @@ function ModelsAdministration() {
       }
       await refreshModelCatalog(client);
       signal.throwIfAborted();
-    });
+    },
+    { onConflict: () => setConflict(true) },
+  );
+
+  async function reload() {
+    if (busy) return;
+    removing.cancel();
+    try {
+      await reloading.run();
+    } catch {
+      /* Safe feedback below. */
+    }
+  }
+
+  async function remove() {
+    if (!deletion || unavailable) throw new Error("Refresh the catalog before deleting.");
+    if (conflict)
+      throw new Error(
+        "Cancel this dialog, reload the catalog, and review the current configuration before deleting again.",
+      );
+    await removing.run();
   }
 
   const hasProviders = Boolean(providers.data?.length);
@@ -538,7 +553,8 @@ function ModelsAdministration() {
         actions={
           <Button
             prominence="secondary"
-            pending={action.pending && !deletion}
+            pending={reloading.pending}
+            disabled={busy}
             onClick={() => void reload()}
           >
             {ui("Refresh catalog")}
@@ -583,7 +599,7 @@ function ModelsAdministration() {
           )}
         </p>
       )}
-      {action.error && !deletion && <p role="alert">{ui(action.error)}</p>}
+      {reloading.error && !deletion && <p role="alert">{ui(reloading.error)}</p>}
 
       {/* Available connections — Onyx existing-provider cards */}
       {hasProviders && (
@@ -610,11 +626,11 @@ function ModelsAdministration() {
                   setEditor({ kind: "model", providerId: provider.id, initial: model })
                 }
                 onDelete={() => {
-                  action.cancel();
+                  reloading.cancel();
                   setDeletion({ kind: "provider", provider });
                 }}
                 onDeleteModel={(model) => {
-                  action.cancel();
+                  reloading.cancel();
                   setDeletion({ kind: "model", model });
                 }}
               />
@@ -824,7 +840,7 @@ function ModelsAdministration() {
           onOpenChange={(open) => {
             if (!open) {
               setDeletion(null);
-              action.cancel();
+              removing.cancel();
             }
           }}
           title={
