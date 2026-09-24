@@ -6,13 +6,12 @@ import static org.mockito.Mockito.*;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.chat.application.ChatArtifactCleanupService;
 import io.memoryos.chat.image.ImageArtifactService;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
-import io.memoryos.chat.persistence.JdbcChatArtifactCleanupRepository;
-import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
+import io.memoryos.chat.files.persistence.JdbcChatArtifactCleanupRepository;
+import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;

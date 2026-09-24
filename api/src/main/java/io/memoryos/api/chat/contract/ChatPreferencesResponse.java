@@ -1,8 +1,8 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.chat.preferences.ChatPreferences;
+import io.memoryos.chat.ChatPreferences;
 import io.memoryos.ai.ReasoningEffort;
-import io.memoryos.chat.preferences.ChatPreferencesService;
+import io.memoryos.chat.ChatPreferencesService;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;

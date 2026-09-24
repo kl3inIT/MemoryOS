@@ -1,10 +1,10 @@
 package io.memoryos.chat;
 
-import io.memoryos.chat.persistence.JdbcChatRepository;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
 import io.memoryos.library.ChatFileService;
-import io.memoryos.chat.persistence.JpaProjectRepository;
-import io.memoryos.chat.persistence.ChatPage;
-import io.memoryos.chat.persistence.ProjectEntity;
+import io.memoryos.chat.project.persistence.JpaProjectRepository;
+import io.memoryos.chat.project.persistence.ChatPage;
+import io.memoryos.chat.project.persistence.ProjectEntity;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.shared.TenantId;

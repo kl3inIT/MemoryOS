@@ -1,5 +1,6 @@
 package io.memoryos.chat.execution;
 
+import io.memoryos.chat.ChatExecutionProperties;
 import io.memoryos.ai.ChatModelBinding;
 import io.memoryos.ai.ChatModelTurns;
 import io.memoryos.ai.ModelAccounting;

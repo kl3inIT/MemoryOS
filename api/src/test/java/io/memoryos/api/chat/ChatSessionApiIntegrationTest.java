@@ -136,7 +136,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
-import io.memoryos.chat.execution.ChatExecutionProperties;
+import io.memoryos.chat.ChatExecutionProperties;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;

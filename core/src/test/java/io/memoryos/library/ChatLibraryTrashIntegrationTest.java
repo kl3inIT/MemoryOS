@@ -11,13 +11,13 @@ import static org.mockito.Mockito.when;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.chat.application.ChatArtifactCleanupService;
+import io.memoryos.chat.ChatArtifactCleanupService;
 import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
-import io.memoryos.chat.persistence.JdbcChatArtifactCleanupRepository;
+import io.memoryos.chat.files.persistence.JdbcChatArtifactCleanupRepository;
 import io.memoryos.library.persistence.JdbcChatLibraryRepository;
-import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
+import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.persistence.IamLockRepository;
@@ -52,11 +52,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import io.memoryos.library.ChatStorageProperties;
-import io.memoryos.library.ChatStorageQuotaService;
-import io.memoryos.library.UserFile;
-import io.memoryos.chat.application.ChatLibraryArtifacts;
-import io.memoryos.chat.persistence.JdbcChatArtifactRepository;
+import io.memoryos.chat.files.ChatLibraryArtifacts;
+import io.memoryos.chat.files.persistence.JdbcChatArtifactRepository;
 
 /**
  * Deleting a library file moves it to the trash: it leaves every listing at once, and its bytes are released

@@ -15,7 +15,7 @@ import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import org.springframework.ai.chat.model.ChatModel;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
-import io.memoryos.chat.application.ChatTurnPersistence.TurnContext;
+import io.memoryos.chat.session.ChatTurnPersistence.TurnContext;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 

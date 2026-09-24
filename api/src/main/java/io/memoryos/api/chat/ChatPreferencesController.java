@@ -2,7 +2,7 @@ package io.memoryos.api.chat;
 
 import io.memoryos.api.chat.contract.ChatPreferencesRequest;
 import io.memoryos.api.chat.contract.ChatPreferencesResponse;
-import io.memoryos.chat.preferences.ChatPreferencesService;
+import io.memoryos.chat.ChatPreferencesService;
 import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

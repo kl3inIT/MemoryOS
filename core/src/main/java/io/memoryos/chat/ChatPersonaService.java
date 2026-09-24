@@ -1,16 +1,15 @@
 package io.memoryos.chat;
 
-import io.memoryos.chat.application.PersonaProperties;
 import io.memoryos.library.ChatFileContentService;
 import io.memoryos.library.ChatFileService;
 import io.memoryos.library.UserFile;
-import io.memoryos.chat.persistence.JdbcAgentRepository.Access;
-import io.memoryos.chat.persistence.JdbcAgentRepository;
-import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.chat.persistence.JdbcDocumentSetRepository;
-import io.memoryos.chat.persistence.JpaPersonaRepository;
-import io.memoryos.chat.persistence.PersonaEntity;
-import io.memoryos.chat.persistence.PersonaRevisions;
+import io.memoryos.chat.persona.persistence.JdbcAgentRepository.Access;
+import io.memoryos.chat.persona.persistence.JdbcAgentRepository;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.chat.persona.persistence.JdbcDocumentSetRepository;
+import io.memoryos.chat.persona.persistence.JpaPersonaRepository;
+import io.memoryos.chat.persona.persistence.PersonaEntity;
+import io.memoryos.chat.persona.persistence.PersonaRevisions;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;

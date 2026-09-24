@@ -1,5 +1,6 @@
 package io.memoryos.chat.image;
 
+import org.springframework.modulith.NamedInterface;
 import io.memoryos.shared.ActorId;
 
 import io.micrometer.core.instrument.MeterRegistry;
@@ -18,6 +19,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /** Small protocol adapters; provider errors and credentials never become model/UI output. */
 @Component
+@NamedInterface("image")
 public final class ImageProviderClient {
     /**
      * Instruction editing that keeps unchanged content; SD 1.5 inpainting and img2img were rejected in MEM-109.

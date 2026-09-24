@@ -1,6 +1,6 @@
 package io.memoryos.api.chat;
 
-import io.memoryos.chat.preferences.ChatRetentionService;
+import io.memoryos.chat.ChatRetentionService;
 import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

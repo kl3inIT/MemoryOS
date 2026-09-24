@@ -1,6 +1,6 @@
 package io.memoryos.api.chat;
 
-import io.memoryos.chat.application.PersonaProperties;
+import io.memoryos.chat.PersonaProperties;
 import io.memoryos.ai.ChatModelClients;
 import io.memoryos.ai.ChatModelResolver;
 import io.memoryos.ai.ChatProviderAdapter;
@@ -8,7 +8,7 @@ import io.memoryos.ai.ChatProviderAdapters;
 import io.memoryos.ai.ModelCatalogService;
 import io.memoryos.ai.ModelSettings;
 import io.memoryos.ai.ProviderCredentials;
-import io.memoryos.chat.execution.ChatExecutionProperties;
+import io.memoryos.chat.ChatExecutionProperties;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;

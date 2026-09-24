@@ -2,8 +2,7 @@ package io.memoryos.chat;
 
 import io.memoryos.ai.ChatModelTurns;
 import io.memoryos.ai.ModelAccounting;
-import io.memoryos.chat.application.ChatTurnPersistence;
-import io.memoryos.chat.execution.ChatExecutionProperties;
+import io.memoryos.chat.session.ChatTurnPersistence;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.ai.ChatModelResolver;

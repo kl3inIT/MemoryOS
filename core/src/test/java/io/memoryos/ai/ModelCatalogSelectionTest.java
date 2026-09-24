@@ -6,8 +6,8 @@ import static org.mockito.Mockito.*;
 
 import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.ChatModelAccess;
-import io.memoryos.chat.persistence.JdbcAgentModelRepository;
-import io.memoryos.chat.persistence.JdbcChatRepository;
+import io.memoryos.chat.persona.persistence.JdbcAgentModelRepository;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
 import io.memoryos.ai.persistence.ModelCatalogRepository;
 import io.memoryos.iam.group.GroupScopeService;
 import io.memoryos.iam.group.IamAuthorization;

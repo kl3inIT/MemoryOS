@@ -1,5 +1,6 @@
 package io.memoryos.chat.interpreter;
 
+import org.springframework.modulith.NamedInterface;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
@@ -23,6 +24,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** Per-Tenant Code Interpreter switch and the files its runs produce (MEM-110). */
 @Service
+@NamedInterface("interpreter")
 public class InterpreterService {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(InterpreterService.class);
     private final JdbcInterpreterRepository repository;

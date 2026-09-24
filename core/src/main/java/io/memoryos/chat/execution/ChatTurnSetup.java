@@ -7,7 +7,7 @@ import com.embabel.chat.Message;
 import com.embabel.chat.SystemMessage;
 import com.embabel.chat.UserMessage;
 import com.knuddels.jtokkit.api.EncodingType;
-import io.memoryos.chat.application.ChatTurnPersistence.TurnContext;
+import io.memoryos.chat.session.ChatTurnPersistence.TurnContext;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatTurnOptions;

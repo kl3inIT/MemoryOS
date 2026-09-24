@@ -1,12 +1,12 @@
 package io.memoryos.api.chat;
 
-import io.memoryos.chat.application.PersonaProperties;
+import io.memoryos.chat.PersonaProperties;
 import io.memoryos.ai.ChatProviderAdapters;
 import io.memoryos.ai.openai.ChatKnownModels;
 import io.memoryos.ai.openai.OpenAiChatProviderAdapter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
-import io.memoryos.chat.execution.ChatExecutionProperties;
+import io.memoryos.chat.ChatExecutionProperties;
 import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;

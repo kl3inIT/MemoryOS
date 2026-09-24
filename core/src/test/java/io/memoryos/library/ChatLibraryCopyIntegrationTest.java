@@ -12,8 +12,6 @@ import static org.mockito.Mockito.when;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.library.ChatFileProperties;
-import io.memoryos.library.ChatStorageProperties;
 import io.memoryos.library.work.DefaultUserFileWorkService;
 import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.InterpreterService;
@@ -58,11 +56,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
-import io.memoryos.chat.application.ChatFileAttachments;
-import io.memoryos.chat.persistence.JdbcChatFileAttachmentRepository;
-import io.memoryos.chat.application.ChatLibraryArtifacts;
-import io.memoryos.chat.persistence.JdbcChatArtifactRepository;
-import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
+import io.memoryos.chat.files.ChatFileAttachments;
+import io.memoryos.chat.files.persistence.JdbcChatFileAttachmentRepository;
+import io.memoryos.chat.files.ChatLibraryArtifacts;
+import io.memoryos.chat.files.persistence.JdbcChatArtifactRepository;
+import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
 
 /**
  * A library copy is a server write (V127): staged outside any transaction, adopted by the transaction that records

@@ -1,9 +1,9 @@
 package io.memoryos.chat.history.persistence;
 
-import io.memoryos.chat.history.ChatHistoryFeedback;
-import io.memoryos.chat.history.ChatHistoryMessage;
-import io.memoryos.chat.history.ChatHistoryQuery;
-import io.memoryos.chat.history.ChatHistoryTotals;
+import io.memoryos.chat.ChatHistoryFeedback;
+import io.memoryos.chat.ChatHistoryMessage;
+import io.memoryos.chat.ChatHistoryQuery;
+import io.memoryos.chat.ChatHistoryTotals;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;

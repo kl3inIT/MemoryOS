@@ -7,22 +7,21 @@ import static org.mockito.Mockito.*;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.TestDatabase;
-import io.memoryos.chat.application.ChatTurnPersistence;
-import io.memoryos.chat.application.DefaultChatSessionService;
-import io.memoryos.chat.application.PersonaProperties;
+import io.memoryos.chat.session.ChatTurnPersistence;
+import io.memoryos.chat.session.DefaultChatSessionService;
 import io.memoryos.ai.ModelCatalogService;
 import io.memoryos.ai.ModelSettings;
 import io.memoryos.ai.ChatModelBinding;
 import io.memoryos.ai.ChatRequestPolicy;
 import io.memoryos.chat.execution.ChatTurnSetup;
-import io.memoryos.chat.persistence.JdbcAgentRepository;
-import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.chat.persistence.JdbcChatSearchRepository;
-import io.memoryos.chat.persistence.JdbcPromptShortcutRepository;
-import io.memoryos.chat.persistence.JpaChatFeedbackRepository;
-import io.memoryos.chat.persistence.JpaChatSharingRepository;
-import io.memoryos.chat.persistence.JpaPersonaRepository;
-import io.memoryos.chat.persistence.JpaProjectRepository;
+import io.memoryos.chat.persona.persistence.JdbcAgentRepository;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.chat.session.persistence.JdbcChatSearchRepository;
+import io.memoryos.chat.persona.persistence.JdbcPromptShortcutRepository;
+import io.memoryos.chat.session.persistence.JpaChatFeedbackRepository;
+import io.memoryos.chat.session.persistence.JpaChatSharingRepository;
+import io.memoryos.chat.persona.persistence.JpaPersonaRepository;
+import io.memoryos.chat.project.persistence.JpaProjectRepository;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceType;
@@ -62,14 +61,14 @@ import io.memoryos.library.ChatStorageProperties;
 import io.memoryos.library.ChatStorageQuotaService;
 import io.memoryos.library.persistence.JdbcChatLibraryRepository;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
-import io.memoryos.chat.application.ChatFileAttachments;
-import io.memoryos.chat.persistence.JdbcChatFileAttachmentRepository;
+import io.memoryos.chat.files.ChatFileAttachments;
+import io.memoryos.chat.files.persistence.JdbcChatFileAttachmentRepository;
 import io.memoryos.library.LibraryTrashProperties;
 import io.memoryos.library.ChatFileContentService;
 import io.memoryos.library.ChatFileService;
 import io.memoryos.library.ChatLibraryFile;
 import io.memoryos.library.UserFile;
-import io.memoryos.chat.persistence.JdbcChatArtifactRepository;
+import io.memoryos.chat.files.persistence.JdbcChatArtifactRepository;
 import io.memoryos.library.FileAttachments;
 import io.memoryos.library.LibraryException;
 
@@ -119,7 +118,7 @@ class ChatPersistenceIntegrationTest {
         var factory = new ProxyFactory(new ChatTurnPersistence(tenants, authorization, repository, fileService,
                 new ActorLanguageService(jpa.repository(JpaActorRepository.class,
                         RepositoryFragments.just(new ActorRefreshImpl(jpa.entityManager()))), tenants),
-                new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc)));
+                new io.memoryos.chat.image.persistence.JdbcImageArtifactRepository(jdbc)));
         factory.setProxyTargetClass(true);
         factory.addAdvice(interceptor);
         turns = (ChatTurnPersistence) factory.getProxy();
@@ -134,16 +133,16 @@ class ChatPersistenceIntegrationTest {
                 new ModelSettings.Capabilities(true, true, false, false), 32000, 4096, null, true)));
         var sources = mock(SourceSearchService.class); sourceScope = sources; sourceId = UUID.randomUUID();
         when(sources.scope(any())).thenAnswer(call -> new SourceSearchScope(new TenantId(tenant), call.getArgument(0), Map.of(sourceId, SourceType.FILE)));
-        var agentRows = new io.memoryos.chat.persistence.JdbcAgentRepository(jdbc);
-        var documentSetRows = new io.memoryos.chat.persistence.JdbcDocumentSetRepository(jdbc);
+        var agentRows = new io.memoryos.chat.persona.persistence.JdbcAgentRepository(jdbc);
+        var documentSetRows = new io.memoryos.chat.persona.persistence.JdbcDocumentSetRepository(jdbc);
         documentSets = service(new DocumentSetService(tenants, authorization, sources, agentRows, documentSetRows), DocumentSetService.class);
         personas = service(new ChatPersonaService(tenants, authorization, repository, jpa.repository(JpaPersonaRepository.class),
-                agentRows, new io.memoryos.chat.persistence.PersonaRevisions(jpa.entityManager()),
+                agentRows, new io.memoryos.chat.persona.persistence.PersonaRevisions(jpa.entityManager()),
                 new PersonaProperties(), models, sources, documentSets, documentSetRows, fileService,
                 mock(ChatFileContentService.class)), ChatPersonaService.class);
         projects = service(new ChatProjectService(tenants, authorization, repository, jpa.repository(JpaProjectRepository.class), sessions, fileService), ChatProjectService.class);
         shortcuts = service(new ChatPromptShortcutService(tenants, authorization, repository,
-                new io.memoryos.chat.persistence.JdbcPromptShortcutRepository(jdbc)), ChatPromptShortcutService.class);
+                new io.memoryos.chat.persona.persistence.JdbcPromptShortcutRepository(jdbc)), ChatPromptShortcutService.class);
         collaboration = service(new ChatCollaborationService(tenants, authorization, repository, jpa.repository(JpaChatSharingRepository.class),
                 jpa.repository(JpaChatFeedbackRepository.class)), ChatCollaborationService.class);
     }
@@ -264,7 +263,7 @@ class ChatPersistenceIntegrationTest {
 
     @Test
     void generatedImagesAreNamedInLaterContextAndEditSourcesStayInTheirSession() {
-        var images = new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc);
+        var images = new io.memoryos.chat.image.persistence.JdbcImageArtifactRepository(jdbc);
         var scope = new TenantId(tenant);
         var session = sessions.create(owner, "Images");
         var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Draw a man");
@@ -326,7 +325,7 @@ class ChatPersistenceIntegrationTest {
         var library = new JdbcChatLibraryRepository(jdbc);
         var artifacts = new JdbcChatArtifactRepository(jdbc);
         var interpreter = new io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository(jdbc);
-        var images = new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc);
+        var images = new io.memoryos.chat.image.persistence.JdbcImageArtifactRepository(jdbc);
         var scope = new TenantId(tenant);
         var session = sessions.create(owner, "Báo cáo");
         var reply = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Make a workbook");
@@ -417,7 +416,7 @@ class ChatPersistenceIntegrationTest {
     @Test
     void aConversationsOwnFilesAreItsArtifactsAndTheUploadsAttachedInIt() {
         var library = new JdbcChatLibraryRepository(jdbc);
-        var images = new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc);
+        var images = new io.memoryos.chat.image.persistence.JdbcImageArtifactRepository(jdbc);
         var scope = new TenantId(tenant);
         var session = sessions.create(owner, "Có tệp");
         var elsewhere = sessions.create(owner, "Nơi khác");

@@ -4,9 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.chat.application.ChatRetentionProperties;
-import io.memoryos.chat.application.ChatSessionPurgeService;
-import io.memoryos.chat.persistence.JdbcChatSessionPurgeRepository;
+import io.memoryos.chat.session.ChatRetentionProperties;
+import io.memoryos.chat.session.persistence.JdbcChatSessionPurgeRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.util.UUID;

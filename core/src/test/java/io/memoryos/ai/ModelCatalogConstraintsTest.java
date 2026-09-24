@@ -6,11 +6,11 @@ import static org.mockito.Mockito.*;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.chat.application.PersonaProperties;
+import io.memoryos.chat.PersonaProperties;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatModelAccess;
-import io.memoryos.chat.persistence.JdbcAgentModelRepository;
-import io.memoryos.chat.persistence.JdbcChatRepository;
+import io.memoryos.chat.persona.persistence.JdbcAgentModelRepository;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
 import io.memoryos.ai.persistence.JpaChatModelDefaultRepository;
 import io.memoryos.ai.persistence.JpaLlmProviderRepository;
 import io.memoryos.ai.persistence.JpaModelConfigurationRepository;

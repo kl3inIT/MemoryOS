@@ -62,8 +62,8 @@ import io.memoryos.library.ChatStorageQuotaService;
 import io.memoryos.library.UserFile;
 import io.memoryos.library.persistence.JdbcChatLibraryRepository;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
-import io.memoryos.chat.application.ChatFileAttachments;
-import io.memoryos.chat.persistence.JdbcChatFileAttachmentRepository;
+import io.memoryos.chat.files.ChatFileAttachments;
+import io.memoryos.chat.files.persistence.JdbcChatFileAttachmentRepository;
 import io.memoryos.library.LibraryTrashProperties;
 
 @SpringBootTest(
