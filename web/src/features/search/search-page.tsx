@@ -1,6 +1,6 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { appText, type AppCopy } from "@/i18n/app-text";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   Clock3,
   FileStack,
@@ -115,7 +115,6 @@ function AuthorizedSearchPage() {
   const [timeRange, setTimeRange] = useState<SearchTimeRange>("all");
   const [documentSetId, setDocumentSetId] = useState<string | null>(null);
   const [request, setRequest] = useState<SearchRequest | null>(null);
-  const [submitFeedback, setSubmitFeedback] = useState(false);
   const [selected, setSelected] = useState<DocumentSelection | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const searchFormRef = useRef<HTMLFormElement | null>(null);
@@ -154,7 +153,11 @@ function AuthorizedSearchPage() {
     retry: false,
     staleTime: 30_000,
     refetchOnWindowFocus: false,
-    placeholderData: keepPreviousData,
+    // Another page or filter keeps the results on screen, dimmed; a different question starts from the loader.
+    placeholderData: (previous, previousQuery) =>
+      (previousQuery?.queryKey[1] as SearchRequest | null | undefined)?.query === request?.query
+        ? previous
+        : undefined,
   });
   useLayoutEffect(() => {
     const previousTop = previousSearchTopRef.current;
@@ -178,12 +181,6 @@ function AuthorizedSearchPage() {
   }, [hasRequest]);
 
   useEffect(() => {
-    if (!submitFeedback || result.isFetching) return;
-    const timeout = window.setTimeout(() => setSubmitFeedback(false), 180);
-    return () => window.clearTimeout(timeout);
-  }, [result.isFetching, submitFeedback]);
-
-  useEffect(() => {
     if (!request || !result.isError || result.error === reportedSearchError.current) return;
     reportedSearchError.current = result.error;
     captureWorkflowFailure(result.error, {
@@ -200,7 +197,6 @@ function AuthorizedSearchPage() {
     }
     setQuery(text);
     setSelected(null);
-    setSubmitFeedback(true);
     setRecentSearches(rememberRecentSearch(actorId, text));
     const nextRequest: SearchRequest = {
       query: text.trim(),
@@ -303,7 +299,7 @@ function AuthorizedSearchPage() {
     });
   }
 
-  const isSearchUpdating = result.isFetching || submitFeedback;
+  const isSearchUpdating = result.isFetching;
   const statusMessage = searchStatus(request, result, isSearchUpdating);
   const hasFilters = Boolean(mediaType || sourceType || documentSetId || timeRange !== "all");
   const sourceOptions = searchSourceOptions(result.data?.sourceFacets, sourceType);
@@ -314,7 +310,7 @@ function AuthorizedSearchPage() {
   // Shown for every search so filters never move the search box or the results column.
   const showSourceFilter = request !== null;
   const fileTypeOptions = withResultFileTypes(result.data?.results ?? [], mediaType);
-  const showLoadingScreen = isSearchUpdating;
+  const showLoadingScreen = result.isPending;
   const currentPage = request?.page ?? 0;
   const totalResults = result.data?.totalResults ?? 0;
   // The total counts readable Documents among bounded candidates; at the bound there may be more.
@@ -619,7 +615,13 @@ function AuthorizedSearchPage() {
               </Empty>
             ) : (
               <div className="min-w-0 animate-in duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none">
-                <section aria-labelledby="search-results-heading" className="min-w-0">
+                <section
+                  aria-labelledby="search-results-heading"
+                  className={cn(
+                    "min-w-0 transition-opacity",
+                    result.isPlaceholderData && "opacity-60",
+                  )}
+                >
                   <header className="flex flex-wrap items-baseline justify-between gap-3 border-b border-border-subtle pb-3">
                     <h2
                       id="search-results-heading"
@@ -666,8 +668,12 @@ function AuthorizedSearchPage() {
                       last: currentPage * PAGE_SIZE + result.data.results.length,
                       total: totalLabel,
                     })}
-                    previousDisabled={currentPage <= 0}
-                    nextDisabled={!result.data.hasMore || currentPage + 1 >= MAX_PAGES}
+                    previousDisabled={currentPage <= 0 || result.isPlaceholderData}
+                    nextDisabled={
+                      !result.data.hasMore ||
+                      currentPage + 1 >= MAX_PAGES ||
+                      result.isPlaceholderData
+                    }
                     onPrevious={() => {
                       setSelected(null);
                       setRequest({ ...request, page: currentPage - 1 });
