@@ -204,7 +204,7 @@ function Citation({ source }: { source: ChatSource }) {
               </p>
               <p className="mt-0.5 break-words text-xs leading-5 text-content-muted">
                 {source.web ? (
-                  ui("Web · Nguồn") + ` ${source.citationId}`
+                  ui("Web · Nguồn {{number}}", { number: source.citationId })
                 ) : (
                   <DocumentMeta
                     lead={[ui("Nguồn {{number}}", { number: source.citationId })]}

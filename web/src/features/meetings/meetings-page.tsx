@@ -19,7 +19,7 @@ import {
   formatClock,
   formatWhen,
   loadMeetings,
-  meetingsKey,
+  meetingListKey,
   type MeetingSummary,
 } from "./meetings-api";
 import { useActiveMeeting } from "./meeting-session";
@@ -72,7 +72,7 @@ export function MeetingsPage() {
   const query = useDeferredValue(search.trim().toLocaleLowerCase("vi"));
   const live = useActiveMeeting();
   const meetings = useQuery({
-    queryKey: [...meetingsKey, actorId, authorizationVersion],
+    queryKey: [...meetingListKey, actorId, authorizationVersion],
     queryFn: ({ signal }) => loadMeetings(signal),
   });
   const groupTitle = { today: ui("Hôm nay"), week: ui("7 ngày qua"), earlier: ui("Trước đó") };

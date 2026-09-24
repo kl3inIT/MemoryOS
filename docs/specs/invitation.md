@@ -91,7 +91,7 @@ Capability-link acceptance uses the redacted continuation. Activation-email acce
 
 ## Failure contract
 
-Invitation exposes expected REST failures through capability-prefixed codes: `INVITATION_NOT_OWNER`, `INVITATION_INVALID_EMAIL`, `INVITATION_CONFLICT`, `INVITATION_NOT_AVAILABLE`, `INVITATION_EMAIL_NOT_VERIFIED`, `INVITATION_EMAIL_MISMATCH` and `INVITATION_IDENTITY_CONFLICT`. `INVITATION_NOT_OWNER` is the legacy wire name for failed `USERS_MANAGE` authorization. Each code otherwise carries one semantic failure category and safe English fallback message. The API renders these as RFC 9457 Problem Details and never exposes the diagnostic `InvitationException` message.
+Invitation exposes expected REST failures through capability-prefixed codes: `INVITATION_NOT_OWNER`, `INVITATION_INVALID_EMAIL`, `INVITATION_QUERY_INVALID`, `INVITATION_CONFLICT`, `INVITATION_NOT_AVAILABLE`, `INVITATION_EMAIL_NOT_VERIFIED`, `INVITATION_EMAIL_MISMATCH` and `INVITATION_IDENTITY_CONFLICT`. `INVITATION_NOT_OWNER` is the legacy wire name for failed `USERS_MANAGE` authorization. Each code otherwise carries one semantic failure category and safe English fallback message. The API renders these as RFC 9457 Problem Details and never exposes the diagnostic `InvitationException` message.
 
 Browser intake and OAuth flows catch `InvitationException` directly and translate selected reasons to redirect recovery states.
 

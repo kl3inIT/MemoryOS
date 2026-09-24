@@ -251,6 +251,14 @@ export function ChatLibraryPage() {
     await cache.invalidateQueries({ queryKey: chatLibraryKey });
   };
 
+  const favorite = async (file: LibraryFile) => {
+    try {
+      await change(file, { favorite: !file.favorite });
+    } catch (failure) {
+      notify({ title: chatActionError(failure), tone: "error" });
+    }
+  };
+
   /**
    * A question asked where the file is read (MEM-152): the file becomes an upload, a conversation is created
    * for it, and Chat attaches it and sends the question once the conversation is open. An empty question
@@ -289,7 +297,7 @@ export function ChatLibraryPage() {
     onDelete: (file: LibraryFile) => setConfirming([file]),
     onAddToProject: (file: LibraryFile) => setProjectFiles([file]),
     onRename: (file: LibraryFile) => setRenaming(file),
-    onFavorite: (file: LibraryFile) => void change(file, { favorite: !file.favorite }),
+    onFavorite: (file: LibraryFile) => void favorite(file),
     onRestore: (file: LibraryFile) =>
       act(
         () => restoreLibraryFile(file, AbortSignal.timeout(30000)),
@@ -734,11 +742,6 @@ function ContentResults({
   const ui = useAppTranslation();
   return (
     <div className="flex flex-col gap-3">
-      <p className="font-secondary-body text-content-muted">
-        {ui(
-          "Tìm trong nội dung tệp bạn đã tải lên và đã lập chỉ mục. Tệp do Chat tạo chỉ tìm được theo tên.",
-        )}
-      </p>
       {query.length === 0 && (
         <p role="status" className="text-content-muted">
           {ui("Nhập điều bạn nhớ về nội dung tệp.")}

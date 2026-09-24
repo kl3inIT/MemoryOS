@@ -112,11 +112,7 @@ export function UsageLimits() {
           }
         />
       ) : list.length === 0 ? (
-        <EmptyState
-          icon={<Gauge />}
-          title={ui("No limit is set.")}
-          detail={ui("Nothing caps AI spending until you add a limit.")}
-        />
+        <EmptyState icon={<Gauge />} title={ui("No limit is set.")} />
       ) : (
         <div className="overflow-hidden rounded-md border border-border-subtle">
           <Table className="w-full min-w-[44rem] table-fixed">

@@ -38,7 +38,9 @@ import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.BeforeEach;
@@ -91,8 +93,7 @@ class DocumentOriginalServiceTest {
         UUID hidden = UUID.randomUUID(), large = UUID.randomUUID();
         var sheet = new StoredObjectReference(new StoredObjectId(UUID.randomUUID()), new ObjectKey("raw/tenant/sheet"),
                 "sales.xlsx", new ObjectMetadata(4, "application/vnd.ms-excel", new ContentSha256("d".repeat(64))));
-        when(access.canRead(actor, new DocumentId(hidden))).thenReturn(false);
-        when(access.canRead(actor, new DocumentId(large))).thenReturn(true);
+        when(access.readableDocuments(actor, List.of(document, hidden, large))).thenReturn(Set.of(document, large));
         when(sources.originals(tenant, actor, java.util.Set.of(document, large))).thenReturn(java.util.Map.of(
                 document, sheet, large, reference(DocumentOriginalService.MAX_BYTES + 1)));
 

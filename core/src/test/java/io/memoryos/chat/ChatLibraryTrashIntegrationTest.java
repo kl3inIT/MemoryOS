@@ -15,7 +15,7 @@ import io.memoryos.chat.application.ChatArtifactCleanupService;
 import io.memoryos.chat.application.ChatRetentionProperties;
 import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.InterpreterService;
-import io.memoryos.chat.interpreter.JdbcInterpreterRepository;
+import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.chat.persistence.JdbcChatArtifactCleanupRepository;
 import io.memoryos.chat.persistence.JdbcChatLibraryRepository;
 import io.memoryos.chat.persistence.JdbcChatRepository;

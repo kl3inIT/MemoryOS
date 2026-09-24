@@ -35,6 +35,9 @@ public class VoiceTranscriptionService {
     public static final int MAX_RECORDING_BYTES = 25 * 1024 * 1024;
     private static final Duration PROVIDER_TIMEOUT = Duration.ofSeconds(60);
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
+    /** One client for every REST call; the request carries its own timeout. */
+    private static final HttpClient HTTP = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER)
+            .connectTimeout(CONNECT_TIMEOUT).build();
     private static final int MAX_SESSIONS = 16;
     private static final Set<String> LANGUAGES = Set.of("vi", "en");
     /** OpenAI-protocol servers without authentication still receive a syntactically valid bearer value. */
@@ -184,8 +187,8 @@ public class VoiceTranscriptionService {
 
     /** REST providers use the JDK client without redirects, so a credential never follows a redirect elsewhere. */
     private static String http(HttpCall call) {
-        try (var client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).connectTimeout(CONNECT_TIMEOUT).build()) {
-            return call.run(client);
+        try {
+            return call.run(HTTP);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw ChatException.providerUnavailable();

@@ -301,16 +301,16 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
 
     /** Identifies a request so a retry of the same content recovers its receipt instead of starting again. */
     private static String hash(String operation, String first, String second, Scope scope, List<String> extra) {
-        var builder = new StringBuilder(operation).append(' ').append(first).append(' ').append(second)
-                .append(' ').append(scope.scopeMode()).append(' ').append(scope.includeDocuments())
-                .append(' ').append(scope.includePages()).append(' ').append(scope.syncIntervalMinutes())
-                .append(' ').append(scope.pruneIntervalHours());
-        for (String url : scope.siteUrls()) builder.append(' ').append(url);
-        builder.append('');
-        for (String pattern : scope.excludedSites()) builder.append(' ').append(pattern);
-        builder.append('');
-        for (String pattern : scope.excludedPaths()) builder.append(' ').append(pattern);
-        for (String value : extra) builder.append('').append(value);
+        var builder = new StringBuilder(operation).append('\u0000').append(first).append('\u0000').append(second)
+                .append('\u0000').append(scope.scopeMode()).append('\u0000').append(scope.includeDocuments())
+                .append('\u0000').append(scope.includePages()).append('\u0000').append(scope.syncIntervalMinutes())
+                .append('\u0000').append(scope.pruneIntervalHours());
+        for (String url : scope.siteUrls()) builder.append('\u0000').append(url);
+        builder.append('\u0001');
+        for (String pattern : scope.excludedSites()) builder.append('\u0000').append(pattern);
+        builder.append('\u0002');
+        for (String pattern : scope.excludedPaths()) builder.append('\u0000').append(pattern);
+        for (String value : extra) builder.append('\u0003').append(value);
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(builder.toString().getBytes(StandardCharsets.UTF_8)));

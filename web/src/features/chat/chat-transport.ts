@@ -269,11 +269,11 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
         deepResearch,
         fileIds: fileIds as string[],
         mcpServerIds,
+        image,
       };
       const { data } = await sendChatMessage({
         path: { sessionId: this.session.id },
-        // `image` joins the generated body type once openapi regenerates for MEM-97; sent now per the wire contract.
-        body: { ...body, image } as typeof body,
+        body,
         headers: sameOriginMutationHeaders,
         signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
         throwOnError: true,
@@ -575,12 +575,10 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             artifacts = artifactsSchema.parse(message.artifacts);
             committedActivity = activitySchema.parse(message.activity);
             committedResearch = historyResearch(message.research);
-            images = parseGeneratedImages((message as { images?: unknown }).images);
+            images = parseGeneratedImages(message.images);
             imageGenerating = false;
             // Code and output live only in the replay buffer; the files themselves are committed.
-            generatedFiles = parseGeneratedFiles(
-              (message as { generatedFiles?: unknown }).generatedFiles,
-            );
+            generatedFiles = parseGeneratedFiles(message.generatedFiles);
           } else await pause(2000, signal);
         }
       }

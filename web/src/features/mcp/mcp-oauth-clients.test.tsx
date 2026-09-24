@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n";
+import { ApiError } from "@/lib/api";
 import type { McpOAuthClientView, McpServerView } from "@/lib/hey-api/types.gen";
 import { McpOAuthClients } from "./mcp-oauth-clients";
 
@@ -196,4 +197,21 @@ it("sends a pasted application with its secret posted in the token request", asy
       }),
     }),
   );
+});
+
+it("asks the SDK to throw so a failed load shows an alert instead of an empty list", async () => {
+  const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  listMcpServerOAuthClients.mockRejectedValue(new ApiError(503, {}));
+  render(
+    <QueryClientProvider client={queries}>
+      <McpOAuthClients server={server()} />
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
+  expect(listMcpServerOAuthClients).toHaveBeenCalledWith(
+    expect.objectContaining({ throwOnError: true }),
+  );
+  expect(
+    screen.queryByText("Chưa có ứng dụng OAuth nào. Người dùng chưa kết nối được máy chủ này."),
+  ).not.toBeInTheDocument();
 });

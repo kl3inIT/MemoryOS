@@ -240,7 +240,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
         return switch (reason) {
             case EMAIL_NOT_VERIFIED -> "email-not-verified";
             case EMAIL_MISMATCH -> "email-mismatch";
-            case NOT_OWNER, INVALID_EMAIL, CONFLICT, NOT_AVAILABLE, IDENTITY_CONFLICT -> "not-available";
+            case NOT_OWNER, INVALID_EMAIL, QUERY_INVALID, CONFLICT, NOT_AVAILABLE, IDENTITY_CONFLICT -> "not-available";
         };
     }
 }

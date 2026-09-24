@@ -1,4 +1,4 @@
-package io.memoryos.chat.interpreter;
+package io.memoryos.chat.interpreter.persistence;
 
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;

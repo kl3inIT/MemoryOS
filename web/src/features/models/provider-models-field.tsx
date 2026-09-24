@@ -101,10 +101,9 @@ export function ProviderModelsField({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="font-main-ui-action">{ui("Models")}</p>
-          <p className="text-xs text-content-muted">
-            {reported === null
-              ? ui("Read the endpoint to list the models it serves.")
-              : selected.length > 0
+          {reported === null ? null : (
+            <p className="text-xs text-content-muted">
+              {selected.length > 0
                 ? ui(
                     appText("{{shown}} of {{total}} models · {{selected}} selected", {
                       shown: shown.length,
@@ -118,7 +117,8 @@ export function ProviderModelsField({
                       total: all.length,
                     }),
                   )}
-          </p>
+            </p>
+          )}
         </div>
         <Button
           prominence="secondary"

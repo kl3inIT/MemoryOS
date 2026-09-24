@@ -42,6 +42,10 @@ public class MeetingMinutesService {
 
     /** Writes the minutes of the oldest meeting waiting for them. Returns whether one was claimed. */
     public boolean writeNext() {
+        Integer abandoned = tx.execute(ignored -> meetings.failAbandonedMinutes(MAX_ATTEMPTS));
+        if (abandoned != null && abandoned > 0)
+            LOG.atWarn().addKeyValue("event", "meeting.minutes.abandoned").addKeyValue("count", abandoned)
+                    .log("Meeting minutes failed after their last attempt's lease lapsed");
         var claimed = tx.execute(ignored -> meetings.claimMinutes(LEASE, MAX_ATTEMPTS).orElse(null));
         if (claimed == null) return false;
         try {

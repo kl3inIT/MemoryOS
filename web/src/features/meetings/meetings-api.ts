@@ -1,3 +1,4 @@
+import type { QueryClient } from "@tanstack/react-query";
 import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   acceptAllMeetingCorrections,
@@ -72,6 +73,12 @@ export type MeetingKind = MeetingDetail["kind"];
 
 export const meetingsKey = ["meetings"] as const;
 export const meetingKey = (id: string) => [...meetingsKey, id] as const;
+/** The meeting list, scoped per actor below it; invalidating this prefix leaves meeting details and transcribers alone. */
+export const meetingListKey = [...meetingsKey, "list"] as const;
+
+export function invalidateMeetingList(cache: QueryClient) {
+  return cache.invalidateQueries({ queryKey: meetingListKey });
+}
 
 export async function loadMeetings(signal: AbortSignal): Promise<MeetingSummary[]> {
   const { data } = await listMeetings({ signal, throwOnError: true });

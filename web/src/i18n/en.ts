@@ -154,6 +154,7 @@ export const en = {
     chatUncertain: "The result could not be confirmed. Reload to check before trying again.",
     actionFailed: "The action could not be completed. Try again.",
     invitationConflict: "An open invitation already exists for this email.",
+    invitationQueryInvalid: "Invalid invitation page or filter.",
     identityConflict:
       "This email belongs to an identity account that cannot be reused. Contact an administrator.",
     copyInvitation: "The invitation link could not be copied. Select and copy it from the field.",

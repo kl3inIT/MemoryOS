@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CatalogDialog } from "@/features/models/catalog-dialog";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { presentProblem } from "@/lib/problem-presentation";
+import { useProblemMessage } from "@/lib/use-problem-message";
 import { listMcpGroupOptions } from "@/lib/hey-api/sdk.gen";
 import type { McpServerInput, McpServerView } from "@/lib/hey-api/types.gen";
 
@@ -29,6 +31,7 @@ export function McpServerEditor({
   onClose: () => void;
 }) {
   const ui = useAppTranslation();
+  const problem = useProblemMessage();
   const editing = server !== undefined;
   const [slug, setSlug] = useState(server?.slug ?? "");
   const [name, setName] = useState(server?.name ?? "");
@@ -48,7 +51,8 @@ export function McpServerEditor({
 
   const groups = useQuery({
     queryKey: ["mcp", "group-options"],
-    queryFn: async () => (await listMcpGroupOptions({ query: { size: 50 } })).data,
+    queryFn: async () =>
+      (await listMcpGroupOptions({ query: { size: 50 }, throwOnError: true })).data,
     enabled: !tenantWide,
   });
 
@@ -239,6 +243,11 @@ export function McpServerEditor({
                   <span className="font-main-ui-body text-content-primary">{group.name}</span>
                 </label>
               ))}
+              {groups.isError ? (
+                <p role="alert" className="font-secondary-body text-status-danger-content">
+                  {problem(presentProblem(groups.error, "initialLoad").message)}
+                </p>
+              ) : null}
               {groups.data && groups.data.items.length === 0 ? (
                 <p className="font-secondary-body text-content-muted">{ui("Chưa có nhóm nào.")}</p>
               ) : null}

@@ -70,6 +70,8 @@ export function useAdminAccess() {
                 ? "/admin/mcp"
                 : canManageAgents
                   ? "/admin/agents"
-                  : "/admin/audit",
+                  : canReadChatHistory && !canReadAudit
+                    ? "/admin/chat-history"
+                    : "/admin/audit",
   } as const;
 }

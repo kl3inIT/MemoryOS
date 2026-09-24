@@ -12,12 +12,14 @@ import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.ProviderAuthorityService;
 import io.memoryos.connector.SharePointConnectionService;
 import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.SharePointSourceService.Scope;
 import io.memoryos.connector.SharePointSourceService.ScopeMode;
 import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceRunTrigger;
+import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.persistence.JdbcSharePointCredentialRepository;
 import io.memoryos.connector.persistence.JdbcSharePointSourceRepository;
@@ -25,6 +27,7 @@ import io.memoryos.connector.persistence.JdbcSharePointSourceRepository.Resolved
 import io.memoryos.connector.persistence.JdbcSharePointSyncRepository;
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.persistence.JdbcSourceItemRepository;
+import io.memoryos.connector.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.persistence.JdbcSourceRepository;
 import io.memoryos.connector.persistence.JdbcSourceSyncRepository;
 import io.memoryos.connector.persistence.SharePointCredentialConfiguration;
@@ -34,6 +37,9 @@ import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.persistence.JdbcOperationDispatchRepository;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.objectstorage.ObjectStorage;
+import io.memoryos.objectstorage.ObjectStorageException;
+import io.memoryos.objectstorage.ObjectStorageFailureCode;
 import io.memoryos.objectstorage.ObjectWriteService;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -44,6 +50,7 @@ import java.util.Base64;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.stubbing.Answer;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -74,6 +81,8 @@ class PostgresSharePointSyncTest {
     private OperationDispatchPort dispatch;
     private DefaultSharePointSyncService service;
     private org.springframework.transaction.support.TransactionTemplate tx;
+    private ObjectStorage storage;
+    private Answer<Void> storeObject;
 
     @AfterEach
     void closeDatabase() {
@@ -117,18 +126,19 @@ class PostgresSharePointSyncTest {
         when(connections.open(any(), any())).thenAnswer(_ ->
                 new SharePointConnectionService.Connection(session, 1L, "contoso.sharepoint.com"));
 
-        var storage = mock(io.memoryos.objectstorage.ObjectStorage.class);
+        storage = mock(ObjectStorage.class);
         var storedBytes = new java.util.concurrent.ConcurrentHashMap<io.memoryos.objectstorage.ObjectKey, byte[]>();
         var storedMetadata = new java.util.concurrent.ConcurrentHashMap<io.memoryos.objectstorage.ObjectKey,
                 io.memoryos.objectstorage.ObjectMetadata>();
-        doAnswer(call -> {
+        storeObject = call -> {
             io.memoryos.objectstorage.ObjectKey key = call.getArgument(0);
             byte[] value = call.getArgument(1);
             storedBytes.put(key, value);
             storedMetadata.put(key, new io.memoryos.objectstorage.ObjectMetadata(value.length, call.getArgument(2),
                     checksum(value)));
             return null;
-        }).when(storage).write(any(), any(), any());
+        };
+        doAnswer(storeObject).when(storage).write(any(), any(), any());
         when(storage.inspect(any())).thenAnswer(call -> storedMetadata.get(call.getArgument(0)));
         var writes = new io.memoryos.objectstorage.application.DefaultObjectWriteService(
                 new io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository(jdbc),
@@ -353,6 +363,39 @@ class PostgresSharePointSyncTest {
         assertEquals(ConnectorSyncPort.Result.FAILED, service.execute(claim(enqueue())));
 
         assertEquals(List.of("FAILED"), runStatuses());
+    }
+
+    @Test
+    void aSourceWhoseSyncFailedIsReportedFailedWithItsCode() {
+        when(session.delta(eq(DRIVE), any(), any())).thenThrow(new SharePointProviderException(
+                SharePointProviderException.Failure.AUTHENTICATION));
+        assertEquals(ConnectorSyncPort.Result.FAILED, service.execute(claim(enqueue())));
+
+        var summary = new JdbcSourceQueryRepository(jdbc).summary(tenant, owner, source, true, true, true);
+        assertEquals(SourceStatus.FAILED, summary.status());
+        assertEquals("SOURCE_SHAREPOINT_AUTHENTICATION", summary.errorCode());
+    }
+
+    @Test
+    void aStorageFailureRetriesTheAttemptWithoutClosingItsRun() {
+        var file = file("file-stored", "Stored.pdf", Instant.now());
+        when(session.delta(eq(DRIVE), any(), any()))
+                .thenReturn(new SharePointProvider.DeltaPage(List.of(file), null, "delta-link"));
+        when(session.item(DRIVE, "file-stored")).thenReturn(file);
+        when(session.content(any(), eq("contoso.sharepoint.com"), anyInt()))
+                .thenReturn(new SharePointProvider.Content("Stored.pdf", "application/pdf", "stored".getBytes()));
+        doThrow(new ObjectStorageException(ObjectStorageFailureCode.UNAVAILABLE, true, null))
+                .doAnswer(storeObject).when(storage).write(any(), any(), any());
+        var operation = enqueue();
+
+        assertEquals(ConnectorSyncPort.Result.FAILED, service.execute(claim(operation)));
+        assertEquals(List.of("IN_PROGRESS"), runStatuses(), "the run a retry resumes stays open");
+        assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM source_sync_attempts WHERE id = :id")
+                .param("id", operation.value()).query(String.class).single());
+
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(operation)));
+        assertEquals(List.of("SUCCEEDED"), runStatuses(), "the retry finished the same run");
+        assertEquals(1, counter("acquired"));
     }
 
     @Test

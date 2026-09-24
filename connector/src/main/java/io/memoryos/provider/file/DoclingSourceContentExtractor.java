@@ -34,6 +34,8 @@ import tools.jackson.databind.ObjectMapper;
 
 public final class DoclingSourceContentExtractor implements AutoCloseable {
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(DoclingSourceContentExtractor.class);
+    /** Detection holds no per-call state, so one facade serves every document. */
+    private static final Tika TIKA = new Tika();
     private static final Map<String, String> FORMATS = Map.of(
             "application/pdf", ".pdf",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx",
@@ -96,7 +98,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
             bytes = content.readNBytes((int) sizeBytes + 1);
             if (bytes.length != sizeBytes) throw failure(ExtractionFailure.MALFORMED);
         } catch (IOException e) { throw failure(ExtractionFailure.INTERNAL); }
-        return extract(bytes, filename, new Tika().detect(bytes, filename), input);
+        return extract(bytes, filename, TIKA.detect(bytes, filename), input);
     }
 
     public DocumentContent extract(byte[] bytes, String filename, String mediaType,

@@ -1,7 +1,7 @@
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useBlocker, useNavigate, useParams } from "@tanstack/react-router";
 import { Info, Trash2, Users, WifiOff } from "lucide-react";
 import { BrandLoader } from "@/components/brand-loader";
 import { DangerZone } from "@/components/composites/danger-zone";
@@ -196,12 +196,13 @@ function GroupDetail({
     setSelectedCapabilities(new Set(incoming));
   }, [dirty, group.capabilities, group.name, incomingSettingsKey]);
 
-  useEffect(() => {
-    if (!dirty) return;
-    const warnBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warnBeforeUnload);
-    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
-  }, [dirty]);
+  // Set once the page leaves on purpose (saved or deleted), so that navigation is not held.
+  const leaving = useRef(false);
+  const blocker = useBlocker({
+    shouldBlockFn: () => dirty && !leaving.current,
+    enableBeforeUnload: () => dirty && !leaving.current,
+    withResolver: true,
+  });
 
   const onMembersDraftChange = useCallback<GroupDraftStateChange>((nextDirty, pending) => {
     setMembersDirty(nextDirty);
@@ -240,6 +241,7 @@ function GroupDetail({
         setBaselineCapabilities(new Set(selectedCapabilities));
       }
       await onAuthorityChanged();
+      leaving.current = true;
       await navigate({ to: "/admin/groups", search: { page: 0, size: 20 } });
     } catch (cause) {
       setError(groupMutationError(cause, capabilitiesDirty ? "capabilities" : "rename"));
@@ -265,6 +267,7 @@ function GroupDetail({
       path: { groupId: group.id },
       headers: sameOriginMutationHeaders,
     });
+    leaving.current = true;
     await navigate({ to: "/admin/groups", search: { page: 0, size: 20 }, replace: true });
     await queryClient.invalidateQueries();
   }
@@ -373,6 +376,18 @@ function GroupDetail({
           }
         />
       ) : null}
+
+      <ConfirmDialog
+        open={blocker.status === "blocked"}
+        onOpenChange={(open) => {
+          if (!open && blocker.status === "blocked") blocker.reset();
+        }}
+        title={ui("Bỏ thay đổi chưa lưu?")}
+        description={ui("Unsaved changes to this group will be lost.")}
+        confirmLabel={ui("Rời trang")}
+        pendingLabel={ui("Đang rời trang…")}
+        onConfirm={async () => blocker.proceed?.()}
+      />
     </>
   );
 }

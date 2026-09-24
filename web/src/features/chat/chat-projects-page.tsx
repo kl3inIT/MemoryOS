@@ -359,8 +359,7 @@ export function ProjectConversationList({ projectId }: { projectId: string }) {
       </ThreadList>
       {sessions.data?.pages[0]?.length === 0 && (
         <p className="px-2 py-3 text-sm text-content-muted">
-          {ui("Chưa có hội thoại")}
-          {ui(". Gửi câu hỏi ở trên để bắt đầu.")}
+          {ui("Chưa có hội thoại. Gửi câu hỏi ở trên để bắt đầu.")}
         </p>
       )}
       {sessions.hasNextPage && (

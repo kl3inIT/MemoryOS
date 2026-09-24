@@ -74,3 +74,28 @@ describe("File indexing attempt details", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("File indexing attempt paging", () => {
+  it("keeps paging usable while the open attempts are refetched in the background", async () => {
+    let calls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        calls += 1;
+        if (calls > 1) return new Promise<Response>(() => {});
+        return Response.json({ items: [failed], nextCursor: "next", totalItems: 12 });
+      }),
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <SourceItemHistory sourceId="source-a" />
+      </QueryClientProvider>,
+    );
+    const next = await screen.findByRole("button", { name: "Next indexing attempts" });
+    expect(next).toBeEnabled();
+    void client.invalidateQueries();
+    await waitFor(() => expect(calls).toBe(2));
+    expect(next).toBeEnabled();
+  });
+});

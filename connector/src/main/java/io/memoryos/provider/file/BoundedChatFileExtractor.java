@@ -19,6 +19,8 @@ import tools.jackson.databind.ObjectMapper;
 /** One bounded disk-backed extraction per worker; Source and native-source limits are unchanged. */
 public final class BoundedChatFileExtractor implements ChatFileExtractor {
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(BoundedChatFileExtractor.class);
+    /** Detection holds no per-call state, so one facade serves every file. */
+    private static final Tika TIKA = new Tika();
     private final DoclingSourceContentExtractor docling;
     private final ObjectMapper mapper;
     private final Semaphore permit = new Semaphore(1);
@@ -46,7 +48,7 @@ public final class BoundedChatFileExtractor implements ChatFileExtractor {
                 if (copied != size) throw StructuredContent.failure(ExtractionFailure.MALFORMED);
             }
             String mediaType;
-            try (var input = Files.newInputStream(file)) { mediaType = new Tika().detect(input, filename); }
+            try (var input = Files.newInputStream(file)) { mediaType = TIKA.detect(input, filename); }
             String name = filename.toLowerCase(Locale.ROOT);
             if (name.endsWith(".xlsx") || name.endsWith(".xlsm")) return new SpreadsheetSourceContentExtractor(mapper).extractFile(file, filename,
                     name.endsWith(".xlsm") ? "application/vnd.ms-excel.sheet.macroEnabled.12" : SpreadsheetSourceContentExtractor.XLSX);

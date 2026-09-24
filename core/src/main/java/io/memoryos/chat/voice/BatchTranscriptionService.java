@@ -36,6 +36,9 @@ public class BatchTranscriptionService {
     /** One recording at a time per process: a provider call holds the whole file in memory for as long as it runs. */
     private static final int MAX_CONCURRENT = 1;
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
+    /** One client for every provider call; each request carries its own timeout. */
+    private static final HttpClient HTTP = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER)
+            .connectTimeout(CONNECT_TIMEOUT).build();
     /** Providers transcribe faster than real time; this is the ceiling for a five-hour recording. */
     private static final Duration MAX_TIMEOUT = Duration.ofMinutes(45);
     private static final int MAX_OPENAI_SEGMENTS = 20_000;
@@ -210,9 +213,8 @@ public class BatchTranscriptionService {
 
     /** As the dictation path: no redirects, so a credential never follows one elsewhere. */
     private static List<LiveTranscription.Segment> call(ProviderCall call) {
-        try (var client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER)
-                .connectTimeout(CONNECT_TIMEOUT).build()) {
-            return call.run(client);
+        try {
+            return call.run(HTTP);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw ChatException.providerUnavailable();

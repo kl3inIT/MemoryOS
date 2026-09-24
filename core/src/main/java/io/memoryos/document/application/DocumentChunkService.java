@@ -50,7 +50,7 @@ public class DocumentChunkService implements DocumentChunkPort {
                     ? repository.load(tenant, document, generation)
                     : Optional.empty();
         } catch (IOException | NoSuchAlgorithmException failure) {
-            throw new IllegalStateException("cannot read extraction artifact");
+            throw new IllegalStateException("cannot read extraction artifact", failure);
         } finally {
             repository.closeReader(reader.readerId());
         }

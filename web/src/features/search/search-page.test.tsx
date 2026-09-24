@@ -501,6 +501,47 @@ describe("SearchPage", () => {
     expect(JSON.parse(window.localStorage.getItem(key) ?? "[]")).toEqual(["nghỉ phép", "hợp đồng"]);
   });
 
+  it("keeps the current page on screen, dimmed, while the next page loads", async () => {
+    const user = userEvent.setup();
+    searchDocumentsMock.mockResolvedValueOnce({
+      data: {
+        page: 0,
+        hasMore: true,
+        totalResults: 23,
+        candidateLimit: 500,
+        results: [
+          {
+            documentId: "73835d74-d386-4b4e-b392-ad7f81e3b55a",
+            generation: "6b780b3a-de22-4307-ace9-6c2f44e22fc1",
+            title: "First page policy",
+            mediaType: "application/pdf",
+            sourceTypes: [],
+            authors: [],
+            providerUrl: null,
+            updatedAt: "2026-09-08T00:00:00Z",
+            score: 0.8,
+            sections: [],
+          },
+        ],
+      },
+    });
+    searchDocumentsMock.mockImplementationOnce(() => new Promise(() => undefined));
+    await renderNewSession();
+
+    await user.type(screen.getByRole("textbox", { name: "Search documents" }), "policy");
+    await user.click(screen.getByRole("button", { name: "Search" }));
+    expect(await screen.findByText("First page policy")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+
+    await waitFor(() => expect(searchDocumentsMock).toHaveBeenCalledTimes(2));
+    expect(screen.getByText("First page policy")).toBeVisible();
+    expect(screen.queryByText("Searching documents…")).not.toBeInTheDocument();
+    expect(screen.getByText("Updating")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–1 of 23")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+  });
+
   it("clears recent searches and tolerates unreadable storage", async () => {
     const user = userEvent.setup();
     const key = `memoryos:search:recent:${OWNER_SESSION.actorId}`;

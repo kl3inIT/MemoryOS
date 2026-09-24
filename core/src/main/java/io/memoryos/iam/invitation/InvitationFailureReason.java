@@ -14,6 +14,11 @@ public enum InvitationFailureReason implements FailureReason {
             FailureCategory.VALIDATION,
             "Enter a valid email address."
     ),
+    QUERY_INVALID(
+            "INVITATION_QUERY_INVALID",
+            FailureCategory.VALIDATION,
+            "The invitation list query is invalid."
+    ),
     CONFLICT(
             "INVITATION_CONFLICT",
             FailureCategory.CONFLICT,
