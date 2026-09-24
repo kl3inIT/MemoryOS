@@ -50,3 +50,10 @@ Không cần duyệt về nội dung, chỉ cần chọn **thời điểm**: dif
 ## 5. Hạ tầng triển khai
 
 - [ ] `infrastructure/deployment/deploy.sh`: ~20 assertion `[[ ]]` fail im lặng, `set -E` không có `trap … ERR`. Đề xuất thêm trap in dòng và lệnh lỗi. Chạm bề mặt deploy nên chờ bạn duyệt.
+
+## 6. Phát sinh trong lúc sửa
+
+- [ ] **Storage failure: Google và SharePoint xử lý khác nhau.** Google đánh dấu một node lỗi rồi đi tiếp; SharePoint retry cả attempt (đã sửa để không mất checkpoint, nhưng vẫn khác Google). Thống nhất theo bên nào?
+- [ ] **`VoiceSynthesisService.HttpSpeech`** vẫn tạo `HttpClient` mỗi lần vì `close()` gọi `shutdownNow()` để huỷ giọng đọc đang phát. Muốn dùng client chung thì phải huỷ theo request (`CompletableFuture.cancel`).
+- [ ] **Ô ghi chú của meeting** đã bỏ placeholder "…chỉ mình bạn xem được", giờ không còn gợi ý nào. Giữ "Ghi trong lúc họp." làm placeholder không?
+- [ ] **`INVITATION_QUERY_INVALID`** đã có bản dịch trên web nhưng hiện chưa màn hình nào gọi `listInvitations`, nên chưa hiện ra ở đâu.
