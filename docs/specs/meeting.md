@@ -33,7 +33,7 @@ A reader opens the meeting while it records and after it ends: the transcript as
 | --- | --- |
 | `PUT /api/meetings/{id}/notes` | `{notes, revision}`: the notes as stored and the revision the next save names |
 | `PUT /api/meetings/{id}` | `{title, participants, revision}`: the name and the people as stored, and the new revision |
-| `PUT`, `DELETE /api/meetings/{id}/speakers/{track}/{label}`; `DELETE …/suggestion` | That one speaker: `{track, label, name, suggestion}`. A voice left without a name is offered the name it gave itself again, read from its own lines only |
+| `PUT /api/meetings/{id}/speakers/{track}/{label}`, `DELETE …/speakers/{track}/{label}/suggestion` | That one speaker: `{track, label, name, suggestion}`. A voice left without a name is offered the name it gave itself again, read from its own lines only |
 | `PUT`, `DELETE /api/meetings/{id}/utterances/{utteranceId}/star` | Every line the caller starred in this meeting |
 | `POST /api/meetings/{id}/bookmarks`, `DELETE …/bookmarks/{bookmarkId}` | Every mark the caller has in this meeting, in time order |
 | `PUT /api/meetings/{id}/shares` | Everyone the meeting is now shared with |
