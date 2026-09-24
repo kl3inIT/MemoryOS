@@ -134,6 +134,18 @@ Schema:
   * Lô 32 đoạn khoảng 700 từ: 0,38 giây.
   * VRAM 1,6 GB, RAM khoảng 1 GB. Giới hạn container 3 GiB là đủ; cùng PaddleOCR-VL (khoảng 9,7 GB) node còn khoảng 13 GB VRAM cho MEM-193.
   * Tải model lần đầu và nạp lên GPU mất khoảng 190 giây.
+* **So sánh TEI và vLLM, 2026-09-24** trên `serving`, cùng model và revision, PaddleOCR-VL đang chạy:
+
+  | | TEI 1.9.4 | vLLM 0.30.0 `--runner pooling` |
+  | --- | --- | --- |
+  | Nạp tài liệu, 1 luồng gửi (lô 32 đoạn khoảng 700 từ) | 92 chunk/s | 174 chunk/s |
+  | Nạp tài liệu, 4 luồng gửi | 96 chunk/s | 268 chunk/s |
+  | Câu hỏi p50 / p95 | 8,7 / 11,1 ms | 19,9 / 23,8 ms |
+  | RAM | 1,1 GB | 3,8 GB |
+  | VRAM | khoảng 1,7 GB (đỉnh 2,4) | khoảng 3 GB, giữ trước ở 0,12 |
+  | Thời gian khởi động | 183 s | 213 s |
+
+  **Chọn TEI**: độ trễ câu hỏi thấp hơn một nửa và RAM ít hơn ba lần trên node 15 GiB đã có hai service PaddleOCR-VL. Tốc độ nạp của TEI thấp hơn nhưng vẫn đủ: chỉ dựng lại index mới cần tốc độ đó, và nó chạy ở nền. Cả hai đều nói `/v1/embeddings`, nên đổi sang vLLM sau này chỉ là đổi endpoint của provider.
 * **Nơi chạy:** GPU RTX 4090 của node `serving`, dùng chung với OCR của [MEM-192](../mem-192-ocr-gpu/design.md) qua một file `compose.serving.yaml`. Chỉ mở trên mạng riêng tới node `application`.
 * **Lên 4B sau này:** đổi trên trang quản trị, cùng TEI; không cần release.
 

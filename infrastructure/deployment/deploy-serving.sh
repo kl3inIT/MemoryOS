@@ -42,6 +42,11 @@ compose() {
     -f "$deployment/compose.serving.yaml" "$@"
 }
 compose config --quiet
+# Compose accepts a missing secret file and the service would then fail after the old one stopped.
+# Only the path is ever printed; the key itself stays in the file.
+compose config --format json | jq --raw-output '.secrets // {} | .[].file // empty' | while IFS= read -r file; do
+  [[ -f "$file" && ! -L "$file" && -s "$file" ]] || { echo "Missing Compose secret file: $file" >&2; exit 1; }
+done
 # Every port Compose would publish must be one the firewall filters. The two come from different
 # settings, and a port published outside the list answers the whole subnet without authentication.
 compose config --format json | jq --exit-status --arg ports " ${ports[*]} " '
