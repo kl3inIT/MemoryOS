@@ -1,9 +1,10 @@
 import { useId, useMemo, useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Copy, MonitorSpeaker, Mic } from "lucide-react";
+import { ChevronDown, Copy, MonitorSpeaker, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,21 @@ import {
   type MeetingKind,
 } from "./meetings-api";
 
+type MeetingLanguage = "vi" | "en" | "auto";
+
+/** The language is chosen before every recording and locked once it starts, so the last choice is kept (Fireflies). */
+const LANGUAGE_KEY = "memoryos.meeting.language";
+
+function rememberedLanguage(): MeetingLanguage {
+  try {
+    const stored = localStorage.getItem(LANGUAGE_KEY);
+    if (stored === "vi" || stored === "en" || stored === "auto") return stored;
+  } catch {
+    // Storage can be unavailable; Vietnamese is the default.
+  }
+  return "vi";
+}
+
 /** Splits "Anh Thanh, Chị Lan" into names; the server trims and de-duplicates again. */
 function list(value: string) {
   return value
@@ -52,7 +68,7 @@ export function NewMeetingDialog({
   const support = useMemo(() => captureSupport(), []);
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<MeetingKind>(support === "sharedAudio" ? "ONLINE" : "IN_PERSON");
-  const [language, setLanguage] = useState<"vi" | "en" | "auto">("vi");
+  const [language, setLanguage] = useState<MeetingLanguage>(rememberedLanguage);
   const [participants, setParticipants] = useState("");
   const [terms, setTerms] = useState("");
   const [audience, setAudience] = useState<MeetingAudience>({ people: [], groups: [] });
@@ -117,6 +133,15 @@ export function NewMeetingDialog({
     }
   }
 
+  function chooseLanguage(next: MeetingLanguage) {
+    setLanguage(next);
+    try {
+      localStorage.setItem(LANGUAGE_KEY, next);
+    } catch {
+      // A private window keeps the choice for this meeting only.
+    }
+  }
+
   async function copyNotice() {
     try {
       await navigator.clipboard.writeText(notice);
@@ -144,31 +169,6 @@ export function NewMeetingDialog({
             </p>
           )}
           <fieldset disabled={pending || support === "unsupported"} className="grid gap-4">
-            <div className="grid gap-1.5">
-              <Label htmlFor={`${id}-title`}>{ui("Tên cuộc họp")}</Label>
-              <Input
-                id={`${id}-title`}
-                value={title}
-                maxLength={200}
-                placeholder={ui("Giao ban tuần")}
-                onChange={(event) => setTitle(event.target.value)}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor={`${id}-participants`}>{ui("Thành phần")}</Label>
-              <Input
-                id={`${id}-participants`}
-                value={participants}
-                placeholder={ui("Tên người dự, cách nhau bằng dấu phẩy")}
-                onChange={(event) => setParticipants(event.target.value)}
-              />
-            </div>
-            <MeetingShareField
-              label={ui("Chia sẻ với")}
-              value={audience}
-              disabled={pending}
-              onChange={setAudience}
-            />
             <div className="grid gap-2">
               <Label>{ui("Hình thức")}</Label>
               <RadioGroup
@@ -218,7 +218,7 @@ export function NewMeetingDialog({
                 id={`${id}-language`}
                 value={language}
                 aria-describedby={`${id}-language-hint`}
-                onChange={(event) => setLanguage(event.target.value as "vi" | "en" | "auto")}
+                onChange={(event) => chooseLanguage(event.target.value as MeetingLanguage)}
               >
                 <option value="vi">{ui("Tiếng Việt")}</option>
                 <option value="auto">{ui("Tiếng Việt xen tiếng Anh")}</option>
@@ -228,15 +228,51 @@ export function NewMeetingDialog({
                 {ui("Không đổi được sau khi bắt đầu ghi.")}
               </p>
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor={`${id}-terms`}>{ui("Thuật ngữ riêng")}</Label>
-              <Input
-                id={`${id}-terms`}
-                value={terms}
-                placeholder={ui("Tên riêng, từ viết tắt, thuật ngữ")}
-                onChange={(event) => setTerms(event.target.value)}
-              />
-            </div>
+            <Collapsible className="group">
+              <CollapsibleTrigger className="flex min-h-9 cursor-pointer items-center gap-2 font-main-ui-action focus-visible:outline-2 focus-visible:outline-focus-ring">
+                <ChevronDown
+                  aria-hidden="true"
+                  className="size-4 transition-transform group-has-[[data-state=open]]:rotate-180"
+                />
+                {ui("Thêm chi tiết")}
+              </CollapsibleTrigger>
+              <CollapsibleContent className="grid gap-4 pt-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor={`${id}-title`}>{ui("Tên cuộc họp")}</Label>
+                  <Input
+                    id={`${id}-title`}
+                    value={title}
+                    maxLength={200}
+                    placeholder={ui("Giao ban tuần")}
+                    onChange={(event) => setTitle(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor={`${id}-participants`}>{ui("Thành phần")}</Label>
+                  <Input
+                    id={`${id}-participants`}
+                    value={participants}
+                    placeholder={ui("Tên người dự, cách nhau bằng dấu phẩy")}
+                    onChange={(event) => setParticipants(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor={`${id}-terms`}>{ui("Thuật ngữ riêng")}</Label>
+                  <Input
+                    id={`${id}-terms`}
+                    value={terms}
+                    placeholder={ui("Tên riêng, từ viết tắt, thuật ngữ")}
+                    onChange={(event) => setTerms(event.target.value)}
+                  />
+                </div>
+                <MeetingShareField
+                  label={ui("Chia sẻ với")}
+                  value={audience}
+                  disabled={pending}
+                  onChange={setAudience}
+                />
+              </CollapsibleContent>
+            </Collapsible>
             <div className="flex items-start gap-3 rounded-xl border border-border-subtle bg-surface-base p-3">
               <Checkbox
                 id={`${id}-consent`}

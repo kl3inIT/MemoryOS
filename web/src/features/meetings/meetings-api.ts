@@ -2,6 +2,7 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   acceptAllMeetingCorrections,
   acceptMeetingCorrection,
+  addMeetingMinutesItem,
   correctMeetingWords,
   bookmarkMeetingMoment,
   createMeeting,
@@ -14,6 +15,7 @@ import {
   exportMeetingMinutes,
   finalizeMeetingRecording,
   getMeeting,
+  getMeetingMinutesHeading,
   keepMeetingWording,
   listMeetingCorrections,
   listMeetings,
@@ -24,13 +26,16 @@ import {
   exportMeetingTranscript,
   publishMeetingMinutes,
   removeMeetingBookmark,
+  removeMeetingMinutesItem,
   rerunMeetingMinutes,
   reserveMeetingRecording,
   revertAllMeetingCorrections,
   revertMeetingCorrection,
+  saveMeetingMinutesHeading,
   shareMeeting as shareMeetingRequest,
   starMeetingUtterance,
   unstarMeetingUtterance,
+  updateMeeting,
   updateMeetingNotes,
 } from "@/lib/hey-api/sdk.gen";
 import type {
@@ -323,6 +328,69 @@ export async function exportMinutes(
     throwOnError: true,
   });
   return data as Blob;
+}
+
+/** Writes in a decision or a piece of work the model missed. */
+export async function addMinutesItem(
+  meetingId: string,
+  kind: "ACTION" | "DECISION",
+  text: string,
+  owner: string,
+  due: string,
+) {
+  const { data } = await addMeetingMinutesItem({
+    path: { meetingId },
+    body: { kind, text, owner: owner || null, due: due || null },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function removeMinutesItem(meetingId: string, itemId: string) {
+  const { data } = await removeMeetingMinutesItem({
+    path: { meetingId, itemId },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export const meetingHeadingKey = (id: string) => [...meetingKey(id), "heading"] as const;
+
+/** The biên bản heading as the owner last saved it; `saved` is false until they do. */
+export async function loadMinutesHeading(meetingId: string, signal: AbortSignal) {
+  const { data } = await getMeetingMinutesHeading({
+    path: { meetingId },
+    signal,
+    throwOnError: true,
+  });
+  return data;
+}
+
+export async function saveMinutesHeading(meetingId: string, heading: MeetingHeadingRequest) {
+  const { data } = await saveMeetingMinutesHeading({
+    path: { meetingId },
+    body: heading,
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
+}
+
+/** Renames the meeting and replaces who was in it; the server trims and de-duplicates the names. */
+export async function updateMeetingDetails(
+  meetingId: string,
+  title: string,
+  participants: string[],
+) {
+  const { data } = await updateMeeting({
+    path: { meetingId },
+    body: { title, participants },
+    headers: sameOriginMutationHeaders,
+    throwOnError: true,
+  });
+  return data;
 }
 
 /** Downloads what was said, for reading elsewhere or for sending to somebody who was not there. */

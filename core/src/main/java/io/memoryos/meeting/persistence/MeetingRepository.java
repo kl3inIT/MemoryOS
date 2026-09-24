@@ -1,6 +1,7 @@
 package io.memoryos.meeting.persistence;
 
 import io.memoryos.meeting.Meeting;
+import io.memoryos.meeting.MeetingMinutesDocument;
 import java.sql.ResultSet;
 import java.time.Duration;
 import java.sql.SQLException;
@@ -247,6 +248,30 @@ public class MeetingRepository {
                 """).param("tenant", tenant).param("meeting", meeting).param("notes", notes).update();
     }
 
+    public void updateDetails(UUID tenant, UUID meeting, String title, List<String> participants) {
+        jdbc.sql("""
+                UPDATE meeting SET title = :title, participants = CAST(:participants AS jsonb),
+                                   updated_at = CURRENT_TIMESTAMP, revision = revision + 1
+                WHERE tenant_id = :tenant AND id = :meeting
+                """).param("tenant", tenant).param("meeting", meeting).param("title", title)
+                .param("participants", JSON.writeValueAsString(participants)).update();
+    }
+
+    public Optional<MeetingMinutesDocument.Heading> heading(UUID tenant, UUID meeting) {
+        return jdbc.sql("SELECT minutes_heading FROM meeting WHERE tenant_id = :tenant AND id = :meeting")
+                .param("tenant", tenant).param("meeting", meeting)
+                .query((r, ignored) -> r.getString("minutes_heading")).optional()
+                .map(json -> JSON.readValue(json, MeetingMinutesDocument.Heading.class));
+    }
+
+    public void saveHeading(UUID tenant, UUID meeting, MeetingMinutesDocument.Heading heading) {
+        jdbc.sql("""
+                UPDATE meeting SET minutes_heading = CAST(:heading AS jsonb), updated_at = CURRENT_TIMESTAMP
+                WHERE tenant_id = :tenant AND id = :meeting
+                """).param("tenant", tenant).param("meeting", meeting)
+                .param("heading", JSON.writeValueAsString(heading)).update();
+    }
+
     public List<Meeting.MinutesItem> minutesItems(UUID tenant, UUID meeting) {
         return jdbc.sql("""
                 SELECT id, kind, text, owner, due, quote, source_utterance_id, done, edited
@@ -339,6 +364,39 @@ public class MeetingRepository {
     }
 
     /** Writes what an item now says. The event beside it is the only history of what it said before. */
+    /** An item the owner wrote in, after the others of its kind. */
+    public void addItem(UUID tenant, UUID meeting, Meeting.MinutesItem item) {
+        jdbc.sql("""
+                INSERT INTO meeting_minutes_item(tenant_id, id, meeting_id, kind, position, text, owner, due, edited)
+                VALUES (:tenant, :id, :meeting, :kind,
+                        (SELECT COALESCE(max(position) + 1, 0) FROM meeting_minutes_item
+                         WHERE tenant_id = :tenant AND meeting_id = :meeting AND kind = :kind),
+                        :text, :owner, :due, TRUE)
+                """).param("tenant", tenant).param("id", item.id()).param("meeting", meeting)
+                .param("kind", item.kind().name()).param("text", item.text()).param("owner", item.owner())
+                .param("due", item.due()).update();
+        markMinutesEdited(tenant, meeting);
+    }
+
+    public boolean removeItem(UUID tenant, UUID meeting, UUID item) {
+        boolean removed = jdbc.sql("""
+                DELETE FROM meeting_minutes_item WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :item
+                """).param("tenant", tenant).param("meeting", meeting).param("item", item).update() == 1;
+        if (removed) markMinutesEdited(tenant, meeting);
+        return removed;
+    }
+
+    /** The heading of the owner's most recent biên bản, which the next one starts from. */
+    public Optional<MeetingMinutesDocument.Heading> lastHeading(UUID tenant, UUID owner) {
+        return jdbc.sql("""
+                SELECT minutes_heading FROM meeting
+                WHERE tenant_id = :tenant AND owner_actor_id = :owner AND minutes_heading IS NOT NULL
+                ORDER BY updated_at DESC, id LIMIT 1
+                """).param("tenant", tenant).param("owner", owner)
+                .query((r, ignored) -> r.getString("minutes_heading")).optional()
+                .map(json -> JSON.readValue(json, MeetingMinutesDocument.Heading.class));
+    }
+
     public void rewriteItem(UUID tenant, UUID meeting, Meeting.MinutesItem item) {
         jdbc.sql("""
                 UPDATE meeting_minutes_item SET text = :text, owner = :owner, due = :due, edited = TRUE
