@@ -16,7 +16,7 @@ import {
   type ReportedModel,
 } from "./model-catalog";
 import { ProviderModelsField } from "./provider-models-field";
-import { useModelAction } from "./use-model-action";
+import { useModelCatalogBusy, useModelMutation } from "./model-mutation";
 
 /**
  * "Fetch models from the provider" on a saved connection: only the listing, searched and picked, and one button that
@@ -35,43 +35,44 @@ export function ModelDiscovery({
 }) {
   const ui = useAppTranslation();
   const client = useQueryClient();
-  const action = useModelAction();
+  const busy = useModelCatalogBusy();
   const [chosen, setChosen] = useState<ReportedModel[]>([]);
   const [failed, setFailed] = useState<string[]>([]);
+  const adding = useModelMutation(async (signal) => {
+    const rejected: string[] = [];
+    for (const model of chosen) {
+      try {
+        await createChatModel({
+          path: { providerId: provider.id },
+          body: modelBody(reportedDraft(model, adapter)),
+          headers: sameOriginMutationHeaders,
+          signal,
+          throwOnError: true,
+        });
+      } catch (cause) {
+        signal.throwIfAborted();
+        if (cause instanceof Error && cause.name === "AbortError") throw cause;
+        rejected.push(model.modelName);
+      }
+      signal.throwIfAborted();
+    }
+    await refreshModelCatalog(client);
+    signal.throwIfAborted();
+    if (rejected.length === 0) {
+      onClose();
+      return;
+    }
+    setChosen(chosen.filter((model) => rejected.includes(model.modelName)));
+    setFailed(rejected);
+  });
 
   async function add() {
-    if (chosen.length === 0 || action.pending) return;
+    if (chosen.length === 0 || busy) return;
     setFailed([]);
     try {
-      await action.run(async (signal) => {
-        const rejected: string[] = [];
-        for (const model of chosen) {
-          try {
-            await createChatModel({
-              path: { providerId: provider.id },
-              body: modelBody(reportedDraft(model, adapter)),
-              headers: sameOriginMutationHeaders,
-              signal,
-              throwOnError: true,
-            });
-          } catch (cause) {
-            signal.throwIfAborted();
-            if (cause instanceof Error && cause.name === "AbortError") throw cause;
-            rejected.push(model.modelName);
-          }
-          signal.throwIfAborted();
-        }
-        await refreshModelCatalog(client);
-        signal.throwIfAborted();
-        if (rejected.length === 0) {
-          onClose();
-          return;
-        }
-        setChosen(chosen.filter((model) => rejected.includes(model.modelName)));
-        setFailed(rejected);
-      });
+      await adding.run();
     } catch {
-      /* Safe action-local feedback is owned by useModelAction. */
+      /* The mutation keeps only safe action-local feedback. */
     }
   }
 
@@ -92,7 +93,7 @@ export function ModelDiscovery({
           configured={models}
           selected={chosen}
           onSelected={setChosen}
-          disabled={action.pending}
+          disabled={busy}
           listOnOpen
         />
         {failed.length > 0 && (
@@ -100,20 +101,20 @@ export function ModelDiscovery({
             {ui(appText("These models were not added: {{models}}", { models: failed.join(", ") }))}
           </p>
         )}
-        {action.error && <p role="alert">{ui(action.error)}</p>}
+        {adding.error && <p role="alert">{ui(adding.error)}</p>}
         <div className="flex flex-wrap justify-end gap-2">
           <Button
             prominence="secondary"
             onClick={() => {
-              action.cancel();
+              adding.cancel();
               onClose();
             }}
           >
             {ui("Close")}
           </Button>
           <Button
-            pending={action.pending}
-            disabled={chosen.length === 0}
+            pending={adding.pending}
+            disabled={chosen.length === 0 || busy}
             onClick={() => void add()}
           >
             {ui(appText("Add {{count}} models", { count: chosen.length }))}

@@ -1,8 +1,9 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import type * as RouterModule from "@tanstack/react-router";
+import { ApiError } from "@/lib/api";
 import { createMemoryOsQueryClient } from "@/lib/query-client";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { ApplicationSessionBoundary } from "@/features/identity/application-session-boundary";
@@ -73,6 +74,24 @@ function deferredResponse() {
 }
 
 afterEach(() => vi.unstubAllGlobals());
+
+/** Everything a catalog mutation keeps: its variables, data, context and the error with its cause. */
+function retainedMutations(client: QueryClient) {
+  const mutations = client.getMutationCache().getAll();
+  for (const { state } of mutations)
+    expect(state.variables === undefined || state.variables instanceof AbortSignal).toBe(true);
+  return JSON.stringify(
+    mutations.map(({ state }) => ({
+      ...state,
+      variables: undefined,
+      error: state.error && { message: state.error.message, cause: state.error.cause },
+      failureReason: state.failureReason && {
+        message: state.failureReason.message,
+        cause: state.failureReason.cause,
+      },
+    })),
+  );
+}
 
 describe("provider connection check", () => {
   it("checks the typed key before saving and names a rejected key", async () => {
@@ -242,7 +261,9 @@ describe("provider secret lifetime and coherent Access", () => {
       credential: { action: "REPLACE", value: "synthetic-secret-not-for-storage" },
     });
     expect(requests[0]!.headers.get("X-MemoryOS-CSRF")).toBe("1");
-    expect(client.getMutationCache().getAll()).toHaveLength(0);
+    // The write in flight is a mutation, but its variables are only its AbortSignal.
+    expect(client.getMutationCache().getAll()).toHaveLength(1);
+    expect(retainedMutations(client)).not.toContain("synthetic-secret-not-for-storage");
     expect(
       JSON.stringify(
         client
@@ -265,6 +286,8 @@ describe("provider secret lifetime and coherent Access", () => {
       ),
     ).not.toContain("synthetic-secret-not-for-storage");
     expect(screen.queryByText(/Provider saved/)).not.toBeInTheDocument();
+    // Closing discarded the write, and nothing observes it any more, so it is collected at once.
+    await waitFor(() => expect(client.getMutationCache().getAll()).toHaveLength(0));
     client.clear();
   });
 
@@ -407,7 +430,18 @@ describe("provider secret lifetime and coherent Access", () => {
     expect(screen.getByLabelText("API key")).toHaveValue("");
     expect(screen.queryByText("synthetic-sensitive-provider-payload")).not.toBeInTheDocument();
     expect(writes).toBe(1);
-    expect(client.getMutationCache().getAll()).toHaveLength(0);
+    // The failed reconciliation stays observed for its feedback, keeping only its status and safe message.
+    const failures = client
+      .getMutationCache()
+      .getAll()
+      .map(({ state }) => state.error);
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toBeInstanceOf(ApiError);
+    expect(failures[0]).toMatchObject({ status: 503, cause: undefined });
+    expect(failures[0]?.message).toMatch(/^The provider could not be acquired/);
+    const retained = retainedMutations(client);
+    expect(retained).not.toContain("synthetic-sensitive-provider-payload");
+    expect(retained).not.toContain("synthetic-conflicted-key");
     client.clear();
   });
 });
@@ -559,6 +593,63 @@ describe("model manager authority", () => {
       ),
     ).not.toContain("Private connection");
     expect(client.getMutationCache().getAll()).toHaveLength(0);
+    client.clear();
+  });
+
+  it("aborts a write in flight and drops the key draft when the page is hidden", async () => {
+    const pending = deferredResponse();
+    const writes: Request[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (request: Request) => {
+        const path = new URL(request.url).pathname;
+        if (path === "/api/identity/me") return Response.json(session);
+        if (request.method === "PUT") {
+          writes.push(request);
+          return pending.promise;
+        }
+        if (path === "/api/chat/providers") return Response.json([provider]);
+        if (path === "/api/chat/provider-adapters") return Response.json([adapter]);
+        if (path.endsWith(`/providers/${provider.id}/models`)) return Response.json([model]);
+        if (path === "/api/chat/model-default")
+          return Response.json({ modelConfigurationId: model.id, revision: 1 });
+        if (path === "/api/chat/model-flows")
+          return Response.json([
+            { flow: "CHAT_NAMING", modelConfigurationId: null, available: true, revision: 1 },
+          ]);
+        if (path === "/api/chat/model-personas")
+          return Response.json({ items: [], nextCursor: null });
+        return Response.json({ items: [], totalPages: 1 });
+      }),
+    );
+    const client = createMemoryOsQueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <ApplicationSessionBoundary>
+          <ModelsPage />
+        </ApplicationSessionBoundary>
+      </QueryClientProvider>,
+    );
+    const editProvider = await screen.findByRole("button", { name: /Edit provider/ });
+    await waitFor(() => expect(editProvider).toBeEnabled());
+    fireEvent.click(editProvider);
+    fireEvent.change(screen.getByLabelText("Credential action"), { target: { value: "REPLACE" } });
+    fireEvent.change(screen.getByLabelText("API key"), {
+      target: { value: "hidden-page-secret" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save provider" }));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    // The unmount is synchronous, so the request is aborted before the page can be cached.
+    expect(writes[0]!.signal.aborted).toBe(true);
+    expect(screen.queryByLabelText("API key")).not.toBeInTheDocument();
+    await act(async () => {
+      pending.resolve(Response.json({ ...provider, revision: 4 }));
+    });
+    await waitFor(() => expect(client.getMutationCache().getAll()).toHaveLength(0));
+    expect(screen.queryByText(/Provider saved/)).not.toBeInTheDocument();
     client.clear();
   });
 

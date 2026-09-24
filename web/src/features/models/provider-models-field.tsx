@@ -24,7 +24,7 @@ import {
   type ManagedModel,
   type ReportedModel,
 } from "./model-catalog";
-import { useModelAction } from "./use-model-action";
+import { useModelMutation } from "./model-mutation";
 
 /**
  * The models of the provider being edited, listed inside its own form as Onyx lists them: the endpoint is read with
@@ -48,8 +48,21 @@ export function ProviderModelsField({
   listOnOpen?: boolean;
 }) {
   const ui = useAppTranslation();
-  const action = useModelAction();
   const [reported, setReported] = useState<ReportedModel[] | null>(null);
+  const listing = useModelMutation(async (signal) => {
+    // The endpoint and key are read at the press, never held as mutation variables.
+    const body = connection();
+    if (!body) return;
+    const result = await listReportedProviderModels({
+      body,
+      headers: sameOriginMutationHeaders,
+      signal,
+      throwOnError: true,
+    });
+    signal.throwIfAborted();
+    setReported(result.data.models);
+    onSelected([]);
+  });
   const [query, setQuery] = useState("");
   const already = new Set(configured.map((model) => model.modelName));
   const all = useMemo(() => reported ?? [], [reported]);
@@ -66,22 +79,11 @@ export function ProviderModelsField({
   );
 
   async function refresh() {
-    const body = connection();
-    if (!body || action.pending) return;
+    if (connection() === null || listing.pending) return;
     // A second press replaces the first listing rather than racing it, as Onyx's refetch button does.
-    action.cancel();
+    listing.cancel();
     try {
-      await action.run(async (signal) => {
-        const result = await listReportedProviderModels({
-          body,
-          headers: sameOriginMutationHeaders,
-          signal,
-          throwOnError: true,
-        });
-        signal.throwIfAborted();
-        setReported(result.data.models);
-        onSelected([]);
-      });
+      await listing.run();
     } catch {
       /* Safe action-local feedback only. */
     }
@@ -122,16 +124,16 @@ export function ProviderModelsField({
         </div>
         <Button
           prominence="secondary"
-          pending={action.pending}
-          disabled={disabled || connection() === null || action.pending}
+          pending={listing.pending}
+          disabled={disabled || connection() === null || listing.pending}
           onClick={() => void refresh()}
         >
           <RefreshCw aria-hidden="true" />
           {reported === null ? ui("List models") : ui("Refresh")}
         </Button>
       </div>
-      {action.error && <p role="alert">{ui(action.error)}</p>}
-      {reported !== null && all.length === 0 && !action.pending && (
+      {listing.error && <p role="alert">{ui(listing.error)}</p>}
+      {reported !== null && all.length === 0 && !listing.pending && (
         <p className="text-sm text-content-muted">{ui("This endpoint reported no models.")}</p>
       )}
       {all.length > 0 && (
@@ -153,7 +155,7 @@ export function ProviderModelsField({
             <Button
               prominence="tertiary"
               size="sm"
-              disabled={disabled || action.pending || selectable.length === 0}
+              disabled={disabled || listing.pending || selectable.length === 0}
               onClick={() =>
                 onSelected([
                   ...selected,
@@ -168,7 +170,7 @@ export function ProviderModelsField({
             <Button
               prominence="tertiary"
               size="sm"
-              disabled={disabled || action.pending || selected.length === 0}
+              disabled={disabled || listing.pending || selected.length === 0}
               onClick={() => onSelected([])}
             >
               {ui("Clear selection")}
@@ -198,7 +200,7 @@ export function ProviderModelsField({
                           <label className="flex min-w-0 items-center gap-2">
                             <Checkbox
                               checked={selected.some((one) => one.modelName === model.modelName)}
-                              disabled={disabled || action.pending}
+                              disabled={disabled || listing.pending}
                               onCheckedChange={(checked) =>
                                 onSelected(
                                   checked === true
