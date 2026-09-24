@@ -42,11 +42,11 @@ import {
   groupByDate,
   libraryPreviewTarget,
   libraryThumbnailUrl,
-  removeFromProject,
   usageLabel,
   type LibraryDayGroup,
   type LibraryFile,
 } from "./library";
+import { removeFromProject } from "@/features/chat/projects/chat-project-files";
 import { categoryIcon, categoryLabels, sourceLabels, statusLabel } from "./library-labels";
 import { type LibraryLayout } from "./library-toolbar";
 import type { LibraryView } from "./library-rail";

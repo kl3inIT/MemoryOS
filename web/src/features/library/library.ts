@@ -11,10 +11,8 @@ import {
   deleteChatFile,
   deleteChatFileArtifact,
   deleteChatImageArtifact,
-  getChatProject,
   listChatLibrary,
   searchChatLibraryContent,
-  updateChatProject,
 } from "@/lib/hey-api/sdk.gen";
 import type {
   ChatLibraryContentMatch,
@@ -23,7 +21,6 @@ import type {
 } from "@/lib/hey-api/types.gen";
 import type { PreviewTarget } from "./file-preview";
 import { chatFileSchema, waitForChatFile, type ChatFile } from "./files";
-import { projectSchema } from "@/features/chat/chat-workspace-api";
 import { imageArtifactUrl } from "./content-urls";
 
 export type LibraryFile = ChatLibraryFile;
@@ -184,87 +181,6 @@ export async function libraryUpload(file: LibraryFile, signal: AbortSignal): Pro
   });
   const copy = chatFileSchema.parse(data);
   return copy.status === "READY" ? copy : waitForChatFile(copy.id, signal);
-}
-
-/** A Project admits at most this many files, as a message does. */
-export const PROJECT_FILE_LIMIT = 20;
-
-export class ProjectFull extends Error {
-  constructor() {
-    super("PROJECT_FULL");
-  }
-}
-
-/**
- * Adds library files to a Project the caller owns through the Project's own update, so the server admits them
- * exactly as files attached in the Project editor. Generated files are copied into uploads first.
- */
-export async function addToProject(
-  projectId: string,
-  files: readonly LibraryFile[],
-  signal: AbortSignal,
-): Promise<void> {
-  const uploads: ChatFile[] = [];
-  for (const file of files) uploads.push(await libraryUpload(file, signal));
-  await changeProjectFiles(projectId, signal, (current) => [
-    ...new Set([...current, ...uploads.map((upload) => upload.id)]),
-  ]);
-}
-
-/** Removes only the link: the file stays in the library. */
-export async function removeFromProject(projectId: string, fileId: string, signal: AbortSignal) {
-  await changeProjectFiles(projectId, signal, (current) => current.filter((id) => id !== fileId));
-}
-
-async function changeProjectFiles(
-  projectId: string,
-  signal: AbortSignal,
-  change: (current: string[]) => string[],
-) {
-  const project = projectSchema.parse((await getChatProject({ path: { projectId }, signal })).data);
-  const fileIds = change(project.fileIds);
-  if (fileIds.length > PROJECT_FILE_LIMIT) throw new ProjectFull();
-  await updateChatProject({
-    path: { projectId },
-    query: { revision: project.revision },
-    body: {
-      name: project.name,
-      description: project.description,
-      instructions: project.instructions,
-      fileIds,
-    },
-    signal,
-  });
-}
-
-export type BranchStep = { messageId: string; expectedChildId: string | null };
-
-/**
- * The version selections that put `target` on the conversation's selected path, from the root down. Each step
- * selects one message among its siblings, so its parent's current choice is the expected child the server checks.
- * Empty when the target is already shown or is not in this conversation.
- */
-export function branchSteps(
-  branches: readonly {
-    id: string;
-    parentMessageId: string | null;
-    latestChildMessageId: string | null;
-  }[],
-  target: string,
-): BranchStep[] {
-  const byId = new Map(branches.map((branch) => [branch.id, branch]));
-  const steps: BranchStep[] = [];
-  let node = byId.get(target);
-  const seen = new Set<string>();
-  while (node?.parentMessageId && !seen.has(node.id)) {
-    seen.add(node.id);
-    const parent = byId.get(node.parentMessageId);
-    if (!parent) return [];
-    if (parent.latestChildMessageId !== node.id)
-      steps.unshift({ messageId: node.id, expectedChildId: parent.latestChildMessageId });
-    node = parent;
-  }
-  return node ? steps : [];
 }
 
 /** Renames a file or stars it; the library shows the result at once, as does every surface reading its name. */

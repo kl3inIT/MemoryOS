@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { branchSteps } from "./library";
+import { branchSteps } from "./chat-branch-steps";
 
 // root ─ q1 ─ a1 ─ q2 ─ a2          (selected path)
 //         └ a1' ─ q3 ─ a3            (a regenerated answer with its own follow-up)

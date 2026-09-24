@@ -7,13 +7,8 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { createChatProject } from "@/lib/hey-api/sdk.gen";
 import { FormDialog } from "@/components/composites/form-dialog";
-import {
-  addToProject,
-  chatLibraryKey,
-  ProjectFull,
-  PROJECT_FILE_LIMIT,
-  type LibraryFile,
-} from "@/features/library/library";
+import { chatLibraryKey, type LibraryFile } from "@/features/library/library";
+import { addToProject, ProjectFull, PROJECT_FILE_LIMIT } from "./chat-project-files";
 import { loadProjects, projectSchema } from "@/features/chat/chat-workspace-api";
 
 /**
