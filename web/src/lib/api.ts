@@ -1,5 +1,8 @@
 import { client } from "./hey-api/client.gen";
+
+/** The same-origin guard the API requires on every unsafe browser-session request. */
 export const sameOriginMutationHeaders = { "X-MemoryOS-CSRF": "1" as const };
+const safeMethods = new Set(["GET", "HEAD", "OPTIONS"]);
 
 export class ApiError extends Error {
   readonly status: number | undefined;
@@ -14,6 +17,17 @@ export class ApiError extends Error {
 client.setConfig({
   baseUrl: window.location.origin,
   credentials: "same-origin",
+  // Every SDK call rejects with ApiError on a non-2xx response; the generator emits the same default.
+  throwOnError: true,
+});
+
+client.interceptors.request.use((request) => {
+  if (!safeMethods.has(request.method)) {
+    for (const [name, value] of Object.entries(sameOriginMutationHeaders)) {
+      request.headers.set(name, value);
+    }
+  }
+  return request;
 });
 
 client.interceptors.error.use((error, response) => new ApiError(response?.status, error));
