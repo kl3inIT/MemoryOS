@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.Set;
 import java.util.Arrays;
@@ -177,7 +178,7 @@ public final class ChatTurnService implements AutoCloseable {
         try {
             // Credentials and OAuth refresh settle here, so the model never waits on an authorization server.
             // A Stop that arrives meanwhile cancels the run; execution then settles it without calling the model.
-            if (admission.opensMcp()) run.setup = run.setup.withMcp(mcp.open(actor, command.mcpServerIds()));
+            if (admission.opensMcp()) run.setup = run.setup.withMcp(Objects.requireNonNull(mcp).open(actor, command.mcpServerIds()));
             failure = "CHAT_SUBMIT_FAILED";
             if (!accepting.get()) throw ChatException.busy();
             executor.execute(() -> execute(run));

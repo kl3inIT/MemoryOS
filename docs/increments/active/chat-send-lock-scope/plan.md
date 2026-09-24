@@ -10,4 +10,5 @@
 - `./gradlew :core:compileJava :core:compileTestJava --no-daemon`: passed.
 - `./gradlew :core:test --no-daemon --tests 'io.memoryos.chat.*Turn*'`: passed — `ChatTurnServiceTest` 13/13, `ChatTurnSetupTest` 11/11.
 - The same `ChatTurnServiceTest` against the previous `ChatTurnService` fails the four new cases: the three concurrency cases time out behind the held stripe, and the failure case shows the old direct `finish` without a stream outcome.
-- Full `clean check` is left to CI.
+- Model resolution stays under the stripe and does no network I/O: `ChatModelResolver.acquire` decrypts the stored key locally (`ProviderCredentials.resolve`) and the adapter only builds SDK clients, reused through the `ChatModelClients` lease cache. Web and image resolution are read-only transactions.
+- `ChatSessionApiIntegrationTest` (PostgreSQL, end-to-end send) and full `clean check` are left to CI.
