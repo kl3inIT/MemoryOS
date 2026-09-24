@@ -38,11 +38,12 @@ final class PaddleOcrVlDocument {
     private PaddleOcrVlDocument() {}
 
     /**
-     * @param pages the PDF's pages in points, one per result; empty for an image input
+     * @param pages the PDF's pages in points, one per result; empty for an image input, where each
+     *        result is one frame (a multi-page TIFF has several) and carries a page number but no box
      */
     static List<Block> blocks(JsonNode results, List<Page> pages) throws ExtractionException {
         if (!pages.isEmpty() && results.size() != pages.size()) throw failure(ExtractionFailure.MALFORMED);
-        if (pages.isEmpty() && results.size() != 1) throw failure(ExtractionFailure.MALFORMED);
+        if (results.isEmpty()) throw failure(ExtractionFailure.MALFORMED);
         var blocks = new ArrayList<Block>();
         int[] cells = {0};
         for (int index = 0; index < results.size(); index++) {
@@ -71,7 +72,15 @@ final class PaddleOcrVlDocument {
                 if (PICTURES.contains(label)) {
                     blocks.add(new Block(position, Kind.IMAGE, "", null, locations, null, null, null));
                 } else if ("table".equals(label)) {
-                    blocks.add(Block.table(position, "", locations, table(content, cells), null));
+                    // PaddleX keeps its raw recognition when it cannot build table cells from it; that
+                    // text is still the page's content, so it is kept as a paragraph.
+                    var table = table(content, cells);
+                    if (!table.cells().isEmpty()) {
+                        blocks.add(Block.table(position, "", locations, table, null));
+                    } else {
+                        String text = org.jsoup.Jsoup.parse(content).text().strip();
+                        if (!text.isEmpty()) blocks.add(Block.text(position, Kind.PARAGRAPH, text, locations));
+                    }
                 } else if (content.isEmpty()) {
                     continue;
                 } else if ("doc_title".equals(label)) {

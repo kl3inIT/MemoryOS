@@ -37,18 +37,22 @@ record PdfLayout(int pages, List<Page> sizes, boolean scanned) {
         return new PdfLayout(pages, sizes, measureTextLayer && scanned(pdf, pages));
     }
 
-    /** Reads page by page and stops as soon as the document has shown it is not a scan. */
+    /**
+     * A document is read as a scan when any one page has too little text layer to be anything else.
+     * Docling reads text layers only once PaddleOCR-VL exists, so a report whose narrative pages carry
+     * text and whose statements are scanned would otherwise lose those statements while succeeding.
+     * A text document with a blank or picture page goes to PaddleOCR-VL as well; that costs GPU time,
+     * not content. Reads page by page and stops at the first such page.
+     */
     private static boolean scanned(PDDocument pdf, int pages) throws IOException {
-        long required = (long) DoclingSourceContentExtractor.MIN_FALLBACK_CHARACTERS_PER_PDF_PAGE * Math.max(1, pages);
         var stripper = new PDFTextStripper();
-        long characters = 0;
         for (int page = 1; page <= pages; page++) {
             if (Thread.currentThread().isInterrupted()) throw new java.io.InterruptedIOException("text layer measurement interrupted");
             stripper.setStartPage(page);
             stripper.setEndPage(page);
-            characters += stripper.getText(pdf).codePoints().filter(c -> !Character.isWhitespace(c)).count();
-            if (characters >= required) return false;
+            long characters = stripper.getText(pdf).codePoints().filter(c -> !Character.isWhitespace(c)).count();
+            if (characters < DoclingSourceContentExtractor.MIN_FALLBACK_CHARACTERS_PER_PDF_PAGE) return true;
         }
-        return true;
+        return false;
     }
 }

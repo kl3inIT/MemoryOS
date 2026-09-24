@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import type {
   CurrentIdentity,
@@ -49,11 +50,17 @@ const earlier: MeetingSummary[] = [
 ];
 
 const MEETING_ID = "0f6b3c1e-9a7d-4d5e-8c2b-6e1f4a9b3d77";
+/** A biên bản rendered by the API's own PDF renderer from the minutes this fixture writes. */
+const MINUTES_PDF = new URL("../fixtures/meeting-minutes.pdf", import.meta.url);
 
 async function mockMeetings(page: Page) {
   let meeting: MeetingDetail | undefined;
   const audio = { bytes: 0, ended: false, offset: "" };
-  const exported: { heading?: Record<string, unknown> } = {};
+  const exported: {
+    heading?: Record<string, unknown>;
+    saved?: Record<string, unknown>;
+    previews?: number;
+  } = {};
   const uploaded: { request?: Record<string, unknown>; bytes?: number } = {};
   const shared: { request?: { members: string[]; groups: string[] } } = {};
   await page.route("**/api/identity/me", (route) => route.fulfill({ json: member }));
@@ -120,7 +127,13 @@ async function mockMeetings(page: Page) {
       : [];
     await route.fulfill({ json: [...current, ...earlier] });
   });
-  await page.route(`**/api/meetings/${MEETING_ID}`, (route) => route.fulfill({ json: meeting }));
+  await page.route(`**/api/meetings/${MEETING_ID}`, async (route) => {
+    if (route.request().method() === "PUT") {
+      const body = route.request().postDataJSON() as { title: string; participants: string[] };
+      meeting = { ...meeting!, title: body.title.trim(), participants: body.participants };
+    }
+    await route.fulfill({ json: meeting });
+  });
   await page.route(`**/api/meetings/${MEETING_ID}/utterances/*/star`, async (route) => {
     const line = new URL(route.request().url()).pathname.split("/").at(-2)!;
     const starred = route.request().method() === "PUT" ? [line] : [];
@@ -377,6 +390,12 @@ async function mockMeetings(page: Page) {
     await route.fulfill({ json: meeting });
   });
   await page.route(`**/api/meetings/${MEETING_ID}/minutes/export?*`, async (route) => {
+    if (new URL(route.request().url()).searchParams.get("format") === "PDF") {
+      // The preview: a biên bản drawn by the API's own PDF renderer from this fixture's minutes.
+      exported.previews = (exported.previews ?? 0) + 1;
+      await route.fulfill({ contentType: "application/pdf", body: readFileSync(MINUTES_PDF) });
+      return;
+    }
     exported.heading = route.request().postDataJSON() as Record<string, unknown>;
     await route.fulfill({
       // The real endpoint answers with a Word document; the browser only has to save it.
@@ -450,6 +469,74 @@ async function mockMeetings(page: Page) {
       }
     });
   });
+  // Registered after the item route above so these are not taken for ticking an item off.
+  await page.route(`**/api/meetings/${MEETING_ID}/minutes/items`, async (route) => {
+    const body = route.request().postDataJSON() as {
+      kind: "ACTION" | "DECISION";
+      text: string;
+      owner: string | null;
+      due: string | null;
+    };
+    const item = {
+      id: `added-${Date.now()}`,
+      text: body.text.trim(),
+      owner: body.owner,
+      due: body.due,
+      quote: null,
+      sourceUtteranceId: null,
+      done: false,
+      edited: true,
+    };
+    const minutes = meeting!.minutes;
+    meeting = {
+      ...meeting!,
+      minutes:
+        body.kind === "ACTION"
+          ? { ...minutes, actions: [...minutes.actions, item], edited: true }
+          : { ...minutes, decisions: [...minutes.decisions, item], edited: true },
+    };
+    await route.fulfill({ json: meeting });
+  });
+  await page.route(`**/api/meetings/${MEETING_ID}/minutes/items/*`, async (route) => {
+    if (route.request().method() !== "DELETE") return route.fallback();
+    const id = new URL(route.request().url()).pathname.split("/").at(-1);
+    const minutes = meeting!.minutes;
+    meeting = {
+      ...meeting!,
+      minutes: {
+        ...minutes,
+        actions: minutes.actions.filter((item) => item.id !== id),
+        decisions: minutes.decisions.filter((item) => item.id !== id),
+        edited: true,
+      },
+    };
+    await route.fulfill({ json: meeting });
+  });
+  // Registered after the item route above so the heading is not taken for a minutes item.
+  await page.route(`**/api/meetings/${MEETING_ID}/minutes/heading`, async (route) => {
+    if (route.request().method() === "PUT")
+      exported.saved = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({
+      json: exported.saved
+        ? { saved: true, ...exported.saved }
+        : {
+            saved: false,
+            organization: "",
+            parentOrganization: "",
+            number: "",
+            about: "",
+            place: "",
+            opened: "",
+            closed: "",
+            chair: "",
+            chairRole: "",
+            secretary: "",
+            secretaryRole: "",
+            attendees: [],
+            font: "",
+          },
+    });
+  });
   /** Whether the server says a correction pass holds the meeting, as a reopened page would find it. */
   const correcting = (value: boolean) => {
     meeting = { ...meeting!, correcting: value };
@@ -508,6 +595,8 @@ for (const width of [1440, 390]) {
   test(`a member records an in-person meeting, names a speaker and ends it at ${width}px`, async ({
     page,
   }) => {
+    // One meeting from the start form to the edited biên bản: longer than a single-screen test.
+    test.setTimeout(60_000);
     await page.setViewportSize({ width, height: 900 });
     const { audio, exported, shared, correcting, written } = await mockMeetings(page);
 
@@ -526,6 +615,11 @@ for (const width of [1440, 390]) {
 
     await page.getByRole("button", { name: "Ghi cuộc họp mới" }).click();
     const dialog = page.getByRole("dialog", { name: "Ghi cuộc họp mới" });
+    // Only what the recording needs is asked up front; the rest waits behind "Thêm chi tiết" or on the page.
+    await expect(dialog.getByLabel("Tên cuộc họp")).toBeHidden();
+    await dialog.getByText("Họp trực tiếp", { exact: true }).click();
+    await page.screenshot({ path: `../output/playwright/meetings-new-short-${width}.png` });
+    await dialog.getByRole("button", { name: "Thêm chi tiết" }).click();
     await dialog.getByLabel("Tên cuộc họp").fill("Giao ban tuần · Khối Tài chính");
     await dialog.getByLabel("Thành phần").fill("Anh Thanh, Chị Lan, Anh Minh");
     await dialog.getByLabel("Thuật ngữ riêng").fill("Tasco, Vinaconex 9, OKR, KPI");
@@ -568,6 +662,8 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: "Dừng", exact: true }).click();
     const confirm = page.getByRole("alertdialog");
     await confirm.getByRole("button", { name: "Dừng và kết thúc" }).click();
+    // The confirmation closes at once; the last words are stored behind the recording bar.
+    await expect(confirm).toBeHidden({ timeout: 1_000 });
     await expect(page.getByRole("button", { name: "Xoá cuộc họp" })).toBeVisible();
     // The minutes open on their own tab once they are written.
     await expect(
@@ -588,6 +684,21 @@ for (const width of [1440, 390]) {
     // The tick is stored before it shows, so the assertion waits rather than check() asserting at once.
     await page.getByRole("checkbox", { name: /Đánh dấu xong/ }).click();
     await expect(page.getByRole("checkbox", { name: /Đánh dấu xong/ })).toBeChecked();
+    // What the model missed is written in; what should not be there comes out.
+    await page.getByRole("button", { name: "Thêm việc" }).click();
+    await page.getByRole("textbox", { name: "Nội dung" }).fill("Đặt phòng họp cho quý 4");
+    await page.getByLabel("Người nhận").fill("Chị Hoa");
+    await page.getByLabel("Hạn", { exact: true }).fill("thứ Hai");
+    await page.getByRole("button", { name: "Thêm", exact: true }).click();
+    const added = page.getByRole("tabpanel").getByRole("listitem").filter({
+      hasText: "Đặt phòng họp cho quý 4",
+    });
+    await expect(added.getByText("Chị Hoa", { exact: true })).toBeVisible();
+    await added.hover();
+    await page.screenshot({ path: `../output/playwright/meetings-added-${width}.png` });
+    await added.getByRole("button", { name: "Sửa" }).click();
+    await page.getByRole("button", { name: "Xoá", exact: true }).click();
+    await expect(page.getByText("Đặt phòng họp cho quý 4", { exact: true })).toHaveCount(0);
     await page.getByRole("tab", { name: /Quyết định/ }).click();
     await expect(
       page.getByRole("tabpanel").getByText("Chốt ngân sách quý 4 trước thứ Năm", { exact: true }),
@@ -609,17 +720,42 @@ for (const width of [1440, 390]) {
       path: `../output/playwright/meetings-sharing-${width}.png`,
       fullPage: true,
     });
+    // The name and the people are filled in on the page, after the recording started.
+    await page.getByRole("button", { name: "Sửa thông tin" }).click();
+    const details = page.getByRole("dialog", { name: "Thông tin cuộc họp" });
+    await details.getByLabel("Thành phần").fill("Anh Thanh, Chị Lan, Anh Minh, Chị Hoa");
+    await page.screenshot({ path: `../output/playwright/meetings-details-${width}.png` });
+    await details.getByRole("button", { name: "Lưu" }).click();
+    await expect(details).toHaveCount(0);
+    await expect(page.getByText("Anh Thanh, Chị Lan, Anh Minh, Chị Hoa")).toBeVisible();
+
     await page.getByRole("button", { name: "Xuất biên bản" }).click();
-    const bienBan = page.getByRole("dialog", { name: "Xuất biên bản" });
+    const bienBan = page.getByRole("dialog", { name: "Biên bản cuộc họp" });
     // The heading the transcript cannot know is the owner's; the meeting fills the rest.
     await expect(bienBan.getByLabel("Về việc")).toHaveValue("Giao ban tuần · Khối Tài chính");
     await expect(bienBan.getByLabel("Bắt đầu")).toHaveValue(
       /^\d{2} giờ \d{2} ngày \d+ tháng \d+ năm \d{4}$/,
     );
+    await expect(bienBan.getByLabel("Người dự")).toHaveValue(
+      "Anh Thanh, Chị Lan, Anh Minh, Chị Hoa",
+    );
+    // The first biên bản opens the issuing organization, since there is nothing to carry over yet.
+    await expect(bienBan.getByLabel("Cơ quan, tổ chức")).toBeVisible();
     await bienBan.getByLabel("Cơ quan, tổ chức").fill("CÔNG TY CỔ PHẦN TASCO");
+    await bienBan.getByLabel("Cơ quan cấp trên").fill("TẬP ĐOÀN TASCO");
+    await bienBan.getByLabel("Số biên bản").fill("12");
     await bienBan.getByLabel("Địa điểm").fill("Phòng họp A, Hà Nội");
     await bienBan.getByLabel("Chủ trì", { exact: true }).fill("Nguyễn Văn An");
+    await bienBan.getByLabel("Thư ký", { exact: true }).fill("Trần Thị Lan");
+    // The page beside the form is the PDF the API renders, drawn once typing pauses.
+    await expect(bienBan.locator('[data-slot="pdf-page"][data-rendered]').first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.waitForTimeout(1_200);
     await page.screenshot({ path: `../output/playwright/meetings-export-${width}.png` });
+    // Only the owner keeps a heading; it is waiting for them the next time.
+    await expect.poll(() => exported.saved?.chair).toBe("Nguyễn Văn An");
+    expect(exported.previews).toBeGreaterThan(0);
     await expect(bienBan.getByLabel("Phông chữ")).toHaveValue("Times New Roman");
     await bienBan.getByLabel("Phông chữ").selectOption("Arial");
     const download = page.waitForEvent("download");
@@ -629,7 +765,7 @@ for (const width of [1440, 390]) {
       organization: "CÔNG TY CỔ PHẦN TASCO",
       place: "Phòng họp A, Hà Nội",
       chair: "Nguyễn Văn An",
-      attendees: ["Anh Thanh", "Chị Lan", "Anh Minh"],
+      attendees: ["Anh Thanh", "Chị Lan", "Anh Minh", "Chị Hoa"],
       font: "Arial",
     });
     await expect(bienBan).toHaveCount(0);

@@ -167,10 +167,17 @@ export class MeetingRecorder {
     this.publish();
   }
 
-  /** Stores what was said up to now, then releases the microphone, the tab and the sockets. */
+  /**
+   * Turns the microphone and the tab off at once, then waits while what they already sent is stored and releases the
+   * sockets. Nothing new is captured once the person pressed stop.
+   */
   async stop() {
     if (this.snapshot.phase === "stopping" || this.snapshot.phase === "stopped") return;
     this.update({ phase: "stopping" });
+    for (const pipe of this.pipes) {
+      pipe.capture?.stop();
+      pipe.capture = undefined;
+    }
     await Promise.all(this.pipes.map((pipe) => this.closeSocket(pipe)));
     this.release();
     this.update({ phase: "stopped", previews: {} });

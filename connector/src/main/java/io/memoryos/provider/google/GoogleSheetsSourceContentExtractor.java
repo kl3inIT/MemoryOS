@@ -51,7 +51,7 @@ public final class GoogleSheetsSourceContentExtractor {
             output.append(title + "\n");
             readPages(sheet.path("pages"), rows, columns, cells, output);
             // Google Sheets locations never named the sheet; naming it would change how Chat and Search place a citation.
-            output.add(Block.table(index, title, List.of(Location.sheet(properties.path("index").asInt(position), title, null)),
+            output.add(Block.table(index, title, List.of(Location.sheet(properties.path("index").asInt(position), null, null)),
                     new Table(rows, columns, cells), title));
         }
         return output.finish("application/vnd.google-apps.spreadsheet", filename, "google-sheets-native-v1");

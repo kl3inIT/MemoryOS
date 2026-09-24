@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const SOURCE_REPO = "BerriAI/litellm";
 const SOURCE_FILE = "model_prices_and_context_window.json";
-const SOURCE_COMMIT = process.argv[2] ?? "b1a61f510c90ce7e4533e89247c941fa201ada4f";
+const SOURCE_COMMIT = process.argv[2] ?? "7370650d91bea7ecdd04dd7350a6cf4229441048";
 // Vendors whose OpenAI-compatible /models endpoint names models without their limits (MEM-130). LiteLLM keys the
 // non-OpenAI ones as "<provider>/<model>"; the prefix is dropped because the endpoints report the bare name.
 const PROVIDERS = new Set(["openai", "anthropic", "gemini", "xai", "deepseek", "mistral"]);

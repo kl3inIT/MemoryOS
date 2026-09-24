@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
+import org.apache.poi.xwpf.usermodel.UnderlinePatterns;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
@@ -96,13 +97,19 @@ public final class MeetingMinutesDocument {
         }
 
         @Override
-        public void columns(List<Cell> left, List<Cell> right, boolean keepWithPrevious) {
+        public void columns(List<Cell> left, List<Cell> right, float leftShare, boolean keepWithPrevious) {
             var table = document.createTable(1, 2);
             table.setWidth("100%");
             var properties = table.getCTTbl().getTblPr();
             if (properties != null && properties.isSetTblBorders()) properties.unsetTblBorders();
+            table.getRow(0).getCell(0).setWidth(percent(leftShare));
+            table.getRow(0).getCell(1).setWidth(percent(1 - leftShare));
             fill(table.getRow(0).getCell(0), left);
             fill(table.getRow(0).getCell(1), right);
+        }
+
+        private static String percent(float share) {
+            return Math.round(share * 100) + "%";
         }
 
         private XWPFParagraph paragraph(String text, boolean bold, int size, Align align) {
@@ -118,7 +125,8 @@ public final class MeetingMinutesDocument {
                 var paragraph = cell.getParagraphs().size() == 1 && cell.getParagraphs().getFirst().getRuns().isEmpty()
                         ? cell.getParagraphs().getFirst() : cell.addParagraph();
                 paragraph.setAlignment(ParagraphAlignment.CENTER);
-                run(paragraph, line.text(), line.bold(), line.size());
+                var run = run(paragraph, line.text(), line.bold(), line.size());
+                if (line.underline()) run.setUnderline(UnderlinePatterns.SINGLE);
             }
         }
     }

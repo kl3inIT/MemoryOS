@@ -34,8 +34,10 @@ class MeetingMinutesDocumentTest {
         assertTrue(lines.contains("Số: 12/BB"));
         assertTrue(lines.contains("BIÊN BẢN"));
         assertTrue(lines.contains("Về việc giao ban tuần Khối Tài chính"));
-        assertTrue(lines.contains("Hôm nay, vào lúc 09 giờ 00 ngày 21 tháng 9 năm 2026"));
-        assertTrue(lines.contains("Tại Phòng họp A, Hà Nội"));
+        assertTrue(lines.contains("Thời gian bắt đầu: 09 giờ 00 ngày 21 tháng 9 năm 2026"));
+        assertTrue(lines.contains("Địa điểm: Phòng họp A, Hà Nội"));
+        // The subject is under the title; the opening does not say it a second time.
+        assertTrue(lines.stream().noneMatch(line -> line.startsWith("Diễn ra cuộc họp")));
 
         assertTrue(lines.contains("I. Thành phần tham dự:"));
         assertTrue(lines.contains("1. Chủ trì: Ông/Bà Nguyễn Văn An - Chức vụ: Giám đốc Tài chính"));

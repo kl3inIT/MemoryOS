@@ -40,7 +40,7 @@ final class PaddleOcrVlExtractor implements AutoCloseable {
      */
     @Nullable DocumentContent read(PaddleOcrVlClient.Input input, @Nullable PdfLayout layout, String filename,
             String mediaType, long maxInput) throws ExtractionException {
-        if (layout == null) admitImage(input);
+        if (layout == null) admitImage(input, properties.maxPages());
         else if (layout.pages() < 1) throw DocumentAssembly.failure(ExtractionFailure.MALFORMED);
         else if (layout.pages() > properties.maxPages()) throw DocumentAssembly.failure(ExtractionFailure.WRITE_LIMIT);
         var results = client.parse(input, layout == null ? PaddleOcrVlClient.FileType.IMAGE : PaddleOcrVlClient.FileType.PDF);
@@ -60,8 +60,12 @@ final class PaddleOcrVlExtractor implements AutoCloseable {
         return content;
     }
 
-    /** Size and dimensions from the header alone; a small file must not decode to billions of pixels there. */
-    private static void admitImage(PaddleOcrVlClient.Input input) throws ExtractionException {
+    /**
+     * Size and dimensions from the headers alone; a small file must not decode to billions of pixels
+     * there. PaddleX reads every frame of a multi-page TIFF as a page, so each frame is held to the same
+     * pixel limit and the frame count to the page limit a PDF has.
+     */
+    private static void admitImage(PaddleOcrVlClient.Input input, int maxPages) throws ExtractionException {
         try {
             if (input.size() < 1 || input.size() > MAX_IMAGE_BYTES) throw DocumentAssembly.failure(ExtractionFailure.WRITE_LIMIT);
             try (var stream = input.open(); var image = javax.imageio.ImageIO.createImageInputStream(stream)) {
@@ -69,9 +73,14 @@ final class PaddleOcrVlExtractor implements AutoCloseable {
                 if (readers == null || !readers.hasNext()) throw DocumentAssembly.failure(ExtractionFailure.MALFORMED);
                 var reader = readers.next();
                 try {
-                    reader.setInput(image, true, true);
-                    long pixels = (long) reader.getWidth(0) * reader.getHeight(0);
-                    if (pixels < 1 || pixels > MAX_IMAGE_PIXELS) throw DocumentAssembly.failure(ExtractionFailure.WRITE_LIMIT);
+                    reader.setInput(image, false, true);
+                    int frames = reader.getNumImages(true);
+                    if (frames < 1) throw DocumentAssembly.failure(ExtractionFailure.MALFORMED);
+                    if (frames > maxPages) throw DocumentAssembly.failure(ExtractionFailure.WRITE_LIMIT);
+                    for (int frame = 0; frame < frames; frame++) {
+                        long pixels = (long) reader.getWidth(frame) * reader.getHeight(frame);
+                        if (pixels < 1 || pixels > MAX_IMAGE_PIXELS) throw DocumentAssembly.failure(ExtractionFailure.WRITE_LIMIT);
+                    }
                 } finally {
                     reader.dispose();
                 }

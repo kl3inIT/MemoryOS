@@ -154,6 +154,15 @@ class PaddleOcrVlDocumentTest {
     }
 
     @Test
+    void eachFrameOfAMultiPageImageIsAPageWithoutABox() throws Exception {
+        var blocks = PaddleOcrVlDocument.blocks(results("sideways-and-upright-page.json"), List.of());
+
+        assertEquals(java.util.Set.of(1, 2), blocks.stream().map(block -> block.locations().getFirst().pageNo())
+                .collect(java.util.stream.Collectors.toSet()));
+        assertTrue(blocks.stream().allMatch(block -> block.locations().getFirst().bbox() == null));
+    }
+
+    @Test
     void labelsMapOntoBlockKindsAndABoxMayArriveAsText() throws Exception {
         var results = mapper.readTree("""
                 [{"prunedResult":{"width":1000,"height":2000,"parsing_res_list":[
@@ -181,7 +190,7 @@ class PaddleOcrVlDocumentTest {
     void anAnswerThatDoesNotMatchThePdfIsMalformed() throws Exception {
         var twoPages = results("sideways-and-upright-page.json");
         assertFailure(ExtractionFailure.MALFORMED, () -> PaddleOcrVlDocument.blocks(twoPages, List.of(new Page(1, A4_LONG, A4_SHORT))));
-        assertFailure(ExtractionFailure.MALFORMED, () -> PaddleOcrVlDocument.blocks(twoPages, List.of()));
+        assertFailure(ExtractionFailure.MALFORMED, () -> PaddleOcrVlDocument.blocks(mapper.readTree("[]"), List.of()));
         assertFailure(ExtractionFailure.MALFORMED, () -> PaddleOcrVlDocument.blocks(mapper.readTree(
                 "[{\"prunedResult\":{\"width\":0,\"height\":10,\"parsing_res_list\":[]}}]"), List.of(new Page(1, 1, 1))));
         assertFailure(ExtractionFailure.MALFORMED, () -> PaddleOcrVlDocument.blocks(mapper.readTree(

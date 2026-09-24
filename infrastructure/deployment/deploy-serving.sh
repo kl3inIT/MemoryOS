@@ -29,17 +29,32 @@ mkdir "$incoming/config"
 tar --extract --file "$incoming/configuration.tar" --directory "$incoming/config" --no-same-owner --no-same-permissions
 deployment=$incoming/config/infrastructure/deployment
 
-install -m 0755 "$deployment/serving-firewall.sh" /usr/local/sbin/memoryos-serving-firewall
-install -m 0644 "$deployment/systemd/memoryos-serving-firewall.service" /etc/systemd/system/
-systemctl daemon-reload
-systemctl enable --quiet memoryos-serving-firewall.service
-systemctl restart memoryos-serving-firewall.service
+setting() {
+  sed -n "s/^$1=//p" "$environment_file" | tail -n 1
+}
+allowed=$(setting MEMORYOS_SERVING_ALLOWED_SOURCE)
+read -r -a ports <<< "$(setting MEMORYOS_SERVING_PORTS)"
+[[ "$allowed" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]
+(( ${#ports[@]} > 0 ))
 
 compose() {
   docker compose --project-name memoryos-serving --env-file "$environment_file" \
     -f "$deployment/compose.serving.yaml" "$@"
 }
 compose config --quiet
+# Every port Compose would publish must be one the firewall filters. The two come from different
+# settings, and a port published outside the list answers the whole subnet without authentication.
+compose config --format json | jq --exit-status --arg ports " ${ports[*]} " '
+  [.services[].ports[]? | .published | tostring] | all(. as $port | $ports | contains(" " + $port + " "))
+' > /dev/null || { echo 'A published port is missing from MEMORYOS_SERVING_PORTS' >&2; exit 1; }
+
+install -m 0755 "$deployment/serving-firewall.sh" /usr/local/sbin/memoryos-serving-firewall
+install -m 0644 "$deployment/systemd/memoryos-serving-firewall.service" /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --quiet memoryos-serving-firewall.service
+# Docker requires the unit, so restarting it would restart every container. The script is idempotent
+# and applies the current settings directly; the unit applies them at boot, before Docker starts.
+/usr/local/sbin/memoryos-serving-firewall "$allowed" "${ports[@]}"
 compose pull --quiet
 compose up -d --remove-orphans --wait --wait-timeout 900
 compose ps --all --format json | jq --exit-status --slurp '

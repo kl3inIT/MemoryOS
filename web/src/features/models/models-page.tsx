@@ -4,6 +4,7 @@ import {
   Brain,
   ChevronDown,
   Eye,
+  ListPlus,
   Plug,
   PlugZap,
   Route,
@@ -50,6 +51,7 @@ import {
 import { deleteChatModel, deleteChatProvider } from "@/lib/hey-api/sdk.gen";
 import { TaskModels, TenantDefault } from "./model-defaults";
 import { ModelEditor } from "./model-editor";
+import { ModelDiscovery } from "./model-discovery";
 import { ProviderEditor } from "./provider-editor";
 import { DataBoundaryTag } from "./data-boundary";
 import {
@@ -77,7 +79,8 @@ type Editor =
       providerId: string;
       initial?: ManagedModel;
       modelName?: string;
-    };
+    }
+  | { kind: "discovery"; providerId: string };
 type Deletion =
   | { kind: "provider"; provider: ManagedProvider }
   | { kind: "model"; model: ManagedModel };
@@ -165,6 +168,7 @@ function ConnectionCard({
   unavailable,
   onEdit,
   onAddModel,
+  onDiscover,
   onEditModel,
   onDelete,
   onDeleteModel,
@@ -177,6 +181,7 @@ function ConnectionCard({
   unavailable: boolean;
   onEdit: () => void;
   onAddModel: () => void;
+  onDiscover: () => void;
   onEditModel: (model: ManagedModel) => void;
   onDelete: () => void;
   onDeleteModel: (model: ManagedModel) => void;
@@ -377,6 +382,16 @@ function ConnectionCard({
             <Button
               prominence="secondary"
               size="sm"
+              disabled={
+                unavailable || !adapter || !provider.enabled || !provider.credentialConfigured
+              }
+              onClick={onDiscover}
+            >
+              <ListPlus aria-hidden="true" /> {ui("Fetch models from the provider")}
+            </Button>
+            <Button
+              prominence="secondary"
+              size="sm"
               disabled={unavailable || !adapter}
               onClick={onAddModel}
             >
@@ -448,7 +463,7 @@ function ModelsAdministration() {
     providers.isError || adapters.isError || configured.some((query) => query.isError);
   const unavailable = catalogPending || catalogError || action.pending;
   const modelProvider =
-    editor?.kind === "model"
+    editor?.kind === "model" || editor?.kind === "discovery"
       ? providers.data?.find((provider) => provider.id === editor.providerId)
       : undefined;
   const tenantDefault = useQuery({ ...getChatModelDefaultOptions(), retry: false });
@@ -589,6 +604,7 @@ function ModelsAdministration() {
                 defaultModelId={defaultModelId}
                 unavailable={unavailable}
                 onEdit={() => setEditor({ kind: "provider", initial: provider })}
+                onDiscover={() => setEditor({ kind: "discovery", providerId: provider.id })}
                 onAddModel={() => setEditor({ kind: "model", providerId: provider.id })}
                 onEditModel={(model) =>
                   setEditor({ kind: "model", providerId: provider.id, initial: model })
@@ -783,6 +799,14 @@ function ModelsAdministration() {
           onClose={() => setEditor(null)}
         />
       )}
+      {editor?.kind === "discovery" && modelProvider && (
+        <DiscoveryDialog
+          provider={modelProvider}
+          adapters={adapters.data ?? []}
+          models={models.filter((model) => model.providerId === modelProvider.id)}
+          onClose={() => setEditor(null)}
+        />
+      )}
       {editor?.kind === "model" && modelProvider && (
         <ModelEditor
           key={editor.modelName ?? editor.initial?.id ?? "new"}
@@ -827,4 +851,21 @@ function ModelsAdministration() {
       )}
     </SettingsLayout>
   );
+}
+
+/** The saved connection's listing, once its adapter is known. */
+function DiscoveryDialog({
+  provider,
+  adapters,
+  models,
+  onClose,
+}: {
+  provider: ManagedProvider;
+  adapters: InstalledAdapter[];
+  models: ManagedModel[];
+  onClose: () => void;
+}) {
+  const adapter = adapters.find((entry) => entry.type === provider.adapterType);
+  if (!adapter) return null;
+  return <ModelDiscovery provider={provider} adapter={adapter} models={models} onClose={onClose} />;
 }

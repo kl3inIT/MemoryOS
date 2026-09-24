@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -36,6 +37,8 @@ public class MeetingService {
     static final int MAX_SUMMARY = 20_000;
     static final int MAX_ITEM = 2_000;
     static final int MAX_DUE = 100;
+    /** Decisions or pieces of work of one kind; a biên bản with more has stopped being read. */
+    static final int MAX_ITEMS = 100;
     /** Marks a person leaves for themselves; past this many they are no longer marking anything out. */
     static final int MAX_BOOKMARKS = 200;
     static final int MAX_NOTES = 50_000;
@@ -127,6 +130,48 @@ public class MeetingService {
         return detail(tenant, actor, id);
     }
 
+    /**
+     * Renames the meeting and replaces who was in it, at any time: the start form only asks what the recording needs,
+     * so these are filled in once the meeting is under way. Kind, language and terms stay as recorded.
+     */
+    @Transactional
+    public Meeting.Detail updateDetails(ActorId actor, UUID id, String title, @Nullable List<String> participants) {
+        UUID tenant = tenant(actor);
+        var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        var clean = validate(new Meeting.Draft(title, meeting.kind(), meeting.language(), participants, List.of()));
+        meetings.updateDetails(tenant, id, clean.title(), clean.participants());
+        return detail(tenant, actor, id);
+    }
+
+    /** The biên bản heading as the owner last saved it; a reader who exports starts from the owner's. */
+    @Transactional(readOnly = true)
+    public Optional<MeetingMinutesDocument.Heading> heading(ActorId actor, UUID id) {
+        UUID tenant = tenant(actor);
+        readable(tenant, actor, id);
+        return meetings.heading(tenant, id);
+    }
+
+    /**
+     * What a meeting with no heading of its own starts from: the organization, its parent and the typeface of the
+     * caller's last biên bản. They rarely change between meetings; the number, place and people always do.
+     */
+    @Transactional(readOnly = true)
+    public Optional<MeetingMinutesDocument.Heading> carriedHeading(ActorId actor) {
+        return meetings.lastHeading(tenant(actor), actor.value())
+                .map(last -> new MeetingMinutesDocument.Heading(last.organization(), last.parentOrganization(), "",
+                        "", "", "", "", "", "", "", "", List.of(), last.font()));
+    }
+
+    /** Keeps the heading the owner typed, so the export opens where they stopped. */
+    @Transactional
+    public MeetingMinutesDocument.Heading saveHeading(ActorId actor, UUID id, MeetingMinutesDocument.Heading heading) {
+        UUID tenant = tenant(actor);
+        meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        var clean = validate(heading);
+        meetings.saveHeading(tenant, id, clean);
+        return clean;
+    }
+
     /** Ends recording and queues the minutes. Ending twice is harmless; streams still open are closed by their sockets. */
     @Transactional
     public Meeting.Detail end(ActorId actor, UUID id) {
@@ -201,6 +246,45 @@ public class MeetingService {
                     change.after());
         meetings.rewriteItem(tenant, id, new Meeting.MinutesItem(item.id(), item.kind(), cleanText, cleanOwner,
                 cleanDue, item.quote(), item.sourceUtteranceId(), item.done(), true));
+        return detail(tenant, actor, id);
+    }
+
+    /**
+     * Writes in a decision or a piece of work the model missed. Its history starts with the owner's own words, as an
+     * event from nothing, so the record still says who wrote it.
+     */
+    @Transactional
+    public Meeting.Detail addItem(ActorId actor, UUID id, Meeting.@Nullable ItemKind kind, String itemText,
+            @Nullable String owner, @Nullable String due) {
+        UUID tenant = tenant(actor);
+        var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        if (meeting.minutesStatus() != Meeting.MinutesStatus.READY)
+            throw MeetingException.invalid("The minutes are not written yet.");
+        if (kind != Meeting.ItemKind.DECISION && kind != Meeting.ItemKind.ACTION)
+            throw MeetingException.invalid("Only a decision or a piece of work can be added.");
+        String cleanText = text(itemText, MAX_ITEM, "An item");
+        String cleanOwner = optional(owner, MAX_NAME, "An owner");
+        String cleanDue = optional(due, MAX_DUE, "A deadline");
+        if (kind == Meeting.ItemKind.DECISION && (cleanOwner != null || cleanDue != null))
+            throw MeetingException.invalid("A decision has no owner and no deadline.");
+        if (meetings.minutesItems(tenant, id).stream().filter(item -> item.kind() == kind).count() >= MAX_ITEMS)
+            throw MeetingException.invalid("The minutes hold at most " + MAX_ITEMS + " items of a kind.");
+        UUID itemId = UUID.randomUUID();
+        meetings.addItem(tenant, id, new Meeting.MinutesItem(itemId, kind, cleanText, cleanOwner, cleanDue, null,
+                null, false, true));
+        meetings.recordMinutesEdit(tenant, id, itemId, Meeting.MinutesField.TEXT, actor.value(), "", cleanText);
+        return detail(tenant, actor, id);
+    }
+
+    /** Takes out a decision or a piece of work that should not be in the minutes; its words stay in the events. */
+    @Transactional
+    public Meeting.Detail removeItem(ActorId actor, UUID id, UUID itemId) {
+        UUID tenant = tenant(actor);
+        meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
+        var item = meetings.lockItem(tenant, id, itemId).orElseThrow(MeetingException::notFound);
+        if (item.kind() == Meeting.ItemKind.TOPIC) throw MeetingException.notFound();
+        meetings.recordMinutesEdit(tenant, id, itemId, Meeting.MinutesField.TEXT, actor.value(), item.text(), "");
+        meetings.removeItem(tenant, id, itemId);
         return detail(tenant, actor, id);
     }
 

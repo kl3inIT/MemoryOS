@@ -114,6 +114,16 @@ class OpenAiReportedModelsTest {
         assertTrue(openAi.capabilities().toolCalling());
         assertEquals(new ModelSettings.Pricing(0.25, 2.0, 0.025), openAi.pricing());
         assertEquals(ChatModelResolver.ReportedModelSpec.Source.CATALOG, ChatModelResolver.spec(ReportedModel.named("models/gemini-2.5-pro"), known).source());
+        // The GPT-6 family, which api.openai.com lists by name only, is described by the catalog rather than budgeted
+        // as the 32,000-token fallback.
+        for (var name : List.of("gpt-6-luna", "gpt-6-sol", "gpt-6-astra")) {
+            var gpt6 = ChatModelResolver.spec(ReportedModel.named(name), known);
+            assertEquals(ChatModelResolver.ReportedModelSpec.Source.CATALOG, gpt6.source(), name);
+            assertEquals(922_000, gpt6.contextWindow(), name);
+            assertEquals(128_000, gpt6.maxOutputTokens(), name);
+        }
+        assertEquals(new ModelSettings.Pricing(0.1, 0.5, 0.01),
+                ChatModelResolver.spec(ReportedModel.named("gpt-6-luna"), known).pricing());
 
         // OpenRouter's own answer limit, capabilities and prices win; its total window (400,000) exceeds OpenAI's
         // 272,000-token input cap, so the smaller catalog window is kept.

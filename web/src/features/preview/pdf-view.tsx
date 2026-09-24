@@ -46,6 +46,7 @@ export function PdfView({
   pages,
   boxes,
   thumbnails = false,
+  onReady,
 }: {
   /** A same-origin URL, or the file itself: the CSP (connect-src 'self') does not let pdf.js fetch blob: URLs. */
   url: string | Blob;
@@ -53,14 +54,17 @@ export function PdfView({
   boxes: readonly PdfHighlight[];
   /** A page rail beside the document, for a reader wide enough to hold one. */
   thumbnails?: boolean;
+  /** Called once the page it opens at is drawn, so a caller can swap it in without a blank frame. */
+  onReady?: () => void;
 }) {
   const ui = useAppTranslation();
   const container = useRef<HTMLDivElement>(null);
-  const fitWidth = Math.max(240, useWidth(container));
+  const [pageCount, setPageCount] = useState<number>();
+  // The canvas is only mounted once the document has loaded, so it is measured again then.
+  const fitWidth = Math.max(240, useWidth(container, pageCount));
   const [zoom, setZoom] = useState(0);
   const [wholeFile, setWholeFile] = useState(false);
   const renderedWidth = Math.round(fitWidth * ZOOM_STEPS[zoom]!);
-  const [pageCount, setPageCount] = useState<number>();
   const [pageViews, setPageViews] = useState<Record<number, PdfPageView>>({});
   const [nearPages, setNearPages] = useState<ReadonlySet<number>>(() => new Set());
   const [visiblePage, setVisiblePage] = useState<number>();
@@ -214,6 +218,7 @@ export function PdfView({
                         loading=""
                         renderTextLayer={false}
                         renderAnnotationLayer={false}
+                        onRenderSuccess={pageNumber === anchor ? onReady : undefined}
                         onLoadSuccess={(page) =>
                           setPageViews((current) =>
                             current[pageNumber]
@@ -387,16 +392,17 @@ function PdfThumbnails({
   );
 }
 
-function useWidth(ref: React.RefObject<HTMLElement | null>) {
+function useWidth(ref: React.RefObject<HTMLElement | null>, mounted: unknown) {
   const [width, setWidth] = useState(360);
   useEffect(() => {
     const element = ref.current;
     if (!element) return undefined;
     const observer = new ResizeObserver(([entry]) => {
-      if (entry) setWidth(Math.floor(entry.contentRect.width));
+      // A canvas taken out while the next document loads reports 0; the last real width still holds.
+      if (entry && entry.contentRect.width > 0) setWidth(Math.floor(entry.contentRect.width));
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, [ref]);
+  }, [ref, mounted]);
   return width;
 }

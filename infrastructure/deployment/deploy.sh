@@ -68,14 +68,16 @@ compose() {
 }
 
 rollout() {
+  # Every service is recreated from this transaction's files, even when Compose sees no change in
+  # it, as when the running release is deployed again: the containers then all name one transaction.
   # Before the API, which signs people in through it.
   if has_keycloak "$tx/$target.env"; then
-    compose up -d --no-deps --pull never --wait --wait-timeout 240 keycloak
+    compose up -d --no-deps --pull never --force-recreate --wait --wait-timeout 240 keycloak
   fi
-  compose up -d --no-deps --pull never --wait --wait-timeout 240 api
-  compose up -d --no-deps --pull never --wait --wait-timeout 240 worker web
+  compose up -d --no-deps --pull never --force-recreate --wait --wait-timeout 240 api
+  compose up -d --no-deps --pull never --force-recreate --wait --wait-timeout 240 worker web
   if has_interpreter "$tx/$target.env"; then
-    compose up -d --no-deps --pull never --wait --wait-timeout 240 interpreter
+    compose up -d --no-deps --pull never --force-recreate --wait --wait-timeout 240 interpreter
   fi
 }
 
@@ -166,10 +168,15 @@ if [[ "$mode" == deploy ]]; then
     if [[ -f "$state/current.env" ]] && has_keycloak "$state/current.env"; then
       previous_components+=(keycloak)
     fi
+    # One release's Compose files may carry two transactions' paths: a runtime last deployed before
+    # rollouts forced recreation kept the containers Compose saw no change in, labelled with an
+    # earlier transaction's copy of the same files. The transaction directory is left out of the
+    # comparison; the api container, inspected first, names the files the record must match.
     previous=$(docker inspect "${previous_components[@]/#/memoryos-}" | jq --exit-status --argjson count "${#previous_components[@]}" '
       if length == $count and all(.[]; .State.Running and .State.Health.Status == "healthy")
         and ([.[].Config.Labels["org.opencontainers.image.revision"]] | unique | length) == 1
-        and ([.[].Config.Labels["com.docker.compose.project.config_files"]] | unique | length) == 1
+        and ([.[].Config.Labels["com.docker.compose.project.config_files"]
+              | gsub("/deployments/[^/,]+/"; "/deployments/*/")] | unique | length) == 1
       then map({name: .Name, image: .Image, labels: .Config.Labels}) else error("Unhealthy or mixed runtime") end
     ')
     previous_sha=$(jq --raw-output '.[0].labels["org.opencontainers.image.revision"]' <<< "$previous")

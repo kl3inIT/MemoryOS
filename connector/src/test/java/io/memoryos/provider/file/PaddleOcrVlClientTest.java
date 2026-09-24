@@ -151,6 +151,30 @@ class PaddleOcrVlClientTest {
     }
 
     @Test
+    void aBodyThatStallsAfterTheHeadersIsATimeoutAtTheSameDeadline() throws Exception {
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/layout-parsing", exchange -> {
+            try (exchange) {
+                exchange.getRequestBody().readAllBytes();
+                byte[] bytes = ANSWER.getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().add("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, bytes.length);
+                exchange.getResponseBody().write(bytes, 0, bytes.length / 2);
+                exchange.getResponseBody().flush();
+                Thread.sleep(10_000);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        server.setExecutor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor());
+        server.start();
+        long started = System.nanoTime();
+        assertFailure(ExtractionFailure.TIMEOUT, client(Duration.ofMillis(500)));
+        assertTrue(Duration.ofNanos(System.nanoTime() - started).compareTo(Duration.ofSeconds(5)) < 0,
+                "released by the deadline, not by the server finishing its body");
+    }
+
+    @Test
     void anInterruptedCallerIsATimeoutAndStaysInterrupted() throws Exception {
         serve(200, ANSWER);
         try (var client = client(Duration.ofSeconds(10))) {
