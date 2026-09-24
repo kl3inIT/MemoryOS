@@ -152,7 +152,7 @@ The web feature folders follow the module map; the move changed imports only, no
 - `features/models` is the admin UI of `ai` and keeps its name; `voice`, `meetings` and the smaller features stay flat.
 - `library` still imports from `chat`, against the backend direction: the ask-about-this-file composer uses Chat's model picker and composer row, the library settings and storage page reuse Chat's retention section, the library page adds files to a project, and several files use Chat's dialog and action helpers, `chat-api`, and the file size and artifact URL helpers of `interpreter/chat-code` and `image/chat-image`. The web has no module check, and splitting those files was outside a pure move.
 
-Step 4 removed that dependency in the same pull request; `features/library` imports nothing from `features/chat`:
+The same pull request then removed that dependency; `features/library` imports nothing from `features/chat`:
 
 - **Generic parts left Chat.** The form dialog, the action error text and field class, the composer menu row and the file size formatter became `components/composites/form-dialog.tsx` (`FormDialog`), `lib/action-errors.ts` (`actionProblem`, `actionErrorText`, `formField`), `components/composites/menu-row.ts` (`menuRow`) and `lib/file-size.ts`. They were renamed because nothing about them is Chat's; the `chatStatus` translation keys they use are unchanged.
 - **Model branding belongs to `ai`'s admin UI.** `ModelLogo` and the vendor table moved to `features/models`, which models, usage, agents and Chat import. Chat's model picker and `useChatModels` stay in `chat`, because the models a member may use in a conversation are Chat's question (step 2).
