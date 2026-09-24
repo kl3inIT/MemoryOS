@@ -51,7 +51,7 @@ MemoryOS kết nối được SharePoint Online với hành vi tương đương 
   - Bảng: `google_drive_*`.
   - Workload: `GOOGLE_DRIVE_SELECTION_VALIDATION`.
   - Route API: `/api/sources/{id}/google-drive/*`.
-  - Trang web: `web/src/features/sources/google-drive-*`.
+  - Trang web: `web/src/features/sources/google-drive/`.
 - **Dùng lại nguyên vẹn:**
   - acquisition → `ObjectWriteService` → input version → INDEX attempt có `source_sync_attempt_id` → `DefaultIngestionCoordinator` → Document;
   - `source_sync_attempts`, counter, safe error, retention;

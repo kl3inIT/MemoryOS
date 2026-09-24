@@ -102,7 +102,7 @@ Mỗi PR đưa vào main một năng lực dùng được thật. Không merge t
   - Dải ghi âm (`ComposerPrimitive.StopDictation`): chấm đỏ, đồng hồ, nhãn trạng thái nhìn thấy được, mức âm lượng thật, tắt mic; placeholder "Đang nghe…"; lỗi đã dịch có nút đóng.
   - `chat-composer.tsx` chặn Send và Enter khi đang dictation; `ChatDictationAutoSend` gửi sau final khi bật Auto-Send.
   - Trạng thái trình bày trong `voice-session-store.ts`; copy lỗi và vé trong `voice-failure.ts`.
-- [x] `web:features/chat/chat-runtime-provider.tsx`: `use-chat-dictation-adapter.ts` chỉ trả adapter khi `sttAvailable`.
+- [x] `web:features/chat/runtime/chat-runtime-provider.tsx`: `use-chat-dictation-adapter.ts` chỉ trả adapter khi `sttAvailable`.
 - [x] `web:features/search/search-page.tsx`: bỏ `SpeechRecognition`, dùng `voice-dictation.ts`; mic ẩn khi Tenant chưa có STT; cập nhật `search-page.test.tsx`.
 - [x] `web:features/identity/general-settings-page.tsx`: `voice-settings-section.tsx`, switch "Tự động gửi khi dừng ghi âm".
 - [x] `capture/audio-capture.ts`: resume `AudioContext` bị suspend sau hộp thoại quyền mic.

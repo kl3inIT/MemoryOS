@@ -64,7 +64,7 @@ JetBrains inspections included warnings for all follow-up Java files. Prompt/too
 ```powershell
 .\gradlew.bat :core:test --tests '*WebHttpTest' --tests '*WebProviderClientTest' --tests '*WebToolsTest' --tests '*ChatModelGuardTest' --tests '*CoreDependencyRulesTest' --tests '*ModulithArchitectureTest' :worker:compileJava --no-daemon
 .\gradlew.bat :api:test --tests '*OpenApiContractTest' --tests '*OpenAiChatProviderAdapterTest' --tests '*ChatSessionApiIntegrationTest.webConfigurationAndChatUseRealPersistenceHttpToolsAndIdempotentIntent' --no-daemon
-pnpm --dir web exec vitest run src/features/chat/chat-web.test.tsx src/features/chat/chat-transport.test.ts
+pnpm --dir web exec vitest run src/features/chat/web-search/chat-web.test.tsx src/features/chat/runtime/chat-transport.test.ts
 pnpm --dir web lint
 pnpm --dir web check:i18n
 pnpm --dir web build
