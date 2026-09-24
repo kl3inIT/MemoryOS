@@ -1,4 +1,4 @@
-package io.memoryos.iam.audit;
+package io.memoryos.audit;
 
 import java.util.Map;
 import java.util.Set;

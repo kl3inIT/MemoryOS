@@ -1,10 +1,10 @@
 package io.memoryos.api.security;
 
 import io.memoryos.api.invitation.InvitationSessionState;
-import io.memoryos.iam.audit.AuditAction;
-import io.memoryos.iam.audit.AuditOutcome;
-import io.memoryos.iam.audit.AuditRecord;
-import io.memoryos.iam.audit.AuditTrail;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditOutcome;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.identity.ActorProfileRecorder;
 import io.memoryos.iam.identity.ExternalIdentity;
@@ -154,7 +154,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
         ProviderSessionState.remember(request, idToken.getClaimAsString("sid"));
         ActorId signedIn = actorId;
         tenantAccessResolver.findActiveTenant(signedIn).ifPresent(tenant -> audit.recordSeparately(
-                AuditRecord.of(AuditAction.LOGIN, tenant).actor(signedIn).build()));
+                AuditRecord.of(AuditAction.LOGIN, tenant.value()).actor(signedIn.value()).build()));
         redirectStrategy.sendRedirect(request, response, AUTHENTICATED_DESTINATION);
     }
 
@@ -210,7 +210,8 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
                          @org.jspecify.annotations.Nullable OidcUser user, String reason, AuditOutcome outcome) {
         String who = user == null ? null : java.util.Objects.requireNonNullElse(user.getClaimAsString("email"),
                 user.getSubject());
-        audit.recordSeparately(AuditRecord.of(AuditAction.LOGIN_FAILURE, tenantId).outcome(outcome).actor(actor, who)
+        audit.recordSeparately(AuditRecord.of(AuditAction.LOGIN_FAILURE, tenantId.value()).outcome(outcome)
+                .actor(actor == null ? null : actor.value(), who)
                 .detail("reason", reason).build());
     }
 

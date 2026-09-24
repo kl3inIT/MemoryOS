@@ -14,7 +14,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         // MEM-135: the PRESENT search generation, its embedding provider and their persistence.
         "io.memoryos.retrieval.settings",
         "io.memoryos.usage",
-        "io.memoryos.iam.audit",
+        "io.memoryos.audit",
         "io.memoryos.iam.group.persistence",
         "io.memoryos.iam.identity.persistence",
         "io.memoryos.iam.invitation.persistence",

@@ -2,6 +2,7 @@ package io.memoryos.chat.catalog;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import io.memoryos.audit.AuditTrail;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.chat.ChatException;
@@ -158,7 +159,7 @@ class ModelCatalogConstraintsTest {
                 .thenReturn(new IamAccess(new TenantId(tenant), Authority.GLOBAL));
         var service = new ModelCatalogService(catalog, chats, mock(TenantAccessResolver.class),
                 authorization, new ChatProviderAdapters(List.of()), new ProviderCredentials("", ""),
-                mock(GroupScopeService.class), mock(io.memoryos.iam.audit.AuditTrail.class));
+                mock(GroupScopeService.class), mock(AuditTrail.class));
         var foreignFailure = assertThrows(ChatException.class, () -> read(() -> service.personas(actor, foreign.toString(), 25)));
         var missingFailure = assertThrows(ChatException.class, () -> read(() -> service.personas(actor, UUID.randomUUID().toString(), 25)));
         assertEquals(missingFailure.code(), foreignFailure.code());

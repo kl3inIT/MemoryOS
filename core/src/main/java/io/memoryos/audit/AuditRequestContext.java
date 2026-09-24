@@ -1,4 +1,4 @@
-package io.memoryos.iam.audit;
+package io.memoryos.audit;
 
 import org.jspecify.annotations.Nullable;
 import org.slf4j.MDC;

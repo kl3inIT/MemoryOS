@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.group.Authority;
 import io.memoryos.iam.group.GroupAdministrationGuard;
@@ -68,7 +69,7 @@ class DefaultGroupServiceAuthorizationTest {
                 projections,
                 invariants,
                 administrationGuard,
-                mock(io.memoryos.iam.audit.AuditTrail.class)
+                mock(AuditTrail.class)
         );
         GroupEntity group = new GroupEntity(
                 new TenantEntity(TENANT.value(), "tenant", "Tenant", "test"),
@@ -101,7 +102,7 @@ class DefaultGroupServiceAuthorizationTest {
                 mock(GroupProjectionRepository.class),
                 mock(GroupInvariantRepository.class),
                 mock(GroupAdministrationGuard.class),
-                mock(io.memoryos.iam.audit.AuditTrail.class)
+                mock(AuditTrail.class)
         );
 
         for (IamCapability capability : Set.of(
@@ -126,7 +127,7 @@ class DefaultGroupServiceAuthorizationTest {
                 mock(GroupProjectionRepository.class),
                 mock(GroupInvariantRepository.class),
                 mock(GroupAdministrationGuard.class),
-                mock(io.memoryos.iam.audit.AuditTrail.class)
+                mock(AuditTrail.class)
         );
 
         var registry = service.capabilities(MANAGER);

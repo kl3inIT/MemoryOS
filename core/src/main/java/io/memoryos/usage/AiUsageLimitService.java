@@ -1,8 +1,8 @@
 package io.memoryos.usage;
 
-import io.memoryos.iam.audit.AuditAction;
-import io.memoryos.iam.audit.AuditRecord;
-import io.memoryos.iam.audit.AuditTrail;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.identity.ActorId;
@@ -251,7 +251,7 @@ public class AiUsageLimitService {
     }
 
     private AuditRecord.Builder record(AuditAction action, TenantId tenant, ActorId manager, AiUsageLimit limit) {
-        return AuditRecord.of(action, tenant).actor(manager)
+        return AuditRecord.of(action, tenant.value()).actor(manager.value())
                 .resource("AI_LIMIT", limit.id(), limit.groupName() == null ? limit.scope().name() : limit.groupName())
                 .detail("scope", limit.scope().name()).detail("group", limit.groupName());
     }

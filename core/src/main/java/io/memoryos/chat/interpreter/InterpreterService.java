@@ -1,5 +1,8 @@
 package io.memoryos.chat.interpreter;
 
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.iam.group.IamAuthorization;
@@ -27,7 +30,7 @@ public class InterpreterService {
     private final ObjectWriteService writes;
     private final ObjectStorage storage;
     private final TransactionTemplate tx;
-    private final io.memoryos.iam.audit.AuditTrail audit;
+    private final AuditTrail audit;
 
     private final io.memoryos.chat.ChatStorageQuotaService quotas;
     private final io.memoryos.chat.application.ChatRetentionProperties retention;
@@ -36,7 +39,7 @@ public class InterpreterService {
                               TenantAccessResolver tenants, ObjectWriteService writes, ObjectStorage storage,
                               io.memoryos.chat.ChatStorageQuotaService quotas,
                               io.memoryos.chat.application.ChatRetentionProperties retention,
-                              PlatformTransactionManager transactionManager, io.memoryos.iam.audit.AuditTrail audit) {
+                              PlatformTransactionManager transactionManager, AuditTrail audit) {
         this.audit = audit;
         this.repository = repository; this.properties = properties; this.authorization = authorization;
         this.tenants = tenants; this.writes = writes; this.storage = storage; this.quotas = quotas;
@@ -73,7 +76,7 @@ public class InterpreterService {
         if (current != revision) throw ChatException.conflict();
         if (enabled && !properties.configured()) throw ChatException.providerUnavailable();
         var saved = repository.save(tenant, enabled);
-        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.INTERPRETER_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant.value())).actor(actor).resource("SETTING", "interpreter", "Code Interpreter").detail("enabled", enabled).build());
+        audit.record(AuditRecord.of(AuditAction.INTERPRETER_CHANGE, tenant.value()).actor(actor.value()).resource("SETTING", "interpreter", "Code Interpreter").detail("enabled", enabled).build());
         return new Settings(properties.configured(), saved.enabled(), saved.revision());
     }
 

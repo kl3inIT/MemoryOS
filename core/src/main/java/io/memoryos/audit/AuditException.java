@@ -1,4 +1,4 @@
-package io.memoryos.iam.audit;
+package io.memoryos.audit;
 
 import io.memoryos.BusinessException;
 import io.memoryos.FailureCategory;

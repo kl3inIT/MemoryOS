@@ -1,5 +1,8 @@
 package io.memoryos.iam.identityprovider;
 
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.identity.ActorId;
@@ -33,7 +36,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
     private final OidcDiscoveryClient discovery;
     private final JitAllowlistRepository allowlist;
     private final TransactionTemplate transactions;
-    private final io.memoryos.iam.audit.AuditTrail audit;
+    private final AuditTrail audit;
 
     public DefaultIdentityProviderAdministration(
             IamAuthorization authorization,
@@ -41,7 +44,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
             OidcDiscoveryClient discovery,
             JitAllowlistRepository allowlist,
             PlatformTransactionManager transactionManager,
-            io.memoryos.iam.audit.AuditTrail audit
+            AuditTrail audit
     ) {
         this.audit = Objects.requireNonNull(audit, "audit must not be null");
         this.authorization = Objects.requireNonNull(authorization, "authorization must not be null");
@@ -85,7 +88,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
         var created = toView(gateway.find(command.alias()).orElseThrow(
                 DefaultIdentityProviderAdministration::unavailableAfterWrite), command.jitAllowed());
         // Settled in Keycloak: no database transaction covers it, so the event is written on its own.
-        audit.recordSeparately(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.IDENTITY_PROVIDER_CREATE, tenant).actor(actorId)
+        audit.recordSeparately(AuditRecord.of(AuditAction.IDENTITY_PROVIDER_CREATE, tenant.value()).actor(actorId.value())
                 .resource("IDENTITY_PROVIDER", command.alias(), command.displayName())
                 .detail("after", facts(command.alias(), command.issuer(), command.jitAllowed())).build());
         return created;
@@ -131,7 +134,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
         });
         var updated = toView(gateway.find(effectiveAlias).orElseThrow(
                 DefaultIdentityProviderAdministration::unavailableAfterWrite), update.jitAllowed());
-        audit.recordSeparately(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.IDENTITY_PROVIDER_UPDATE, tenant).actor(actorId)
+        audit.recordSeparately(AuditRecord.of(AuditAction.IDENTITY_PROVIDER_UPDATE, tenant.value()).actor(actorId.value())
                 .resource("IDENTITY_PROVIDER", effectiveAlias, existing.getDisplayName())
                 .detail("before", before).detail("after", facts(effectiveAlias, targetIssuer, update.jitAllowed())).build());
         return updated;
@@ -145,7 +148,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
             allowlist.disallow(alias);
         });
         gateway.delete(alias);
-        audit.recordSeparately(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.IDENTITY_PROVIDER_DELETE, tenant).actor(actorId)
+        audit.recordSeparately(AuditRecord.of(AuditAction.IDENTITY_PROVIDER_DELETE, tenant.value()).actor(actorId.value())
                 .resource("IDENTITY_PROVIDER", alias, alias).detail("alias", alias).build());
     }
 

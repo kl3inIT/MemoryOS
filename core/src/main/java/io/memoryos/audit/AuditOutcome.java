@@ -1,4 +1,4 @@
-package io.memoryos.iam.audit;
+package io.memoryos.audit;
 
 /** Whether the recorded attempt changed anything, as Onyx distinguishes an operational error from a refusal. */
 public enum AuditOutcome {

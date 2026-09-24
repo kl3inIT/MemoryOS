@@ -1,5 +1,9 @@
 package io.memoryos.connector.application;
 
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditOutcome;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
@@ -26,10 +30,10 @@ public class SourceAccessPolicy {
     private final IamAuthorization authorization;
     private final JdbcSourceRepository sources;
     private final GroupScopeService groupScopes;
-    private final io.memoryos.iam.audit.AuditTrail audit;
+    private final AuditTrail audit;
 
     public SourceAccessPolicy(IamAuthorization authorization, JdbcSourceRepository sources,
-            GroupScopeService groupScopes, io.memoryos.iam.audit.AuditTrail audit) {
+            GroupScopeService groupScopes, AuditTrail audit) {
         this.authorization = Objects.requireNonNull(authorization);
         this.sources = Objects.requireNonNull(sources);
         this.groupScopes = Objects.requireNonNull(groupScopes);
@@ -67,8 +71,8 @@ public class SourceAccessPolicy {
     /** A Source manager reaching a Source that exists but is not theirs: the refusal Onyx records as denied. */
     private void recordRefusal(IamAccess access, ActorId actorId, SourceId sourceId) {
         if (access.authority() == Authority.SCOPED && sources.exists(access.tenantId(), sourceId)) {
-            audit.recordSeparately(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.PERMISSION_DENIED, access.tenantId())
-                    .outcome(io.memoryos.iam.audit.AuditOutcome.DENIED).actor(actorId)
+            audit.recordSeparately(AuditRecord.of(AuditAction.PERMISSION_DENIED, access.tenantId().value())
+                    .outcome(AuditOutcome.DENIED).actor(actorId.value())
                     .resource("SOURCE", sourceId.value(), sources.auditView(access.tenantId(), sourceId)
                             .map(JdbcSourceRepository.AuditView::name).orElse(null))
                     .detail("capability", IamCapability.SOURCES_MANAGE.name()).detail("scope", "SOURCE").build());

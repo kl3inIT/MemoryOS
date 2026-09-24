@@ -1,5 +1,6 @@
 package io.memoryos.chat.catalog;
 
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.ModelCatalogRepository;
 import io.memoryos.iam.group.GroupScopeService;
@@ -144,7 +145,7 @@ class ModelCatalogSelectionTest {
                     io.memoryos.chat.ChatTurnOptions.DEFAULT, "7", null, List.of(), Set.of(), null, false));
             when(catalog.personaModel(tenant, actor.value(), false, persona)).thenReturn(new ModelCatalogRepository.PersonaModel(persona, null, 1));
             service = new ModelCatalogService(catalog, chats, tenants, authorization, adapters,
-                    mock(ProviderCredentials.class), mock(GroupScopeService.class), mock(io.memoryos.iam.audit.AuditTrail.class));
+                    mock(ProviderCredentials.class), mock(GroupScopeService.class), mock(AuditTrail.class));
         }
         ModelCatalogRepository.Provider provider() {
             return new ModelCatalogRepository.Provider(UUID.randomUUID(), tenant, "Connection", "test", "http://model.invalid",
