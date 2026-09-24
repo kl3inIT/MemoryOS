@@ -596,6 +596,63 @@ describe("model manager authority", () => {
     client.clear();
   });
 
+  it("aborts a write in flight and drops the key draft when the page is hidden", async () => {
+    const pending = deferredResponse();
+    const writes: Request[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (request: Request) => {
+        const path = new URL(request.url).pathname;
+        if (path === "/api/identity/me") return Response.json(session);
+        if (request.method === "PUT") {
+          writes.push(request);
+          return pending.promise;
+        }
+        if (path === "/api/chat/providers") return Response.json([provider]);
+        if (path === "/api/chat/provider-adapters") return Response.json([adapter]);
+        if (path.endsWith(`/providers/${provider.id}/models`)) return Response.json([model]);
+        if (path === "/api/chat/model-default")
+          return Response.json({ modelConfigurationId: model.id, revision: 1 });
+        if (path === "/api/chat/model-flows")
+          return Response.json([
+            { flow: "CHAT_NAMING", modelConfigurationId: null, available: true, revision: 1 },
+          ]);
+        if (path === "/api/chat/model-personas")
+          return Response.json({ items: [], nextCursor: null });
+        return Response.json({ items: [], totalPages: 1 });
+      }),
+    );
+    const client = createMemoryOsQueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <ApplicationSessionBoundary>
+          <ModelsPage />
+        </ApplicationSessionBoundary>
+      </QueryClientProvider>,
+    );
+    const editProvider = await screen.findByRole("button", { name: /Edit provider/ });
+    await waitFor(() => expect(editProvider).toBeEnabled());
+    fireEvent.click(editProvider);
+    fireEvent.change(screen.getByLabelText("Credential action"), { target: { value: "REPLACE" } });
+    fireEvent.change(screen.getByLabelText("API key"), {
+      target: { value: "hidden-page-secret" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save provider" }));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    // The unmount is synchronous, so the request is aborted before the page can be cached.
+    expect(writes[0]!.signal.aborted).toBe(true);
+    expect(screen.queryByLabelText("API key")).not.toBeInTheDocument();
+    await act(async () => {
+      pending.resolve(Response.json({ ...provider, revision: 4 }));
+    });
+    await waitFor(() => expect(client.getMutationCache().getAll()).toHaveLength(0));
+    expect(screen.queryByText(/Provider saved/)).not.toBeInTheDocument();
+    client.clear();
+  });
+
   it("mounts no protected catalog request for a denied manager deep link", async () => {
     const paths: string[] = [];
     vi.stubGlobal(

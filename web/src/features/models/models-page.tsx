@@ -521,7 +521,6 @@ function ModelsAdministration() {
 
   async function reload() {
     if (busy) return;
-    removing.cancel();
     try {
       await reloading.run();
     } catch {
