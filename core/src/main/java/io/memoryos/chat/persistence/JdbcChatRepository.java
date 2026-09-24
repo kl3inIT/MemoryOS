@@ -1,5 +1,6 @@
 package io.memoryos.chat.persistence;
 
+import io.memoryos.ai.ReasoningEffort;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatMessage.Role;
@@ -331,7 +332,7 @@ public class JdbcChatRepository {
     public record Persona(String instructions, String model, ChatTurnOptions options, String revision,
                           @Nullable UUID modelConfigurationId, List<UUID> fileIds, Set<String> tools,
                           @Nullable List<UUID> mcpServerIds, boolean datetimeAware,
-                          io.memoryos.chat.preferences.@Nullable ReasoningEffort reasoningEffort) {
+                          @Nullable ReasoningEffort reasoningEffort) {
         public Persona(String instructions, String model, ChatTurnOptions options, String revision,
                        @Nullable UUID modelConfigurationId, List<UUID> fileIds, Set<String> tools,
                        @Nullable List<UUID> mcpServerIds, boolean datetimeAware) {
@@ -342,7 +343,7 @@ public class JdbcChatRepository {
 
     /** Pins or clears the reasoning level of one conversation the caller owns. */
     public void saveReasoningEffort(TenantId tenant, ActorId actor, UUID session,
-                                    io.memoryos.chat.preferences.@Nullable ReasoningEffort effort) {
+                                    @Nullable ReasoningEffort effort) {
         jdbc.sql("""
                         UPDATE chat_session SET reasoning_effort = :effort
                         WHERE id = :session AND tenant_id = :tenant AND owner_actor_id = :actor AND deleted_at IS NULL
@@ -400,7 +401,7 @@ public class JdbcChatRepository {
                             row.getString("revision"), row.getObject("model_configuration_id", UUID.class),
                             List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), tools,
                             builtin ? null : personaMcpServers(id), row.getBoolean("datetime_aware"),
-                            pinned == null ? null : io.memoryos.chat.preferences.ReasoningEffort.valueOf(pinned));
+                            pinned == null ? null : ReasoningEffort.valueOf(pinned));
                 })
                 .optional().orElseThrow(ChatException::unavailable);
     }
@@ -639,7 +640,7 @@ public class JdbcChatRepository {
                 row.getObject("root_message_id", UUID.class), row.getString("title"),
                 row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(),
                 row.getObject("project_id", UUID.class),
-                effort == null ? null : io.memoryos.chat.preferences.ReasoningEffort.valueOf(effort),
+                effort == null ? null : ReasoningEffort.valueOf(effort),
                 archived == null ? null : archived.toInstant(), row.getObject("branched_from_session_id", UUID.class),
                 row.getObject("branched_from_message_id", UUID.class), row.getBoolean("temporary"));
     }

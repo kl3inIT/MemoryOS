@@ -1,5 +1,7 @@
 package io.memoryos.chat;
 
+import io.memoryos.ai.ChatRequestPolicy;
+import io.memoryos.chat.execution.ChatModelSelector;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -19,9 +21,9 @@ import static org.mockito.Mockito.when;
 import io.memoryos.chat.application.ChatTurnPersistence;
 import io.memoryos.chat.execution.ChatExecutionProperties;
 import io.memoryos.chat.execution.ChatModelExecutor;
-import io.memoryos.chat.execution.ChatModelBinding;
-import io.memoryos.chat.catalog.ChatModelResolver;
-import io.memoryos.chat.catalog.ChatModelClients;
+import io.memoryos.ai.ChatModelBinding;
+import io.memoryos.ai.ChatModelResolver;
+import io.memoryos.ai.ChatModelClients;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import org.springframework.ai.chat.model.ChatModel;
 import io.memoryos.chat.streaming.ChatStreamProperties;
@@ -53,7 +55,7 @@ import reactor.core.publisher.Mono;
 class ChatTurnServiceTest {
     private final ChatTurnPersistence persistence = mock(ChatTurnPersistence.class);
     private final ChatModelExecutor model = mock(ChatModelExecutor.class);
-    private final ChatModelResolver models = mock(ChatModelResolver.class);
+    private final ChatModelSelector models = mock(ChatModelSelector.class);
     private final ChatModelClients.Lease lease = mock(ChatModelClients.Lease.class);
     private final ChatExecutionProperties limits = new ChatExecutionProperties(1, Duration.ofMinutes(30), Duration.ofSeconds(60), Duration.ofSeconds(60), 6, 1024, 32000, 10000,
             null, null, 10, Duration.ofSeconds(60));
@@ -67,7 +69,7 @@ class ChatTurnServiceTest {
     private final ChatTurnPersistence.Reservation pair = new ChatTurnPersistence.Reservation(UUID.randomUUID(), UUID.randomUUID(), true);
 
     private void prepare() {
-        var binding = new ChatModelBinding(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p, io.memoryos.chat.execution.ChatRequestPolicy.hosted(new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(
+        var binding = new ChatModelBinding(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p, ChatRequestPolicy.hosted(new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(
                 com.knuddels.jtokkit.api.EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
         when(lease.binding()).thenReturn(binding);
         when(models.resolve(any(), any(), any())).thenReturn(new ChatModelResolver.Resolved(UUID.randomUUID(), null, lease));

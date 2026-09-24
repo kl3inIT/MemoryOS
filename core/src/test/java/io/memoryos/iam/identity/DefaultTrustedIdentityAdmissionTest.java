@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.identity.ExternalIdentity;
 import io.memoryos.iam.group.GroupProvisioner;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.IamException;
@@ -17,7 +16,6 @@ import io.memoryos.iam.IamFailureReason;
 import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapRequest;
 import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapper;
 import io.memoryos.shared.TenantId;
-import io.memoryos.iam.identity.TrustedIdentityAdmission;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
 import io.memoryos.iam.group.persistence.GroupMembershipRepository;
 import io.memoryos.iam.group.persistence.GroupRepository;
@@ -40,14 +38,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 import io.memoryos.iam.group.DefaultGroupProvisioner;
 import io.memoryos.iam.group.DefaultIamAuthorization;
-import io.memoryos.iam.identity.DefaultTrustedIdentityAdmission;
 import io.memoryos.iam.tenant.bootstrap.DefaultInitialTenantBootstrapper;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 
 @Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})

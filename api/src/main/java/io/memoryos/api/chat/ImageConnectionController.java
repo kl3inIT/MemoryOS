@@ -7,7 +7,7 @@ import io.memoryos.api.chat.contract.ImageConnectionTestRequest;
 import io.memoryos.api.chat.contract.ImageProviderResponse;
 import io.memoryos.api.chat.contract.ImageSelectionRequest;
 import io.memoryos.chat.ChatException;
-import io.memoryos.chat.catalog.ProviderCredentials;
+import io.memoryos.ai.ProviderCredentials;
 import io.memoryos.chat.image.ImageConnectionService;
 import io.memoryos.chat.image.ImageProvider;
 import io.memoryos.chat.image.ImageProviderClient;

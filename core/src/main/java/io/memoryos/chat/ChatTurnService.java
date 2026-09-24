@@ -1,11 +1,14 @@
 package io.memoryos.chat;
 
+import io.memoryos.ai.ChatModelTurns;
+import io.memoryos.ai.ModelAccounting;
 import io.memoryos.chat.application.ChatTurnPersistence;
 import io.memoryos.chat.execution.ChatExecutionProperties;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
-import io.memoryos.chat.catalog.ChatModelResolver;
-import io.memoryos.chat.catalog.ModelFlow;
+import io.memoryos.ai.ChatModelResolver;
+import io.memoryos.chat.execution.ChatModelSelector;
+import io.memoryos.ai.ModelFlow;
 import io.memoryos.usage.AiUsageFlow;
 import org.jspecify.annotations.Nullable;
 import io.memoryos.shared.ActorId;
@@ -40,7 +43,7 @@ public final class ChatTurnService implements AutoCloseable {
             "CHAT_EMPTY_RESPONSE", "CHAT_CONTEXT_LIMIT", "CHAT_MODEL_OUTPUT_LIMIT");
     private final ChatTurnPersistence persistence;
     private final ChatModelExecutor model;
-    private final ChatModelResolver models;
+    private final ChatModelSelector models;
     private final io.memoryos.chat.web.@Nullable WebConnectionService web;
     private final io.memoryos.chat.image.@Nullable ImageConnectionService images;
     private final io.memoryos.usage.@Nullable AiUsageLimitService spending;
@@ -56,26 +59,26 @@ public final class ChatTurnService implements AutoCloseable {
     private final AtomicBoolean accepting = new AtomicBoolean(true);
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
-            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models) {
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models) {
         this(persistence, model, limits, executor, streams, models, null, null, null);
     }
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
-            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
             io.memoryos.chat.web.@Nullable WebConnectionService web,
             io.memoryos.chat.image.@Nullable ImageConnectionService images) {
         this(persistence, model, limits, executor, streams, models, web, images, null);
     }
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
-            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
             io.memoryos.chat.web.@Nullable WebConnectionService web,
             io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings) {
         this(persistence, model, limits, executor, streams, models, web, images, settings, null);
     }
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
-            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
             io.memoryos.chat.web.@Nullable WebConnectionService web,
             io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
             io.memoryos.chat.research.@Nullable ResearchProperties research) {
@@ -83,7 +86,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
-            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
             io.memoryos.chat.web.@Nullable WebConnectionService web,
             io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
             io.memoryos.chat.research.@Nullable ResearchProperties research,
@@ -92,7 +95,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
-            TaskExecutor executor, StreamBufferWriter streams, ChatModelResolver models,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
             io.memoryos.chat.web.@Nullable WebConnectionService web,
             io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
             io.memoryos.chat.research.@Nullable ResearchProperties research,
@@ -139,7 +142,7 @@ public final class ChatTurnService implements AutoCloseable {
         } finally { permits.release(); }
     }
 
-    private void recordNaming(ActorId actor, ChatModelResolver.Resolved selected, ChatModelExecutor.Accounting accounting) {
+    private void recordNaming(ActorId actor, ChatModelResolver.Resolved selected, ModelAccounting accounting) {
         try {
             persistence.recordUsage(new ChatTurnPersistence.Usage(null, actor, AiUsageFlow.CHAT_NAMING, selected.modelConfigurationId(),
                     selected.provenance(), selected.binding().service().getName(), accounting));
@@ -228,7 +231,7 @@ public final class ChatTurnService implements AutoCloseable {
             var webAccess = new io.memoryos.chat.web.WebConnectionService.Access(null, null);
             if (command.webSearch() != WebSearchMode.off) {
                 // Provider-hosted search needs no external connection; external search needs one.
-                boolean nativeSearch = binding.service().getChatModel() instanceof io.memoryos.chat.execution.ChatModelTurns turns && turns.nativeWebSearch();
+                boolean nativeSearch = binding.service().getChatModel() instanceof ChatModelTurns turns && turns.nativeWebSearch();
                 // Research agents always search through the Web tools, as Onyx does, even when the model hosts search.
                 boolean externalSearch = !nativeSearch || command.deepResearch();
                 if (!binding.toolCalling() || (externalSearch && web == null)) {
@@ -533,7 +536,7 @@ public final class ChatTurnService implements AutoCloseable {
         // Serializes persistence retries without holding the state monitor used by Stop/text callbacks.
         final ReentrantLock finalizing = new ReentrantLock();
         volatile Outcome outcome;
-        volatile ChatModelExecutor.Accounting accounting = ChatModelExecutor.Accounting.NONE;
+        volatile ModelAccounting accounting = ModelAccounting.NONE;
         Active(ChatTurnSetup setup, ChatModelResolver.Resolved resolved) { this.setup = setup; this.resolved = resolved; }
         synchronized void cancel(StopReason reason) {
             if (outcome != null) return;

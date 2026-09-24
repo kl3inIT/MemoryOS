@@ -26,13 +26,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.data.repository.core.support.RepositoryComposition.RepositoryFragments;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import io.memoryos.iam.identity.persistence.ActorEntity;
-import io.memoryos.iam.identity.persistence.ActorRefreshImpl;
-import io.memoryos.iam.identity.persistence.ExternalIdentityBindingEntity;
-import io.memoryos.iam.identity.persistence.ExternalIdentityBindingId;
-import io.memoryos.iam.identity.persistence.JpaActorProfileRecorder;
-import io.memoryos.iam.identity.persistence.JpaActorRepository;
-import io.memoryos.iam.identity.persistence.JpaExternalIdentityRegistry;
 
 // SQL is exercised against the isolated, migrated Testcontainers database.
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})

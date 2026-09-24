@@ -12,6 +12,7 @@ class ModulithArchitectureTest {
 
     private static final Set<String> CAPABILITIES = Set.of(
             "iam",
+            "ai",
             "objectstorage",
             "connector",
             "document",

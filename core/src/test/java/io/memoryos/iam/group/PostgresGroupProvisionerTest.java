@@ -7,10 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.GroupProvisioner;
-import io.memoryos.iam.group.GroupSystemKey;
-import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
 import io.memoryos.shared.TenantId;
@@ -27,11 +23,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.group.DefaultGroupProvisioner;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class PostgresGroupProvisionerTest {

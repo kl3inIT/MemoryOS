@@ -1,12 +1,15 @@
 package io.memoryos.chat.application;
 
+import io.memoryos.ai.ChatModelResolver;
+import io.memoryos.ai.ChatSampling;
+import io.memoryos.ai.ModelAccounting;
 import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatFileService;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.ChatTurnOptions;
-import io.memoryos.chat.execution.ChatModelBinding;
+import io.memoryos.ai.ChatModelBinding;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.image.GeneratedImage;
 import io.memoryos.chat.persistence.JdbcChatRepository;
@@ -80,14 +83,14 @@ public class ChatTurnPersistence {
      * The creativity and reasoning level for one turn, in Onyx's order: the level pinned on this conversation, then
      * the model configuration (which the adapter keeps when nothing outranks it), then the member's own defaults.
      */
-    private io.memoryos.chat.ChatSampling sampling(TenantId tenant, ActorId actor, JdbcChatRepository.Persona settings) {
+    private ChatSampling sampling(TenantId tenant, ActorId actor, JdbcChatRepository.Persona settings) {
         var own = preferences == null ? io.memoryos.chat.preferences.ChatPreferences.DEFAULT
                 : preferences.find(tenant.value(), actor.value())
                         .orElse(io.memoryos.chat.preferences.ChatPreferences.DEFAULT);
         var pinned = settings.reasoningEffort();
         var effort = pinned != null ? pinned : own.reasoningEffortDefault();
-        if (own.temperatureDefault() == null && effort == null) return io.memoryos.chat.ChatSampling.NONE;
-        return new io.memoryos.chat.ChatSampling(own.temperatureDefault(), effort, pinned != null);
+        if (own.temperatureDefault() == null && effort == null) return ChatSampling.NONE;
+        return new ChatSampling(own.temperatureDefault(), effort, pinned != null);
     }
 
     /** The session agent's tool policy, read under the owner's agent use authority before a command is admitted. */
@@ -185,7 +188,7 @@ public class ChatTurnPersistence {
         String instructions = settings.instructions();
         if (selection == null) ChatTurnSetup.validateQuestion(instructions, text, effectiveContext);
         else {
-            var binding = selection.binding().forOptions(settings.options());
+            var binding = selection.binding().forOptions(settings.options().sampling(), settings.options().outputTokenLimit());
             instructions = io.memoryos.chat.prompts.ChatPrompts.resolve(instructions,
                     binding.toolCalling() && settings.options().searchEnabled(), Instant.now(), languages.read(actor), settings.datetimeAware());
             instructions = userInformation(tenant.value(), actor, instructions);
@@ -389,8 +392,8 @@ public class ChatTurnPersistence {
      * calls with unknown cost, never as zero.
      */
     public record Usage(@Nullable TenantId tenant, ActorId actor, io.memoryos.usage.AiUsageFlow flow, @Nullable UUID modelConfigurationId,
-                        io.memoryos.chat.catalog.ChatModelResolver.Provenance provider, String modelName,
-                        io.memoryos.chat.execution.ChatModelExecutor.Accounting accounting) {
+                        ChatModelResolver.Provenance provider, String modelName,
+                        ModelAccounting accounting) {
         io.memoryos.usage.@Nullable AiUsage call(TenantId tenant, Instant at) {
             if (!accounting.used()) return null;
             if (accounting.input() == null || accounting.output() == null)

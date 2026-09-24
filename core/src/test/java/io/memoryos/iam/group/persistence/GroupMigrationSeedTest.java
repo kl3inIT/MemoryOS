@@ -22,9 +22,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import io.memoryos.iam.group.Authority;
-import io.memoryos.iam.group.persistence.GroupEntity;
-import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
-import io.memoryos.iam.group.persistence.IamLockRepository;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class GroupMigrationSeedTest {

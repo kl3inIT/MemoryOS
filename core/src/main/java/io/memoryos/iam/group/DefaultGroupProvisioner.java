@@ -1,10 +1,6 @@
 package io.memoryos.iam.group;
 
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.GroupProvisioner;
-import io.memoryos.iam.group.GroupSystemKey;
-import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
 import io.memoryos.shared.TenantId;
@@ -22,8 +18,6 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 
 @Service
 public class DefaultGroupProvisioner implements GroupProvisioner {

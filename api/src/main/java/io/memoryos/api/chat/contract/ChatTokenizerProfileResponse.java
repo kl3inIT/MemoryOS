@@ -1,7 +1,7 @@
 package io.memoryos.api.chat.contract;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.memoryos.chat.catalog.ChatProviderAdapter;
+import io.memoryos.ai.ChatProviderAdapter;
 
 @Schema(name = "TokenizerProfile")
 public record ChatTokenizerProfileResponse(

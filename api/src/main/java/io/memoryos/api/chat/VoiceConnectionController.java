@@ -5,7 +5,7 @@ import io.memoryos.api.chat.contract.VoiceConnectionRequest;
 import io.memoryos.api.chat.contract.VoiceConnectionResponse;
 import io.memoryos.api.chat.contract.VoiceProviderResponse;
 import io.memoryos.api.chat.contract.VoiceSelectionRequest;
-import io.memoryos.chat.catalog.ProviderCredentials;
+import io.memoryos.ai.ProviderCredentials;
 import io.memoryos.chat.voice.VoiceConnectionService;
 import io.memoryos.chat.voice.VoiceProvider;
 import io.memoryos.chat.voice.VoiceProviderClient;

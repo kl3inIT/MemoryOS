@@ -12,7 +12,7 @@ import static org.mockito.Mockito.when;
 
 import io.memoryos.FailureCategory;
 import io.memoryos.chat.ChatException;
-import io.memoryos.chat.catalog.ProviderCredentials;
+import io.memoryos.ai.ProviderCredentials;
 import io.memoryos.chat.persistence.ImageConnectionEntity;
 import io.memoryos.chat.persistence.ImageConnectionRepository;
 import io.memoryos.iam.IamException;

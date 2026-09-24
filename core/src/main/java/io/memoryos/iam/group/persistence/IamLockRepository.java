@@ -11,8 +11,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 
 /**
  * The shared Tenant serialization anchor. Exclusive acquisition also advances the client

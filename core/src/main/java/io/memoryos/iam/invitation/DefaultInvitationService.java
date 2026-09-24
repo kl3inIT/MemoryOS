@@ -35,28 +35,13 @@ import io.memoryos.iam.group.IamAccess;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.IamException;
-import io.memoryos.iam.invitation.InvitationAcceptance;
-import io.memoryos.iam.invitation.InvitationContinuation;
-import io.memoryos.iam.invitation.InvitationDelivery;
-import io.memoryos.iam.invitation.InvitationException;
-import io.memoryos.iam.invitation.InvitationFailureReason;
-import io.memoryos.iam.invitation.InvitationPage;
-import io.memoryos.iam.invitation.InvitationQuery;
-import io.memoryos.iam.invitation.InvitationService;
-import io.memoryos.iam.invitation.InvitationTarget;
-import io.memoryos.iam.invitation.InvitationView;
-import io.memoryos.iam.invitation.IssuedInvitation;
-import io.memoryos.iam.invitation.KeycloakRecipientProvisioner;
-import io.memoryos.iam.invitation.KeycloakRecipientProvisioning;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.tenant.TenantMembershipProvisioner;
-import io.memoryos.iam.invitation.VerifiedEmailInvitationAcceptance;
 import io.memoryos.iam.identity.persistence.ActorEntity;
 import io.memoryos.iam.group.persistence.IamLockRepository;
 import io.memoryos.iam.invitation.persistence.InvitationEntity;
 import io.memoryos.iam.invitation.persistence.InvitationQueryRepository;
 import io.memoryos.iam.invitation.persistence.JpaInvitationRepository;
-import io.memoryos.iam.IamException;
 
 @Service
 public class DefaultInvitationService implements InvitationService {

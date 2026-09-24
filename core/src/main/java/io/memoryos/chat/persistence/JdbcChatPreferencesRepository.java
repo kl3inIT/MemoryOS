@@ -1,7 +1,7 @@
 package io.memoryos.chat.persistence;
 
 import io.memoryos.chat.preferences.ChatPreferences;
-import io.memoryos.chat.preferences.ReasoningEffort;
+import io.memoryos.ai.ReasoningEffort;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Optional;

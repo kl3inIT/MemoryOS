@@ -12,7 +12,7 @@ import io.memoryos.chat.ChatPersonaService.PersonaView;
 import io.memoryos.chat.ChatPersonaService.SharingInput;
 import io.memoryos.chat.ChatPersonaService.TransferInput;
 import io.memoryos.chat.ChatPersonaService;
-import io.memoryos.chat.catalog.ModelCatalogService;
+import io.memoryos.chat.ChatModelAccess;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -48,9 +48,9 @@ import org.springframework.web.bind.annotation.*;
 @SecurityRequirement(name = "bearerAuth")
 class ChatPersonaController {
     private final ChatPersonaService personas;
-    private final ModelCatalogService models;
+    private final ChatModelAccess models;
     private final SourceSearchService sources;
-    ChatPersonaController(ChatPersonaService personas, ModelCatalogService models, SourceSearchService sources) {
+    ChatPersonaController(ChatPersonaService personas, ChatModelAccess models, SourceSearchService sources) {
         this.personas = personas; this.models = models; this.sources = sources;
     }
 

@@ -1,5 +1,6 @@
 package io.memoryos.chat;
 
+import io.memoryos.ai.ChatSampling;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;

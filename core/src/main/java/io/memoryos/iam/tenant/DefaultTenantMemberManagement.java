@@ -8,10 +8,6 @@ import io.memoryos.iam.group.GroupAdministrationGuard;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.shared.TenantId;
-import io.memoryos.iam.tenant.TenantMemberException;
-import io.memoryos.iam.tenant.TenantMemberManagement;
-import io.memoryos.iam.tenant.TenantMembershipRole;
-import io.memoryos.iam.tenant.TenantMembershipStatus;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
 import io.memoryos.iam.tenant.persistence.TenantMembershipEntity;
 

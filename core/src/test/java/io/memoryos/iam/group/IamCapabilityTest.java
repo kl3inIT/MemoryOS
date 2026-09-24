@@ -8,7 +8,6 @@ import java.util.EnumSet;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
-import io.memoryos.iam.group.IamCapability;
 
 class IamCapabilityTest {
 

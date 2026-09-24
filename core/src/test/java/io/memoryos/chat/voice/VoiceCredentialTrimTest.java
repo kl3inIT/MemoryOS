@@ -3,7 +3,7 @@ package io.memoryos.chat.voice;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-import io.memoryos.chat.catalog.ProviderCredentials;
+import io.memoryos.ai.ProviderCredentials;
 import org.junit.jupiter.api.Test;
 
 /**

@@ -15,7 +15,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import io.memoryos.iam.group.persistence.GroupEntity;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class GroupSchemaIntegrityTest {

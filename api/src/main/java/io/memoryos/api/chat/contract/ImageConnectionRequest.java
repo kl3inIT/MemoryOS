@@ -1,6 +1,6 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.chat.catalog.ProviderCredentials;
+import io.memoryos.ai.ProviderCredentials;
 import jakarta.validation.constraints.*;
 import org.jspecify.annotations.Nullable;
 

@@ -1,5 +1,6 @@
 package io.memoryos.chat.application;
 
+import io.memoryos.ai.ReasoningEffort;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatBranch;
 import io.memoryos.chat.ChatMessage;
@@ -121,7 +122,7 @@ public class DefaultChatSessionService implements ChatSessionService {
     @Override
     @Transactional
     public ChatSession pinReasoningEffort(ActorId actor, UUID sessionId,
-                                          io.memoryos.chat.preferences.@Nullable ReasoningEffort effort) {
+                                          @Nullable ReasoningEffort effort) {
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
         chats.lockOwner(tenant, actor);
         chats.findOwned(tenant, actor, sessionId, true).orElseThrow(ChatException::unavailable);

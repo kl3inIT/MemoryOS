@@ -1,4 +1,6 @@
 package io.memoryos.chat.execution;
+import io.memoryos.ai.ChatModelBinding;
+import io.memoryos.ai.ChatRequestPolicy;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

@@ -7,10 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.group.Authority;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.GroupQuery;
-import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.IamException;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.GroupProjectionRepository;
@@ -34,10 +30,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.group.DefaultGroupScopeService;
-import io.memoryos.iam.group.DefaultIamAuthorization;
-import io.memoryos.iam.IamException;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class PostgresIamAuthorizationTest {

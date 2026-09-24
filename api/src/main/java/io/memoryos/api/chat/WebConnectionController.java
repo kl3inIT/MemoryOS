@@ -8,8 +8,8 @@ import io.memoryos.api.chat.contract.WebEnginesResponse;
 import io.memoryos.api.chat.contract.WebSelectionRequest;
 import io.memoryos.api.chat.contract.WebTestRequest;
 import io.memoryos.chat.ChatException;
-import io.memoryos.chat.catalog.ModelCatalogService;
-import io.memoryos.chat.catalog.ProviderCredentials;
+import io.memoryos.chat.ChatModelAccess;
+import io.memoryos.ai.ProviderCredentials;
 import io.memoryos.chat.web.WebConnectionService;
 import io.memoryos.chat.web.WebProvider;
 import io.memoryos.chat.web.WebProviderClient;
@@ -52,8 +52,8 @@ import org.springframework.web.bind.annotation.RestController;
 class WebConnectionController {
     private final WebConnectionService connections;
     private final WebProviderClient client;
-    private final ModelCatalogService models;
-    WebConnectionController(WebConnectionService connections, WebProviderClient client, ModelCatalogService models) {
+    private final ChatModelAccess models;
+    WebConnectionController(WebConnectionService connections, WebProviderClient client, ChatModelAccess models) {
         this.connections = connections; this.client = client; this.models = models;
     }
 

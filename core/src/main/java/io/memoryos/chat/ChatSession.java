@@ -1,5 +1,6 @@
 package io.memoryos.chat;
 
+import io.memoryos.ai.ReasoningEffort;
 import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -12,7 +13,7 @@ import org.jspecify.annotations.Nullable;
  */
 public record ChatSession(UUID id, UUID personaId, UUID rootMessageId, String title,
         Instant createdAt, Instant updatedAt, @Nullable UUID projectId,
-        io.memoryos.chat.preferences.@Nullable ReasoningEffort reasoningEffort, @Nullable Instant archivedAt,
+        @Nullable ReasoningEffort reasoningEffort, @Nullable Instant archivedAt,
         @Nullable UUID branchedFromSessionId, @Nullable UUID branchedFromMessageId, boolean temporary) {
     public ChatSession(UUID id, UUID personaId, UUID rootMessageId, String title,
             Instant createdAt, Instant updatedAt, @Nullable UUID projectId) {
@@ -21,7 +22,7 @@ public record ChatSession(UUID id, UUID personaId, UUID rootMessageId, String ti
 
     public ChatSession(UUID id, UUID personaId, UUID rootMessageId, String title,
             Instant createdAt, Instant updatedAt, @Nullable UUID projectId,
-            io.memoryos.chat.preferences.@Nullable ReasoningEffort reasoningEffort) {
+            @Nullable ReasoningEffort reasoningEffort) {
         this(id, personaId, rootMessageId, title, createdAt, updatedAt, projectId, reasoningEffort, null, null,
                 null, false);
     }

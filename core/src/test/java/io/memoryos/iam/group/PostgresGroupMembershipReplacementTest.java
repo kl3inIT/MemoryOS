@@ -8,11 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.group.GroupAdministrationGuard;
-import io.memoryos.iam.group.GroupPermissions;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.GroupService;
-import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.IamException;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
@@ -31,11 +26,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.group.DefaultGroupAdministrationGuard;
-import io.memoryos.iam.group.DefaultGroupService;
-import io.memoryos.iam.group.DefaultIamAuthorization;
-import io.memoryos.iam.IamException;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class PostgresGroupMembershipReplacementTest {

@@ -5,19 +5,6 @@ import io.memoryos.audit.AuditOutcome;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.group.Authority;
-import io.memoryos.iam.group.GroupAdministrationGuard;
-import io.memoryos.iam.group.GroupCapabilityMetadata;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.GroupMemberPage;
-import io.memoryos.iam.group.GroupPage;
-import io.memoryos.iam.group.GroupQuery;
-import io.memoryos.iam.group.GroupService;
-import io.memoryos.iam.group.GroupSummary;
-import io.memoryos.iam.group.GroupSystemKey;
-import io.memoryos.iam.group.IamAccess;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
 import io.memoryos.shared.TenantId;
@@ -43,8 +30,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 
 @Service
 public class DefaultGroupService implements GroupService {

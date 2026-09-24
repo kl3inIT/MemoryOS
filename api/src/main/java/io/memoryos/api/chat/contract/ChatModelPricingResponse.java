@@ -1,7 +1,7 @@
 package io.memoryos.api.chat.contract;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.memoryos.chat.catalog.ModelSettings;
+import io.memoryos.ai.ModelSettings;
 
 @Schema(name = "Pricing")
 public record ChatModelPricingResponse(

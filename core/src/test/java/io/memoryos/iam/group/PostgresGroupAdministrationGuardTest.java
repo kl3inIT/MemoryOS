@@ -20,9 +20,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.group.DefaultGroupAdministrationGuard;
-import io.memoryos.iam.IamException;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class PostgresGroupAdministrationGuardTest {

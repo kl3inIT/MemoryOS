@@ -1,5 +1,6 @@
 package io.memoryos.chat.preferences;
 
+import io.memoryos.ai.ReasoningEffort;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 

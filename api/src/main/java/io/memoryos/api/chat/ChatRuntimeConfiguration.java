@@ -6,7 +6,8 @@ import io.memoryos.chat.application.ChatTurnPersistence;
 import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.execution.ChatExecutionProperties;
 import io.memoryos.chat.execution.ChatModelExecutor;
-import io.memoryos.chat.catalog.ChatModelResolver;
+import io.memoryos.ai.ModelCalls;
+import io.memoryos.chat.execution.ChatModelSelector;
 import io.memoryos.chat.streaming.ChatStreamProperties;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.memoryos.chat.tools.ChatSearchProperties;
@@ -64,6 +65,13 @@ class ChatRuntimeConfiguration {
                 research, new io.memoryos.chat.research.ResearchTelemetry(meters, observations), meters);
     }
 
+    /** Single model calls outside conversations, bounded by the same deployment budgets as a Chat turn. */
+    @Bean
+    ModelCalls modelCalls(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository repository,
+                          ChatExecutionProperties limits) {
+        return new ModelCalls(contexts, repository, limits.costCap(), limits.tokenCap());
+    }
+
     @Bean(destroyMethod = "dispose")
     Scheduler chatInferenceScheduler(ChatExecutionProperties limits) {
         return Schedulers.newBoundedElastic(limits.concurrency(), 16,
@@ -73,7 +81,7 @@ class ChatRuntimeConfiguration {
     @Bean(destroyMethod = "close")
     ChatTurnService chatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
                                     @Qualifier("chatTaskExecutor") SimpleAsyncTaskExecutor chatTaskExecutor, StreamBufferWriter streams,
-                                    ChatModelResolver models, io.memoryos.chat.web.WebConnectionService web,
+                                    ChatModelSelector models, io.memoryos.chat.web.WebConnectionService web,
                                     io.memoryos.chat.image.ImageConnectionService images, io.memoryos.chat.ChatSettingsService settings,
                                     io.memoryos.chat.research.ResearchProperties research,
                                     io.memoryos.mcp.McpTurnService mcp,

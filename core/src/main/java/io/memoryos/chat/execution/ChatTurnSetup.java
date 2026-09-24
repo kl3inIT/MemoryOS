@@ -1,5 +1,7 @@
 package io.memoryos.chat.execution;
 
+import io.memoryos.ai.ChatModelBinding;
+import io.memoryos.ai.ChatRequestPolicy;
 import com.embabel.chat.AssistantMessage;
 import com.embabel.chat.Message;
 import com.embabel.chat.SystemMessage;
@@ -72,7 +74,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, research, tools);
     }
     /** Admission estimate, not reported provider usage. The native response remains the usage ledger. */
-    public static final int IMAGE_INPUT_TOKENS = 4096;
+    public static final int IMAGE_INPUT_TOKENS = ChatRequestPolicy.IMAGE_INPUT_TOKENS;
     /** A wide citation marker for token estimates: citation numbers have no cap. */
     private static final int CITATION_ESTIMATE = 99999;
     public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
@@ -122,7 +124,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
 
     public static ChatTurnSetup resolve(UUID session, UUID assistant, TurnContext context, int contextTokenLimit,
                                         ChatModelBinding binding, String contribution) {
-        binding = binding.forOptions(context.options());
+        binding = binding.forOptions(context.options().sampling(), context.options().outputTokenLimit());
         if (context.options().contextTokenLimit() != null) contextTokenLimit = Math.min(contextTokenLimit, context.options().contextTokenLimit());
         var policy = binding.policy();
         var selected = new ArrayList<Message>();

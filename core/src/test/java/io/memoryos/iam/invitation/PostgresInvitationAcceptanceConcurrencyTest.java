@@ -15,12 +15,6 @@ import io.memoryos.iam.identity.ExternalIdentity;
 import io.memoryos.iam.group.GroupProvisioner;
 import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapRequest;
 import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapper;
-import io.memoryos.iam.invitation.InvitationAcceptance;
-import io.memoryos.iam.invitation.InvitationException;
-import io.memoryos.iam.invitation.InvitationFailureReason;
-import io.memoryos.iam.invitation.InvitationService;
-import io.memoryos.iam.invitation.InvitationTarget;
-import io.memoryos.iam.invitation.KeycloakRecipientProvisioning;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.tenant.TenantMembershipProvisioner;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
@@ -51,7 +45,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import io.memoryos.iam.group.DefaultGroupProvisioner;
 import io.memoryos.iam.group.DefaultIamAuthorization;
-import io.memoryos.iam.invitation.DefaultInvitationService;
 import io.memoryos.iam.tenant.bootstrap.DefaultInitialTenantBootstrapper;
 
 @Testcontainers

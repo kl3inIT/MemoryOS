@@ -4,9 +4,6 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.shared.TenantId;
-import io.memoryos.iam.user.UserPage;
-import io.memoryos.iam.user.UserQuery;
-import io.memoryos.iam.user.UserQueryService;
 import io.memoryos.iam.user.persistence.UserQueryRepository;
 
 import java.time.Clock;

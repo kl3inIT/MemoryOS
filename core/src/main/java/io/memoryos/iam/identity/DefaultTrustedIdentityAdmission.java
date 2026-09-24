@@ -4,14 +4,11 @@ import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.identity.ExternalIdentity;
-import io.memoryos.iam.identity.ExternalIdentityRegistrar;
 import io.memoryos.iam.group.GroupProvisioner;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.tenant.TenantMembershipProvisioner;
-import io.memoryos.iam.identity.TrustedIdentityAdmission;
 import io.memoryos.iam.group.persistence.IamLockRepository;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
 
@@ -19,8 +16,6 @@ import java.util.Objects;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 
 @Service
 public class DefaultTrustedIdentityAdmission implements TrustedIdentityAdmission {

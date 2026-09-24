@@ -1,5 +1,7 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.ai.ModelFlow;
+import io.memoryos.ai.ModelAccounting;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -35,10 +37,10 @@ import java.util.stream.IntStream;
 import java.util.stream.Collectors;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import io.memoryos.chat.catalog.ModelSettings;
-import io.memoryos.chat.catalog.ModelCatalogService;
-import io.memoryos.chat.catalog.openai.OpenAiChatProviderAdapter;
-import io.memoryos.chat.catalog.openai.OpenAiChatProviderConfiguration;
+import io.memoryos.ai.ModelSettings;
+import io.memoryos.ai.ModelCatalogService;
+import io.memoryos.ai.openai.OpenAiChatProviderAdapter;
+import io.memoryos.ai.openai.OpenAiChatProviderConfiguration;
 import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.retrieval.SearchHit;
@@ -86,8 +88,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import com.embabel.common.ai.model.PricingModel;
 import com.embabel.chat.UserMessage;
-import io.memoryos.chat.execution.ChatModelBinding;
-import io.memoryos.chat.execution.ChatRequestPolicy;
+import io.memoryos.ai.ChatModelBinding;
+import io.memoryos.ai.ChatRequestPolicy;
 import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.chat.execution.ChatModelExecutor;
@@ -124,7 +126,7 @@ import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
-import io.memoryos.chat.catalog.ChatProviderAdapter;
+import io.memoryos.ai.ChatProviderAdapter;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import reactor.core.publisher.Mono;
@@ -1717,7 +1719,7 @@ class ChatSessionApiIntegrationTest {
         for (int turn = 0; turn < 2; turn++) {
             var setup = new ChatTurnSetup(UUID.randomUUID(), UUID.randomUUID(), actor.getPrincipal().actorId(),
                     new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), binding);
-            var accounting = new AtomicReference<ChatModelExecutor.Accounting>();
+            var accounting = new AtomicReference<ModelAccounting>();
             var answer = new StringBuilder();
             executor.execute(setup, () -> {}, Mono.never(), answer::append, accounting::set, ignored -> {}, ignored -> {}, ignored -> {}, ignored -> {});
             assertEquals("Answer", answer.toString());
@@ -2238,10 +2240,10 @@ class ChatSessionApiIntegrationTest {
         grantModelManagement();
         var flows = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-flows").with(authentication(actor)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        assertEquals(io.memoryos.chat.catalog.ModelFlow.values().length, flows.size(), "every task flow is listed");
+        assertEquals(ModelFlow.values().length, flows.size(), "every task flow is listed");
         var listed = new java.util.TreeSet<String>();
         flows.forEach(flow -> listed.add(flow.path("flow").asText()));
-        assertEquals(java.util.Arrays.stream(io.memoryos.chat.catalog.ModelFlow.values())
+        assertEquals(java.util.Arrays.stream(ModelFlow.values())
                 .map(Enum::name).collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new)), listed);
         var naming = flows.get(0);
         assertEquals("CHAT_NAMING", naming.path("flow").asText());
@@ -5321,8 +5323,8 @@ class ChatSessionApiIntegrationTest {
         String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
         assertTrue(key != null && !key.isBlank(), "SPRING_AI_OPENAI_API_KEY is required for this explicitly enabled check");
         var configuration = new OpenAiChatProviderConfiguration();
-        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits);
-        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits);
+        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
+        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var meters = new SimpleMeterRegistry();
         try {
             var provider = configuration.chatProviderModel(client, sync, key,
@@ -5428,8 +5430,8 @@ class ChatSessionApiIntegrationTest {
         String corpusFile = System.getenv("MEMORYOS_CHAT_CORPUS_FILE");
         assertTrue(corpusFile != null && !corpusFile.isBlank(), "MEMORYOS_CHAT_CORPUS_FILE is required for this opt-in check");
         var configuration = new OpenAiChatProviderConfiguration();
-        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits);
-        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits);
+        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
+        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var receipts = new ArrayList<Map<String, Object>>();
         var answerChecks = new ArrayList<org.junit.jupiter.api.function.Executable>();
         try (var corpus = new io.memoryos.retrieval.opensearch.LiveSearchCorpus(
@@ -5522,8 +5524,8 @@ class ChatSessionApiIntegrationTest {
         String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
         assertTrue(key != null && !key.isBlank(), "A managed OpenAI key is required for this opt-in check");
         var configuration = new OpenAiChatProviderConfiguration();
-        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits);
-        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits);
+        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
+        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var meters = new SimpleMeterRegistry();
         UUID policy = UUID.randomUUID(), contractor = UUID.randomUUID(), injection = UUID.randomUUID(), hidden = UUID.randomUUID();
         var generation = UUID.randomUUID();

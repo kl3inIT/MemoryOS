@@ -1,5 +1,6 @@
 package io.memoryos.chat;
 
+import io.memoryos.ai.AiException;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -9,10 +10,10 @@ import io.memoryos.TestDatabase;
 import io.memoryos.chat.application.ChatTurnPersistence;
 import io.memoryos.chat.application.DefaultChatSessionService;
 import io.memoryos.chat.application.PersonaProperties;
-import io.memoryos.chat.catalog.ModelCatalogService;
-import io.memoryos.chat.catalog.ModelSettings;
-import io.memoryos.chat.execution.ChatModelBinding;
-import io.memoryos.chat.execution.ChatRequestPolicy;
+import io.memoryos.ai.ModelCatalogService;
+import io.memoryos.ai.ModelSettings;
+import io.memoryos.ai.ChatModelBinding;
+import io.memoryos.ai.ChatRequestPolicy;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.persistence.JdbcAgentRepository;
 import io.memoryos.chat.persistence.JdbcChatRepository;
@@ -113,7 +114,7 @@ class ChatPersistenceIntegrationTest {
         other = member(tenant);
         when(authorization.effectiveCapabilities(owner)).thenReturn(Set.of(IamCapability.MODELS_MANAGE, IamCapability.AGENTS_MANAGE, IamCapability.AGENTS_CREATE));
         when(authorization.effectiveCapabilities(other)).thenReturn(Set.of());
-        var models = mock(ModelCatalogService.class);
+        var models = mock(ChatModelAccess.class);
         when(models.availableModelsForPersona(any(), any())).thenReturn(List.of(new ModelCatalogService.AvailableModel(
                 UUID.randomUUID(), UUID.randomUUID(), "Provider", "model", "Model",
                 new ModelSettings.Capabilities(true, true, false, false), 32000, 4096, null, true)));
@@ -590,7 +591,7 @@ class ChatPersistenceIntegrationTest {
     void oversizedQuestionRollsBackBeforeTreeAdvancesAndBuiltinConfigurationSurvivesSend() {
         var session = sessions.create(owner, "Validation");
         var request = UUID.randomUUID();
-        assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(), session.rootMessageId(), request,
+        assertThrows(AiException.class, () -> turns.reserve(owner, session.id(), session.rootMessageId(), request,
                 "Question ".repeat(500), Duration.ofMinutes(2), 100));
         assertTrue(sessions.history(owner, session.id(), null, 100).isEmpty());
         jdbc.sql("UPDATE persona SET instructions = 'Answer' WHERE id = :id").param("id", session.personaId()).update();
@@ -605,7 +606,7 @@ class ChatPersistenceIntegrationTest {
                 contribution);
         int raw = tokens.estimate(instructions) + tokens.estimate("Question");
         var selection = new ChatTurnPersistence.ModelSelection(null, UUID.randomUUID(), null, binding, null, contribution);
-        assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(), session.rootMessageId(), request,
+        assertThrows(AiException.class, () -> turns.reserve(owner, session.id(), session.rootMessageId(), request,
                 "Question", Duration.ofMinutes(2), raw, selection));
         assertTrue(sessions.history(owner, session.id(), null, 100).isEmpty());
         jdbc.sql("UPDATE persona SET model = 'obsolete-model' WHERE id = :id").param("id", session.personaId()).update();

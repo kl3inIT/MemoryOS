@@ -1,8 +1,8 @@
 package io.memoryos.api.chat.contract;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.memoryos.chat.catalog.ChatProviderAdapter;
-import io.memoryos.chat.catalog.ChatProviderAdapters;
+import io.memoryos.ai.ChatProviderAdapter;
+import io.memoryos.ai.ChatProviderAdapters;
 import java.util.List;
 
 @Schema(name = "Descriptor")

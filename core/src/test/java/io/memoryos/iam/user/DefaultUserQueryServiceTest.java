@@ -17,11 +17,6 @@ import io.memoryos.iam.group.GroupSystemKey;
 import io.memoryos.iam.IamException;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.tenant.TenantMembershipRole;
-import io.memoryos.iam.user.UserListItem;
-import io.memoryos.iam.user.UserQuery;
-import io.memoryos.iam.user.UserQueryService;
-import io.memoryos.iam.user.UserSort;
-import io.memoryos.iam.user.UserStatus;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.group.persistence.IamLockRepository;
 import io.memoryos.iam.user.persistence.UserQueryRepository;
@@ -39,10 +34,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import io.memoryos.iam.IamException;
 import io.memoryos.iam.group.DefaultIamAuthorization;
-import io.memoryos.iam.user.DefaultUserQueryService;
-import io.memoryos.iam.IamException;
 
 @Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})

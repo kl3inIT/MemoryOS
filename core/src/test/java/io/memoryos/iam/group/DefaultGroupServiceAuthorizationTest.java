@@ -9,12 +9,6 @@ import static org.mockito.Mockito.when;
 
 import io.memoryos.audit.AuditTrail;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.group.Authority;
-import io.memoryos.iam.group.GroupAdministrationGuard;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.IamAccess;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.IamException;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.IamFailureReason;
@@ -32,11 +26,6 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.group.DefaultGroupService;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 
 class DefaultGroupServiceAuthorizationTest {
     private static final TenantId TENANT = new TenantId(

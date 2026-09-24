@@ -1,7 +1,7 @@
 package io.memoryos.chat.preferences;
 
 import io.memoryos.chat.ChatException;
-import io.memoryos.chat.catalog.ModelCatalogService;
+import io.memoryos.chat.ChatModelAccess;
 import io.memoryos.chat.persistence.JdbcChatPreferencesRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.identity.ActorProfileReader;
@@ -16,11 +16,11 @@ public class ChatPreferencesService {
 
     private final JdbcChatPreferencesRepository preferences;
     private final TenantAccessResolver tenants;
-    private final ModelCatalogService catalog;
+    private final ChatModelAccess catalog;
     private final ActorProfileReader profiles;
 
     public ChatPreferencesService(JdbcChatPreferencesRepository preferences, TenantAccessResolver tenants,
-                                  ModelCatalogService catalog, ActorProfileReader profiles) {
+                                  ChatModelAccess catalog, ActorProfileReader profiles) {
         this.preferences = preferences;
         this.tenants = tenants;
         this.catalog = catalog;

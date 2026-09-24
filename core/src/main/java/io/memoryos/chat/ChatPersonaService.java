@@ -1,7 +1,6 @@
 package io.memoryos.chat;
 
 import io.memoryos.chat.application.PersonaProperties;
-import io.memoryos.chat.catalog.ModelCatalogService;
 import io.memoryos.chat.persistence.JdbcAgentRepository.Access;
 import io.memoryos.chat.persistence.JdbcAgentRepository;
 import io.memoryos.chat.persistence.JdbcChatRepository;
@@ -53,7 +52,7 @@ public class ChatPersonaService {
     private final JdbcAgentRepository agents;
     private final PersonaRevisions revisions;
     private final PersonaProperties defaults;
-    private final ModelCatalogService models;
+    private final ChatModelAccess models;
     private final SourceSearchService sources;
     private final DocumentSetService documentSets;
     private final JdbcDocumentSetRepository documentSetRows;
@@ -63,7 +62,7 @@ public class ChatPersonaService {
 
     public ChatPersonaService(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
             JpaPersonaRepository settings, JdbcAgentRepository agents, PersonaRevisions revisions, PersonaProperties defaults,
-            ModelCatalogService models, SourceSearchService sources, DocumentSetService documentSets, JdbcDocumentSetRepository documentSetRows,
+            ChatModelAccess models, SourceSearchService sources, DocumentSetService documentSets, JdbcDocumentSetRepository documentSetRows,
             ChatFileService files, JdbcUserFileRepository userFiles, ChatFileContentService content) {
         this.tenants = tenants; this.authorization = authorization; this.chats = chats; this.settings = settings;
         this.agents = agents; this.revisions = revisions; this.defaults = defaults; this.models = models;

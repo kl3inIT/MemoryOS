@@ -22,8 +22,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import io.memoryos.iam.group.persistence.IamLockRepository;
-import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;
-import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
 
 // SQL is exercised against the isolated, migrated Testcontainers database.
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})

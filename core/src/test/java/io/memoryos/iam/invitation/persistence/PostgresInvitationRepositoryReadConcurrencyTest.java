@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import io.memoryos.iam.invitation.persistence.JpaInvitationRepository;
 
 @Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})

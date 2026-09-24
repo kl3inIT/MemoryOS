@@ -25,9 +25,10 @@ import io.memoryos.chat.ChatReasoningDelta;
 import io.memoryos.chat.ChatResearchEvent;
 import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.ChatToolEvent;
-import io.memoryos.chat.execution.ChatAdmissionLedger;
+import io.memoryos.ai.ChatAdmissionLedger;
 import io.memoryos.chat.execution.ChatModelGuard;
-import io.memoryos.chat.execution.ChatModelTurns;
+import io.memoryos.chat.execution.ChatTurnListener;
+import io.memoryos.ai.ChatModelTurns;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.execution.StreamingLlmService;
 import io.memoryos.retrieval.SearchTasks;
@@ -442,7 +443,7 @@ public final class ResearchExecutor {
             var binding = turn.setup().binding();
             // Research never uses provider-hosted Web search: agents search through the Web tools, as Onyx does.
             var model = turn.model() instanceof ChatModelTurns turns
-                    ? turns.forTurn(new ChatModelTurns.Turn(evidence, events, false, checkActive)) : turn.model();
+                    ? turns.forTurn(ChatTurnListener.turn(evidence, events, false, checkActive)) : turn.model();
             var guard = new ChatModelGuard(model, turn.process(), binding.service(), turn.budget(), cycles, checkActive,
                     binding.policy(), inputLimit, binding.finalRequest(), ledger);
             guard.researchPrompts();

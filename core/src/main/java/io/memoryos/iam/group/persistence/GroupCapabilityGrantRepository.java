@@ -13,8 +13,6 @@ import java.util.Objects;
 import java.util.Set;
 
 import org.springframework.stereotype.Repository;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 
 @Repository
 public class GroupCapabilityGrantRepository {

@@ -1,6 +1,6 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.chat.catalog.ChatModelResolver;
+import io.memoryos.ai.ChatModelResolver;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import org.jspecify.annotations.Nullable;

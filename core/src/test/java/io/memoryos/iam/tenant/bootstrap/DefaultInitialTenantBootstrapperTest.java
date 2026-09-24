@@ -11,10 +11,6 @@ import io.memoryos.TestDatabase.JpaHarness;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.identity.ExternalIdentity;
 import io.memoryos.iam.group.GroupProvisioner;
-import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapRequest;
-import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapResult;
-import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapper;
-import io.memoryos.iam.tenant.bootstrap.TenantBootstrapConflictException;
 import io.memoryos.iam.tenant.TenantBootstrapped;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
@@ -37,7 +33,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import io.memoryos.iam.group.DefaultGroupProvisioner;
-import io.memoryos.iam.tenant.bootstrap.DefaultInitialTenantBootstrapper;
 
 // SQL is exercised against the isolated, migrated Testcontainers database.
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})

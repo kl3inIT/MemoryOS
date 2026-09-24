@@ -1,7 +1,6 @@
 package io.memoryos.iam.group;
 
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.group.GroupAdministrationGuard;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
 import io.memoryos.shared.TenantId;
@@ -13,8 +12,6 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 
 @Service
 public class DefaultGroupAdministrationGuard implements GroupAdministrationGuard {

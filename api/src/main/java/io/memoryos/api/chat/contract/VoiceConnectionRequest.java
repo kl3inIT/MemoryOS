@@ -1,6 +1,6 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.chat.catalog.ProviderCredentials;
+import io.memoryos.ai.ProviderCredentials;
 import io.memoryos.chat.voice.VoiceFunction;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
