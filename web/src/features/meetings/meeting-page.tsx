@@ -155,14 +155,16 @@ export function MeetingPage({
   const meeting = useQuery({
     queryKey: meetingKey(meetingId),
     queryFn: ({ signal }) => loadMeeting(meetingId, signal),
-    // A recording being transcribed and minutes being written have no socket; the page asks again until they land.
+    // A recording being transcribed, minutes being written and a correction pass have no socket; the page asks
+    // again until they land.
     refetchInterval: (query) => {
       const current = query.state.data;
       if (!current) return false;
       const waiting =
         current.status === "TRANSCRIBING" ||
         current.minutes.status === "PENDING" ||
-        current.minutes.status === "RUNNING";
+        current.minutes.status === "RUNNING" ||
+        current.correcting;
       return waiting ? 3000 : false;
     },
   });
