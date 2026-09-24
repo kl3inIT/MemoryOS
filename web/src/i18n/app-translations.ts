@@ -710,7 +710,7 @@ export const vietnameseUi: Record<string, string> = {
   Web: "Web",
   "Nội dung trang Web": "Web page content",
   "Nội dung trang Web: {{title}}": "Web page content: {{title}}",
-  "Web · Nguồn": "Web · Source",
+  "Web · Nguồn {{number}}": "Web · Source {{number}}",
   "Tắt Web": "Web off",
   "Tự động dùng Web": "Use Web automatically",
   "Bắt buộc tìm trên Web": "Require Web search",
@@ -1337,8 +1337,8 @@ export const vietnameseUi: Record<string, string> = {
   "tệp không còn khả dụng": "unavailable file",
   "Hội thoại trong dự án": "Conversations in this project",
   "Hội thoại dự án": "Project conversations",
-  "Chưa có hội thoại": "No conversations yet",
-  ". Gửi câu hỏi ở trên để bắt đầu.": ". Send a question above to get started.",
+  "Chưa có hội thoại. Gửi câu hỏi ở trên để bắt đầu.":
+    "No conversations yet. Send a question above to get started.",
   "Hướng dẫn áp dụng cho những lượt tiếp theo trong dự án.":
     "Instructions apply to subsequent turns in this project.",
   "Đặt tên cho công việc bạn muốn tập trung.": "Name the work you want to focus on.",
