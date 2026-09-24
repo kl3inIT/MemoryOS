@@ -6,7 +6,6 @@ import io.memoryos.document.ExtractedDocument.Cell;
 import io.memoryos.document.ExtractedDocument.CoordOrigin;
 import io.memoryos.document.ExtractedDocument.Kind;
 import io.memoryos.document.ExtractedDocument.Location;
-import io.memoryos.document.ExtractedDocument.Page;
 import io.memoryos.document.ExtractedDocument.Table;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
@@ -24,9 +23,11 @@ import tools.jackson.databind.JsonNode;
  * The PaddleOCR-VL adapter: {@code layoutParsingResults} to MemoryOS blocks. No Paddle key survives.
  *
  * <p>Each result is one rendered page, and {@code parsing_res_list} is already in reading order.
- * A block's {@code block_bbox} is in pixels of that rendering; scaling it by the page's size in
- * points gives a box on the page as displayed, top-left origin. An image input has no page in
- * points, so its blocks carry the page number alone.
+ * A block's {@code block_bbox} is in pixels of that rendering, which is the page's CropBox. Scaled
+ * by the CropBox size and moved to its corner, it becomes a box in PDF user space with a
+ * bottom-left origin, the space the viewer's page {@code view} is in. A page turned by
+ * {@code /Rotate} carries its page number alone: the viewer outlines no rotated page, and an
+ * unlocated passage is never drawn. Nor does an image input, which has no page in points.
  */
 final class PaddleOcrVlDocument {
     /** Running headers and footers, page numbers and margin notes, left out of the body as Docling does. */
@@ -38,10 +39,10 @@ final class PaddleOcrVlDocument {
     private PaddleOcrVlDocument() {}
 
     /**
-     * @param pages the PDF's pages in points, one per result; empty for an image input, where each
+     * @param pages the PDF's page frames, one per result; empty for an image input, where each
      *        result is one frame (a multi-page TIFF has several) and carries a page number but no box
      */
-    static List<Block> blocks(JsonNode results, List<Page> pages) throws ExtractionException {
+    static List<Block> blocks(JsonNode results, List<PdfLayout.Frame> pages) throws ExtractionException {
         if (!pages.isEmpty() && results.size() != pages.size()) throw failure(ExtractionFailure.MALFORMED);
         if (results.isEmpty()) throw failure(ExtractionFailure.MALFORMED);
         var blocks = new ArrayList<Block>();
@@ -50,6 +51,7 @@ final class PaddleOcrVlDocument {
             JsonNode page = results.get(index).path("prunedResult");
             JsonNode items = page.path("parsing_res_list");
             if (!items.isArray()) throw failure(ExtractionFailure.MALFORMED);
+            PdfLayout.Frame frame = null;
             double scaleX = 0;
             double scaleY = 0;
             if (!pages.isEmpty()) {
@@ -58,8 +60,11 @@ final class PaddleOcrVlDocument {
                 if (!width.isNumber() || !height.isNumber() || width.asDouble() <= 0 || height.asDouble() <= 0) {
                     throw failure(ExtractionFailure.MALFORMED);
                 }
-                scaleX = pages.get(index).width() / width.asDouble();
-                scaleY = pages.get(index).height() / height.asDouble();
+                if (pages.get(index).rotation() == 0) {
+                    frame = pages.get(index);
+                    scaleX = frame.width() / width.asDouble();
+                    scaleY = frame.height() / height.asDouble();
+                }
             }
             for (JsonNode item : items) {
                 String label = item.path("block_label").asString("");
@@ -67,7 +72,7 @@ final class PaddleOcrVlDocument {
                 if (blocks.size() >= StructuredContent.MAX_BLOCKS) throw failure(ExtractionFailure.WRITE_LIMIT);
                 String content = item.path("block_content").asString("").strip();
                 var locations = List.of(Location.page(index + 1,
-                        pages.isEmpty() ? null : box(item.path("block_bbox"), scaleX, scaleY)));
+                        frame == null ? null : box(item.path("block_bbox"), frame, scaleX, scaleY)));
                 int position = blocks.size();
                 if (PICTURES.contains(label)) {
                     blocks.add(new Block(position, Kind.IMAGE, "", null, locations, null, null, null));
@@ -95,8 +100,12 @@ final class PaddleOcrVlDocument {
         return blocks;
     }
 
-    /** {@code [x1, y1, x2, y2]} in pixels, as an array or as its string form; anything else has no box. */
-    private static @Nullable BoundingBox box(JsonNode bbox, double scaleX, double scaleY) {
+    /**
+     * {@code [x1, y1, x2, y2]} in pixels from the rendering's top left, as an array or as its string
+     * form; anything else has no box. The result is in user space: x from the CropBox's left edge,
+     * y up from its bottom edge.
+     */
+    private static @Nullable BoundingBox box(JsonNode bbox, PdfLayout.Frame frame, double scaleX, double scaleY) {
         double[] values = new double[4];
         if (bbox.isArray() && bbox.size() == 4) {
             for (int i = 0; i < 4; i++) {
@@ -115,8 +124,9 @@ final class PaddleOcrVlDocument {
             return null;
         }
         for (double value : values) if (!Double.isFinite(value)) return null;
-        return new BoundingBox(values[0] * scaleX, values[1] * scaleY, values[2] * scaleX, values[3] * scaleY,
-                CoordOrigin.TOPLEFT);
+        double top = frame.y0() + frame.height();
+        return new BoundingBox(frame.x0() + values[0] * scaleX, top - values[1] * scaleY,
+                frame.x0() + values[2] * scaleX, top - values[3] * scaleY, CoordOrigin.BOTTOMLEFT);
     }
 
     /**

@@ -102,8 +102,9 @@ memoryos:
     # MEM-192. Empty endpoint: no PaddleOCR-VL, and Docling keeps its own OCR for scans.
     paddleocr-vl:
       endpoint: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_ENDPOINT:}
-      timeout: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_TIMEOUT:10m}
+      timeout: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_TIMEOUT:30m}
       revision: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_REVISION:}
+      max-concurrent-requests: ${MEMORYOS_EXTRACTION_PADDLEOCR_VL_MAX_CONCURRENT_REQUESTS:2}
   sharepoint:
     credential-encryption-key: ${MEMORYOS_SHAREPOINT_CREDENTIAL_ENCRYPTION_KEY:}
     credential-key-version: ${MEMORYOS_SHAREPOINT_CREDENTIAL_KEY_VERSION:}

@@ -8,7 +8,6 @@ import io.memoryos.document.ExtractedDocument.BoundingBox;
 import io.memoryos.document.ExtractedDocument.Cell;
 import io.memoryos.document.ExtractedDocument.CoordOrigin;
 import io.memoryos.document.ExtractedDocument.Kind;
-import io.memoryos.document.ExtractedDocument.Page;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
 import java.io.ByteArrayOutputStream;
@@ -23,7 +22,8 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * MEM-192. Real PaddleOCR-VL-1.6 answers from the spike on the public HUT (Tasco) Q1/2026 report,
- * mapped onto MemoryOS blocks. Page sizes are the points PDFBox reports for the scanned pages.
+ * mapped onto MemoryOS blocks. Page sizes are the points PDFBox reports for the scanned pages; a
+ * box is in PDF user space, y up from the CropBox's bottom edge.
  */
 class PaddleOcrVlDocumentTest {
     private static final double A4_SHORT = 595.44;
@@ -32,7 +32,7 @@ class PaddleOcrVlDocumentTest {
 
     @Test
     void theIncomeStatementPageKeepsItsBodyAndDropsPageFurniture() throws Exception {
-        var blocks = PaddleOcrVlDocument.blocks(results("financial-statement-page.json"), List.of(new Page(1, A4_LONG, A4_SHORT)));
+        var blocks = PaddleOcrVlDocument.blocks(results("financial-statement-page.json"), List.of(upright(A4_LONG, A4_SHORT)));
 
         var texts = blocks.stream().map(Block::text).toList();
         assertFalse(texts.stream().anyMatch(text -> text.startsWith("CÔNG TY CỔ PHẦN TASCO")), "running header");
@@ -49,20 +49,20 @@ class PaddleOcrVlDocumentTest {
     }
 
     @Test
-    void aLandscapePageScalesPixelsToPointsFromTheTopLeft() throws Exception {
-        var blocks = PaddleOcrVlDocument.blocks(results("financial-statement-page.json"), List.of(new Page(1, A4_LONG, A4_SHORT)));
+    void aLandscapePageScalesPixelsToPointsInUserSpace() throws Exception {
+        var blocks = PaddleOcrVlDocument.blocks(results("financial-statement-page.json"), List.of(upright(A4_LONG, A4_SHORT)));
 
         // block_bbox [158, 286, 1520, 876] on a 1685 x 1191 rendering of an 842.04 x 595.44 pt page.
         var location = table(blocks).locations().getFirst();
         assertEquals(1, location.pageNo());
-        assertBox(158 * A4_LONG / 1685, 286 * A4_SHORT / 1191, 1520 * A4_LONG / 1685, 876 * A4_SHORT / 1191,
-                Objects.requireNonNull(location.bbox()));
+        assertBox(158 * A4_LONG / 1685, A4_SHORT - 286 * A4_SHORT / 1191, 1520 * A4_LONG / 1685,
+                A4_SHORT - 876 * A4_SHORT / 1191, Objects.requireNonNull(location.bbox()));
     }
 
     @Test
     void theHeaderSpansPlaceEveryLaterCellInItsColumn() throws Exception {
         var table = Objects.requireNonNull(table(PaddleOcrVlDocument.blocks(results("financial-statement-page.json"),
-                List.of(new Page(1, A4_LONG, A4_SHORT)))).table());
+                List.of(upright(A4_LONG, A4_SHORT)))).table());
 
         assertEquals(24, table.rowCount());
         assertEquals(7, table.columnCount());
@@ -83,7 +83,7 @@ class PaddleOcrVlDocumentTest {
 
     @Test
     void theTableTextFollowsTheSameGridAsDocling() throws Exception {
-        var blocks = PaddleOcrVlDocument.blocks(results("financial-statement-page.json"), List.of(new Page(1, A4_LONG, A4_SHORT)));
+        var blocks = PaddleOcrVlDocument.blocks(results("financial-statement-page.json"), List.of(upright(A4_LONG, A4_SHORT)));
 
         String text = DocumentAssembly.semanticText(blocks);
         assertTrue(text.startsWith("Đơn vị tính: VND\n\nCHÍ TIÊU\tMã số\tThuyết minh\tQUỀI\t\tLỤY KỆ TỪ ĐAU NĂM\n\t\t\tNăm nay\tNăm trước\tNăm nay\tNăm trước\n"
@@ -95,16 +95,16 @@ class PaddleOcrVlDocumentTest {
     void aSidewaysScanAndItsUprightCopyReadTheSameTableAtTheirOwnPlaces() throws Exception {
         // Page 1 is the balance sheet scanned turned on a landscape page; page 2 is the same page upright.
         var blocks = PaddleOcrVlDocument.blocks(results("sideways-and-upright-page.json"),
-                List.of(new Page(1, A4_LONG, A4_SHORT), new Page(2, A4_SHORT, A4_LONG)));
+                List.of(upright(A4_LONG, A4_SHORT), upright(A4_SHORT, A4_LONG)));
 
         var tables = blocks.stream().filter(block -> block.kind() == Kind.TABLE).toList();
         assertEquals(2, tables.size());
         assertEquals(1, tables.get(0).locations().getFirst().pageNo());
         assertEquals(2, tables.get(1).locations().getFirst().pageNo());
-        assertBox(259 * A4_LONG / 1685, 91 * A4_SHORT / 1191, 1005 * A4_LONG / 1685, 1032 * A4_SHORT / 1191,
-                Objects.requireNonNull(tables.get(0).locations().getFirst().bbox()));
-        assertBox(158 * A4_SHORT / 1191, 270 * A4_LONG / 1685, 1100 * A4_SHORT / 1191, 1000 * A4_LONG / 1685,
-                Objects.requireNonNull(tables.get(1).locations().getFirst().bbox()));
+        assertBox(259 * A4_LONG / 1685, A4_SHORT - 91 * A4_SHORT / 1191, 1005 * A4_LONG / 1685,
+                A4_SHORT - 1032 * A4_SHORT / 1191, Objects.requireNonNull(tables.get(0).locations().getFirst().bbox()));
+        assertBox(158 * A4_SHORT / 1191, A4_LONG - 270 * A4_LONG / 1685, 1100 * A4_SHORT / 1191,
+                A4_LONG - 1000 * A4_LONG / 1685, Objects.requireNonNull(tables.get(1).locations().getFirst().bbox()));
         assertEquals(amounts(tables.get(1)), amounts(tables.get(0)), "codes, notes and amounts agree cell for cell");
         assertEquals(23 * 4, amounts(tables.get(0)).size());
         // figure_title and vision_footnote are not titles Paddle promises; they stay paragraphs.
@@ -115,7 +115,7 @@ class PaddleOcrVlDocumentTest {
     }
 
     @Test
-    void aPageTurnedByRotateIsMeasuredAsItIsDisplayed() throws Exception {
+    void aPageTurnedByRotateIsMeasuredAsItIsDisplayedAndCarriesNoBox() throws Exception {
         try (var pdf = new PDDocument(); var out = new ByteArrayOutputStream()) {
             var portrait = new PDRectangle((float) A4_SHORT, (float) A4_LONG);
             var turned = new PDPage(portrait);
@@ -136,11 +136,48 @@ class PaddleOcrVlDocumentTest {
             assertPage(3, 700, 500, layout.sizes().get(2));
             assertPage(4, A4_LONG, A4_SHORT, layout.sizes().get(3));
 
-            // The sideways fixture's first page, stored portrait with /Rotate 90, renders landscape.
-            var blocks = PaddleOcrVlDocument.blocks(results("sideways-and-upright-page.json"), layout.sizes().subList(0, 2));
+            assertEquals(new PdfLayout.Frame(0, 0, (float) A4_SHORT, (float) A4_LONG, 90), layout.frames().get(0));
+            assertEquals(270, layout.frames().get(3).rotation());
+
+            // The sideways fixture's first page, stored portrait with /Rotate 90, renders landscape. The
+            // viewer outlines no rotated page, so its blocks keep the page and drop the box.
+            var blocks = PaddleOcrVlDocument.blocks(results("sideways-and-upright-page.json"), layout.frames().subList(0, 2));
+            var onTurnedPage = blocks.stream().filter(block -> block.locations().getFirst().pageNo() == 1).toList();
+            assertFalse(onTurnedPage.isEmpty());
+            assertTrue(onTurnedPage.stream().allMatch(block -> block.locations().getFirst().bbox() == null));
+            var upright = blocks.stream().filter(block -> block.kind() == Kind.TABLE).toList().get(1);
+            assertEquals(2, upright.locations().getFirst().pageNo());
+            assertBox(158 * A4_SHORT / 1191, A4_LONG - 270 * A4_LONG / 1685, 1100 * A4_SHORT / 1191,
+                    A4_LONG - 1000 * A4_LONG / 1685, Objects.requireNonNull(upright.locations().getFirst().bbox()));
+        }
+    }
+
+    @Test
+    void aCropBoxAwayFromTheOriginPlacesTheBoxWhereTheViewerDrawsIt() throws Exception {
+        try (var pdf = new PDDocument()) {
+            var page = new PDPage(new PDRectangle(0, 0, 900, 700));
+            page.setCropBox(new PDRectangle(36, 48, (float) A4_LONG, (float) A4_SHORT));
+            pdf.addPage(page);
+
+            var layout = PdfLayout.of(pdf, false);
+            assertPage(1, A4_LONG, A4_SHORT, layout.sizes().getFirst());
+            var frame = layout.frames().getFirst();
+            assertEquals(36, frame.x0(), 0.001);
+            assertEquals(48, frame.y0(), 0.001);
+
+            var blocks = PaddleOcrVlDocument.blocks(results("financial-statement-page.json"), layout.frames());
             var box = Objects.requireNonNull(table(blocks).locations().getFirst().bbox());
-            assertEquals(1005 * A4_LONG / 1685, box.r(), 0.01);
-            assertEquals(1032 * A4_SHORT / 1191, box.b(), 0.01);
+            assertEquals(CoordOrigin.BOTTOMLEFT, box.coordOrigin());
+            // web/src/features/preview/pdf-pages.ts pdfBoxRect with the page's view [x0, y0, x1, y1]:
+            // the drawn box, relative to the CropBox's top left, is the pixel box [158, 286, 1520, 876]
+            // of the 1685 x 1191 rendering scaled to points.
+            double[] view = {frame.x0(), frame.y0(), frame.x0() + frame.width(), frame.y0() + frame.height()};
+            double top = view[3] - Math.max(box.t(), box.b());
+            double left = Math.min(box.l(), box.r()) - view[0];
+            assertEquals(286 * A4_SHORT / 1191, top, 0.01);
+            assertEquals(158 * A4_LONG / 1685, left, 0.01);
+            assertEquals((876 - 286) * A4_SHORT / 1191, Math.abs(box.t() - box.b()), 0.01);
+            assertEquals((1520 - 158) * A4_LONG / 1685, Math.abs(box.r() - box.l()), 0.01);
         }
     }
 
@@ -175,13 +212,13 @@ class PaddleOcrVlDocumentTest {
                   {"block_label":"text","block_content":"   ","block_bbox":[0,0,10,10]},
                   {"block_label":"something_new","block_content":"kept","block_bbox":"not a box"}]}}]
                 """);
-        var blocks = PaddleOcrVlDocument.blocks(results, List.of(new Page(1, 500, 1000)));
+        var blocks = PaddleOcrVlDocument.blocks(results, List.of(upright(500, 1000)));
 
         assertEquals(List.of(Kind.HEADING, Kind.HEADING, Kind.IMAGE, Kind.PARAGRAPH, Kind.PARAGRAPH),
                 blocks.stream().map(Block::kind).toList());
         assertEquals(1, blocks.get(0).headingLevel());
         assertEquals(2, blocks.get(1).headingLevel());
-        assertBox(50, 100, 150, 200, Objects.requireNonNull(blocks.get(0).locations().getFirst().bbox()));
+        assertBox(50, 900, 150, 800, Objects.requireNonNull(blocks.get(0).locations().getFirst().bbox()));
         assertNull(blocks.get(4).locations().getFirst().bbox());
         assertEquals(1, blocks.get(4).locations().getFirst().pageNo());
     }
@@ -189,12 +226,12 @@ class PaddleOcrVlDocumentTest {
     @Test
     void anAnswerThatDoesNotMatchThePdfIsMalformed() throws Exception {
         var twoPages = results("sideways-and-upright-page.json");
-        assertFailure(ExtractionFailure.MALFORMED, () -> PaddleOcrVlDocument.blocks(twoPages, List.of(new Page(1, A4_LONG, A4_SHORT))));
+        assertFailure(ExtractionFailure.MALFORMED, () -> PaddleOcrVlDocument.blocks(twoPages, List.of(upright(A4_LONG, A4_SHORT))));
         assertFailure(ExtractionFailure.MALFORMED, () -> PaddleOcrVlDocument.blocks(mapper.readTree("[]"), List.of()));
         assertFailure(ExtractionFailure.MALFORMED, () -> PaddleOcrVlDocument.blocks(mapper.readTree(
-                "[{\"prunedResult\":{\"width\":0,\"height\":10,\"parsing_res_list\":[]}}]"), List.of(new Page(1, 1, 1))));
+                "[{\"prunedResult\":{\"width\":0,\"height\":10,\"parsing_res_list\":[]}}]"), List.of(upright(1, 1))));
         assertFailure(ExtractionFailure.MALFORMED, () -> PaddleOcrVlDocument.blocks(mapper.readTree(
-                "[{\"prunedResult\":{\"width\":10,\"height\":10}}]"), List.of(new Page(1, 1, 1))));
+                "[{\"prunedResult\":{\"width\":10,\"height\":10}}]"), List.of(upright(1, 1))));
     }
 
     @Test
@@ -227,7 +264,12 @@ class PaddleOcrVlDocumentTest {
         assertEquals(t, box.t(), 0.01);
         assertEquals(r, box.r(), 0.01);
         assertEquals(b, box.b(), 0.01);
-        assertEquals(CoordOrigin.TOPLEFT, box.coordOrigin());
+        assertEquals(CoordOrigin.BOTTOMLEFT, box.coordOrigin());
+    }
+
+    /** A page at the origin with no {@code /Rotate}, as most scans are. */
+    private static PdfLayout.Frame upright(double width, double height) {
+        return new PdfLayout.Frame(0, 0, width, height, 0);
     }
 
     private static void assertPage(int number, double width, double height, ExtractedDocument.Page page) {
