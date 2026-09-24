@@ -2,7 +2,13 @@ import { useSyncExternalStore } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import { MeetingRecorder } from "./meeting-recorder";
 import type { MeetingTrack, StreamedUtterance } from "./meeting-socket";
-import { issueMeetingTicket, meetingKey, meetingsKey, type MeetingDetail } from "./meetings-api";
+import {
+  finishMeeting,
+  issueMeetingTicket,
+  meetingKey,
+  meetingsKey,
+  type MeetingDetail,
+} from "./meetings-api";
 
 /**
  * The one meeting being recorded in this browser tab. It lives outside any page, so moving to Chat or the library
@@ -74,6 +80,19 @@ export async function stopRecording() {
   if (active === current) active = undefined;
   window.removeEventListener("beforeunload", warnBeforeUnload);
   publish();
+}
+
+/**
+ * Ends a meeting without holding the person on a dialog: the recording stops at once, the last words are stored in the
+ * background (the recording bar says so, and leaving the tab still asks first), and the meeting ends once they are.
+ * It lives here rather than on the page, so moving elsewhere in the app does not lose the tail.
+ */
+export async function endMeeting(meetingId: string, cache: QueryClient) {
+  if (active?.meetingId === meetingId) await stopRecording();
+  const ended = await finishMeeting(meetingId);
+  cache.setQueryData(meetingKey(meetingId), ended);
+  void cache.invalidateQueries({ queryKey: meetingsKey, exact: true });
+  return ended;
 }
 
 function warnBeforeUnload(event: BeforeUnloadEvent) {

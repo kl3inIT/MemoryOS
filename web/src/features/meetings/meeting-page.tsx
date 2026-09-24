@@ -53,7 +53,7 @@ import type { MeetingRecorder, RecorderSnapshot } from "./meeting-recorder";
 import { ExportMinutesDialog } from "./export-minutes-dialog";
 import { MeetingDetailsDialog } from "./meeting-details-dialog";
 import { MeetingShareField, type MeetingAudience } from "./meeting-share-field";
-import { startRecording, stopRecording, useActiveMeeting } from "./meeting-session";
+import { endMeeting, startRecording, useActiveMeeting } from "./meeting-session";
 import type { MeetingTrack } from "./meeting-socket";
 import { slug } from "./meeting-file-name";
 import { EditableItem, EditableSummary, NewItem } from "./minutes-editing";
@@ -65,7 +65,6 @@ import { Said } from "./transcript-text";
 import {
   addBookmark,
   exportTranscript,
-  finishMeeting,
   formatClock,
   formatWhen,
   loadMeeting,
@@ -270,11 +269,11 @@ export function MeetingPage({
     })();
   }
 
+  /** Closes the confirmation at once; the recording bar shows the last words being stored. */
   async function end() {
-    await stopRecording();
-    const ended = await finishMeeting(meetingId);
-    cache.setQueryData(meetingKey(meetingId), ended);
-    void cache.invalidateQueries({ queryKey: meetingsKey, exact: true });
+    void endMeeting(meetingId, cache).catch(() =>
+      setActionError(ui("Chưa kết thúc được cuộc họp. Hãy thử lại.")),
+    );
   }
 
   async function shareTab() {

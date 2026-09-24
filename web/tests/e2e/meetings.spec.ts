@@ -662,6 +662,8 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: "Dừng", exact: true }).click();
     const confirm = page.getByRole("alertdialog");
     await confirm.getByRole("button", { name: "Dừng và kết thúc" }).click();
+    // The confirmation closes at once; the last words are stored behind the recording bar.
+    await expect(confirm).toBeHidden({ timeout: 1_000 });
     await expect(page.getByRole("button", { name: "Xoá cuộc họp" })).toBeVisible();
     // The minutes open on their own tab once they are written.
     await expect(

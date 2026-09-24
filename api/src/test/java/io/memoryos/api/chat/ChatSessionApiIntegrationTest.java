@@ -3888,12 +3888,14 @@ class ChatSessionApiIntegrationTest {
                     "a transcribed recording queues its minutes like a live meeting");
             assertTrue(sent.get().contains("verbose_json"), "the recording asks for timed segments");
             assertTrue(sent.get().contains("giao-ban.mp3"), "and is sent under its own name");
-            assertEquals(0, jdbc.sql("""
+            // The bytes are retired in their own transaction right after the transcript commits, so the meeting can
+            // already read ENDED for a moment while they are still referenced.
+            await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertEquals(0, jdbc.sql("""
                     SELECT count(*) FROM meeting
                     WHERE tenant_id = :tenant AND id = CAST(:id AS uuid)
                       AND (audio_upload_id IS NOT NULL OR audio_key IS NOT NULL)
                     """).param("tenant", TENANT).param("id", meeting).query(Integer.class).single(),
-                    "the recording is forgotten once its transcript is stored");
+                    "the recording is forgotten once its transcript is stored"));
         } finally {
             server.stop(0);
             jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
