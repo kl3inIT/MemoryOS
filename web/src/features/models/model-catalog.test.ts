@@ -1,11 +1,13 @@
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
+import { ApiError, problemCode } from "@/lib/api";
 import {
   changeModelDraft,
   modelBody,
   modelDraft,
   modelDraftError,
   refreshModelCatalog,
+  sanitizeModelActionError,
   tenantCandidate,
   type InstalledAdapter,
   type ManagedModel,
@@ -163,5 +165,30 @@ describe("default eligibility and deletion dependencies", () => {
     expect(client.getQueryState(transcript)?.isInvalidated).toBe(false);
     expect(client.getQueryData(transcript)).toEqual({ messages: ["retained"] });
     client.clear();
+  });
+});
+
+describe("sanitized catalog errors", () => {
+  it("keeps the status and problem code of an API failure but not its body", () => {
+    const safe = sanitizeModelActionError(
+      new ApiError(400, {
+        code: "CHAT_PROVIDER_CREDENTIAL_REJECTED",
+        detail: "synthetic-provider-payload",
+        request: { credential: { value: "synthetic-key" } },
+      }),
+    );
+    expect(safe).toBeInstanceOf(ApiError);
+    expect(safe).toMatchObject({ status: 400, message: "The provider rejected the API key" });
+    expect(problemCode(safe as ApiError)).toBe("CHAT_PROVIDER_CREDENTIAL_REJECTED");
+    const retained = JSON.stringify({ message: safe.message, cause: safe.cause });
+    expect(retained).not.toContain("synthetic-provider-payload");
+    expect(retained).not.toContain("synthetic-key");
+  });
+
+  it("turns any other failure into a plain safe message", () => {
+    const safe = sanitizeModelActionError(new TypeError("fetch failed for synthetic-key"));
+    expect(safe).not.toBeInstanceOf(ApiError);
+    expect(safe.message).toMatch(/^The request could not be completed/);
+    expect(safe.cause).toBeUndefined();
   });
 });
