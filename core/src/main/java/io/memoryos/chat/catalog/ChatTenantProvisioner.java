@@ -3,8 +3,6 @@ package io.memoryos.chat.catalog;
 import io.memoryos.chat.application.PersonaProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.ModelCatalogRepository;
-import io.memoryos.chat.persistence.ModelCatalogRepository.Model;
-import io.memoryos.chat.persistence.ModelCatalogRepository.Provider;
 import io.memoryos.iam.tenant.TenantBootstrapped;
 import io.memoryos.iam.tenant.TenantId;
 import java.util.Objects;
@@ -13,6 +11,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  * without them, and every step is insert-only: a restart re-runs it for the published Tenant without touching what
  * an administrator has since changed.
  */
+@Component
 public class ChatTenantProvisioner {
     private static final Logger LOG = LoggerFactory.getLogger(ChatTenantProvisioner.class);
 
@@ -52,12 +52,12 @@ public class ChatTenantProvisioner {
         UUID tenant = tenantId.value();
         if (catalog.initialize(tenant)) {
             UUID providerId = UUID.randomUUID();
-            var provider = new Provider(providerId, tenant, "OpenAI", "openai", deployment.baseUrl(), true, true,
+            var provider = new LlmProvider(providerId, tenant, "OpenAI", "openai", deployment.baseUrl(), true, true,
                     ProviderCredentials.DEPLOYMENT, 1, Set.of(), Set.of(), DataBoundary.EXTERNAL);
             ModelCatalogService.validateEndpoint(provider.baseUrl());
             ModelCatalogService.validateModel(adapters, provider, deployment.modelName(), deployment.settings());
             catalog.insertProvider(provider, "deployment");
-            var model = new Model(UUID.randomUUID(), tenant, providerId, deployment.modelName(), deployment.modelName(), true,
+            var model = new ModelConfiguration(UUID.randomUUID(), tenant, providerId, deployment.modelName(), deployment.modelName(), true,
                     deployment.settings(), 1);
             catalog.insertModel(model);
             catalog.setDefault(tenant, model.id(), 1);

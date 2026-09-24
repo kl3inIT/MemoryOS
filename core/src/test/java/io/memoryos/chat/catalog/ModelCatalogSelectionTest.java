@@ -1,17 +1,18 @@
 package io.memoryos.chat.catalog;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.ModelCatalogRepository;
 import io.memoryos.iam.group.GroupScopeService;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.iam.tenant.TenantMembership;
 import java.util.*;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 class ModelCatalogSelectionTest {
     @Test void marksTenantDefaultWhenPersonaInherits() {
@@ -28,7 +29,7 @@ class ModelCatalogSelectionTest {
     @Test void revokedPersonaProviderFallsBackWithoutLeakingIt() {
         var fixture = new Fixture();
         fixture.preferPersona();
-        var restricted = new ModelCatalogRepository.Provider(fixture.otherProvider.id(), fixture.tenant,
+        var restricted = new LlmProvider(fixture.otherProvider.id(), fixture.tenant,
                 "Private", "test", "http://model.invalid", true, false, null, 1, Set.of(UUID.randomUUID()), Set.of(), DataBoundary.EXTERNAL);
         when(fixture.catalog.provider(fixture.tenant, restricted.id())).thenReturn(Optional.of(restricted));
         when(fixture.catalog.providers(fixture.tenant)).thenReturn(List.of(fixture.provider, restricted));
@@ -38,12 +39,12 @@ class ModelCatalogSelectionTest {
 
     @Test void agentRestrictedProviderWithoutGroupsIsUsableThroughItsAgentsOnly() {
         var fixture = new Fixture();
-        var agentOnly = new ModelCatalogRepository.Provider(fixture.otherProvider.id(), fixture.tenant,
+        var agentOnly = new LlmProvider(fixture.otherProvider.id(), fixture.tenant,
                 "Agent provider", "test", "http://model.invalid", true, false, null, 1, Set.of(), Set.of(fixture.persona), DataBoundary.EXTERNAL);
         when(fixture.catalog.providers(fixture.tenant)).thenReturn(List.of(fixture.provider, agentOnly));
         // Onyx can_user_access_llm_provider: no Groups, listed agent, non-public provider.
         assertEquals(2, fixture.service.availableModelsForPersona(fixture.actor, fixture.persona).size());
-        var grouped = new ModelCatalogRepository.Provider(fixture.otherProvider.id(), fixture.tenant,
+        var grouped = new LlmProvider(fixture.otherProvider.id(), fixture.tenant,
                 "Grouped agent provider", "test", "http://model.invalid", true, false, null, 1, Set.of(UUID.randomUUID()), Set.of(fixture.persona), DataBoundary.EXTERNAL);
         when(fixture.catalog.providers(fixture.tenant)).thenReturn(List.of(fixture.provider, grouped));
         assertEquals(1, fixture.service.availableModelsForPersona(fixture.actor, fixture.persona).size());
@@ -52,7 +53,7 @@ class ModelCatalogSelectionTest {
     @Test void hiddenInheritedModelDoesNotFalselyMarkTenantDefault() {
         var fixture = new Fixture();
         fixture.preferPersona();
-        var hidden = new ModelCatalogRepository.Model(fixture.otherId, fixture.tenant, fixture.otherProvider.id(),
+        var hidden = new ModelConfiguration(fixture.otherId, fixture.tenant, fixture.otherProvider.id(),
                 "other", "Other", false, fixture.settings, 1);
         when(fixture.catalog.model(fixture.tenant, fixture.otherId)).thenReturn(Optional.of(hidden));
         when(fixture.catalog.models(fixture.tenant)).thenReturn(List.of(fixture.defaultModel, hidden));
@@ -67,7 +68,7 @@ class ModelCatalogSelectionTest {
         assertEquals(fixture.otherId, selected.model().id());
         assertNull(selected.fallbackReason());
         // Hidden, disabled or restricted: the task keeps working on the conversation model and never reports a fallback.
-        var restricted = new ModelCatalogRepository.Provider(fixture.otherProvider.id(), fixture.tenant,
+        var restricted = new LlmProvider(fixture.otherProvider.id(), fixture.tenant,
                 "Private", "test", "http://model.invalid", true, false, null, 2, Set.of(UUID.randomUUID()), Set.of(), DataBoundary.INTERNAL);
         when(fixture.catalog.provider(fixture.tenant, restricted.id())).thenReturn(Optional.of(restricted));
         selected = fixture.service.resolveFlow(fixture.actor, fixture.session, ModelFlow.CHAT_NAMING);
@@ -78,7 +79,7 @@ class ModelCatalogSelectionTest {
     @Test void flowModelMustBeTenantWideAndCanBeCleared() {
         var fixture = new Fixture();
         fixture.manage();
-        var restricted = new ModelCatalogRepository.Provider(fixture.otherProvider.id(), fixture.tenant,
+        var restricted = new LlmProvider(fixture.otherProvider.id(), fixture.tenant,
                 "Private", "test", "http://model.invalid", true, true, null, 2, Set.of(), Set.of(fixture.persona), DataBoundary.EXTERNAL);
         when(fixture.catalog.provider(fixture.tenant, restricted.id())).thenReturn(Optional.of(restricted));
         assertThrows(io.memoryos.chat.ChatException.class,
@@ -92,7 +93,7 @@ class ModelCatalogSelectionTest {
         var fixture = new Fixture();
         fixture.manage();
         fixture.naming(fixture.otherId);
-        var hidden = new ModelCatalogRepository.Model(fixture.otherId, fixture.tenant, fixture.otherProvider.id(),
+        var hidden = new ModelConfiguration(fixture.otherId, fixture.tenant, fixture.otherProvider.id(),
                 "other", "Other", false, fixture.settings, 2);
         assertTrue(fixture.service.flowDefaults(fixture.actor).getFirst().available());
         when(fixture.catalog.model(fixture.tenant, fixture.otherId)).thenReturn(Optional.of(hidden));
@@ -109,10 +110,10 @@ class ModelCatalogSelectionTest {
         final ModelCatalogRepository catalog = mock(ModelCatalogRepository.class);
         final ModelSettings settings = new ModelSettings(36096, 4096,
                 new ModelSettings.Capabilities(true, true, true, true), Map.of(), null, "openai-o200k-v1");
-        final ModelCatalogRepository.Provider provider = provider();
-        final ModelCatalogRepository.Provider otherProvider = provider();
-        final ModelCatalogRepository.Model defaultModel = new ModelCatalogRepository.Model(defaultId, tenant, provider.id(), "luna", "Luna", true, settings, 1);
-        final ModelCatalogRepository.Model otherModel = new ModelCatalogRepository.Model(otherId, tenant, otherProvider.id(), "other", "Other", true, settings, 1);
+        final LlmProvider provider = provider();
+        final LlmProvider otherProvider = provider();
+        final ModelConfiguration defaultModel = new ModelConfiguration(defaultId, tenant, provider.id(), "luna", "Luna", true, settings, 1);
+        final ModelConfiguration otherModel = new ModelConfiguration(otherId, tenant, otherProvider.id(), "other", "Other", true, settings, 1);
         final ModelCatalogService service;
 
         Fixture() {
@@ -134,7 +135,7 @@ class ModelCatalogSelectionTest {
             when(catalog.models(tenant)).thenReturn(List.of(defaultModel, otherModel));
             when(catalog.model(tenant, otherId)).thenReturn(Optional.of(otherModel));
             when(catalog.provider(tenant, otherProvider.id())).thenReturn(Optional.of(otherProvider));
-            when(catalog.defaultModel(tenant)).thenReturn(new ModelCatalogRepository.Default(defaultId, 1));
+            when(catalog.defaultModel(tenant)).thenReturn(new ModelDefault(defaultId, 1));
             when(catalog.model(tenant, defaultId)).thenReturn(Optional.of(defaultModel));
             when(catalog.provider(tenant, provider.id())).thenReturn(Optional.of(provider));
             naming(null);
@@ -142,16 +143,16 @@ class ModelCatalogSelectionTest {
                     session, persona, UUID.randomUUID(), "Chat", java.time.Instant.now(), java.time.Instant.now(), null)));
             when(chats.persona(session, true, false)).thenReturn(new JdbcChatRepository.Persona("", "luna",
                     io.memoryos.chat.ChatTurnOptions.DEFAULT, "7", null, List.of(), Set.of(), null, false));
-            when(catalog.personaModel(tenant, actor.value(), false, persona)).thenReturn(new ModelCatalogRepository.PersonaModel(persona, null, 1));
+            when(catalog.personaModel(tenant, actor.value(), false, persona)).thenReturn(new PersonaModelDefault(persona, null, 1));
             service = new ModelCatalogService(catalog, chats, tenants, authorization, adapters,
                     mock(ProviderCredentials.class), mock(GroupScopeService.class), mock(io.memoryos.iam.audit.AuditTrail.class));
         }
-        ModelCatalogRepository.Provider provider() {
-            return new ModelCatalogRepository.Provider(UUID.randomUUID(), tenant, "Connection", "test", "http://model.invalid",
+        LlmProvider provider() {
+            return new LlmProvider(UUID.randomUUID(), tenant, "Connection", "test", "http://model.invalid",
                     true, true, null, 1, Set.of(), Set.of(), DataBoundary.EXTERNAL);
         }
         void naming(UUID model) {
-            var value = new ModelCatalogRepository.FlowDefault(ModelFlow.CHAT_NAMING, model, 1);
+            var value = new FlowModelDefault(ModelFlow.CHAT_NAMING, model, 1);
             when(catalog.flowDefault(tenant, ModelFlow.CHAT_NAMING)).thenReturn(value);
             when(catalog.flowDefaults(tenant)).thenReturn(List.of(value));
         }
@@ -161,7 +162,7 @@ class ModelCatalogSelectionTest {
             when(authorization.lockAndRequireExclusive(actor, io.memoryos.iam.group.IamCapability.MODELS_MANAGE)).thenReturn(access);
         }
         void preferPersona() {
-            when(catalog.personaModel(tenant, actor.value(), false, persona)).thenReturn(new ModelCatalogRepository.PersonaModel(persona, otherId, 1));
+            when(catalog.personaModel(tenant, actor.value(), false, persona)).thenReturn(new PersonaModelDefault(persona, otherId, 1));
         }
         List<UUID> defaults() {
             return service.availableModelsForPersona(actor, persona).stream().filter(ModelCatalogService.AvailableModel::isDefault)
