@@ -5,8 +5,8 @@ import { ActivityStep } from "@/components/assistant-ui/elements/activity-group"
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { McpConnection } from "@/lib/hey-api/types.gen";
 import type { ToolProgress } from "@/features/chat/activity/chat-activity";
-import { useMcpConnections } from "./chat-mcp-connections";
-import { ConnectAction, McpApiKeyDialog } from "./chat-mcp-options";
+import { useMcpConnections } from "@/features/mcp/mcp-connections";
+import { ConnectAction, McpApiKeyDialog } from "@/features/mcp/mcp-connect-actions";
 
 /**
  * One MCP tool call in the answer timeline, named by tool and server. A call the server refused for authorization

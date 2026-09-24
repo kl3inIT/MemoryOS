@@ -7,8 +7,10 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { getChatSharing, setChatSharing } from "@/lib/hey-api/sdk.gen";
 import { FormDialog } from "@/components/composites/form-dialog";
-import { sharingSchema } from "@/features/chat/chat-workspace-api";
 import { cn } from "@/lib/utils";
+import { z } from "zod";
+
+const sharingSchema = z.object({ enabled: z.boolean(), revision: z.number().int() });
 
 export function SharingDialog({
   sessionId,

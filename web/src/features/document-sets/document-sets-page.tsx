@@ -21,9 +21,9 @@ import { actionErrorText } from "@/lib/action-errors";
 import {
   documentSetsKey,
   loadDocumentSets,
-  loadPersonaSources,
   type DocumentSet,
-} from "@/features/chat/chat-workspace-api";
+} from "@/features/document-sets/document-sets-api";
+import { loadPersonaSources } from "@/features/chat/chat-personas-api";
 import {
   useApplicationSession,
   useGlobalCapability,

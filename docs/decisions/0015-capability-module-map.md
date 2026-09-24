@@ -251,3 +251,30 @@ Dependencies after step 4 (every list also includes `shared`):
 | `mcp`, `meeting`, `usage` | `iam :: group` | `iam` |
 
 The deployables' main code imports no internal package of `connector` or `iam`. Two API tests still name internal types: `SharePointSourceApiTest` mocks `DefaultSharePointSourceService`, because the selection processor injects the concrete service, and `TestKeycloakProvisioningConfiguration` above. The OpenAPI document is unchanged: no class behind an HTTP body was renamed.
+
+## Step 4 — web feature dependencies
+
+A follow-up in the same pull request made the web feature folders depend on each other in the backend direction. Imports only changed; behaviour, markup, query keys and endpoints did not.
+
+- **`chat-workspace-api` is gone, split by owner.** Personas stay Chat's (`chat/chat-personas-api.ts`); Projects moved to `chat/projects/chat-projects-api.ts`; Document Sets to `document-sets/document-sets-api.ts`; the feedback and branch schemas to `chat-api`; the sharing schema into its only dialog; the page loader to `lib/all-pages.ts`. `agents` and `document-sets` are Chat's admin UI, so importing Chat's persona API from them follows the direction.
+- **People and Groups are IAM's.** `Person`, `NamedRef`, `personLabel` and the principal search schema moved to `identity/principals.ts`, and the picker to `identity/principal-picker.tsx` (`PrincipalPicker`, formerly `AgentPrincipalPicker`). Meetings used it through `features/agents`, a Chat feature. The picker still calls Chat's `GET /api/chat/persona-share-options`, the only member and Group search the API has; an IAM search endpoint is backend work left for later.
+- **A member's MCP connections are `mcp`'s.** The connection list, the `mcp_<slug>_<tool>` parser (`McpServerRules` makes the name), the connect action, the API-key dialog and the Connections settings page moved to `features/mcp`; Chat's composer submenu and tool step stay in `chat/mcp`.
+- **Settings pages follow their route.** `/settings/chat` and its preference sections moved to `chat/settings`. On the General page, "Delete All Chats" is Chat's: `DangerZoneSection` moved to `chat/settings` and the route hands it to `GeneralSettingsPage` as a slot. The preferences hook stays in `identity`, because the General page's Profile section reads the work role through it; it imports no feature.
+- **Inversions where a page shows another capability's part.** `SearchPage` takes the Document Set loader from the `/search` route, as the backend search takes set ids through `connector`'s scope resolver. `ChatDictationAutoSend` takes whether attachments block sending from Chat's composer (`ChatComposerAutoSend`). `ChatNavigation` takes the Meetings tab from the app shell, and `MeetingsTab` reads its own selection.
+- **Shared parts left features.** The authorized object upload (`putAuthorizedObject`, `sha256`) moved from `sources/upload` to `lib/direct-upload.ts`, and `CatalogDialog` from `models` to `components/composites`.
+
+Feature imports (`→` other features; unchanged rows omitted: `groups → identity, sources`; `models → groups, identity`; `preview → identity`; `search-settings → identity, models`; `sources → groups, identity`; `usage → models`; `users → identity, invitations`; `audit`, `identity-providers`, `invitations` and `theme` import none):
+
+| Feature | Before | After |
+| --- | --- | --- |
+| `agents` | chat, identity, library, models, sources | chat, document-sets, identity, library, mcp, models, sources |
+| `chat` | agents, identity, library, mcp, meetings, models, preview, search, voice | agents, identity, library, mcp, models, preview, search, voice |
+| `document-sets` | agents, chat, identity, sources | chat, identity, sources |
+| `identity` | agents, chat, mcp, theme, voice | theme |
+| `library` | identity, preview, search, sources, voice | identity, preview, search, voice |
+| `mcp` | models | — |
+| `meetings` | agents, chat, identity, preview, sources, voice | identity, preview, voice |
+| `search` | chat, identity, preview, sources, theme, voice | identity, preview, sources, theme, voice |
+| `voice` | chat, identity | identity |
+
+No feature outside `chat`, `agents` and `document-sets` imports any of them; those three import each other, as the one backend `chat` module they present. `preview` (the shared viewer kit) and `theme` have no backend module, and any feature may import them. Left for later: `library → voice` and `search → voice` (dictation into a text field; the backend `library` and `retrieval` do not depend on `voice`), and the `components/assistant-ui` elements and `components/app-shell` that import features, the latter as the composition layer.

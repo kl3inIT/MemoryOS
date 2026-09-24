@@ -25,7 +25,7 @@ import { chatSessionsKey } from "@/features/chat/chat-api";
 import { FormDialog } from "@/components/composites/form-dialog";
 import { SharingDialog } from "./chat-sharing-dialog";
 import { actionErrorText } from "@/lib/action-errors";
-import { loadProjects, moveConversation } from "@/features/chat/chat-workspace-api";
+import { loadProjects, moveConversation } from "@/features/chat/projects/chat-projects-api";
 
 export function ChatSessionMenu({
   session,

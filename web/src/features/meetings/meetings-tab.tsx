@@ -1,3 +1,4 @@
+import { useRouterState } from "@tanstack/react-router";
 import { Mic } from "lucide-react";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -6,14 +7,15 @@ import { useActiveMeeting } from "./meeting-session";
 /** The sidebar entry; while a meeting records, a red dot shows it from anywhere in the app. */
 export function MeetingsTab({
   collapsed,
-  selected,
   onNavigate,
 }: {
   collapsed?: boolean;
-  selected: boolean;
   onNavigate?: () => void;
 }) {
   const ui = useAppTranslation();
+  const selected = useRouterState({
+    select: (state) => state.location.pathname.startsWith("/meetings"),
+  });
   const live = useActiveMeeting();
   return (
     <SidebarTab

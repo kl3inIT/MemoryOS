@@ -9,7 +9,8 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { configureChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { FormDialog } from "@/components/composites/form-dialog";
-import { loadPersonas, loadProjects } from "@/features/chat/chat-workspace-api";
+import { loadPersonas } from "@/features/chat/chat-personas-api";
+import { loadProjects } from "@/features/chat/projects/chat-projects-api";
 import { ChatBranchOrigin } from "@/features/chat/thread/chat-branch-action";
 import { ChatSessionFiles } from "./chat-session-files";
 import { ChatSessionMenu } from "./chat-session-menu";

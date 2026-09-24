@@ -16,14 +16,12 @@ import { actionErrorText } from "@/lib/action-errors";
 import {
   documentSetSchema,
   documentSetsKey,
-  loadPersonaSources,
-  personLabel,
-  type AgentPerson,
-  type AgentRef,
   type DocumentSet,
-} from "@/features/chat/chat-workspace-api";
+} from "@/features/document-sets/document-sets-api";
+import { loadPersonaSources } from "@/features/chat/chat-personas-api";
+import { personLabel, type Person, type NamedRef } from "@/features/identity/principals";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { AgentPrincipalPicker } from "@/features/agents/agent-principal-picker";
+import { PrincipalPicker } from "@/features/identity/principal-picker";
 import {
   createDocumentSet,
   getDocumentSet,
@@ -37,8 +35,8 @@ type Draft = {
   description: string;
   isPublic: boolean;
   sourceIds: string[];
-  people: AgentPerson[];
-  groups: AgentRef[];
+  people: Person[];
+  groups: NamedRef[];
 };
 
 const draftOf = (set?: DocumentSet): Draft => ({
@@ -272,7 +270,7 @@ function DocumentSetForm({ existing }: { existing?: DocumentSet }) {
                 </p>
               </HelpPopover>
             </div>
-            <AgentPrincipalPicker
+            <PrincipalPicker
               exclude={
                 new Set([
                   ...draft.people.map((person) => person.actorId),

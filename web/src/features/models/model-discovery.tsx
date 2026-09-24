@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { createChatModel } from "@/lib/hey-api/sdk.gen";
-import { CatalogDialog } from "./catalog-dialog";
+import { CatalogDialog } from "@/components/composites/catalog-dialog";
 import {
   modelBody,
   refreshModelCatalog,

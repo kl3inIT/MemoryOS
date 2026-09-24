@@ -22,7 +22,7 @@ import {
   initiateSourceUploadMutation,
   listSourcesQueryKey,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
+import { DirectUploadError, putAuthorizedObject, sha256 } from "@/lib/direct-upload";
 import { sourceMutationError } from "@/features/sources/shared/source-errors";
 import { useSourceUploadRecovery } from "./source-upload-recovery-context";
 import { SourceAccessChoice } from "@/features/sources/shared/source-access-choice";

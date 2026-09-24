@@ -37,7 +37,7 @@ vi.mock("@/lib/hey-api/sdk.gen", () => ({
   finalizeChatFileUpload: backend.finalize,
   getChatFile: backend.get,
 }));
-vi.mock("@/features/sources/upload/direct-upload", () => ({
+vi.mock("@/lib/direct-upload", () => ({
   putAuthorizedObject: backend.put,
   sha256: backend.hash,
 }));

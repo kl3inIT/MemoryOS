@@ -44,10 +44,10 @@ import { chatSessionsKey, newChatSession } from "@/features/chat/chat-api";
 import {
   agentVisibility,
   loadPersonas,
-  personLabel,
   type AgentView,
   type Persona,
-} from "@/features/chat/chat-workspace-api";
+} from "@/features/chat/chat-personas-api";
+import { personLabel } from "@/features/identity/principals";
 import { AgentAvatar } from "./agent-avatar";
 import { AgentShareDialog } from "./agent-share-dialog";
 import { AgentViewer } from "./agent-viewer";

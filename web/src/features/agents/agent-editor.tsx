@@ -47,17 +47,17 @@ import { can } from "@/lib/resource-permissions";
 import { cn } from "@/lib/utils";
 import { actionErrorText, formField } from "@/lib/action-errors";
 import { ChatFilePicker } from "@/features/library/file-picker";
-import { useMcpConnections } from "@/features/chat/mcp/chat-mcp-connections";
+import { useMcpConnections } from "@/features/mcp/mcp-connections";
 import { ModelLogo } from "@/features/models/model-logo";
 import {
   agentLabelSchema,
   agentTools,
-  loadDocumentSets,
   loadPersonaSources,
   personaSchema,
   type AgentTool,
   type Persona,
-} from "@/features/chat/chat-workspace-api";
+} from "@/features/chat/chat-personas-api";
+import { loadDocumentSets } from "@/features/document-sets/document-sets-api";
 import { AgentAvatar } from "./agent-avatar";
 import {
   AgentIconPicker,

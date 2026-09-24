@@ -16,7 +16,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { createChatModel, createChatProvider, updateChatProvider } from "@/lib/hey-api/sdk.gen";
 import type { ProviderTestInput } from "@/lib/hey-api/types.gen";
-import { CatalogDialog } from "./catalog-dialog";
+import { CatalogDialog } from "@/components/composites/catalog-dialog";
 import { DataBoundaryField, radioCard, type DataBoundary } from "./data-boundary";
 import {
   modelBody,

@@ -44,14 +44,9 @@ import {
   ChatTemporaryToggle,
 } from "@/features/chat/session/chat-temporary";
 import { ChatConversationSearch } from "@/features/chat/thread/chat-conversation-search";
-import {
-  branchSchema,
-  feedbackSchema,
-  loadPersonas,
-  projectSchema,
-  type Project,
-  type Feedback,
-} from "./chat-workspace-api";
+import { branchSchema, feedbackSchema, type Feedback } from "@/features/chat/chat-api";
+import { loadPersonas } from "@/features/chat/chat-personas-api";
+import { projectSchema, type Project } from "@/features/chat/projects/chat-projects-api";
 import {
   ProjectContextPanel,
   ProjectConversationList,

@@ -22,7 +22,7 @@ import { ChatWebModes, ChatWebToggle } from "@/features/chat/web-search/chat-web
 import type { WebSearchMode } from "@/features/chat/web-search/chat-web-preference";
 import { ChatImageToggle } from "@/features/chat/image/chat-image-options";
 import { ChatMcpServers, ChatMcpToggle } from "@/features/chat/mcp/chat-mcp-options";
-import { useMcpConnections } from "@/features/chat/mcp/chat-mcp-connections";
+import { useMcpConnections } from "@/features/mcp/mcp-connections";
 import type { ImageMode } from "@/features/chat/image/chat-image";
 import { useComposerFileSelection } from "./use-composer-file-selection";
 import { useChatAttachmentStaging } from "./chat-attachment-staging-context";

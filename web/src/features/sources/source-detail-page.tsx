@@ -44,11 +44,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceItem, SourceOperation } from "@/lib/hey-api/types.gen";
 import { sourceMutationError, sourceStatusMessage } from "@/features/sources/shared/source-errors";
-import {
-  DirectUploadError,
-  putAuthorizedObject,
-  sha256,
-} from "@/features/sources/upload/direct-upload";
+import { DirectUploadError, putAuthorizedObject, sha256 } from "@/lib/direct-upload";
 import { SourceSummaryCard } from "@/features/sources/shared/source-summary-card";
 import { cn } from "@/lib/utils";
 import { useManualRefresh } from "@/lib/use-manual-refresh";

@@ -26,7 +26,11 @@ import {
 import { chatSessionsKey } from "@/features/chat/chat-api";
 import { FormDialog } from "@/components/composites/form-dialog";
 import { formField, actionErrorText } from "@/lib/action-errors";
-import { loadProjects, projectSchema, type Project } from "@/features/chat/chat-workspace-api";
+import {
+  loadProjects,
+  projectSchema,
+  type Project,
+} from "@/features/chat/projects/chat-projects-api";
 import { ChatSessionRow } from "@/features/chat/session/chat-session-row";
 import { ChatFilePicker } from "@/features/library/file-picker";
 import { chatFileSchema } from "@/features/library/files";

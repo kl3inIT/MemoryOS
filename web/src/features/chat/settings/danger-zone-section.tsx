@@ -7,7 +7,7 @@ import { chatSessionsKey } from "@/features/chat/chat-api";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { deleteAllChatSessions } from "@/lib/hey-api/sdk.gen";
 
-/** Onyx Danger Zone: delete every conversation the member owns, after confirmation. */
+/** Onyx Danger Zone on the General settings page: delete every conversation the member owns, after confirmation. */
 export function DangerZoneSection() {
   const ui = useAppTranslation();
   const cache = useQueryClient();

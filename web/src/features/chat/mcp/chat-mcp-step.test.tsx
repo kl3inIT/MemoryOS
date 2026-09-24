@@ -9,7 +9,7 @@ import {
   toolEventSchema,
   type ToolProgress,
 } from "@/features/chat/activity/chat-activity";
-import { parseMcpToolName } from "./chat-mcp-connections";
+import { parseMcpToolName } from "@/features/mcp/mcp-connections";
 import { ChatMcpToolStep } from "./chat-mcp-step";
 
 const listMcpConnections = vi.fn();
