@@ -229,6 +229,135 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/search/embedding-providers/{providerId}:
+    put:
+      tags:
+      - Search settings
+      summary: Replace an embedding provider at the expected revision
+      operationId: updateEmbeddingProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: providerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmbeddingProviderRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting search settings state
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingProviderResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Search settings
+      summary: Delete an embedding provider that no search generation uses
+      operationId: deleteEmbeddingProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: providerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: A search generation still uses the provider
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/meetings/{meetingId}:
     get:
       tags:
@@ -6536,6 +6665,426 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/SearchPage"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/search/settings/past/{generationId}/restore:
+    post:
+      tags:
+      - Search settings
+      summary: Make a retained past generation present again
+      operationId: restoreSearchPastGeneration
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      - name: generationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting search settings state
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/search/settings/future:
+    post:
+      tags:
+      - Search settings
+      summary: Start rebuilding the index for a new embedding model as the future
+        generation
+      operationId: createSearchFutureGeneration
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchGenerationRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: A future generation already exists
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchGenerationResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    delete:
+      tags:
+      - Search settings
+      summary: Cancel the rebuild and delete the future generation's index
+      operationId: cancelSearchFutureGeneration
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting search settings state
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "204":
+          description: No Content
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/search/settings/future/switch:
+    post:
+      tags:
+      - Search settings
+      summary: Make the fully rebuilt future generation present; the present one becomes
+        past
+      operationId: switchSearchFutureGeneration
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting search settings state
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/search/embedding-providers:
+    get:
+      tags:
+      - Search settings
+      summary: List embedding providers with keys redacted
+      operationId: listEmbeddingProviders
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting search settings state
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: Successful result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmbeddingProviderResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    post:
+      tags:
+      - Search settings
+      summary: Create an OpenAI-compatible embedding provider
+      operationId: createEmbeddingProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmbeddingProviderRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting search settings state
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingProviderResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/search/embedding-providers/test:
+    post:
+      tags:
+      - Search settings
+      summary: Check a saved or unsaved embedding endpoint with one real /v1/embeddings
+        call
+      operationId: testEmbeddingProvider
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmbeddingProviderTestRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid configuration
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "403":
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Resource not accessible
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Conflicting search settings state
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "503":
+          description: "Embedding provider, encryption key or index unavailable"
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "200":
+          description: The outcome of one embedding call
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingProviderTestResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -13425,7 +13974,8 @@ paths:
     get:
       tags:
       - Search settings
-      summary: Read the present, future and retained past search generations with rebuild progress
+      summary: "Read the present, future and retained past search generations with\
+        \ rebuild progress"
       operationId: getSearchSettings
       responses:
         "400":
@@ -13435,7 +13985,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "403":
-          description: Model management of the operating Tenant or CSRF requirement not met
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
           content:
             application/problem+json:
               schema:
@@ -13453,7 +14004,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "503":
-          description: Embedding provider, encryption key or index unavailable
+          description: "Embedding provider, encryption key or index unavailable"
           content:
             application/problem+json:
               schema:
@@ -13466,543 +14017,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SearchSettingsResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/search/settings/future:
-    post:
-      tags:
-      - Search settings
-      summary: Start rebuilding the index for a new embedding model as the future generation
-      operationId: createSearchFutureGeneration
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SearchGenerationRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Model management of the operating Tenant or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Resource not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: A future generation already exists
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Embedding provider, encryption key or index unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SearchGenerationResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-    delete:
-      tags:
-      - Search settings
-      summary: Cancel the rebuild and delete the future generation's index
-      operationId: cancelSearchFutureGeneration
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      responses:
-        "400":
-          description: Invalid configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Model management of the operating Tenant or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Resource not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Conflicting search settings state
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Embedding provider, encryption key or index unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "204":
-          description: No Content
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/search/settings/future/switch:
-    post:
-      tags:
-      - Search settings
-      summary: Make the fully rebuilt future generation present; the present one becomes past
-      operationId: switchSearchFutureGeneration
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      responses:
-        "400":
-          description: Invalid configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Model management of the operating Tenant or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Resource not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: The future generation is not complete
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Embedding provider, encryption key or index unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "200":
-          description: Successful result
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SearchSettingsResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/search/settings/past/{generationId}/restore:
-    post:
-      tags:
-      - Search settings
-      summary: Make a retained past generation present again
-      operationId: restoreSearchPastGeneration
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: generationId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "400":
-          description: Invalid configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Model management of the operating Tenant or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Resource not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: The retention period ended or a future generation exists
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Embedding provider, encryption key or index unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "200":
-          description: Successful result
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SearchSettingsResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/search/embedding-providers:
-    get:
-      tags:
-      - Search settings
-      summary: List embedding providers with keys redacted
-      operationId: listEmbeddingProviders
-      responses:
-        "400":
-          description: Invalid configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Model management of the operating Tenant or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Resource not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Conflicting search settings state
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Embedding provider, encryption key or index unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "200":
-          description: Successful result
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/EmbeddingProviderResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-    post:
-      tags:
-      - Search settings
-      summary: Create an OpenAI-compatible embedding provider
-      operationId: createEmbeddingProvider
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/EmbeddingProviderRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Model management of the operating Tenant or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Resource not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Conflicting search settings state
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Embedding provider, encryption key or index unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EmbeddingProviderResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/search/embedding-providers/{providerId}:
-    put:
-      tags:
-      - Search settings
-      summary: Replace an embedding provider at the expected revision
-      operationId: updateEmbeddingProvider
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: providerId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/EmbeddingProviderRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Model management of the operating Tenant or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Resource not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Stale revision
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Embedding provider, encryption key or index unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "200":
-          description: Successful result
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EmbeddingProviderResponse"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-    delete:
-      tags:
-      - Search settings
-      summary: Delete an embedding provider that no search generation uses
-      operationId: deleteEmbeddingProvider
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      - name: providerId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "400":
-          description: Invalid configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Model management of the operating Tenant or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Resource not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: A search generation still uses the provider
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Embedding provider, encryption key or index unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "204":
-          description: No Content
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/search/embedding-providers/test:
-    post:
-      tags:
-      - Search settings
-      summary: Check a saved or unsaved embedding endpoint with one real /v1/embeddings call
-      operationId: testEmbeddingProvider
-      parameters:
-      - name: X-MemoryOS-CSRF
-        in: header
-        description: Same-origin non-simple request guard for browser-session mutations.
-        required: true
-        schema:
-          type: string
-          enum:
-          - "1"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/EmbeddingProviderTestRequest"
-        required: true
-      responses:
-        "400":
-          description: Invalid configuration
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Model management of the operating Tenant or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Resource not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Conflicting search settings state
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "503":
-          description: Embedding provider, encryption key or index unavailable
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "200":
-          description: The outcome of one embedding call
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EmbeddingProviderTestResponse"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -14020,7 +14034,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "403":
-          description: Model management of the operating Tenant or CSRF requirement not met
+          description: Model management of the operating Tenant or CSRF requirement
+            not met
           content:
             application/problem+json:
               schema:
@@ -14038,7 +14053,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
         "503":
-          description: Embedding provider, encryption key or index unavailable
+          description: "Embedding provider, encryption key or index unavailable"
           content:
             application/problem+json:
               schema:
@@ -19314,6 +19329,63 @@ components:
       required:
       - operation
       - sourceId
+    EmbeddingProviderRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        endpoint:
+          type: string
+        apiKey:
+          type:
+          - string
+          - "null"
+        dataBoundary:
+          type: string
+          enum:
+          - INTERNAL
+          - EXTERNAL
+        revision:
+          type:
+          - integer
+          - "null"
+          format: int64
+      required:
+      - apiKey
+      - dataBoundary
+      - endpoint
+      - name
+      - revision
+    EmbeddingProviderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        endpoint:
+          type: string
+        dataBoundary:
+          type: string
+          enum:
+          - INTERNAL
+          - EXTERNAL
+        hasApiKey:
+          type: boolean
+        revision:
+          type: integer
+          format: int64
+        inUse:
+          type: boolean
+      required:
+      - dataBoundary
+      - endpoint
+      - hasApiKey
+      - id
+      - inUse
+      - name
+      - revision
     MeetingUpdateRequest:
       type: object
       description: What the owner fills in once the meeting is under way
@@ -22704,6 +22776,212 @@ components:
       required:
       - count
       - type
+    SearchGenerationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - PRESENT
+          - FUTURE
+          - PAST
+        providerId:
+          type: string
+          format: uuid
+        providerName:
+          type: string
+        dataBoundary:
+          type: string
+          enum:
+          - INTERNAL
+          - EXTERNAL
+        model:
+          type: string
+        dimensions:
+          type: integer
+          format: int32
+        queryPrefix:
+          type: string
+        documentPrefix:
+          type: string
+        minimumSemanticScore:
+          type: number
+          format: double
+        chunkConvention:
+          type: string
+        automatic:
+          type: boolean
+        documentCount:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        activatedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        retainedUntil:
+          type:
+          - string
+          - "null"
+          format: date-time
+        cleanupBlocked:
+          type: boolean
+      required:
+      - activatedAt
+      - automatic
+      - chunkConvention
+      - cleanupBlocked
+      - createdAt
+      - dataBoundary
+      - dimensions
+      - documentCount
+      - documentPrefix
+      - id
+      - minimumSemanticScore
+      - model
+      - providerId
+      - providerName
+      - queryPrefix
+      - retainedUntil
+      - status
+    SearchRebuildProgressResponse:
+      type: object
+      properties:
+        ready:
+          type: integer
+          format: int64
+        total:
+          type: integer
+          format: int64
+        failed:
+          type: integer
+          format: int64
+        pending:
+          type: integer
+          format: int64
+        estimatedSecondsRemaining:
+          type:
+          - integer
+          - "null"
+          format: int64
+        switchable:
+          type: boolean
+      required:
+      - estimatedSecondsRemaining
+      - failed
+      - pending
+      - ready
+      - switchable
+      - total
+    SearchSettingsResponse:
+      type: object
+      properties:
+        present:
+          $ref: "#/components/schemas/SearchGenerationResponse"
+        future:
+          oneOf:
+          - $ref: "#/components/schemas/SearchGenerationResponse"
+          - type: "null"
+        past:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchGenerationResponse"
+        rebuild:
+          oneOf:
+          - $ref: "#/components/schemas/SearchRebuildProgressResponse"
+          - type: "null"
+      required:
+      - future
+      - past
+      - present
+      - rebuild
+    SearchGenerationRequest:
+      type: object
+      properties:
+        providerId:
+          type: string
+          format: uuid
+        model:
+          type: string
+        dimensions:
+          type: integer
+          format: int32
+        queryPrefix:
+          type: string
+        documentPrefix:
+          type: string
+        minimumSemanticScore:
+          type: number
+          format: double
+      required:
+      - dimensions
+      - documentPrefix
+      - minimumSemanticScore
+      - model
+      - providerId
+      - queryPrefix
+    EmbeddingProviderTestRequest:
+      type: object
+      properties:
+        providerId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        endpoint:
+          type:
+          - string
+          - "null"
+        apiKey:
+          type:
+          - string
+          - "null"
+        model:
+          type: string
+        dimensions:
+          type:
+          - integer
+          - "null"
+          format: int32
+      required:
+      - apiKey
+      - dimensions
+      - endpoint
+      - model
+      - providerId
+    EmbeddingProviderTestResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        model:
+          type:
+          - string
+          - "null"
+        dimensions:
+          type:
+          - integer
+          - "null"
+          format: int32
+        latencyMs:
+          type: integer
+          format: int64
+        error:
+          type:
+          - string
+          - "null"
+      required:
+      - dimensions
+      - error
+      - latencyMs
+      - model
+      - ok
     MeetingCreateRequest:
       type: object
       description: What the owner enters before recording
@@ -23697,290 +23975,6 @@ components:
           format: int32
       required:
       - archived
-    SearchSettingsResponse:
-      type: object
-      properties:
-        present:
-          $ref: "#/components/schemas/SearchGenerationResponse"
-        future:
-          oneOf:
-          - $ref: "#/components/schemas/SearchGenerationResponse"
-          - type: "null"
-        past:
-          type: array
-          items:
-            $ref: "#/components/schemas/SearchGenerationResponse"
-        rebuild:
-          oneOf:
-          - $ref: "#/components/schemas/SearchRebuildProgressResponse"
-          - type: "null"
-      required:
-      - future
-      - past
-      - present
-      - rebuild
-    SearchGenerationResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        status:
-          type: string
-          enum:
-          - PRESENT
-          - FUTURE
-          - PAST
-        providerId:
-          type: string
-          format: uuid
-        providerName:
-          type: string
-        dataBoundary:
-          type: string
-          enum:
-          - INTERNAL
-          - EXTERNAL
-        model:
-          type: string
-        dimensions:
-          type: integer
-          format: int32
-        queryPrefix:
-          type: string
-        documentPrefix:
-          type: string
-        minimumSemanticScore:
-          type: number
-          format: double
-        chunkConvention:
-          type: string
-        automatic:
-          type: boolean
-        documentCount:
-          type: integer
-          format: int64
-        createdAt:
-          type: string
-          format: date-time
-        activatedAt:
-          type:
-          - string
-          - "null"
-          format: date-time
-        retainedUntil:
-          type:
-          - string
-          - "null"
-          format: date-time
-      required:
-      - activatedAt
-      - automatic
-      - chunkConvention
-      - createdAt
-      - dataBoundary
-      - dimensions
-      - documentCount
-      - documentPrefix
-      - id
-      - minimumSemanticScore
-      - model
-      - providerId
-      - providerName
-      - queryPrefix
-      - retainedUntil
-      - status
-    SearchRebuildProgressResponse:
-      type: object
-      properties:
-        ready:
-          type: integer
-          format: int64
-        total:
-          type: integer
-          format: int64
-        failed:
-          type: integer
-          format: int64
-        pending:
-          type: integer
-          format: int64
-        estimatedSecondsRemaining:
-          type:
-          - integer
-          - "null"
-          format: int64
-        switchable:
-          type: boolean
-      required:
-      - estimatedSecondsRemaining
-      - failed
-      - pending
-      - ready
-      - switchable
-      - total
-    SearchGenerationRequest:
-      type: object
-      properties:
-        providerId:
-          type: string
-          format: uuid
-        model:
-          type: string
-        dimensions:
-          type: integer
-          format: int32
-        queryPrefix:
-          type: string
-        documentPrefix:
-          type: string
-        minimumSemanticScore:
-          type: number
-          format: double
-      required:
-      - dimensions
-      - documentPrefix
-      - minimumSemanticScore
-      - model
-      - providerId
-      - queryPrefix
-    EmbeddingProviderResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        endpoint:
-          type: string
-        dataBoundary:
-          type: string
-          enum:
-          - INTERNAL
-          - EXTERNAL
-        hasApiKey:
-          type: boolean
-        revision:
-          type: integer
-          format: int64
-        inUse:
-          type: boolean
-      required:
-      - dataBoundary
-      - endpoint
-      - hasApiKey
-      - id
-      - inUse
-      - name
-      - revision
-    EmbeddingProviderRequest:
-      type: object
-      properties:
-        name:
-          type: string
-        endpoint:
-          type: string
-        apiKey:
-          type:
-          - string
-          - "null"
-        dataBoundary:
-          type: string
-          enum:
-          - INTERNAL
-          - EXTERNAL
-        revision:
-          type:
-          - integer
-          - "null"
-          format: int64
-      required:
-      - apiKey
-      - dataBoundary
-      - endpoint
-      - name
-      - revision
-    EmbeddingProviderTestRequest:
-      type: object
-      properties:
-        providerId:
-          type:
-          - string
-          - "null"
-          format: uuid
-        endpoint:
-          type:
-          - string
-          - "null"
-        apiKey:
-          type:
-          - string
-          - "null"
-        model:
-          type: string
-        dimensions:
-          type:
-          - integer
-          - "null"
-          format: int32
-      required:
-      - apiKey
-      - dimensions
-      - endpoint
-      - model
-      - providerId
-    EmbeddingProviderTestResponse:
-      type: object
-      properties:
-        ok:
-          type: boolean
-        model:
-          type:
-          - string
-          - "null"
-        dimensions:
-          type:
-          - integer
-          - "null"
-          format: int32
-        latencyMs:
-          type: integer
-          format: int64
-        error:
-          type:
-          - string
-          - "null"
-      required:
-      - dimensions
-      - error
-      - latencyMs
-      - model
-      - ok
-    EmbeddingModelPresetResponse:
-      type: object
-      properties:
-        model:
-          type: string
-        label:
-          type: string
-        dimensions:
-          type: integer
-          format: int32
-        queryPrefix:
-          type: string
-        documentPrefix:
-          type: string
-        maxInputTokens:
-          type: integer
-          format: int32
-      required:
-      - dimensions
-      - documentPrefix
-      - label
-      - maxInputTokens
-      - model
-      - queryPrefix
     ProviderTestInput:
       type: object
       properties:
@@ -25406,6 +25400,30 @@ components:
       - maxExplicitRootsPerSource
       - maxLinkedDocuments
       - maxRequestBytes
+    EmbeddingModelPresetResponse:
+      type: object
+      properties:
+        model:
+          type: string
+        label:
+          type: string
+        dimensions:
+          type: integer
+          format: int32
+        queryPrefix:
+          type: string
+        documentPrefix:
+          type: string
+        maxInputTokens:
+          type: integer
+          format: int32
+      required:
+      - dimensions
+      - documentPrefix
+      - label
+      - maxInputTokens
+      - model
+      - queryPrefix
     Passage:
       type: object
       properties:
