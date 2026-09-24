@@ -68,13 +68,13 @@ return: `GET /api/search/documents/{id}/spreadsheet` (SEARCH_READ) and
 ### Frontend: one shared preview kit
 
 The Chat viewers move to `web/src/features/preview/` as a pure extraction — behaviour unchanged, the
-existing `chat-file-preview.test.ts` and `library/file-preview-gallery.test.tsx` staying green as the safety
+existing `chat-file-preview.test.ts` (now `preview/preview-kind.test.ts`) and `library/file-preview-gallery.test.tsx` staying green as the safety
 net:
 
 | Module | Moved from | Holds |
 | --- | --- | --- |
 | `preview-kind.ts` | `library/file-preview.ts` | `previewKind`, `codeLanguage`, `parseCsv`, `sanitizeDocxHtml`, size and byte ceilings |
-| `pdf-view.tsx` | `search/document-pdf-view.tsx` | pdf.js reader, range loading, bbox highlight |
+| `pdf-view.tsx` | `search/document-pdf-view.tsx` (removed by the move) | pdf.js reader, range loading, bbox highlight |
 | `docx-view.tsx`, `sheet-view.tsx`, `csv-view.tsx`, `text-view.tsx`, `image-view.tsx`, `download-view.tsx` | `library/file-preview-modal.tsx` | the existing per-kind renderers |
 | `preview-surface.tsx` | new | the canvas: sunken backdrop, white sheet, elevation |
 | `preview-toolbar.tsx` | new | the floating toolbar shared by every kind |
