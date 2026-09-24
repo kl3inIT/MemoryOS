@@ -6,7 +6,7 @@ import {
   initiateChatFileUpload,
   finalizeChatFileUpload,
 } from "@/lib/hey-api/sdk.gen";
-import { putAuthorizedObject, sha256 } from "@/features/sources/upload/direct-upload";
+import { putAuthorizedObject, sha256 } from "@/lib/direct-upload";
 import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
 
 class AttachmentFailure extends Error {
