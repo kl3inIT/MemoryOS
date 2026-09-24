@@ -53,7 +53,12 @@ import type { MeetingRecorder, RecorderSnapshot } from "./meeting-recorder";
 import { ExportMinutesDialog } from "./export-minutes-dialog";
 import { MeetingDetailsDialog } from "./meeting-details-dialog";
 import { MeetingShareField, type MeetingAudience } from "./meeting-share-field";
-import { endMeeting, startRecording, useActiveMeeting } from "./meeting-session";
+import {
+  endMeeting,
+  startRecording,
+  useActiveMeeting,
+  useRecordingFailure,
+} from "./meeting-session";
 import type { MeetingTrack } from "./meeting-socket";
 import { slug } from "./meeting-file-name";
 import { EditableItem, EditableSummary, NewItem } from "./minutes-editing";
@@ -164,6 +169,8 @@ export function MeetingPage({
   const live = useActiveMeeting();
   const recorder = live?.meetingId === meetingId ? live.recorder : undefined;
   const snapshot = useRecorderSnapshot(recorder);
+  const failure = useRecordingFailure();
+  const stoppedBy = failure?.meetingId === meetingId ? failure.code : undefined;
   const [tabMissing, setTabMissing] = useState(!!tabAudioMissing);
   const [pane, setPane] = useState<string>();
   const [actionError, setActionError] = useState<string>();
@@ -480,12 +487,12 @@ export function MeetingPage({
             {ui("Đang kết nối lại… Âm thanh vẫn được giữ.")}
           </p>
         )}
-        {recorder && snapshot.phase === "failed" && snapshot.error && (
+        {stoppedBy && !recorder && (
           <p
             role="alert"
             className="rounded-xl bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content"
           >
-            {socketMessage(snapshot.error, ui)}
+            {socketMessage(stoppedBy, ui)}
           </p>
         )}
         {actionError && (
