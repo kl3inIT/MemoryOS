@@ -256,8 +256,11 @@ class SearchRebuildIntegrationTest {
         var complete = process.settings.settings(admin).rebuild();
         assertEquals(new SearchSettingsService.RebuildProgress(3, 3, 0, 0, 0L, true), complete);
 
+        // A failure the old index reported on the Source does not outlive it.
+        jdbc.sql("UPDATE documents SET search_error_code='SEARCH_INDEX_FAILED' WHERE id=:id").param("id", corpus.getFirst().value()).update();
         var switched = process.settings.switchFuture(admin);
         assertEquals(future.generation().id(), switched.present().generation().id());
+        assertEquals(0, count("documents WHERE search_error_code IS NOT NULL"));
         assertNull(switched.future());
         var past = switched.past().getFirst();
         assertEquals(present, past.generation().identity());

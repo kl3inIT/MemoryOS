@@ -163,10 +163,11 @@ public class JdbcDocumentChunkRepository {
      */
     public void serve(String identity) {
         jdbc.sql("""
-                UPDATE documents d SET searchable_generation=p.generation,search_index_identity=p.index_identity
+                UPDATE documents d SET searchable_generation=p.generation,search_index_identity=p.index_identity,search_error_code=NULL
                 FROM document_search_projection p
                 WHERE p.tenant_id=d.tenant_id AND p.document_id=d.id AND p.index_identity=:identity
-                    AND (d.searchable_generation IS DISTINCT FROM p.generation OR d.search_index_identity IS DISTINCT FROM p.index_identity)
+                    AND (d.searchable_generation IS DISTINCT FROM p.generation OR d.search_index_identity IS DISTINCT FROM p.index_identity
+                        OR d.search_error_code IS NOT NULL AND p.generation=d.content_generation)
                 """).param("identity", identity).update();
         jdbc.sql("""
                 UPDATE documents d SET searchable_generation=NULL,search_index_identity=NULL

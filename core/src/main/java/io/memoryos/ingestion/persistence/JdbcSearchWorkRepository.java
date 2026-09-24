@@ -31,7 +31,7 @@ public class JdbcSearchWorkRepository {
                 ON CONFLICT (tenant_id,document_id,generation,action,index_identity) DO UPDATE
                 SET status='NOT_STARTED',processing_attempts=0,error_code=NULL,completed_at=NULL,
                     next_dispatch_at=CURRENT_TIMESTAMP,dispatch_token=NULL,dispatch_lease_expires_at=NULL
-                WHERE :repair AND (search_index_operations.status='SUCCESS' OR
+                WHERE :repair AND (search_index_operations.status IN ('SUCCESS','CANCELLED') OR
                     (search_index_operations.status='FAILED' AND
                      search_index_operations.completed_at < CURRENT_TIMESTAMP - INTERVAL '15' MINUTE))
                 """).param("id", UUID.randomUUID()).param("tenant", event.tenantId().value())
