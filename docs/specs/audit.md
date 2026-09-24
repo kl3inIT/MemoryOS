@@ -10,8 +10,9 @@ from where. It is decided in [ADR 0013](../decisions/0013-server-authored-audit-
   `AuditRequestContext`, `AuditLog`, `AuditRetention`, `AuditException` and the `AuditReaders` port.
 - **Persistence.** `audit.persistence` holds the SQL: `JdbcAuditEventRepository` (insert, savepoint, actor profile
   lookup, retention delete) and `JdbcAuditLogQueryRepository` (the filtered, keyset-paged read).
-- **No dependency on IAM.** IAM records its own changes here, so audit depends on no capability. Records carry the
-  Tenant and actor as UUIDs, and `AuditLog` asks who may read through `AuditReaders`, which IAM implements
+- **No dependency on IAM.** IAM records its own changes here, so audit depends on no capability, only on the `shared`
+  kernel. Records carry the Tenant and actor as `TenantId` and `ActorId`, and `AuditLog` asks who may read through
+  `AuditReaders`, which IAM implements
   (`IamAuditReaders`, `AUDIT_READ`, never scoped). The actor's name and e-mail are still read from `actor_profiles`
   in the recording transaction.
 

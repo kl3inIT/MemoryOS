@@ -60,15 +60,13 @@ flowchart TB
     MEET[meeting]
     USAGE[usage]
     AUD[audit]
+    SHARED[shared kernel]
 
     MCP --> IAM
-    OBJ --> IAM
-    DOC --> IAM
     DOC --> OBJ
     CON --> IAM
     CON --> DOC
     CON --> OBJ
-    ING --> IAM
     ING --> OBJ
     ING --> CON
     ING --> DOC
@@ -91,6 +89,7 @@ flowchart TB
     USAGE --> IAM
     USAGE --> OBJ
     USAGE --> AUD
+    AUD --> SHARED
 
     API[api composition root] --> IAM
     API --> OBJ
@@ -110,11 +109,11 @@ flowchart TB
     WORKER --> AUD
 ```
 
-Arrows show allowed use of public capability contracts. `meeting` reaches `chat` only through its `voice` and `summary` named interfaces. `audit` sits below every capability that records into it (`iam`, `connector`, `chat`, `mcp`, `usage`) and depends on none: it carries Tenant and actor UUIDs, and asks IAM who may read the stream through the `AuditReaders` port that `iam` implements. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided. The `api` and `worker` composition roots use only published module APIs, never a `persistence` package, and map core types to their own HTTP contracts. [ADR 0015](docs/decisions/0015-capability-module-map.md) records the target module map (`ai`, `voice`, `library` and `audit` extracted) and the layout rule this structure is moving to.
+Arrows show allowed use of public capability contracts. Every module depends on `shared`, the shared kernel that holds `TenantId` and `ActorId`; only the `audit` arrow to it is drawn. No module depends on IAM as a whole: each lists the IAM named interfaces it calls (`iam :: tenant`, `iam :: group`, `iam :: identity`), and `objectstorage`, `document` and `ingestion` do not depend on IAM at all. `meeting` reaches `chat` only through its `voice` and `summary` named interfaces. `audit` sits below every capability that records into it (`iam`, `connector`, `chat`, `mcp`, `usage`) and depends only on `shared`: it carries typed Tenant and actor identifiers, and asks IAM who may read the stream through the `AuditReaders` port that `iam` implements. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided. The `api` and `worker` composition roots use only published module APIs, never a `persistence` package, and map core types to their own HTTP contracts. [ADR 0015](docs/decisions/0015-capability-module-map.md) records the target module map (`ai`, `voice`, `library` and `audit` extracted) and the layout rule this structure is moving to.
 
 | Gradle module | Responsibility |
 | --- | --- |
-| `core` | Eleven capability implementations and public contracts; no dependency on `connector` or a deployable |
+| `core` | Eleven capability implementations, the `shared` kernel of identifier types and their public contracts; no dependency on `connector` or a deployable |
 | `connector` | Shared provider integration and bounded content extraction bundle; depends only on public `core` APIs |
 | `api` | HTTP, security, migrations and interactive Chat composition |
 | `worker` | Redis/db-scheduler composition and durable background work |
@@ -122,6 +121,7 @@ Arrows show allowed use of public capability contracts. `meeting` reaches `chat`
 | Capability | Owns | Detailed contract |
 | --- | --- | --- |
 | `iam` | Actor identity, Tenant membership, invitations, Users, Groups and authorization | [Identity](docs/specs/identity.md), [Tenant](docs/specs/tenant.md), [Invitation](docs/specs/invitation.md) |
+| `shared` | The shared kernel: `TenantId` and `ActorId`, the identifiers every capability carries and none owns; no behaviour and no dependencies | [ADR 0015](docs/decisions/0015-capability-module-map.md#shared-kernel) |
 | `audit` | The Tenant's append-only audit stream every administrative change records into, its reader, export and retention sweep | [Audit](docs/specs/audit.md) |
 | `objectstorage` | Upload reservations, stored objects, adoption, discard and cleanup | [Object storage](docs/specs/object-storage.md) |
 | `connector` | Sources, credentials, provider selection, items, synchronization and Source–Group associations | [Connector](docs/specs/connector.md) |

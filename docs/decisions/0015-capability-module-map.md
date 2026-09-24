@@ -35,6 +35,29 @@ Four application modules are extracted inside `core`; there is no Gradle split.
 
 Dependency direction afterwards: `meeting → ai, voice, library` (not `chat`); `chat → ai, voice, library`; `ingestion → library` (not `chat`). Every module that records administrative changes depends on `audit`.
 
+### Shared kernel
+
+`TenantId` and `ActorId` move from `iam.tenant` and `iam.identity` to `io.memoryos.shared`, a module of identifier types that every module may depend on. Before the move every module depended on `iam :: *`, most of them for these two records alone, and `audit` could not name them without a cycle with `iam`.
+
+Mechanism: `shared` is an ordinary closed Spring Modulith module, `@ApplicationModule(type = CLOSED, allowedDependencies = {})`, with its types in the root package, and every module lists `"shared"` in its `allowedDependencies`. The alternatives do not fit. `@Modulithic(sharedModules = …)` only adds a module to every `@ApplicationModuleTest` bootstrap; it grants no dependency and `shared` has no beans to bootstrap. `Type.OPEN` exposes internals and removes the module from cycle detection, and the one property worth proving about a kernel is that it is a leaf that depends on nothing. Leaving the types unassigned in `io.memoryos`, as `BusinessException` and the `Failure*` types are, would hide the dependency from the module model instead of declaring it. `ModulithArchitectureTest` therefore still requires every module, `shared` included, to be closed.
+
+What belongs there is a pure identifier or value that several modules carry, with no behaviour and no dependency on a module's services. The inventory, by importing modules outside `iam`:
+
+| Type | Used by | Decision |
+| --- | --- | --- |
+| `TenantId` | all ten other modules (`connector` 54 files, `chat` 39, `document` 11, `objectstorage` 9, `retrieval` 4, `ingestion` 3, `usage` 2, `mcp` 1, `meeting` 1, and `audit` as a UUID) | Included. The partition key of every row; `document`, `objectstorage` and `ingestion` needed IAM for nothing else. |
+| `ActorId` | `chat` 55, `connector` 34, `mcp` 5, `retrieval` 4, `meeting` 4, `usage` 3, and `audit` as a UUID | Included. Who is asking, carried by every command and the signed-in principal. |
+| `GroupId` | `connector` 11, `mcp` 1 | Excluded. It names an IAM-owned aggregate, and both consumers also call `IamAuthorization`, `GroupScopeService` and `GroupIdentity` from `iam.group`, so moving it would remove no dependency. |
+| `IamCapability`, `Authority`, `IamAccess` | always used together with `IamAuthorization` | Excluded. They are the vocabulary of IAM's authorization decision, not free-standing values. |
+| `TenantAccessResolver`, `TenantMembership` | `chat`, `retrieval`, `connector` | Excluded. Behaviour and IAM state, not identifiers. |
+| `SourceId`, `CredentialId`, `DocumentId`, `StoredObjectId`, `ObjectUploadId` and similar | the owning module and its declared consumers | Excluded. Each is owned by one module and reaches others through that module's dependency. |
+
+Dependencies after the move: `audit → shared`; `iam → shared, audit`; `objectstorage → shared`; `document → shared, objectstorage`; `ingestion` no longer depends on IAM; `chat → iam :: tenant, iam :: group, iam :: identity`; `connector` and `retrieval → iam :: tenant, iam :: group`; `mcp`, `meeting` and `usage → iam :: group`. No `iam :: *` remains. The IAM named interfaces are the ones consumers call today; step 4 collapses them into IAM's root API.
+
+`audit` takes `TenantId` and `ActorId` again in `AuditRecord`, `AuditTrail.person`, `AuditReaders` and the `AuditLog` readers, query and events; its rows and the HTTP contract stay on UUIDs, so the OpenAPI document does not change.
+
+The signed-in principal (`IdentityContext`, holding an `ActorId`) is stored Java-serialized in the JDBC session. `V128__clear_sessions_after_actor_id_move.sql` deletes the sessions, as `V14` did for the previous move of `ActorId`: every user signs in once more after the deployment, and a mixed-version API rollout is not supported.
+
 ### Layout inside a module
 
 - The module root package is the published API: services, identifiers, views, events and exceptions.
@@ -48,7 +71,7 @@ Dependency direction afterwards: `meeting → ai, voice, library` (not `chat`); 
 One pull request, in this order, each step compiling and passing its targeted tests:
 
 0. `api` and `worker` stop reading `persistence`; OpenAPI schema names may change.
-1. Extract `audit`.
+1. Extract `audit`; then introduce the `shared` kernel, replace every `iam :: *` dependency, and give `audit` typed identifiers.
 2. Extract `ai` and `voice`; move meeting orchestration out of `MeetingController` into `meeting`.
 3. Extract `library`; `ingestion` depends on `library`.
 4. Internal layout of `chat`, `connector` and `iam`; drop `:: *` dependencies and collapse single-implementation pairs.
@@ -57,7 +80,8 @@ One pull request, in this order, each step compiling and passing its targeted te
 ## Consequences
 
 - Meeting, Chat and ingestion depend on what they use; the orchestration in `MeetingController` returns to a module where Modulith checks it.
-- `audit` sits below `iam` and depends on nothing, so for now it takes Tenant and actor identifiers as plain UUIDs at its boundary (callers pass `.value()`) and asks IAM who may read the stream through the `AuditReaders` port that `iam` implements. The planned next step is a shared-kernel module for identifier types (`TenantId`, `ActorId`, …) that every module may depend on, so audit regains typed identifiers and modules can drop their `iam :: *` dependency.
+- `audit` sits below `iam` and depends only on the `shared` kernel, so it takes typed Tenant and actor identifiers without a cycle, and asks IAM who may read the stream through the `AuditReaders` port that `iam` implements. It first took plain UUIDs at its boundary; the shared kernel above replaced them.
+- A type enters `shared` only if it is a pure identifier or value carried by several modules. Anything with behaviour, or the identifier of one module's aggregate, stays in that module; `shared` must not grow into a common utilities package.
 - Most of the published surface of IAM and Chat becomes internal, which is the point and also the cost: every consumer of a subpackage has to move to the root API, and a few types have to be promoted to it.
 - OpenAPI schema names that came from repository records change, and the web client is regenerated with them. There are no external API consumers yet.
 - Package moves touch many files. The JPA package lists in both composition roots (`@EntityScan`, `@EnableJpaRepositories`) name persistence packages by string and must follow each move; they are bootstrap configuration, not a use of those packages.
