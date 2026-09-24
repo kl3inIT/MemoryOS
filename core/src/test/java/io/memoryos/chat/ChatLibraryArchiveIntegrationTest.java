@@ -17,7 +17,6 @@ import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.chat.persistence.JdbcChatLibraryArchiveRepository;
-import io.memoryos.chat.persistence.JdbcChatLibraryArchiveRepository.Requested;
 import io.memoryos.chat.persistence.JdbcChatLibraryRepository;
 import io.memoryos.chat.persistence.JdbcUserFileRepository;
 import io.memoryos.iam.group.IamAuthorization;
@@ -134,12 +133,12 @@ class ChatLibraryArchiveIntegrationTest {
         var first = interpreter.store(tenant, messageId, "bao-cao.csv", "text/csv", "one".getBytes());
         var second = interpreter.store(tenant, messageId, "bao-cao.csv", "text/csv", "two".getBytes());
         var removed = interpreter.store(tenant, messageId, "sap-xoa.csv", "text/csv", "three".getBytes());
-        var requested = List.of(new Requested(ChatLibraryFile.Source.GENERATED, first),
-                new Requested(ChatLibraryFile.Source.GENERATED, second),
-                new Requested(ChatLibraryFile.Source.GENERATED, removed));
+        var requested = List.of(new ChatLibraryArchiveItem(ChatLibraryFile.Source.GENERATED, first),
+                new ChatLibraryArchiveItem(ChatLibraryFile.Source.GENERATED, second),
+                new ChatLibraryArchiveItem(ChatLibraryFile.Source.GENERATED, removed));
 
         var archive = archives.request(owner, requested);
-        assertEquals(JdbcChatLibraryArchiveRepository.Status.PENDING, archive.status());
+        assertEquals(ChatLibraryArchiveStatus.PENDING, archive.status());
         assertEquals(3, archive.fileCount());
         // The selection keeps being edited while the archive waits: this file is gone by packing time.
         interpreter.delete(owner, removed);
@@ -147,7 +146,7 @@ class ChatLibraryArchiveIntegrationTest {
         assertTrue(archives.buildNext());
         assertFalse(archives.buildNext(), "one request, packed once");
         var packed = archives.get(owner, archive.id());
-        assertEquals(JdbcChatLibraryArchiveRepository.Status.READY, packed.status());
+        assertEquals(ChatLibraryArchiveStatus.READY, packed.status());
         assertEquals(List.of(removed.toString()), packed.skipped());
 
         var entries = unzip(archives.open(owner, archive.id()));
@@ -164,7 +163,7 @@ class ChatLibraryArchiveIntegrationTest {
     @Test
     void releasesTheBytesOfAnExpiredArchiveAndRefusesItBeforehand() {
         var file = interpreter.store(tenant, messageId, "ghi-chu.csv", "text/csv", "x".getBytes());
-        var archive = archives.request(owner, List.of(new Requested(ChatLibraryFile.Source.GENERATED, file)));
+        var archive = archives.request(owner, List.of(new ChatLibraryArchiveItem(ChatLibraryFile.Source.GENERATED, file)));
         assertTrue(archives.buildNext());
         var key = jdbc.sql("SELECT object_key FROM chat_library_archive WHERE id = :id")
                 .param("id", archive.id()).query(String.class).single();
@@ -189,12 +188,12 @@ class ChatLibraryArchiveIntegrationTest {
     @Test
     void refusesAnEmptyOversizedOrForeignSelectionAndTooManyAtOnce() {
         var file = interpreter.store(tenant, messageId, "ghi-chu.csv", "text/csv", "x".getBytes());
-        var mine = new Requested(ChatLibraryFile.Source.GENERATED, file);
+        var mine = new ChatLibraryArchiveItem(ChatLibraryFile.Source.GENERATED, file);
         assertThrows(ChatException.class, () -> archives.request(owner, List.of()));
         // Another member's files are not in the caller's library, so the request names nothing it may pack.
         assertThrows(ChatException.class, () -> archives.request(other, List.of(mine)));
         assertThrows(ChatException.class,
-                () -> archives.request(owner, List.of(mine, new Requested(ChatLibraryFile.Source.GENERATED, UUID.randomUUID()))));
+                () -> archives.request(owner, List.of(mine, new ChatLibraryArchiveItem(ChatLibraryFile.Source.GENERATED, UUID.randomUUID()))));
 
         // The selection's bytes are bounded, because the archive is written as one object.
         jdbc.sql("UPDATE chat_file_artifact SET size_bytes = :size WHERE id = :id")
@@ -212,13 +211,13 @@ class ChatLibraryArchiveIntegrationTest {
     @Test
     void aRequestThatKeepsFailingStopsBeingRetried() {
         var file = interpreter.store(tenant, messageId, "ghi-chu.csv", "text/csv", "x".getBytes());
-        var archive = archives.request(owner, List.of(new Requested(ChatLibraryFile.Source.GENERATED, file)));
+        var archive = archives.request(owner, List.of(new ChatLibraryArchiveItem(ChatLibraryFile.Source.GENERATED, file)));
         // Every selected file has lost its bytes, so there is nothing to pack.
         stored.clear();
 
         assertTrue(archives.buildNext());
         var failed = archives.get(owner, archive.id());
-        assertEquals(JdbcChatLibraryArchiveRepository.Status.FAILED, failed.status());
+        assertEquals(ChatLibraryArchiveStatus.FAILED, failed.status());
         assertEquals("None of the selected files is available any more.", failed.failure());
         assertFalse(archives.buildNext(), "a failed request is not claimed again");
         assertTrue(archives.list(owner).isEmpty(), "a failed archive is not offered");

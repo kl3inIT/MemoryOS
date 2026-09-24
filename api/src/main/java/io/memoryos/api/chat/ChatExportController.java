@@ -1,7 +1,7 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.chat.contract.ChatExportResponse;
 import io.memoryos.chat.application.ChatExportService;
-import io.memoryos.chat.persistence.JdbcChatExportRepository;
 import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -10,10 +10,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import org.jspecify.annotations.Nullable;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -47,53 +45,28 @@ class ChatExportController {
 
     ChatExportController(ChatExportService exports) { this.exports = exports; }
 
-    @Schema(name = "ChatExport")
-    record ExportResponse(
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, format = "uuid") UUID id,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
-                    description = "PENDING, RUNNING, READY or FAILED") String status,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"integer", "null"})
-            @Nullable Integer sessionCount,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"integer", "null"})
-            @Nullable Integer fileCount,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
-                    description = "Names of the files the export left out") List<String> skipped,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"integer", "null"})
-            @Nullable Long sizeBytes,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String failure,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, format = "date-time") Instant createdAt,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}, format = "date-time")
-            @Nullable Instant expiresAt) {
-
-        static ExportResponse from(JdbcChatExportRepository.Export export) {
-            return new ExportResponse(export.id(), export.status().name(), export.sessionCount(),
-                    export.fileCount(), export.skipped(), export.sizeBytes(), export.failure(), export.createdAt(),
-                    export.expiresAt());
-        }
-    }
-
     @PostMapping
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Operation(operationId = "requestChatExport",
             summary = "Ask for a ZIP of the caller's own conversations and files")
     @ApiResponse(responseCode = "202", description = "The export being prepared", useReturnTypeSchema = true)
-    ExportResponse request(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return ExportResponse.from(exports.request(identity.actorId()));
+    ChatExportResponse request(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+        return ChatExportResponse.from(exports.request(identity.actorId()));
     }
 
     @GetMapping
     @Operation(operationId = "listChatExports", summary = "The caller's exports that are still worth offering")
     @ApiResponse(responseCode = "200", description = "Exports", useReturnTypeSchema = true)
-    List<ExportResponse> list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return exports.list(identity.actorId()).stream().map(ExportResponse::from).toList();
+    List<ChatExportResponse> list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+        return exports.list(identity.actorId()).stream().map(ChatExportResponse::from).toList();
     }
 
     @GetMapping("/{exportId}")
     @Operation(operationId = "getChatExport", summary = "How far one export has got")
     @ApiResponse(responseCode = "200", description = "The export", useReturnTypeSchema = true)
-    ExportResponse get(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ChatExportResponse get(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID exportId) {
-        return ExportResponse.from(exports.get(identity.actorId(), exportId));
+        return ChatExportResponse.from(exports.get(identity.actorId(), exportId));
     }
 
     @GetMapping(value = "/{exportId}/content", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)

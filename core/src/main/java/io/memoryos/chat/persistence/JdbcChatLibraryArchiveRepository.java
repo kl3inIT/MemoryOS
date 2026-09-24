@@ -1,5 +1,8 @@
 package io.memoryos.chat.persistence;
 
+import io.memoryos.chat.ChatLibraryArchive;
+import io.memoryos.chat.ChatLibraryArchiveItem;
+import io.memoryos.chat.ChatLibraryArchiveStatus;
 import io.memoryos.chat.ChatLibraryFile;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;
@@ -9,14 +12,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.jspecify.annotations.Nullable;
-import tools.jackson.databind.ObjectMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * ZIP archives of a library selection (MEM-152). A request is claimed by one Worker with a lease, exactly as a
@@ -29,22 +30,14 @@ public class JdbcChatLibraryArchiveRepository {
 
     public JdbcChatLibraryArchiveRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
-    public enum Status { PENDING, RUNNING, READY, FAILED }
-
-    /** One file of the selection, as asked for. */
-    public record Requested(ChatLibraryFile.Source source, UUID id) {}
-
-    public record Archive(UUID id, Status status, int fileCount, @Nullable Long sizeBytes, List<String> skipped,
-                          @Nullable String failure, Instant createdAt, @Nullable Instant expiresAt) {}
-
-    public record Claim(UUID id, UUID tenant, UUID owner, List<Requested> requested, int attempts) {}
+    public record Claim(UUID id, UUID tenant, UUID owner, List<ChatLibraryArchiveItem> requested, int attempts) {}
 
     public record Expired(TenantId tenant, UUID id, StoredObjectId object, ObjectKey key, UUID token) {}
 
     private static final String COLUMNS =
             "a.id, a.status, a.file_count, a.size_bytes, a.skipped::text AS skipped, a.failure, a.created_at, a.expires_at";
 
-    public Archive insert(TenantId tenant, ActorId owner, UUID id, List<Requested> requested, long requestedBytes,
+    public ChatLibraryArchive insert(TenantId tenant, ActorId owner, UUID id, List<ChatLibraryArchiveItem> requested, long requestedBytes,
                           Duration lifetime) {
         jdbc.sql("""
                 INSERT INTO chat_library_archive(id, tenant_id, owner_actor_id, requested, file_count, requested_bytes, expires_at)
@@ -56,7 +49,7 @@ public class JdbcChatLibraryArchiveRepository {
         return find(tenant, owner, id).orElseThrow();
     }
 
-    public Optional<Archive> find(TenantId tenant, ActorId owner, UUID id) {
+    public Optional<ChatLibraryArchive> find(TenantId tenant, ActorId owner, UUID id) {
         return jdbc.sql("SELECT " + COLUMNS + """
                  FROM chat_library_archive a
                 WHERE a.tenant_id = :tenant AND a.owner_actor_id = :owner AND a.id = :id
@@ -65,7 +58,7 @@ public class JdbcChatLibraryArchiveRepository {
     }
 
     /** The owner's archives, newest first; the page offers each one for as long as it lives. */
-    public List<Archive> list(TenantId tenant, ActorId owner, int limit) {
+    public List<ChatLibraryArchive> list(TenantId tenant, ActorId owner, int limit) {
         return jdbc.sql("SELECT " + COLUMNS + """
                  FROM chat_library_archive a
                 WHERE a.tenant_id = :tenant AND a.owner_actor_id = :owner AND a.status <> 'FAILED'
@@ -170,25 +163,25 @@ public class JdbcChatLibraryArchiveRepository {
                 .param("token", expired.token()).update() == 1;
     }
 
-    private static Archive archive(ResultSet row) throws SQLException {
+    private static ChatLibraryArchive archive(ResultSet row) throws SQLException {
         Timestamp expires = row.getTimestamp("expires_at");
         Long size = row.getObject("size_bytes", Long.class);
-        return new Archive(row.getObject("id", UUID.class), Status.valueOf(row.getString("status")),
+        return new ChatLibraryArchive(row.getObject("id", UUID.class), ChatLibraryArchiveStatus.valueOf(row.getString("status")),
                 row.getInt("file_count"), size, strings(row.getString("skipped")), row.getString("failure"),
                 row.getTimestamp("created_at").toInstant(), expires == null ? null : expires.toInstant());
     }
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    private static String json(List<Requested> requested) {
+    private static String json(List<ChatLibraryArchiveItem> requested) {
         var array = JSON.createArrayNode();
         requested.forEach(file -> array.addObject().put("source", file.source().name()).put("id", file.id().toString()));
         return array.toString();
     }
 
-    private static List<Requested> requested(String json) {
-        var files = new java.util.ArrayList<Requested>();
-        JSON.readTree(json).forEach(file -> files.add(new Requested(
+    private static List<ChatLibraryArchiveItem> requested(String json) {
+        var files = new java.util.ArrayList<ChatLibraryArchiveItem>();
+        JSON.readTree(json).forEach(file -> files.add(new ChatLibraryArchiveItem(
                 ChatLibraryFile.Source.valueOf(file.path("source").asString()),
                 UUID.fromString(file.path("id").asString()))));
         return List.copyOf(files);

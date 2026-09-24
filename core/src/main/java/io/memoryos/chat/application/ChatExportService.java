@@ -1,11 +1,11 @@
 package io.memoryos.chat.application;
 
 import io.memoryos.chat.ChatException;
+import io.memoryos.chat.ChatExport;
 import io.memoryos.chat.ChatLibraryFile;
 import io.memoryos.chat.ChatSession;
-import io.memoryos.chat.persistence.JdbcChatExportRepository;
 import io.memoryos.chat.persistence.JdbcChatExportRepository.Claim;
-import io.memoryos.chat.persistence.JdbcChatExportRepository.Export;
+import io.memoryos.chat.persistence.JdbcChatExportRepository;
 import io.memoryos.chat.persistence.JdbcChatLibraryRepository;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.JdbcUserFileRepository;
@@ -90,18 +90,18 @@ public class ChatExportService {
 
     /** Records the request; one per person at a time, because an export reads everything they own. */
     @Transactional
-    public Export request(ActorId actor) {
+    public ChatExport request(ActorId actor) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         return exports.insert(tenant, actor, UUID.randomUUID(), LIFETIME).orElseThrow(ChatException::conflict);
     }
 
     @Transactional(readOnly = true)
-    public List<Export> list(ActorId actor) {
+    public List<ChatExport> list(ActorId actor) {
         return exports.list(tenant(actor), actor, LIST_LIMIT);
     }
 
     @Transactional(readOnly = true)
-    public Export get(ActorId actor, UUID id) {
+    public ChatExport get(ActorId actor, UUID id) {
         return exports.find(tenant(actor), actor, id).orElseThrow(ChatException::unavailable);
     }
 
