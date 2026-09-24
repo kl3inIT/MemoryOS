@@ -1,4 +1,4 @@
-package io.memoryos.api.chat;
+package io.memoryos.chat.catalog.openai;
 
 import com.embabel.agent.openai.CapabilityAwareOpenAiOptionsConverter;
 import com.embabel.agent.openai.ModelCapabilities;
@@ -244,7 +244,7 @@ public final class OpenAiChatProviderAdapter implements ChatProviderAdapter {
         } catch (RuntimeException | Error failure) { sync.close(); throw failure; }
     }
 
-    static ChatModelBinding binding(String name, ModelSettings settings, ChatModel model, TokenCountEstimator tokens) {
+    public static ChatModelBinding binding(String name, ModelSettings settings, ChatModel model, TokenCountEstimator tokens) {
         ChatTokenizerProfiles.validate(settings);
         boolean completionTokens = Boolean.TRUE.equals(settings.options().get("maxCompletionTokens"));
         var nativeConverter = new CapabilityAwareOpenAiOptionsConverter(completionTokens ? ModelCapabilities.GPT5_FAMILY : ModelCapabilities.DEFAULT);

@@ -1,4 +1,4 @@
-package io.memoryos.api.chat;
+package io.memoryos.chat.catalog.openai;
 
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import com.openai.client.OpenAIClient;
@@ -22,12 +22,12 @@ import org.springframework.context.annotation.Lazy;
  * One supported protocol, using native Spring AI clients and Embabel service/options.
  */
 @Configuration(proxyBeanMethods = false)
-class OpenAiChatProviderConfiguration {
+public class OpenAiChatProviderConfiguration {
     @Bean(destroyMethod = "close")
     @Lazy
-    OpenAiCancellation chatOpenAiClient(@Value("${memoryos.chat.provider.api-key:}") String key,
-                                       @Value("${memoryos.chat.provider.base-url:https://api.openai.com/v1}") String baseUrl,
-                                       ChatExecutionProperties limits) {
+    public OpenAiCancellation chatOpenAiClient(@Value("${memoryos.chat.provider.api-key:}") String key,
+                                              @Value("${memoryos.chat.provider.base-url:https://api.openai.com/v1}") String baseUrl,
+                                              ChatExecutionProperties limits) {
         requireCredential(key);
         requireEndpoint(baseUrl);
         return OpenAiChatProviderAdapter.asyncClient(baseUrl, key, limits.providerReadTimeout());
@@ -35,9 +35,9 @@ class OpenAiChatProviderConfiguration {
 
     @Bean(destroyMethod = "close")
     @Lazy
-    OpenAIClient chatOpenAiSyncClient(@Value("${memoryos.chat.provider.api-key:}") String key,
-                                      @Value("${memoryos.chat.provider.base-url:https://api.openai.com/v1}") String baseUrl,
-                                      ChatExecutionProperties limits) {
+    public OpenAIClient chatOpenAiSyncClient(@Value("${memoryos.chat.provider.api-key:}") String key,
+                                             @Value("${memoryos.chat.provider.base-url:https://api.openai.com/v1}") String baseUrl,
+                                             ChatExecutionProperties limits) {
         requireCredential(key);
         requireEndpoint(baseUrl);
         return OpenAIOkHttpClient.builder().apiKey(key).baseUrl(baseUrl).maxRetries(0).timeout(OpenAiCancellation.gap(limits.providerReadTimeout())).build();
@@ -45,9 +45,9 @@ class OpenAiChatProviderConfiguration {
 
     @Bean
     @Lazy
-    ChatModel chatProviderModel(OpenAiCancellation chatOpenAiClient, @Lazy OpenAIClient chatOpenAiSyncClient,
-                                @Value("${memoryos.chat.provider.api-key:}") String key,
-                                ObservationRegistry observations, MeterRegistry meters) {
+    public ChatModel chatProviderModel(OpenAiCancellation chatOpenAiClient, @Lazy OpenAIClient chatOpenAiSyncClient,
+                                       @Value("${memoryos.chat.provider.api-key:}") String key,
+                                       ObservationRegistry observations, MeterRegistry meters) {
         requireCredential(key);
         return chatOpenAiClient.decorate(view -> OpenAiChatModel.builder().options(OpenAiChatOptions.builder().apiKey(key).maxRetries(0).build())
                 .openAiClient(chatOpenAiSyncClient).openAiClientAsync(view)

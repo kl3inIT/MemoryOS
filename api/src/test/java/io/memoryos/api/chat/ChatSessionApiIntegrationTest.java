@@ -37,6 +37,8 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import io.memoryos.chat.catalog.ModelSettings;
 import io.memoryos.chat.catalog.ModelCatalogService;
+import io.memoryos.chat.catalog.openai.OpenAiChatProviderAdapter;
+import io.memoryos.chat.catalog.openai.OpenAiChatProviderConfiguration;
 import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.retrieval.SearchHit;

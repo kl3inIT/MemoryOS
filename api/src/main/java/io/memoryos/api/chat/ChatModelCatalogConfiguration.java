@@ -8,6 +8,8 @@ import io.memoryos.chat.catalog.ModelCatalogService;
 import io.memoryos.chat.catalog.ModelSettings;
 import io.memoryos.chat.catalog.ProviderCredentials;
 import io.memoryos.chat.application.PersonaProperties;
+import io.memoryos.chat.catalog.openai.ChatKnownModels;
+import io.memoryos.chat.catalog.openai.OpenAiChatProviderAdapter;
 import io.memoryos.chat.execution.ChatExecutionProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.ModelCatalogRepository;
