@@ -580,6 +580,8 @@ class SessionSecurityIntegrationTest {
             assertEquals("application/problem+json", invalidPageSize
                     .headers().firstValue("content-type").orElseThrow());
             assertEquals("/api/invitations", jsonString(invalidPageSize.body(), "instance"));
+            assertEquals("INVITATION_QUERY_INVALID", jsonString(invalidPageSize.body(), "code"));
+            assertFalse(invalidPageSize.body().contains("size must be between"), "the diagnostic message stays private");
         } finally {
             jdbcClient.sql("DELETE FROM tenant_invitations").update();
             jdbcClient.sql("DELETE FROM spring_session").update();
