@@ -2,7 +2,7 @@ package io.memoryos.usage;
 
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.usage.persistence.AiCostQueries;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;

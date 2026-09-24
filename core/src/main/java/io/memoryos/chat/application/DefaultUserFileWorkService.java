@@ -5,7 +5,7 @@ import io.memoryos.chat.UserFileWorkPort;
 import io.memoryos.chat.persistence.JdbcUserFileWorkRepository;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.DocumentContent;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.chat.ChatException;
 import io.memoryos.objectstorage.ObjectKey;

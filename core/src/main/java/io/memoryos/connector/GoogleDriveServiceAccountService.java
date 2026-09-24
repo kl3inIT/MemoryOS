@@ -1,6 +1,6 @@
 package io.memoryos.connector;
 
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 
 /**
  * Service-account credentials for Google Drive. Both commands validate the key against Google, acting as the primary

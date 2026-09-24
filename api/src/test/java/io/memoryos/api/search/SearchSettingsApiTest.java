@@ -20,10 +20,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.api.ApiPostgresDatabase;
 import io.memoryos.api.security.ActorAuthenticationToken;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.identity.IdentityContext;
 import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
 import io.memoryos.retrieval.settings.EmbeddingProbe;
 import io.memoryos.retrieval.settings.SearchGenerations;

@@ -1,5 +1,7 @@
 package io.memoryos.iam.identity;
 
+import io.memoryos.shared.ActorId;
+
 import io.memoryos.iam.identity.persistence.ActorProfileEntity;
 import jakarta.persistence.EntityManager;
 import org.jspecify.annotations.Nullable;

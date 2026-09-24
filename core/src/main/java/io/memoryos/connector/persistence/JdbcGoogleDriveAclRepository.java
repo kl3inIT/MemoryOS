@@ -15,7 +15,7 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.document.DocumentId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;

@@ -1,4 +1,4 @@
-package io.memoryos.iam.identity;
+package io.memoryos.shared;
 
 import java.io.Serial;
 import java.io.Serializable;

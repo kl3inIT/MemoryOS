@@ -4,7 +4,7 @@ import io.memoryos.chat.voice.LiveTranscription;
 import io.memoryos.chat.voice.LiveTranscriptionService;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.meeting.persistence.MeetingRepository;
 import java.time.Duration;
 import java.util.ArrayList;

@@ -2,7 +2,7 @@ package io.memoryos.connector.persistence;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.UUID;

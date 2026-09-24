@@ -15,7 +15,7 @@ import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.DocumentId;
 import io.memoryos.objectstorage.ObjectUploadService;
 import io.memoryos.objectstorage.StoredObjectRegistry;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 import java.time.Duration;
 import java.util.List;

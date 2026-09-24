@@ -18,7 +18,7 @@ import static org.mockito.Mockito.when;
 
 import io.memoryos.api.mcp.contract.McpOAuthAuthorizationRequest;
 import io.memoryos.api.security.ActorAuthenticationToken;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.identity.IdentityContext;
 import io.memoryos.mcp.McpException;
 import io.memoryos.mcp.McpOAuthService;

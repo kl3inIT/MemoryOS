@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;

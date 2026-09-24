@@ -1,6 +1,6 @@
 package io.memoryos.document;
 
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 public interface ExtractionArtifactPort {
     DocumentContent stage(TenantId tenantId, DocumentContent content);

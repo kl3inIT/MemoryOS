@@ -1,6 +1,6 @@
 package io.memoryos.mcp;
 
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;

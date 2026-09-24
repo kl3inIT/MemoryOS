@@ -1,6 +1,6 @@
 package io.memoryos.iam.identityprovider;
 
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.keycloak.DiscoveredOidcProvider;
 
 import java.util.List;

@@ -8,7 +8,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import io.memoryos.iam.group.GroupIdentity;
 import io.memoryos.iam.identity.AccountType;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantMembershipRole;
 
 public record UserListItem(

@@ -4,7 +4,7 @@ import java.util.Objects;
 
 import org.jspecify.annotations.Nullable;
 import io.memoryos.iam.identity.AccountType;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantMembershipStatus;
 
 public record GroupMember(

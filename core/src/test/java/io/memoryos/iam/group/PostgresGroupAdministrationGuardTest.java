@@ -6,9 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.GroupEntity;
 import io.memoryos.iam.group.persistence.GroupInvariantRepository;
 

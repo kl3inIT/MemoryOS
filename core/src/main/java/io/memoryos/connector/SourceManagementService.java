@@ -1,6 +1,6 @@
 package io.memoryos.connector;
 
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.group.GroupId;
 import io.memoryos.iam.group.GroupIdentity;
 import io.memoryos.iam.group.GroupIdentityPage;

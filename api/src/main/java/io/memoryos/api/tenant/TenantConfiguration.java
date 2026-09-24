@@ -7,7 +7,7 @@ import io.memoryos.iam.identity.ExternalIdentity;
 import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapRequest;
 import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapper;
 import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 import java.util.UUID;
 

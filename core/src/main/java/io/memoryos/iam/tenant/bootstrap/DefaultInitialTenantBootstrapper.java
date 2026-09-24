@@ -6,7 +6,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.identity.ExternalIdentityRegistrar;
 import io.memoryos.iam.identity.ExternalIdentityResolver;
 import io.memoryos.iam.group.GroupProvisioner;

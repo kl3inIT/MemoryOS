@@ -14,8 +14,8 @@ import org.springframework.ai.chat.model.ChatModel;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.application.ChatTurnPersistence.TurnContext;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 
 import java.time.Instant;
 import java.util.List;

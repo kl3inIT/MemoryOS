@@ -11,8 +11,8 @@ import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.ChatFileDescriptor;
 import tools.jackson.databind.ObjectMapper;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

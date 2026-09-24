@@ -8,7 +8,7 @@ import io.memoryos.chat.catalog.ModelCatalogService;
 import io.memoryos.chat.catalog.ProviderCredentials;
 import io.memoryos.chat.persistence.WebConnectionEntity;
 import io.memoryos.chat.persistence.WebConnectionRepository;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.tenant.TenantAccessResolver;

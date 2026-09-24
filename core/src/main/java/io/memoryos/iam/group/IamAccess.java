@@ -1,7 +1,7 @@
 package io.memoryos.iam.group;
 
 import java.util.Objects;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 public record IamAccess(TenantId tenantId, Authority authority) {
 

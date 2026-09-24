@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.TestDatabase;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;

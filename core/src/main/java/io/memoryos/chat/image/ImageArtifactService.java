@@ -2,9 +2,9 @@ package io.memoryos.chat.image;
 
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectWriteService;
@@ -201,7 +201,7 @@ public class ImageArtifactService {
     public UUID store(TenantId tenant, UUID messageId, ImageProviderClient.Result result,
                       @Nullable UUID sourceArtifactId, @Nullable UUID sourceFileId) {
         // The image belongs to the owner of the conversation, so it is their storage limit that applies.
-        var owner = artifacts.owner(tenant, messageId).map(io.memoryos.iam.identity.ActorId::new)
+        var owner = artifacts.owner(tenant, messageId).map(ActorId::new)
                 .orElseThrow(() -> new IllegalStateException("generated image has no answer in this tenant"));
         quotas.requireRoom(tenant, owner, result.bytes().length);
         UUID id = UUID.randomUUID();

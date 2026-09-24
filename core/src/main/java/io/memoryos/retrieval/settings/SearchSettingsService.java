@@ -4,7 +4,7 @@ import io.memoryos.document.DocumentChunk;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.retrieval.SearchUnavailableException;
 import io.memoryos.retrieval.embedding.OpenAiCompatibleEmbeddings;

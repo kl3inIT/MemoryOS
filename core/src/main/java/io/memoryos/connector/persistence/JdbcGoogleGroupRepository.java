@@ -1,7 +1,7 @@
 package io.memoryos.connector.persistence;
 
 import io.memoryos.connector.CredentialId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Objects;

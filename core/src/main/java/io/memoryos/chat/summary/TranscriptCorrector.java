@@ -3,7 +3,7 @@ package io.memoryos.chat.summary;
 import io.memoryos.chat.catalog.ChatModelResolver;
 import io.memoryos.chat.catalog.ModelFlow;
 import io.memoryos.chat.execution.ChatModelExecutor;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.usage.AiUsage;
 import io.memoryos.usage.AiUsageFlow;
 import io.memoryos.usage.AiUsageRecorder;

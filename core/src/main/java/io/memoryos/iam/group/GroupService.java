@@ -2,7 +2,7 @@ package io.memoryos.iam.group;
 
 import java.util.Collection;
 import java.util.List;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 
 public interface GroupService {
 

@@ -8,7 +8,7 @@ import io.memoryos.chat.catalog.ChatModelResolver;
 import io.memoryos.chat.catalog.ModelFlow;
 import io.memoryos.usage.AiUsageFlow;
 import org.jspecify.annotations.Nullable;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;

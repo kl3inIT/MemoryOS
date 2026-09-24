@@ -2,8 +2,8 @@ package io.memoryos.iam.invitation;
 
 import java.time.Instant;
 import java.util.UUID;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 
 public record InvitationView(
         UUID id,

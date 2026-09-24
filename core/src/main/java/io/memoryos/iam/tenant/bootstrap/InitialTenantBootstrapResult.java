@@ -1,8 +1,8 @@
 package io.memoryos.iam.tenant.bootstrap;
 
 import java.util.Objects;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 
 public record InitialTenantBootstrapResult(
         ActorId ownerActorId,

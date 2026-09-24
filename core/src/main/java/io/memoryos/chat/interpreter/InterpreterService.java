@@ -7,9 +7,9 @@ import io.memoryos.chat.ChatException;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectWriteService;
@@ -52,7 +52,7 @@ public class InterpreterService {
      * of failing the whole turn.
      */
     private void requireRoom(TenantId tenant, UUID messageId, long bytes) {
-        var owner = repository.owner(tenant, messageId).map(io.memoryos.iam.identity.ActorId::new)
+        var owner = repository.owner(tenant, messageId).map(ActorId::new)
                 .orElseThrow(() -> new IllegalStateException("generated file has no answer in this tenant"));
         quotas.requireRoom(tenant, owner, bytes);
     }

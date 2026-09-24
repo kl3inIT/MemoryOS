@@ -1,5 +1,7 @@
 package io.memoryos.iam.identity;
 
+import io.memoryos.shared.ActorId;
+
 import java.io.Serial;
 import java.io.Serializable;
 

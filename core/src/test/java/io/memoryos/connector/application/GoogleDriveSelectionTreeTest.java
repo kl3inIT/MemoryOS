@@ -11,7 +11,7 @@ import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.GoogleDriveSourceService.*;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
 import java.util.ArrayList;
 import java.util.List;

@@ -3,7 +3,7 @@ package io.memoryos.chat.catalog;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.execution.ChatExecutionProperties;
 import io.memoryos.chat.execution.ChatModelBinding;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;

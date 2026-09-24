@@ -4,7 +4,7 @@ import io.memoryos.BusinessException;
 import io.memoryos.chat.voice.Transcript;
 import io.memoryos.chat.voice.TranscriptionSession;
 import io.memoryos.chat.voice.VoiceTranscriptionService;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;

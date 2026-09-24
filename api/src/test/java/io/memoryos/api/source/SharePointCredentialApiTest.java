@@ -17,7 +17,7 @@ import io.memoryos.connector.SharePointProvider;
 import io.memoryos.connector.SourceException;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.identity.IdentityContext;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;

@@ -4,8 +4,8 @@ import io.memoryos.connector.SourceAccessChanged;
 import io.memoryos.connector.SourceId;
 import io.memoryos.iam.group.GroupId;
 import io.memoryos.iam.group.GroupIdentity;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 
 import java.util.Collection;
 import java.util.List;

@@ -3,7 +3,7 @@ package io.memoryos.chat.preferences;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.persistence.JdbcChatPreferencesRepository;
 import io.memoryos.chat.persistence.JdbcChatSessionPurgeRepository;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;

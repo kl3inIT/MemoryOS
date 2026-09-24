@@ -3,7 +3,7 @@ package io.memoryos.iam.identity;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.identity.ExternalIdentity;
 import io.memoryos.iam.identity.IdentityContext;
 

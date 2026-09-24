@@ -7,14 +7,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.group.GroupAdministrationGuard;
 import io.memoryos.iam.group.GroupPermissions;
 import io.memoryos.iam.group.GroupId;
 import io.memoryos.iam.group.GroupService;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.IamException;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
 import io.memoryos.iam.group.persistence.GroupEntity;
 import io.memoryos.iam.group.persistence.GroupInvariantRepository;

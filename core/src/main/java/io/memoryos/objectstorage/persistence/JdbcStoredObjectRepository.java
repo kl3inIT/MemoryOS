@@ -6,7 +6,7 @@ import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.objectstorage.StoredObjectReference;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 import java.sql.Timestamp;
 import java.time.Instant;

@@ -1,11 +1,13 @@
 package io.memoryos.chat.tools;
 
+import io.memoryos.shared.ActorId;
+
 import com.embabel.agent.api.annotation.LlmTool;
 import io.memoryos.chat.ChatImageEvent;
 import io.memoryos.chat.image.ImageArtifactService;
 import io.memoryos.chat.image.ImageConnectionService;
 import io.memoryos.chat.image.ImageProviderClient;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -23,7 +25,7 @@ public final class GenerateImageTool {
     private final Runnable active;
     private final Consumer<ChatImageEvent> events;
     private final int maxCalls;
-    private final io.memoryos.iam.identity.@Nullable ActorId actor;
+    private final @Nullable ActorId actor;
     private int calls;
 
     public GenerateImageTool(ImageProviderClient client, ImageConnectionService.Connection connection, ImageArtifactService artifacts,
@@ -34,7 +36,7 @@ public final class GenerateImageTool {
 
     /** @param actor the person whose reply requested the image, for AI usage */
     public GenerateImageTool(ImageProviderClient client, ImageConnectionService.Connection connection, ImageArtifactService artifacts,
-                             io.memoryos.iam.identity.@Nullable ActorId actor, TenantId tenant, UUID messageId, Runnable active,
+                             @Nullable ActorId actor, TenantId tenant, UUID messageId, Runnable active,
                              Consumer<ChatImageEvent> events, int maxCalls) {
         this.client = client; this.connection = connection; this.artifacts = artifacts; this.tenant = tenant;
         this.messageId = messageId; this.active = active; this.events = events; this.maxCalls = maxCalls; this.actor = actor;

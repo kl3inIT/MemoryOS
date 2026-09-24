@@ -1,7 +1,7 @@
 package io.memoryos.connector;
 
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;

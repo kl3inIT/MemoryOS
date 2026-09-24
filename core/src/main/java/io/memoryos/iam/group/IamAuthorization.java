@@ -1,7 +1,7 @@
 package io.memoryos.iam.group;
 
 import java.util.Set;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 
 /**
  * Fresh database-backed IAM resolution. The revision is an invalidation signal only; callers must

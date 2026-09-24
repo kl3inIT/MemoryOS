@@ -1,5 +1,7 @@
 package io.memoryos.chat;
 
+import io.memoryos.shared.TenantId;
+
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
@@ -7,7 +9,7 @@ import io.memoryos.chat.persistence.ChatSettingsEntity;
 import io.memoryos.chat.persistence.JpaChatSettingsRepository;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,7 +74,7 @@ public class ChatSettingsService {
 
     /** The Tenant's setting, read without any capability: the history reads themselves are what is guarded. */
     @Transactional(readOnly = true)
-    public io.memoryos.chat.history.ChatHistoryVisibility historyVisibility(io.memoryos.iam.tenant.TenantId tenant) {
+    public io.memoryos.chat.history.ChatHistoryVisibility historyVisibility(TenantId tenant) {
         return settings.findById(tenant.value())
                 .map(entity -> io.memoryos.chat.history.ChatHistoryVisibility.valueOf(entity.chatHistoryVisibility()))
                 .orElse(io.memoryos.chat.history.ChatHistoryVisibility.NORMAL);

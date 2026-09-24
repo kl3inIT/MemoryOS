@@ -1,7 +1,9 @@
 package io.memoryos.iam.tenant;
 
+import io.memoryos.shared.TenantId;
+
 import java.util.Optional;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.invitation.InvitationTarget;
 
 public interface TenantMembershipProvisioner {

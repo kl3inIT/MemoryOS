@@ -3,8 +3,8 @@ package io.memoryos.iam.group;
 import java.util.Collection;
 
 import org.jspecify.annotations.Nullable;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 
 /**
  * Bounded Tenant-qualified ordinary Group projections for already-authorized Source association callers.

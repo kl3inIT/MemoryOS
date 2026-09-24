@@ -14,7 +14,7 @@ import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentContentException;
 import io.memoryos.document.DocumentId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.persistence.JdbcSearchWorkRepository;
 import io.memoryos.retrieval.SearchIndex;

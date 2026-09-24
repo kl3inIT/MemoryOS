@@ -4,7 +4,7 @@ import com.embabel.common.ai.model.LlmOptions;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.catalog.ChatModelResolver;
 import io.memoryos.chat.execution.ChatExecutionProperties;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;

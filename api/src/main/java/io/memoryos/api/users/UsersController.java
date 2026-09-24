@@ -2,7 +2,7 @@ package io.memoryos.api.users;
 
 import io.memoryos.api.users.contract.UserPageResponse;
 import io.memoryos.api.users.contract.ReplaceUserGroupsRequest;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.identity.IdentityContext;
 import io.memoryos.iam.group.GroupId;
 import io.memoryos.iam.group.GroupService;

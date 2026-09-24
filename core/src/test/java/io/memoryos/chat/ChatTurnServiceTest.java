@@ -26,8 +26,8 @@ import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import org.springframework.ai.chat.model.ChatModel;
 import io.memoryos.chat.streaming.ChatStreamProperties;
 import io.memoryos.chat.streaming.StreamBufferWriter;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.mcp.McpTurnService;
 import io.memoryos.mcp.McpTurnTools;
 

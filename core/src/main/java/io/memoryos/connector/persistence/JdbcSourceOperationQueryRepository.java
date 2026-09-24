@@ -3,8 +3,8 @@ package io.memoryos.connector.persistence;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

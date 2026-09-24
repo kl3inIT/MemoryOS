@@ -10,7 +10,7 @@ import io.memoryos.chat.persistence.VoiceConnectionEntity;
 import io.memoryos.chat.persistence.VoiceConnectionRepository;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import java.util.List;
 import java.util.UUID;

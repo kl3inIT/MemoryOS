@@ -10,8 +10,8 @@ import io.memoryos.connector.SourceOperationStatus;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.connector.SourceStatus;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 
 import org.springframework.util.Assert;
 import io.memoryos.iam.identity.ExternalIdentity;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 public record InitialTenantBootstrapRequest(
         TenantId tenantId,

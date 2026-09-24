@@ -3,7 +3,7 @@ package io.memoryos.connector.application;
 import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.document.DocumentId;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import java.util.List;
 import java.util.Objects;

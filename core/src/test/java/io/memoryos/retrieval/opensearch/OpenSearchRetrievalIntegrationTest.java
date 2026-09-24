@@ -1,5 +1,7 @@
 package io.memoryos.retrieval.opensearch;
 
+import io.memoryos.shared.ActorId;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -17,7 +19,7 @@ import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
 import io.memoryos.document.application.StructuredDocumentChunker;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
 import io.memoryos.retrieval.settings.SearchGenerations;
 import io.memoryos.retrieval.SearchUnavailableException;
@@ -85,7 +87,7 @@ class OpenSearchRetrievalIntegrationTest {
                     properties, mapper, documents, sourceSearch,
                     new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP));
             var tenant = new TenantId(UUID.randomUUID());
-            var actor = new io.memoryos.iam.identity.ActorId(UUID.randomUUID());
+            var actor = new ActorId(UUID.randomUUID());
             var leave = document(tenant, "HR-2026 Nghỉ phép", "Annual vacation policy provides 12 leave days.");
             var unrelated = document(tenant, "IT-2026", "Hardware inventory and laptop replacement.");
             var privateText = document(tenant, "Private HR-2026", "Annual vacation policy provides private leave days.");

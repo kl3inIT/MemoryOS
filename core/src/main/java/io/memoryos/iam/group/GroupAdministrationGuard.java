@@ -1,6 +1,6 @@
 package io.memoryos.iam.group;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 
 /**
  * Protects configured-owner and active-administrator survival after the caller has taken the

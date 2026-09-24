@@ -1,6 +1,6 @@
 package io.memoryos.connector;
 
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 public interface GoogleDriveConnectionService {
     State state(TenantId tenantId, SourceId sourceId);

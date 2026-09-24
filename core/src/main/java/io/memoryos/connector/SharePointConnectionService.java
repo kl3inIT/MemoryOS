@@ -1,6 +1,6 @@
 package io.memoryos.connector;
 
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 /** Opens a provider session from a stored SharePoint credential and reports the revision it was opened at. */
 public interface SharePointConnectionService {

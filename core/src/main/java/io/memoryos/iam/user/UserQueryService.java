@@ -1,5 +1,5 @@
 package io.memoryos.iam.user;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 
 public interface UserQueryService {
 

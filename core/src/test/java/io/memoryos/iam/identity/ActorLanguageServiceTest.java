@@ -7,7 +7,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.identity.ActorLanguageService;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.iam.tenant.TenantMembership;

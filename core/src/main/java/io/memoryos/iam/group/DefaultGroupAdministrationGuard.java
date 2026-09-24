@@ -1,10 +1,10 @@
 package io.memoryos.iam.group;
 
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.group.GroupAdministrationGuard;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.GroupInvariantRepository;
 import io.memoryos.iam.group.persistence.GroupInvariantRepository.AdminState;
 

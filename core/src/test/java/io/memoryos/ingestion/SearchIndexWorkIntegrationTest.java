@@ -25,7 +25,7 @@ import io.memoryos.document.application.StructuredDocumentChunker;
 import io.memoryos.document.persistence.JdbcDocumentChunkRepository;
 import io.memoryos.document.persistence.JdbcDocumentRepository;
 import io.memoryos.document.persistence.JdbcExtractionArtifactRepository;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.ingestion.application.SearchIngestionCoordinator;
 import io.memoryos.ingestion.persistence.JdbcOperationDispatchRepository;
 import io.memoryos.ingestion.persistence.JdbcSearchWorkRepository;

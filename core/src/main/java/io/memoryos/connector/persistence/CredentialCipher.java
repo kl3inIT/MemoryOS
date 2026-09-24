@@ -10,7 +10,7 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 /**
  * AES-GCM envelope shared by connector credential kinds. The credential kind belongs to the additional

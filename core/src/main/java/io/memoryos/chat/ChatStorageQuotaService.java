@@ -2,9 +2,9 @@ package io.memoryos.chat;
 
 import io.memoryos.chat.application.ChatStorageProperties;
 import io.memoryos.chat.persistence.JdbcChatLibraryRepository;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

@@ -1,6 +1,6 @@
 package io.memoryos.api.mcp;
 
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.mcp.McpException;
 import io.memoryos.mcp.McpOAuthProperties;
 import io.memoryos.mcp.McpOAuthService;

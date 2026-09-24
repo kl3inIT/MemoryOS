@@ -8,7 +8,7 @@ import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceType;
 import io.memoryos.document.DocumentChunkPort;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.SearchTimings;
 import io.memoryos.retrieval.embedding.OpenAiCompatibleEmbeddings;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;

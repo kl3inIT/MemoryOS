@@ -9,7 +9,7 @@ import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceType;
 import io.memoryos.connector.persistence.JdbcSourceRepository;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.group.Authority;
 import io.memoryos.iam.group.GroupId;
 import io.memoryos.iam.group.GroupScopeService;

@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.identity.ExternalIdentity;
 import jakarta.persistence.LockModeType;
 

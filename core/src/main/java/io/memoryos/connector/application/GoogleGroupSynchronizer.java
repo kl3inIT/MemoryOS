@@ -6,7 +6,7 @@ import io.memoryos.connector.GoogleDriveProvider;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.persistence.JdbcGoogleGroupRepository;
 import io.memoryos.connector.persistence.JdbcGoogleGroupRepository.Cursor;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;

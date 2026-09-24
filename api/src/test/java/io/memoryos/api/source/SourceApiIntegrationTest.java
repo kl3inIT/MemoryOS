@@ -36,7 +36,7 @@ import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.ExtractionArtifactPort;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.identity.IdentityContext;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;

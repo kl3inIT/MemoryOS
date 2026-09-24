@@ -1,5 +1,7 @@
 package io.memoryos.connector.application;
 
+import io.memoryos.shared.ActorId;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -30,7 +32,7 @@ import io.memoryos.objectstorage.application.DefaultObjectWriteService;
 import io.memoryos.objectstorage.application.ObjectUploadProperties;
 import io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.DefaultIamAuthorization;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
@@ -85,7 +87,7 @@ class PostgresGoogleDriveSyncTest {
     private TenantId tenant;
     private SourceId source;
     private IamAuthorization authorization;
-    private final io.memoryos.iam.identity.ActorId scheduleOwner = new io.memoryos.iam.identity.ActorId(UUID.randomUUID());
+    private final ActorId scheduleOwner = new ActorId(UUID.randomUUID());
     private final AtomicLong revision = new AtomicLong(1);
     private final Map<String, GoogleDriveProvider.FileMetadata> files = new HashMap<>();
     private final Map<String, GoogleDriveProvider.FilePage> pages = new HashMap<>();
@@ -1334,13 +1336,13 @@ class PostgresGoogleDriveSyncTest {
     }
 
     private GoogleDriveSourceService.SelectionReceipt submitSelection(GoogleDriveSourceService configuration,
-            io.memoryos.iam.identity.ActorId actor, long revision, ScopeMode mode, List<String> links, List<String> approvals) {
+            ActorId actor, long revision, ScopeMode mode, List<String> links, List<String> approvals) {
         var draft = configuration.selectionDraft(actor, source);
         return configuration.replaceRoots(actor, UUID.randomUUID(), source, revision,
                 draft.discoveryRevision(), draft.credentialRevision(), mode, links, approvals);
     }
 
-    private void replaceAndActivate(GoogleDriveSourceService configuration, io.memoryos.iam.identity.ActorId actor,
+    private void replaceAndActivate(GoogleDriveSourceService configuration, ActorId actor,
             long scopeRevision, List<String> links, List<String> approvals) {
         var receipt = submitSelection(configuration, actor, scopeRevision, ScopeMode.SPECIFIC, links, approvals);
         assertThat(finishSelection(configuration, receipt).status()).isEqualTo(SourceOperationStatus.SUCCEEDED);

@@ -1,11 +1,13 @@
 package io.memoryos.iam.identityprovider;
 
+import io.memoryos.shared.TenantId;
+
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.identityprovider.persistence.JitAllowlistRepository;
 import io.memoryos.iam.keycloak.DiscoveredOidcProvider;
 import io.memoryos.iam.keycloak.OidcDiscoveryClient;
@@ -161,7 +163,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
         return facts;
     }
 
-    private io.memoryos.iam.tenant.TenantId requireAdmin(ActorId actorId) {
+    private TenantId requireAdmin(ActorId actorId) {
         return authorization.require(
                 Objects.requireNonNull(actorId, "actorId must not be null"),
                 IamCapability.SYSTEM_ADMIN,

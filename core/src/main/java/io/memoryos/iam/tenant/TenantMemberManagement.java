@@ -1,5 +1,5 @@
 package io.memoryos.iam.tenant;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 
 
 public interface TenantMemberManagement {

@@ -8,7 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.memoryos.audit.AuditTrail;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.group.Authority;
 import io.memoryos.iam.group.GroupAdministrationGuard;
 import io.memoryos.iam.group.GroupId;
@@ -16,7 +16,7 @@ import io.memoryos.iam.group.IamAccess;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.IamException;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.IamFailureReason;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
 import io.memoryos.iam.group.persistence.GroupEntity;

@@ -1,6 +1,6 @@
 package io.memoryos.chat.tools;
 
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.retrieval.DocumentOriginalService;
 import io.memoryos.retrieval.SearchHit;
 import java.util.ArrayList;

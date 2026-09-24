@@ -1,7 +1,7 @@
 package io.memoryos.iam.group;
 
 import io.memoryos.audit.AuditReaders;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 

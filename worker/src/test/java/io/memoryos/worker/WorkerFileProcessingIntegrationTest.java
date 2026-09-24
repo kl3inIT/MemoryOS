@@ -1,5 +1,7 @@
 package io.memoryos.worker;
 
+import io.memoryos.shared.TenantId;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -8,7 +10,7 @@ import io.memoryos.connector.SourceManagementService;
 import io.memoryos.connector.SourceStatus;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -521,7 +523,7 @@ class WorkerFileProcessingIntegrationTest {
         await(() -> redis.opsForStream().size(stream) > 0);
         worker.start();
         await(() -> files.get(OWNER, id).status() == io.memoryos.chat.UserFile.Status.READY);
-        assertTrue(files.read(OWNER, new io.memoryos.iam.tenant.TenantId(TENANT_ID), id, 0, 16000).text().contains("3000x2"));
+        assertTrue(files.read(OWNER, new TenantId(TENANT_ID), id, 0, 16000).text().contains("3000x2"));
         assertEquals(1, jdbcClient.sql("SELECT processing_attempts FROM chat_file_work WHERE file_id=:id AND action='PROCESS'")
                 .param("id", id).query(Integer.class).single());
         assertTrue(jdbcClient.sql("SELECT dispatch_attempts FROM chat_file_work WHERE file_id=:id AND action='PROCESS'")

@@ -2,7 +2,7 @@ package io.memoryos.iam.group.persistence;
 
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 import java.util.Objects;
 import java.util.UUID;

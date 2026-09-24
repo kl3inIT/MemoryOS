@@ -8,7 +8,7 @@ import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.persistence.JdbcSharePointCredentialRepository;
 import io.memoryos.connector.persistence.JdbcSharePointSourceRepository;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;

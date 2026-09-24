@@ -60,7 +60,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import io.memoryos.api.ApiPostgresDatabase;
 import io.memoryos.api.security.ActorAuthenticationToken;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.core.util.Json;
 
@@ -92,7 +92,7 @@ import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import org.springframework.ai.chat.prompt.ChatOptions;
 
 import org.springframework.ai.chat.model.ChatModel;

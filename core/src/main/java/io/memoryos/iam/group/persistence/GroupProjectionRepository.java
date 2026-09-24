@@ -1,7 +1,7 @@
 package io.memoryos.iam.group.persistence;
 
 import io.memoryos.iam.identity.AccountType;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.group.GroupId;
 import io.memoryos.iam.group.GroupIdentity;
 import io.memoryos.iam.group.GroupIdentityPage;
@@ -10,7 +10,7 @@ import io.memoryos.iam.group.GroupMemberPage;
 import io.memoryos.iam.group.GroupQuery;
 import io.memoryos.iam.group.GroupSystemKey;
 import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.tenant.TenantMembershipStatus;
 
 import java.sql.ResultSet;

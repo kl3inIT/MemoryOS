@@ -19,7 +19,7 @@ import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.document.DocumentId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 import java.time.Duration;
 import java.sql.ResultSet;

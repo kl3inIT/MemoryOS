@@ -5,7 +5,7 @@ import io.memoryos.connector.ProviderAuthorityService;
 import io.memoryos.connector.SharePointConnectionService;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceType;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 

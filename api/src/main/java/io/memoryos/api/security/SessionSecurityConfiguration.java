@@ -9,7 +9,7 @@ import io.memoryos.iam.identityprovider.JitAdmissionPolicy;
 import io.memoryos.iam.identityprovider.JitAllowlistSeeder;
 import io.memoryos.iam.invitation.InvitationService;
 import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;

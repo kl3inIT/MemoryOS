@@ -1,5 +1,7 @@
 package io.memoryos.chat.voice;
 
+import io.memoryos.shared.ActorId;
+
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -57,7 +59,7 @@ class VoiceSynthesisServiceTest {
     void aKeyThatCannotBeReadDoesNotKeepAStreamSlot() {
         var connections = mock(VoiceConnectionService.class);
         var reader = new VoiceSynthesisService(connections, mock(IamAuthorization.class), meters);
-        var actor = new io.memoryos.iam.identity.ActorId(UUID.randomUUID());
+        var actor = new ActorId(UUID.randomUUID());
         var tts = connection();
         org.mockito.Mockito.when(connections.resolve(actor)).thenReturn(new VoiceConnectionService.Access(null, tts));
         org.mockito.Mockito.when(connections.key(tts)).thenThrow(ChatException.providerUnavailable());

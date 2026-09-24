@@ -1,7 +1,7 @@
 @ApplicationModule(
         displayName = "IAM",
         type = ApplicationModule.Type.CLOSED,
-        allowedDependencies = {"audit"}
+        allowedDependencies = {"shared", "audit"}
 )
 package io.memoryos.iam;
 

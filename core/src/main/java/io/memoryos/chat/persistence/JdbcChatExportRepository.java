@@ -2,8 +2,8 @@ package io.memoryos.chat.persistence;
 
 import io.memoryos.chat.ChatExport;
 import io.memoryos.chat.ChatExportStatus;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.StoredObjectId;
 import java.sql.ResultSet;

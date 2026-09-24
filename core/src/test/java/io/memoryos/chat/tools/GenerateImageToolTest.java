@@ -16,7 +16,7 @@ import io.memoryos.chat.image.ImageArtifactService;
 import io.memoryos.chat.image.ImageConnectionService;
 import io.memoryos.chat.image.ImageProvider;
 import io.memoryos.chat.image.ImageProviderClient;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;

@@ -1,4 +1,4 @@
-package io.memoryos.iam.tenant;
+package io.memoryos.shared;
 
 import java.util.Objects;
 import java.util.UUID;

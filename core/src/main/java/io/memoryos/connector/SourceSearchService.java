@@ -2,9 +2,9 @@ package io.memoryos.connector;
 
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.document.DocumentId;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;

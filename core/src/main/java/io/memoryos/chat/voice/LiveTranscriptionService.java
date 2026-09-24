@@ -1,7 +1,7 @@
 package io.memoryos.chat.voice;
 
 import io.memoryos.chat.ChatException;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.usage.AiUsage;
 import io.memoryos.usage.AiUsageFlow;
 import io.memoryos.usage.AiUsageRecorder;

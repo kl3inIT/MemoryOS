@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.group.DefaultIamAuthorization;
 

@@ -1,5 +1,7 @@
 package io.memoryos.chat.voice;
 
+import io.memoryos.shared.ActorId;
+
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -60,7 +62,7 @@ class VoiceTranscriptionServiceTest {
         var factory = new org.springframework.beans.factory.support.StaticListableBeanFactory(java.util.Map.of("usage", recorder));
         var metered = new VoiceTranscriptionService(connections, mock(IamAuthorization.class), meters,
                 factory.getBeanProvider(io.memoryos.usage.AiUsageRecorder.class));
-        var actor = new io.memoryos.iam.identity.ActorId(UUID.randomUUID());
+        var actor = new ActorId(UUID.randomUUID());
         var connection = connection();
         org.mockito.Mockito.when(connections.resolve(actor)).thenReturn(new VoiceConnectionService.Access(connection, null));
         org.mockito.Mockito.when(connections.key(connection)).thenReturn("voice-secret");

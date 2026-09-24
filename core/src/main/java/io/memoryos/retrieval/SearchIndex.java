@@ -3,7 +3,7 @@ package io.memoryos.retrieval;
 import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.util.List;
 import java.util.UUID;
 

@@ -4,7 +4,7 @@ import io.memoryos.chat.application.PersonaProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.ModelCatalogRepository;
 import io.memoryos.iam.tenant.TenantBootstrapped;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;

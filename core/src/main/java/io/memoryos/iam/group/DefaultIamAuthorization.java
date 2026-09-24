@@ -1,13 +1,13 @@
 package io.memoryos.iam.group;
 
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.group.Authority;
 import io.memoryos.iam.group.IamAccess;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository.AuthorizationSnapshot;
 import io.memoryos.iam.group.persistence.IamLockRepository;

@@ -1,8 +1,8 @@
 package io.memoryos.iam.tenant.persistence;
 
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.tenant.TenantMembership;
 
 import java.util.List;

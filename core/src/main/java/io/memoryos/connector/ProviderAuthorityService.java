@@ -1,6 +1,6 @@
 package io.memoryos.connector;
 
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 
 /** Validates that a provider-backed Source version still owns its captured credential revision. */
 public interface ProviderAuthorityService {

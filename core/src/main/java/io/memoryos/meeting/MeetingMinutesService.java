@@ -2,7 +2,7 @@ package io.memoryos.meeting;
 
 import io.memoryos.chat.summary.TranscriptSummarizer;
 import io.memoryos.chat.summary.TranscriptSummary;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.meeting.persistence.MeetingRepository;
 import java.time.Duration;
 import java.time.ZoneOffset;

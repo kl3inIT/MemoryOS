@@ -9,7 +9,7 @@ import io.memoryos.BusinessException;
 import io.memoryos.chat.ChatException;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.net.http.HttpClient;

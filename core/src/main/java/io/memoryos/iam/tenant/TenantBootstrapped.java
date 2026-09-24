@@ -1,5 +1,7 @@
 package io.memoryos.iam.tenant;
 
+import io.memoryos.shared.TenantId;
+
 import java.util.Objects;
 
 /**

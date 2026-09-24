@@ -1,7 +1,7 @@
 package io.memoryos.chat.interpreter;
 
 import io.memoryos.chat.ChatException;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.List;

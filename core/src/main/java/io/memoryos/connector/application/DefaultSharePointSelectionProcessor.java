@@ -18,7 +18,7 @@ import io.memoryos.connector.persistence.JdbcSharePointSelectionRepository;
 import io.memoryos.connector.persistence.JdbcSharePointSelectionRepository.Entry;
 import io.memoryos.connector.persistence.JdbcSharePointSelectionRepository.Intent;
 import io.memoryos.connector.persistence.JdbcSharePointSourceRepository.ResolvedRoot;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;

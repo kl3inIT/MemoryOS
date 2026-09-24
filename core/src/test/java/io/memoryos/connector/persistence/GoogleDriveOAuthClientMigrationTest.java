@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.CredentialId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.LinkedHashMap;
