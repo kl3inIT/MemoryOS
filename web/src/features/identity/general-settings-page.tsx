@@ -1,5 +1,5 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { UserRound } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -14,11 +14,14 @@ import { presentProblem } from "@/lib/problem-presentation";
 import { uiLanguage, type UiLanguage } from "@/i18n";
 import { AppearanceSection } from "./appearance-section";
 import { ProfileSection } from "./profile-section";
-import { DangerZoneSection } from "./danger-zone-section";
 
 const identityKey = getCurrentIdentityQueryKey();
 
-export function GeneralSettingsPage() {
+/**
+ * The member's General settings. The destructive section at the end belongs to another capability (deleting every
+ * conversation is Chat's), so the route hands it in.
+ */
+export function GeneralSettingsPage({ dangerZone }: { dangerZone?: ReactNode }) {
   const ui = useAppTranslation();
 
   const { t } = useTranslation(["settings", "common", "errors"]);
@@ -135,7 +138,7 @@ export function GeneralSettingsPage() {
           </Button>
         ) : null}
       </div>
-      <DangerZoneSection />
+      {dangerZone}
     </SettingsLayout>
   );
 }

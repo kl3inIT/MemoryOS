@@ -6,7 +6,7 @@ import { createMemoryOsQueryClient } from "@/lib/query-client";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
 import { ChatPreferencesSections } from "./chat-preferences-sections";
-import { ProfileSection } from "./profile-section";
+import { ProfileSection } from "@/features/identity/profile-section";
 
 afterEach(() => vi.unstubAllGlobals());
 

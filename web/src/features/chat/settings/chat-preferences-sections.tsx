@@ -19,7 +19,7 @@ import { REASONING_EFFORTS, useChatModels } from "@/features/chat/chat-models";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { appText } from "@/i18n/app-text";
 import type { ChatPreferencesInput } from "@/lib/hey-api/types.gen";
-import { useChatPreferences, useSaveChatPreferences } from "./chat-preferences";
+import { useChatPreferences, useSaveChatPreferences } from "@/features/identity/chat-preferences";
 
 const PREFERENCES_LIMIT = 2000;
 /** Stands for "no personal default"; the Tenant default then applies. */
