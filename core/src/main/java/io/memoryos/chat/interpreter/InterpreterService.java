@@ -1,12 +1,13 @@
 package io.memoryos.chat.interpreter;
 
+import org.springframework.modulith.NamedInterface;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.library.ChatStorageQuotaService;
+import io.memoryos.library.StorageQuotaService;
 import io.memoryos.library.LibraryTrashProperties;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.shared.ActorId;
@@ -23,6 +24,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** Per-Tenant Code Interpreter switch and the files its runs produce (MEM-110). */
 @Service
+@NamedInterface("interpreter")
 public class InterpreterService {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(InterpreterService.class);
     private final JdbcInterpreterRepository repository;
@@ -34,12 +36,12 @@ public class InterpreterService {
     private final TransactionTemplate tx;
     private final AuditTrail audit;
 
-    private final ChatStorageQuotaService quotas;
+    private final StorageQuotaService quotas;
     private final LibraryTrashProperties trash;
 
     public InterpreterService(JdbcInterpreterRepository repository, InterpreterProperties properties, IamAuthorization authorization,
                               TenantAccessResolver tenants, ObjectWriteService writes, ObjectStorage storage,
-                              ChatStorageQuotaService quotas,
+                              StorageQuotaService quotas,
                               LibraryTrashProperties trash,
                               PlatformTransactionManager transactionManager, AuditTrail audit) {
         this.audit = audit;

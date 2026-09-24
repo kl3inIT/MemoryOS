@@ -55,15 +55,15 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import io.memoryos.library.ChatFileProperties;
-import io.memoryos.library.ChatFileService;
-import io.memoryos.library.ChatStorageProperties;
-import io.memoryos.library.ChatStorageQuotaService;
+import io.memoryos.library.UserFileProperties;
+import io.memoryos.library.UserFileService;
+import io.memoryos.library.LibraryStorageProperties;
+import io.memoryos.library.StorageQuotaService;
 import io.memoryos.library.UserFile;
-import io.memoryos.library.persistence.JdbcChatLibraryRepository;
+import io.memoryos.library.persistence.JdbcLibraryRepository;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
-import io.memoryos.chat.application.ChatFileAttachments;
-import io.memoryos.chat.persistence.JdbcChatFileAttachmentRepository;
+import io.memoryos.chat.files.ChatFileAttachments;
+import io.memoryos.chat.files.persistence.JdbcChatFileAttachmentRepository;
 import io.memoryos.library.LibraryTrashProperties;
 
 @SpringBootTest(
@@ -496,11 +496,11 @@ class WorkerFileProcessingIntegrationTest {
     }
     private void verifyPrivateImageWorkerRecovery() throws Exception {
         worker.stop();
-        var files = new ChatFileService(tenants, new JdbcUserFileRepository(jdbcClient),
+        var files = new UserFileService(tenants, new JdbcUserFileRepository(jdbcClient),
                 new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbcClient)), objectUploads,
-                new ChatFileProperties(104857600, 262144000),
-                new ChatStorageQuotaService(tenants,
-                new ChatStorageProperties(0), new JdbcChatLibraryRepository(jdbcClient)),
+                new UserFileProperties(104857600, 262144000),
+                new StorageQuotaService(tenants,
+                new LibraryStorageProperties(0), new JdbcLibraryRepository(jdbcClient)),
                 // This suite drives the worker's own release path, so deletion releases at once.
                 new LibraryTrashProperties(java.time.Duration.ZERO), transactions);
         byte[] content;
@@ -511,7 +511,7 @@ class WorkerFileProcessingIntegrationTest {
             content = output.toByteArray();
         }
         var requestId = UUID.randomUUID();
-        var request = new ChatFileService.UploadInput(requestId, "private.png", "image/png", content.length,
+        var request = new UserFileService.UploadInput(requestId, "private.png", "image/png", content.length,
                 HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content)));
         var receipt = files.initiate(OWNER, request);
         assertEquals(receipt.file().id(), files.initiate(OWNER, request).file().id());

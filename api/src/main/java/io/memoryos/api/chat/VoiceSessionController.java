@@ -5,7 +5,7 @@ import io.memoryos.api.chat.contract.VoiceSettingsResponse;
 import io.memoryos.api.chat.contract.VoiceTicketPurpose;
 import io.memoryos.api.chat.contract.VoiceTicketRequest;
 import io.memoryos.api.chat.contract.VoiceTicketResponse;
-import io.memoryos.chat.preferences.VoiceSettingsService;
+import io.memoryos.chat.VoiceSettingsService;
 import io.memoryos.voice.VoiceSynthesisService;
 import io.memoryos.voice.VoiceTranscriptionService;
 import io.memoryos.iam.identity.IdentityContext;

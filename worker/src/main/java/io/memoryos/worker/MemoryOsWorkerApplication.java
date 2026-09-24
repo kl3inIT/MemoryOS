@@ -1,6 +1,6 @@
 package io.memoryos.worker;
 
-import io.memoryos.chat.application.ChatWorkerComponents;
+import io.memoryos.chat.ChatWorkerComponents;
 import io.memoryos.library.LibraryWorkerComponents;
 import io.memoryos.retrieval.SearchTimings;
 import org.springframework.boot.SpringApplication;

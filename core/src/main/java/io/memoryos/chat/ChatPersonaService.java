@@ -1,16 +1,15 @@
 package io.memoryos.chat;
 
-import io.memoryos.chat.application.PersonaProperties;
-import io.memoryos.library.ChatFileContentService;
-import io.memoryos.library.ChatFileService;
+import io.memoryos.library.UserFileContentService;
+import io.memoryos.library.UserFileService;
 import io.memoryos.library.UserFile;
-import io.memoryos.chat.persistence.JdbcAgentRepository.Access;
-import io.memoryos.chat.persistence.JdbcAgentRepository;
-import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.chat.persistence.JdbcDocumentSetRepository;
-import io.memoryos.chat.persistence.JpaPersonaRepository;
-import io.memoryos.chat.persistence.PersonaEntity;
-import io.memoryos.chat.persistence.PersonaRevisions;
+import io.memoryos.chat.persona.persistence.JdbcAgentRepository.Access;
+import io.memoryos.chat.persona.persistence.JdbcAgentRepository;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.chat.persona.persistence.JdbcDocumentSetRepository;
+import io.memoryos.chat.persona.persistence.JpaPersonaRepository;
+import io.memoryos.chat.persona.persistence.PersonaEntity;
+import io.memoryos.chat.persona.persistence.PersonaRevisions;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
@@ -58,13 +57,13 @@ public class ChatPersonaService {
     private final SourceSearchService sources;
     private final DocumentSetService documentSets;
     private final JdbcDocumentSetRepository documentSetRows;
-    private final ChatFileService files;
-    private final ChatFileContentService content;
+    private final UserFileService files;
+    private final UserFileContentService content;
 
     public ChatPersonaService(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
             JpaPersonaRepository settings, JdbcAgentRepository agents, PersonaRevisions revisions, PersonaProperties defaults,
             ChatModelAccess models, SourceSearchService sources, DocumentSetService documentSets, JdbcDocumentSetRepository documentSetRows,
-            ChatFileService files, ChatFileContentService content) {
+            UserFileService files, UserFileContentService content) {
         this.tenants = tenants; this.authorization = authorization; this.chats = chats; this.settings = settings;
         this.agents = agents; this.revisions = revisions; this.defaults = defaults; this.models = models;
         this.sources = sources; this.documentSets = documentSets; this.documentSetRows = documentSetRows;

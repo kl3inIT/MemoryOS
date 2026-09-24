@@ -1,7 +1,8 @@
 package io.memoryos.chat.execution;
 
-import io.memoryos.ai.ChatModelBinding;
-import io.memoryos.ai.ChatModelTurns;
+import io.memoryos.chat.ChatExecutionProperties;
+import io.memoryos.ai.ModelBinding;
+import io.memoryos.ai.ModelTurns;
 import io.memoryos.ai.ModelAccounting;
 import com.embabel.agent.api.common.ExecutingOperationContext;
 import com.embabel.agent.api.streaming.StreamingPromptRunnerBuilder;
@@ -35,9 +36,9 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
-import io.memoryos.library.ChatFileContentService;
-import io.memoryos.library.ChatFileSearchService;
-import io.memoryos.library.ChatFileService;
+import io.memoryos.library.UserFileContentService;
+import io.memoryos.library.UserFileSearchService;
+import io.memoryos.library.UserFileService;
 
 /** Calls the public native runner. There is no MemoryOS inference/tool loop here. */
 public final class ChatModelExecutor {
@@ -48,9 +49,9 @@ public final class ChatModelExecutor {
     private final ChatSearchProperties searchLimits;
     private final Scheduler scheduler;
     private final SearchTimings timings;
-    private final ChatFileService files;
-    private final ChatFileSearchService fileSearch;
-    private final ChatFileContentService fileContent;
+    private final UserFileService files;
+    private final UserFileSearchService fileSearch;
+    private final UserFileContentService fileContent;
     private final io.memoryos.chat.web.@Nullable WebProviderClient web;
     private final @Nullable ImageProviderClient image;
     private final ImageArtifactService imageArtifacts;
@@ -62,14 +63,14 @@ public final class ChatModelExecutor {
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
-            ChatFileService files, ChatFileSearchService fileSearch, ChatFileContentService fileContent,
+            UserFileService files, UserFileSearchService fileSearch, UserFileContentService fileContent,
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts) {
         this(contexts, processes, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, null, null, null, null, null, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
     }
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
-            ChatFileService files, ChatFileSearchService fileSearch, ChatFileContentService fileContent,
+            UserFileService files, UserFileSearchService fileSearch, UserFileContentService fileContent,
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts,
             io.memoryos.chat.interpreter.@Nullable InterpreterClient interpreter,
             io.memoryos.chat.interpreter.@Nullable InterpreterService interpreterSettings,
@@ -105,12 +106,12 @@ public final class ChatModelExecutor {
     }
 
     /** Separate best-effort naming invocation: no tools, no attachment bytes, no answer mutation. */
-    public String generateTitle(ChatModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history) {
+    public String generateTitle(ModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history) {
         return generateTitle(selected, history, ignored -> {});
     }
 
-    /** As {@link #generateTitle(ChatModelBinding, java.util.List)}; {@code accounting} receives its usage even when naming fails. */
-    public String generateTitle(ChatModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history,
+    /** As {@link #generateTitle(ModelBinding, java.util.List)}; {@code accounting} receives its usage even when naming fails. */
+    public String generateTitle(ModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history,
                                 Consumer<ModelAccounting> accounting) {
         var context = contexts.getObject();
         var process = context.getProcessContext().getAgentProcess();
@@ -194,9 +195,9 @@ public final class ChatModelExecutor {
         Integer maxOutput = selected.maxOutputTokens();
         int outputBound = selected.outputBound();
         boolean nativeWeb = selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off
-                && metadata.getChatModel() instanceof ChatModelTurns hosted && hosted.nativeWebSearch();
+                && metadata.getChatModel() instanceof ModelTurns hosted && hosted.nativeWebSearch();
         var delegate = metadata.getChatModel();
-        if (delegate instanceof ChatModelTurns turns)
+        if (delegate instanceof ModelTurns turns)
             delegate = turns.forTurn(ChatTurnListener.turn(setup.evidence(), events, nativeWeb, checkActive));
         int contextLimit = Math.min(limits.contextCap(), selected.inputLimit(limits.maxOutputTokens()));
         if (setup.options().contextTokenLimit() != null) contextLimit = Math.min(contextLimit, setup.options().contextTokenLimit());

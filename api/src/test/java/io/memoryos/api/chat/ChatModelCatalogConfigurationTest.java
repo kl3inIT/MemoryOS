@@ -1,20 +1,20 @@
 package io.memoryos.api.chat;
 
-import io.memoryos.chat.application.PersonaProperties;
-import io.memoryos.ai.ChatProviderAdapters;
-import io.memoryos.ai.openai.ChatKnownModels;
-import io.memoryos.ai.openai.OpenAiChatProviderAdapter;
+import io.memoryos.chat.PersonaProperties;
+import io.memoryos.ai.ProviderAdapters;
+import io.memoryos.ai.openai.KnownModels;
+import io.memoryos.ai.openai.OpenAiProviderAdapter;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
-import io.memoryos.chat.execution.ChatExecutionProperties;
+import io.memoryos.chat.ChatExecutionProperties;
 import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ChatModelCatalogConfigurationTest {
-    private static final ChatProviderAdapters ADAPTERS = new ChatProviderAdapters(List.of(
-            new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, new SimpleMeterRegistry())));
+    private static final ProviderAdapters ADAPTERS = new ProviderAdapters(List.of(
+            new OpenAiProviderAdapter(ObservationRegistry.NOOP, new SimpleMeterRegistry())));
 
     @Test
     void explicitDeploymentOptionsOverrideLegacyModelNameDefaults() {
@@ -42,7 +42,7 @@ class ChatModelCatalogConfigurationTest {
         // MEM-130: staging imported gpt-5-mini as 36096/4096 (context-token-limit + max-output-tokens).
         var persona = new PersonaProperties();
         persona.setModel("gpt-5-mini");
-        var known = ChatKnownModels.models().stream().filter(model -> model.modelName().equals("gpt-5-mini")).findFirst().orElseThrow();
+        var known = KnownModels.models().stream().filter(model -> model.modelName().equals("gpt-5-mini")).findFirst().orElseThrow();
         var deployment = new ChatModelCatalogConfiguration().chatDeploymentModel(persona, limits(null), ADAPTERS,
                 "http://model.internal/v1", -1, -1, null, null, null, null);
         assertEquals(known.contextWindow(), deployment.settings().contextWindow());

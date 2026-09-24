@@ -1,14 +1,14 @@
 package io.memoryos.api.chat;
 
-import io.memoryos.chat.application.PersonaProperties;
-import io.memoryos.ai.ChatModelClients;
-import io.memoryos.ai.ChatModelResolver;
-import io.memoryos.ai.ChatProviderAdapter;
-import io.memoryos.ai.ChatProviderAdapters;
+import io.memoryos.chat.PersonaProperties;
+import io.memoryos.ai.ModelClients;
+import io.memoryos.ai.ModelResolver;
+import io.memoryos.ai.ProviderAdapter;
+import io.memoryos.ai.ProviderAdapters;
 import io.memoryos.ai.ModelCatalogService;
 import io.memoryos.ai.ModelSettings;
 import io.memoryos.ai.ProviderCredentials;
-import io.memoryos.chat.execution.ChatExecutionProperties;
+import io.memoryos.chat.ChatExecutionProperties;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -19,11 +19,11 @@ import org.springframework.context.annotation.Configuration;
 @Configuration(proxyBeanMethods = false)
 class ChatModelCatalogConfiguration {
     @Bean
-    ChatProviderAdapters chatProviderAdapters(List<ChatProviderAdapter> adapters) { return new ChatProviderAdapters(adapters); }
+    ProviderAdapters chatProviderAdapters(List<ProviderAdapter> adapters) { return new ProviderAdapters(adapters); }
     @Bean(destroyMethod = "close")
-    ChatModelClients chatModelClients(@Value("${memoryos.chat.catalog.max-clients:32}") int capacity) { return new ChatModelClients(capacity); }
+    ModelClients chatModelClients(@Value("${memoryos.chat.catalog.max-clients:32}") int capacity) { return new ModelClients(capacity); }
     @Bean
-    ModelCatalogService.Deployment chatDeploymentModel(PersonaProperties persona, ChatExecutionProperties limits, ChatProviderAdapters adapters,
+    ModelCatalogService.Deployment chatDeploymentModel(PersonaProperties persona, ChatExecutionProperties limits, ProviderAdapters adapters,
             @Value("${memoryos.chat.provider.base-url:https://api.openai.com/v1}") String baseUrl,
             @Value("${memoryos.chat.provider.input-price-per-million:-1}") double input,
             @Value("${memoryos.chat.provider.output-price-per-million:-1}") double output,
@@ -37,10 +37,10 @@ class ChatModelCatalogConfiguration {
         // Compatibility import for the existing deployment. The installed catalog supplies the model's own limits,
         // capabilities and prices (MEM-130): the execution limits are runtime bounds, never the model's context window.
         boolean gpt5 = persona.getModel().startsWith("gpt-5");
-        var known = ChatModelResolver.findKnown(persona.getModel(), adapters.require("openai").knownModels());
+        var known = ModelResolver.findKnown(persona.getModel(), adapters.require("openai").knownModels());
         // A model the catalog does not know takes Onyx's defaults, as a discovered one does: a 32,000-token window
         // and no output cap.
-        int contextWindow = known != null ? known.contextWindow() : ChatModelResolver.FALLBACK_CONTEXT_WINDOW;
+        int contextWindow = known != null ? known.contextWindow() : ModelResolver.FALLBACK_CONTEXT_WINDOW;
         Integer maxOutput = known != null ? Integer.valueOf(known.maxOutputTokens()) : null;
         boolean defaultCapability = known == null && gpt5;
         var settings = new ModelSettings(contextWindow, maxOutput,
@@ -55,8 +55,8 @@ class ChatModelCatalogConfiguration {
         return new ModelCatalogService.Deployment(baseUrl, persona.getModel(), settings);
     }
     @Bean
-    ChatModelResolver chatModelResolver(ModelCatalogService catalog, ChatProviderAdapters adapters, ProviderCredentials credentials,
-                                       ChatModelClients clients, ChatExecutionProperties limits) {
-        return new ChatModelResolver(catalog, adapters, credentials, clients, limits.providerReadTimeout(), limits.costCapped());
+    ModelResolver chatModelResolver(ModelCatalogService catalog, ProviderAdapters adapters, ProviderCredentials credentials,
+                                       ModelClients clients, ChatExecutionProperties limits) {
+        return new ModelResolver(catalog, adapters, credentials, clients, limits.providerReadTimeout(), limits.costCapped());
     }
 }

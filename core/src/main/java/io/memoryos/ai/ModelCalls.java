@@ -32,7 +32,7 @@ public final class ModelCalls {
      * One structured call: the model answers as {@code shape}, and {@code accounting} receives its usage even when the
      * call fails. The input is untrusted data; the caller's instructions say so.
      */
-    public <T> T generateObject(ChatModelBinding selected, String instructions, String input, Class<T> shape,
+    public <T> T generateObject(ModelBinding selected, String instructions, String input, Class<T> shape,
                                 Duration timeout, int maxOutputTokens, Consumer<ModelAccounting> accounting) {
         var context = contexts.getObject();
         var process = context.getProcessContext().getAgentProcess();

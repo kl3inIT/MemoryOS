@@ -33,8 +33,8 @@ public class ModelGuard implements ChatModel {
     private final int cycles;
     private final Runnable checkActive;
     private final UnaryOperator<Prompt> finalRequest;
-    private final ChatRequestPolicy policy;
-    private final ChatAdmissionLedger ledger;
+    private final ModelRequestPolicy policy;
+    private final ModelAdmissionLedger ledger;
     private final AtomicInteger calls = new AtomicInteger();
     private final AtomicInteger accounted = new AtomicInteger();
     private final AtomicInteger synchronousCalls = new AtomicInteger();
@@ -49,13 +49,13 @@ public class ModelGuard implements ChatModel {
     private UnaryOperator<Prompt> toolChoice = UnaryOperator.identity();
 
     public ModelGuard(ChatModel delegate, AgentProcess process, LlmMetadata model, Budget budget,
-            int cycles, Runnable checkActive, ChatRequestPolicy policy, int inputLimit, UnaryOperator<Prompt> finalRequest) {
-        this(delegate, process, model, budget, cycles, checkActive, policy, inputLimit, finalRequest, new ChatAdmissionLedger());
+            int cycles, Runnable checkActive, ModelRequestPolicy policy, int inputLimit, UnaryOperator<Prompt> finalRequest) {
+        this(delegate, process, model, budget, cycles, checkActive, policy, inputLimit, finalRequest, new ModelAdmissionLedger());
     }
 
     public ModelGuard(ChatModel delegate, AgentProcess process, LlmMetadata model, Budget budget,
-            int cycles, Runnable checkActive, ChatRequestPolicy policy, int inputLimit, UnaryOperator<Prompt> finalRequest,
-            ChatAdmissionLedger ledger) {
+            int cycles, Runnable checkActive, ModelRequestPolicy policy, int inputLimit, UnaryOperator<Prompt> finalRequest,
+            ModelAdmissionLedger ledger) {
         this.ledger = ledger;
         this.delegate = delegate;
         this.process = process;
@@ -182,11 +182,11 @@ public class ModelGuard implements ChatModel {
     protected void checkHelperActive() {
     }
 
-    private ChatAdmissionLedger.Reservation reserve(int input) {
+    private ModelAdmissionLedger.Reservation reserve(int input) {
         return ledger.reserve(budget, model.getPricingModel(), input, outputLimit);
     }
 
-    private void settle(ChatAdmissionLedger.Reservation reservation, ChatResponse response) {
+    private void settle(ModelAdmissionLedger.Reservation reservation, ChatResponse response) {
         var usage = response.getMetadata().getUsage();
         ledger.settle(reservation, model.getPricingModel(), usage);
         Long cached = usage.getCacheReadInputTokens();
@@ -196,7 +196,7 @@ public class ModelGuard implements ChatModel {
     /** Input tokens the provider served from its prompt cache, as reported by Spring AI's portable usage. */
     public long cacheReadTokens() { return cacheRead.get(); }
 
-    private record StreamAdmission(boolean lastCycle, Prompt request, ChatAdmissionLedger.Reservation reservation) {}
+    private record StreamAdmission(boolean lastCycle, Prompt request, ModelAdmissionLedger.Reservation reservation) {}
 
     private synchronized StreamAdmission admitStream(Prompt original) {
         int cycle = calls.get() + 1;
@@ -211,7 +211,7 @@ public class ModelGuard implements ChatModel {
         return new StreamAdmission(lastCycle, request, reservation);
     }
 
-    private synchronized ChatAdmissionLedger.Reservation admitHelper(int input) {
+    private synchronized ModelAdmissionLedger.Reservation admitHelper(int input) {
         if (synchronousCalls.get() >= synchronousLimit) throw new IllegalStateException("CHAT_CYCLE_LIMIT");
         var reservation = reserve(input);
         synchronousCalls.incrementAndGet();

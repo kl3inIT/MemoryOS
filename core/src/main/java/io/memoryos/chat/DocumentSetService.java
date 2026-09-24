@@ -1,7 +1,7 @@
 package io.memoryos.chat;
 
-import io.memoryos.chat.persistence.JdbcAgentRepository;
-import io.memoryos.chat.persistence.JdbcDocumentSetRepository;
+import io.memoryos.chat.persona.persistence.JdbcAgentRepository;
+import io.memoryos.chat.persona.persistence.JdbcDocumentSetRepository;
 import io.memoryos.connector.SourceCollectionScopeResolver;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceSearchService;

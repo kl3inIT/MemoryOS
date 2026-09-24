@@ -159,3 +159,48 @@ The same pull request then removed that dependency; `features/library` imports n
 - **The library owns what it lists.** The generated file and image content URLs moved to `features/library/content-urls.ts`, as the backend library lists Chat's artifacts beside uploads; Chat's answers import them from there. `branchSteps` (message versions) and the Project file edits (`chat/projects/chat-project-files.ts`) left the library API for Chat.
 - **Chat's part of the library is handed in.** `LibraryPage`, its settings panel and `StoragePage` take a `LibraryChat` (`features/library/library-chat.ts`): asking about a file, the model picker, the add-to-Project dialog, taking an upload out of a Project, and the retention section. Without it they offer only the library's own commands. `chat/library/chat-library.tsx` composes `ChatLibraryPage` and `ChatStoragePage`, which the routes render, and the tests of Chat's part moved beside it.
 - Still importing Chat and left for later: `agents`, `document-sets`, `search` and `meetings` read `chat-workspace-api` (agents, document sets, people), and `identity` reads `chat-api`, `chat-models` and Chat's settings sections. `meeting` does not depend on `chat` on the backend, so `meetings → chat-workspace-api` (`personLabel`, `AgentRef`) is the one against the module direction.
+
+## Step 4 — chat, ai, library
+
+`chat`, `ai` and `library` follow the internal layout above; `voice` already did after step 2 (root API, package-private provider clients, `voice.persistence`) and did not change.
+
+**`chat` layout.** The former `chat.application` and the shared `chat.persistence` are gone. The root is the published API: the services `api` and the Worker call, their records, events and exceptions, and `ChatWorkerComponents`. Promoted to it because a deployable calls them: `ChatExportService`, `ChatBranchService`, `ChatSessionPurgeService`, `ChatArtifactCleanupService`, the history read (`ChatHistoryService`, `ChatHistoryQuery`, `ChatHistoryMessage`, `ChatHistoryFeedback`, `ChatHistoryTotals`, `ChatHistoryVisibility`), personal preferences and retention (`ChatPreferences`, `ChatPreferencesService`, `ChatRetentionService`, `VoiceSettings`, `VoiceSettingsService`), and the two property records the `api` composition root passes to `ai` (`ChatExecutionProperties`, `PersonaProperties`). The package-private recorders (`ChatActivityRecorder`, `ChatResearchRecorder`) stay in the root without being published. Internal feature packages, each with its own `persistence`:
+
+| Package | Holds | `persistence` |
+| --- | --- | --- |
+| `session` | `DefaultChatSessionService`, `ChatTurnPersistence`, `ChatRetentionProperties` | `JdbcChatRepository`, `JdbcChatSearchRepository`, `JdbcChatSessionPurgeRepository`, sharing and feedback entities |
+| `persona` | `ChatTenantProvisioner`, `ChatAgentModels` (the `AgentDirectory` port) | agents, agent models, persona revisions, document sets, prompt shortcuts, the agent and document-set access SQL |
+| `project` | — | `ProjectEntity`, `JpaProjectRepository`, `ChatPage` |
+| `files` | `ChatFileAttachments`, `ChatLibraryArtifacts` (the library's two ports) | attachments, generated artifacts, their byte-release sweep |
+| `export` | `ChatExportWriter` | `JdbcChatExportRepository` |
+| `preferences`, `history` | — | their repositories; Tenant Chat settings sit with preferences |
+| `image`, `web`, `interpreter` | connections, provider clients, artifacts | their entities and repositories |
+| `execution`, `streaming`, `research`, `tools`, `prompts` | unchanged, plus `ChatExecutionConfiguration` | — |
+
+`JdbcChatRepository` stays one class in `session.persistence`: persona, project, prompt-shortcut, collaboration and model-access services read and lock conversations through it, and it reads the persona package's access SQL. Splitting it further would divide one set of locks and statements between packages without removing a dependency; Modulith checks only the dependencies between modules.
+
+**What `api` and the Worker use.** Chat assembles its own turn runtime: `ChatExecutionConfiguration` builds the executor, the turn service, the reply stream buffer and their executors, which `api` used to construct from Chat internals (`ChatModelExecutor`, `ChatTurnPersistence`, the provider clients, `ResearchTelemetry`). The Worker does not scan Chat, so it still takes only `ChatWorkerComponents`. Bean names are unchanged. Three deliberate surfaces remain outside the root:
+
+- `chat :: streaming` (package): `StreamBufferWriter` and `ChatStreamProperties`. The API's stream endpoint reads a reply through `StreamBufferWriter.Reader`, which `ChatTurnService.subscribe` supplies.
+- `chat :: image`, `chat :: web`, `chat :: interpreter` (type-level on the types the admin controllers use): `ImageProvider`, `ImageConnectionService`, `ImageProviderClient`, `ImageArtifactService`; `WebProvider`, `WebConnectionService`, `WebProviderClient`; `InterpreterClient`, `InterpreterService`, `PresentationPreviewService`. The rest of those packages (HTTP helpers, PDF reading, the interpreter configuration) stays internal.
+
+No module depends on these; they declare what `api` may use. Beyond them, no `api` or `worker` main class uses a package of `chat`, `ai` or `library` other than the root. Test code still reaches internals (the OpenAI adapter, `ChatModelExecutor`, `ChatTurnSetup`, library and Chat repositories) to drive and observe them.
+
+**Pairs.** None collapsed: `ChatSessionService`/`DefaultChatSessionService` and `UserFileWorkPort`/`DefaultUserFileWorkService` are the case the rule keeps, a published interface with an internal implementation.
+
+**Names.** The `Chat*` prefixes of step 2 and 3 are gone from `ai` and `library`:
+
+| Old | New |
+| --- | --- |
+| `ChatModelResolver`, `ChatModelClients`, `ChatModelBinding`, `ChatModelPricing`, `ChatModelTurns`, `ChatModelValidation` | `ModelResolver`, `ModelClients`, `ModelBinding`, `ModelPricing`, `ModelTurns`, `ModelValidation` |
+| `ChatProviderAdapter`, `ChatProviderAdapters`, `ChatRequestPolicy`, `ChatSampling`, `ChatAdmissionLedger` | `ProviderAdapter`, `ProviderAdapters`, `ModelRequestPolicy`, `ModelSampling`, `ModelAdmissionLedger` |
+| `OpenAiChatProviderAdapter`, `OpenAiChatProviderConfiguration`, `OpenAiChatRequestPolicy`, `ChatKnownModels`, `ChatTokenizerProfiles` | `OpenAiProviderAdapter`, `OpenAiProviderConfiguration`, `OpenAiRequestPolicy`, `KnownModels`, `TokenizerProfiles` |
+| `ChatFileService`, `ChatFileContentService`, `ChatFileSearchService`, `ChatFileInUseException`, `ChatFileProperties` | `UserFileService`, `UserFileContentService`, `UserFileSearchService`, `UserFileInUseException`, `UserFileProperties` |
+| `ChatLibraryService`, `ChatLibraryFile`, `ChatLibraryTrashService`, `ChatLibraryArchive`, `ChatLibraryArchiveItem`, `ChatLibraryArchiveStatus`, `ChatLibraryArchiveService` | `LibraryService`, `LibraryFile`, `LibraryTrashService`, `LibraryArchive`, `LibraryArchiveItem`, `LibraryArchiveStatus`, `LibraryArchiveService` |
+| `ChatStorageProperties`, `ChatStorageQuotaService`, `JdbcChatLibraryRepository`, `JdbcChatLibraryArchiveRepository` | `LibraryStorageProperties`, `StorageQuotaService`, `JdbcLibraryRepository`, `JdbcLibraryArchiveRepository` |
+
+No renamed type is an OpenAPI schema source: the `ChatLibraryFile` and `ChatLibraryArchive` schemas come from the API's contract records, which already pin those names, so the document is unchanged. Error codes, configuration keys, metric and log event names, tables and `@Bean` method names are unchanged. Chat's own `Chat*` names stay: they name Chat.
+
+**Library search.** A file search reads the readable files, searches outside a transaction and reads them again, so a share revoked during the search still hides its passages. The second read, with its agent-grant query, now covers only the files whose documents the search returned and is skipped when nothing was returned. Running the grant query once would drop that revocation check, so it still runs twice when there are hits.
+
+**Composition roots.** `api`'s JPA lists name `io.memoryos.chat` instead of `io.memoryos.chat.persistence`, as they name `io.memoryos.iam`, because Chat's entities now live in several feature packages; `TestDatabase` follows. `CoreDependencyRulesTest` used to match `io.memoryos.<capability>.persistence..` only, which no longer covered Chat's feature `persistence` packages; the rule now matches `io.memoryos.<capability>..persistence..`, every nested `persistence` package of a capability.

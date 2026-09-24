@@ -1,6 +1,6 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.library.ChatLibraryArchive;
+import io.memoryos.library.LibraryArchive;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.List;
@@ -19,7 +19,7 @@ public record ChatLibraryArchiveResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}, format = "date-time") @Nullable Instant expiresAt
 ) {
 
-    public static ChatLibraryArchiveResponse from(ChatLibraryArchive archive) {
+    public static ChatLibraryArchiveResponse from(LibraryArchive archive) {
         return new ChatLibraryArchiveResponse(archive.id(), archive.status().name(), archive.fileCount(), archive.sizeBytes(),
                 archive.skipped(), archive.failure(), archive.createdAt(), archive.expiresAt());
     }

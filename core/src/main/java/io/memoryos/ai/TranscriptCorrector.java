@@ -51,11 +51,11 @@ public class TranscriptCorrector {
     static final int MERGE_GAP_CHARS = 5;
     static final int MERGE_GAP_WORDS = 8;
 
-    private final ChatModelResolver models;
+    private final ModelResolver models;
     private final ModelCalls calls;
     private final @Nullable AiUsageRecorder usage;
 
-    public TranscriptCorrector(ChatModelResolver models, ModelCalls calls,
+    public TranscriptCorrector(ModelResolver models, ModelCalls calls,
                                ObjectProvider<AiUsageRecorder> usage) {
         this.models = models;
         this.calls = calls;
@@ -257,7 +257,7 @@ public class TranscriptCorrector {
         return Double.isFinite(value) ? Math.clamp(value, 0, 1) : 0;
     }
 
-    private void usage(UUID tenant, ActorId actor, ChatModelResolver.Resolved selected,
+    private void usage(UUID tenant, ActorId actor, ModelResolver.Resolved selected,
                        ModelAccounting accounting) {
         if (usage == null || !accounting.used()) return;
         try {

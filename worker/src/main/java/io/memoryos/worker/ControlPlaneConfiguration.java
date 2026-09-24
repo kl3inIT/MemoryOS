@@ -19,7 +19,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import io.memoryos.library.ChatLibraryArchiveService;
+import io.memoryos.library.LibraryArchiveService;
 
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(name = "db-scheduler.enabled", havingValue = "true", matchIfMissing = true)
@@ -129,7 +129,7 @@ class ControlPlaneConfiguration {
     }
 
     @Bean
-    RecurringTask<Void> chatSessionPurgeTask(io.memoryos.chat.application.ChatSessionPurgeService sessions) {
+    RecurringTask<Void> chatSessionPurgeTask(io.memoryos.chat.ChatSessionPurgeService sessions) {
         return Tasks.recurring("memoryos-chat-session-purge-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> sessions.purge());
     }
@@ -139,7 +139,7 @@ class ControlPlaneConfiguration {
      * above then removes their rows and hands their uploads to the file work.
      */
     @Bean
-    RecurringTask<Void> chatTemporarySessionTask(io.memoryos.chat.application.ChatSessionPurgeService sessions) {
+    RecurringTask<Void> chatTemporarySessionTask(io.memoryos.chat.ChatSessionPurgeService sessions) {
         return Tasks.recurring("memoryos-chat-temporary-session-v1", FixedDelay.of(Duration.ofMinutes(5)))
                 .execute((_, _) -> sessions.expireTemporary());
     }
@@ -149,7 +149,7 @@ class ControlPlaneConfiguration {
      * works; an export reads a whole account, so one at a time is deliberate.
      */
     @Bean
-    RecurringTask<Void> chatExportTask(io.memoryos.chat.application.ChatExportService exports) {
+    RecurringTask<Void> chatExportTask(io.memoryos.chat.ChatExportService exports) {
         return Tasks.recurring("memoryos-chat-export-v1", FixedDelay.of(Duration.ofSeconds(10)))
                 .execute((_, _) -> {
                     exports.buildNext();
@@ -159,13 +159,13 @@ class ControlPlaneConfiguration {
 
     /** Each Tenant's retention policy, applied in batches; an hour is far finer than a policy in days. */
     @Bean
-    RecurringTask<Void> chatRetentionPolicyTask(io.memoryos.chat.application.ChatSessionPurgeService sessions) {
+    RecurringTask<Void> chatRetentionPolicyTask(io.memoryos.chat.ChatSessionPurgeService sessions) {
         return Tasks.recurring("memoryos-chat-retention-policy-v1", FixedDelay.of(Duration.ofHours(1)))
                 .execute((_, _) -> sessions.applyRetentionPolicies());
     }
 
     @Bean
-    RecurringTask<Void> chatArtifactCleanupTask(io.memoryos.chat.application.ChatArtifactCleanupService artifacts) {
+    RecurringTask<Void> chatArtifactCleanupTask(io.memoryos.chat.ChatArtifactCleanupService artifacts) {
         return Tasks.recurring("memoryos-chat-artifact-cleanup-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> artifacts.cleanup());
     }
@@ -222,7 +222,7 @@ class ControlPlaneConfiguration {
 
     /** Packs requested library archives and releases the ones that expired (MEM-152). */
     @Bean
-    RecurringTask<Void> chatLibraryArchiveTask(ChatLibraryArchiveService archives) {
+    RecurringTask<Void> chatLibraryArchiveTask(LibraryArchiveService archives) {
         return Tasks.recurring("memoryos-chat-library-archive-v1", FixedDelay.of(Duration.ofSeconds(5)))
                 .execute((_, _) -> {
                     for (int packed = 0; packed < 4 && archives.buildNext(); packed++) {

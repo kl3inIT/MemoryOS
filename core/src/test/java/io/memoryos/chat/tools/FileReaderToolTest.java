@@ -5,8 +5,8 @@ import static org.mockito.Mockito.*;
 
 import io.memoryos.chat.ChatEvidence;
 import io.memoryos.chat.ChatException;
-import io.memoryos.library.ChatFileService;
-import io.memoryos.library.ChatFileSearchService;
+import io.memoryos.library.UserFileService;
+import io.memoryos.library.UserFileSearchService;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.SearchTasks;
@@ -34,8 +34,8 @@ class FileReaderToolTest {
     }
     @Test
     void dependencyFailureSuggestsCachedReaderButAuthorizationAndStopAreNotSwallowed() {
-        var files = mock(ChatFileService.class);
-        var search = mock(ChatFileSearchService.class);
+        var files = mock(UserFileService.class);
+        var search = mock(UserFileSearchService.class);
         var actor = new ActorId(UUID.randomUUID());
         var tenant = new TenantId(UUID.randomUUID());
         var allowed = Set.of(UUID.randomUUID());

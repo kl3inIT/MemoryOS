@@ -16,11 +16,11 @@ import com.embabel.chat.ToolResultMessage;
 import com.embabel.chat.UserMessage;
 import com.embabel.common.ai.model.LlmOptions;
 import com.sun.net.httpserver.HttpServer;
-import io.memoryos.ai.ChatProviderAdapter;
+import io.memoryos.ai.ProviderAdapter;
 import io.memoryos.ai.ModelSettings;
-import io.memoryos.ai.openai.ChatTokenizerProfiles;
-import io.memoryos.ai.openai.OpenAiChatProviderAdapter;
-import io.memoryos.ai.ChatModelBinding;
+import io.memoryos.ai.openai.TokenizerProfiles;
+import io.memoryos.ai.openai.OpenAiProviderAdapter;
+import io.memoryos.ai.ModelBinding;
 import io.memoryos.chat.execution.ChatModelGuard;
 import io.memoryos.chat.execution.StreamingLlmService;
 import io.memoryos.retrieval.SearchTasks;
@@ -65,7 +65,7 @@ import tools.jackson.databind.ObjectMapper;
 class DeepResearchSpikeProbeTest {
     private static final ObjectMapper JSON = new ObjectMapper();
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
-    private final OpenAiChatProviderAdapter adapter = new OpenAiChatProviderAdapter(ObservationRegistry.NOOP, meters);
+    private final OpenAiProviderAdapter adapter = new OpenAiProviderAdapter(ObservationRegistry.NOOP, meters);
     private final AgentProcess process = mock(AgentProcess.class);
     private final Budget budget = mock(Budget.class, RETURNS_DEEP_STUBS);
     private final AtomicInteger toolExecutions = new AtomicInteger();
@@ -194,8 +194,8 @@ class DeepResearchSpikeProbeTest {
         assertTrue(key != null && !key.isBlank(), "SPRING_AI_OPENAI_API_KEY is required");
         String model = System.getenv().getOrDefault("MEMORYOS_DR_SPIKE_MODEL", "gpt-5-mini");
         var settings = new ModelSettings(128000, 8192, new ModelSettings.Capabilities(true, true, false, true),
-                Map.of("maxCompletionTokens", true, "reasoningEffort", "low"), null, ChatTokenizerProfiles.HOSTED);
-        try (var client = adapter.create(new ChatProviderAdapter.Connection("https://api.openai.com/v1", key), model, settings, Duration.ofSeconds(120))) {
+                Map.of("maxCompletionTokens", true, "reasoningEffort", "low"), null, TokenizerProfiles.HOSTED);
+        try (var client = adapter.create(new ProviderAdapter.Connection("https://api.openai.com/v1", key), model, settings, Duration.ofSeconds(120))) {
             var raw = new CopyOnWriteArrayList<String>();
             var guard = guard(client.binding(), requiredTools(client.binding().service().getChatModel(), raw));
             var streamer = new StreamingLlmService(client.binding().withModel(guard)).createMessageStreamer(new LlmOptions().withMaxTokens(4096));
@@ -362,7 +362,7 @@ class DeepResearchSpikeProbeTest {
                         Tool.InputSchema.of(Tool.Parameter.string("reasoning", "Chain of thought")), Tool.Metadata.DEFAULT, refuse));
     }
 
-    private ChatModelGuard guard(ChatModelBinding binding, ChatModel delegate) {
+    private ChatModelGuard guard(ModelBinding binding, ChatModel delegate) {
         var guard = new ChatModelGuard(delegate, process, binding.service(), budget, 8, () -> {}, binding.policy(), 12000, binding.finalRequest());
         guard.outputLimit(1024);
         return guard;
@@ -388,9 +388,9 @@ class DeepResearchSpikeProbeTest {
         };
     }
 
-    private ChatProviderAdapter.Client client(int port) {
-        return adapter.create(new ChatProviderAdapter.Connection("http://127.0.0.1:" + port + "/v1", "fixture-key"), "fixture",
-                new ModelSettings(16000, 1024, new ModelSettings.Capabilities(true, true, false, false), Map.of(), null, ChatTokenizerProfiles.HOSTED),
+    private ProviderAdapter.Client client(int port) {
+        return adapter.create(new ProviderAdapter.Connection("http://127.0.0.1:" + port + "/v1", "fixture-key"), "fixture",
+                new ModelSettings(16000, 1024, new ModelSettings.Capabilities(true, true, false, false), Map.of(), null, TokenizerProfiles.HOSTED),
                 Duration.ofSeconds(30));
     }
 

@@ -1,8 +1,9 @@
 package io.memoryos.chat.image;
 
+import org.springframework.modulith.NamedInterface;
 import io.memoryos.chat.ChatException;
-import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
-import io.memoryos.library.ChatStorageQuotaService;
+import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
+import io.memoryos.library.StorageQuotaService;
 import io.memoryos.library.ImageThumbnails;
 import io.memoryos.library.LibraryTrashProperties;
 import io.memoryos.shared.ActorId;
@@ -24,6 +25,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** Server-side storage of a generated image: stage bytes, then adopt and record within one transaction. */
 @Service
+@NamedInterface("image")
 public class ImageArtifactService {
     private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ImageArtifactService.class);
     /** Same ceiling as vision input; an edit source is read fully into memory. */
@@ -36,11 +38,11 @@ public class ImageArtifactService {
     private final TenantAccessResolver tenants;
     private final TransactionTemplate tx;
 
-    private final ChatStorageQuotaService quotas;
+    private final StorageQuotaService quotas;
     private final LibraryTrashProperties trash;
 
     public ImageArtifactService(ObjectWriteService writes, ObjectStorage storage, JdbcImageArtifactRepository artifacts,
-                                TenantAccessResolver tenants, ChatStorageQuotaService quotas,
+                                TenantAccessResolver tenants, StorageQuotaService quotas,
                                 LibraryTrashProperties trash,
                                 PlatformTransactionManager transactionManager) {
         this.writes = writes; this.storage = storage; this.artifacts = artifacts; this.tenants = tenants;

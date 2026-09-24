@@ -1,5 +1,6 @@
 package io.memoryos.chat.interpreter;
 
+import org.springframework.modulith.NamedInterface;
 import io.memoryos.chat.ChatException;
 import io.memoryos.shared.ActorId;
 import java.io.ByteArrayInputStream;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
  * and cached beside the file, as Onyx Craft converts decks inside its sandbox. The API never parses the deck.
  */
 @Service
+@NamedInterface("interpreter")
 public class PresentationPreviewService {
     /** The service caps timeout_ms at MAX_EXEC_TIMEOUT_MS (60 s); pptx-to-pdf itself stops LibreOffice at 45 s. */
     static final int TIMEOUT_MS = 60_000;

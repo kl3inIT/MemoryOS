@@ -1,13 +1,13 @@
 package io.memoryos.chat.execution;
 
-import io.memoryos.ai.ChatModelBinding;
-import io.memoryos.ai.ChatRequestPolicy;
+import io.memoryos.ai.ModelBinding;
+import io.memoryos.ai.ModelRequestPolicy;
 import com.embabel.chat.AssistantMessage;
 import com.embabel.chat.Message;
 import com.embabel.chat.SystemMessage;
 import com.embabel.chat.UserMessage;
 import com.knuddels.jtokkit.api.EncodingType;
-import io.memoryos.chat.application.ChatTurnPersistence.TurnContext;
+import io.memoryos.chat.session.ChatTurnPersistence.TurnContext;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatTurnOptions;
@@ -32,7 +32,7 @@ import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
  * Resolved once, held only for the lifetime of this execution.
  */
 public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
-                            String model, List<Message> messages, ChatModelBinding binding, ChatTurnOptions options,
+                            String model, List<Message> messages, ModelBinding binding, ChatTurnOptions options,
                             Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence,
                             io.memoryos.chat.WebSearchMode webSearch, io.memoryos.chat.web.WebConnectionService.Access webAccess,
                             io.memoryos.chat.ImageMode image, io.memoryos.chat.image.ImageConnectionService.Access imageAccess,
@@ -46,7 +46,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         public Research { files = List.copyOf(files); }
     }
     public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
-                         String model, List<Message> messages, ChatModelBinding binding, ChatTurnOptions options,
+                         String model, List<Message> messages, ModelBinding binding, ChatTurnOptions options,
                          Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence,
                          io.memoryos.chat.WebSearchMode webSearch, io.memoryos.chat.web.WebConnectionService.Access webAccess,
                          io.memoryos.chat.ImageMode image, io.memoryos.chat.image.ImageConnectionService.Access imageAccess) {
@@ -54,7 +54,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
                 webSearch, webAccess, image, imageAccess, Research.OFF, null);
     }
     public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
-                         String model, List<Message> messages, ChatModelBinding binding, ChatTurnOptions options,
+                         String model, List<Message> messages, ModelBinding binding, ChatTurnOptions options,
                          Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence) {
         this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence,
                 io.memoryos.chat.WebSearchMode.off, new io.memoryos.chat.web.WebConnectionService.Access(null, null),
@@ -74,20 +74,20 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, research, tools);
     }
     /** Admission estimate, not reported provider usage. The native response remains the usage ledger. */
-    public static final int IMAGE_INPUT_TOKENS = ChatRequestPolicy.IMAGE_INPUT_TOKENS;
+    public static final int IMAGE_INPUT_TOKENS = ModelRequestPolicy.IMAGE_INPUT_TOKENS;
     /** A wide citation marker for token estimates: citation numbers have no cap. */
     private static final int CITATION_ESTIMATE = 99999;
     public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
-                         String model, List<Message> messages, ChatModelBinding binding, ChatTurnOptions options,
+                         String model, List<Message> messages, ModelBinding binding, ChatTurnOptions options,
                          Set<UUID> fileIds) {
         this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, Map.of(), new ChatEvidence());
     }
     public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
-                         String model, List<Message> messages, ChatModelBinding binding, ChatTurnOptions options) {
+                         String model, List<Message> messages, ModelBinding binding, ChatTurnOptions options) {
         this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, Set.of());
     }
     public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
-                         String model, List<Message> messages, ChatModelBinding binding) {
+                         String model, List<Message> messages, ModelBinding binding) {
         this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, ChatTurnOptions.DEFAULT);
     }
     public ChatTurnSetup {
@@ -99,7 +99,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
     }
 
     private static final class Hosted {
-        private static final ChatRequestPolicy POLICY = ChatRequestPolicy.hosted(
+        private static final ModelRequestPolicy POLICY = ModelRequestPolicy.hosted(
                 new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), prompt -> prompt);
     }
     private static final tools.jackson.databind.ObjectMapper JSON = new tools.jackson.databind.ObjectMapper();
@@ -113,17 +113,17 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         return contribution.isEmpty() ? instructions : instructions.isEmpty() ? contribution : contribution + "\n\n" + instructions;
     }
 
-    public static void validateQuestion(String instructions, String text, int contextTokenLimit, ChatModelBinding binding,
+    public static void validateQuestion(String instructions, String text, int contextTokenLimit, ModelBinding binding,
                                         String contribution) {
         binding.policy().validateQuestion(instructions(instructions, contribution), text, historyLimit(contextTokenLimit, binding));
     }
 
-    private static int historyLimit(int limit, ChatModelBinding binding) {
+    private static int historyLimit(int limit, ModelBinding binding) {
         return binding.toolCalling() ? limit - Math.min(4096, limit / 3) : limit;
     }
 
     public static ChatTurnSetup resolve(UUID session, UUID assistant, TurnContext context, int contextTokenLimit,
-                                        ChatModelBinding binding, String contribution) {
+                                        ModelBinding binding, String contribution) {
         binding = binding.forOptions(context.options().sampling(), context.options().outputTokenLimit());
         if (context.options().contextTokenLimit() != null) contextTokenLimit = Math.min(contextTokenLimit, context.options().contextTokenLimit());
         var policy = binding.policy();
@@ -253,11 +253,11 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         return new ChatTurnSetup(session, assistant, context.actor(), context.tenant(), binding.service().getName(), selected, binding, context.options(), allowedFiles, images, evidence);
     }
 
-    private static int count(ChatRequestPolicy policy, List<org.springframework.ai.chat.messages.Message> messages, int imageTokens) {
+    private static int count(ModelRequestPolicy policy, List<org.springframework.ai.chat.messages.Message> messages, int imageTokens) {
         return Math.addExact(policy.framing().applyAsInt(new org.springframework.ai.chat.prompt.Prompt(messages)), imageTokens);
     }
 
-    private static int imageTokens(List<ChatFileDescriptor> files, ChatRequestPolicy policy) {
+    private static int imageTokens(List<ChatFileDescriptor> files, ModelRequestPolicy policy) {
         int count = 0;
         for (var file : files) count = Math.addExact(count, IMAGE_INPUT_TOKENS
                 + policy.tokens().estimate("Image citation [" + CITATION_ESTIMATE + "] identifies file " + file.id()) + 32);
@@ -275,7 +275,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         return Set.of("text/csv", "text/tab-separated-values", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "application/vnd.ms-excel.sheet.macroenabled.12").contains(file.mediaType().toLowerCase(java.util.Locale.ROOT));
     }
-    private static void requireTools(ChatModelBinding binding) {
+    private static void requireTools(ModelBinding binding) {
         if (!binding.toolCalling()) throw ChatException.invalid("Choose a tool-capable model to read files outside the direct-context budget or tables.");
     }
 }

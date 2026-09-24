@@ -13,7 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import io.memoryos.library.ChatFileContentService;
+import io.memoryos.library.UserFileContentService;
 import io.memoryos.chat.ChatImageEvent;
 import io.memoryos.chat.image.ImageArtifactService;
 import io.memoryos.chat.image.ImageConnectionService;
@@ -41,7 +41,7 @@ import org.mockito.ArgumentCaptor;
 class EditImageToolTest {
     private final ImageProviderClient client = mock(ImageProviderClient.class);
     private final ImageArtifactService artifacts = mock(ImageArtifactService.class);
-    private final ChatFileContentService files = mock(ChatFileContentService.class);
+    private final UserFileContentService files = mock(UserFileContentService.class);
     private final ActorId actor = new ActorId(UUID.randomUUID());
     private final TenantId tenant = new TenantId(UUID.randomUUID());
     private final UUID session = UUID.randomUUID();

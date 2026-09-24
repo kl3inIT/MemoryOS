@@ -14,10 +14,10 @@ import io.memoryos.api.chat.contract.ChatLibraryTrashEmptiedResponse;
 import io.memoryos.api.chat.contract.ChatLibraryTrashWindowResponse;
 import io.memoryos.api.chat.contract.ChatLibraryUsageResponse;
 import io.memoryos.chat.ChatException;
-import io.memoryos.library.ChatLibraryArchiveItem;
-import io.memoryos.library.ChatLibraryFile;
-import io.memoryos.library.ChatLibraryService;
-import io.memoryos.library.ChatLibraryArchiveService;
+import io.memoryos.library.LibraryArchiveItem;
+import io.memoryos.library.LibraryFile;
+import io.memoryos.library.LibraryService;
+import io.memoryos.library.LibraryArchiveService;
 import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -46,8 +46,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import io.memoryos.library.ChatLibraryTrashService;
-import io.memoryos.library.ChatStorageQuotaService;
+import io.memoryos.library.LibraryTrashService;
+import io.memoryos.library.StorageQuotaService;
 
 @RestController
 @RequestMapping(value = "/api/chat/library", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -60,13 +60,13 @@ import io.memoryos.library.ChatStorageQuotaService;
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
 class ChatLibraryController {
-    private final ChatLibraryService library;
-    private final ChatLibraryArchiveService archives;
-    private final ChatStorageQuotaService quotas;
-    private final ChatLibraryTrashService trash;
+    private final LibraryService library;
+    private final LibraryArchiveService archives;
+    private final StorageQuotaService quotas;
+    private final LibraryTrashService trash;
 
-    ChatLibraryController(ChatLibraryService library, ChatLibraryArchiveService archives,
-            ChatStorageQuotaService quotas, ChatLibraryTrashService trash) {
+    ChatLibraryController(LibraryService library, LibraryArchiveService archives,
+            StorageQuotaService quotas, LibraryTrashService trash) {
         this.library = library; this.archives = archives; this.quotas = quotas; this.trash = trash;
     }
 
@@ -91,10 +91,10 @@ class ChatLibraryController {
             @RequestParam(defaultValue = "50") int limit) {
         String view = status.toUpperCase(Locale.ROOT);
         if (!List.of("READY", "PENDING", "TRASH").contains(view)) throw ChatException.invalid("Unknown status.");
-        var page = library.list(identity.actorId(), new ChatLibraryService.Listing(query,
-                parse(sources, ChatLibraryFile.Source.class), parse(categories, ChatLibraryFile.Category.class),
+        var page = library.list(identity.actorId(), new LibraryService.Listing(query,
+                parse(sources, LibraryFile.Source.class), parse(categories, LibraryFile.Category.class),
                 sessionId, favorite, "PENDING".equals(view), "TRASH".equals(view),
-                value(sort, ChatLibraryFile.Sort.class), offset, limit));
+                value(sort, LibraryFile.Sort.class), offset, limit));
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(new ChatLibraryPageResponse(
                 page.items().stream().map(ChatLibraryFileResponse::from).toList(),
                 page.totalCount(), page.totalBytes(), page.hasMore()));
@@ -107,7 +107,7 @@ class ChatLibraryController {
             @Parameter(schema = @Schema(allowableValues = {"UPLOAD", "GENERATED", "IMAGE"})) @PathVariable String source,
             @PathVariable UUID id, @RequestBody ChatLibraryFileChangeRequest request) {
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(ChatLibraryFileResponse.from(library.update(
-                identity.actorId(), value(source, ChatLibraryFile.Source.class), id, request.filename(), request.favorite())));
+                identity.actorId(), value(source, LibraryFile.Source.class), id, request.filename(), request.favorite())));
     }
 
     @GetMapping("/search")
@@ -132,7 +132,7 @@ class ChatLibraryController {
             @Parameter(schema = @Schema(allowableValues = {"GENERATED", "IMAGE"})) @PathVariable String source,
             @PathVariable UUID id) {
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(ChatFileResponse.from(
-                library.copy(identity.actorId(), value(source, ChatLibraryFile.Source.class), id)));
+                library.copy(identity.actorId(), value(source, LibraryFile.Source.class), id)));
     }
 
     @PostMapping(value = "/archives", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -143,8 +143,8 @@ class ChatLibraryController {
     ChatLibraryArchiveResponse requestArchive(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @RequestBody ChatLibraryArchiveRequest request) {
         var files = (request.files() == null ? List.<ChatLibraryArchiveFileRequest>of() : request.files()).stream()
-                .map(file -> new ChatLibraryArchiveItem(
-                        value(file.source(), ChatLibraryFile.Source.class), file.id()))
+                .map(file -> new LibraryArchiveItem(
+                        value(file.source(), LibraryFile.Source.class), file.id()))
                 .toList();
         return ChatLibraryArchiveResponse.from(archives.request(identity.actorId(), files));
     }
@@ -215,7 +215,7 @@ class ChatLibraryController {
     void restore(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @Parameter(schema = @Schema(allowableValues = {"UPLOAD", "GENERATED", "IMAGE"})) @PathVariable String source,
             @PathVariable UUID id) {
-        trash.restore(identity.actorId(), value(source, ChatLibraryFile.Source.class), id);
+        trash.restore(identity.actorId(), value(source, LibraryFile.Source.class), id);
     }
 
     @PostMapping("/{source}/{id}/purge")
@@ -226,7 +226,7 @@ class ChatLibraryController {
     void purge(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @Parameter(schema = @Schema(allowableValues = {"UPLOAD", "GENERATED", "IMAGE"})) @PathVariable String source,
             @PathVariable UUID id) {
-        trash.purge(identity.actorId(), value(source, ChatLibraryFile.Source.class), id);
+        trash.purge(identity.actorId(), value(source, LibraryFile.Source.class), id);
     }
 
     @PostMapping("/trash/empty")

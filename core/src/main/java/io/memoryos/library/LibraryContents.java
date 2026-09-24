@@ -1,6 +1,6 @@
 package io.memoryos.library;
 
-import io.memoryos.library.persistence.JdbcChatLibraryRepository;
+import io.memoryos.library.persistence.JdbcLibraryRepository;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectStorage;
@@ -26,11 +26,11 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class LibraryContents {
-    private final JdbcChatLibraryRepository library;
+    private final JdbcLibraryRepository library;
     private final JdbcUserFileRepository files;
     private final ObjectStorage storage;
 
-    public LibraryContents(JdbcChatLibraryRepository library, JdbcUserFileRepository files, ObjectStorage storage) {
+    public LibraryContents(JdbcLibraryRepository library, JdbcUserFileRepository files, ObjectStorage storage) {
         this.library = library; this.files = files; this.storage = storage;
     }
 
@@ -38,25 +38,25 @@ public class LibraryContents {
      * The files the owner's library lists right now, newest first and at most {@code max}: every one when
      * {@code only} is null, otherwise those of the selection that are still listed.
      */
-    public List<ChatLibraryFile> listed(TenantId tenant, ActorId owner, @Nullable Collection<ChatLibraryArchiveItem> only,
+    public List<LibraryFile> listed(TenantId tenant, ActorId owner, @Nullable Collection<LibraryArchiveItem> only,
                                         int max) {
         Set<String> sources = only == null ? Set.of()
                 : only.stream().map(file -> file.source().name()).collect(Collectors.toUnmodifiableSet());
         // A null id set is what asks for every file; an empty one would ask for none.
         Set<UUID> ids = only == null ? null
-                : only.stream().map(ChatLibraryArchiveItem::id).collect(Collectors.toUnmodifiableSet());
-        var filter = new JdbcChatLibraryRepository.Filter("", sources, Set.of(), null, false, false, ids);
-        return library.page(tenant, owner, filter, ChatLibraryFile.Sort.NEWEST, 0, max).items();
+                : only.stream().map(LibraryArchiveItem::id).collect(Collectors.toUnmodifiableSet());
+        var filter = new JdbcLibraryRepository.Filter("", sources, Set.of(), null, false, false, ids);
+        return library.page(tenant, owner, filter, LibraryFile.Sort.NEWEST, 0, max).items();
     }
 
     /**
      * A listed file's bytes, or empty when it is gone by now. An upload's bytes come from its adopted upload, an
      * artifact's from its own object.
      */
-    public Optional<byte[]> read(TenantId tenant, ActorId owner, ChatLibraryFile file) {
-        Optional<ObjectKey> key = file.source() == ChatLibraryFile.Source.UPLOAD
+    public Optional<byte[]> read(TenantId tenant, ActorId owner, LibraryFile file) {
+        Optional<ObjectKey> key = file.source() == LibraryFile.Source.UPLOAD
                 ? files.raw(tenant, owner, file.id(), List.of()).map(row -> row.reference().key())
-                : library.artifact(tenant, owner, file.source(), file.id()).map(JdbcChatLibraryRepository.Artifact::key);
+                : library.artifact(tenant, owner, file.source(), file.id()).map(JdbcLibraryRepository.Artifact::key);
         if (key.isEmpty()) return Optional.empty();
         try (var content = storage.open(key.get())) {
             return Optional.of(content.inputStream().readAllBytes());

@@ -15,7 +15,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.memoryos.library.ChatFileContentService;
+import io.memoryos.library.UserFileContentService;
 import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.library.UserFile;
 import io.memoryos.chat.interpreter.InterpreterClient;
@@ -40,7 +40,7 @@ import tools.jackson.databind.ObjectMapper;
 class RunPythonToolTest {
     private final InterpreterClient client = mock(InterpreterClient.class);
     private final InterpreterService artifacts = mock(InterpreterService.class);
-    private final ChatFileContentService files = mock(ChatFileContentService.class);
+    private final UserFileContentService files = mock(UserFileContentService.class);
     private final ChatToolActivity activity = mock(ChatToolActivity.class);
     private final ActorId actor = new ActorId(UUID.randomUUID());
     private final TenantId tenant = new TenantId(UUID.randomUUID());

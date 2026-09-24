@@ -6,13 +6,12 @@ import static org.mockito.Mockito.*;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.chat.application.ChatArtifactCleanupService;
 import io.memoryos.chat.image.ImageArtifactService;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
-import io.memoryos.chat.persistence.JdbcChatArtifactCleanupRepository;
-import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
+import io.memoryos.chat.files.persistence.JdbcChatArtifactCleanupRepository;
+import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
@@ -38,12 +37,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import io.memoryos.library.ChatStorageProperties;
-import io.memoryos.library.ChatStorageQuotaService;
+import io.memoryos.library.LibraryStorageProperties;
+import io.memoryos.library.StorageQuotaService;
 import io.memoryos.library.ImageThumbnails;
-import io.memoryos.library.persistence.JdbcChatLibraryRepository;
+import io.memoryos.library.persistence.JdbcLibraryRepository;
 import io.memoryos.library.LibraryTrashProperties;
-import io.memoryos.library.ChatLibraryFile;
+import io.memoryos.library.LibraryFile;
 
 /**
  * Deleting a Chat artifact must release its bytes: the objects are adopted writes, which the generic reapers
@@ -105,8 +104,8 @@ class ChatArtifactCleanupIntegrationTest {
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
         artifacts = new JdbcInterpreterRepository(jdbc);
         pictures = new JdbcImageArtifactRepository(jdbc);
-        var quotas = new ChatStorageQuotaService(tenants,
-                new ChatStorageProperties(0), new JdbcChatLibraryRepository(jdbc));
+        var quotas = new StorageQuotaService(tenants,
+                new LibraryStorageProperties(0), new JdbcLibraryRepository(jdbc));
         interpreter = new InterpreterService(artifacts, new InterpreterProperties(null, null),
                 mock(IamAuthorization.class), tenants, writes, storage, quotas,
                 // This suite covers the release itself, so deletion releases at once.
@@ -265,10 +264,10 @@ class ChatArtifactCleanupIntegrationTest {
         assertTrue(pictures.byMessages(tenant, List.of(messageId), false).isEmpty());
 
         // The trash no longer offers it, and nothing can bring it back: the bytes are gone.
-        var trash = new JdbcChatLibraryRepository(jdbc).page(tenant, owner,
-                new JdbcChatLibraryRepository.Filter("", java.util.Set.of(),
+        var trash = new JdbcLibraryRepository(jdbc).page(tenant, owner,
+                new JdbcLibraryRepository.Filter("", java.util.Set.of(),
                         java.util.Set.of(), null, false, false, true, null),
-                ChatLibraryFile.Sort.DELETED, 0, 50);
+                LibraryFile.Sort.DELETED, 0, 50);
         assertEquals(List.of(), trash.items());
         assertFalse(pictures.restore(tenant, owner, image));
     }

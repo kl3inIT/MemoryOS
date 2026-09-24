@@ -5,8 +5,8 @@ import io.memoryos.shared.TenantId;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
-import io.memoryos.chat.persistence.ChatSettingsEntity;
-import io.memoryos.chat.persistence.JpaChatSettingsRepository;
+import io.memoryos.chat.preferences.persistence.ChatSettingsEntity;
+import io.memoryos.chat.preferences.persistence.JpaChatSettingsRepository;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.shared.ActorId;
@@ -28,14 +28,14 @@ public class ChatSettingsService {
     }
 
     /** Deep research is enabled while an administrator has not saved settings, as Onyx reads an unset value. */
-    public record View(boolean deepResearchEnabled, io.memoryos.chat.history.ChatHistoryVisibility chatHistoryVisibility,
+    public record View(boolean deepResearchEnabled, io.memoryos.chat.ChatHistoryVisibility chatHistoryVisibility,
                        long revision) {}
 
     @Transactional(readOnly = true)
     public View read(ActorId actor) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable).value();
         return settings.findById(tenant).map(ChatSettingsService::view)
-                .orElse(new View(true, io.memoryos.chat.history.ChatHistoryVisibility.NORMAL, 0));
+                .orElse(new View(true, io.memoryos.chat.ChatHistoryVisibility.NORMAL, 0));
     }
 
     @Transactional
@@ -64,7 +64,7 @@ public class ChatSettingsService {
 
     /** Who in the organization may read other people's conversations, and how much of them (MEM-125). */
     @Transactional
-    public View saveHistoryVisibility(ActorId actor, io.memoryos.chat.history.ChatHistoryVisibility visibility, long revision) {
+    public View saveHistoryVisibility(ActorId actor, io.memoryos.chat.ChatHistoryVisibility visibility, long revision) {
         var entity = writable(actor, revision);
         entity.chatHistoryVisibility(visibility.name());
         var saved = settings.saveAndFlush(entity);
@@ -74,14 +74,14 @@ public class ChatSettingsService {
 
     /** The Tenant's setting, read without any capability: the history reads themselves are what is guarded. */
     @Transactional(readOnly = true)
-    public io.memoryos.chat.history.ChatHistoryVisibility historyVisibility(TenantId tenant) {
+    public io.memoryos.chat.ChatHistoryVisibility historyVisibility(TenantId tenant) {
         return settings.findById(tenant.value())
-                .map(entity -> io.memoryos.chat.history.ChatHistoryVisibility.valueOf(entity.chatHistoryVisibility()))
-                .orElse(io.memoryos.chat.history.ChatHistoryVisibility.NORMAL);
+                .map(entity -> io.memoryos.chat.ChatHistoryVisibility.valueOf(entity.chatHistoryVisibility()))
+                .orElse(io.memoryos.chat.ChatHistoryVisibility.NORMAL);
     }
 
     private static View view(ChatSettingsEntity entity) {
         return new View(entity.deepResearchEnabled(),
-                io.memoryos.chat.history.ChatHistoryVisibility.valueOf(entity.chatHistoryVisibility()), entity.revision());
+                io.memoryos.chat.ChatHistoryVisibility.valueOf(entity.chatHistoryVisibility()), entity.revision());
     }
 }

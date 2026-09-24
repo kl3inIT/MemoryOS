@@ -1,5 +1,6 @@
 package io.memoryos.chat.image;
 
+import org.springframework.modulith.NamedInterface;
 import io.memoryos.shared.TenantId;
 
 import io.memoryos.audit.AuditAction;
@@ -8,8 +9,8 @@ import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.ChatException;
 import io.memoryos.ai.ModelCatalogService;
 import io.memoryos.ai.ProviderCredentials;
-import io.memoryos.chat.persistence.ImageConnectionEntity;
-import io.memoryos.chat.persistence.ImageConnectionRepository;
+import io.memoryos.chat.image.persistence.ImageConnectionEntity;
+import io.memoryos.chat.image.persistence.ImageConnectionRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Authorized configuration only. Network calls happen after these transactions return. */
 @Service
+@NamedInterface("image")
 public class ImageConnectionService {
     private final ImageConnectionRepository connections;
     private final ProviderCredentials credentials;
