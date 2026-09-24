@@ -62,8 +62,10 @@ systemctl enable --quiet memoryos-serving-firewall.service
 /usr/local/sbin/memoryos-serving-firewall "$allowed" "${ports[@]}"
 compose pull --quiet
 compose up -d --remove-orphans --wait --wait-timeout 900
+# The one-shot model download has exited by now; it counts only when it succeeded.
 compose ps --all --format json | jq --exit-status --slurp '
-  length > 0 and all(.[]; .State == "running" and .Health == "healthy")
+  length > 0 and all(.[]; (.State == "running" and .Health == "healthy")
+    or (.Service == "tei-model-download" and .State == "exited" and .ExitCode == 0))
 ' > /dev/null
 printf '%s\n' "$release" > "$root/current"
 echo "Serving node runs the configuration of $release"

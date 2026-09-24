@@ -19,6 +19,7 @@ Làm song song với Phase B, vì hai phase không phụ thuộc nhau.
      * healthcheck `/health` có key, và `/v1/embeddings` không key phải bị 401
      * `restart: unless-stopped`
      * `deploy.resources.reservations.devices`: GPU
+   * Đã xác minh trên image CPU cùng phiên bản (2026-09-24): `--served-model-name`, `--auto-truncate`, `--max-client-batch-size` có thật, key đọc từ biến `API_KEY`; image CUDA có `sh`, `curl` và chạy bằng root; bảy file tải về đều có ở revision đã ghim. **Chưa xác minh:** TEI nạp model từ thư mục cục bộ với đúng bảy file đó (spike tải qua hub); lần rollout đầu trên `serving` sẽ chứng minh. Không có `--served-model-name` thì `/v1/embeddings` trả đường dẫn thư mục làm tên model và client từ chối.
    * **Còn lại, cần deploy production (thao tác server, cần đồng ý): kiểm tra từ node `application`:**
      * gọi `POST /v1/embeddings` với tên model, nhận về 1024 chiều;
      * sai key thì bị từ chối 401;

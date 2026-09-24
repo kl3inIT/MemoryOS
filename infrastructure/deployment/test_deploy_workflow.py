@@ -263,6 +263,8 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         checked = serving.index("Missing Compose secret file: $file")
         self.assertLess(checked, serving.index("compose up"))
         self.assertLess(checked, serving.index('/usr/local/sbin/memoryos-serving-firewall "$allowed"'))
+        # The exited one-shot download counts only when it succeeded; every other service must be healthy.
+        self.assertIn('.Service == "tei-model-download" and .State == "exited" and .ExitCode == 0', serving)
         self.assertNotRegex(serving, r"cat [^\n]*secret")
         self.assertNotIn("set -x", serving)
 
