@@ -4,15 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.iam.identityprovider.persistence.JitAllowlistRepository;
-
-import com.zaxxer.hikari.HikariDataSource;
-
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +29,7 @@ class DefaultJitAdmissionPolicyTest {
     private TransactionTemplate transactions;
     private JitAllowlistRepository allowlist;
     private DefaultJitAdmissionPolicy policy;
+    private JitAllowlistSeeder seeder;
 
     @BeforeEach
     void setUp() throws SQLException {
@@ -40,6 +38,7 @@ class DefaultJitAdmissionPolicyTest {
         transactions = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
         allowlist = new JitAllowlistRepository(jdbc);
         policy = new DefaultJitAdmissionPolicy(allowlist);
+        seeder = new JitAllowlistSeeder(allowlist);
     }
 
     @AfterEach
@@ -63,10 +62,8 @@ class DefaultJitAdmissionPolicyTest {
 
     @Test
     void seedingIsIdempotentAndDisallowRemovesAdmission() {
-        transactions.executeWithoutResult(_ -> {
-            allowlist.allow("tasco", null);
-            allowlist.allow("tasco", null);
-        });
+        transactions.executeWithoutResult(_ -> seeder.seed(List.of("tasco", "tasco")));
+        transactions.executeWithoutResult(_ -> seeder.seed(List.of("tasco")));
         assertEquals(1L, jdbc.sql("SELECT COUNT(*) FROM jit_allowed_provider WHERE alias = 'tasco'")
                 .query(Long.class).single());
         assertTrue(policy.allows("tasco"));
