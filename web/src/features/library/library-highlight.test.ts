@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { highlightParts } from "./chat-library";
+import { highlightParts } from "./library";
 
 it("marks every occurrence of the query, whatever its case", () => {
   expect(highlightParts("Điều khoản THANH TOÁN và thanh toán lại", "thanh toán")).toEqual([

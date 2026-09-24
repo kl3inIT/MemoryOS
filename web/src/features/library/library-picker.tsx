@@ -18,11 +18,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DocumentKindIcon } from "@/features/search/document-source-icon";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
-import { ChatDialog } from "./chat-dialog";
-import { fileSize } from "./chat-code";
-import { LibraryCategoryFilter } from "./chat-library-toolbar";
+import { ChatDialog } from "@/features/chat/chat-dialog";
+import { fileSize } from "@/features/chat/chat-code";
+import { LibraryCategoryFilter } from "./library-toolbar";
 import {
   chatLibraryKey,
   libraryThumbnailUrl,
@@ -31,7 +31,7 @@ import {
   type LibraryCategory,
   type LibraryFile,
   type LibrarySource,
-} from "./chat-library";
+} from "./library";
 
 /**
  * "Choose an existing file" over the whole library (MEM-152): uploads, files a code run generated and generated

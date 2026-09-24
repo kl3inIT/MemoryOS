@@ -4,7 +4,7 @@ import { sourcesSchema, type ChatSource } from "./chat-evidence";
 import { activitySchema, historyParts } from "./chat-activity";
 import { createChatSession, getChatHistory, getChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
-import { fileReference } from "./chat-files";
+import { fileReference } from "@/features/library/files";
 import { artifactsSchema, type ChatArtifact } from "./chat-artifacts";
 import { parseGeneratedImages, type GeneratedImage } from "./chat-image";
 import { parseGeneratedFiles, type GeneratedFile } from "./chat-code";

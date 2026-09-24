@@ -1,5 +1,5 @@
 import { File, FileChartColumn, FileImage, FileSpreadsheet, FileText } from "lucide-react";
-import type { LibraryCategory } from "./chat-library";
+import type { LibraryCategory } from "./library";
 
 /**
  * One icon per library category. They are all of the `File` family on purpose: a row of files should read as a

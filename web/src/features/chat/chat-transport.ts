@@ -10,7 +10,7 @@ import {
 } from "@/lib/hey-api/sdk.gen";
 import type { Accepted, ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import { newChatSession, type ChatUiMessage } from "./chat-api";
-import { fileIdFromReference } from "./chat-files";
+import { fileIdFromReference } from "@/features/library/files";
 import { readWebPreference, writeWebPreference, type WebSearchMode } from "./chat-web-preference";
 import {
   parseGeneratedImages,

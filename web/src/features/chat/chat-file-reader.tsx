@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useFileSrc } from "@/hooks/use-attachment-src";
 import { downloadChatFile, getChatFile, readChatFileText } from "@/lib/hey-api/sdk.gen";
-import { chatFileSchema } from "./chat-files";
+import { chatFileSchema } from "@/features/library/files";
 
 const textWindow = z.object({
   text: z.string(),

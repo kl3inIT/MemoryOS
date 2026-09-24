@@ -1,5 +1,5 @@
 import { useAuiState } from "@assistant-ui/react";
-import { fileIdFromReference } from "./chat-files";
+import { fileIdFromReference } from "@/features/library/files";
 
 /** Business readiness layered on the native composer; no duplicate draft state. */
 export function useFilesBlocked() {

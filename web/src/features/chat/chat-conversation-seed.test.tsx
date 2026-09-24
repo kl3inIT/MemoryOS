@@ -30,8 +30,8 @@ vi.mock("./chat-workspace-api", async (importOriginal) => ({
   loadPersonas: vi.fn(async () => []),
 }));
 
-vi.mock("./chat-files", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./chat-files")>()),
+vi.mock("@/features/library/files", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/library/files")>()),
   waitForChatFile: (...args: unknown[]) => waitForChatFile(...args),
 }));
 

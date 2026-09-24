@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useAui } from "@assistant-ui/react";
-import { waitForChatFile } from "./chat-files";
+import { waitForChatFile } from "@/features/library/files";
 import { composerAttachment } from "./use-composer-file-selection";
 
 /**

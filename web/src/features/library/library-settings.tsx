@@ -11,9 +11,9 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { ChatRetentionSection } from "./chat-retention-section";
-import { type LibraryCategory } from "./chat-library";
-import { StorageMeter, type LibraryUsage } from "./chat-storage-meter";
+import { ChatRetentionSection } from "@/features/chat/chat-retention-section";
+import { type LibraryCategory } from "./library";
+import { StorageMeter, type LibraryUsage } from "./storage-meter";
 
 /**
  * The library's own settings, on the library rather than somewhere else: what the account has stored and how

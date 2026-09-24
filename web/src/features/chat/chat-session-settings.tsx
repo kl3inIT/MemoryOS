@@ -15,7 +15,7 @@ import { ChatSessionFiles } from "./chat-session-files";
 import { ChatSessionMenu } from "./chat-session-menu";
 import { SharingDialog } from "./chat-sharing-dialog";
 import { chatSessionsKey } from "./chat-api";
-import { waitForChatFile } from "./chat-files";
+import { waitForChatFile } from "@/features/library/files";
 import { composerAttachment } from "./use-composer-file-selection";
 
 export function ChatSessionSettings({

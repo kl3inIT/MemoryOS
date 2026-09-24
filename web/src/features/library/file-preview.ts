@@ -1,5 +1,5 @@
-import { fileArtifactUrl } from "./chat-code";
-import { imageArtifactUrl } from "./chat-image";
+import { fileArtifactUrl } from "@/features/chat/chat-code";
+import { imageArtifactUrl } from "@/features/chat/chat-image";
 
 /**
  * A chat file to preview: a file run_python generated, an attachment, or a generated image, each read

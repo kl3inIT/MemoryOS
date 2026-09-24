@@ -17,28 +17,28 @@ import { TablePagination } from "@/components/ui/table-pagination";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
-import { chatSessionsKey, newChatSession } from "./chat-api";
-import { chatActionError } from "./chat-action-utils";
-import { ChatAddToProjectDialog } from "./chat-add-to-project";
-import { ChatDialog } from "./chat-dialog";
-import { LibraryContentMatches } from "./chat-library-content";
-import { LibraryDropZone, LibraryUploadButton, LibraryUploadTray } from "./chat-library-uploads";
-import { LibraryRail, type LibraryView } from "./chat-library-rail";
-import { LibrarySettingsButton } from "./chat-library-settings";
-import { FileActions, LibraryEmpty, LibraryList } from "./chat-library-rows";
+import { chatSessionsKey, newChatSession } from "@/features/chat/chat-api";
+import { chatActionError } from "@/features/chat/chat-action-utils";
+import { ChatAddToProjectDialog } from "@/features/chat/chat-add-to-project";
+import { ChatDialog } from "@/features/chat/chat-dialog";
+import { LibraryContentMatches } from "./library-content";
+import { LibraryDropZone, LibraryUploadButton, LibraryUploadTray } from "./library-uploads";
+import { LibraryRail, type LibraryView } from "./library-rail";
+import { LibrarySettingsButton } from "./library-settings";
+import { FileActions, LibraryEmpty, LibraryList } from "./library-rows";
 import {
   LibraryFilterPills,
   LibrarySelectionBar,
   LibraryToolbar,
   type LibraryLayout,
   type LibrarySearchMode,
-} from "./chat-library-toolbar";
+} from "./library-toolbar";
 import { archiveContentUrl, useLibraryArchive, type LibraryArchive } from "./use-library-archive";
 import { useLibraryUploads } from "./use-library-uploads";
-import { ChatFilePreviewModal } from "./chat-file-preview-modal";
-import { type AskExtras } from "./chat-file-ask-composer";
-import { uploadChatFile } from "./chat-files";
-import { type PreviewTarget } from "./chat-file-preview";
+import { ChatFilePreviewModal } from "./file-preview-modal";
+import { type AskExtras } from "./file-ask-composer";
+import { uploadChatFile } from "./files";
+import { type PreviewTarget } from "./file-preview";
 import {
   changeLibraryFile,
   chatLibraryKey,
@@ -60,7 +60,7 @@ import {
   type LibraryFile,
   type LibrarySort,
   type LibrarySource,
-} from "./chat-library";
+} from "./library";
 
 /** The file library: uploads, files run_python generated and generated images in one owner-private list. */
 export function ChatLibraryPage() {

@@ -6,9 +6,9 @@ import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { chatLibraryKey, loadLibraryUsage, loadTrashWindow } from "./chat-library";
-import { ChatRetentionSection } from "./chat-retention-section";
-import { StorageMeter } from "./chat-storage-meter";
+import { chatLibraryKey, loadLibraryUsage, loadTrashWindow } from "./library";
+import { ChatRetentionSection } from "@/features/chat/chat-retention-section";
+import { StorageMeter } from "./storage-meter";
 
 /**
  * Everything about what this person stores and how long it lasts, in their own settings: the meter and its

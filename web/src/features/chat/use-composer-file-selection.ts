@@ -1,5 +1,5 @@
 import { useAui, useAuiState } from "@assistant-ui/react";
-import { fileIdFromReference, fileReference, type ChatFile } from "./chat-files";
+import { fileIdFromReference, fileReference, type ChatFile } from "@/features/library/files";
 
 /** The composer attachment for a READY server file: its identity travels as a file reference, never its bytes. */
 export function composerAttachment(file: ChatFile) {

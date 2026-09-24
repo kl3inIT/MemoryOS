@@ -1,5 +1,5 @@
 import { ApiError } from "@/lib/api";
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/index";
 import {
   changeChatLibraryFile,
   copyChatLibraryFile,
@@ -21,10 +21,10 @@ import type {
   ChatLibraryFile,
   ChatLibraryPage,
 } from "@/lib/hey-api/types.gen";
-import type { PreviewTarget } from "./chat-file-preview";
-import { chatFileSchema, waitForChatFile, type ChatFile } from "./chat-files";
-import { projectSchema } from "./chat-workspace-api";
-import { imageArtifactUrl } from "./chat-image";
+import type { PreviewTarget } from "./file-preview";
+import { chatFileSchema, waitForChatFile, type ChatFile } from "./files";
+import { projectSchema } from "@/features/chat/chat-workspace-api";
+import { imageArtifactUrl } from "@/features/chat/chat-image";
 
 export type LibraryFile = ChatLibraryFile;
 export type LibrarySource = ChatLibraryFile["source"];

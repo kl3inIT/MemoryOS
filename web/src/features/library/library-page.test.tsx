@@ -10,10 +10,10 @@ import { act, cleanup, render, screen, waitFor, within } from "@testing-library/
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ActionNotifications } from "@/components/ui/action-notifications";
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/index";
 import { ApiError } from "@/lib/api";
 import type { ChatLibraryFile } from "@/lib/hey-api/types.gen";
-import { ChatLibraryPage } from "./chat-library-page";
+import { ChatLibraryPage } from "./library-page";
 
 const listChatLibrary = vi.hoisted(() => vi.fn());
 const deleteChatFile = vi.hoisted(() => vi.fn());
@@ -73,8 +73,8 @@ vi.mock("@/lib/hey-api/sdk.gen", () => ({
   getChatHistory: vi.fn(),
 }));
 
-vi.mock("./chat-files", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./chat-files")>()),
+vi.mock("./files", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./files")>()),
   uploadChatFile: (...args: unknown[]) => uploadChatFile(...args),
 }));
 

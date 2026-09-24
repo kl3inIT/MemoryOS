@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { i18n } from "@/i18n";
-import { ChatFilePreviewModal } from "./chat-file-preview-modal";
-import type { PreviewTarget } from "./chat-file-preview";
+import { i18n } from "@/i18n/index";
+import { ChatFilePreviewModal } from "./file-preview-modal";
+import type { PreviewTarget } from "./file-preview";
 
 const getChatImageArtifact = vi.hoisted(() => vi.fn());
 

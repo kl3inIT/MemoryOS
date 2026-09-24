@@ -32,8 +32,8 @@ import {
   type LibraryCategory,
   type LibrarySort,
   type LibrarySource,
-} from "./chat-library";
-import { categoryLabels, sourceLabels } from "./chat-library-labels";
+} from "./library";
+import { categoryLabels, sourceLabels } from "./library-labels";
 
 export type LibraryLayout = "list" | "grid";
 export type LibrarySearchMode = "name" | "content";

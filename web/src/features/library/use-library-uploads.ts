@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ErrorMessage } from "@/lib/problem-presentation";
-import { chatAttachmentProblem, uploadChatFile } from "./chat-files";
-import { chatLibraryKey } from "./chat-library";
+import { chatAttachmentProblem, uploadChatFile } from "./files";
+import { chatLibraryKey } from "./library";
 
 export type LibraryUpload = {
   id: string;

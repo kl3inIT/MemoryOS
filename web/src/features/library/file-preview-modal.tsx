@@ -36,17 +36,11 @@ import {
   previewChatFileSpreadsheet,
 } from "@/lib/hey-api/sdk.gen";
 import { cn } from "@/lib/utils";
-import { ChatFileAskComposer, type AskExtras } from "./chat-file-ask-composer";
-import { fileSize } from "./chat-code";
-import { downloadUrl, type PreviewTarget } from "./chat-file-preview";
-import { ImageCropper } from "./chat-image-cropper";
-import {
-  croppedFileName,
-  cropPixels,
-  cropType,
-  renderCrop,
-  type CropRect,
-} from "./chat-image-crop";
+import { ChatFileAskComposer, type AskExtras } from "./file-ask-composer";
+import { fileSize } from "@/features/chat/chat-code";
+import { downloadUrl, type PreviewTarget } from "./file-preview";
+import { ImageCropper } from "./image-cropper";
+import { croppedFileName, cropPixels, cropType, renderCrop, type CropRect } from "./image-crop";
 
 /** What the viewer may scale an image to, and the step its buttons take. */
 const ZOOM = { min: 25, max: 400, step: 25 } as const;

@@ -26,7 +26,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ChatFilePicker } from "@/features/chat/chat-file-picker";
+import { ChatFilePicker } from "@/features/library/file-picker";
 import type { AgentRef } from "@/features/chat/chat-workspace-api";
 import { findSourceProvider } from "@/features/sources/source-provider-catalog";
 import { SectionHeader } from "@/components/composites/section-header";

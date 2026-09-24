@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import { DocumentKindIcon } from "@/features/search/document-source-icon";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { i18n } from "@/i18n";
-import { fileSize } from "./chat-code";
-import { highlightParts, type ContentMatch } from "./chat-library";
+import { i18n } from "@/i18n/index";
+import { fileSize } from "@/features/chat/chat-code";
+import { highlightParts, type ContentMatch } from "./library";
 
 /**
  * Content search results (MEM-152): the file, then the passages that matched, so the person recognises the file

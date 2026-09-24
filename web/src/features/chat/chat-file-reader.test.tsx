@@ -9,14 +9,14 @@ import {
   type ApplicationSession,
 } from "@/features/identity/application-session-context";
 import { ChatFileReader } from "./chat-file-reader";
-import { ChatFilePicker } from "./chat-file-picker";
+import { ChatFilePicker } from "@/features/library/file-picker";
 import { DocumentPreviewContent } from "../search/document-preview-content";
 import { useDocumentReading } from "../search/document-reading";
 import type { DocumentSelection } from "../search/document-preview-dialog";
 import { AssistantRuntimeProvider, ComposerPrimitive, useLocalRuntime } from "@assistant-ui/react";
 import { ChatSourcesWorkspace } from "./chat-sources";
 import { ChatFilePart } from "./chat-attachments";
-import { fileReference } from "./chat-files";
+import { fileReference } from "@/features/library/files";
 import { i18n } from "@/i18n";
 
 const backend = vi.hoisted(() => ({

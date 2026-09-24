@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getChatLibraryArchive, requestChatLibraryArchive } from "@/lib/hey-api/sdk.gen";
 import type { ChatLibraryArchive } from "@/lib/hey-api/types.gen";
-import { chatActionError } from "./chat-action-utils";
-import type { LibraryFile } from "./chat-library";
+import { chatActionError } from "@/features/chat/chat-action-utils";
+import type { LibraryFile } from "./library";
 
 export type ArchiveState =
   | { phase: "idle" }

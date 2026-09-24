@@ -33,11 +33,11 @@ import {
 import { IconButton } from "@/components/ui/icon-button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia } from "@/components/ui/item";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
 import { retryChatFile } from "@/lib/hey-api/sdk.gen";
-import { fileSize } from "./chat-code";
-import { downloadUrl } from "./chat-file-preview";
+import { fileSize } from "@/features/chat/chat-code";
+import { downloadUrl } from "./file-preview";
 import {
   groupByDate,
   libraryPreviewTarget,
@@ -46,10 +46,10 @@ import {
   usageLabel,
   type LibraryDayGroup,
   type LibraryFile,
-} from "./chat-library";
-import { categoryIcon, categoryLabels, sourceLabels, statusLabel } from "./chat-library-labels";
-import { type LibraryLayout } from "./chat-library-toolbar";
-import type { LibraryView } from "./chat-library-rail";
+} from "./library";
+import { categoryIcon, categoryLabels, sourceLabels, statusLabel } from "./library-labels";
+import { type LibraryLayout } from "./library-toolbar";
+import type { LibraryView } from "./library-rail";
 
 export type RowActions = {
   onPreview: (file: LibraryFile) => void;

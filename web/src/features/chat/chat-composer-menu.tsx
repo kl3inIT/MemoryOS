@@ -15,8 +15,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { ChatFilePickerContent } from "./chat-file-picker";
-import { ChatLibraryPicker } from "./chat-library-picker";
+import { ChatFilePickerContent } from "@/features/library/file-picker";
+import { ChatLibraryPicker } from "@/features/library/library-picker";
 import { composerMenuRow } from "./chat-composer-menu-row";
 import { ChatWebModes, ChatWebToggle } from "./chat-web-options";
 import type { WebSearchMode } from "./chat-web-preference";

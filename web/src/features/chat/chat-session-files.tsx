@@ -44,9 +44,9 @@ import { i18n } from "@/i18n";
 import { chatActionError } from "./chat-action-utils";
 import { ChatAddToProjectDialog } from "./chat-add-to-project";
 import { fileSize } from "./chat-code";
-import { fileIdFromReference } from "./chat-files";
-import { ChatFilePreviewModal } from "./chat-file-preview-modal";
-import { downloadUrl, type PreviewTarget } from "./chat-file-preview";
+import { fileIdFromReference } from "@/features/library/files";
+import { ChatFilePreviewModal } from "@/features/library/file-preview-modal";
+import { downloadUrl, type PreviewTarget } from "@/features/library/file-preview";
 import {
   chatLibraryKey,
   deleteLibraryFile,
@@ -58,8 +58,8 @@ import {
   usageLabel,
   type LibraryCategory,
   type LibraryFile,
-} from "./chat-library";
-import { LibraryCategoryFilter } from "./chat-library-toolbar";
+} from "@/features/library/library";
+import { LibraryCategoryFilter } from "@/features/library/library-toolbar";
 import { composerAttachment } from "./use-composer-file-selection";
 
 /**

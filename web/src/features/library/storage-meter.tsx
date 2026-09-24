@@ -2,12 +2,12 @@ import { Link } from "@tanstack/react-router";
 import { ChevronRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
-import { fileSize } from "./chat-code";
-import { type loadLibraryUsage, type LibraryCategory } from "./chat-library";
-import { categoryLabels } from "./chat-library-labels";
-import { CATEGORY_ICONS } from "./chat-library-icons";
+import { fileSize } from "@/features/chat/chat-code";
+import { type loadLibraryUsage, type LibraryCategory } from "./library";
+import { categoryLabels } from "./library-labels";
+import { CATEGORY_ICONS } from "./library-icons";
 
 /** Past this share of the limit the meter says so, because the next upload is the one that fails. */
 const NEARLY_FULL = 90;

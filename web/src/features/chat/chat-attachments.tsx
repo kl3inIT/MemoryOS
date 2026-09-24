@@ -1,6 +1,6 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAuiState, type FileMessagePartProps } from "@assistant-ui/react";
-import { fileIdFromReference } from "./chat-files";
+import { fileIdFromReference } from "@/features/library/files";
 import { File as FileDisplay } from "@/components/assistant-ui/elements/file";
 import { useChatFilePanel } from "./chat-panel-context";
 import { useTranslation } from "react-i18next";

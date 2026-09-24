@@ -3,9 +3,9 @@ import { Progress } from "@/components/ui/progress";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { TextButton } from "@/components/ui/text-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
-import { fileSize } from "./chat-code";
+import { fileSize } from "@/features/chat/chat-code";
 
 /** Which slice of the library is on screen. Favourites are a slice of the usable files, not a state of their own. */
 export type LibraryView = "ready" | "favorite" | "pending" | "trash";

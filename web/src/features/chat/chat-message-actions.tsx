@@ -14,8 +14,8 @@ import { ChatEditingContext } from "./chat-editing-context";
 import { ChatDialog } from "./chat-dialog";
 import { chatActionError } from "./chat-action-utils";
 import type { Feedback } from "./chat-workspace-api";
-import { fileIdFromReference } from "./chat-files";
-import { ChatFilePicker } from "./chat-file-picker";
+import { fileIdFromReference } from "@/features/library/files";
+import { ChatFilePicker } from "@/features/library/file-picker";
 import { ChatBranchAction } from "./chat-branch-action";
 import { ChatRegenerateMenu } from "./chat-regenerate-menu";
 

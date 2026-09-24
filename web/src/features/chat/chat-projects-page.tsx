@@ -28,10 +28,10 @@ import { ChatDialog } from "./chat-dialog";
 import { chatField, chatActionError } from "./chat-action-utils";
 import { loadProjects, projectSchema, type Project } from "./chat-workspace-api";
 import { ChatSessionRow } from "./chat-session-row";
-import { ChatFilePicker } from "./chat-file-picker";
-import { chatFileSchema } from "./chat-files";
+import { ChatFilePicker } from "@/features/library/file-picker";
+import { chatFileSchema } from "@/features/library/files";
 import { ChatFilePart } from "./chat-attachments";
-import { fileReference } from "./chat-files";
+import { fileReference } from "@/features/library/files";
 
 /** The project's chosen topic icon, or the plain folder when none was picked. */
 export function ProjectIcon({

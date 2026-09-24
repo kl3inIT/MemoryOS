@@ -12,7 +12,7 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { useChatDictationAdapter } from "@/features/voice/use-chat-dictation-adapter";
 import { useChatSpeechAdapter } from "@/features/voice/use-chat-speech-adapter";
 import { chatSessionsKey, type ChatUiMessage } from "./chat-api";
-import { createChatAttachmentAdapter } from "./chat-files";
+import { createChatAttachmentAdapter } from "@/features/library/files";
 import { ChatThreadRegistry } from "./chat-thread-controller";
 import { chatHistoryAdapter, createChatThreadListAdapter } from "./chat-thread-list-adapter";
 import { ChatThreadsContext } from "./chat-threads-context";

@@ -1,6 +1,6 @@
 import type { useAppTranslation } from "@/i18n/use-app-translation";
-import type { LibraryCategory, LibraryFile, LibrarySource } from "./chat-library";
-import { CATEGORY_ICONS } from "./chat-library-icons";
+import type { LibraryCategory, LibraryFile, LibrarySource } from "./library";
+import { CATEGORY_ICONS } from "./library-icons";
 
 /** How a file is named on screen: where it came from, what kind it is, and how far along it is. */
 export function sourceLabels(ui: ReturnType<typeof useAppTranslation>) {

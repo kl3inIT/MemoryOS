@@ -21,7 +21,7 @@ import { sourceLocationLabels, webDisplayUrl } from "./chat-source-meta";
 import type { ChatSource } from "./chat-evidence";
 import { ChatPanelContext as PanelContext } from "./chat-panel-context";
 import type { ChatArtifact } from "./chat-artifacts";
-import { ChatFilePreviewModal, type PreviewTarget } from "./chat-file-preview-modal";
+import { ChatFilePreviewModal, type PreviewTarget } from "@/features/library/file-preview-modal";
 
 const emptySources: ChatSource[] = [];
 const EvidenceContext = createContext<{ messageId: string; sources: ChatSource[] }>({

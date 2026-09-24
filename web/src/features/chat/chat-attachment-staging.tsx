@@ -6,7 +6,7 @@ import {
   useChatAttachmentStaging,
   type AttachmentStaging,
 } from "./chat-attachment-staging-context";
-import { libraryUpload, type LibraryFile } from "./chat-library";
+import { libraryUpload, type LibraryFile } from "@/features/library/library";
 import { composerAttachment } from "./use-composer-file-selection";
 
 type StagedFile = {

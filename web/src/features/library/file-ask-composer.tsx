@@ -8,11 +8,11 @@ import { useDictationInput } from "@/features/voice/use-dictation-input";
 import { useVoiceAvailability } from "@/features/voice/use-voice-availability";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
-import { composerMenuRow } from "./chat-composer-menu-row";
-import { ChatLibraryPicker } from "./chat-library-picker";
-import { ChatModelPicker } from "./chat-model-picker";
-import { readChatModelPreference, writeChatModelPreference } from "./chat-models";
-import type { LibraryFile } from "./chat-library";
+import { composerMenuRow } from "@/features/chat/chat-composer-menu-row";
+import { ChatLibraryPicker } from "./library-picker";
+import { ChatModelPicker } from "@/features/chat/chat-model-picker";
+import { readChatModelPreference, writeChatModelPreference } from "@/features/chat/chat-models";
+import type { LibraryFile } from "./library";
 
 /** Files put on the question besides the file being read. */
 export type AskExtras = {

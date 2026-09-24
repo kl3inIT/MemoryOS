@@ -13,7 +13,7 @@ import {
   ProjectFull,
   PROJECT_FILE_LIMIT,
   type LibraryFile,
-} from "./chat-library";
+} from "@/features/library/library";
 import { loadProjects, projectSchema } from "./chat-workspace-api";
 
 /**

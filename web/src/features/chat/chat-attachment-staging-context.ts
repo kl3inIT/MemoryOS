@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import type { ComposerPendingAttachment } from "@/components/assistant-ui/elements/attachment.aui";
-import type { LibraryFile } from "./chat-library";
+import type { LibraryFile } from "@/features/library/library";
 
 export type AttachmentStaging = {
   /** Files being copied into uploads, plus the ones whose copy failed, as composer tiles. */

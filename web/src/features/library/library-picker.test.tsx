@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { i18n } from "@/i18n";
+import { i18n } from "@/i18n/index";
 import type { ChatLibraryFile } from "@/lib/hey-api/types.gen";
-import { ChatLibraryPicker } from "./chat-library-picker";
+import { ChatLibraryPicker } from "./library-picker";
 
 const listChatLibrary = vi.hoisted(() => vi.fn());
 const copyChatLibraryFile = vi.hoisted(() => vi.fn());

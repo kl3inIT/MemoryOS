@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { PreviewTarget } from "./chat-file-preview-modal";
+import type { PreviewTarget } from "@/features/library/file-preview-modal";
 
 /** UI selection only; content and authority remain in the runtime and readers. */
 export const ChatPanelContext = createContext<{

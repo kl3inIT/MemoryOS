@@ -2,15 +2,15 @@ import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { i18n } from "@/i18n";
-import { ChatStoragePage } from "./chat-storage-page";
+import { i18n } from "@/i18n/index";
+import { ChatStoragePage } from "./storage-page";
 
 const loadLibraryUsage = vi.hoisted(() => vi.fn());
 const loadTrashWindow = vi.hoisted(() => vi.fn());
 const getChatRetention = vi.hoisted(() => vi.fn());
 const previewChatRetention = vi.hoisted(() => vi.fn());
 
-vi.mock("./chat-library", () => ({
+vi.mock("./library", () => ({
   chatLibraryKey: ["chat-library"],
   loadLibraryUsage: (...args: unknown[]) => loadLibraryUsage(...args),
   loadTrashWindow: (...args: unknown[]) => loadTrashWindow(...args),

@@ -3,7 +3,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CircleAlert, LoaderCircle, Paperclip, SearchX, Trash2, Upload } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { ChatDialog } from "./chat-dialog";
+import { ChatDialog } from "@/features/chat/chat-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -18,7 +18,7 @@ import {
   finalizeChatFileUpload,
 } from "@/lib/hey-api/sdk.gen";
 import { isNotFound } from "@/lib/api";
-import { chatFileSchema, uploadChatFile, chatAttachmentProblem, type ChatFile } from "./chat-files";
+import { chatFileSchema, uploadChatFile, chatAttachmentProblem, type ChatFile } from "./files";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import type { ErrorMessage } from "@/lib/problem-presentation";
 

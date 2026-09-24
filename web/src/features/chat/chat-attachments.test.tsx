@@ -18,7 +18,7 @@ import {
   fileReference,
   uploadChatFile,
   chatAttachmentProblem,
-} from "./chat-files";
+} from "@/features/library/files";
 import { ChatComposerRoot, ChatComposerSend } from "./chat-composer";
 import { ChatMessageAttachment } from "./chat-attachments";
 import { i18n } from "@/i18n";

@@ -46,7 +46,7 @@ import {
 import { can } from "@/lib/resource-permissions";
 import { cn } from "@/lib/utils";
 import { chatActionError, chatField } from "@/features/chat/chat-action-utils";
-import { ChatFilePicker } from "@/features/chat/chat-file-picker";
+import { ChatFilePicker } from "@/features/library/file-picker";
 import { useMcpConnections } from "@/features/chat/chat-mcp-connections";
 import { ChatModelLogo } from "@/features/chat/chat-model-logo";
 import {

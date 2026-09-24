@@ -1,7 +1,7 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
-import { MIN_CROP, rectBetween, type CropRect } from "./chat-image-crop";
+import { MIN_CROP, rectBetween, type CropRect } from "./image-crop";
 
 /**
  * Selecting part of an image by dragging over it, the way an image editor shows a crop: everything outside
