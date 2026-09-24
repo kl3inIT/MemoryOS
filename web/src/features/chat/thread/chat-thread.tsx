@@ -29,12 +29,12 @@ import type { ConnectionState } from "@/features/chat/runtime/chat-transport";
 import { ChatMessageActions, ChatUserMessageContent } from "./chat-message-actions";
 import { ChatFilePart, ChatSharedFilePart, ChatMessageAttachment } from "./chat-attachments";
 import {
+  ChatComposerAutoSend,
   ChatComposerDraft,
   ChatComposerRoot,
   ChatComposerSend,
 } from "@/features/chat/composer/chat-composer";
 import {
-  ChatDictationAutoSend,
   ChatDictationButton,
   ChatDictationStrip,
   ChatVoiceFailure,
@@ -195,7 +195,7 @@ export function ChatThread({
                   <ComposerPrimitive.AttachmentDropzone className="rounded-2xl data-[dragging]:ring-2">
                     <ChatComposerRoot className="flex w-full flex-col gap-2 rounded-2xl border border-border-default bg-surface-raised p-2.5 shadow-sm transition-colors focus-within:border-border-strong">
                       <ChatComposerDraft />
-                      <ChatDictationAutoSend />
+                      <ChatComposerAutoSend />
                       <ChatAutoListen />
                       <ChatComposerQuote />
                       <ChatComposerAttachments />

@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ComponentProps } from "react";
 import { ComposerPrimitive, useAui, useAuiState } from "@assistant-ui/react";
 import { useApplicationSession } from "@/features/identity/application-session-context";
+import { ChatDictationAutoSend } from "@/features/voice/chat-dictation-controls";
 import { useFilesBlocked } from "./use-files-blocked";
 
 /**
@@ -61,4 +62,9 @@ export function ChatComposerSend({
   const blocked = useFilesBlocked();
   const dictating = useAuiState((state) => state.composer.dictation != null);
   return <ComposerPrimitive.Send {...props} disabled={disabled || blocked || dictating} />;
+}
+
+/** Voice Auto-Send, held back while an attachment is still uploading or unreadable, as Send is. */
+export function ChatComposerAutoSend() {
+  return <ChatDictationAutoSend filesBlocked={useFilesBlocked()} />;
 }
