@@ -1,5 +1,6 @@
 package io.memoryos.chat;
 
+import org.springframework.modulith.NamedInterface;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -11,6 +12,7 @@ import org.jspecify.annotations.Nullable;
  * is the answer that produced an artifact, or, when the list is narrowed to one conversation, the first message
  * that attached an upload there; it is what "show in conversation" scrolls to.
  */
+@NamedInterface("library")
 public record ChatLibraryFile(Source source, UUID id, String filename, String mediaType, long sizeBytes,
                               Instant createdAt, Category category, @Nullable UUID sessionId,
                               @Nullable String sessionTitle, @Nullable UUID messageId, boolean favorite,

@@ -1,5 +1,6 @@
 package io.memoryos.chat;
 
+import org.springframework.modulith.NamedInterface;
 import io.memoryos.chat.application.ChatFileProperties;
 import io.memoryos.chat.persistence.JdbcChatLibraryRepository;
 import io.memoryos.chat.persistence.JdbcChatRepository;
@@ -32,6 +33,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** Reads the caller's own files across uploads, generated files and generated images (MEM-142). */
 @Service
+@NamedInterface("library")
 public class ChatLibraryService {
     private static final Logger LOGGER = LoggerFactory.getLogger(ChatLibraryService.class);
 

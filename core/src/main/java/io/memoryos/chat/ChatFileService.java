@@ -1,5 +1,6 @@
 package io.memoryos.chat;
 
+import org.springframework.modulith.NamedInterface;
 import io.memoryos.chat.application.ChatFileProperties;
 import io.memoryos.chat.application.ChatRetentionProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
@@ -24,6 +25,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 @EnableConfigurationProperties({ChatFileProperties.class, ChatRetentionProperties.class})
+@NamedInterface("library")
 public class ChatFileService {
     private final TenantAccessResolver tenants;
     private final JdbcChatRepository chats;

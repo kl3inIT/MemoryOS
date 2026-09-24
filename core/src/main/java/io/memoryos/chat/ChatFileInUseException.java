@@ -1,5 +1,6 @@
 package io.memoryos.chat;
 
+import org.springframework.modulith.NamedInterface;
 import io.memoryos.BusinessException;
 import io.memoryos.FailureCategory;
 import java.util.List;
@@ -10,6 +11,7 @@ import java.util.UUID;
  * 200 and {@code has_associations}; MemoryOS keeps the refused command a conflict and names what holds the
  * file, so the library can say why instead of showing a bare error.
  */
+@NamedInterface("library")
 public final class ChatFileInUseException extends BusinessException {
     /** {@code kind} is AGENT or PROJECT. */
     public record Usage(String kind, UUID id, String name) {}
