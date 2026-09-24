@@ -152,90 +152,75 @@ export type MeetingUpdateRequest = {
 };
 
 /**
- * An uploaded recording being turned into a transcript
+ * The meeting's name and the people in it, as stored
  */
-export type MeetingAudio = {
-    status: 'NONE' | 'WAITING' | 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
-    failure: string | null;
-    filename: string | null;
-    sizeBytes: number;
-    provider: string | null;
-};
-
-/**
- * A moment the caller marked while the meeting was running. Only they see it.
- */
-export type MeetingBookmark = {
-    id: string;
-    atMs: number;
-    label: string;
-};
-
-export type MeetingDetail = {
-    id: string;
+export type MeetingParticulars = {
     title: string;
-    kind: 'ONLINE' | 'IN_PERSON';
-    language: string | null;
     participants: Array<string>;
-    terms: Array<string>;
-    notes: string;
-    status: 'RECORDING' | 'TRANSCRIBING' | 'ENDED';
-    provider: string | null;
     /**
-     * Whether speaker labels distinguish people
+     * The meeting's revision, which the next notes save names
      */
-    diarized: boolean;
-    createdAt: string;
-    endedAt: string | null;
     revision: number;
-    speakers: Array<MeetingSpeaker>;
-    utterances: Array<MeetingUtterance>;
-    minutes: MeetingMinutes;
-    audio: MeetingAudio;
-    /**
-     * Whether the reader recorded this meeting; only its owner may edit it
-     */
-    owned: boolean;
-    /**
-     * Who the meeting is shared with; empty for anyone but its owner
-     */
-    readers: Array<MeetingReader>;
-    /**
-     * Lines the caller starred; another reader's stars are their own
-     */
-    starred: Array<string>;
-    /**
-     * Moments the caller marked while the meeting was running
-     */
-    bookmarks: Array<MeetingBookmark>;
-    /**
-     * Whether a correction pass is running on this meeting right now
-     */
-    correcting: boolean;
 };
 
 /**
- * What the model made of the meeting once it ended
+ * A blank or absent name restores the automatic label
  */
-export type MeetingMinutes = {
-    status: 'NONE' | 'PENDING' | 'RUNNING' | 'READY' | 'FAILED';
-    failure: string | null;
-    summary: string;
+export type MeetingSpeakerRequest = {
+    name?: string | null;
+};
+
+export type MeetingSpeaker = {
+    track: 'MIC' | 'TAB';
+    label: string;
+    name: string | null;
     /**
-     * What kind of meeting this was
+     * The name this voice gave itself, offered to the owner
      */
-    kind: string;
-    generatedAt: string | null;
-    decisions: Array<MeetingMinutesItem>;
-    actions: Array<MeetingMinutesItem>;
+    suggestion?: MeetingSpeakerSuggestion;
+};
+
+export type MeetingSpeakerSuggestion = {
+    name: string;
+    utteranceId: string;
+    confidence: number;
+};
+
+/**
+ * Everyone who may read this meeting, replacing the current list
+ */
+export type MeetingShareRequest = {
+    members: Array<string>;
+    groups: Array<string>;
+};
+
+/**
+ * One member, or one Group, the meeting is shared with
+ */
+export type MeetingReader = {
+    kind: 'MEMBER' | 'GROUP';
+    id: string;
+    name: string;
+};
+
+export type MeetingNotesRequest = {
+    notes: string;
+    revision: number;
+};
+
+/**
+ * The owner's notes as stored
+ */
+export type MeetingNotes = {
+    notes: string;
     /**
-     * Whether the words standing now are the owner's rather than the model's
+     * The meeting's revision, which the next save names
      */
-    edited: boolean;
-    /**
-     * The subjects the meeting moved through, each at the line it began
-     */
-    topics: Array<MeetingMinutesItem>;
+    revision: number;
+};
+
+export type MeetingItemRequest = {
+    done: boolean;
 };
 
 /**
@@ -258,81 +243,19 @@ export type MeetingMinutesItem = {
     edited: boolean;
 };
 
-/**
- * One member, or one Group, the meeting is shared with
- */
-export type MeetingReader = {
-    kind: 'MEMBER' | 'GROUP';
-    id: string;
-    name: string;
-};
-
-export type MeetingSpeaker = {
-    track: 'MIC' | 'TAB';
-    label: string;
-    name: string | null;
-    /**
-     * The name this voice gave itself, offered to the owner
-     */
-    suggestion?: MeetingSpeakerSuggestion;
-};
-
-export type MeetingSpeakerSuggestion = {
-    name: string;
-    utteranceId: string;
-    confidence: number;
-};
-
-export type MeetingUtterance = {
-    id: string;
-    track: 'MIC' | 'TAB';
-    speaker: string;
-    startMs: number;
-    endMs: number;
-    text: string;
-    confidence: number;
-    spans: Array<MeetingUtteranceSpan>;
-    /**
-     * Who last changed what this line says; absent while nobody has
-     */
-    editSource?: 'MODEL' | 'HUMAN';
-};
-
-/**
- * A stretch of the utterance the provider was unsure of, by character offset, half-open.
- */
-export type MeetingUtteranceSpan = {
-    start: number;
-    end: number;
-    confidence: number;
-};
-
-/**
- * A blank or absent name restores the automatic label
- */
-export type MeetingSpeakerRequest = {
-    name?: string | null;
-};
-
-/**
- * Everyone who may read this meeting, replacing the current list
- */
-export type MeetingShareRequest = {
-    members: Array<string>;
-    groups: Array<string>;
-};
-
-export type MeetingNotesRequest = {
-    notes: string;
-    revision: number;
-};
-
-export type MeetingItemRequest = {
-    done: boolean;
-};
-
 export type MeetingMinutesSummaryRequest = {
     summary: string;
+};
+
+/**
+ * The summary of the minutes as it now reads
+ */
+export type MeetingMinutesSummary = {
+    summary: string;
+    /**
+     * Whether the words standing now are the owner's rather than the model's
+     */
+    edited: boolean;
 };
 
 export type MeetingMinutesItemRequest = {
@@ -1503,6 +1426,117 @@ export type MeetingCreateRequest = {
      * Names and terms the speech provider should prefer, at most 100
      */
     terms?: Array<string> | null;
+};
+
+/**
+ * An uploaded recording being turned into a transcript
+ */
+export type MeetingAudio = {
+    status: 'NONE' | 'WAITING' | 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
+    failure: string | null;
+    filename: string | null;
+    sizeBytes: number;
+    provider: string | null;
+};
+
+/**
+ * A moment the caller marked while the meeting was running. Only they see it.
+ */
+export type MeetingBookmark = {
+    id: string;
+    atMs: number;
+    label: string;
+};
+
+export type MeetingDetail = {
+    id: string;
+    title: string;
+    kind: 'ONLINE' | 'IN_PERSON';
+    language: string | null;
+    participants: Array<string>;
+    terms: Array<string>;
+    notes: string;
+    status: 'RECORDING' | 'TRANSCRIBING' | 'ENDED';
+    provider: string | null;
+    /**
+     * Whether speaker labels distinguish people
+     */
+    diarized: boolean;
+    createdAt: string;
+    endedAt: string | null;
+    revision: number;
+    speakers: Array<MeetingSpeaker>;
+    utterances: Array<MeetingUtterance>;
+    minutes: MeetingMinutes;
+    audio: MeetingAudio;
+    /**
+     * Whether the reader recorded this meeting; only its owner may edit it
+     */
+    owned: boolean;
+    /**
+     * Who the meeting is shared with; empty for anyone but its owner
+     */
+    readers: Array<MeetingReader>;
+    /**
+     * Lines the caller starred; another reader's stars are their own
+     */
+    starred: Array<string>;
+    /**
+     * Moments the caller marked while the meeting was running
+     */
+    bookmarks: Array<MeetingBookmark>;
+    /**
+     * Whether a correction pass is running on this meeting right now
+     */
+    correcting: boolean;
+};
+
+/**
+ * What the model made of the meeting once it ended
+ */
+export type MeetingMinutes = {
+    status: 'NONE' | 'PENDING' | 'RUNNING' | 'READY' | 'FAILED';
+    failure: string | null;
+    summary: string;
+    /**
+     * What kind of meeting this was
+     */
+    kind: string;
+    generatedAt: string | null;
+    decisions: Array<MeetingMinutesItem>;
+    actions: Array<MeetingMinutesItem>;
+    /**
+     * Whether the words standing now are the owner's rather than the model's
+     */
+    edited: boolean;
+    /**
+     * The subjects the meeting moved through, each at the line it began
+     */
+    topics: Array<MeetingMinutesItem>;
+};
+
+export type MeetingUtterance = {
+    id: string;
+    track: 'MIC' | 'TAB';
+    speaker: string;
+    startMs: number;
+    endMs: number;
+    text: string;
+    confidence: number;
+    spans: Array<MeetingUtteranceSpan>;
+    /**
+     * Who last changed what this line says; absent while nobody has
+     */
+    editSource?: 'MODEL' | 'HUMAN';
+};
+
+/**
+ * A stretch of the utterance the provider was unsure of, by character offset, half-open.
+ */
+export type MeetingUtteranceSpan = {
+    start: number;
+    end: number;
+    confidence: number;
 };
 
 /**
@@ -3515,9 +3549,9 @@ export type UpdateMeetingError = UpdateMeetingErrors[keyof UpdateMeetingErrors];
 
 export type UpdateMeetingResponses = {
     /**
-     * The meeting
+     * The name and the people as stored, and the new revision
      */
-    200: MeetingDetail;
+    200: MeetingParticulars;
 };
 
 export type UpdateMeetingResponse = UpdateMeetingResponses[keyof UpdateMeetingResponses];
@@ -3561,9 +3595,9 @@ export type UnstarMeetingUtteranceError = UnstarMeetingUtteranceErrors[keyof Uns
 
 export type UnstarMeetingUtteranceResponses = {
     /**
-     * The meeting with the caller's marks
+     * Every line the caller still has starred in this meeting
      */
-    200: MeetingDetail;
+    200: Array<string>;
 };
 
 export type UnstarMeetingUtteranceResponse = UnstarMeetingUtteranceResponses[keyof UnstarMeetingUtteranceResponses];
@@ -3607,9 +3641,9 @@ export type StarMeetingUtteranceError = StarMeetingUtteranceErrors[keyof StarMee
 
 export type StarMeetingUtteranceResponses = {
     /**
-     * The meeting with the caller's marks
+     * Every line the caller starred in this meeting
      */
-    200: MeetingDetail;
+    200: Array<string>;
 };
 
 export type StarMeetingUtteranceResponse = StarMeetingUtteranceResponses[keyof StarMeetingUtteranceResponses];
@@ -3654,9 +3688,9 @@ export type NameMeetingSpeakerError = NameMeetingSpeakerErrors[keyof NameMeeting
 
 export type NameMeetingSpeakerResponses = {
     /**
-     * The meeting
+     * The speaker as now named
      */
-    200: MeetingDetail;
+    200: MeetingSpeaker;
 };
 
 export type NameMeetingSpeakerResponse = NameMeetingSpeakerResponses[keyof NameMeetingSpeakerResponses];
@@ -3699,9 +3733,9 @@ export type ShareMeetingError = ShareMeetingErrors[keyof ShareMeetingErrors];
 
 export type ShareMeetingResponses = {
     /**
-     * The meeting, with its readers
+     * Everyone the meeting is now shared with
      */
-    200: MeetingDetail;
+    200: Array<MeetingReader>;
 };
 
 export type ShareMeetingResponse = ShareMeetingResponses[keyof ShareMeetingResponses];
@@ -3748,9 +3782,9 @@ export type UpdateMeetingNotesError = UpdateMeetingNotesErrors[keyof UpdateMeeti
 
 export type UpdateMeetingNotesResponses = {
     /**
-     * The meeting
+     * The notes as stored and the new revision
      */
-    200: MeetingDetail;
+    200: MeetingNotes;
 };
 
 export type UpdateMeetingNotesResponse = UpdateMeetingNotesResponses[keyof UpdateMeetingNotesResponses];
@@ -3794,9 +3828,9 @@ export type MarkMeetingMinutesItemError = MarkMeetingMinutesItemErrors[keyof Mar
 
 export type MarkMeetingMinutesItemResponses = {
     /**
-     * The meeting
+     * The item as it now reads
      */
-    200: MeetingDetail;
+    200: MeetingMinutesItem;
 };
 
 export type MarkMeetingMinutesItemResponse = MarkMeetingMinutesItemResponses[keyof MarkMeetingMinutesItemResponses];
@@ -3839,9 +3873,9 @@ export type EditMeetingMinutesSummaryError = EditMeetingMinutesSummaryErrors[key
 
 export type EditMeetingMinutesSummaryResponses = {
     /**
-     * The meeting with the summary as it now reads
+     * The summary as it now reads
      */
-    200: MeetingDetail;
+    200: MeetingMinutesSummary;
 };
 
 export type EditMeetingMinutesSummaryResponse = EditMeetingMinutesSummaryResponses[keyof EditMeetingMinutesSummaryResponses];
@@ -3885,9 +3919,9 @@ export type RemoveMeetingMinutesItemError = RemoveMeetingMinutesItemErrors[keyof
 
 export type RemoveMeetingMinutesItemResponses = {
     /**
-     * The meeting without the item
+     * Removed; the minutes now count as the owner's words
      */
-    200: MeetingDetail;
+    204: void;
 };
 
 export type RemoveMeetingMinutesItemResponse = RemoveMeetingMinutesItemResponses[keyof RemoveMeetingMinutesItemResponses];
@@ -3931,9 +3965,9 @@ export type EditMeetingMinutesItemError = EditMeetingMinutesItemErrors[keyof Edi
 
 export type EditMeetingMinutesItemResponses = {
     /**
-     * The meeting with the item as it now reads
+     * The item as it now reads
      */
-    200: MeetingDetail;
+    200: MeetingMinutesItem;
 };
 
 export type EditMeetingMinutesItemResponse = EditMeetingMinutesItemResponses[keyof EditMeetingMinutesItemResponses];
@@ -8756,9 +8790,9 @@ export type AddMeetingMinutesItemError = AddMeetingMinutesItemErrors[keyof AddMe
 
 export type AddMeetingMinutesItemResponses = {
     /**
-     * The meeting with the item added
+     * The item written in, placed after the others of its kind
      */
-    200: MeetingDetail;
+    200: MeetingMinutesItem;
 };
 
 export type AddMeetingMinutesItemResponse = AddMeetingMinutesItemResponses[keyof AddMeetingMinutesItemResponses];
@@ -9266,9 +9300,9 @@ export type BookmarkMeetingMomentError = BookmarkMeetingMomentErrors[keyof Bookm
 
 export type BookmarkMeetingMomentResponses = {
     /**
-     * The meeting with the caller's marks
+     * Every mark the caller left in this meeting
      */
-    200: MeetingDetail;
+    200: Array<MeetingBookmark>;
 };
 
 export type BookmarkMeetingMomentResponse = BookmarkMeetingMomentResponses[keyof BookmarkMeetingMomentResponses];
@@ -17205,9 +17239,9 @@ export type DismissMeetingSpeakerSuggestionError = DismissMeetingSpeakerSuggesti
 
 export type DismissMeetingSpeakerSuggestionResponses = {
     /**
-     * The meeting
+     * The speaker, no longer offered a name
      */
-    200: MeetingDetail;
+    200: MeetingSpeaker;
 };
 
 export type DismissMeetingSpeakerSuggestionResponse = DismissMeetingSpeakerSuggestionResponses[keyof DismissMeetingSpeakerSuggestionResponses];
@@ -17251,9 +17285,9 @@ export type RemoveMeetingBookmarkError = RemoveMeetingBookmarkErrors[keyof Remov
 
 export type RemoveMeetingBookmarkResponses = {
     /**
-     * The meeting with the caller's marks
+     * Every mark the caller still has in this meeting
      */
-    200: MeetingDetail;
+    200: Array<MeetingBookmark>;
 };
 
 export type RemoveMeetingBookmarkResponse = RemoveMeetingBookmarkResponses[keyof RemoveMeetingBookmarkResponses];

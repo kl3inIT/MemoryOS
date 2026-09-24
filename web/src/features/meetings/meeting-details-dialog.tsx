@@ -17,7 +17,7 @@ import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import {
   invalidateMeetingList,
-  meetingKey,
+  patchMeeting,
   updateMeetingDetails,
   type MeetingDetail,
 } from "./meetings-api";
@@ -47,10 +47,13 @@ export function MeetingDetailsDialog({ meeting }: { meeting: MeetingDetail }) {
         .split(/[,;\n]/)
         .map((name) => name.trim())
         .filter(Boolean);
-      cache.setQueryData(
-        meetingKey(meeting.id),
-        await updateMeetingDetails(meeting.id, title, names),
-      );
+      const saved = await updateMeetingDetails(meeting.id, title, names);
+      patchMeeting(cache, meeting.id, (current) => ({
+        ...current,
+        title: saved.title,
+        participants: saved.participants,
+        revision: saved.revision,
+      }));
       void invalidateMeetingList(cache);
       setOpen(false);
     } catch (failed) {
