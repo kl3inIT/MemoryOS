@@ -119,6 +119,9 @@ public class DefaultSharePointSyncService {
         } catch (StaleSyncException exception) {
             settle(work, () -> runs.terminal(work, "SUPERSEDED", null, null, null));
             return Result.SUPERSEDED;
+        } catch (RetryScheduledException exception) {
+            // The attempt is already queued again; its run stays open so the retry resumes from the checkpoint.
+            return Result.FAILED;
         } catch (SharePointProviderException exception) {
             String code = "SOURCE_SHAREPOINT_" + exception.failure().name();
             if (exception.failure() == SharePointProviderException.Failure.AUTHENTICATION) {
@@ -502,7 +505,7 @@ public class DefaultSharePointSyncService {
                 runs.retry(work, code);
                 return true;
             });
-            throw new StaleSyncException();
+            throw new RetryScheduledException();
         } catch (SharePointProviderException exception) {
             if (exception.failure() == SharePointProviderException.Failure.AUTHENTICATION
                     || exception.failure() == SharePointProviderException.Failure.QUOTA
@@ -573,4 +576,7 @@ public class DefaultSharePointSyncService {
                                 boolean includePages) {}
 
     private static final class StaleSyncException extends RuntimeException {}
+
+    /** Ends this attempt after it has queued itself again, without closing the run a retry resumes. */
+    private static final class RetryScheduledException extends RuntimeException {}
 }
