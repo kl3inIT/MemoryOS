@@ -206,6 +206,9 @@ async function mockMeetings(page: Page) {
   await page.route(`**/api/meetings/${MEETING_ID}/utterances/u2/corrections`, async (route) => {
     const body = route.request().postDataJSON() as { start: number; end: number; text: string };
     written.body = body;
+    const heard = meeting!.utterances
+      .find((utterance) => utterance.id === "u2")!
+      .text.slice(body.start, body.end);
     meeting = {
       ...meeting!,
       utterances: meeting!.utterances.map((utterance) =>
@@ -220,7 +223,27 @@ async function mockMeetings(page: Page) {
           : utterance,
       ),
     };
-    await route.fulfill({ json: meeting });
+    const line = meeting!.utterances.find((utterance) => utterance.id === "u2")!;
+    await route.fulfill({
+      json: {
+        utterance: line,
+        correction: {
+          id: "c3",
+          utteranceId: "u2",
+          runId: "r3",
+          start: body.start,
+          end: body.end,
+          before: heard,
+          after: body.text,
+          reason: "",
+          confidence: 0.4,
+          contextFit: 1,
+          meaningSafe: 1,
+          matchedGlossary: false,
+          status: "ACCEPTED",
+        },
+      },
+    });
   });
   await page.route(`**/api/meetings/${MEETING_ID}/speakers/MIC/1/suggestion`, async (route) => {
     meeting = {
@@ -857,6 +880,8 @@ for (const width of [1440, 390]) {
         .locator('ol[aria-live="polite"]')
         .getByText("còn thiếu số liệu của Vinaconex 09 và Tower 3."),
     ).toBeVisible();
+    // The answer carries the correction, so it joins the applied ones without reading them again.
+    await expect(page.getByRole("heading", { name: "Đã sửa (2)" })).toBeVisible();
 
     expect(audio.ended).toBe(true);
     await expect(page.getByRole("timer")).toHaveCount(0);

@@ -42,6 +42,7 @@ import {
 import type {
   MeetingAudio,
   MeetingCorrection,
+  MeetingCorrectionApplied,
   MeetingCorrectionRun,
   MeetingCreateRequest,
   MeetingHeadingRequest,
@@ -60,6 +61,7 @@ import type { MeetingTrack } from "./meeting-socket";
 export type {
   MeetingAudio,
   MeetingCorrection,
+  MeetingCorrectionApplied,
   MeetingCorrectionRun,
   MeetingDetail,
   MeetingHeadingRequest,
@@ -106,7 +108,7 @@ export function withSpeaker(meeting: MeetingDetail, speaker: MeetingSpeaker): Me
   };
 }
 
-/** The meeting with one decision, piece of work or topic as the server now has it. */
+/** The meeting with one decision or piece of work as the server now has it; a topic is never changed. */
 export function withMinutesItem(meeting: MeetingDetail, item: MeetingMinutesItem): MeetingDetail {
   const replace = (items: MeetingMinutesItem[]) =>
     items.map((current) => (current.id === item.id ? item : current));
@@ -117,7 +119,6 @@ export function withMinutesItem(meeting: MeetingDetail, item: MeetingMinutesItem
       ...minutes,
       decisions: replace(minutes.decisions),
       actions: replace(minutes.actions),
-      topics: replace(minutes.topics),
       // Only the owner's own words are marked edited, and writing them marks the minutes edited too.
       edited: minutes.edited || item.edited,
     },
@@ -151,6 +152,43 @@ export function withoutMinutesItem(meeting: MeetingDetail, itemId: string): Meet
       edited: true,
     },
   };
+}
+
+/** The meeting with one line as the server now has it. */
+export function withUtterance(meeting: MeetingDetail, utterance: MeetingUtterance): MeetingDetail {
+  return {
+    ...meeting,
+    utterances: meeting.utterances.map((current) =>
+      current.id === utterance.id ? utterance : current,
+    ),
+  };
+}
+
+/** The proposals with one as the server now has it; a correction written by hand is new and comes last. */
+export function withCorrection(
+  corrections: MeetingCorrection[],
+  correction: MeetingCorrection,
+): MeetingCorrection[] {
+  return corrections.some((current) => current.id === correction.id)
+    ? corrections.map((current) => (current.id === correction.id ? correction : current))
+    : [...corrections, correction];
+}
+
+/**
+ * Folds what deciding one stretch answered into the cached meeting and its proposals: the line it rewrote, when it
+ * rewrote one, and the proposal as it now stands. Neither is read again.
+ */
+export function foldCorrection(
+  cache: QueryClient,
+  meetingId: string,
+  answer: MeetingCorrectionApplied | MeetingCorrection,
+) {
+  const correction = "utterance" in answer ? answer.correction : answer;
+  if ("utterance" in answer)
+    patchMeeting(cache, meetingId, (meeting) => withUtterance(meeting, answer.utterance));
+  cache.setQueryData<MeetingCorrection[]>(correctionsKey(meetingId), (current) =>
+    current ? withCorrection(current, correction) : current,
+  );
 }
 
 export async function loadMeetings(signal: AbortSignal): Promise<MeetingSummary[]> {

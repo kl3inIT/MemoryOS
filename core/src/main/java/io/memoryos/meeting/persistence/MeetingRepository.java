@@ -448,11 +448,14 @@ public class MeetingRepository {
                 .update();
     }
 
-    /** Marks an item done or not done and returns it as it now reads; empty when the meeting has no such item. */
+    /**
+     * Marks a decision or a piece of work done or not done and returns it as it now reads; empty when the meeting has
+     * no such item. A topic is a place in the timeline, not something to finish, so it is not found here.
+     */
     public Optional<Meeting.MinutesItem> markItem(UUID tenant, UUID meeting, UUID item, boolean done) {
         return jdbc.sql("""
                 UPDATE meeting_minutes_item SET done = :done
-                WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :item
+                WHERE tenant_id = :tenant AND meeting_id = :meeting AND id = :item AND kind <> 'TOPIC'
                 RETURNING id, kind, text, owner, due, quote, source_utterance_id, done, edited
                 """).param("tenant", tenant).param("meeting", meeting).param("item", item).param("done", done)
                 .query(MeetingRepository::item).optional();
@@ -723,25 +726,34 @@ public class MeetingRepository {
                 .query(MeetingRepository::correction).list();
     }
 
-    /** Records the decision and the words that actually went in, which are the owner's when they rewrote them. */
-    /** Records what was actually replaced, so taking it back puts back exactly those words. */
-    public void accepted(UUID tenant, UUID id, UUID actor, int start, int end, String before, String after) {
-        jdbc.sql("""
+    /**
+     * Records the decision and the words that actually went in, which are the owner's when they rewrote them, so
+     * taking it back puts back exactly those words. Answers the proposal as it now stands.
+     */
+    public Meeting.Correction accepted(UUID tenant, UUID id, UUID actor, int start, int end, String before,
+            String after) {
+        return jdbc.sql("""
                 UPDATE meeting_correction
                 SET status = 'ACCEPTED', span_start = :start, span_end = :end, before = :before, after = :after,
                     decided_at = CURRENT_TIMESTAMP, decided_by = :actor
                 WHERE tenant_id = :tenant AND id = :id
+                RETURNING id, utterance_id, run_id, span_start, span_end, before, after, reason, confidence,
+                          context_fit, meaning_safe, matched_glossary, status
                 """).param("tenant", tenant).param("id", id).param("start", start).param("end", end)
-                .param("before", before).param("after", after).param("actor", actor).update();
+                .param("before", before).param("after", after).param("actor", actor)
+                .query(MeetingRepository::correction).single();
     }
 
-    public void decide(UUID tenant, UUID id, Meeting.CorrectionStatus status, UUID actor) {
-        jdbc.sql("""
+    /** Records a decision that puts nothing in, and answers the proposal as it now stands. */
+    public Meeting.Correction decide(UUID tenant, UUID id, Meeting.CorrectionStatus status, UUID actor) {
+        return jdbc.sql("""
                 UPDATE meeting_correction
                 SET status = :status, decided_at = CURRENT_TIMESTAMP, decided_by = :actor
                 WHERE tenant_id = :tenant AND id = :id
+                RETURNING id, utterance_id, run_id, span_start, span_end, before, after, reason, confidence,
+                          context_fit, meaning_safe, matched_glossary, status
                 """).param("tenant", tenant).param("id", id).param("status", status.name())
-                .param("actor", actor).update();
+                .param("actor", actor).query(MeetingRepository::correction).single();
     }
 
     /** One utterance, locked for the change about to be made to it. */
@@ -754,17 +766,20 @@ public class MeetingRepository {
     }
 
     /**
-     * Writes what a line now says, together with the event that records the change. The event is the only history:
-     * the words the provider first wrote are the {@code before} of the oldest one.
+     * Writes what a line now says, together with the event that records the change, and answers the line as a reader
+     * now sees it. The event is the only history: the words the provider first wrote are the {@code before} of the
+     * oldest one.
      */
-    public void rewrite(UUID tenant, UUID meeting, UUID utterance, String before, String after, List<Meeting.Span> spans,
-            Meeting.@Nullable EditSource source, @Nullable UUID run, UUID actor, String eventSource) {
-        jdbc.sql("""
+    public Meeting.Utterance rewrite(UUID tenant, UUID meeting, UUID utterance, String before, String after,
+            List<Meeting.Span> spans, Meeting.@Nullable EditSource source, @Nullable UUID run, UUID actor,
+            String eventSource) {
+        var rewritten = jdbc.sql("""
                 UPDATE meeting_utterance SET text = :text, spans = CAST(:spans AS jsonb), edit_source = :source
                 WHERE tenant_id = :tenant AND id = :utterance
+                RETURNING id, track, speaker, start_ms, end_ms, text, confidence, spans, edit_source
                 """).param("tenant", tenant).param("utterance", utterance).param("text", after)
                 .param("spans", JSON.writeValueAsString(spans))
-                .param("source", source == null ? null : source.name()).update();
+                .param("source", source == null ? null : source.name()).query(MeetingRepository::utterance).single();
         jdbc.sql("""
                 INSERT INTO meeting_utterance_event(tenant_id, meeting_id, utterance_id, run_id, actor_id, source,
                                                     before, after)
@@ -772,6 +787,7 @@ public class MeetingRepository {
                 """).param("tenant", tenant).param("meeting", meeting).param("utterance", utterance)
                 .param("run", run).param("actor", actor).param("eventSource", eventSource)
                 .param("before", before).param("after", after).update();
+        return rewritten;
     }
 
     /**
