@@ -8,12 +8,12 @@
 
 **Evidence.**
 
-- `gradlew.bat :core:test --tests "io.memoryos.connector.application.PostgresGoogleDriveSyncTest" --no-daemon` — all tests pass, including new regressions:
+- `gradlew.bat :core:test --tests "io.memoryos.connector.googledrive.PostgresGoogleDriveSyncTest" --no-daemon` — all tests pass, including new regressions:
   - `selectionShrinkKeepsIndexedRootsDescendantsAndRetainedApprovedLinksReady`: selection saved mid-run keeps retained direct root, folder descendant and retained approved link `READY` with unchanged `lastIndexedAt`, Documents and versions; removed root/link lose read access; old run superseded; next sync acquires nothing and creates no index attempt.
   - `selectionEditCancelsPendingInputWithoutLosingItsPreviousPublishedDocumentOrStrandingRetry`: edit during extraction keeps the previous published Document readable, cancels the pending attempt, and the next sync completes the replacement.
   - `selectionEditDoesNotRestoreStaleOrRevokedIndexedAuthority` (credential/scope/membership/mapping/excluded): no authority is restored and no version is carried forward.
   - `coveredTargetsAreDeduplicatedAndRemovingApprovalDoesNotExcludeFolderContent`: removing an approval from an indexed file still covered by a selected folder causes no re-extraction.
-- `gradlew.bat :core:test --tests "io.memoryos.connector.application.GoogleDriveCredentialAuthorityTest" --tests "io.memoryos.connector.application.GoogleDriveSelectionOperationTest" --tests "io.memoryos.connector.persistence.PostgresGoogleDriveAclRepositoryTest" --no-daemon` — pass after updating `replace` call sites for the new signature.
+- `gradlew.bat :core:test --tests "io.memoryos.connector.googledrive.GoogleDriveCredentialAuthorityTest" --tests "io.memoryos.connector.googledrive.GoogleDriveSelectionOperationTest" --tests "io.memoryos.connector.googledrive.persistence.PostgresGoogleDriveAclRepositoryTest" --no-daemon` — pass after updating `replace` call sites for the new signature.
 - Pre-fix RED run of the new tests failed at the expected assertions (retained items lost `READY`, previous published Document lost read access), confirming the tests pin the reported defect.
 
 **Environment boundary.** PostgreSQL-backed integration tests with the deterministic provider fixture; no live Google calls. The reported symptom was additionally confirmed read-only against the development database (all mappings `retrieval_eligible=false`, repeated SUCCEEDED attempts per scope revision).
