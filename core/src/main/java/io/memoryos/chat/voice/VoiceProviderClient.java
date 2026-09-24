@@ -18,6 +18,9 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class VoiceProviderClient {
     private static final Duration CHECK_TIMEOUT = Duration.ofSeconds(15);
+    /** One client for every check; a configured endpoint must not redirect the credential elsewhere. */
+    private static final HttpClient HTTP = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER)
+            .connectTimeout(CHECK_TIMEOUT).build();
     private static final int MAX_MODEL_LIST_BYTES = 1_048_576;
     private static final ObjectMapper JSON = new ObjectMapper();
     private final Semaphore checks = new Semaphore(2);
@@ -53,11 +56,11 @@ public class VoiceProviderClient {
 
     private static void listModels(VoiceConnectionService.Probe probe) {
         // A configured endpoint must not redirect the credential elsewhere; error bodies are never read.
-        try (var client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).connectTimeout(CHECK_TIMEOUT).build()) {
+        try {
             var request = HttpRequest.newBuilder(URI.create(probe.baseUrl() + "/models")).timeout(CHECK_TIMEOUT)
                     .header("Accept", "application/json");
             if (!probe.key().isEmpty()) request.header("Authorization", "Bearer " + probe.key());
-            var response = client.send(request.GET().build(), HttpResponse.BodyHandlers.ofInputStream());
+            var response = HTTP.send(request.GET().build(), HttpResponse.BodyHandlers.ofInputStream());
             byte[] body;
             try (var stream = response.body()) {
                 if (response.statusCode() < 200 || response.statusCode() >= 300) throw ChatException.providerUnavailable();
@@ -77,10 +80,10 @@ public class VoiceProviderClient {
 
     /** Soniox has no model listing; an authorized one-item transcription listing proves the key (Anarlog provider validation). */
     private static void requireSonioxListing(VoiceConnectionService.Probe probe) {
-        try (var client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).connectTimeout(CHECK_TIMEOUT).build()) {
+        try {
             var request = HttpRequest.newBuilder(URI.create(probe.baseUrl() + "/transcriptions?limit=1")).timeout(CHECK_TIMEOUT)
                     .header("Accept", "application/json").header("Authorization", "Bearer " + probe.key()).GET().build();
-            var response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            var response = HTTP.send(request, HttpResponse.BodyHandlers.ofInputStream());
             byte[] body;
             try (var stream = response.body()) {
                 if (response.statusCode() < 200 || response.statusCode() >= 300) throw ChatException.providerUnavailable();
@@ -100,10 +103,10 @@ public class VoiceProviderClient {
 
     /** A JSON array listing; only its start is read, because the Azure voice list is large. */
     private static void requireArray(String url, String header, String key) {
-        try (var client = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).connectTimeout(CHECK_TIMEOUT).build()) {
+        try {
             var request = HttpRequest.newBuilder(URI.create(url)).timeout(CHECK_TIMEOUT)
                     .header("Accept", "application/json").header(header, key).GET().build();
-            var response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            var response = HTTP.send(request, HttpResponse.BodyHandlers.ofInputStream());
             try (var stream = response.body()) {
                 if (response.statusCode() < 200 || response.statusCode() >= 300) throw ChatException.providerUnavailable();
                 String start = new String(stream.readNBytes(256), StandardCharsets.UTF_8).replace("﻿", "").stripLeading();
