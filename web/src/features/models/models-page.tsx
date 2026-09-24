@@ -36,7 +36,6 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { AccessDeniedScreen } from "@/features/identity/session-states";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -488,17 +487,13 @@ function ModelsAdministration() {
         await deleteChatProvider({
           path: { providerId: deletion.provider.id },
           query: { revision: deletion.provider.revision },
-          headers: sameOriginMutationHeaders,
           signal,
-          throwOnError: true,
         });
       else
         await deleteChatModel({
           path: { modelId: deletion.model.id },
           query: { revision: deletion.model.revision },
-          headers: sameOriginMutationHeaders,
           signal,
-          throwOnError: true,
         });
       signal.throwIfAborted();
       if (deletion.kind === "provider") {

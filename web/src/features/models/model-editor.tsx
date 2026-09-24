@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   listChatProvidersOptions,
   listConfiguredChatModelsOptions,
@@ -186,16 +185,12 @@ export function ModelEditor({
             path: { modelId: baseline.id },
             query: { revision: baseline.revision },
             body,
-            headers: sameOriginMutationHeaders,
             signal,
-            throwOnError: true,
           })
         : await createChatModel({
             path: { providerId: provider.id },
             body,
-            headers: sameOriginMutationHeaders,
             signal,
-            throwOnError: true,
           });
       signal.throwIfAborted();
       setBaseline(result.data);
@@ -232,9 +227,7 @@ export function ModelEditor({
     const generation = ++validationGeneration.current;
     const { data: result } = await validateChatModel({
       path: { modelId: snapshot.modelId },
-      headers: sameOriginMutationHeaders,
       signal,
-      throwOnError: true,
     });
     signal.throwIfAborted();
     const providerOptions = listChatProvidersOptions();

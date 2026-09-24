@@ -14,8 +14,7 @@ export function useVoiceSettings(enabled = true) {
   return useQuery({
     queryKey,
     enabled,
-    queryFn: async ({ signal }) =>
-      (await getChatVoiceSettings({ signal, throwOnError: true })).data,
+    queryFn: async ({ signal }) => (await getChatVoiceSettings({ signal })).data,
     staleTime: 60_000,
     retry: false,
   });

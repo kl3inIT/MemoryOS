@@ -10,7 +10,6 @@ import { useApplicationSession } from "./application-session-context";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { setCurrentIdentityLanguage } from "@/lib/hey-api/sdk.gen";
 import type { CurrentIdentity } from "@/lib/hey-api/types.gen";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { presentProblem } from "@/lib/problem-presentation";
 import { uiLanguage, type UiLanguage } from "@/i18n";
 import { AppearanceSection } from "./appearance-section";
@@ -34,8 +33,6 @@ export function GeneralSettingsPage() {
       await queryClient.cancelQueries({ queryKey: identityKey, exact: true });
       const { data } = await setCurrentIdentityLanguage({
         body: { uiLanguage: language },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
       return data;
     },

@@ -20,7 +20,7 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
+import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
   getGoogleDriveConfigurationQueryKey,
@@ -126,7 +126,6 @@ export function GoogleDriveSelectionPanel({
       const { data } = await getGoogleDriveSelection({
         ...pageRequest,
         signal,
-        throwOnError: true,
       });
       return data;
     },
@@ -322,7 +321,6 @@ export function GoogleDriveSelectionPanel({
       const { data } = await getGoogleDriveSelectionDraft({
         path: { sourceId },
         signal,
-        throwOnError: true,
       });
       signal.throwIfAborted();
       if (
@@ -363,7 +361,6 @@ export function GoogleDriveSelectionPanel({
           path: { sourceId },
           query: { parentId, size: 100, cursor },
           signal,
-          throwOnError: true,
         });
         signal.throwIfAborted();
         if (
@@ -394,7 +391,6 @@ export function GoogleDriveSelectionPanel({
       const { data } = await getGoogleDriveSelectionDraft({
         path: { sourceId },
         signal,
-        throwOnError: true,
       });
       signal.throwIfAborted();
       if (
@@ -437,10 +433,9 @@ export function GoogleDriveSelectionPanel({
       const requestId = tracking.begin(tracking.terminal);
       const { data } = await replaceGoogleDriveRoots({
         path: { sourceId },
-        headers: { ...sameOriginMutationHeaders, "If-Match": `"${draft.saved.revision}"` },
+        headers: { "If-Match": `"${draft.saved.revision}"` },
         body: { ...proposal, requestId },
         signal,
-        throwOnError: true,
       });
       signal.throwIfAborted();
       tracking.accept(data);
@@ -600,11 +595,9 @@ export function GoogleDriveSelectionPanel({
                   await discoverGoogleDriveLinkedDocuments({
                     path: { sourceId },
                     headers: {
-                      ...sameOriginMutationHeaders,
                       "If-Match": `"${configuration.revision}"`,
                     },
                     signal,
-                    throwOnError: true,
                   });
                   signal.throwIfAborted();
                   await onActivated();

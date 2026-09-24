@@ -151,7 +151,6 @@ function branchQuery(
         ...request,
         query: { ...request.query, cursor: pageParam },
         signal,
-        throwOnError: true,
       });
       signal.throwIfAborted();
       if (

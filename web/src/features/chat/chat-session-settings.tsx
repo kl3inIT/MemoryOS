@@ -6,7 +6,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { configureChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { ChatDialog } from "./chat-dialog";
@@ -86,9 +85,7 @@ export function ChatSessionSettings({
             await configureChatSession({
               path: { sessionId: session.id },
               body: { personaId, projectId: projectId || null },
-              headers: sameOriginMutationHeaders,
               signal: AbortSignal.timeout(30000),
-              throwOnError: true,
             });
             await onChange();
             await cache.invalidateQueries({ queryKey: ["chat-models"] });

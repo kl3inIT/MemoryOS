@@ -8,8 +8,7 @@ export function useVoiceAvailability() {
   const { actorId, authorizationVersion } = useApplicationSession();
   return useQuery({
     queryKey: [...voiceQueryKey, "availability", actorId, authorizationVersion],
-    queryFn: async ({ signal }) =>
-      (await getChatVoiceAvailability({ signal, throwOnError: true })).data,
+    queryFn: async ({ signal }) => (await getChatVoiceAvailability({ signal })).data,
     staleTime: 60_000,
     retry: false,
   });

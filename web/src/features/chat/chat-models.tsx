@@ -53,7 +53,7 @@ export function useChatModels(sessionId?: string) {
   const catalog = useQuery({
     queryKey: ["chat-models", actorId, authorizationVersion, sessionId],
     queryFn: async ({ signal }) =>
-      (await listAvailableChatModels({ query: { sessionId }, signal, throwOnError: true })).data,
+      (await listAvailableChatModels({ query: { sessionId }, signal })).data,
     retry: false,
   });
   const entries = (catalog.data ?? []).flatMap((model) =>

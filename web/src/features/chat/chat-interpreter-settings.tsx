@@ -7,7 +7,6 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   getChatInterpreterHealth,
   getChatInterpreterSettings,
@@ -30,15 +29,13 @@ export function ChatInterpreterSettings() {
   const settings = useQuery({
     queryKey: ["chat-interpreter", session.actorId, session.authorizationVersion],
     enabled: manager,
-    queryFn: async ({ signal }) =>
-      (await getChatInterpreterSettings({ signal, throwOnError: true })).data,
+    queryFn: async ({ signal }) => (await getChatInterpreterSettings({ signal })).data,
     retry: false,
   });
   const health = useQuery({
     queryKey: ["chat-interpreter-health", session.actorId, session.authorizationVersion],
     enabled: manager && settings.data?.configured === true,
-    queryFn: async ({ signal }) =>
-      (await getChatInterpreterHealth({ signal, throwOnError: true })).data,
+    queryFn: async ({ signal }) => (await getChatInterpreterHealth({ signal })).data,
     retry: false,
   });
 
@@ -49,8 +46,6 @@ export function ChatInterpreterSettings() {
     try {
       await updateChatInterpreterSettings({
         body: { enabled, revision: settings.data.revision },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
       await settings.refetch();
     } catch (failed) {

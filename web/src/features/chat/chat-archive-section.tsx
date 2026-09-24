@@ -6,7 +6,6 @@ import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { archiveAllChatSessions } from "@/lib/hey-api/sdk.gen";
 import { chatSessionsKey } from "./chat-api";
 
@@ -53,9 +52,7 @@ export function ChatArchiveSection() {
               pendingLabel={ui("Đang lưu trữ…")}
               onConfirm={async () => {
                 const { data } = await archiveAllChatSessions({
-                  headers: sameOriginMutationHeaders,
                   signal: AbortSignal.timeout(60000),
-                  throwOnError: true,
                 });
                 setArchived(data.archived);
                 await cache.invalidateQueries({ queryKey: chatSessionsKey });

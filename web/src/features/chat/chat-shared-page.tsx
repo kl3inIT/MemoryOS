@@ -34,7 +34,6 @@ async function loadShared(sessionId: string, signal: AbortSignal) {
       path: { sessionId },
       query: { after: messages.at(-1)?.id, limit: 100 },
       signal,
-      throwOnError: true,
     });
     if (data.length === 0) return messages;
     characters += data.reduce(
@@ -72,7 +71,6 @@ export function ChatSharedPage({ sessionId }: { sessionId: string }) {
           await getSharedChatSession({
             path: { sessionId },
             signal: AbortSignal.any([signal, AbortSignal.timeout(30000)]),
-            throwOnError: true,
           })
         ).data,
       ),

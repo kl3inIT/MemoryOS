@@ -11,7 +11,6 @@ import { ConnectAction, McpApiKeyDialog } from "@/features/chat/chat-mcp-options
 import { connectionStatus, needsUserAction } from "@/features/mcp/mcp-status";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { disconnectMcpConnection } from "@/lib/hey-api/sdk.gen";
 import type { McpConnection } from "@/lib/hey-api/types.gen";
 
@@ -82,8 +81,6 @@ export function ConnectionsSettingsPage() {
                       onConfirm={async () => {
                         await disconnectMcpConnection({
                           path: { serverId: connection.id },
-                          headers: sameOriginMutationHeaders,
-                          throwOnError: true,
                         });
                         await cache.invalidateQueries({ queryKey: mcpConnectionsKey });
                       }}

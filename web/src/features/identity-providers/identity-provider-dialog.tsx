@@ -7,7 +7,6 @@ import { Dialog } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { createIdentityProvider, updateIdentityProvider } from "@/lib/hey-api/sdk.gen";
 import type { IdentityProviderResponse } from "@/lib/hey-api/types.gen";
 import { identityProviderMessages } from "./identity-provider-errors";
@@ -111,8 +110,6 @@ export function IdentityProviderDialog({
             enabled,
             jitAllowed,
           },
-          headers: sameOriginMutationHeaders,
-          throwOnError: true,
         });
       } else {
         await createIdentityProvider({
@@ -124,8 +121,6 @@ export function IdentityProviderDialog({
             clientSecret,
             jitAllowed,
           },
-          headers: sameOriginMutationHeaders,
-          throwOnError: true,
         });
       }
       onSaved();

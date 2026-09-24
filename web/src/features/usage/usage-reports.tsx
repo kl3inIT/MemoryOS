@@ -15,7 +15,6 @@ import { IconButton } from "@/components/ui/icon-button";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { formatUiDate } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   listUsageReportsOptions,
   listUsageReportsQueryKey,
@@ -89,7 +88,6 @@ export function UsageReports() {
                   onSelect={() => {
                     const range = period(id);
                     request.mutate({
-                      headers: sameOriginMutationHeaders,
                       body: { from: range.from, to: range.to },
                     });
                   }}

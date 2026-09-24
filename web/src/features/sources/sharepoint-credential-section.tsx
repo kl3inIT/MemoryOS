@@ -37,7 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { isUnauthenticated, sameOriginMutationHeaders } from "@/lib/api";
+import { isUnauthenticated } from "@/lib/api";
 import {
   deleteSharePointCredentialMutation,
   getCurrentIdentityQueryKey,
@@ -171,16 +171,12 @@ export function SharePointCredentialSection({
         ? await replaceSharePointCredentialAuthentication({
             path: { credentialId: replacing.id },
             headers: {
-              ...sameOriginMutationHeaders,
               "If-Match": `"${replacing.credentialRevision}"`,
             },
             body,
-            throwOnError: true,
           })
         : await createSharePointCredential({
-            headers: sameOriginMutationHeaders,
             body,
-            throwOnError: true,
           });
       if (!active.current) return;
       notify({
@@ -211,7 +207,6 @@ export function SharePointCredentialSection({
     try {
       const result = await test.mutateAsync({
         path: { credentialId: credential.id },
-        headers: sameOriginMutationHeaders,
       });
       if (!active.current) return;
       setTestedId(credential.id);
@@ -236,7 +231,6 @@ export function SharePointCredentialSection({
     await rename.mutateAsync({
       path: { credentialId: credential.id },
       headers: {
-        ...sameOriginMutationHeaders,
         "If-Match": `"${credential.credentialRevision}"`,
       },
       body: { name: value.trim() },
@@ -252,7 +246,6 @@ export function SharePointCredentialSection({
     await remove.mutateAsync({
       path: { credentialId: credential.id },
       headers: {
-        ...sameOriginMutationHeaders,
         "If-Match": `"${credential.credentialRevision}"`,
       },
     });

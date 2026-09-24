@@ -5,7 +5,6 @@ import { Lock, Share2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { getChatSharing, setChatSharing } from "@/lib/hey-api/sdk.gen";
 import { ChatDialog } from "./chat-dialog";
 import { sharingSchema } from "./chat-workspace-api";
@@ -32,9 +31,7 @@ export function SharingDialog({
   const sharing = useQuery({
     queryKey: ["chat-sharing", sessionId],
     queryFn: async ({ signal }) =>
-      sharingSchema.parse(
-        (await getChatSharing({ path: { sessionId }, signal, throwOnError: true })).data,
-      ),
+      sharingSchema.parse((await getChatSharing({ path: { sessionId }, signal })).data),
     enabled: open,
     staleTime: 0,
   });
@@ -90,9 +87,7 @@ export function SharingDialog({
                 const { data } = await setChatSharing({
                   path: { sessionId },
                   body: { enabled: selected, revision: sharing.data!.revision },
-                  headers: sameOriginMutationHeaders,
                   signal: AbortSignal.timeout(30000),
-                  throwOnError: true,
                 });
                 cache.setQueryData(["chat-sharing", sessionId], sharingSchema.parse(data));
                 setEnabled(undefined);

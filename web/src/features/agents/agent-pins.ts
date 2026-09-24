@@ -1,6 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { listChatPersonaPins, replaceChatPersonaPins } from "@/lib/hey-api/sdk.gen";
 import { personaSchema } from "@/features/chat/chat-workspace-api";
 
@@ -23,7 +22,6 @@ export function usePinUpdates() {
           (
             await listChatPersonaPins({
               signal: AbortSignal.timeout(30000),
-              throwOnError: true,
             })
           ).data,
         )
@@ -32,9 +30,7 @@ export function usePinUpdates() {
         (
           await replaceChatPersonaPins({
             body: { personaIds: change(current) },
-            headers: sameOriginMutationHeaders,
             signal: AbortSignal.timeout(30000),
-            throwOnError: true,
           })
         ).data,
       );

@@ -5,7 +5,6 @@ import { Select } from "@/components/ui/select";
 import { TextButton } from "@/components/ui/text-button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { createChatProject } from "@/lib/hey-api/sdk.gen";
 import { ChatDialog } from "./chat-dialog";
 import {
@@ -71,9 +70,7 @@ export function ChatAddToProjectDialog({
               (
                 await createChatProject({
                   body: { name: name.trim(), description: "", instructions: "", fileIds: [] },
-                  headers: sameOriginMutationHeaders,
                   signal: AbortSignal.timeout(30000),
-                  throwOnError: true,
                 })
               ).data,
             )

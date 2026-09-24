@@ -12,7 +12,6 @@ import { HelpPopover } from "@/components/ui/help-popover";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { useActionNotifications } from "@/components/ui/action-notifications";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { chatActionError } from "@/features/chat/chat-action-utils";
 import {
   documentSetSchema,
@@ -70,7 +69,6 @@ export function DocumentSetFormPage({ documentSetId }: { documentSetId?: string 
           await getDocumentSet({
             path: { documentSetId: documentSetId! },
             signal,
-            throwOnError: true,
           })
         ).data,
       ),
@@ -147,15 +145,11 @@ function DocumentSetForm({ existing }: { existing?: DocumentSet }) {
                 path: { documentSetId: existing.id },
                 query: { revision: existing.revision },
                 body,
-                headers: sameOriginMutationHeaders,
-                throwOnError: true,
               })
             ).data
           : (
               await createDocumentSet({
                 body,
-                headers: sameOriginMutationHeaders,
-                throwOnError: true,
               })
             ).data,
       );
@@ -175,8 +169,6 @@ function DocumentSetForm({ existing }: { existing?: DocumentSet }) {
           path: { documentSetId: saved.id },
           query: { revision: saved.revision },
           body: { actorIds, groupIds },
-          headers: sameOriginMutationHeaders,
-          throwOnError: true,
         });
       }
       await cache.invalidateQueries({ queryKey: documentSetsKey });

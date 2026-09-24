@@ -8,7 +8,6 @@ import { Progress } from "@/components/ui/progress";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { listChatExports, requestChatExport } from "@/lib/hey-api/sdk.gen";
 import type { ChatExport } from "@/lib/hey-api/types.gen";
 import { chatActionError } from "./chat-action-utils";
@@ -32,8 +31,7 @@ export function ChatExportSection() {
 
   const exports = useQuery({
     queryKey: ["chat-exports", actorId, authorizationVersion],
-    queryFn: ({ signal }) =>
-      listChatExports({ signal, throwOnError: true }).then((answer) => answer.data),
+    queryFn: ({ signal }) => listChatExports({ signal }).then((answer) => answer.data),
     refetchInterval: (current) =>
       current.state.data?.some((item) => item.status === "PENDING" || item.status === "RUNNING")
         ? 3000
@@ -47,9 +45,7 @@ export function ChatExportSection() {
     setFailure(undefined);
     try {
       await requestChatExport({
-        headers: sameOriginMutationHeaders,
         signal: AbortSignal.timeout(30000),
-        throwOnError: true,
       });
       await exports.refetch();
     } catch (cause) {

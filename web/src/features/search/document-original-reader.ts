@@ -32,14 +32,14 @@ export function documentOriginalReader(
     bytes: async (signal) => {
       const { data } = await (
         variant === "chat" ? readChatDocumentOriginal : readSearchDocumentOriginal
-      )({ path, query, parseAs: "blob", signal, throwOnError: true });
+      )({ path, query, parseAs: "blob", signal });
       if (!(data instanceof Blob)) throw new Error("Invalid original content");
       return data;
     },
     sheets: async (signal) => {
       const { data } = await (
         variant === "chat" ? readChatDocumentSpreadsheet : readSearchDocumentSpreadsheet
-      )({ path, query, signal, throwOnError: true });
+      )({ path, query, signal });
       return sheetsSchema.parse(data).sheets;
     },
   };

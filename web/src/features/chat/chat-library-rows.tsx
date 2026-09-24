@@ -35,7 +35,6 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia } from "@/co
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { retryChatFile } from "@/lib/hey-api/sdk.gen";
 import { fileSize } from "./chat-code";
 import { downloadUrl } from "./chat-file-preview";
@@ -610,9 +609,7 @@ function PendingActions({
     try {
       await retryChatFile({
         path: { fileId: file.id },
-        headers: sameOriginMutationHeaders,
         signal: AbortSignal.timeout(30000),
-        throwOnError: true,
       });
       await onRetried();
     } finally {

@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { getChatPreferencesOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { saveChatPreferences } from "@/lib/hey-api/sdk.gen";
 import type { ChatPreferences, ChatPreferencesInput } from "@/lib/hey-api/types.gen";
@@ -31,8 +30,6 @@ export function useSaveChatPreferences() {
       return (
         await saveChatPreferences({
           body: { ...input(current), ...change },
-          headers: sameOriginMutationHeaders,
-          throwOnError: true,
         })
       ).data;
     },

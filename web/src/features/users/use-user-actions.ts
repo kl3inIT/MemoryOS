@@ -1,6 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   activateUserMutation,
   deactivateUserMutation,
@@ -36,13 +35,9 @@ export function useUserActions({ onUsersChanged, onInvitationIssued }: UseUserAc
         "email" in input
           ? await createInvitation({
               body: input,
-              headers: sameOriginMutationHeaders,
-              throwOnError: true,
             })
           : await rotateInvitation({
               path: input,
-              headers: sameOriginMutationHeaders,
-              throwOnError: true,
             });
       onInvitationIssued(data);
     },
@@ -98,7 +93,6 @@ export function useUserActions({ onUsersChanged, onInvitationIssued }: UseUserAc
     await runAction(entry, "activate", () =>
       activateUser.mutateAsync({
         path: { actorId },
-        headers: sameOriginMutationHeaders,
       }),
     );
   }
@@ -109,7 +103,6 @@ export function useUserActions({ onUsersChanged, onInvitationIssued }: UseUserAc
     await runAction(entry, "deactivate", () =>
       deactivateUser.mutateAsync({
         path: { actorId },
-        headers: sameOriginMutationHeaders,
       }),
     );
   }
@@ -142,7 +135,6 @@ export function useUserActions({ onUsersChanged, onInvitationIssued }: UseUserAc
     await runAction(entry, "revoke", () =>
       revokeInvitation.mutateAsync({
         path: { invitationId },
-        headers: sameOriginMutationHeaders,
       }),
     );
   }

@@ -35,7 +35,6 @@ import {
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   createAiUsageLimitMutation,
   deleteAiUsageLimitMutation,
@@ -169,7 +168,6 @@ export function UsageLimits() {
                       aria-label={ui("Enforced")}
                       onCheckedChange={(enabled) =>
                         update.mutate({
-                          headers: sameOriginMutationHeaders,
                           path: { limitId: limit.id },
                           body: {
                             scope: limit.scope,
@@ -189,7 +187,6 @@ export function UsageLimits() {
                       prominence="tertiary"
                       onClick={() =>
                         remove.mutate({
-                          headers: sameOriginMutationHeaders,
                           path: { limitId: limit.id },
                         })
                       }
@@ -376,7 +373,6 @@ function AddLimit({
             disabled={!usable || create.isPending}
             onClick={() =>
               create.mutate({
-                headers: sameOriginMutationHeaders,
                 body: {
                   scope,
                   groupId: scope === "GROUP" ? groupId : undefined,

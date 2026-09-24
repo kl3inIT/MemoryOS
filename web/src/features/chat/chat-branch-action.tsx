@@ -4,7 +4,6 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { GitBranch } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { branchChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { chatActionError } from "./chat-action-utils";
@@ -48,9 +47,7 @@ export function ChatBranchAction({
             body: originTitle
               ? { title: ui("Nhánh của {{title}}", { title: originTitle }).slice(0, 200) }
               : {},
-            headers: sameOriginMutationHeaders,
             signal: AbortSignal.timeout(120_000),
-            throwOnError: true,
           })
             .then(async ({ data }) => {
               await cache.invalidateQueries({ queryKey: chatSessionsKey });

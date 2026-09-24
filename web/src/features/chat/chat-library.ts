@@ -1,4 +1,4 @@
-import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
+import { ApiError } from "@/lib/api";
 import { i18n } from "@/i18n";
 import {
   changeChatLibraryFile,
@@ -81,19 +81,17 @@ export async function loadLibrary(
       limit,
     },
     signal,
-    throwOnError: true,
   });
   return data;
 }
 
 /** Each source owns its own delete route; an upload keeps the lifecycle the composer already uses. */
 export async function deleteLibraryFile(file: LibraryFile, signal: AbortSignal): Promise<void> {
-  const request = { headers: sameOriginMutationHeaders, signal, throwOnError: true } as const;
   if (file.source === "GENERATED")
-    await deleteChatFileArtifact({ path: { artifactId: file.id }, ...request });
+    await deleteChatFileArtifact({ path: { artifactId: file.id }, signal });
   else if (file.source === "IMAGE")
-    await deleteChatImageArtifact({ path: { artifactId: file.id }, ...request });
-  else await deleteChatFile({ path: { fileId: file.id }, ...request });
+    await deleteChatImageArtifact({ path: { artifactId: file.id }, signal });
+  else await deleteChatFile({ path: { fileId: file.id }, signal });
 }
 
 export function libraryPreviewTarget(file: LibraryFile): PreviewTarget {
@@ -182,9 +180,7 @@ export async function libraryUpload(file: LibraryFile, signal: AbortSignal): Pro
     };
   const { data } = await copyChatLibraryFile({
     path: { source: file.source, id: file.id },
-    headers: sameOriginMutationHeaders,
     signal,
-    throwOnError: true,
   });
   const copy = chatFileSchema.parse(data);
   return copy.status === "READY" ? copy : waitForChatFile(copy.id, signal);
@@ -225,9 +221,7 @@ async function changeProjectFiles(
   signal: AbortSignal,
   change: (current: string[]) => string[],
 ) {
-  const project = projectSchema.parse(
-    (await getChatProject({ path: { projectId }, signal, throwOnError: true })).data,
-  );
+  const project = projectSchema.parse((await getChatProject({ path: { projectId }, signal })).data);
   const fileIds = change(project.fileIds);
   if (fileIds.length > PROJECT_FILE_LIMIT) throw new ProjectFull();
   await updateChatProject({
@@ -239,9 +233,7 @@ async function changeProjectFiles(
       instructions: project.instructions,
       fileIds,
     },
-    headers: sameOriginMutationHeaders,
     signal,
-    throwOnError: true,
   });
 }
 
@@ -284,9 +276,7 @@ export async function changeLibraryFile(
   const { data } = await changeChatLibraryFile({
     path: { source: file.source, id: file.id },
     body: change,
-    headers: sameOriginMutationHeaders,
     signal,
-    throwOnError: true,
   });
   return data;
 }
@@ -296,7 +286,7 @@ export async function searchLibraryContent(
   query: string,
   signal: AbortSignal,
 ): Promise<ContentMatch[]> {
-  const { data } = await searchChatLibraryContent({ query: { query }, signal, throwOnError: true });
+  const { data } = await searchChatLibraryContent({ query: { query }, signal });
   return data;
 }
 
@@ -318,22 +308,20 @@ export function highlightParts(text: string, query: string): { text: string; mat
 
 /** What the caller's library holds and the limit that applies to them (MEM-152). */
 export async function loadLibraryUsage(signal: AbortSignal) {
-  const { data } = await getChatLibraryUsage({ signal, throwOnError: true });
+  const { data } = await getChatLibraryUsage({ signal });
   return data;
 }
 
 /** How many days a deleted file stays restorable in this deployment. */
 export async function loadTrashWindow(signal: AbortSignal) {
-  const { data } = await getChatLibraryTrashWindow({ signal, throwOnError: true });
+  const { data } = await getChatLibraryTrashWindow({ signal });
   return data.days;
 }
 
 export async function restoreLibraryFile(file: LibraryFile, signal: AbortSignal): Promise<void> {
   await restoreChatLibraryFile({
     path: { source: file.source, id: file.id },
-    headers: sameOriginMutationHeaders,
     signal,
-    throwOnError: true,
   });
 }
 
@@ -341,17 +329,13 @@ export async function restoreLibraryFile(file: LibraryFile, signal: AbortSignal)
 export async function purgeLibraryFile(file: LibraryFile, signal: AbortSignal): Promise<void> {
   await purgeChatLibraryFile({
     path: { source: file.source, id: file.id },
-    headers: sameOriginMutationHeaders,
     signal,
-    throwOnError: true,
   });
 }
 
 export async function emptyLibraryTrash(signal: AbortSignal): Promise<number> {
   const { data } = await emptyChatLibraryTrash({
-    headers: sameOriginMutationHeaders,
     signal,
-    throwOnError: true,
   });
   return data.purged;
 }

@@ -13,7 +13,6 @@ export async function waitForSourceOperation(operation: SourceOperation, signal:
     const response = await getSourceOperation({
       path: { operationId: operation.id },
       signal,
-      throwOnError: true,
     });
     operation = response.data;
   }

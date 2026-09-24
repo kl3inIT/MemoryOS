@@ -15,7 +15,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { deleteChatVoiceConnection } from "@/lib/hey-api/sdk.gen";
 import type { VoiceConnectionResponse, VoiceProviderResponse } from "@/lib/hey-api/types.gen";
 import { VoiceProviderDialog } from "./voice-provider-dialog";
@@ -193,8 +192,6 @@ export function VoiceProviderCard({
                 await deleteChatVoiceConnection({
                   path: { provider: provider.provider },
                   query: { revision: connection.revision ?? 0 },
-                  headers: sameOriginMutationHeaders,
-                  throwOnError: true,
                 });
                 await onChanged();
               }}

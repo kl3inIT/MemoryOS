@@ -24,7 +24,7 @@ function useWebSupport(sessionId?: string, modelId?: string) {
   const available = useQuery({
     queryKey: ["chat-web", session.actorId, session.authorizationVersion, sessionId],
     queryFn: async ({ signal }) =>
-      (await getChatWebAvailability({ query: { sessionId }, signal, throwOnError: true })).data,
+      (await getChatWebAvailability({ query: { sessionId }, signal })).data,
     retry: false,
   });
   const selectedModel = modelId ?? available.data?.inheritedModelId;

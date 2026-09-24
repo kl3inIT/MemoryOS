@@ -9,7 +9,6 @@ import { Switch } from "@/components/ui/switch";
 import { CatalogDialog } from "@/features/models/catalog-dialog";
 import { connectionStatus, needsUserAction, usableInTurn } from "@/features/mcp/mcp-status";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { saveMcpConnectionApiKey, startMcpConnectionAuthorization } from "@/lib/hey-api/sdk.gen";
 import type { McpConnection } from "@/lib/hey-api/types.gen";
 import { composerMenuRow } from "./chat-composer-menu-row";
@@ -149,7 +148,6 @@ export function ConnectAction({
           oauthClientId,
           returnPath: returnPath ?? (sessionId === undefined ? "/" : `/chat/${sessionId}`),
         },
-        headers: sameOriginMutationHeaders,
       }),
     onSuccess: (response) => {
       const url = response.data?.authorizationUrl;
@@ -214,7 +212,6 @@ export function McpApiKeyDialog({
       await saveMcpConnectionApiKey({
         path: { serverId: connection.id },
         body: { apiKey: value },
-        headers: sameOriginMutationHeaders,
       }),
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: mcpConnectionsKey });

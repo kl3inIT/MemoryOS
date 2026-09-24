@@ -17,7 +17,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { getChatRetention, previewChatRetention, saveChatRetention } from "@/lib/hey-api/sdk.gen";
 import { chatSessionsKey } from "./chat-api";
 import { chatActionError } from "./chat-action-utils";
@@ -39,8 +38,7 @@ export function ChatRetentionSection() {
   const { actorId, authorizationVersion } = useApplicationSession();
   const policy = useQuery({
     queryKey: ["chat-retention", actorId, authorizationVersion],
-    queryFn: ({ signal }) =>
-      getChatRetention({ signal, throwOnError: true }).then((answer) => answer.data),
+    queryFn: ({ signal }) => getChatRetention({ signal }).then((answer) => answer.data),
   });
 
   return (
@@ -82,7 +80,7 @@ function RetentionForm({ saved }: { saved: number | null }) {
   const preview = useQuery({
     queryKey: ["chat-retention-preview", actorId, authorizationVersion, days],
     queryFn: ({ signal }) =>
-      previewChatRetention({ query: { days: days ?? undefined }, signal, throwOnError: true }).then(
+      previewChatRetention({ query: { days: days ?? undefined }, signal }).then(
         (answer) => answer.data,
       ),
     enabled: days !== null,
@@ -96,9 +94,7 @@ function RetentionForm({ saved }: { saved: number | null }) {
       await saveChatRetention({
         // Leaving the field out is what clears the policy; there is no partial update to confuse it with.
         body: days === null ? {} : { days },
-        headers: sameOriginMutationHeaders,
         signal: AbortSignal.timeout(30000),
-        throwOnError: true,
       });
       setDone(true);
       await cache.invalidateQueries({ queryKey: ["chat-retention"] });

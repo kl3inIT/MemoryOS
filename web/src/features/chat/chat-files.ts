@@ -1,6 +1,5 @@
 import type { AttachmentAdapter, PendingAttachment } from "@assistant-ui/react";
 import { z } from "zod";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   getChatFile,
   getChatFilePolicy,
@@ -59,7 +58,7 @@ export async function uploadChatFile(
   signal: AbortSignal,
   progress: (value: number) => void,
 ) {
-  const { data: policy } = await getChatFilePolicy({ signal, throwOnError: true });
+  const { data: policy } = await getChatFilePolicy({ signal });
   if (!policy.maxSizeBytes || file.size < 1 || file.size > policy.maxSizeBytes)
     throw new AttachmentFailure({
       key: "attachmentSize",
@@ -76,9 +75,7 @@ export async function uploadChatFile(
           sizeBytes: file.size,
           sha256: checksum,
         },
-        headers: sameOriginMutationHeaders,
         signal,
-        throwOnError: true,
       }),
     signal,
   );
@@ -104,9 +101,7 @@ export async function uploadChatFile(
           () =>
             finalizeChatFileUpload({
               path: { fileId: saved.id },
-              headers: sameOriginMutationHeaders,
               signal,
-              throwOnError: true,
             }),
           signal,
         )
@@ -119,9 +114,7 @@ export async function uploadChatFile(
 export async function waitForChatFile(id: string, signal: AbortSignal): Promise<ChatFile> {
   for (;;) {
     signal.throwIfAborted();
-    const file = chatFileSchema.parse(
-      (await getChatFile({ path: { fileId: id }, signal, throwOnError: true })).data,
-    );
+    const file = chatFileSchema.parse((await getChatFile({ path: { fileId: id }, signal })).data);
     if (file.status === "READY") return file;
     if (file.status !== "PROCESSING") throw new AttachmentFailure({ key: "attachmentProcessing" });
     await new Promise<void>((resolve, reject) => {

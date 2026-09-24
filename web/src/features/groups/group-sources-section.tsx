@@ -16,7 +16,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCapabilityAuthority } from "@/features/identity/application-session-context";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   listGroupSourcesOptions,
   listSourcesOptions,
@@ -113,7 +112,6 @@ export const GroupSourcesSection = forwardRef<GroupDraftSectionHandle, GroupSour
           additions.map(async (sourceId) => {
             const { data } = await listSourceGroups({
               path: { sourceId },
-              throwOnError: true,
             });
             const groupIds = new Set(
               data.items.filter((item) => item.systemKey === null).map((item) => item.id),
@@ -126,16 +124,12 @@ export const GroupSourcesSection = forwardRef<GroupDraftSectionHandle, GroupSour
           ...additionReplacements.map((replacement) =>
             updateSourceGroups({
               path: { sourceId: replacement.sourceId },
-              headers: sameOriginMutationHeaders,
               body: { groupIds: replacement.groupIds },
-              throwOnError: true,
             }),
           ),
           ...removals.map((sourceId) =>
             removeGroupSource({
               path: { groupId: group.id, sourceId },
-              headers: sameOriginMutationHeaders,
-              throwOnError: true,
             }),
           ),
         ]);

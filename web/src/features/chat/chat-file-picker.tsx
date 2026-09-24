@@ -17,7 +17,7 @@ import {
   deleteChatFile,
   finalizeChatFileUpload,
 } from "@/lib/hey-api/sdk.gen";
-import { isNotFound, sameOriginMutationHeaders } from "@/lib/api";
+import { isNotFound } from "@/lib/api";
 import { chatFileSchema, uploadChatFile, chatAttachmentProblem, type ChatFile } from "./chat-files";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import type { ErrorMessage } from "@/lib/problem-presentation";
@@ -187,9 +187,7 @@ export function ChatFilePickerContent({
     queryFn: async ({ signal }) => {
       const recent = chatFileSchema
         .array()
-        .parse(
-          (await listChatFiles({ query: { offset, limit: 30 }, signal, throwOnError: true })).data,
-        );
+        .parse((await listChatFiles({ query: { offset, limit: 30 }, signal })).data);
       const pageSize = recent.length;
       const unavailable: string[] = [];
       for (const id of selected.filter((id) => !recent.some((file) => file.id === id))) {
@@ -345,8 +343,6 @@ export function ChatFilePickerContent({
                   void action(() =>
                     retryChatFile({
                       path: { fileId: file.id },
-                      headers: sameOriginMutationHeaders,
-                      throwOnError: true,
                     }),
                   )
                 }
@@ -363,8 +359,6 @@ export function ChatFilePickerContent({
                   void action(() =>
                     finalizeChatFileUpload({
                       path: { fileId: file.id },
-                      headers: sameOriginMutationHeaders,
-                      throwOnError: true,
                     }),
                   )
                 }
@@ -398,8 +392,6 @@ export function ChatFilePickerContent({
                 onConfirm={async () => {
                   await deleteChatFile({
                     path: { fileId: file.id },
-                    headers: sameOriginMutationHeaders,
-                    throwOnError: true,
                   });
                   await files.refetch();
                 }}

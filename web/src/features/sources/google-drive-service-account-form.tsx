@@ -5,7 +5,6 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   createGoogleDriveServiceAccount,
   replaceGoogleDriveServiceAccount,
@@ -71,18 +70,14 @@ export function GoogleDriveServiceAccountForm({
         ? await replaceGoogleDriveServiceAccount({
             path: { credentialId: replacing.id },
             headers: {
-              ...sameOriginMutationHeaders,
               "If-Match": `"${replacing.credentialRevision}"`,
             },
             body,
             signal: request.signal,
-            throwOnError: true,
           })
         : await createGoogleDriveServiceAccount({
-            headers: sameOriginMutationHeaders,
             body,
             signal: request.signal,
-            throwOnError: true,
           });
       onSaved(data);
     } catch (cause) {
