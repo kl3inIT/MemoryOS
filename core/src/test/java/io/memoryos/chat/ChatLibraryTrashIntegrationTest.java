@@ -235,7 +235,8 @@ class ChatLibraryTrashIntegrationTest {
                 java.time.Instant.now().plusSeconds(600));
         new JdbcObjectUploadRepository(jdbc).create(tenant, uploadId, objectId, spec.purpose());
         var id = files.create(tenant, owner, UUID.randomUUID(), uploadId, spec);
-        jdbc.sql("UPDATE chat_user_file SET status='READY', plaintext='Test' WHERE id=:id").param("id", id).update();
+        jdbc.sql("UPDATE chat_user_file SET status='READY', plaintext='Test', stored_object_id=:object WHERE id=:id")
+                .param("object", objectId.value()).param("id", id).update();
         return id;
     }
 
