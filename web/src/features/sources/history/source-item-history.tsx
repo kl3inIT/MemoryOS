@@ -28,11 +28,11 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { listSourceIndexAttemptsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceIndexAttempt } from "@/lib/hey-api/types.gen";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
-import { sourceStatusMessage } from "./source-errors";
+import { sourceStatusMessage } from "@/features/sources/shared/source-errors";
 import { historyDuration } from "./source-history";
 import { HistoryTime } from "./source-history-presentation";
-import { terminalOperationStatuses } from "./source-operations";
-import { SourceSectionIcon } from "./source-section-icon";
+import { terminalOperationStatuses } from "@/features/sources/shared/source-operations";
+import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
 
 /** File indexing attempts of a Source; it loads when its section tab opens. */
 export function SourceItemHistory({ sourceId }: { sourceId: string }) {

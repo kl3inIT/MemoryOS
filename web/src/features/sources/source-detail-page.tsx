@@ -43,28 +43,35 @@ import {
   removeSourceItemMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceItem, SourceOperation } from "@/lib/hey-api/types.gen";
-import { sourceMutationError, sourceStatusMessage } from "./source-errors";
-import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
-import { SourceSummaryCard } from "./source-summary-card";
+import { sourceMutationError, sourceStatusMessage } from "@/features/sources/shared/source-errors";
+import {
+  DirectUploadError,
+  putAuthorizedObject,
+  sha256,
+} from "@/features/sources/upload/direct-upload";
+import { SourceSummaryCard } from "@/features/sources/shared/source-summary-card";
 import { cn } from "@/lib/utils";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
-import { FileTypeIcon } from "./file-type-icon";
-import { findSourceProvider } from "./source-provider-catalog";
-import { useSourceUploadRecovery } from "./source-upload-recovery-context";
-import { GoogleDrivePanel } from "./google-drive-panel";
-import { SharePointPanel } from "./sharepoint-panel";
-import { waitForSourceOperation } from "./source-operations";
-import { SourceItemHistory } from "./source-item-history";
-import { SourceRunHistory } from "./source-run-history";
-import { HistoryTime, ItemStatus } from "./source-history-presentation";
+import { FileTypeIcon } from "@/features/sources/shared/file-type-icon";
+import { findSourceProvider } from "@/features/sources/shared/source-provider-catalog";
+import { useSourceUploadRecovery } from "@/features/sources/upload/source-upload-recovery-context";
+import { GoogleDrivePanel } from "@/features/sources/google-drive/google-drive-panel";
+import { SharePointPanel } from "@/features/sources/sharepoint/sharepoint-panel";
+import { waitForSourceOperation } from "@/features/sources/shared/source-operations";
+import { SourceItemHistory } from "@/features/sources/history/source-item-history";
+import { SourceRunHistory } from "@/features/sources/history/source-run-history";
+import { HistoryTime, ItemStatus } from "@/features/sources/history/source-history-presentation";
 import { SourceGroupsSection } from "./source-groups-section";
 import { SourceManagerSection } from "./source-manager-section";
 import { useGlobalCapability } from "@/features/identity/application-session-context";
-import { SourceSectionIcon } from "./source-section-icon";
+import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
 import { SourceActionsMenu } from "./source-actions-menu";
 import { SourceFileActions } from "./source-file-actions";
 import { type SourceMetadataField, SourceMetadataDialog } from "./source-metadata-dialog";
-import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
+import {
+  SourceAccessBadge,
+  SourceStatusBadge,
+} from "@/features/sources/shared/source-status-badge";
 import { type SourceSection, SourceSectionTabs } from "./source-section-tabs";
 import { can } from "@/lib/resource-permissions";
 

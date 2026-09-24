@@ -24,7 +24,7 @@ import {
   listSourcesQueryKey,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { CreateSharePointSourceData } from "@/lib/hey-api/types.gen";
-import { sourceMutationError, sourceStatusMessage } from "./source-errors";
+import { sourceMutationError, sourceStatusMessage } from "@/features/sources/shared/source-errors";
 import { SharePointCredentialSection } from "./sharepoint-credential-section";
 import { SharePointIcon } from "./sharepoint-icon";
 import { SharePointScheduleFields } from "./sharepoint-schedule-fields";
@@ -36,10 +36,10 @@ import {
   sharePointScopeRequest,
   type SharePointScopeDraft,
 } from "./sharepoint-scope";
-import { SourceAccessChoice } from "./source-access-choice";
-import { SourceGroupPicker } from "./source-group-picker";
+import { SourceAccessChoice } from "@/features/sources/shared/source-access-choice";
+import { SourceGroupPicker } from "@/features/sources/shared/source-group-picker";
 import { sharePointSetupSteps, type SharePointSetupStep } from "./sharepoint-setup-search";
-import { useSourceSelectionOperation } from "./source-selection-operation";
+import { useSourceSelectionOperation } from "@/features/sources/shared/source-selection-operation";
 
 export function CreateSharePointSourcePage() {
   const session = useApplicationSession();

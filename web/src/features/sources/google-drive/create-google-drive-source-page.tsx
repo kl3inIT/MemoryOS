@@ -55,22 +55,22 @@ import type {
   SourceSummary,
 } from "@/lib/hey-api/types.gen";
 import { launchGoogleDriveAuthorization } from "./google-drive-authorization";
-import { SourceAccessChoice } from "./source-access-choice";
+import { SourceAccessChoice } from "@/features/sources/shared/source-access-choice";
 import { GoogleDriveLinks } from "./google-drive-links";
 import { googleDriveSelectionError, parseGoogleDriveLinks } from "./google-drive-selection";
 import {
   GoogleDriveOAuthClientInput,
   type GoogleDriveOAuthClientInputHandle,
 } from "./google-drive-oauth-client-input";
-import { sourceMutationError } from "./source-errors";
+import { sourceMutationError } from "@/features/sources/shared/source-errors";
 import { GoogleDriveConnectionAccount } from "./google-drive-connection-account";
 import { googleDriveCredentialReady } from "./google-drive-credential";
 import { GoogleDriveCredentialActions } from "./google-drive-credential-actions";
 import { GoogleDriveServiceAccountForm } from "./google-drive-service-account-form";
 import { GoogleDriveIcon } from "./google-drive-icon";
 import { useGoogleDriveSelectionOperation } from "./google-drive-selection-operation";
-import { sourceStatusMessage } from "./source-errors";
-import { SourceGroupPicker } from "./source-group-picker";
+import { sourceStatusMessage } from "@/features/sources/shared/source-errors";
+import { SourceGroupPicker } from "@/features/sources/shared/source-group-picker";
 
 /** One bordered block per group of settings, as in Vanta's integration setup. */
 const sectionCard = "space-y-5 rounded-2xl border border-border-default bg-surface-base p-6";

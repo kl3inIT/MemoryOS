@@ -19,8 +19,8 @@ import {
   updateSourceAccessMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
-import { SourceAccessChoice } from "./source-access-choice";
-import { sourceMutationError } from "./source-errors";
+import { SourceAccessChoice } from "@/features/sources/shared/source-access-choice";
+import { sourceMutationError } from "@/features/sources/shared/source-errors";
 
 export type SourceMetadataField = "name" | "access";
 

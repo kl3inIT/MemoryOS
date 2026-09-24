@@ -52,7 +52,7 @@ import type {
 import { startGoogleDriveAuthorization } from "@/lib/hey-api/sdk.gen";
 import { launchGoogleDriveAuthorization } from "./google-drive-authorization";
 import { googleDriveConfigurationConnected } from "./google-drive-credential";
-import { waitForSourceOperation } from "./source-operations";
+import { waitForSourceOperation } from "@/features/sources/shared/source-operations";
 import { reconcileGoogleDriveConfiguration } from "./google-drive-selection";
 import { GoogleDriveSelectionPanel } from "./google-drive-selection-panel";
 import {
@@ -63,9 +63,9 @@ import {
   isGoogleDriveRevisionConflict,
   sourceMutationError,
   sourceStatusMessage,
-} from "./source-errors";
-import { SourceSectionIcon } from "./source-section-icon";
-import { SourceSummaryCard } from "./source-summary-card";
+} from "@/features/sources/shared/source-errors";
+import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
+import { SourceSummaryCard } from "@/features/sources/shared/source-summary-card";
 import {
   formatSyncInterval,
   maxSyncIntervalValue,
@@ -74,7 +74,7 @@ import {
   syncIntervalUnitName,
   syncIntervalUnits,
   type SyncIntervalUnit,
-} from "./sync-interval";
+} from "@/features/sources/shared/sync-interval";
 import { can } from "@/lib/resource-permissions";
 
 type IntervalDraft = Pick<GetGoogleDriveConfigurationResponse, "scheduleRevision"> & {

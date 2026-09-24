@@ -15,8 +15,8 @@ import type {
   GoogleDriveSelectionTreeResponse,
 } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
-import { FileTypeIcon } from "./file-type-icon";
-import { isGoogleDriveRevisionConflict } from "./source-errors";
+import { FileTypeIcon } from "@/features/sources/shared/file-type-icon";
+import { isGoogleDriveRevisionConflict } from "@/features/sources/shared/source-errors";
 
 /**
  * Drive is listed in one call whatever the page size, so a wider page means fewer of the round trips

@@ -9,7 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { findSourceProvider } from "@/features/sources/source-provider-catalog";
+import { findSourceProvider } from "@/features/sources/shared/source-provider-catalog";
 import {
   documentKind,
   type DocumentKind,

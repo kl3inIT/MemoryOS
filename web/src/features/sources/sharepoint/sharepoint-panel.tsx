@@ -33,12 +33,12 @@ import type {
   SourceOperation,
   SourceSummary,
 } from "@/lib/hey-api/types.gen";
-import { formatSyncInterval } from "./sync-interval";
-import { sourceMutationError, sourceStatusMessage } from "./source-errors";
-import { SourceSectionIcon } from "./source-section-icon";
-import { SourceSummaryCard } from "./source-summary-card";
-import { useSourceSelectionOperation } from "./source-selection-operation";
-import { waitForSourceOperation } from "./source-operations";
+import { formatSyncInterval } from "@/features/sources/shared/sync-interval";
+import { sourceMutationError, sourceStatusMessage } from "@/features/sources/shared/source-errors";
+import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
+import { SourceSummaryCard } from "@/features/sources/shared/source-summary-card";
+import { useSourceSelectionOperation } from "@/features/sources/shared/source-selection-operation";
+import { waitForSourceOperation } from "@/features/sources/shared/source-operations";
 import { SharePointScheduleFields } from "./sharepoint-schedule-fields";
 import { SharePointScopeFields } from "./sharepoint-scope-fields";
 import {

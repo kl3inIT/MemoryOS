@@ -51,7 +51,7 @@ import {
   replaceSharePointCredentialAuthentication,
 } from "@/lib/hey-api/sdk.gen";
 import type { SharePointCredentialResponse } from "@/lib/hey-api/types.gen";
-import { sourceMutationError } from "./source-errors";
+import { sourceMutationError } from "@/features/sources/shared/source-errors";
 import { SharePointEntraGuide } from "./sharepoint-entra-guide";
 import {
   SharePointCredentialInput,

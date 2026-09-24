@@ -2,7 +2,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { GoogleDriveCredentialResponse } from "@/lib/hey-api/types.gen";
 import { GoogleDriveIcon } from "./google-drive-icon";
-import { statusPill } from "./source-status-presentation";
+import { statusPill } from "@/features/sources/shared/source-status-presentation";
 
 type GoogleDriveConnectionAccountProps = {
   credential: GoogleDriveCredentialResponse | undefined;

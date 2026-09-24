@@ -12,7 +12,7 @@ import {
 import { IconButton } from "@/components/ui/icon-button";
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import type { GoogleDriveCredentialResponse } from "@/lib/hey-api";
+import type { GoogleDriveCredentialResponse } from "@/lib/hey-api/index";
 import type { ErrorMessage } from "@/lib/problem-presentation";
 
 /**

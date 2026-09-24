@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { sourceMutationError, sourceStatusMessage } from "@/features/sources/source-errors";
+import { sourceMutationError, sourceStatusMessage } from "./source-errors";
 import { ApiError } from "@/lib/api";
 
 describe("source error presentation", () => {

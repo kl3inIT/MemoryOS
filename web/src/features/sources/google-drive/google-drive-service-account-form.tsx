@@ -14,7 +14,7 @@ import {
   GoogleDriveServiceAccountInput,
   type GoogleDriveServiceAccountInputHandle,
 } from "./google-drive-service-account-input";
-import { sourceMutationError } from "./source-errors";
+import { sourceMutationError } from "@/features/sources/shared/source-errors";
 
 type GoogleDriveServiceAccountFormProps = {
   /** The service-account credential whose key is replaced; absent when creating one. */

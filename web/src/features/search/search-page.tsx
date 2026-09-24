@@ -34,7 +34,7 @@ import { SearchFilterMenu, type SearchFilterOption } from "./search-filter-menu"
 import { SearchSourceRail, type SearchSourceOption } from "./search-source-rail";
 import { DocumentSourceIcon } from "./document-source-icon";
 import type { DocumentSourceType } from "./document-source-presentation";
-import { sourceProviders } from "@/features/sources/source-provider-catalog";
+import { sourceProviders } from "@/features/sources/shared/source-provider-catalog";
 import { SearchResultCard } from "./search-result-card";
 import { friendlyMediaType } from "./search-presentation";
 import {

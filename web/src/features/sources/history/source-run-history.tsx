@@ -55,13 +55,13 @@ import {
 import type { SourceRun, SourceRunCounts, SourceRunError } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
-import { sourceStatusMessage } from "./source-errors";
+import { sourceStatusMessage } from "@/features/sources/shared/source-errors";
 import { historyDuration, runIsActive } from "./source-history";
 import { HistoryTime, RunOutcome } from "./source-history-presentation";
-import { statusPill } from "./source-status-presentation";
+import { statusPill } from "@/features/sources/shared/source-status-presentation";
 import { ExpandableRow } from "./expandable-row";
 import { type SourceFilterOption, SourceFilterMenu } from "./source-filter-menu";
-import { SourceSectionIcon } from "./source-section-icon";
+import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
 
 const primaryCounts: Array<[keyof SourceRunCounts, string]> = [
   ["scanned", "Checked"],

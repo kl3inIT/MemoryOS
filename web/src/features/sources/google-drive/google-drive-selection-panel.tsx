@@ -54,8 +54,8 @@ import {
   isGoogleDriveRevisionConflict,
   sourceMutationError,
   sourceStatusMessage,
-} from "./source-errors";
-import { SourceSectionIcon } from "./source-section-icon";
+} from "@/features/sources/shared/source-errors";
+import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
 
 /** Radix Select reserves the empty value, so the unfiltered choice has its own. */
 const allKinds = "ALL";

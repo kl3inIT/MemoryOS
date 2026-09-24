@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/command";
 import { ClampedList } from "@/components/ui/clamped-list";
 import { IconButton } from "@/components/ui/icon-button";
-import { findSourceProvider } from "@/features/sources/source-provider-catalog";
+import { findSourceProvider } from "@/features/sources/shared/source-provider-catalog";
 
 export type SourceOption = { id: string; name: string; type: string };
 

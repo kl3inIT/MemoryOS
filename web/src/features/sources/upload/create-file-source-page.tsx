@@ -23,10 +23,10 @@ import {
   listSourcesQueryKey,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { DirectUploadError, putAuthorizedObject, sha256 } from "./direct-upload";
-import { sourceMutationError } from "./source-errors";
+import { sourceMutationError } from "@/features/sources/shared/source-errors";
 import { useSourceUploadRecovery } from "./source-upload-recovery-context";
-import { SourceAccessChoice } from "./source-access-choice";
-import { SourceGroupPicker } from "./source-group-picker";
+import { SourceAccessChoice } from "@/features/sources/shared/source-access-choice";
+import { SourceGroupPicker } from "@/features/sources/shared/source-group-picker";
 
 export function CreateFileSourcePage() {
   const ui = useAppTranslation();

@@ -12,8 +12,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { historyRelativeTime, runHasNoChanges, runIsActive } from "./source-history";
-import { SourceHint } from "./source-hint";
-import { statusPill } from "./source-status-presentation";
+import { SourceHint } from "@/features/sources/shared/source-hint";
+import { statusPill } from "@/features/sources/shared/source-status-presentation";
 
 /** A local time; `relative` words times within the last week as "6 minutes ago". */
 export function HistoryTime({
