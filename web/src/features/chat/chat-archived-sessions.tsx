@@ -1,7 +1,7 @@
 import { useDeferredValue, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Archive, ArchiveRestore, MessageSquare, Search, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Search, Trash2 } from "lucide-react";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -235,10 +235,6 @@ export function ChatArchivedSessionsPage() {
             {ui("Tải thêm")}
           </Button>
         )}
-        <p className="font-secondary-body text-content-muted">
-          <MessageSquare className="mr-1 inline size-3.5" aria-hidden="true" />
-          {ui("Gửi tin nhắn mới vào một hội thoại đã lưu trữ sẽ tự bỏ lưu trữ nó.")}
-        </p>
       </div>
     </SettingsLayout>
   );

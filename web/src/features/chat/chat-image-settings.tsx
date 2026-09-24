@@ -210,9 +210,6 @@ export function ChatImageSettings() {
             ) : (
               <p className={notice}>{ui("Chọn một nhà cung cấp để bật tạo ảnh trong Chat.")}</p>
             )}
-            <p className="text-sm text-content-muted">
-              {ui("Sửa ảnh dùng cùng nhà cung cấp, nên tắt tạo ảnh cũng tắt sửa ảnh.")}
-            </p>
           </section>
           <section aria-label={ui("Nhà cung cấp")} className="mt-8 space-y-3">
             <h2 className="text-lg font-semibold">{ui("Nhà cung cấp")}</h2>

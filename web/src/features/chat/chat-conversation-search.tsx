@@ -59,9 +59,6 @@ export function ChatConversationSearch() {
               );
           }}
         />
-        <p className="mt-2 text-xs text-content-muted">
-          {ui("Tìm nội dung trong nhánh hội thoại đang mở.")}
-        </p>
         {hits.length === 500 && (
           <p role="status" className="mt-1 text-xs text-content-muted">
             {ui("Hiển thị tối đa 500 kết quả. Hãy nhập cụ thể hơn.")}

@@ -452,7 +452,7 @@ export function MeetingPage({
             role="status"
             className="rounded-xl border border-border-default bg-surface-sunken px-4 py-3 text-sm text-content-secondary"
           >
-            {ui("Cuộc họp chưa kết thúc nhưng không còn ghi. Ghi tiếp sẽ nối đúng mốc thời gian.")}
+            {ui("Cuộc họp chưa kết thúc nhưng không còn ghi.")}
           </p>
         )}
         {recording && data.kind === "ONLINE" && (tabMissing || tab?.ended) && (
@@ -484,7 +484,7 @@ export function MeetingPage({
             role="status"
             className="rounded-xl bg-status-info-surface px-4 py-3 text-sm text-status-info-content"
           >
-            {ui("Đang kết nối lại… Âm thanh vẫn được giữ.")}
+            {ui("Đang kết nối lại…")}
           </p>
         )}
         {stoppedBy && !recorder && (
@@ -1357,9 +1357,6 @@ function SpeakerChip({
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="grid w-64 gap-2 p-2">
-        <p className="px-1 text-xs text-content-muted">
-          {ui("Áp dụng cho mọi câu của {{name}}", { name: display })}
-        </p>
         {meeting.participants.map((participant) => (
           <button
             key={participant}
@@ -1463,7 +1460,6 @@ function Notes({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
         id={`${id}-notes`}
         value={value}
         aria-label={ui("Ghi chú của tôi")}
-        placeholder={ui("Ghi trong lúc họp; chỉ mình bạn xem được.")}
         maxLength={50_000}
         rows={12}
         onChange={(event) => change(event.target.value)}

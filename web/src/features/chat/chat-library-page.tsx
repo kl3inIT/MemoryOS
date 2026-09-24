@@ -742,11 +742,6 @@ function ContentResults({
   const ui = useAppTranslation();
   return (
     <div className="flex flex-col gap-3">
-      <p className="font-secondary-body text-content-muted">
-        {ui(
-          "Tìm trong nội dung tệp bạn đã tải lên và đã lập chỉ mục. Tệp do Chat tạo chỉ tìm được theo tên.",
-        )}
-      </p>
       {query.length === 0 && (
         <p role="status" className="text-content-muted">
           {ui("Nhập điều bạn nhớ về nội dung tệp.")}

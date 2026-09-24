@@ -72,7 +72,6 @@ export const vietnameseUi: Record<string, string> = {
   "Không có việc nào được giao": "No work was assigned",
   "Không có quyết định nào": "No decisions were reached",
   "Đánh dấu xong: {{text}}": "Mark done: {{text}}",
-  "Ghi trong lúc họp; chỉ mình bạn xem được.": "Write during the meeting; only you can see it.",
   "Transcript, tên người nói và ghi chú sẽ mất vĩnh viễn.":
     "The transcript, speaker names and notes are lost for good.",
   "Thời lượng": "Duration",
@@ -100,7 +99,6 @@ export const vietnameseUi: Record<string, string> = {
   "{{count}} người": "{{count}} people",
   "7 ngày qua": "Last 7 days",
   "Tên người dự, cách nhau bằng dấu phẩy": "Who attends, separated by commas",
-  "Áp dụng cho mọi câu của {{name}}": "Applies to everything {{name}} said",
   Bạn: "You",
   "Bạn chưa chọn tab cuộc họp nên chưa bắt đầu ghi.":
     "No meeting tab was chosen, so recording has not started.",
@@ -124,13 +122,13 @@ export const vietnameseUi: Record<string, string> = {
   "Cuộc họp đã kết thúc nên không ghi tiếp được.":
     "The meeting has ended, so it cannot record any more.",
   "Cuộc họp này chưa có transcript.": "This meeting has no transcript yet.",
-  "Cuộc họp chưa kết thúc nhưng không còn ghi. Ghi tiếp sẽ nối đúng mốc thời gian.":
-    "This meeting has not ended but is no longer recording. Resuming continues its clock.",
+  "Cuộc họp chưa kết thúc nhưng không còn ghi.":
+    "This meeting has not ended but is no longer recording.",
   "Đã kết thúc": "Ended",
   "Đã lưu": "Saved",
   "Đang ghi": "Recording",
   "Đang ghi một cuộc họp": "A meeting is recording",
-  "Đang kết nối lại… Âm thanh vẫn được giữ.": "Reconnecting… Audio is kept.",
+  "Đang kết nối lại…": "Reconnecting…",
   "Đang kết thúc…": "Ending…",
   "Đang lưu phần cuối…": "Saving the last part…",
   "Đang nghe…": "Listening…",
@@ -436,8 +434,6 @@ export const vietnameseUi: Record<string, string> = {
     "Archive a conversation to clear the sidebar and still keep it.",
   "Đã lưu trữ {{date}}": "Archived {{date}}",
   "Xoá hội thoại {{name}}": "Delete {{name}}",
-  "Gửi tin nhắn mới vào một hội thoại đã lưu trữ sẽ tự bỏ lưu trữ nó.":
-    "Asking an archived conversation something takes it back out of the archive.",
   "Tách sang hội thoại mới": "Branch into a new chat",
   "Tách từ hội thoại gốc": "Branched from",
   "Nhánh của {{title}}": "Branch of {{title}}",
@@ -486,8 +482,6 @@ export const vietnameseUi: Record<string, string> = {
   "Yêu thích": "Favourites",
   "Trạng thái tệp": "File state",
   "Đang xử lý / Lỗi": "Processing / failed",
-  "Tìm trong nội dung tệp bạn đã tải lên và đã lập chỉ mục. Tệp do Chat tạo chỉ tìm được theo tên.":
-    "Searches inside the files you uploaded once they are indexed. Files Chat created are found by name only.",
   "Nhập điều bạn nhớ về nội dung tệp.": "Type what you remember of the contents.",
   "Không tìm được trong nội dung tệp.": "The contents could not be searched.",
   "Không có tệp nào khớp nội dung này.": "No file contains this.",
@@ -701,8 +695,6 @@ export const vietnameseUi: Record<string, string> = {
   "Không hỗ trợ công cụ": "No tool calling",
   "Tìm trong hội thoại": "Find in conversation",
   "Tìm trong hội thoại này…": "Find in this conversation…",
-  "Tìm nội dung trong nhánh hội thoại đang mở.":
-    "Search text in the currently opened conversation branch.",
   "Hiển thị tối đa 500 kết quả. Hãy nhập cụ thể hơn.":
     "Showing up to 500 matches. Refine your search.",
   "Kết quả trước": "Previous match",
@@ -909,10 +901,6 @@ export const vietnameseUi: Record<string, string> = {
   "Chọn một công cụ tìm kiếm để bật tìm kiếm Web.": "Select a search engine to enable web search.",
   "Cài đặt tìm kiếm bên ngoài trên internet.":
     "Search settings for external search across the internet.",
-  "API tìm kiếm bên ngoài trả về đường dẫn, trích đoạn và siêu dữ liệu cho kết quả Web.":
-    "External search engine API used for web search result URLs, snippets, and metadata.",
-  "Dùng để đọc toàn bộ nội dung của trang trong kết quả tìm kiếm.":
-    "Used to read the full contents of search result pages.",
   "Đặt làm mặc định": "Set as Default",
   "Cài đặt Web": "Web settings",
   "Mở trang gốc": "Open original page",
@@ -971,8 +959,6 @@ export const vietnameseUi: Record<string, string> = {
   "Nhà cung cấp": "Providers",
   "Chọn một nhà cung cấp để bật tạo ảnh trong Chat.":
     "Select a provider to enable image generation in Chat.",
-  "Sửa ảnh dùng cùng nhà cung cấp, nên tắt tạo ảnh cũng tắt sửa ảnh.":
-    "Image editing uses the same provider, so turning image generation off also turns off editing.",
   "Tạo: {{generate}} · Sửa: {{edit}}": "Generate: {{generate}} · Edit: {{edit}}",
   "Tạo và sửa: {{model}}": "Generate and edit: {{model}}",
   "Địa chỉ tài khoản": "Account endpoint",
@@ -3603,8 +3589,6 @@ Object.assign(englishUi, {
   "Loading spending limits…": "Đang tải hạn mức…",
   "Failed to load spending limits.": "Không tải được hạn mức.",
   "No limit is set.": "Chưa đặt hạn mức nào.",
-  "Nothing caps AI spending until you add a limit.":
-    "Chưa có gì giới hạn mức chi cho AI cho tới khi bạn thêm hạn mức.",
   "Applies to": "Áp dụng cho",
   "Used of budget": "Đã dùng / hạn mức",
   Enforced: "Đang áp dụng",
@@ -4166,7 +4150,6 @@ Object.assign(englishUi, {
   "Clear selection": "Bỏ chọn",
   "{{shown}} of {{total}} models · {{selected}} selected":
     "{{shown}}/{{total}} model · đã chọn {{selected}}",
-  "Read the endpoint to list the models it serves.": "Lấy danh sách model mà endpoint này phục vụ.",
   "This endpoint reported no models.": "Endpoint này không trả về model nào.",
   "The provider was saved. These models were not added: {{models}}":
     "Đã lưu provider. Chưa thêm được các model: {{models}}",

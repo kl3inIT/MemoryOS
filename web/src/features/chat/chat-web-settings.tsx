@@ -187,11 +187,6 @@ export function ChatWebSettings() {
                 {ui("Tắt công cụ tìm kiếm")}
               </Button>
             </div>
-            <p className="text-sm text-content-muted">
-              {ui(
-                "API tìm kiếm bên ngoài trả về đường dẫn, trích đoạn và siêu dữ liệu cho kết quả Web.",
-              )}
-            </p>
             {!query.data?.some((c) => c.searchActive) && (
               <p className={notice}>{ui("Chọn một công cụ tìm kiếm để bật tìm kiếm Web.")}</p>
             )}
@@ -201,9 +196,6 @@ export function ChatWebSettings() {
           </section>
           <section aria-label={ui("Trình đọc trang Web")} className="mt-8 space-y-3">
             <h2 className="text-lg font-semibold">{ui("Trình đọc trang Web")}</h2>
-            <p className="text-sm text-content-muted">
-              {ui("Dùng để đọc toàn bộ nội dung của trang trong kết quả tìm kiếm.")}
-            </p>
             <ProviderCard
               logo={<Globe />}
               name={ui("Trình đọc MemoryOS")}
