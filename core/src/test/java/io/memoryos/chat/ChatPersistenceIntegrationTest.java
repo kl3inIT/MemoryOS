@@ -1122,6 +1122,36 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void anAgentGrantsItsFilesToThoseWhoUseItAndIsNamedAsTheirHolder() {
+        var creator = member(tenant); var viewer = member(tenant); var stranger = member(tenant);
+        when(authorization.effectiveCapabilities(creator)).thenReturn(Set.of(IamCapability.CHAT_WRITE, IamCapability.AGENTS_CREATE));
+        var attached = readyFile(creator); var avatar = readyFile(creator); var unrelated = readyFile(creator);
+        var agent = personas.create(creator, input("Tài liệu", List.of(), List.of(), false, null, null, List.of(attached)));
+        // The avatar is set by row: the service only takes an image, and what is tested here is the grant.
+        jdbc.sql("UPDATE persona SET avatar_file_id = :file WHERE id = :id").param("file", avatar).param("id", agent.id()).update();
+        personas.share(creator, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(
+                List.of(new ChatPersonaService.UserShareInput(viewer.value(), AgentPermission.VIEWER)), List.of(), null, null));
+        var attachments = new JdbcChatFileAttachmentRepository(jdbc);
+        var scope = new TenantId(tenant);
+        var all = List.of(attached, avatar, unrelated);
+
+        // Someone the agent is shared with reads its file and its avatar, not the creator's other uploads.
+        var granted = attachments.usableThroughAgents(scope, viewer, all);
+        assertEquals(Set.of(attached, avatar), granted);
+        assertTrue(new JdbcUserFileRepository(jdbc).readable(scope, viewer, attached, granted, false).isPresent());
+        assertTrue(new JdbcUserFileRepository(jdbc).readable(scope, viewer, unrelated, granted, false).isEmpty());
+        // Someone it is not shared with is granted nothing.
+        assertEquals(Set.of(), attachments.usableThroughAgents(scope, stranger, all));
+
+        // The agent is what holds both files, once each; the unrelated upload is held by nothing.
+        var holders = attachments.holders(scope, all);
+        assertEquals(List.of(attached, avatar), holders.stream().map(FileAttachments.Holder::fileId).sorted(
+                java.util.Comparator.comparing(all::indexOf)).toList());
+        assertTrue(holders.stream().allMatch(holder -> holder.id().equals(agent.id())
+                && holder.kind() == ChatLibraryFile.Usage.Kind.AGENT && holder.name().equals("Tài liệu")));
+    }
+
+    @Test
     void featuredPublicAgentsSeedPinsOnceAndLabelsAreManaged() {
         var creator = member(tenant); var reader = member(tenant);
         when(authorization.effectiveCapabilities(creator)).thenReturn(Set.of(IamCapability.CHAT_WRITE, IamCapability.AGENTS_CREATE));
