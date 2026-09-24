@@ -1,6 +1,6 @@
 # Plan
 
-- [x] V125: `chat_user_file.stored_object_id`, nullable `upload_id`, the ownership check, the unique index and the backfill.
+- [x] V127: `chat_user_file.stored_object_id`, nullable `upload_id`, the ownership check, the unique index and the backfill.
 - [x] Readers join the stored object directly; browser finalization records the object; the file work clears it on release.
 - [x] `ChatLibraryService.copy`/`publish` stage, adopt and discard through `ObjectWriteService`; a copy's release goes through `releaseAdopted`.
 - [x] Remove `ObjectUploadService.write`, its implementation and its tests.

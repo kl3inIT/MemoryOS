@@ -16,7 +16,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
- * V125 records the stored object a Chat file is: every file past upload and not yet released takes it from its
+ * V127 records the stored object a Chat file is: every file past upload and not yet released takes it from its
  * adopted upload, and a row without an upload must be a copy.
  */
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
@@ -25,7 +25,7 @@ class ChatUserFileStoredObjectMigrationTest {
 
     @Test
     void backfillsTheObjectOfEveryFilePastUploadAndRequiresAnUploadOrACopyOrigin() throws Exception {
-        try (var database = TestDatabase.freshPostgres("124")) {
+        try (var database = TestDatabase.freshPostgres("126")) {
             var jdbc = JdbcClient.create(database);
             UUID tenant = UUID.randomUUID(), owner = UUID.randomUUID();
             jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,'files','Files','ACTIVE','TEST')")
@@ -43,7 +43,7 @@ class ChatUserFileStoredObjectMigrationTest {
             var released = file(jdbc, tenant, owner, upload(jdbc, tenant, releasedObject, "ADOPTED"), "DELETED");
             var expired = file(jdbc, tenant, owner, upload(jdbc, tenant, null, "EXPIRED"), "FAILED");
 
-            var flyway = Flyway.configure().dataSource(database).locations("classpath:db/migration").target("125").load();
+            var flyway = Flyway.configure().dataSource(database).locations("classpath:db/migration").target("127").load();
             assertEquals(1, flyway.migrate().migrationsExecuted);
 
             assertEquals(readyObject, object(jdbc, ready));

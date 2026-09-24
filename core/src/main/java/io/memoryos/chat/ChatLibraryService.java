@@ -213,7 +213,7 @@ public class ChatLibraryService {
     }
 
     /**
-     * Writes a copy's bytes through the server-write lifecycle and records the copy (V125): the object is staged
+     * Writes a copy's bytes through the server-write lifecycle and records the copy (V127): the object is staged
      * outside any transaction, then adopted in the transaction that inserts the file under the owner lock. A copy
      * another request made meanwhile is returned instead, and an artifact deleted meanwhile, a membership that
      * changed, or any failure before the adoption commits discards the staged object at once.

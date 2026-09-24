@@ -171,7 +171,7 @@ public class JdbcUserFileRepository {
     }
 
     /**
-     * A file whose bytes the server copied from an artifact into an object it wrote and adopted itself (V125). It
+     * A file whose bytes the server copied from an artifact into an object it wrote and adopted itself (V127). It
      * has no browser upload; from {@link #finalized} on it follows the ordinary file lifecycle.
      */
     public UUID createCopy(TenantId tenant, ActorId actor, StoredObjectReference object, String source, UUID artifact) {

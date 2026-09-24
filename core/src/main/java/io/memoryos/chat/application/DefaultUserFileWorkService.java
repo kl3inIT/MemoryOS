@@ -67,7 +67,7 @@ public class DefaultUserFileWorkService implements UserFileWorkPort {
             // Existing upload cleanup owns durable raw-object deletion and retries.
             uploads.retireAdopted(claim.tenantId(), refs.upload());
         } else {
-            // A copy the server wrote has no upload; its object is an adopted write of this capability (V125).
+            // A copy the server wrote has no upload; its object is an adopted write of this capability (V127).
             releaseWritten(claim.tenantId(), refs.object(), refs.objectKey());
         }
         releaseWritten(claim.tenantId(), refs.thumbnail(), refs.thumbnailKey());

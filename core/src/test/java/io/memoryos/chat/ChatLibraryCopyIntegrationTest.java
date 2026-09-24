@@ -62,7 +62,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * A library copy is a server write (V125): staged outside any transaction, adopted by the transaction that records
+ * A library copy is a server write (V127): staged outside any transaction, adopted by the transaction that records
  * the file, discarded on every other outcome, and released by the file work when the copy is deleted. Real
  * PostgreSQL and object-storage lifecycle; the provider is a double.
  */

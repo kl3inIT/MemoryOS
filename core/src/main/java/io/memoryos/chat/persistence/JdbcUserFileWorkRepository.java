@@ -87,7 +87,7 @@ public class JdbcUserFileWorkRepository {
 
     /**
      * What a released file leaves behind: the browser upload it came from, or else the object the server wrote
-     * for a copy (V125); its document; and the derived thumbnail the library wrote, if one was ever asked for.
+     * for a copy (V127); its document; and the derived thumbnail the library wrote, if one was ever asked for.
      * The copy's object and the thumbnail are adopted writes of this capability's own, so the caller releases
      * them rather than the generic reapers.
      */
