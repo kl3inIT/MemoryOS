@@ -350,7 +350,7 @@ function McpToolList({ serverId }: { serverId: string }) {
     onError: failed,
   });
 
-  if (tools.isError) {
+  if (tools.isError && !tools.data) {
     return (
       <p role="alert" className="mt-4 font-secondary-body text-status-danger-content">
         {problem(presentProblem(tools.error, "initialLoad").message)}
@@ -377,6 +377,11 @@ function McpToolList({ serverId }: { serverId: string }) {
           </Button>
         </div>
       </div>
+      {tools.isError ? (
+        <p role="alert" className="font-secondary-body text-status-danger-content">
+          {problem(presentProblem(tools.error, "backgroundRead").message)}
+        </p>
+      ) : null}
       {error ? (
         <p role="alert" className="font-secondary-body text-status-danger-content">
           {error}
