@@ -3,7 +3,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Users } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/settings-layout";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -28,6 +28,11 @@ export function CreateGroupPage() {
     enableBeforeUnload: () => dirty && !leaving.current,
     withResolver: true,
   });
+  // A create in flight finishes by opening the new group, so navigation waits for it instead of offering a discard.
+  const creating = createGroup.isPending;
+  useEffect(() => {
+    if (creating && blocker.status === "blocked") blocker.reset();
+  }, [creating, blocker]);
 
   async function submit() {
     const normalizedName = name.trim();
@@ -141,7 +146,7 @@ export function CreateGroupPage() {
         <button type="submit" className="sr-only" tabIndex={-1} aria-hidden="true" />
       </form>
       <ConfirmDialog
-        open={blocker.status === "blocked"}
+        open={blocker.status === "blocked" && !creating}
         onOpenChange={(open) => {
           if (!open && blocker.status === "blocked") blocker.reset();
         }}
