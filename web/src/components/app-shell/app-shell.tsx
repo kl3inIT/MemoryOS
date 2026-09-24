@@ -40,6 +40,7 @@ import { useAdminAccess } from "@/features/identity/application-session-context"
 import { cn } from "@/lib/utils";
 import { ChatHistorySearch } from "@/features/chat/session/chat-history-search";
 import { ChatNavigation } from "@/features/chat/session/chat-navigation";
+import { MeetingsTab } from "@/features/meetings/meetings-tab";
 
 export type AppShellArea = "app" | "admin" | "settings";
 /** Personal settings tabs, as Onyx Settings (MEM-145). */
@@ -237,7 +238,11 @@ function SidebarContents({
         {sourceSetup !== undefined ? (
           <SourceSetupSidebarSteps {...sourceSetup} />
         ) : appArea ? (
-          <ChatNavigation collapsed={collapsed} onNavigate={onNavigate} />
+          <ChatNavigation
+            collapsed={collapsed}
+            onNavigate={onNavigate}
+            meetingsTab={<MeetingsTab collapsed={collapsed} onNavigate={onNavigate} />}
+          />
         ) : area === "settings" ? (
           <SidebarSection title={ui("Settings")} collapsed={collapsed}>
             <SidebarTab
