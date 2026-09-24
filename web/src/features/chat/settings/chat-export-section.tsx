@@ -10,8 +10,8 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
 import { listChatExports, requestChatExport } from "@/lib/hey-api/sdk.gen";
 import type { ChatExport } from "@/lib/hey-api/types.gen";
-import { chatActionError } from "@/features/chat/chat-action-utils";
-import { fileSize } from "@/features/chat/interpreter/chat-code";
+import { actionErrorText } from "@/lib/action-errors";
+import { fileSize } from "@/lib/file-size";
 
 /** The owner's own route; a signed URL would let an export leave the person it belongs to. */
 function exportContentUrl(id: string) {
@@ -49,7 +49,7 @@ export function ChatExportSection() {
       });
       await exports.refetch();
     } catch (cause) {
-      setFailure(chatActionError(cause));
+      setFailure(actionErrorText(cause));
     } finally {
       setRequesting(false);
     }

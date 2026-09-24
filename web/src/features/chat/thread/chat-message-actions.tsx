@@ -11,8 +11,8 @@ import { FeedbackDialog } from "@/components/assistant-ui/elements/feedback-dial
 import { useTranslation } from "react-i18next";
 import { setChatFeedback, removeChatFeedback } from "@/lib/hey-api/sdk.gen";
 import { ChatEditingContext } from "./chat-editing-context";
-import { ChatDialog } from "@/features/chat/chat-dialog";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { FormDialog } from "@/components/composites/form-dialog";
+import { actionErrorText } from "@/lib/action-errors";
 import type { Feedback } from "@/features/chat/chat-workspace-api";
 import { fileIdFromReference } from "@/features/library/files";
 import { ChatFilePicker } from "@/features/library/file-picker";
@@ -66,7 +66,7 @@ export function ChatUserMessageContent({
             void editing
               .edit(message.id, text, request.current, fileIds)
               .then(() => setEditor(false))
-              .catch((cause: unknown) => setError(chatActionError(cause)))
+              .catch((cause: unknown) => setError(actionErrorText(cause)))
               .finally(() => {
                 inFlight.current = false;
                 setSaving(false);
@@ -197,7 +197,7 @@ export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
               signal: AbortSignal.timeout(30000),
             })
               .then(() => cache.invalidateQueries({ queryKey: ["chat-feedback", sessionId] }))
-              .catch((cause: unknown) => setError(chatActionError(cause)))
+              .catch((cause: unknown) => setError(actionErrorText(cause)))
               .finally(() => {
                 removeBusy.current = false;
                 setRemoving(false);
@@ -267,7 +267,7 @@ function FeedbackEditor({
   if (reason && !reasons.some((entry) => entry.id === reason))
     reasons.push({ id: reason, label: reason });
   return (
-    <ChatDialog
+    <FormDialog
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -291,6 +291,6 @@ function FeedbackEditor({
         onNoteChange={setComment}
         onToggleReason={setReason}
       />
-    </ChatDialog>
+    </FormDialog>
   );
 }

@@ -62,7 +62,7 @@ import {
   type ManagedModel,
   type ManagedProvider,
 } from "./model-catalog";
-import { ChatModelLogo } from "@/features/chat/chat-model-logo";
+import { ModelLogo } from "./model-logo";
 import { useProviderTest } from "./provider-test";
 import { useModelCatalogBusy, useModelMutation } from "./model-mutation";
 
@@ -313,7 +313,7 @@ function ConnectionCard({
                   <TableRow key={model.id}>
                     <TableCell>
                       <span className="flex flex-wrap items-center gap-2">
-                        <ChatModelLogo modelName={model.modelName} />
+                        <ModelLogo modelName={model.modelName} />
                         <span className="font-main-ui-action text-content-primary">
                           {model.displayName}
                         </span>

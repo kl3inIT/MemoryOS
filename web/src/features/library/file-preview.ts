@@ -1,10 +1,9 @@
-import { fileArtifactUrl } from "@/features/chat/interpreter/chat-code";
-import { imageArtifactUrl } from "@/features/chat/image/chat-image";
+import { fileArtifactUrl, imageArtifactUrl } from "./content-urls";
 
 /**
- * A chat file to preview: a file run_python generated, an attachment, or a generated image, each read
+ * A library file to preview: a file run_python generated, an upload, or a generated image, each read
  * through its own owner route. The renderers and the kind classifier are shared with the document viewer
- * in `@/features/preview`; only the owner routes below are Chat's own.
+ * in `@/features/preview`; only the owner routes below are the library's.
  */
 export type PreviewTarget = {
   source: "generated" | "attachment" | "image";

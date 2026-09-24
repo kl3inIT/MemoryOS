@@ -24,8 +24,8 @@ import {
   getChatFile,
 } from "@/lib/hey-api/sdk.gen";
 import { chatSessionsKey } from "@/features/chat/chat-api";
-import { ChatDialog } from "@/features/chat/chat-dialog";
-import { chatField, chatActionError } from "@/features/chat/chat-action-utils";
+import { FormDialog } from "@/components/composites/form-dialog";
+import { formField, actionErrorText } from "@/lib/action-errors";
 import { loadProjects, projectSchema, type Project } from "@/features/chat/chat-workspace-api";
 import { ChatSessionRow } from "@/features/chat/session/chat-session-row";
 import { ChatFilePicker } from "@/features/library/file-picker";
@@ -171,7 +171,7 @@ export function ProjectContextPanel({ project }: { project: Project }) {
           description={ui("Các hội thoại được chuyển ra ngoài dự án và vẫn giữ nguyên lịch sử.")}
           confirmLabel={ui("Xóa dự án")}
           pendingLabel={ui("Đang xóa…")}
-          errorMessage={chatActionError}
+          errorMessage={actionErrorText}
           onConfirm={async () => {
             await deleteChatProject({
               path: { projectId: project.id },
@@ -242,7 +242,7 @@ function ProjectFiles({ project }: { project: Project }) {
         cache.invalidateQueries({ queryKey: ["chat-projects"] }),
       ]);
     } catch (cause) {
-      setError(chatActionError(cause));
+      setError(actionErrorText(cause));
     } finally {
       updating.current = false;
       setBusy(false);
@@ -384,7 +384,7 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
   const [iconName, setIconName] = useState(project?.iconName ?? "");
   const fileIds = project?.fileIds ?? [];
   return (
-    <ChatDialog
+    <FormDialog
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -452,7 +452,7 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
         <label className="block space-y-1">
           <span>{ui("Hướng dẫn dự án")}</span>
           <textarea
-            className={chatField}
+            className={formField}
             maxLength={32000}
             rows={6}
             value={instructions}
@@ -460,7 +460,7 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
           />
         </label>
       )}
-    </ChatDialog>
+    </FormDialog>
   );
 }
 

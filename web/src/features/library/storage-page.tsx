@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { HardDrive } from "lucide-react";
 import { Alert, AlertTitle } from "@/components/ui/alert";
@@ -7,7 +8,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { chatLibraryKey, loadLibraryUsage, loadTrashWindow } from "./library";
-import { ChatRetentionSection } from "@/features/chat/settings/chat-retention-section";
 import { StorageMeter } from "./storage-meter";
 
 /**
@@ -16,7 +16,12 @@ import { StorageMeter } from "./storage-meter";
  * and the retention window for their conversations. The page holds at least what the library panel holds, so
  * whichever way someone arrives they find the whole picture rather than half of it.
  */
-export function ChatStoragePage() {
+export function StoragePage({
+  retention,
+}: {
+  /** How long the owner keeps their conversations, which Chat supplies. */
+  retention?: ReactNode;
+}) {
   const ui = useAppTranslation();
   const { actorId, authorizationVersion } = useApplicationSession();
   const usage = useQuery({
@@ -52,7 +57,7 @@ export function ChatStoragePage() {
           {ui("Tệp đã xoá được giữ {{days}} ngày rồi xoá vĩnh viễn.", { days: trashWindow.data })}
         </p>
       )}
-      <ChatRetentionSection />
+      {retention}
     </SettingsLayout>
   );
 }

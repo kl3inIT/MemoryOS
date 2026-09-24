@@ -4,7 +4,7 @@ import { ApiError } from "@/lib/api";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
-import { chatActionProblem } from "@/features/chat/chat-action-utils";
+import { actionProblem } from "@/lib/action-errors";
 import {
   loadChatHistory,
   toUiMessages,
@@ -245,7 +245,7 @@ export class ChatThreadController {
       await command();
       await this.refresh();
     } catch (cause) {
-      this.set({ error: chatActionProblem(cause), connection: "uncertain" });
+      this.set({ error: actionProblem(cause), connection: "uncertain" });
       throw cause;
     } finally {
       this.mutationInFlight = false;

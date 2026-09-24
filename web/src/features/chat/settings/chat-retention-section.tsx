@@ -19,7 +19,7 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { getChatRetention, previewChatRetention, saveChatRetention } from "@/lib/hey-api/sdk.gen";
 import { chatSessionsKey } from "@/features/chat/chat-api";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { actionErrorText } from "@/lib/action-errors";
 
 const MAX_DAYS = 3650;
 /** The windows worth one click; anything else is typed in, as ChatGPT's own short list works. */
@@ -101,7 +101,7 @@ function RetentionForm({ saved }: { saved: number | null }) {
       await cache.invalidateQueries({ queryKey: ["chat-retention-preview"] });
       await cache.invalidateQueries({ queryKey: chatSessionsKey });
     } catch (cause) {
-      setFailure(chatActionError(cause));
+      setFailure(actionErrorText(cause));
       throw cause;
     }
   };

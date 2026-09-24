@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TablePagination } from "@/components/ui/table-pagination";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { actionErrorText } from "@/lib/action-errors";
 import {
   documentSetsKey,
   loadDocumentSets,
@@ -190,7 +190,7 @@ function DocumentSetTable({ sets }: { sets: DocumentSet[] }) {
                         confirmLabel={ui("Xóa bộ tài liệu")}
                         pendingLabel={ui("Đang xóa…")}
                         confirmTone="danger"
-                        errorMessage={(cause) => chatActionError(cause)}
+                        errorMessage={(cause) => actionErrorText(cause)}
                         onConfirm={async () => {
                           await deleteDocumentSet({
                             path: { documentSetId: set.id },

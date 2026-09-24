@@ -1,14 +1,15 @@
 import { Dialog } from "radix-ui";
 import { useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { chatActionProblem } from "./chat-action-utils";
+import { actionProblem } from "@/lib/action-errors";
 import { useTranslation } from "react-i18next";
 import type { ErrorMessage } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { ErrorState } from "@/components/assistant-ui/elements/error-state";
 import { cn } from "@/lib/utils";
 
-export function ChatDialog({
+/** A dialog around one form: it submits once, keeps open with the failure shown, and closes on success. */
+export function FormDialog({
   title,
   description,
   trigger,
@@ -88,7 +89,7 @@ export function ChatDialog({
                   busy.current = false;
                   if (closeOnSuccess) change(false);
                 })
-                .catch((cause: unknown) => setError(chatActionProblem(cause)))
+                .catch((cause: unknown) => setError(actionProblem(cause)))
                 .finally(() => {
                   busy.current = false;
                   setPending(false);

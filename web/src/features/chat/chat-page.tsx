@@ -60,7 +60,7 @@ import { useTranslation } from "react-i18next";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { useChatThreads } from "@/features/chat/runtime/chat-threads-context";
 import type { ChatThreadController } from "@/features/chat/runtime/chat-thread-controller";
-import { branchSteps } from "@/features/library/library";
+import { branchSteps } from "@/features/chat/thread/chat-branch-steps";
 
 export function ChatPage() {
   const ui = useAppTranslation();

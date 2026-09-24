@@ -7,7 +7,7 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { getChatWebAvailability } from "@/lib/hey-api/sdk.gen";
 import { cn } from "@/lib/utils";
-import { composerMenuRow } from "@/features/chat/composer/chat-composer-menu-row";
+import { menuRow } from "@/components/composites/menu-row";
 import type { WebSearchMode } from "./chat-web-preference";
 
 type WebOptionsProps = {
@@ -83,7 +83,7 @@ export function ChatWebToggle({
           type="button"
           aria-pressed={value !== "off"}
           disabled={value === "off" && !support.supported("auto")}
-          className={cn(composerMenuRow, "flex-1")}
+          className={cn(menuRow, "flex-1")}
           onClick={() => {
             onChange(value === "off" ? "auto" : "off");
             onDone();
@@ -144,7 +144,7 @@ export function ChatWebModes({
             role="radio"
             aria-checked={mode === value}
             disabled={!support.supported(mode)}
-            className={composerMenuRow}
+            className={menuRow}
             onClick={() => {
               onChange(mode);
               onDone();
@@ -157,7 +157,7 @@ export function ChatWebModes({
       </div>
       <WebAvailabilityNote support={support} />
       {support.canManage && (
-        <Link to="/admin/web-search" className={composerMenuRow} onClick={onDone}>
+        <Link to="/admin/web-search" className={menuRow} onClick={onDone}>
           <Settings aria-hidden="true" />
           {ui("Cài đặt Web")}
         </Link>

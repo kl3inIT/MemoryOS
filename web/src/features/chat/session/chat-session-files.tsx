@@ -41,9 +41,9 @@ import { DocumentKindIcon } from "@/features/search/document-source-icon";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { actionErrorText } from "@/lib/action-errors";
 import { ChatAddToProjectDialog } from "@/features/chat/projects/chat-add-to-project";
-import { fileSize } from "@/features/chat/interpreter/chat-code";
+import { fileSize } from "@/lib/file-size";
 import { fileIdFromReference } from "@/features/library/files";
 import { ChatFilePreviewModal } from "@/features/library/file-preview-modal";
 import { downloadUrl, type PreviewTarget } from "@/features/library/file-preview";
@@ -150,7 +150,7 @@ export function ChatSessionFiles({
         text: ui("Đã đính kèm {{name}} vào câu hỏi tiếp theo.", { name: file.filename }),
       });
     } catch (failure) {
-      setNotice({ tone: "danger", text: chatActionError(failure) });
+      setNotice({ tone: "danger", text: actionErrorText(failure) });
     } finally {
       setWorking(undefined);
     }
@@ -177,7 +177,7 @@ export function ChatSessionFiles({
         text:
           holders.length > 0
             ? ui("Đang dùng trong {{name}}", { name: holders.join(", ") })
-            : chatActionError(failure),
+            : actionErrorText(failure),
       });
     } finally {
       await cache.invalidateQueries({ queryKey: chatLibraryKey });

@@ -3,7 +3,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CircleAlert, LoaderCircle, Paperclip, SearchX, Trash2, Upload } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { ChatDialog } from "@/features/chat/chat-dialog";
+import { FormDialog } from "@/components/composites/form-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -97,14 +97,14 @@ export function ChatRecentFilesDialog({
 }) {
   const ui = useAppTranslation();
   return (
-    <ChatDialog
+    <FormDialog
       title={ui("Tệp gần đây")}
       description={ui("Chọn lại tệp của bạn để sử dụng. Chỉ tệp đã xử lý xong mới được chọn.")}
       open={open}
       onOpenChange={onOpenChange}
     >
       {open && <ChatFilePickerContent {...props} />}
-    </ChatDialog>
+    </FormDialog>
   );
 }
 

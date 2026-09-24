@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { getChatSharing, setChatSharing } from "@/lib/hey-api/sdk.gen";
-import { ChatDialog } from "@/features/chat/chat-dialog";
+import { FormDialog } from "@/components/composites/form-dialog";
 import { sharingSchema } from "@/features/chat/chat-workspace-api";
 import { cn } from "@/lib/utils";
 
@@ -49,7 +49,7 @@ export function SharingDialog({
     }
   }
   return (
-    <ChatDialog
+    <FormDialog
       title={ui("Chia sẻ hội thoại")}
       description={ui(
         "Thành viên trong tổ chức có liên kết và đã đăng nhập được xem hội thoại này.",
@@ -176,6 +176,6 @@ export function SharingDialog({
           </p>
         </>
       )}
-    </ChatDialog>
+    </FormDialog>
   );
 }

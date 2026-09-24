@@ -3,22 +3,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n/index";
-import { ChatStoragePage } from "./storage-page";
+import { StoragePage } from "./storage-page";
 
 const loadLibraryUsage = vi.hoisted(() => vi.fn());
 const loadTrashWindow = vi.hoisted(() => vi.fn());
-const getChatRetention = vi.hoisted(() => vi.fn());
-const previewChatRetention = vi.hoisted(() => vi.fn());
 
 vi.mock("./library", () => ({
   chatLibraryKey: ["chat-library"],
   loadLibraryUsage: (...args: unknown[]) => loadLibraryUsage(...args),
   loadTrashWindow: (...args: unknown[]) => loadTrashWindow(...args),
-}));
-vi.mock("@/lib/hey-api/sdk.gen", () => ({
-  getChatRetention: (...args: unknown[]) => getChatRetention(...args),
-  previewChatRetention: (...args: unknown[]) => previewChatRetention(...args),
-  saveChatRetention: vi.fn(),
 }));
 vi.mock("@/features/identity/application-session-context", () => ({
   useApplicationSession: () => ({ actorId: "actor", authorizationVersion: 1, capabilities: [] }),
@@ -27,12 +20,12 @@ vi.mock("@tanstack/react-router", () => ({
   Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
 }));
 
-function show() {
+function show(retention?: ReactNode) {
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <ChatStoragePage />
+      <StoragePage retention={retention} />
     </QueryClientProvider>,
   );
 }
@@ -40,8 +33,6 @@ function show() {
 beforeEach(async () => {
   await i18n.changeLanguage("vi");
   loadTrashWindow.mockResolvedValue(30);
-  getChatRetention.mockResolvedValue({ data: { days: null } });
-  previewChatRetention.mockResolvedValue({ data: { days: null, affected: 0 } });
 });
 afterEach(() => {
   cleanup();
@@ -99,21 +90,19 @@ it("says there is no limit when the deployment sets none, and shows no meter wit
   expect(screen.getByText("Thư viện của bạn chưa có tệp nào.")).toBeInTheDocument();
 });
 
-it("holds what the library's own panel holds: the trash window and the retention window", async () => {
+it("holds what the library's own panel holds: the trash window and the retention Chat supplies", async () => {
   loadLibraryUsage.mockResolvedValue({
     usedBytes: 3072,
     fileCount: 2,
     limitBytes: 10240,
     byCategory: [{ category: "DOCUMENT", usedBytes: 3072 }],
   });
-  show();
+  show(<section aria-label="Tự xoá hội thoại" />);
 
   expect(
     await screen.findByText("Tệp đã xoá được giữ 30 ngày rồi xoá vĩnh viễn."),
   ).toBeInTheDocument();
-  // The one setting on this page belongs to the person, exactly as in the library panel.
-  expect(await screen.findByRole("combobox", { name: "Xoá hội thoại sau" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Tự xoá hội thoại" })).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Tự xoá hội thoại" })).toBeInTheDocument();
 });
 
 it("offers a way to try again when the usage cannot be read", async () => {

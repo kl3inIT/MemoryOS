@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useSearch } from "@tanstack/react-router";
 import { Download, Trash2, X } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { useActionNotifications } from "@/components/ui/action-notifications";
@@ -17,10 +17,8 @@ import { TablePagination } from "@/components/ui/table-pagination";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
-import { chatSessionsKey, newChatSession } from "@/features/chat/chat-api";
-import { chatActionError } from "@/features/chat/chat-action-utils";
-import { ChatAddToProjectDialog } from "@/features/chat/projects/chat-add-to-project";
-import { ChatDialog } from "@/features/chat/chat-dialog";
+import { actionErrorText } from "@/lib/action-errors";
+import { FormDialog } from "@/components/composites/form-dialog";
 import { LibraryContentMatches } from "./library-content";
 import { LibraryDropZone, LibraryUploadButton, LibraryUploadTray } from "./library-uploads";
 import { LibraryRail, type LibraryView } from "./library-rail";
@@ -37,6 +35,7 @@ import { archiveContentUrl, useLibraryArchive, type LibraryArchive } from "./use
 import { useLibraryUploads } from "./use-library-uploads";
 import { ChatFilePreviewModal } from "./file-preview-modal";
 import { type AskExtras } from "./file-ask-composer";
+import type { LibraryChat } from "./library-chat";
 import { uploadChatFile } from "./files";
 import { type PreviewTarget } from "./file-preview";
 import {
@@ -62,10 +61,12 @@ import {
   type LibrarySource,
 } from "./library";
 
-/** The file library: uploads, files run_python generated and generated images in one owner-private list. */
-export function ChatLibraryPage() {
+/**
+ * The file library: uploads, files run_python generated and generated images in one owner-private list. What it
+ * offers of Chat — asking about a file, Projects, conversation retention — comes in through `chat`.
+ */
+export function LibraryPage({ chat }: { chat?: LibraryChat }) {
   const ui = useAppTranslation();
-  const navigate = useNavigate();
   const cache = useQueryClient();
   const { actorId, authorizationVersion } = useApplicationSession();
   const [search, setSearch] = useState("");
@@ -187,7 +188,7 @@ export function ChatLibraryPage() {
         } catch (failure) {
           const holders = refusedBy(failure);
           next.push(
-            `${file.filename}: ${holders.length > 0 ? ui("Đang dùng trong {{name}}", { name: holders.join(", ") }) : chatActionError(failure)}`,
+            `${file.filename}: ${holders.length > 0 ? ui("Đang dùng trong {{name}}", { name: holders.join(", ") }) : actionErrorText(failure)}`,
           );
         }
       }
@@ -223,7 +224,7 @@ export function ChatLibraryPage() {
         await run(file);
         succeeded += 1;
       } catch (failure) {
-        failures.push(`${file.filename}: ${chatActionError(failure)}`);
+        failures.push(`${file.filename}: ${actionErrorText(failure)}`);
       }
     }
     setRefusals(failures);
@@ -240,7 +241,7 @@ export function ChatLibraryPage() {
       const said = await run();
       notify({ title: typeof said === "string" ? said : done, tone: "success" });
     } catch (failure) {
-      setRefusals([chatActionError(failure)]);
+      setRefusals([actionErrorText(failure)]);
     } finally {
       await cache.invalidateQueries({ queryKey: chatLibraryKey });
     }
@@ -255,7 +256,7 @@ export function ChatLibraryPage() {
     try {
       await change(file, { favorite: !file.favorite });
     } catch (failure) {
-      notify({ title: chatActionError(failure), tone: "error" });
+      notify({ title: actionErrorText(failure), tone: "error" });
     }
   };
 
@@ -270,6 +271,7 @@ export function ChatLibraryPage() {
     question: string,
     extras: AskExtras & { edited?: File },
   ) => {
+    if (!chat) return;
     const file =
       files.find((item) => item.id === target.id) ??
       (preview?.id === target.id ? preview : undefined);
@@ -282,20 +284,15 @@ export function ChatLibraryPage() {
     for (const chosen of extras.library) attach.push((await libraryUpload(chosen, signal)).id);
     for (const chosen of extras.uploads)
       attach.push((await uploadChatFile(chosen, crypto.randomUUID(), signal, () => {})).id);
-    const session = await newChatSession(question || subject.filename, signal);
-    await cache.invalidateQueries({ queryKey: chatSessionsKey });
+    // The copies made for the question are library files too.
     await cache.invalidateQueries({ queryKey: chatLibraryKey });
-    await navigate({
-      to: "/chat/$sessionId",
-      params: { sessionId: session.id },
-      search: { ask: question || undefined, attach },
-    });
+    await chat.ask({ question, title: question || subject.filename, attach }, signal);
   };
 
   const rowActions = {
     onPreview: setPreview,
     onDelete: (file: LibraryFile) => setConfirming([file]),
-    onAddToProject: (file: LibraryFile) => setProjectFiles([file]),
+    onAddToProject: chat && ((file: LibraryFile) => setProjectFiles([file])),
     onRename: (file: LibraryFile) => setRenaming(file),
     onFavorite: (file: LibraryFile) => void favorite(file),
     onRestore: (file: LibraryFile) =>
@@ -309,10 +306,16 @@ export function ChatLibraryPage() {
         ui("Đã xoá vĩnh viễn {{name}}.", { name: file.filename }),
       ),
     onRetried: () => cache.invalidateQueries({ queryKey: chatLibraryKey }),
-    onRemovedFromProject: async (name: string) => {
-      notify({ title: ui("Đã gỡ khỏi dự án {{name}}.", { name }), tone: "success" });
-      await cache.invalidateQueries({ queryKey: chatLibraryKey });
-    },
+    onRemoveFromProject:
+      chat &&
+      (async (file: LibraryFile, project: { id: string; name: string }) => {
+        await chat.removeFromProject(project.id, file.id, AbortSignal.timeout(30000));
+        notify({
+          title: ui("Đã gỡ khỏi dự án {{name}}.", { name: project.name }),
+          tone: "success",
+        });
+        await cache.invalidateQueries({ queryKey: chatLibraryKey });
+      }),
   };
   const clearFilters = () => {
     fromTheFirstPage(setSources)([]);
@@ -337,6 +340,7 @@ export function ChatLibraryPage() {
                     setView("ready");
                     fromTheFirstPage(setCategories)([category]);
                   }}
+                  retention={chat && <chat.RetentionSection />}
                 />
               </>
             }
@@ -388,7 +392,7 @@ export function ChatLibraryPage() {
                 packing={archive.state.phase === "packing"}
                 trash={view === "trash"}
                 onDownload={() => void archive.start(chosen)}
-                onAddToProject={() => setProjectFiles(chosen)}
+                onAddToProject={chat && (() => setProjectFiles(chosen))}
                 onDelete={() => setConfirming(chosen)}
                 onRestore={() =>
                   void eachChosen(
@@ -548,7 +552,7 @@ export function ChatLibraryPage() {
           siblings={files.map(libraryPreviewTarget)}
           onClose={() => setPreview(undefined)}
           onSaveImage={(file) => uploads.start([file])}
-          onAsk={askAboutFile}
+          ask={chat && { onAsk: askAboutFile, ModelPicker: chat.ModelPicker }}
         />
       )}
       <LibraryUploadTray
@@ -566,14 +570,16 @@ export function ChatLibraryPage() {
           }}
         />
       )}
-      <ChatAddToProjectDialog
-        files={projectFiles}
-        onOpenChange={(open) => !open && setProjectFiles(undefined)}
-        onAdded={(name) => {
-          setSelected([]);
-          notify({ title: ui("Đã thêm vào dự án {{name}}.", { name }), tone: "success" });
-        }}
-      />
+      {chat && (
+        <chat.AddToProjectDialog
+          files={projectFiles}
+          onOpenChange={(open) => !open && setProjectFiles(undefined)}
+          onAdded={(name) => {
+            setSelected([]);
+            notify({ title: ui("Đã thêm vào dự án {{name}}.", { name }), tone: "success" });
+          }}
+        />
+      )}
       <ConfirmDialog
         open={confirming !== undefined}
         onOpenChange={(open) => !open && setConfirming(undefined)}
@@ -801,7 +807,7 @@ function RenameDialog({
   const ui = useAppTranslation();
   const [name, setName] = useState(file.filename);
   return (
-    <ChatDialog
+    <FormDialog
       open
       onOpenChange={onOpenChange}
       title={ui("Đổi tên tệp")}
@@ -819,6 +825,6 @@ function RenameDialog({
           autoFocus
         />
       </label>
-    </ChatDialog>
+    </FormDialog>
   );
 }

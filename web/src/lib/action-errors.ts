@@ -1,7 +1,7 @@
 import { ApiError } from "@/lib/api";
 import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
 
-export function chatActionProblem(error: unknown): ErrorMessage {
+export function actionProblem(error: unknown): ErrorMessage {
   const problem = presentProblem(error, "mutation");
   switch (problem.kind) {
     case "conflict":
@@ -19,10 +19,10 @@ export function chatActionProblem(error: unknown): ErrorMessage {
   }
 }
 
-export const chatField =
+export const formField =
   "w-full rounded-lg border border-border-default bg-surface-raised p-3 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60";
 
-export function chatActionError(error: unknown) {
+export function actionErrorText(error: unknown) {
   if (error instanceof ApiError) {
     if (error.status === 409)
       return "Dữ liệu đã thay đổi hoặc hội thoại đang trả lời. Tải lại rồi thử lại.";

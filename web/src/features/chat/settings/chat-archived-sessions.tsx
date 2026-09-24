@@ -27,7 +27,7 @@ import {
   unarchiveChatSession,
 } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { actionErrorText } from "@/lib/action-errors";
 import { chatSessionsKey } from "@/features/chat/chat-api";
 
 const PAGE = 30;
@@ -78,7 +78,7 @@ export function ChatArchivedSessionsPage() {
       await run();
       await cache.invalidateQueries({ queryKey: chatSessionsKey });
     } catch (cause) {
-      setFailure(chatActionError(cause));
+      setFailure(actionErrorText(cause));
     }
   };
 
@@ -203,7 +203,7 @@ export function ChatArchivedSessionsPage() {
                       confirmLabel={ui("Xóa hội thoại")}
                       pendingLabel={ui("Đang xóa…")}
                       confirmTone="danger"
-                      errorMessage={chatActionError}
+                      errorMessage={actionErrorText}
                       onConfirm={() =>
                         act(() =>
                           deleteChatSession({

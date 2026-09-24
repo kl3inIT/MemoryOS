@@ -5,7 +5,7 @@ import { TextButton } from "@/components/ui/text-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
-import { fileSize } from "@/features/chat/interpreter/chat-code";
+import { fileSize } from "@/lib/file-size";
 
 /** Which slice of the library is on screen. Favourites are a slice of the usable files, not a state of their own. */
 export type LibraryView = "ready" | "favorite" | "pending" | "trash";

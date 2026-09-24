@@ -11,7 +11,7 @@ import { renameChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { ChatSessionMenu } from "./chat-session-menu";
 import { chatSessionsKey } from "@/features/chat/chat-api";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { actionErrorText } from "@/lib/action-errors";
 
 export const CHAT_DRAG_TYPE = "application/x-memoryos-chat";
 
@@ -101,7 +101,7 @@ export function ChatSessionRow({
                   ]);
                   closeEditor();
                 })
-                .catch((cause: unknown) => setError(chatActionError(cause)))
+                .catch((cause: unknown) => setError(actionErrorText(cause)))
                 .finally(() => {
                   busy.current = false;
                   setPending(false);

@@ -2,7 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQuery } from "@tanstack/react-query";
 import { listAvailableChatModels } from "@/lib/hey-api/sdk.gen";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { ChatModelLogo } from "./chat-model-logo";
+import { ModelLogo } from "@/features/models/model-logo";
 
 /**
  * The levels a member may pin on a conversation. Onyx also offers {@code xhigh}, which only OpenAI and Anthropic
@@ -65,7 +65,7 @@ export function useChatModels(sessionId?: string) {
               id: model.id,
               name: model.displayName || model.modelName || ui("Model"),
               keywords: [model.modelName ?? "", model.providerName ?? ""],
-              icon: <ChatModelLogo modelName={model.modelName ?? ""} />,
+              icon: <ModelLogo modelName={model.modelName ?? ""} />,
               // Only a reasoning model offers levels, and the request carries none for any other model.
               efforts: model.capabilities?.reasoning ? REASONING_EFFORTS : undefined,
             },

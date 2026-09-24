@@ -6,14 +6,9 @@ import { TextButton } from "@/components/ui/text-button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { createChatProject } from "@/lib/hey-api/sdk.gen";
-import { ChatDialog } from "@/features/chat/chat-dialog";
-import {
-  addToProject,
-  chatLibraryKey,
-  ProjectFull,
-  PROJECT_FILE_LIMIT,
-  type LibraryFile,
-} from "@/features/library/library";
+import { FormDialog } from "@/components/composites/form-dialog";
+import { chatLibraryKey, type LibraryFile } from "@/features/library/library";
+import { addToProject, ProjectFull, PROJECT_FILE_LIMIT } from "./chat-project-files";
 import { loadProjects, projectSchema } from "@/features/chat/chat-workspace-api";
 
 /**
@@ -48,7 +43,7 @@ export function ChatAddToProjectDialog({
   const creating = name.length > 0 || newProject || projects.data?.length === 0;
 
   return (
-    <ChatDialog
+    <FormDialog
       open={open}
       onOpenChange={(next) => {
         setFull(false);
@@ -138,6 +133,6 @@ export function ChatAddToProjectDialog({
           })}
         </p>
       )}
-    </ChatDialog>
+    </FormDialog>
   );
 }

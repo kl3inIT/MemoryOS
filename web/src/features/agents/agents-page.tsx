@@ -39,7 +39,7 @@ import {
 } from "@/features/identity/application-session-context";
 import { can } from "@/lib/resource-permissions";
 import { cn } from "@/lib/utils";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { actionErrorText } from "@/lib/action-errors";
 import { chatSessionsKey, newChatSession } from "@/features/chat/chat-api";
 import {
   agentVisibility,
@@ -145,7 +145,7 @@ export function AgentsPage() {
         search: { ask },
       });
     } catch (cause) {
-      setError(chatActionError(cause));
+      setError(actionErrorText(cause));
     } finally {
       setPending(undefined);
     }
@@ -162,7 +162,7 @@ export function AgentsPage() {
             : [...current, agent.id],
       );
     } catch (cause) {
-      setError(chatActionError(cause));
+      setError(actionErrorText(cause));
     }
   }
 

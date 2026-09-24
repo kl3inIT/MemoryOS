@@ -22,9 +22,9 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { archiveChatSession, deleteChatSession, unarchiveChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { chatSessionsKey } from "@/features/chat/chat-api";
-import { ChatDialog } from "@/features/chat/chat-dialog";
+import { FormDialog } from "@/components/composites/form-dialog";
 import { SharingDialog } from "./chat-sharing-dialog";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { actionErrorText } from "@/lib/action-errors";
 import { loadProjects, moveConversation } from "@/features/chat/chat-workspace-api";
 
 export function ChatSessionMenu({
@@ -168,7 +168,7 @@ export function ChatSessionMenu({
         }}
       />
       {dialog === "move" && (
-        <ChatDialog
+        <FormDialog
           open
           onOpenChange={(next) => {
             if (!next) {
@@ -222,7 +222,7 @@ export function ChatSessionMenu({
               </label>
             ))}
           </RadioGroup>
-        </ChatDialog>
+        </FormDialog>
       )}
       <ConfirmDialog
         open={dialog === "delete"}
@@ -237,7 +237,7 @@ export function ChatSessionMenu({
         )}
         confirmLabel={ui("Xóa hội thoại")}
         pendingLabel={ui("Đang xóa…")}
-        errorMessage={chatActionError}
+        errorMessage={actionErrorText}
         onConfirm={async () => {
           if (deleteSession) await deleteSession();
           else

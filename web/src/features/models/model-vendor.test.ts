@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { modelVendor } from "./chat-model-vendor";
+import { modelVendor } from "./model-vendor";
 
 describe("model vendor marks", () => {
   it("names the vendor from the model name whichever provider routes it", () => {

@@ -1,4 +1,4 @@
-import { ChatModelLogo } from "@/features/chat/chat-model-logo";
+import { ModelLogo } from "./model-logo";
 import { Brain, Eye, RefreshCw, Search, Wrench } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -262,7 +262,7 @@ function ModelName({ model }: { model: ReportedModel }) {
   ];
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <ChatModelLogo modelName={model.modelName} className="size-4 shrink-0" />
+      <ModelLogo modelName={model.modelName} className="size-4 shrink-0" />
       <span className="truncate" title={model.modelName}>
         {model.modelName}
       </span>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getChatLibraryArchive, requestChatLibraryArchive } from "@/lib/hey-api/sdk.gen";
 import type { ChatLibraryArchive } from "@/lib/hey-api/types.gen";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { actionErrorText } from "@/lib/action-errors";
 import type { LibraryFile } from "./library";
 
 export type ArchiveState =
@@ -77,7 +77,7 @@ export function useLibraryArchive(): LibraryArchive {
       link.remove();
     } catch (failure) {
       if (!controller.signal.aborted)
-        setState({ phase: "failed", message: chatActionError(failure) });
+        setState({ phase: "failed", message: actionErrorText(failure) });
     }
   }, []);
 

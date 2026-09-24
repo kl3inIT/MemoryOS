@@ -25,7 +25,8 @@ import { useApplicationSession } from "@/features/identity/application-session-c
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { getChatFileArtifactChart } from "@/lib/hey-api/sdk.gen";
 import { barRows, parseChart, pointRows, type SimpleChart } from "./chat-chart";
-import { fileArtifactUrl, type GeneratedFile } from "./chat-code";
+import { fileArtifactUrl } from "@/features/library/content-urls";
+import { type GeneratedFile } from "./chat-code";
 
 // The shared categorical chart hues in their fixed order; a ninth series and beyond take the neutral "other" colour
 // instead of repeating a hue.
