@@ -40,8 +40,10 @@ A reader opens the meeting while it records and after it ends: the transcript as
 | `PUT /api/meetings/{id}/minutes/{itemId}` (tick), `PUT …/minutes/items/{itemId}` (rewrite), `POST …/minutes/items` (write in) | The item as it now reads. An item carrying the owner's words means the minutes are the owner's |
 | `DELETE /api/meetings/{id}/minutes/items/{itemId}` | 204; the minutes are the owner's from then on |
 | `PUT /api/meetings/{id}/minutes/summary` | `{summary, edited}` |
+| `POST /api/meetings/{id}/corrections/{correctionId}/accept`, `…/revert`; `POST /api/meetings/{id}/utterances/{utteranceId}/corrections` (a word written by hand) | `{utterance, correction}`: the one line as a reader now sees it, marks read as whole words, and the proposal as it now stands — for a word written by hand, the accepted correction it was recorded as. Corrections do not move the meeting's `revision`, so none is answered |
+| `POST /api/meetings/{id}/corrections/{correctionId}/keep` | The declined proposal alone; no line changed |
 
-Creating, ending, rerunning the minutes, reserving and finalizing a recording, and every transcript correction (`accept`, `keep`, `revert`, `accept-all`, `revert-all`, a word written by hand) still answer the whole meeting: they change its status, its minutes or the words of its lines, and the page shows all of that at once.
+Creating, ending, rerunning the minutes, reserving and finalizing a recording, and the two corrections that decide a whole pass (`accept-all`, `revert-all`) still answer the whole meeting: they change its status, its minutes or the words of any number of lines, and the page shows all of that at once. A name a voice gave itself is read from the words its lines say now, so a single correction that rewrites an introduction is reflected in the offer on the meeting's next read.
 
 ## Recording a track
 
