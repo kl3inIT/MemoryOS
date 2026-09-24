@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ChatLibraryPage } from "@/features/library/library-page";
+import { ChatLibraryPage } from "@/features/chat/library/chat-library";
 import { LIBRARY_CATEGORIES, type LibraryCategory } from "@/features/library/library";
 
 /** `?category=IMAGE` opens the library already narrowed to that kind, as the storage page links to it. */

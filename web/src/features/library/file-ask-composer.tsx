@@ -1,17 +1,14 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ComponentType } from "react";
 import { ArrowUp, FileText, Mic, Paperclip, Plus, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useDictationInput } from "@/features/voice/use-dictation-input";
 import { useVoiceAvailability } from "@/features/voice/use-voice-availability";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
 import { menuRow } from "@/components/composites/menu-row";
 import { ChatLibraryPicker } from "./library-picker";
-import { ChatModelPicker } from "@/features/chat/chat-model-picker";
-import { readChatModelPreference, writeChatModelPreference } from "@/features/chat/chat-models";
 import type { LibraryFile } from "./library";
 
 /** Files put on the question besides the file being read. */
@@ -33,12 +30,14 @@ const MAX_FILES = 20;
 export function ChatFileAskComposer({
   name,
   onAsk,
+  ModelPicker,
 }: {
   name: string;
   onAsk: (question: string, extras: AskExtras) => Promise<void>;
+  /** Chat's model choice, which the question is asked with. */
+  ModelPicker: ComponentType<{ disabled: boolean }>;
 }) {
   const ui = useAppTranslation();
-  const { actorId } = useApplicationSession();
   const [question, setQuestion] = useState("");
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -46,7 +45,6 @@ export function ChatFileAskComposer({
   const [picking, setPicking] = useState(false);
   const [library, setLibrary] = useState<readonly LibraryFile[]>([]);
   const [uploads, setUploads] = useState<readonly File[]>([]);
-  const [model, setModel] = useState(() => readChatModelPreference(actorId));
   const input = useRef<HTMLTextAreaElement>(null);
   const device = useRef<HTMLInputElement>(null);
   const dictation = useDictationInput({
@@ -179,14 +177,7 @@ export function ChatFileAskComposer({
             }}
           />
           <div className="flex min-w-0 items-center gap-1">
-            <ChatModelPicker
-              value={model}
-              onChange={(id) => {
-                setModel(id);
-                writeChatModelPreference(actorId, id);
-              }}
-              disabled={pending}
-            />
+            <ModelPicker disabled={pending} />
             {canDictate && (
               <IconButton
                 type="button"

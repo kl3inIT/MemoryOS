@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Settings2 } from "lucide-react";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { IconButton } from "@/components/ui/icon-button";
@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { ChatRetentionSection } from "@/features/chat/settings/chat-retention-section";
 import { type LibraryCategory } from "./library";
 import { StorageMeter, type LibraryUsage } from "./storage-meter";
 
@@ -26,12 +25,15 @@ export function LibrarySettingsButton({
   usageFailed = false,
   trashDays,
   onCategory,
+  retention,
 }: {
   usage?: LibraryUsage;
   usageFailed?: boolean;
   /** How long a deleted file stays restorable in this deployment; absent while it is being read. */
   trashDays?: number;
   onCategory: (category: LibraryCategory) => void;
+  /** How long the owner keeps their conversations, which Chat supplies. */
+  retention?: ReactNode;
 }) {
   const ui = useAppTranslation();
   const [open, setOpen] = useState(false);
@@ -77,7 +79,7 @@ export function LibrarySettingsButton({
                 {ui("Tệp đã xoá được giữ {{days}} ngày rồi xoá vĩnh viễn.", { days: trashDays })}
               </p>
             )}
-            <ChatRetentionSection />
+            {retention}
           </div>
         </DialogContent>
       </Dialog>

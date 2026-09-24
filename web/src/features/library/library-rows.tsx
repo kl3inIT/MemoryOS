@@ -46,7 +46,6 @@ import {
   type LibraryDayGroup,
   type LibraryFile,
 } from "./library";
-import { removeFromProject } from "@/features/chat/projects/chat-project-files";
 import { categoryIcon, categoryLabels, sourceLabels, statusLabel } from "./library-labels";
 import { type LibraryLayout } from "./library-toolbar";
 import type { LibraryView } from "./library-rail";
@@ -54,13 +53,15 @@ import type { LibraryView } from "./library-rail";
 export type RowActions = {
   onPreview: (file: LibraryFile) => void;
   onDelete: (file: LibraryFile) => void;
-  onAddToProject: (file: LibraryFile) => void;
+  /** Absent where no Project can be reached, which leaves the command out. */
+  onAddToProject?: (file: LibraryFile) => void;
   onRename: (file: LibraryFile) => void;
   onFavorite: (file: LibraryFile) => void;
   onRestore: (file: LibraryFile) => Promise<void>;
   onPurge: (file: LibraryFile) => Promise<void>;
   onRetried: () => Promise<unknown>;
-  onRemovedFromProject: (name: string) => Promise<void>;
+  /** Takes an upload out of one Project holding it; absent, the holders are only named. */
+  onRemoveFromProject?: (file: LibraryFile, project: { id: string; name: string }) => Promise<void>;
 };
 
 /**
@@ -272,7 +273,7 @@ function LibraryRow({
         <ItemDescription className="flex flex-wrap items-center gap-x-1.5">
           <RowMeta file={file} view={view} />
         </ItemDescription>
-        <FileUsage file={file} onRemoved={actions.onRemovedFromProject} />
+        <FileUsage file={file} onRemove={actions.onRemoveFromProject} />
       </ItemContent>
       <ItemActions className="opacity-100 transition-opacity md:opacity-0 md:group-hover/item:opacity-100 md:group-focus-within/item:opacity-100 md:has-[[data-state=open]]:opacity-100">
         <RowActionButtons file={file} view={view} actions={actions} />
@@ -502,10 +503,12 @@ export function FileActions({
             <Pencil />
             {ui("Đổi tên")}
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => actions.onAddToProject(file)}>
-            <FolderPlus />
-            {ui("Thêm vào dự án")}
-          </DropdownMenuItem>
+          {actions.onAddToProject && (
+            <DropdownMenuItem onSelect={() => actions.onAddToProject?.(file)}>
+              <FolderPlus />
+              {ui("Thêm vào dự án")}
+            </DropdownMenuItem>
+          )}
           {file.sessionId && (
             <DropdownMenuItem asChild>
               <Link to="/chat/$sessionId" params={{ sessionId: file.sessionId }}>
@@ -652,10 +655,10 @@ function PendingActions({
 /** What holds an upload, with a way to take it out of a Project; an assistant's files are edited on the assistant. */
 export function FileUsage({
   file,
-  onRemoved,
+  onRemove,
 }: {
   file: LibraryFile;
-  onRemoved: (name: string) => Promise<void>;
+  onRemove?: (file: LibraryFile, project: { id: string; name: string }) => Promise<void>;
 }) {
   const ui = useAppTranslation();
   const [pending, setPending] = useState<string>();
@@ -664,30 +667,30 @@ export function FileUsage({
   return (
     <span className="mt-0.5 flex flex-wrap items-center gap-x-2 font-secondary-body text-content-muted">
       <Badge variant="outline">{ui("Đang dùng trong {{name}}", { name: usageLabel(file) })}</Badge>
-      {file.usedBy
-        .filter((usage) => usage.kind === "PROJECT")
-        .map((usage) => (
-          <button
-            key={usage.id}
-            type="button"
-            disabled={pending !== undefined}
-            className="underline hover:text-content-primary disabled:opacity-50"
-            onClick={async () => {
-              setPending(usage.id);
-              setFailed(false);
-              try {
-                await removeFromProject(usage.id, file.id, AbortSignal.timeout(30000));
-                await onRemoved(usage.name);
-              } catch {
-                setFailed(true);
-              } finally {
-                setPending(undefined);
-              }
-            }}
-          >
-            {ui("Gỡ khỏi {{name}}", { name: usage.name })}
-          </button>
-        ))}
+      {onRemove &&
+        file.usedBy
+          .filter((usage) => usage.kind === "PROJECT")
+          .map((usage) => (
+            <button
+              key={usage.id}
+              type="button"
+              disabled={pending !== undefined}
+              className="underline hover:text-content-primary disabled:opacity-50"
+              onClick={async () => {
+                setPending(usage.id);
+                setFailed(false);
+                try {
+                  await onRemove(file, usage);
+                } catch {
+                  setFailed(true);
+                } finally {
+                  setPending(undefined);
+                }
+              }}
+            >
+              {ui("Gỡ khỏi {{name}}", { name: usage.name })}
+            </button>
+          ))}
       {failed && (
         <span role="alert" className="text-content-danger">
           {ui("Không gỡ được. Hãy thử lại.")}

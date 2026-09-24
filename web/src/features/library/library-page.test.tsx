@@ -13,7 +13,7 @@ import { ActionNotifications } from "@/components/ui/action-notifications";
 import { i18n } from "@/i18n/index";
 import { ApiError } from "@/lib/api";
 import type { ChatLibraryFile } from "@/lib/hey-api/types.gen";
-import { ChatLibraryPage } from "./library-page";
+import { LibraryPage } from "./library-page";
 
 const listChatLibrary = vi.hoisted(() => vi.fn());
 const deleteChatFile = vi.hoisted(() => vi.fn());
@@ -134,9 +134,9 @@ async function show(items: ChatLibraryFile[] = [file(), upload], hasMore = false
   const route = createRoute({
     getParentRoute: () => rootRoute,
     path: "/library",
-    component: () => <ChatLibraryPage />,
+    component: () => <LibraryPage />,
   });
-  // A question about a file opens a conversation, so the page can navigate to one.
+  // The original conversation of a file is a link, so the page can navigate to one.
   const chatRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/chat/$sessionId",
@@ -322,73 +322,6 @@ it("chooses one day at its heading and leaves the other days alone", async () =>
 
   await user.click(screen.getByRole("checkbox", { name: "Chọn tất cả Hôm nay" }));
   await waitFor(() => expect(screen.queryByText("Đã chọn 2 tệp")).not.toBeInTheDocument());
-});
-
-const PROJECT = {
-  id: "44444444-4444-4444-8444-444444444444",
-  name: "Kế hoạch",
-  description: "",
-  instructions: "",
-  revision: 3,
-  updatedAt: new Date().toISOString(),
-  fileIds: ["66666666-6666-4666-8666-666666666666"],
-};
-
-it("adds a generated file to a project by copying it into an upload first", async () => {
-  await show();
-  const user = userEvent.setup();
-  const copy = "77777777-7777-4777-8777-777777777777";
-  listChatProjects.mockResolvedValue({ data: [PROJECT] });
-  getChatProject.mockResolvedValue({ data: PROJECT });
-  updateChatProject.mockResolvedValue({ data: PROJECT });
-  copyChatLibraryFile.mockResolvedValue({
-    data: {
-      id: copy,
-      filename: "doanh-thu.xlsx",
-      mediaType: "text/csv",
-      sizeBytes: 2048,
-      status: "READY",
-    },
-  });
-
-  await user.click(screen.getByRole("button", { name: "Thao tác với doanh-thu.xlsx" }));
-  await user.click(await screen.findByRole("menuitem", { name: "Thêm vào dự án" }));
-  const dialog = await screen.findByRole("dialog");
-  await within(dialog).findByRole("option", { name: "Kế hoạch (1/20)" });
-  await user.click(within(dialog).getByRole("button", { name: "Thêm vào dự án" }));
-
-  await waitFor(() =>
-    expect(updateChatProject).toHaveBeenCalledWith(
-      expect.objectContaining({
-        path: { projectId: PROJECT.id },
-        query: { revision: 3 },
-        body: expect.objectContaining({ fileIds: [...PROJECT.fileIds, copy] }),
-      }),
-    ),
-  );
-  expect(copyChatLibraryFile).toHaveBeenCalledWith(
-    expect.objectContaining({ path: { source: "GENERATED", id: file().id } }),
-  );
-  expect(await screen.findByText("Đã thêm vào dự án Kế hoạch.")).toBeInTheDocument();
-});
-
-it("takes an upload out of a project from its usage label without deleting it", async () => {
-  await show();
-  const user = userEvent.setup();
-  getChatProject.mockResolvedValue({
-    data: { ...PROJECT, fileIds: [upload.id, ...PROJECT.fileIds] },
-  });
-  updateChatProject.mockResolvedValue({ data: PROJECT });
-
-  await user.click(screen.getByRole("button", { name: "Gỡ khỏi Kế hoạch" }));
-
-  await waitFor(() =>
-    expect(updateChatProject).toHaveBeenCalledWith(
-      expect.objectContaining({ body: expect.objectContaining({ fileIds: PROJECT.fileIds }) }),
-    ),
-  );
-  expect(deleteChatFile).not.toHaveBeenCalled();
-  expect(await screen.findByText("Đã gỡ khỏi dự án Kế hoạch.")).toBeInTheDocument();
 });
 
 it("takes files straight into the library, showing each upload's progress", async () => {
@@ -696,7 +629,7 @@ it("says what an empty view means and offers the way out of a filter", async () 
   expect(await screen.findByText("Thùng rác trống")).toBeInTheDocument();
 });
 
-it("keeps the library's own settings on the library: what is stored and how long conversations last", async () => {
+it("keeps the library's own settings on the library: what is stored and how long it stays in the trash", async () => {
   getChatLibraryUsage.mockResolvedValue({
     data: {
       usedBytes: 3072,
@@ -718,10 +651,8 @@ it("keeps the library's own settings on the library: what is stored and how long
   expect(
     within(panel).getByText("Tệp đã xoá được giữ 30 ngày rồi xoá vĩnh viễn."),
   ).toBeInTheDocument();
-  // The one setting the panel offers belongs to the person, not to an administrator.
-  expect(
-    await within(panel).findByRole("combobox", { name: "Xoá hội thoại sau" }),
-  ).toBeInTheDocument();
+  // Without Chat the panel has no conversation retention to offer.
+  expect(within(panel).queryByRole("combobox", { name: "Xoá hội thoại sau" })).toBeNull();
 
   // A kind of file narrows the list already behind the panel instead of navigating anywhere.
   await user.click(within(panel).getByRole("button", { name: /Ảnh/ }));
@@ -755,44 +686,4 @@ it("cuts the list into pages of the chosen size, from its first page", async () 
     ),
   );
   expect(screen.getByText("Hiển thị 1–12 trên 60 tệp")).toBeInTheDocument();
-});
-
-it("asks Chat about the file being previewed, with the file attached to the question", async () => {
-  const picture = file({
-    source: "UPLOAD",
-    id: "99999999-9999-4999-8999-999999999999",
-    filename: "so-do.png",
-    mediaType: "image/png",
-    category: "IMAGE",
-    sessionId: null,
-    sessionTitle: null,
-  });
-  const router = await show([picture]);
-  const user = userEvent.setup();
-  getChatImageArtifact.mockResolvedValue({ data: new Blob(["png"], { type: "image/png" }) });
-  globalThis.URL.createObjectURL = vi.fn(() => "blob:preview");
-  globalThis.URL.revokeObjectURL = vi.fn();
-  createChatSession.mockResolvedValue({
-    data: { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", title: "Sơ đồ này nói gì?" },
-  });
-
-  await user.click(screen.getByRole("button", { name: "so-do.png" }));
-  await user.type(
-    await screen.findByRole("textbox", { name: "Hỏi về so-do.png" }),
-    "Sơ đồ này nói gì?",
-  );
-  await user.click(screen.getByRole("button", { name: "Hỏi trong Chat" }));
-
-  await waitFor(() =>
-    expect(router.state.location.pathname).toBe("/chat/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
-  );
-  expect(router.state.location.search).toEqual({
-    ask: "Sơ đồ này nói gì?",
-    attach: [picture.id],
-  });
-  expect(createChatSession).toHaveBeenCalledWith(
-    expect.objectContaining({ body: expect.objectContaining({ title: "Sơ đồ này nói gì?" }) }),
-  );
-  // An upload is already the file Chat attaches, so nothing is copied for it.
-  expect(copyChatLibraryFile).not.toHaveBeenCalled();
 });

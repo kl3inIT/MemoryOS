@@ -363,7 +363,8 @@ export function LibrarySelectionBar({
   packing: boolean;
   trash?: boolean;
   onDownload: () => void;
-  onAddToProject: () => void;
+  /** Absent where no Project can be reached, which leaves the command out. */
+  onAddToProject?: () => void;
   onDelete: () => void;
   onRestore: () => void;
   onPurge: () => void;
@@ -414,10 +415,12 @@ export function LibrarySelectionBar({
               <Download className="size-4" aria-hidden="true" />
               {ui("Tải về ZIP")}
             </Button>
-            <Button size="sm" prominence="secondary" onClick={onAddToProject}>
-              <FolderPlus className="size-4" aria-hidden="true" />
-              {ui("Thêm vào dự án")}
-            </Button>
+            {onAddToProject && (
+              <Button size="sm" prominence="secondary" onClick={onAddToProject}>
+                <FolderPlus className="size-4" aria-hidden="true" />
+                {ui("Thêm vào dự án")}
+              </Button>
+            )}
             <Button size="sm" tone="danger" prominence="secondary" onClick={onDelete}>
               <Trash2 className="size-4" aria-hidden="true" />
               {ui("Xoá")}

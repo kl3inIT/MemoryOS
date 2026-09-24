@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronLeft, ChevronRight, Copy, Download, Loader2, Undo2, X } from "lucide-react";
 import { Dialog } from "radix-ui";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
@@ -143,7 +143,7 @@ export function ChatFilePreviewModal({
   onClose,
   onCloseAutoFocus,
   onSaveImage,
-  onAsk,
+  ask,
 }: {
   target: PreviewTarget;
   /** The files shown beside this one, in the order the page lists them; enables previous/next. */
@@ -153,15 +153,18 @@ export function ChatFilePreviewModal({
   /** Keeps an edited image where the modal was opened from; without it an edit can only be downloaded. */
   onSaveImage?: (file: File) => void | Promise<void>;
   /**
-   * Opens a conversation about this file. `edited` is the image the viewer is currently showing when a crop
-   * has been applied, so the question is asked about what is on screen. Surfaces inside Chat leave it out:
-   * they are already a conversation.
+   * Opens a conversation about this file with the model `ModelPicker` chose. `edited` is the image the viewer is
+   * currently showing when a crop has been applied, so the question is asked about what is on screen. Surfaces
+   * inside Chat leave it out: they are already a conversation.
    */
-  onAsk?: (
-    target: PreviewTarget,
-    question: string,
-    extras: AskExtras & { edited?: File },
-  ) => Promise<void>;
+  ask?: {
+    onAsk: (
+      target: PreviewTarget,
+      question: string,
+      extras: AskExtras & { edited?: File },
+    ) => Promise<void>;
+    ModelPicker: ComponentType<{ disabled: boolean }>;
+  };
 }) {
   const ui = useAppTranslation();
   const { actorId, authorizationVersion } = useApplicationSession();
@@ -384,7 +387,7 @@ export function ChatFilePreviewModal({
                     "flex min-h-0 flex-1 flex-col overflow-auto",
                     kind === "image" || cropping ? "pt-14" : "pt-3",
                     // The question floats over the file, so the file keeps room beneath it.
-                    onAsk && !cropping ? "pb-28" : "pb-4",
+                    ask && !cropping ? "pb-28" : "pb-4",
                   )}
                 >
                   {cropping && imageSource ? (
@@ -480,11 +483,12 @@ export function ChatFilePreviewModal({
                 )}
               </>
             )}
-            {onAsk && !cropping && (
+            {ask && !cropping && (
               <ChatFileAskComposer
                 name={filename}
+                ModelPicker={ask.ModelPicker}
                 onAsk={(question, extras) =>
-                  onAsk(target, question, {
+                  ask.onAsk(target, question, {
                     ...extras,
                     edited:
                       edited && new File([edited.blob], edited.filename, { type: edited.type }),
