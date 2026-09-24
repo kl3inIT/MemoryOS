@@ -12,12 +12,14 @@ import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.ProviderAuthorityService;
 import io.memoryos.connector.SharePointConnectionService;
 import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.SharePointSourceService.Scope;
 import io.memoryos.connector.SharePointSourceService.ScopeMode;
 import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceRunTrigger;
+import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.persistence.JdbcSharePointCredentialRepository;
 import io.memoryos.connector.persistence.JdbcSharePointSourceRepository;
@@ -25,6 +27,7 @@ import io.memoryos.connector.persistence.JdbcSharePointSourceRepository.Resolved
 import io.memoryos.connector.persistence.JdbcSharePointSyncRepository;
 import io.memoryos.connector.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.persistence.JdbcSourceItemRepository;
+import io.memoryos.connector.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.persistence.JdbcSourceRepository;
 import io.memoryos.connector.persistence.JdbcSourceSyncRepository;
 import io.memoryos.connector.persistence.SharePointCredentialConfiguration;
@@ -353,6 +356,17 @@ class PostgresSharePointSyncTest {
         assertEquals(ConnectorSyncPort.Result.FAILED, service.execute(claim(enqueue())));
 
         assertEquals(List.of("FAILED"), runStatuses());
+    }
+
+    @Test
+    void aSourceWhoseSyncFailedIsReportedFailedWithItsCode() {
+        when(session.delta(eq(DRIVE), any(), any())).thenThrow(new SharePointProviderException(
+                SharePointProviderException.Failure.AUTHENTICATION));
+        assertEquals(ConnectorSyncPort.Result.FAILED, service.execute(claim(enqueue())));
+
+        var summary = new JdbcSourceQueryRepository(jdbc).summary(tenant, owner, source, true, true, true);
+        assertEquals(SourceStatus.FAILED, summary.status());
+        assertEquals("SOURCE_SHAREPOINT_AUTHENTICATION", summary.errorCode());
     }
 
     @Test
