@@ -442,6 +442,9 @@ services:
       MEMORYOS_EXTRACTION_DOCLING_API_KEY_FILE: /run/secrets/docling_api_key
       MEMORYOS_GOOGLE_DRIVE_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/google_drive_credential_encryption_key
       MEMORYOS_EMBEDDING_API_KEY_FILE: /run/secrets/model_api_key
+      # The embedding provider chosen on the Search settings page keeps its key encrypted with the
+      # catalog key (MEM-135), and the worker embeds every indexed chunk with it.
+      MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY_FILE: /run/secrets/chat_catalog_encryption_key
     secrets:
       - minio_worker_secret_key
       - redis_tls_ca
@@ -451,6 +454,7 @@ services:
       - docling_api_key
       - google_drive_credential_encryption_key
       - model_api_key
+      - chat_catalog_encryption_key
     depends_on:
       api:
         condition: service_healthy

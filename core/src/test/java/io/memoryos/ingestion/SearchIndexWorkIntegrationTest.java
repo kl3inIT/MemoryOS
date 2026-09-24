@@ -122,6 +122,12 @@ class SearchIndexWorkIntegrationTest {
         assertEquals(2, count("document_chunks"));
         assertEquals("SUCCESS", jdbc.sql("SELECT status FROM search_index_operations").query(String.class).single());
         assertTrue(chunks.isCurrent(tenant, document, generation(document), IDENTITY));
+        // MEM-135: readiness is recorded per index, so the document is not ready in another generation's index.
+        assertEquals(generation(document), jdbc.sql("""
+                SELECT generation FROM document_search_projection WHERE document_id=:document AND index_identity=:identity
+                """).param("document", document.value()).param("identity", IDENTITY).query(java.util.UUID.class).single());
+        assertFalse(chunks.isCurrent(tenant, document, generation(document), IDENTITY + "-future"));
+        assertTrue(chunks.currentGenerations(tenant, List.of(document.value()), IDENTITY + "-future").isEmpty());
         verify(index, times(1)).index(any());
         assertEquals(0, count("document_artifact_readers"));
     }

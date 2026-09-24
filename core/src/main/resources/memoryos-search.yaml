@@ -18,3 +18,9 @@ memoryos:
     timeout: ${MEMORYOS_SEARCH_TIMEOUT:30s}
     index-prefix: ${MEMORYOS_SEARCH_INDEX_PREFIX:memoryos-chunks}
     replicas: ${MEMORYOS_SEARCH_REPLICAS:1}
+    # The embedding values above and these prefixes only seed the first PRESENT search generation (MEM-135);
+    # afterwards the Search settings page decides the model.
+    query-prefix: ${MEMORYOS_EMBEDDING_QUERY_PREFIX:}
+    document-prefix: ${MEMORYOS_EMBEDDING_DOCUMENT_PREFIX:}
+    # Embedding provider keys use the Chat catalog's encryption key.
+    provider-encryption-key: ${MEMORYOS_CHAT_CATALOG_ENCRYPTION_KEY:}

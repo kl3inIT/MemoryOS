@@ -119,13 +119,26 @@ public class JdbcDocumentChunkRepository {
                 h.userFileId() == null ? null : UUID.fromString(h.userFileId())));
     }
 
+    /**
+     * Records the generation as complete in the index. {@code document_search_projection} holds readiness per index,
+     * so a document can be ready in one generation's index while another is being built; the columns on
+     * {@code documents} keep the served generation that Source status and retention read.
+     */
     public boolean markReady(TenantId tenant, DocumentId document, UUID generation, String identity) {
-        return jdbc.sql("""
+        boolean ready = jdbc.sql("""
                 UPDATE documents SET searchable_generation=:generation,search_index_identity=:identity,search_error_code=NULL
                 WHERE tenant_id=:tenant AND id=:document AND content_generation=:generation
                     AND chunk_generation=:generation AND chunk_count>0 AND status='ELIGIBLE'
                 """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
                 .param("identity", identity).update() == 1;
+        if (ready) jdbc.sql("""
+                INSERT INTO document_search_projection(tenant_id,document_id,index_identity,generation)
+                VALUES (:tenant,:document,:identity,:generation)
+                ON CONFLICT (tenant_id,document_id,index_identity)
+                DO UPDATE SET generation=EXCLUDED.generation,ready_at=CURRENT_TIMESTAMP
+                """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
+                .param("identity", identity).update();
+        return ready;
     }
 
     /**
@@ -140,13 +153,19 @@ public class JdbcDocumentChunkRepository {
                 WHERE tenant_id=:tenant AND id=:document AND content_generation=:generation
                 """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
                 .param("error", error, Types.VARCHAR).update();
+        jdbc.sql("""
+                DELETE FROM document_search_projection p USING documents d
+                WHERE p.tenant_id=:tenant AND p.document_id=:document AND p.generation=:generation
+                    AND d.tenant_id=p.tenant_id AND d.id=p.document_id AND d.content_generation=:generation
+                """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation).update();
     }
 
     /** Whether the generation is the one currently served under the index identity. */
     public boolean isCurrent(TenantId tenant, DocumentId document, UUID generation, String identity) {
         return jdbc.sql("""
-                SELECT COUNT(*) FROM documents WHERE tenant_id=:tenant AND id=:document AND status='ELIGIBLE'
-                    AND searchable_generation=:generation AND search_index_identity=:identity
+                SELECT COUNT(*) FROM documents d JOIN document_search_projection p
+                    ON p.tenant_id=d.tenant_id AND p.document_id=d.id AND p.index_identity=:identity
+                WHERE d.tenant_id=:tenant AND d.id=:document AND d.status='ELIGIBLE' AND p.generation=:generation
                 """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
                 .param("identity", identity).query(Integer.class).single() == 1;
     }
@@ -154,7 +173,8 @@ public class JdbcDocumentChunkRepository {
     public List<DocumentIndexState> scan(String identity, String after, int limit) {
         return jdbc.sql("""
                 SELECT d.tenant_id,d.id,d.content_generation,COALESCE(d.chunk_count,0) AS chunk_count,
-                    (d.searchable_generation=d.content_generation AND d.search_index_identity=:identity) AS ready
+                    EXISTS (SELECT 1 FROM document_search_projection p WHERE p.tenant_id=d.tenant_id AND p.document_id=d.id
+                        AND p.index_identity=:identity AND p.generation=d.content_generation) AS ready
                 FROM documents d JOIN tenants t ON t.id=d.tenant_id
                 WHERE d.status='ELIGIBLE' AND t.status='ACTIVE' AND d.extraction_artifact_id IS NOT NULL
                     AND d.tenant_id::text || ':' || d.id::text > :after
@@ -169,10 +189,11 @@ public class JdbcDocumentChunkRepository {
         if (documents.isEmpty()) return Map.of();
         if (documents.size() > 1000) throw new IllegalArgumentException("document batch exceeds 1000");
         var rows = jdbc.sql("""
-                SELECT id,CASE WHEN :identity='' THEN content_generation ELSE searchable_generation END AS generation
-                FROM documents WHERE tenant_id=:tenant AND id IN (:documents)
-                    AND status='ELIGIBLE' AND (:identity='' OR
-                        (searchable_generation IS NOT NULL AND search_index_identity=:identity))
+                SELECT d.id,CASE WHEN :identity='' THEN d.content_generation ELSE p.generation END AS generation
+                FROM documents d LEFT JOIN document_search_projection p
+                    ON p.tenant_id=d.tenant_id AND p.document_id=d.id AND p.index_identity=:identity
+                WHERE d.tenant_id=:tenant AND d.id IN (:documents)
+                    AND d.status='ELIGIBLE' AND (:identity='' OR p.generation IS NOT NULL)
                 """).param("tenant", tenant.value()).param("documents", documents).param("identity", readyIdentity)
                 .query((rs, _) -> Map.entry(rs.getObject("id", UUID.class), rs.getObject("generation", UUID.class))).list();
         return rows.stream().collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
