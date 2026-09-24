@@ -53,6 +53,17 @@ public final class ValidatedEmbeddingService {
     public ValidatedEmbeddingService(EmbeddingModel model, String modelName, int dimensions, int batchSize, int concurrency,
             @Nullable AiUsageRecorder usage, String providerName, @Nullable Double inputPricePerMillion,
             String queryPrefix, String documentPrefix) {
+        this(model, modelName, dimensions, batchSize, concurrency, usage, providerName, inputPricePerMillion, queryPrefix,
+                documentPrefix, new Semaphore(Math.clamp(concurrency, 1, 16)));
+    }
+
+    /**
+     * As above, with the permits shared by every generation on the same provider, so a rebuild and the index it replaces
+     * together stay within the provider's concurrency.
+     */
+    public ValidatedEmbeddingService(EmbeddingModel model, String modelName, int dimensions, int batchSize, int concurrency,
+            @Nullable AiUsageRecorder usage, String providerName, @Nullable Double inputPricePerMillion,
+            String queryPrefix, String documentPrefix, Semaphore permits) {
         if (inputPricePerMillion != null && (!Double.isFinite(inputPricePerMillion) || inputPricePerMillion < 0))
             throw new IllegalArgumentException("invalid embedding price");
         this.usage = usage;
@@ -67,7 +78,7 @@ public final class ValidatedEmbeddingService {
         }
         this.dimensions = dimensions;
         this.batchSize = batchSize;
-        this.permits = new Semaphore(concurrency);
+        this.permits = Objects.requireNonNull(permits);
     }
 
     public int batchSize() { return batchSize; }

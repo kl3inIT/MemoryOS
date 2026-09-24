@@ -54,6 +54,11 @@ public final class EmbeddingProviderCredentials {
         finally { Arrays.fill(plain, (byte) 0); }
     }
 
+    /** Whether a key would be sent: a sealed one, or the deployment's when it is configured. */
+    public boolean present(@Nullable String stored) {
+        return stored != null && (!DEPLOYMENT.equals(stored) || !deploymentKey.isBlank());
+    }
+
     /** The key to send, empty when none is stored; an unreadable credential makes search unavailable. */
     public String resolve(UUID tenant, UUID provider, @Nullable String stored) {
         if (stored == null) return "";

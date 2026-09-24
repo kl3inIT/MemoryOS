@@ -2,6 +2,7 @@ package io.memoryos.retrieval.embedding;
 
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Duration;
+import org.jspecify.annotations.Nullable;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.document.MetadataMode;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -12,6 +13,12 @@ import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 
 /** The one embedding protocol: OpenAI-compatible {@code /v1/embeddings}, which OpenAI, TEI, vLLM and Ollama speak. */
 public final class OpenAiCompatibleEmbeddings {
+    /**
+     * Sent as the bearer token to a provider an administrator saved without a key (Ollama, LM Studio, an internal TEI
+     * without {@code --api-key}); the SDK requires one. A blank key still means an unconfigured deployment key.
+     */
+    public static final String NO_KEY = "no-key";
+
     private OpenAiCompatibleEmbeddings() { }
 
     /**
@@ -19,7 +26,7 @@ public final class OpenAiCompatibleEmbeddings {
      * connection that stalls costs one attempt instead of the whole search deadline. A provider without a key yields a
      * model whose every call fails, which the validated service reports as the provider being unavailable.
      */
-    public static EmbeddingModel model(String endpoint, String apiKey, String model, int dimensions, int retries,
+    public static EmbeddingModel model(String endpoint, String apiKey, String model, @Nullable Integer dimensions, int retries,
                                        Duration timeout, ObservationRegistry observations) {
         if (apiKey.isBlank()) return new EmbeddingModel() {
             @Override public EmbeddingResponse call(EmbeddingRequest request) { throw unconfigured(); }

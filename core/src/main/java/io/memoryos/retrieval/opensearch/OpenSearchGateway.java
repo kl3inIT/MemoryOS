@@ -29,6 +29,11 @@ public final class OpenSearchGateway {
         return request("POST", path, Map.of("refresh", "wait_for"), body, "application/x-ndjson", false);
     }
 
+    /** Deletes the resource; returns false when it did not exist. */
+    public boolean delete(String path) {
+        return !request("DELETE", path, Map.of(), null, "application/json", true).path("missing").asBoolean();
+    }
+
     public boolean exists(String path) {
         return !request("HEAD", path, Map.of(), null, "application/json", true).path("missing").asBoolean();
     }

@@ -120,44 +120,81 @@ public class JdbcDocumentChunkRepository {
     }
 
     /**
-     * Records the generation as complete in the index. {@code document_search_projection} holds readiness per index,
-     * so a document can be ready in one generation's index while another is being built; the columns on
-     * {@code documents} keep the served generation that Source status and retention read.
+     * An index is served unless it belongs to a search generation that is not PRESENT (the FUTURE being rebuilt or a
+     * retained PAST one). Before the first generation is seeded the only index is the served one.
+     */
+    private static final String SERVED = """
+            NOT EXISTS (SELECT 1 FROM search_settings s WHERE s.index_identity=:identity AND s.status<>'PRESENT')
+            """;
+
+    /**
+     * Records the generation as complete in the index with the chunk count written there. {@code
+     * document_search_projection} holds readiness per index, so a document can be ready in one generation's index
+     * while another is being built. The columns on {@code documents} keep the served generation that Source status
+     * and retention read, so only the served index writes them.
      */
     public boolean markReady(TenantId tenant, DocumentId document, UUID generation, String identity) {
-        boolean ready = jdbc.sql("""
-                UPDATE documents SET searchable_generation=:generation,search_index_identity=:identity,search_error_code=NULL
+        var count = jdbc.sql("""
+                SELECT chunk_count FROM documents
                 WHERE tenant_id=:tenant AND id=:document AND content_generation=:generation
                     AND chunk_generation=:generation AND chunk_count>0 AND status='ELIGIBLE'
+                FOR UPDATE
                 """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
-                .param("identity", identity).update() == 1;
-        if (ready) jdbc.sql("""
-                INSERT INTO document_search_projection(tenant_id,document_id,index_identity,generation)
-                VALUES (:tenant,:document,:identity,:generation)
-                ON CONFLICT (tenant_id,document_id,index_identity)
-                DO UPDATE SET generation=EXCLUDED.generation,ready_at=CURRENT_TIMESTAMP
-                """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
+                .query(Integer.class).optional();
+        if (count.isEmpty()) return false;
+        jdbc.sql("""
+                UPDATE documents SET searchable_generation=:generation,search_index_identity=:identity,search_error_code=NULL
+                WHERE tenant_id=:tenant AND id=:document AND """ + " " + SERVED)
+                .param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
                 .param("identity", identity).update();
-        return ready;
+        jdbc.sql("""
+                INSERT INTO document_search_projection(tenant_id,document_id,index_identity,generation,chunk_count)
+                VALUES (:tenant,:document,:identity,:generation,:count)
+                ON CONFLICT (tenant_id,document_id,index_identity)
+                DO UPDATE SET generation=EXCLUDED.generation,chunk_count=EXCLUDED.chunk_count,ready_at=CURRENT_TIMESTAMP
+                """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
+                .param("identity", identity).param("count", count.orElseThrow()).update();
+        return true;
     }
 
     /**
-     * Records the state of the current content generation. Readiness is withdrawn only when that generation is the one
-     * being served (projection repair); a pending or failed replacement leaves the previous ready generation searchable.
+     * Points every document's served generation at the one ready in the index, or at none when the index does not
+     * hold the document; runs when the index's generation becomes PRESENT.
      */
-    public void searchState(TenantId tenant, DocumentId document, UUID generation, String error) {
+    public void serve(String identity) {
+        jdbc.sql("""
+                UPDATE documents d SET searchable_generation=p.generation,search_index_identity=p.index_identity
+                FROM document_search_projection p
+                WHERE p.tenant_id=d.tenant_id AND p.document_id=d.id AND p.index_identity=:identity
+                    AND (d.searchable_generation IS DISTINCT FROM p.generation OR d.search_index_identity IS DISTINCT FROM p.index_identity)
+                """).param("identity", identity).update();
+        jdbc.sql("""
+                UPDATE documents d SET searchable_generation=NULL,search_index_identity=NULL
+                WHERE d.searchable_generation IS NOT NULL AND NOT EXISTS (SELECT 1 FROM document_search_projection p
+                    WHERE p.tenant_id=d.tenant_id AND p.document_id=d.id AND p.index_identity=:identity)
+                """).param("identity", identity).update();
+    }
+
+    /**
+     * Records the state of the current content generation in one index. Readiness is withdrawn only when that
+     * generation is the one ready there (projection repair); a pending or failed replacement leaves the previous
+     * ready generation searchable. Only the served index writes the document's columns: a rebuild beside it neither
+     * hides the document nor reports its failures on the Source.
+     */
+    public void searchState(TenantId tenant, DocumentId document, UUID generation, String error, String identity) {
         jdbc.sql("""
                 UPDATE documents SET search_error_code=:error,
                     searchable_generation=CASE WHEN searchable_generation=:generation THEN NULL ELSE searchable_generation END,
                     search_index_identity=CASE WHEN searchable_generation=:generation THEN NULL ELSE search_index_identity END
-                WHERE tenant_id=:tenant AND id=:document AND content_generation=:generation
-                """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
-                .param("error", error, Types.VARCHAR).update();
+                WHERE tenant_id=:tenant AND id=:document AND content_generation=:generation AND """ + " " + SERVED)
+                .param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
+                .param("error", error, Types.VARCHAR).param("identity", identity).update();
         jdbc.sql("""
                 DELETE FROM document_search_projection p USING documents d
-                WHERE p.tenant_id=:tenant AND p.document_id=:document AND p.generation=:generation
+                WHERE p.tenant_id=:tenant AND p.document_id=:document AND p.generation=:generation AND p.index_identity=:identity
                     AND d.tenant_id=p.tenant_id AND d.id=p.document_id AND d.content_generation=:generation
-                """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation).update();
+                """).param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
+                .param("identity", identity).update();
     }
 
     /** Whether the generation is the one currently served under the index identity. */
@@ -172,10 +209,11 @@ public class JdbcDocumentChunkRepository {
 
     public List<DocumentIndexState> scan(String identity, String after, int limit) {
         return jdbc.sql("""
-                SELECT d.tenant_id,d.id,d.content_generation,COALESCE(d.chunk_count,0) AS chunk_count,
-                    EXISTS (SELECT 1 FROM document_search_projection p WHERE p.tenant_id=d.tenant_id AND p.document_id=d.id
-                        AND p.index_identity=:identity AND p.generation=d.content_generation) AS ready
+                SELECT d.tenant_id,d.id,d.content_generation,
+                    COALESCE(CASE WHEN p.generation=d.content_generation THEN p.chunk_count END,d.chunk_count,0) AS chunk_count,
+                    COALESCE(p.generation=d.content_generation,FALSE) AS ready
                 FROM documents d JOIN tenants t ON t.id=d.tenant_id
+                LEFT JOIN document_search_projection p ON p.tenant_id=d.tenant_id AND p.document_id=d.id AND p.index_identity=:identity
                 WHERE d.status='ELIGIBLE' AND t.status='ACTIVE' AND d.extraction_artifact_id IS NOT NULL
                     AND d.tenant_id::text || ':' || d.id::text > :after
                 ORDER BY d.tenant_id::text || ':' || d.id::text LIMIT :limit

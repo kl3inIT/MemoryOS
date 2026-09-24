@@ -47,11 +47,12 @@ class SearchIngestionCoordinatorTest {
         var manager = mock(PlatformTransactionManager.class);
         when(manager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
         when(index.identity()).thenReturn("test-index");
+        when(index.identities()).thenReturn(List.of("test-index"));
         when(scheduler.scheduleAtFixedRate(any(Runnable.class), eq(30L), eq(30L), any()))
                 .thenAnswer(_ -> mock(ScheduledFuture.class));
         var claim = new JdbcSearchWorkRepository.Claim(tenant, UUID.randomUUID(), UUID.randomUUID(),
-                document, generation, "INDEX", 1);
-        when(work.claim(any(), eq("test-index"))).thenReturn(Optional.of(claim));
+                document, generation, "INDEX", 1, "test-index");
+        when(work.claim(any())).thenReturn(Optional.of(claim));
         when(documents.prepare(tenant, document, generation)).thenReturn(Optional.of(
                 new DocumentChunkSet(tenant, document, generation, "t", "text/plain", Instant.EPOCH,
                         List.of(new DocumentChunk(0, "passage", List.of(), 0, 0, "[]", "a".repeat(64), 1)))));
@@ -62,26 +63,26 @@ class SearchIngestionCoordinatorTest {
     @Test
     void contentRejectionFailsOnceWithTheSpecificCode() {
         doThrow(new DocumentContentException("SEARCH_INDEX_CONTENT_LIMIT", "document exceeds chunk limit"))
-                .when(index).index(any());
+                .when(index).index(any(), any());
         when(work.finish(any(), eq("FAILED"), eq("SEARCH_INDEX_CONTENT_LIMIT"))).thenReturn(true);
 
         assertEquals(io.memoryos.ingestion.IngestionCoordinator.Outcome.FAILED,
                 coordinator.process(mock(OperationDelivery.class)));
 
         verify(work).finish(any(), eq("FAILED"), eq("SEARCH_INDEX_CONTENT_LIMIT"));
-        verify(documents).markSearchFailed(tenant, document, generation, "SEARCH_INDEX_CONTENT_LIMIT");
+        verify(documents).markSearchFailed(tenant, document, generation, "SEARCH_INDEX_CONTENT_LIMIT", "test-index");
     }
 
     @Test
     void transientFailureKeepsTheGenericCodeAndRetries() {
-        doThrow(new SearchUnavailableException()).when(index).index(any());
+        doThrow(new SearchUnavailableException()).when(index).index(any(), any());
         when(work.finish(any(), eq("NOT_STARTED"), eq("SEARCH_INDEX_FAILED"))).thenReturn(true);
 
         assertEquals(io.memoryos.ingestion.IngestionCoordinator.Outcome.FAILED,
                 coordinator.process(mock(OperationDelivery.class)));
 
         verify(work).finish(any(), eq("NOT_STARTED"), eq("SEARCH_INDEX_FAILED"));
-        verify(documents).markSearchFailed(tenant, document, generation, "SEARCH_INDEX_FAILED");
+        verify(documents).markSearchFailed(tenant, document, generation, "SEARCH_INDEX_FAILED", "test-index");
         verify(documents, never()).markSearchReady(any(), any(), any(), any());
     }
 }

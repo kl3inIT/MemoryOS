@@ -7,6 +7,7 @@ import io.memoryos.document.DocumentId;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.ingestion.OperationDelivery;
 import java.sql.Types;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -100,22 +101,56 @@ public class JdbcSearchWorkRepository {
                 .param("generation", generation).param("identity", identity).update();
     }
 
+    /**
+     * Queues INDEX work in the rebuilt index for up to {@code window} documents it does not hold at their current
+     * content generation, minus the work already outstanding there, and returns how many were queued. The rebuild
+     * reads the chunks already stored, so no Source is fetched and nothing is OCRed again. Everything it needs is
+     * durable, so a restarted worker resumes where the last one stopped; the small window keeps changes to PRESENT
+     * from waiting behind the whole corpus. Work that failed is retried after 15 minutes, as repair does.
+     */
     @Transactional
-    public Optional<Claim> claim(OperationDelivery delivery, String identity) {
+    public int enqueueRebuild(String identity, int window) {
+        int outstanding = jdbc.sql("""
+                SELECT COUNT(*) FROM search_index_operations
+                WHERE index_identity=:identity AND status IN ('NOT_STARTED','IN_PROGRESS')
+                """).param("identity", identity).query(Integer.class).single();
+        int room = window - outstanding;
+        if (room <= 0) return 0;
+        return jdbc.sql("""
+                INSERT INTO search_index_operations(id,tenant_id,document_id,generation,action,index_identity)
+                SELECT gen_random_uuid(),d.tenant_id,d.id,d.content_generation,'INDEX',:identity
+                FROM documents d JOIN tenants t ON t.id=d.tenant_id
+                WHERE d.status='ELIGIBLE' AND t.status='ACTIVE' AND d.extraction_artifact_id IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM document_search_projection p WHERE p.tenant_id=d.tenant_id
+                        AND p.document_id=d.id AND p.index_identity=:identity AND p.generation=d.content_generation)
+                    AND NOT EXISTS (SELECT 1 FROM search_index_operations w WHERE w.tenant_id=d.tenant_id
+                        AND w.document_id=d.id AND w.generation=d.content_generation AND w.action='INDEX'
+                        AND w.index_identity=:identity AND (w.status IN ('NOT_STARTED','IN_PROGRESS')
+                            OR w.status='FAILED' AND w.completed_at >= CURRENT_TIMESTAMP - INTERVAL '15' MINUTE))
+                ORDER BY d.tenant_id,d.id LIMIT :room
+                ON CONFLICT (tenant_id,document_id,generation,action,index_identity) DO UPDATE
+                SET status='NOT_STARTED',processing_attempts=0,error_code=NULL,completed_at=NULL,claim_token=NULL,
+                    lease_expires_at=NULL,next_dispatch_at=CURRENT_TIMESTAMP,dispatch_token=NULL,dispatch_lease_expires_at=NULL
+                """).param("identity", identity).param("room", room).update();
+    }
+
+    /** Claims the delivered work whatever index it is for; the caller refuses an index that is no longer active. */
+    @Transactional
+    public Optional<Claim> claim(OperationDelivery delivery) {
         UUID token = UUID.randomUUID();
         return jdbc.sql("""
                 UPDATE search_index_operations w SET status='IN_PROGRESS',claim_token=:token,
                     lease_expires_at=CURRENT_TIMESTAMP + INTERVAL '2' MINUTE,
                     started_at=COALESCE(started_at,CURRENT_TIMESTAMP),processing_attempts=processing_attempts+1
-                WHERE w.tenant_id=:tenant AND w.id=:id AND w.delivery_id=:delivery AND w.index_identity=:identity
+                WHERE w.tenant_id=:tenant AND w.id=:id AND w.delivery_id=:delivery
                     AND (w.status='NOT_STARTED' OR (w.status='IN_PROGRESS' AND w.lease_expires_at<CURRENT_TIMESTAMP))
                     AND (w.action='DELETE' OR EXISTS (SELECT 1 FROM tenants t WHERE t.id=w.tenant_id AND t.status='ACTIVE'))
-                RETURNING w.document_id,w.generation,w.action,w.processing_attempts
+                RETURNING w.document_id,w.generation,w.action,w.processing_attempts,w.index_identity
                 """).param("token", token).param("tenant", delivery.tenantId().value())
-                .param("id", delivery.operationId().value()).param("delivery", delivery.deliveryId()).param("identity", identity)
+                .param("id", delivery.operationId().value()).param("delivery", delivery.deliveryId())
                 .query((rs, _) -> new Claim(delivery.tenantId(), delivery.operationId().value(), token,
                         new DocumentId(rs.getObject("document_id", UUID.class)), rs.getObject("generation", UUID.class),
-                        rs.getString("action"), rs.getInt("processing_attempts"))).optional();
+                        rs.getString("action"), rs.getInt("processing_attempts"), rs.getString("index_identity"))).optional();
     }
 
     public boolean renew(Claim claim) {
@@ -142,21 +177,22 @@ public class JdbcSearchWorkRepository {
                 .param("status", status).param("error", error, Types.VARCHAR).update() == 1;
     }
 
+    /** Cancels work for indexes that are neither PRESENT nor FUTURE any more, in batches of 100. */
     @Transactional
-    public void cancelObsolete(String identity) {
+    public void cancelObsolete(Collection<String> identities) {
         jdbc.sql("""
                 UPDATE search_index_operations w SET status='CANCELLED',claim_token=NULL,lease_expires_at=NULL,
                     completed_at=CURRENT_TIMESTAMP,error_code='SEARCH_OBSOLETE',dispatch_token=NULL,dispatch_lease_expires_at=NULL
                 WHERE w.id IN (SELECT candidate.id FROM search_index_operations candidate
                     JOIN tenants t ON t.id=candidate.tenant_id
                     WHERE candidate.status IN ('NOT_STARTED','IN_PROGRESS')
-                        AND (candidate.index_identity<>:identity OR (candidate.action<>'DELETE' AND t.status<>'ACTIVE'))
+                        AND (candidate.index_identity NOT IN (:identities) OR (candidate.action<>'DELETE' AND t.status<>'ACTIVE'))
                     ORDER BY candidate.created_at LIMIT 100 FOR UPDATE OF candidate SKIP LOCKED)
-                """).param("identity", identity).update();
+                """).param("identities", List.copyOf(identities)).update();
     }
 
     public record Claim(TenantId tenantId, UUID id, UUID token, DocumentId documentId,
-            UUID generation, String action, int attempts) {
+            UUID generation, String action, int attempts, String identity) {
         public boolean removed() { return "DELETE".equals(action); }
         public boolean access() { return "ACCESS".equals(action); }
         public boolean index() { return "INDEX".equals(action); }

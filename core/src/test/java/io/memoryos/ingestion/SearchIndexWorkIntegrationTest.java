@@ -98,6 +98,7 @@ class SearchIndexWorkIntegrationTest {
         jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,'search-test','Search','ACTIVE','MEM-46')")
                 .param("id", tenant.value()).update();
         when(index.identity()).thenReturn(IDENTITY);
+        when(index.identities()).thenReturn(List.of(IDENTITY));
     }
 
     @AfterEach
@@ -128,7 +129,7 @@ class SearchIndexWorkIntegrationTest {
                 """).param("document", document.value()).param("identity", IDENTITY).query(java.util.UUID.class).single());
         assertFalse(chunks.isCurrent(tenant, document, generation(document), IDENTITY + "-future"));
         assertTrue(chunks.currentGenerations(tenant, List.of(document.value()), IDENTITY + "-future").isEmpty());
-        verify(index, times(1)).index(any());
+        verify(index, times(1)).index(any(), any());
         assertEquals(0, count("document_artifact_readers"));
     }
 
@@ -140,7 +141,7 @@ class SearchIndexWorkIntegrationTest {
         assertEquals(0, count("documents")); assertEquals(0, count("search_index_operations"));
         var document = publish(null);
         var first = generation(document);
-        doAnswer(_ -> { publish(document); return null; }).when(index).index(any());
+        doAnswer(_ -> { publish(document); return null; }).when(index).index(any(), any());
         try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
             var metrics = new SimpleMeterRegistry();
             var coordinator = new SearchIngestionCoordinator(work, chunks, index, tx, scheduler, metrics);
@@ -176,7 +177,7 @@ class SearchIndexWorkIntegrationTest {
                 assertTrue(chunks.isCurrent(tenant, document, served, IDENTITY), "A claimed rewrite must keep serving the previous generation");
                 if (attempts.getAndIncrement() == 0) throw new SearchUnavailableException();
                 return null;
-            }).when(index).index(any());
+            }).when(index).index(any(), any());
             assertEquals(IngestionCoordinator.Outcome.FAILED, coordinator.process(delivery()));
             assertTrue(chunks.isCurrent(tenant, document, served, IDENTITY), "A failed rewrite must keep serving the previous generation");
             assertEquals("SEARCH_INDEX_FAILED", jdbc.sql("SELECT search_error_code FROM documents").query(String.class).single());
@@ -188,13 +189,13 @@ class SearchIndexWorkIntegrationTest {
             assertFalse(chunks.isCurrent(tenant, document, served, IDENTITY));
             assertEquals(Map.of(document.value(), java.util.Set.of(replacement)), chunks.retainedGenerations(tenant, List.of(document.value())));
         }
-        verify(index, times(2)).purgeObsolete(tenant, document);
+        verify(index, times(2)).purgeObsolete(tenant, document, IDENTITY);
     }
 
     @Test
     void providerFailureRetainsRetryAndAnExpiredClaimCannotComplete() {
         var document = publish(null);
-        doThrow(new SearchUnavailableException()).when(index).index(any());
+        doThrow(new SearchUnavailableException()).when(index).index(any(), any());
         try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
             var metrics = new SimpleMeterRegistry();
             var coordinator = new SearchIngestionCoordinator(work, chunks, index, tx, scheduler, metrics);
@@ -204,10 +205,10 @@ class SearchIndexWorkIntegrationTest {
         assertFalse(chunks.isCurrent(tenant, document, generation(document), IDENTITY));
         jdbc.sql("UPDATE search_index_operations SET next_dispatch_at=CURRENT_TIMESTAMP - INTERVAL '1' SECOND WHERE document_id=:document")
                 .param("document", document.value()).update();
-        var first = tx.execute(_ -> work.claim(delivery(), IDENTITY).orElseThrow());
+        var first = tx.execute(_ -> work.claim(delivery()).orElseThrow());
         jdbc.sql("UPDATE search_index_operations SET lease_expires_at=CURRENT_TIMESTAMP - INTERVAL '1' SECOND, next_dispatch_at=CURRENT_TIMESTAMP - INTERVAL '1' SECOND WHERE document_id=:document")
                 .param("document", document.value()).update();
-        var second = tx.execute(_ -> work.claim(delivery(), IDENTITY).orElseThrow());
+        var second = tx.execute(_ -> work.claim(delivery()).orElseThrow());
         assertNotEquals(first.token(), second.token());
         assertFalse(work.finish(first, "SUCCESS", null));
         assertTrue(work.finish(second, "SUCCESS", null));
@@ -254,8 +255,8 @@ class SearchIndexWorkIntegrationTest {
                     .query(Integer.class).single(), "Repeated changes collapse into one pending refresh");
             assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
         }
-        verify(index).updateAccess(tenant, document, generation(document));
-        verify(index, times(1)).index(any());
+        verify(index).updateAccess(tenant, document, generation(document), IDENTITY);
+        verify(index, times(1)).index(any(), any());
         assertTrue(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "An access refresh must not hide the document");
         assertEquals("SUCCESS", jdbc.sql("SELECT status FROM search_index_operations WHERE action='ACCESS'").query(String.class).single());
     }
@@ -273,7 +274,7 @@ class SearchIndexWorkIntegrationTest {
             var coordinator = new SearchIngestionCoordinator(work, chunks, index, tx, scheduler, new SimpleMeterRegistry());
             assertEquals(IngestionCoordinator.Outcome.SKIPPED, coordinator.process(delivery()));
         }
-        verify(index, times(0)).updateAccess(any(), any(), any());
+        verify(index, times(0)).updateAccess(any(), any(), any(), any());
         assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations WHERE action='ACCESS'").query(String.class).single());
     }
 
@@ -286,14 +287,14 @@ class SearchIndexWorkIntegrationTest {
         }
         var maintenance = new io.memoryos.ingestion.application.SearchProjectionMaintenance(chunks, work, index,
                 new DataSourceTransactionManager(dataSource));
-        when(index.contains(any())).thenReturn(false);
-        when(index.containsGeneration(any())).thenReturn(true);
+        when(index.contains(any(), any())).thenReturn(false);
+        when(index.containsGeneration(any(), any())).thenReturn(true);
         maintenance.reconcile();
         assertTrue(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "Access-only drift must keep the document searchable");
         assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations WHERE action='ACCESS'").query(String.class).single());
         assertEquals("SUCCESS", jdbc.sql("SELECT status FROM search_index_operations WHERE action='INDEX'").query(String.class).single());
 
-        when(index.containsGeneration(any())).thenReturn(false);
+        when(index.containsGeneration(any(), any())).thenReturn(false);
         maintenance.reconcile();
         assertFalse(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "Missing chunks still require a full rewrite");
         assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations WHERE action='INDEX'").query(String.class).single());
@@ -323,8 +324,8 @@ class SearchIndexWorkIntegrationTest {
                     "Repeated permission changes collapse into one pending refresh");
             assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
         }
-        verify(index).updateAccess(tenant, document, generation(document));
-        verify(index, times(1)).index(any());
+        verify(index).updateAccess(tenant, document, generation(document), IDENTITY);
+        verify(index, times(1)).index(any(), any());
         assertTrue(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "A permission refresh must not hide the document");
     }
 
