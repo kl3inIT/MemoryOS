@@ -469,7 +469,9 @@ function RebuildSection({
                 {progress.failed > 0 && (
                   <>
                     <Dot />
-                    <span>{ui(appText("{{count}} lỗi", { count: count(progress.failed) }))}</span>
+                    <span className="text-status-danger-content">
+                      {ui(appText("{{count}} lỗi", { count: count(progress.failed) }))}
+                    </span>
                   </>
                 )}
               </>
