@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   getChatSettings,
   listChatProviderAdapters,
@@ -111,8 +110,7 @@ export function ChatWebSettings() {
   const query = useQuery({
     queryKey: ["web-connections", session.actorId, session.authorizationVersion],
     enabled: manager,
-    queryFn: async ({ signal }) =>
-      (await listChatWebConnections({ signal, throwOnError: true })).data,
+    queryFn: async ({ signal }) => (await listChatWebConnections({ signal })).data,
     retry: false,
   });
   async function changed() {
@@ -128,8 +126,6 @@ export function ChatWebSettings() {
     try {
       await selectChatWebProvider({
         body: { search, provider: provider ?? undefined },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
       await changed();
     } catch (failed) {
@@ -267,8 +263,6 @@ function ConnectionCard({
       const { data } = await listChatWebEngines({
         path: { provider },
         body: { endpoint, key: key || null },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
       setEngines(data.engines);
       if (!engineId && data.engines.length === 1) setEngineId(data.engines[0]!);
@@ -306,8 +300,6 @@ function ConnectionCard({
           credentialAction: key ? "REPLACE" : "KEEP",
           credentialValue: key || undefined,
         },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
       setKey("");
       await onChanged();
@@ -327,8 +319,6 @@ function ConnectionCard({
       await testChatWebConnection({
         path: { provider },
         body: { search },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
       setTested(true);
     } catch (failed) {
@@ -551,7 +541,7 @@ function ConversationHistorySection() {
   const [error, setError] = useState<ErrorMessage>();
   const settings = useQuery({
     queryKey: ["chat-settings", session.actorId, session.authorizationVersion],
-    queryFn: async ({ signal }) => (await getChatSettings({ signal, throwOnError: true })).data,
+    queryFn: async ({ signal }) => (await getChatSettings({ signal })).data,
     retry: false,
   });
   async function choose(visibility: ChatHistoryVisibility) {
@@ -561,8 +551,6 @@ function ConversationHistorySection() {
     try {
       await saveChatHistoryVisibility({
         body: { visibility, revision: settings.data.revision },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
       await cache.invalidateQueries({ queryKey: ["chat-settings"] });
     } catch (failed) {
@@ -639,7 +627,7 @@ function DeepResearchSection() {
   const [error, setError] = useState<ErrorMessage>();
   const settings = useQuery({
     queryKey: ["chat-settings", session.actorId, session.authorizationVersion],
-    queryFn: async ({ signal }) => (await getChatSettings({ signal, throwOnError: true })).data,
+    queryFn: async ({ signal }) => (await getChatSettings({ signal })).data,
     retry: false,
   });
   async function toggle(enabled: boolean) {
@@ -649,8 +637,6 @@ function DeepResearchSection() {
     try {
       await saveChatSettings({
         body: { deepResearchEnabled: enabled, revision: settings.data.revision },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
       await cache.invalidateQueries({ queryKey: ["chat-settings"] });
     } catch (failed) {
@@ -701,13 +687,12 @@ function NativeSearchSection({ onChanged }: { onChanged: () => Promise<void> }) 
   const [error, setError] = useState<ErrorMessage>();
   const adapters = useQuery({
     queryKey: ["chat-provider-adapters", session.actorId, session.authorizationVersion],
-    queryFn: async ({ signal }) =>
-      (await listChatProviderAdapters({ signal, throwOnError: true })).data,
+    queryFn: async ({ signal }) => (await listChatProviderAdapters({ signal })).data,
     retry: false,
   });
   const providers = useQuery({
     queryKey: ["chat-providers", session.actorId, session.authorizationVersion],
-    queryFn: async ({ signal }) => (await listChatProviders({ signal, throwOnError: true })).data,
+    queryFn: async ({ signal }) => (await listChatProviders({ signal })).data,
     retry: false,
   });
   const nativeProviders = (providers.data ?? []).filter((provider) =>
@@ -723,7 +708,6 @@ function NativeSearchSection({ onChanged }: { onChanged: () => Promise<void> }) 
           await listConfiguredChatModels({
             path: { providerId: provider.id! },
             signal,
-            throwOnError: true,
           })
         ).data,
       retry: false,
@@ -749,8 +733,6 @@ function NativeSearchSection({ onChanged }: { onChanged: () => Promise<void> }) 
           visible: model.visible,
           settings: { ...model.settings, options },
         },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
       await onChanged();
     } catch (failed) {

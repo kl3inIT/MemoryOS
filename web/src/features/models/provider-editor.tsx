@@ -9,7 +9,6 @@ import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { GroupAccessPicker } from "@/features/groups/group-access-picker";
 import {
   listChatGroupOptionsOptions,
@@ -183,15 +182,11 @@ export function ProviderEditor({
               path: { providerId: baseline.id },
               query: { revision: baseline.revision },
               body,
-              headers: sameOriginMutationHeaders,
               signal,
-              throwOnError: true,
             })
           : await createChatProvider({
               body,
-              headers: sameOriginMutationHeaders,
               signal,
-              throwOnError: true,
             });
         signal.throwIfAborted();
         setBaseline(result.data);
@@ -204,9 +199,7 @@ export function ProviderEditor({
             await createChatModel({
               path: { providerId: result.data.id },
               body: modelBody(reportedDraft(model, adapter)),
-              headers: sameOriginMutationHeaders,
               signal,
-              throwOnError: true,
             });
           } catch (cause) {
             signal.throwIfAborted();

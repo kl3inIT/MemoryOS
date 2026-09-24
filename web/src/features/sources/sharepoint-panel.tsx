@@ -12,7 +12,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useCapabilityAuthority } from "@/features/identity/application-session-context";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { can } from "@/lib/resource-permissions";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
@@ -177,7 +176,6 @@ export function SharePointPanel({
   async function sync() {
     const operation = await synchronize.mutateAsync({
       path: { sourceId: source.id },
-      headers: sameOriginMutationHeaders,
     });
     notify({ tone: "info", title: "Synchronization requested", description: source.name });
     void observe(operation);
@@ -240,7 +238,6 @@ export function SharePointPanel({
     if (!configuration) return;
     await updatePause.mutateAsync({
       path: { sourceId: source.id },
-      headers: sameOriginMutationHeaders,
       body: { expectedRevision: configuration.scheduleRevision, paused: !configuration.syncPaused },
     });
     await refresh();
@@ -251,7 +248,6 @@ export function SharePointPanel({
     await updateSchedule.mutateAsync({
       path: { sourceId: source.id },
       headers: {
-        ...sameOriginMutationHeaders,
         "If-Match": `"${scheduleDraft.scheduleRevision}"`,
       },
       body: {
@@ -270,7 +266,6 @@ export function SharePointPanel({
     const receipt = await replaceScope.mutateAsync({
       path: { sourceId: source.id },
       headers: {
-        ...sameOriginMutationHeaders,
         "If-Match": `"${configuration.scopeRevision}"`,
       },
       body: {

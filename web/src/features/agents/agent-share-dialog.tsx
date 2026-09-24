@@ -5,7 +5,6 @@ import { Building2, Check, Info, Link2, Lock, ShieldCheck } from "lucide-react";
 import { PersonAvatar } from "@/components/composites/person-avatar";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { shareChatPersona } from "@/lib/hey-api/sdk.gen";
 import { can } from "@/lib/resource-permissions";
 import { ChatDialog } from "@/features/chat/chat-dialog";
@@ -118,9 +117,7 @@ export function AgentShareDialog({ agent, onClose }: { agent: Persona; onClose: 
             isPublic: canPublish ? access !== "INVITED" : undefined,
             publicPermission: canPublish && access !== "INVITED" ? access : undefined,
           },
-          headers: sameOriginMutationHeaders,
           signal: AbortSignal.timeout(30000),
-          throwOnError: true,
         });
         await cache.invalidateQueries({ queryKey: ["chat-personas"] });
       }}

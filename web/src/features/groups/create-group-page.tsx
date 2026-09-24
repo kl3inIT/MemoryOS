@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/settings-layout";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { createGroupMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { groupMutationError } from "./group-errors";
 
@@ -40,7 +39,6 @@ export function CreateGroupPage() {
     setError(null);
     try {
       const group = await createGroup.mutateAsync({
-        headers: sameOriginMutationHeaders,
         body: { name: normalizedName },
       });
       await queryClient.invalidateQueries();

@@ -37,7 +37,7 @@ import {
   useApplicationSession,
   useCapabilityAuthority,
 } from "@/features/identity/application-session-context";
-import { ApiError, isUnauthenticated, sameOriginMutationHeaders } from "@/lib/api";
+import { ApiError, isUnauthenticated } from "@/lib/api";
 import {
   createGoogleDriveSourceMutation,
   deleteGoogleDriveCredentialMutation,
@@ -373,7 +373,6 @@ function GoogleDriveSourceSetup() {
     try {
       // OAuth client JSON must never enter React Query variables or caches.
       const { data: response } = await startGoogleDriveAuthorization({
-        headers: sameOriginMutationHeaders,
         body: {
           name: name.trim(),
           ...(needsClient ? { oauthClientJson: clientInput.current?.takeJson() } : {}),
@@ -385,7 +384,6 @@ function GoogleDriveSourceSetup() {
             : {}),
         },
         signal: controller.signal,
-        throwOnError: true,
       });
       controller.signal.throwIfAborted();
       clientInput.current?.clear();
@@ -426,14 +424,12 @@ function GoogleDriveSourceSetup() {
       if (action === "revoke") {
         await revoke.mutateAsync({
           path: { credentialId: credential.id },
-          headers: sameOriginMutationHeaders,
           body: { expectedCredentialRevision: credential.credentialRevision },
         });
       } else {
         await remove.mutateAsync({
           path: { credentialId: credential.id },
           headers: {
-            ...sameOriginMutationHeaders,
             "If-Match": `"${credential.credentialRevision}"`,
           },
         });
@@ -491,7 +487,6 @@ function GoogleDriveSourceSetup() {
           : { ...proposal, requestId };
       submittedProposal.current = body;
       const receipt = await createSource.mutateAsync({
-        headers: sameOriginMutationHeaders,
         body,
       });
       if (!active.current) return;

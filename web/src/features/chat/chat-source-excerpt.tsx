@@ -42,7 +42,6 @@ function DocumentSourceExcerpt({
           path: { documentId: source.documentId },
           query: { generation: source.generation, from },
           signal,
-          throwOnError: true,
         })
       ).data,
     retry: false,

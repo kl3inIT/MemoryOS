@@ -131,6 +131,7 @@ Domain Story and Consumer
 - `openapi.yml` is generated from the live application context and committed only as the deterministic Hey API input; never maintain paths or schemas independently in that file.
 - Normal and production runtime configuration must keep springdoc API-doc endpoints disabled. Contract generation belongs to the full-context test boundary, not a temporary runtime profile or production startup task.
 - Every API change refreshes `openapi.yml` and the committed Hey API client in the same change. Backend tests reject contract drift; frontend checks reject generated-client drift.
+- The web Hey API client owns two defaults in `web/src/lib/api.ts`: every SDK call rejects with `ApiError` on a non-2xx response (`throwOnError` is set in the generator config and in `client.setConfig`), and a request interceptor adds `X-MemoryOS-CSRF: 1` to every request other than GET, HEAD and OPTIONS. Call sites pass neither; a caller that treats a status as an outcome catches the `ApiError` (for example `isNotFound`). Requests outside the SDK, such as the `/logout` fetch, still send `sameOriginMutationHeaders` themselves.
 
 ## Component and library reuse
 

@@ -12,7 +12,6 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   deleteGroupMutation,
   getGroupOptions,
@@ -226,7 +225,6 @@ function GroupDetail({
       if (canRename && nameDirty) {
         await renameGroup.mutateAsync({
           path: { groupId: group.id },
-          headers: sameOriginMutationHeaders,
           body: { name: nextName },
         });
         setBaselineName(nextName);
@@ -235,7 +233,6 @@ function GroupDetail({
       if (canManageGrants && capabilitiesDirty) {
         await replaceCapabilities.mutateAsync({
           path: { groupId: group.id },
-          headers: sameOriginMutationHeaders,
           body: { capabilities: [...selectedCapabilities] },
         });
         setBaselineCapabilities(new Set(selectedCapabilities));
@@ -265,7 +262,6 @@ function GroupDetail({
   async function deleteSelectedGroup() {
     await deleteGroup.mutateAsync({
       path: { groupId: group.id },
-      headers: sameOriginMutationHeaders,
     });
     leaving.current = true;
     await navigate({ to: "/admin/groups", search: { page: 0, size: 20 }, replace: true });

@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import { appText, type AppCopy, type AppText } from "@/i18n/app-text";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { testChatProvider } from "@/lib/hey-api/sdk.gen";
 import type { ProviderTestInput } from "@/lib/hey-api/types.gen";
 import { modelActionError } from "./model-catalog";
@@ -35,9 +34,7 @@ export function useProviderTest() {
     try {
       const { data } = await testChatProvider({
         body,
-        headers: sameOriginMutationHeaders,
         signal: operation.signal,
-        throwOnError: true,
       });
       if (!operation.signal.aborted)
         setOutcome({ ok: true, message: providerTestSuccess(data.latencyMillis, data.modelCount) });

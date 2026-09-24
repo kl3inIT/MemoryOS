@@ -15,7 +15,7 @@ import { agentIcons, agentIconTones } from "@/features/agents/agent-icons";
 import { cn } from "@/lib/utils";
 import { ThreadList } from "@/components/assistant-ui/elements/thread-list";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { sameOriginMutationHeaders } from "@/lib/api";
+import { isNotFound } from "@/lib/api";
 import {
   createChatProject,
   updateChatProject,
@@ -176,9 +176,7 @@ export function ProjectContextPanel({ project }: { project: Project }) {
             await deleteChatProject({
               path: { projectId: project.id },
               query: { revision: project.revision },
-              headers: sameOriginMutationHeaders,
               signal: AbortSignal.timeout(30000),
-              throwOnError: true,
             });
             await Promise.all([
               cache.invalidateQueries({ queryKey: ["chat-projects"] }),
@@ -212,10 +210,13 @@ function ProjectFiles({ project }: { project: Project }) {
     queryFn: ({ signal }) =>
       Promise.all(
         ids.map(async (fileId) => {
-          const result = await getChatFile({ path: { fileId }, signal });
-          if (result.response?.status === 404) return { fileId, file: null };
-          if (result.error) throw result.error;
-          return { fileId, file: chatFileSchema.parse(result.data) };
+          try {
+            const { data } = await getChatFile({ path: { fileId }, signal });
+            return { fileId, file: chatFileSchema.parse(data) };
+          } catch (error) {
+            if (isNotFound(error)) return { fileId, file: null };
+            throw error;
+          }
         }),
       ),
   });
@@ -234,9 +235,7 @@ function ProjectFiles({ project }: { project: Project }) {
           instructions: project.instructions,
           fileIds,
         },
-        headers: sameOriginMutationHeaders,
         signal: AbortSignal.timeout(30000),
-        throwOnError: true,
       });
       await Promise.all([
         cache.invalidateQueries({ queryKey: ["chat-project"] }),
@@ -328,7 +327,6 @@ export function ProjectConversationList({ projectId }: { projectId: string }) {
           path: { projectId },
           query: { offset: pageParam, limit: PROJECT_SESSIONS_PAGE },
           signal,
-          throwOnError: true,
         })
       ).data,
     getNextPageParam: (last, pages) =>
@@ -411,16 +409,12 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
             path: { projectId: project.id },
             query: { revision: project.revision },
             body,
-            headers: sameOriginMutationHeaders,
             signal: AbortSignal.timeout(30000),
-            throwOnError: true,
           });
         else {
           const { data } = await createChatProject({
             body,
-            headers: sameOriginMutationHeaders,
             signal: AbortSignal.timeout(30000),
-            throwOnError: true,
           });
           const created = projectSchema.parse(data);
           await cache.invalidateQueries({ queryKey: ["chat-projects"] });

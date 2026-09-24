@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
-import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
+import { ApiError } from "@/lib/api";
 import type * as Sdk from "@/lib/hey-api/sdk.gen";
 import type { VoiceConnectionResponse, VoiceProviderResponse } from "@/lib/hey-api/types.gen";
 import { VoiceAdminPage } from "./voice-admin-page";
@@ -165,7 +165,6 @@ describe("Voice administration", () => {
         activate: "STT",
         revision: 0,
       },
-      headers: sameOriginMutationHeaders,
     });
     expect(api.selectChatVoiceProvider).not.toHaveBeenCalled();
     expect(await row("Speech to text", "OpenAI").findByText("Active")).toBeVisible();

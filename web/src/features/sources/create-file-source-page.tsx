@@ -15,7 +15,6 @@ import {
   useApplicationSession,
   useCapabilityAuthority,
 } from "@/features/identity/application-session-context";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import {
   createFileSourceMutation,
@@ -127,7 +126,6 @@ export function CreateFileSourcePage() {
             groupIds: showGroups && groupIds.size > 0 ? [...groupIds] : undefined,
             access: scoped ? "PRIVATE" : access,
           },
-          headers: sameOriginMutationHeaders,
           signal: controller.signal,
         });
         targetId = created.id;
@@ -146,7 +144,6 @@ export function CreateFileSourcePage() {
           setPhase("Preparing upload…");
           const authorization = await initiateUpload.mutateAsync({
             path: { sourceId: targetId },
-            headers: sameOriginMutationHeaders,
             body: {
               filename: current.name,
               mediaType: current.type || "application/octet-stream",
@@ -168,7 +165,6 @@ export function CreateFileSourcePage() {
         setPhase("Finishing upload…");
         await finalizeUpload.mutateAsync({
           path: { sourceId: receipt.sourceId, uploadId: receipt.uploadId },
-          headers: sameOriginMutationHeaders,
           signal: controller.signal,
         });
         controller.signal.throwIfAborted();

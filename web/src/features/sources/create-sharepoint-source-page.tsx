@@ -16,7 +16,6 @@ import {
   useCapabilityAuthority,
 } from "@/features/identity/application-session-context";
 import { ApiError } from "@/lib/api";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   createSharePointSourceMutation,
   getSharePointSelectionPolicyOptions,
@@ -187,7 +186,6 @@ function SharePointSourceSetup() {
           : { ...proposal, requestId };
       submittedProposal.current = body;
       const receipt = await createSource.mutateAsync({
-        headers: sameOriginMutationHeaders,
         body,
       });
       if (!active.current) return;

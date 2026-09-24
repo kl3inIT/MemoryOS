@@ -5,7 +5,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { listUsersOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { assignSourceManager } from "@/lib/hey-api/sdk.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
@@ -41,9 +40,7 @@ export function SourceManagerSection({
     mutationFn: (actorId: string | null) =>
       assignSourceManager({
         path: { sourceId: source.id },
-        headers: sameOriginMutationHeaders,
         body: { actorId },
-        throwOnError: true,
       }),
   });
 

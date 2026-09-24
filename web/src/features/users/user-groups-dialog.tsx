@@ -8,7 +8,6 @@ import { Dialog } from "radix-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   listGroupsOptions,
   replaceUserGroupsMutation,
@@ -84,7 +83,6 @@ export function UserGroupsDialog({
     try {
       await replaceGroups.mutateAsync({
         path: { actorId },
-        headers: sameOriginMutationHeaders,
         body: { groupIds: [...selectedIds] },
       });
       onOpenChange(false);

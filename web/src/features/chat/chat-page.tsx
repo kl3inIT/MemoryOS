@@ -13,7 +13,6 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   editChatMessage,
   regenerateChatMessage,
@@ -68,10 +67,7 @@ export function ChatPage() {
   const project = useQuery({
     queryKey: ["chat-project", identity.actorId, identity.authorizationVersion, projectId],
     queryFn: async ({ signal }) =>
-      projectSchema.parse(
-        (await getChatProject({ path: { projectId: projectId! }, signal, throwOnError: true }))
-          .data,
-      ),
+      projectSchema.parse((await getChatProject({ path: { projectId: projectId! }, signal })).data),
     enabled: !!projectId,
     retry: false,
   });
@@ -163,8 +159,6 @@ function ChatConversation({
       await pinChatReasoningEffort({
         path: { sessionId: session.id },
         body: { reasoningEffort: level as ReasoningSelection["reasoningEffort"] },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
     },
   });
@@ -175,7 +169,7 @@ function ChatConversation({
       applicationSession.actorId,
       applicationSession.authorizationVersion,
     ],
-    queryFn: async ({ signal }) => (await getChatSettings({ signal, throwOnError: true })).data,
+    queryFn: async ({ signal }) => (await getChatSettings({ signal })).data,
     retry: false,
   });
   const personas = useQuery({
@@ -201,15 +195,13 @@ function ChatConversation({
         await getChatWebAvailability({
           query: { sessionId: session?.id },
           signal,
-          throwOnError: true,
         })
       ).data,
     retry: false,
   });
   const imageAvailability = useQuery({
     queryKey: ["chat-image", applicationSession.actorId, applicationSession.authorizationVersion],
-    queryFn: async ({ signal }) =>
-      (await getChatImageAvailability({ signal, throwOnError: true })).data,
+    queryFn: async ({ signal }) => (await getChatImageAvailability({ signal })).data,
     retry: false,
   });
   // As Onyx: Deep research is offered outside Projects while the organization setting is on and research agents
@@ -268,10 +260,7 @@ function ChatConversation({
     queryFn: async ({ signal }) =>
       branchSchema
         .array()
-        .parse(
-          (await getChatBranches({ path: { sessionId: session!.id }, signal, throwOnError: true }))
-            .data,
-        ),
+        .parse((await getChatBranches({ path: { sessionId: session!.id }, signal })).data),
   });
   const feedback = useQuery({
     queryKey: ["chat-feedback", session?.id, branches.data?.map((b) => b.id)],
@@ -287,7 +276,6 @@ function ChatConversation({
                 path: { sessionId: session!.id },
                 query: { messageIds: ids.slice(i, i + 100) },
                 signal,
-                throwOnError: true,
               })
             ).data,
           ),
@@ -314,9 +302,7 @@ function ChatConversation({
             await selectChatBranch({
               path: { sessionId: session.id },
               body: step,
-              headers: sameOriginMutationHeaders,
               signal: AbortSignal.timeout(30000),
-              throwOnError: true,
             });
         });
         await branches.refetch();
@@ -413,9 +399,7 @@ function ChatConversation({
                       webSearch: shownWebSearch,
                       deepResearch: researchAvailable && !researchUnsupported && deepResearch,
                     },
-                    headers: sameOriginMutationHeaders,
                     signal: AbortSignal.timeout(30000),
-                    throwOnError: true,
                   });
                   transport.recordModelSelection(data);
                 }),
@@ -429,9 +413,7 @@ function ChatConversation({
                       webSearch: shownWebSearch,
                       deepResearch: researchAvailable && !researchUnsupported && deepResearch,
                     },
-                    headers: sameOriginMutationHeaders,
                     signal: AbortSignal.timeout(30000),
-                    throwOnError: true,
                   });
                   transport.recordModelSelection(data);
                 }),
@@ -440,9 +422,7 @@ function ChatConversation({
                   selectChatBranch({
                     path: { sessionId: session!.id },
                     body: { messageId, expectedChildId },
-                    headers: sameOriginMutationHeaders,
                     signal: AbortSignal.timeout(30000),
-                    throwOnError: true,
                   }),
                 ),
             }}

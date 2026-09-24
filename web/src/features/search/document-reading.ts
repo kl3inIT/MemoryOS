@@ -35,13 +35,11 @@ function passageWindow(
             path: { fileId },
             query: { generation, from },
             signal,
-            throwOnError: true,
           })
         : await (variant === "chat" ? readChatDocumentPassages : getSearchDocument)({
             path: { documentId },
             query: { generation, from },
             signal,
-            throwOnError: true,
           })
       ).data,
     queryKey: [

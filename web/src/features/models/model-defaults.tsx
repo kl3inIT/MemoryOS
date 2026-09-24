@@ -7,7 +7,6 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { setChatModelDefault, setChatModelFlow } from "@/lib/hey-api/sdk.gen";
 import type { ModelFlow } from "@/lib/hey-api/types.gen";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   modelLabel,
@@ -245,9 +244,7 @@ export function TenantDefault(catalog: Catalog) {
           (
             await setChatModelDefault({
               query: { revision, modelConfigurationId: modelConfigurationId ?? "" },
-              headers: sameOriginMutationHeaders,
               signal,
-              throwOnError: true,
             })
           ).data,
       }}
@@ -321,9 +318,7 @@ export function TaskModels(catalog: Catalog) {
             await setChatModelFlow({
               path: { flow: flow.flow },
               query: { revision, ...(modelConfigurationId ? { modelConfigurationId } : {}) },
-              headers: sameOriginMutationHeaders,
               signal,
-              throwOnError: true,
             })
           ).data,
       }}

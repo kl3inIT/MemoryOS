@@ -3288,10 +3288,6 @@ export type ApiProblem = {
 export type ReplaceSharePointScopeData = {
     body: ReplaceSharePointScopeRequest;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -3338,10 +3334,6 @@ export type ReplaceSharePointScopeResponse = ReplaceSharePointScopeResponses[key
 export type UpdateSharePointScheduleData = {
     body: UpdateSharePointScheduleRequest;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -3388,10 +3380,6 @@ export type UpdateSharePointScheduleResponse = UpdateSharePointScheduleResponses
 export type UpdateGoogleDriveScheduleData = {
     body: UpdateGoogleDriveScheduleRequest;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -3413,10 +3401,6 @@ export type UpdateGoogleDriveScheduleResponse = UpdateGoogleDriveScheduleRespons
 export type ReplaceGoogleDriveRootsData = {
     body: ReplaceGoogleDriveRootsRequest;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -3437,12 +3421,6 @@ export type ReplaceGoogleDriveRootsResponse = ReplaceGoogleDriveRootsResponses[k
 
 export type DeleteMeetingData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -3521,12 +3499,6 @@ export type GetMeetingResponse = GetMeetingResponses[keyof GetMeetingResponses];
 
 export type UpdateMeetingData = {
     body: MeetingUpdateRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -3566,12 +3538,6 @@ export type UpdateMeetingResponse = UpdateMeetingResponses[keyof UpdateMeetingRe
 
 export type UnstarMeetingUtteranceData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
         utteranceId: string;
@@ -3612,12 +3578,6 @@ export type UnstarMeetingUtteranceResponse = UnstarMeetingUtteranceResponses[key
 
 export type StarMeetingUtteranceData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
         utteranceId: string;
@@ -3658,12 +3618,6 @@ export type StarMeetingUtteranceResponse = StarMeetingUtteranceResponses[keyof S
 
 export type NameMeetingSpeakerData = {
     body: MeetingSpeakerRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
         track: 'MIC' | 'TAB';
@@ -3705,12 +3659,6 @@ export type NameMeetingSpeakerResponse = NameMeetingSpeakerResponses[keyof NameM
 
 export type ShareMeetingData = {
     body: MeetingShareRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -3750,12 +3698,6 @@ export type ShareMeetingResponse = ShareMeetingResponses[keyof ShareMeetingRespo
 
 export type UpdateMeetingNotesData = {
     body: MeetingNotesRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -3799,12 +3741,6 @@ export type UpdateMeetingNotesResponse = UpdateMeetingNotesResponses[keyof Updat
 
 export type MarkMeetingMinutesItemData = {
     body: MeetingItemRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
         itemId: string;
@@ -3845,12 +3781,6 @@ export type MarkMeetingMinutesItemResponse = MarkMeetingMinutesItemResponses[key
 
 export type EditMeetingMinutesSummaryData = {
     body: MeetingMinutesSummaryRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -3890,12 +3820,6 @@ export type EditMeetingMinutesSummaryResponse = EditMeetingMinutesSummaryRespons
 
 export type RemoveMeetingMinutesItemData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
         itemId: string;
@@ -3936,12 +3860,6 @@ export type RemoveMeetingMinutesItemResponse = RemoveMeetingMinutesItemResponses
 
 export type EditMeetingMinutesItemData = {
     body: MeetingMinutesItemRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
         itemId: string;
@@ -4021,12 +3939,6 @@ export type GetMeetingMinutesHeadingResponse = GetMeetingMinutesHeadingResponses
 
 export type SaveMeetingMinutesHeadingData = {
     body: MeetingHeadingRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -4066,12 +3978,6 @@ export type SaveMeetingMinutesHeadingResponse = SaveMeetingMinutesHeadingRespons
 
 export type DeleteMcpServerData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -4168,12 +4074,6 @@ export type GetMcpServerResponse = GetMcpServerResponses[keyof GetMcpServerRespo
 
 export type UpdateMcpServerData = {
     body: McpServerInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -4223,12 +4123,6 @@ export type UpdateMcpServerResponse = UpdateMcpServerResponses[keyof UpdateMcpSe
 
 export type SetMcpServerToolEnabledData = {
     body: McpToolEnablement;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
         toolId: string;
@@ -4279,12 +4173,6 @@ export type SetMcpServerToolEnabledResponse = SetMcpServerToolEnabledResponses[k
 
 export type SetAllMcpServerToolsEnabledData = {
     body: McpToolEnablement;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -4332,12 +4220,6 @@ export type SetAllMcpServerToolsEnabledResponse = SetAllMcpServerToolsEnabledRes
 
 export type DeleteMcpServerOAuthClientData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
         clientId: string;
@@ -4388,12 +4270,6 @@ export type DeleteMcpServerOAuthClientResponse = DeleteMcpServerOAuthClientRespo
 
 export type UpdateMcpServerOAuthClientData = {
     body: McpOAuthClientInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
         clientId: string;
@@ -4444,12 +4320,6 @@ export type UpdateMcpServerOAuthClientResponse = UpdateMcpServerOAuthClientRespo
 
 export type SaveMcpConnectionApiKeyData = {
     body: McpConnectionApiKeyInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -4497,12 +4367,6 @@ export type SaveMcpConnectionApiKeyResponse = SaveMcpConnectionApiKeyResponses[k
 
 export type SetCurrentIdentityLanguageData = {
     body: LanguagePreference;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/identity/me/language';
@@ -4519,12 +4383,6 @@ export type SetCurrentIdentityLanguageResponse = SetCurrentIdentityLanguageRespo
 
 export type DeleteIdentityProviderData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         alias: string;
     };
@@ -4552,12 +4410,6 @@ export type DeleteIdentityProviderResponse = DeleteIdentityProviderResponses[key
 
 export type UpdateIdentityProviderData = {
     body: UpdateIdentityProviderRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         alias: string;
     };
@@ -4586,10 +4438,6 @@ export type UpdateIdentityProviderResponse = UpdateIdentityProviderResponses[key
 export type DeleteSharePointCredentialData = {
     body?: never;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -4640,10 +4488,6 @@ export type DeleteSharePointCredentialResponse = DeleteSharePointCredentialRespo
 export type RenameSharePointCredentialData = {
     body: RenameSharePointCredentialRequest;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -4694,10 +4538,6 @@ export type RenameSharePointCredentialResponse = RenameSharePointCredentialRespo
 export type ReplaceSharePointCredentialAuthenticationData = {
     body: SharePointCredentialRequest;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -4748,10 +4588,6 @@ export type ReplaceSharePointCredentialAuthenticationResponse = ReplaceSharePoin
 export type ReplaceGoogleDriveServiceAccountData = {
     body: GoogleDriveServiceAccountRequest;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -4772,12 +4608,6 @@ export type ReplaceGoogleDriveServiceAccountResponse = ReplaceGoogleDriveService
 
 export type SelectChatWebProviderData = {
     body: WebSelectionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/web/selection';
@@ -4823,12 +4653,6 @@ export type SelectChatWebProviderResponse = SelectChatWebProviderResponses[keyof
 
 export type SaveChatWebConnectionData = {
     body: WebConnectionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
     };
@@ -4876,12 +4700,6 @@ export type SaveChatWebConnectionResponse = SaveChatWebConnectionResponses[keyof
 
 export type SelectChatVoiceProviderData = {
     body: VoiceSelectionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/voice/selection';
@@ -4927,12 +4745,6 @@ export type SelectChatVoiceProviderResponse = SelectChatVoiceProviderResponses[k
 
 export type DeleteChatVoiceConnectionData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     };
@@ -4982,12 +4794,6 @@ export type DeleteChatVoiceConnectionResponse = DeleteChatVoiceConnectionRespons
 
 export type SaveChatVoiceConnectionData = {
     body: VoiceConnectionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     };
@@ -5076,12 +4882,6 @@ export type GetChatSettingsResponse = GetChatSettingsResponses[keyof GetChatSett
 
 export type SaveChatSettingsData = {
     body: ChatSettingsRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/settings';
@@ -5123,12 +4923,6 @@ export type SaveChatSettingsResponse = SaveChatSettingsResponses[keyof SaveChatS
 
 export type SaveChatHistoryVisibilityData = {
     body: ChatHistoryVisibilityRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/settings/history-visibility';
@@ -5170,12 +4964,6 @@ export type SaveChatHistoryVisibilityResponse = SaveChatHistoryVisibilityRespons
 
 export type GenerateChatTitleData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -5219,12 +5007,6 @@ export type GenerateChatTitleResponse = GenerateChatTitleResponses[keyof Generat
 
 export type RenameChatSessionData = {
     body: Title;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -5311,12 +5093,6 @@ export type GetChatSharingResponse = GetChatSharingResponses[keyof GetChatSharin
 
 export type SetChatSharingData = {
     body: Sharing;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -5360,12 +5136,6 @@ export type SetChatSharingResponse = SetChatSharingResponses[keyof SetChatSharin
 
 export type ConfigureChatSessionData = {
     body: ChatSessionSettings;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -5409,12 +5179,6 @@ export type ConfigureChatSessionResponse = ConfigureChatSessionResponses[keyof C
 
 export type PinChatReasoningEffortData = {
     body: ReasoningSelection;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -5458,12 +5222,6 @@ export type PinChatReasoningEffortResponse = PinChatReasoningEffortResponses[key
 
 export type MoveChatProjectData = {
     body: ProjectSelection;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -5507,12 +5265,6 @@ export type MoveChatProjectResponse = MoveChatProjectResponses[keyof MoveChatPro
 
 export type SelectChatPersonaData = {
     body: PersonaSelection;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -5556,12 +5308,6 @@ export type SelectChatPersonaResponse = SelectChatPersonaResponses[keyof SelectC
 
 export type RemoveChatFeedbackData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
         assistantMessageId: string;
@@ -5606,12 +5352,6 @@ export type RemoveChatFeedbackResponse = RemoveChatFeedbackResponses[keyof Remov
 
 export type SetChatFeedbackData = {
     body: FeedbackInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
         assistantMessageId: string;
@@ -5656,12 +5396,6 @@ export type SetChatFeedbackResponse = SetChatFeedbackResponses[keyof SetChatFeed
 
 export type SelectChatBranchData = {
     body: BranchSelection;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -5742,12 +5476,6 @@ export type GetChatRetentionResponse = GetChatRetentionResponses[keyof GetChatRe
 
 export type SaveChatRetentionData = {
     body: ChatRetentionInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/retention';
@@ -5785,12 +5513,6 @@ export type SaveChatRetentionResponse = SaveChatRetentionResponses[keyof SaveCha
 
 export type DeleteChatProviderData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         providerId: string;
     };
@@ -5840,12 +5562,6 @@ export type DeleteChatProviderResponse = DeleteChatProviderResponses[keyof Delet
 
 export type UpdateChatProviderData = {
     body: ProviderInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         providerId: string;
     };
@@ -5895,12 +5611,6 @@ export type UpdateChatProviderResponse = UpdateChatProviderResponses[keyof Updat
 
 export type DeleteChatPromptShortcutData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         shortcutId: string;
     };
@@ -5944,12 +5654,6 @@ export type DeleteChatPromptShortcutResponse = DeleteChatPromptShortcutResponses
 
 export type UpdateChatPromptShortcutData = {
     body: ShortcutInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         shortcutId: string;
     };
@@ -5995,12 +5699,6 @@ export type UpdateChatPromptShortcutResponse = UpdateChatPromptShortcutResponses
 
 export type HideChatPromptShortcutData = {
     body: HiddenRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         shortcutId: string;
     };
@@ -6044,12 +5742,6 @@ export type HideChatPromptShortcutResponse = HideChatPromptShortcutResponses[key
 
 export type DeletePublicChatPromptShortcutData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         shortcutId: string;
     };
@@ -6093,12 +5785,6 @@ export type DeletePublicChatPromptShortcutResponse = DeletePublicChatPromptShort
 
 export type UpdatePublicChatPromptShortcutData = {
     body: ShortcutInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         shortcutId: string;
     };
@@ -6185,12 +5871,6 @@ export type GetChatPromptShortcutPreferencesResponse = GetChatPromptShortcutPref
 
 export type SetChatPromptShortcutPreferencesData = {
     body: PreferencesRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/prompt-shortcuts/preferences';
@@ -6232,12 +5912,6 @@ export type SetChatPromptShortcutPreferencesResponse = SetChatPromptShortcutPref
 
 export type DeleteChatProjectData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         projectId: string;
     };
@@ -6326,12 +6000,6 @@ export type GetChatProjectResponse = GetChatProjectResponses[keyof GetChatProjec
 
 export type UpdateChatProjectData = {
     body: ProjectInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         projectId: string;
     };
@@ -6414,12 +6082,6 @@ export type GetChatPreferencesResponse = GetChatPreferencesResponses[keyof GetCh
 
 export type SaveChatPreferencesData = {
     body: ChatPreferencesInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/preferences';
@@ -6457,12 +6119,6 @@ export type SaveChatPreferencesResponse = SaveChatPreferencesResponses[keyof Sav
 
 export type DeleteChatPersonaData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         personaId: string;
     };
@@ -6551,12 +6207,6 @@ export type GetChatPersonaResponse = GetChatPersonaResponses[keyof GetChatPerson
 
 export type UpdateChatPersonaData = {
     body: PersonaInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         personaId: string;
     };
@@ -6602,12 +6252,6 @@ export type UpdateChatPersonaResponse = UpdateChatPersonaResponses[keyof UpdateC
 
 export type ShareChatPersonaData = {
     body: SharingInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         personaId: string;
     };
@@ -6700,12 +6344,6 @@ export type GetPersonaModelResponse = GetPersonaModelResponses[keyof GetPersonaM
 
 export type SetPersonaModelData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         personaId: string;
     };
@@ -6756,12 +6394,6 @@ export type SetPersonaModelResponse = SetPersonaModelResponses[keyof SetPersonaM
 
 export type SetChatPersonaListingData = {
     body: ListingInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         personaId: string;
     };
@@ -6848,12 +6480,6 @@ export type ListChatPersonaPinsResponse = ListChatPersonaPinsResponses[keyof Lis
 
 export type ReplaceChatPersonaPinsData = {
     body: PinsRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/persona-pins';
@@ -6895,12 +6521,6 @@ export type ReplaceChatPersonaPinsResponse = ReplaceChatPersonaPinsResponses[key
 
 export type ReorderChatPersonasData = {
     body: PinsRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/persona-order';
@@ -6942,12 +6562,6 @@ export type ReorderChatPersonasResponse = ReorderChatPersonasResponses[keyof Reo
 
 export type DeleteChatPersonaLabelData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         labelId: string;
     };
@@ -6991,12 +6605,6 @@ export type DeleteChatPersonaLabelResponse = DeleteChatPersonaLabelResponses[key
 
 export type RenameChatPersonaLabelData = {
     body: LabelRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         labelId: string;
     };
@@ -7040,12 +6648,6 @@ export type RenameChatPersonaLabelResponse = RenameChatPersonaLabelResponses[key
 
 export type DeleteChatModelData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         modelId: string;
     };
@@ -7095,12 +6697,6 @@ export type DeleteChatModelResponse = DeleteChatModelResponses[keyof DeleteChatM
 
 export type UpdateChatModelData = {
     body: ModelInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         modelId: string;
     };
@@ -7150,12 +6746,6 @@ export type UpdateChatModelResponse = UpdateChatModelResponses[keyof UpdateChatM
 
 export type SetChatModelFlowData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         flow: 'CHAT_NAMING' | 'MEETING_MINUTES' | 'MEETING_CORRECTION';
     };
@@ -7251,12 +6841,6 @@ export type GetChatModelDefaultResponse = GetChatModelDefaultResponses[keyof Get
 
 export type SetChatModelDefaultData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query: {
         modelConfigurationId: string;
@@ -7350,12 +6934,6 @@ export type GetChatInterpreterSettingsResponse = GetChatInterpreterSettingsRespo
 
 export type UpdateChatInterpreterSettingsData = {
     body: InterpreterSettingsRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/interpreter';
@@ -7401,12 +6979,6 @@ export type UpdateChatInterpreterSettingsResponse = UpdateChatInterpreterSetting
 
 export type SelectChatImageProviderData = {
     body: ImageSelectionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/images/selection';
@@ -7452,12 +7024,6 @@ export type SelectChatImageProviderResponse = SelectChatImageProviderResponses[k
 
 export type SaveChatImageConnectionData = {
     body: ImageConnectionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
     };
@@ -7505,12 +7071,6 @@ export type SaveChatImageConnectionResponse = SaveChatImageConnectionResponses[k
 
 export type DeleteDocumentSetData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         documentSetId: string;
     };
@@ -7583,12 +7143,6 @@ export type GetDocumentSetResponse = GetDocumentSetResponses[keyof GetDocumentSe
 
 export type UpdateDocumentSetData = {
     body: Input;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         documentSetId: string;
     };
@@ -7626,12 +7180,6 @@ export type UpdateDocumentSetResponse = UpdateDocumentSetResponses[keyof UpdateD
 
 export type ShareDocumentSetData = {
     body: DocumentSetSharingInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         documentSetId: string;
     };
@@ -7669,12 +7217,6 @@ export type ShareDocumentSetResponse = ShareDocumentSetResponses[keyof ShareDocu
 
 export type DeleteAiUsageLimitData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         limitId: string;
     };
@@ -7710,12 +7252,6 @@ export type DeleteAiUsageLimitResponse = DeleteAiUsageLimitResponses[keyof Delet
 
 export type UpdateAiUsageLimitData = {
     body: AiUsageLimitRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         limitId: string;
     };
@@ -7751,12 +7287,6 @@ export type UpdateAiUsageLimitResponse = UpdateAiUsageLimitResponses[keyof Updat
 
 export type ReplaceUserGroupsData = {
     body: ReplaceUserGroupsRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         actorId: string;
     };
@@ -7792,12 +7322,6 @@ export type ReplaceUserGroupsResponse = ReplaceUserGroupsResponses[keyof Replace
 
 export type DeactivateUserData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         actorId: string;
     };
@@ -7833,12 +7357,6 @@ export type DeactivateUserResponse = DeactivateUserResponses[keyof DeactivateUse
 
 export type ActivateUserData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         actorId: string;
     };
@@ -7874,12 +7392,6 @@ export type ActivateUserResponse = ActivateUserResponses[keyof ActivateUserRespo
 
 export type InitiateSourceUploadData = {
     body: InitiateSourceUploadRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -7898,12 +7410,6 @@ export type InitiateSourceUploadResponse = InitiateSourceUploadResponses[keyof I
 
 export type FinalizeSourceUploadData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
         uploadId: string;
@@ -7923,12 +7429,6 @@ export type FinalizeSourceUploadResponse = FinalizeSourceUploadResponses[keyof F
 
 export type SynchronizeSharePointSourceData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -7972,12 +7472,6 @@ export type SynchronizeSharePointSourceResponse = SynchronizeSharePointSourceRes
 
 export type UpdateSharePointPauseData = {
     body: UpdateSharePointPauseRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -8021,12 +7515,6 @@ export type UpdateSharePointPauseResponse = UpdateSharePointPauseResponses[keyof
 
 export type ResumeSourceData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -8045,12 +7533,6 @@ export type ResumeSourceResponse = ResumeSourceResponses[keyof ResumeSourceRespo
 
 export type RenameSourceData = {
     body: RenameSourceRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -8069,12 +7551,6 @@ export type RenameSourceResponse = RenameSourceResponses[keyof RenameSourceRespo
 
 export type PauseSourceData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -8093,12 +7569,6 @@ export type PauseSourceResponse = PauseSourceResponses[keyof PauseSourceResponse
 
 export type AssignSourceManagerData = {
     body: AssignSourceManagerRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -8117,12 +7587,6 @@ export type AssignSourceManagerResponse = AssignSourceManagerResponses[keyof Ass
 
 export type RemoveSourceItemData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
         itemId: string;
@@ -8142,12 +7606,6 @@ export type RemoveSourceItemResponse = RemoveSourceItemResponses[keyof RemoveSou
 
 export type ReindexSourceItemData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
         itemId: string;
@@ -8185,12 +7643,6 @@ export type ListSourceGroupsResponse = ListSourceGroupsResponses[keyof ListSourc
 
 export type UpdateSourceGroupsData = {
     body: UpdateSourceGroupsRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -8209,12 +7661,6 @@ export type UpdateSourceGroupsResponse = UpdateSourceGroupsResponses[keyof Updat
 
 export type SynchronizeGoogleDriveSourceData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -8233,12 +7679,6 @@ export type SynchronizeGoogleDriveSourceResponse = SynchronizeGoogleDriveSourceR
 
 export type UpdateGoogleDrivePauseData = {
     body: UpdateGoogleDrivePauseRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -8258,10 +7698,6 @@ export type UpdateGoogleDrivePauseResponse = UpdateGoogleDrivePauseResponses[key
 export type DiscoverGoogleDriveLinkedDocumentsData = {
     body?: never;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -8282,12 +7718,6 @@ export type DiscoverGoogleDriveLinkedDocumentsResponse = DiscoverGoogleDriveLink
 
 export type DeleteSourceData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -8306,12 +7736,6 @@ export type DeleteSourceResponse = DeleteSourceResponses[keyof DeleteSourceRespo
 
 export type UpdateSourceAccessData = {
     body: UpdateSourceAccessRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sourceId: string;
     };
@@ -8330,12 +7754,6 @@ export type UpdateSourceAccessResponse = UpdateSourceAccessResponses[keyof Updat
 
 export type CreateSharePointSourceData = {
     body: CreateSharePointSourceRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/sources/sharepoint';
@@ -8377,12 +7795,6 @@ export type CreateSharePointSourceResponse = CreateSharePointSourceResponses[key
 
 export type CreateGoogleDriveSourceData = {
     body: CreateGoogleDriveSourceRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/sources/google-drive';
@@ -8399,12 +7811,6 @@ export type CreateGoogleDriveSourceResponse = CreateGoogleDriveSourceResponses[k
 
 export type CreateFileSourceData = {
     body: CreateFileSourceRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/sources/file';
@@ -8421,12 +7827,6 @@ export type CreateFileSourceResponse = CreateFileSourceResponses[keyof CreateFil
 
 export type SearchDocumentsData = {
     body: SearchRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/search';
@@ -8476,12 +7876,6 @@ export type ListMeetingsResponse = ListMeetingsResponses[keyof ListMeetingsRespo
 
 export type CreateMeetingData = {
     body: MeetingCreateRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/meetings';
@@ -8515,12 +7909,6 @@ export type CreateMeetingResponse = CreateMeetingResponses[keyof CreateMeetingRe
 
 export type CorrectMeetingWordsData = {
     body: MeetingWordCorrectionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
         utteranceId: string;
@@ -8565,12 +7953,6 @@ export type CorrectMeetingWordsResponse = CorrectMeetingWordsResponses[keyof Cor
 
 export type CreateMeetingTicketData = {
     body: MeetingTicketRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -8614,12 +7996,6 @@ export type CreateMeetingTicketResponse = CreateMeetingTicketResponses[keyof Cre
 
 export type ReserveMeetingRecordingData = {
     body: MeetingRecordingRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -8663,12 +8039,6 @@ export type ReserveMeetingRecordingResponse = ReserveMeetingRecordingResponses[k
 
 export type FinalizeMeetingRecordingData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -8708,12 +8078,6 @@ export type FinalizeMeetingRecordingResponse = FinalizeMeetingRecordingResponses
 
 export type RerunMeetingMinutesData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -8762,12 +8126,6 @@ export type RerunMeetingMinutesResponse = RerunMeetingMinutesResponses[keyof Rer
 
 export type AddMeetingMinutesItemData = {
     body: MeetingNewMinutesItemRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -8807,12 +8165,6 @@ export type AddMeetingMinutesItemResponse = AddMeetingMinutesItemResponses[keyof
 
 export type ExportMeetingMinutesData = {
     body: MeetingHeadingRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -8854,12 +8206,6 @@ export type ExportMeetingMinutesResponse = ExportMeetingMinutesResponses[keyof E
 
 export type PublishMeetingMinutesData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -8899,12 +8245,6 @@ export type PublishMeetingMinutesResponse = PublishMeetingMinutesResponses[keyof
 
 export type EndMeetingData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -8983,12 +8323,6 @@ export type ListMeetingCorrectionsResponse = ListMeetingCorrectionsResponses[key
 
 export type ProposeMeetingCorrectionsData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -9032,12 +8366,6 @@ export type ProposeMeetingCorrectionsResponse = ProposeMeetingCorrectionsRespons
 
 export type RevertMeetingCorrectionData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
         correctionId: string;
@@ -9082,12 +8410,6 @@ export type RevertMeetingCorrectionResponse = RevertMeetingCorrectionResponses[k
 
 export type KeepMeetingWordingData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
         correctionId: string;
@@ -9128,12 +8450,6 @@ export type KeepMeetingWordingResponse = KeepMeetingWordingResponses[keyof KeepM
 
 export type AcceptMeetingCorrectionData = {
     body: AcceptMeetingCorrection;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
         correctionId: string;
@@ -9178,12 +8494,6 @@ export type AcceptMeetingCorrectionResponse = AcceptMeetingCorrectionResponses[k
 
 export type RevertAllMeetingCorrectionsData = {
     body: MeetingCorrectionRunRef;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -9227,12 +8537,6 @@ export type RevertAllMeetingCorrectionsResponse = RevertAllMeetingCorrectionsRes
 
 export type AcceptAllMeetingCorrectionsData = {
     body: MeetingCorrectionRunRef;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -9272,12 +8576,6 @@ export type AcceptAllMeetingCorrectionsResponse = AcceptAllMeetingCorrectionsRes
 
 export type BookmarkMeetingMomentData = {
     body: MeetingBookmarkRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
     };
@@ -9362,12 +8660,6 @@ export type ListMcpServersResponse = ListMcpServersResponses[keyof ListMcpServer
 
 export type CreateMcpServerData = {
     body: McpServerInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/mcp/servers';
@@ -9413,12 +8705,6 @@ export type CreateMcpServerResponse = CreateMcpServerResponses[keyof CreateMcpSe
 
 export type RefreshMcpServerToolsData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -9466,12 +8752,6 @@ export type RefreshMcpServerToolsResponse = RefreshMcpServerToolsResponses[keyof
 
 export type DiscoverMcpServerOAuthData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -9566,12 +8846,6 @@ export type ListMcpServerOAuthClientsResponse = ListMcpServerOAuthClientsRespons
 
 export type CreateMcpServerOAuthClientData = {
     body: McpOAuthClientInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -9619,12 +8893,6 @@ export type CreateMcpServerOAuthClientResponse = CreateMcpServerOAuthClientRespo
 
 export type RegisterMcpServerOAuthClientData = {
     body: McpOAuthRegistration;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -9672,12 +8940,6 @@ export type RegisterMcpServerOAuthClientResponse = RegisterMcpServerOAuthClientR
 
 export type StartMcpServerOAuthAuthorizationData = {
     body: McpOAuthAuthorizationInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -9725,12 +8987,6 @@ export type StartMcpServerOAuthAuthorizationResponse = StartMcpServerOAuthAuthor
 
 export type StartMcpConnectionAuthorizationData = {
     body: McpConnectionAuthorizationInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -9817,12 +9073,6 @@ export type ListInvitationsResponse = ListInvitationsResponses[keyof ListInvitat
 
 export type CreateInvitationData = {
     body: CreateInvitationRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/invitations';
@@ -9864,12 +9114,6 @@ export type CreateInvitationResponse = CreateInvitationResponses[keyof CreateInv
 
 export type RotateInvitationData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         /**
          * Invitation identifier.
@@ -9908,12 +9152,6 @@ export type RotateInvitationResponse = RotateInvitationResponses[keyof RotateInv
 
 export type RevokeInvitationData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         /**
          * Invitation identifier.
@@ -9977,12 +9215,6 @@ export type ListIdentityProvidersResponse = ListIdentityProvidersResponses[keyof
 
 export type CreateIdentityProviderData = {
     body: CreateIdentityProviderRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/identity-providers';
@@ -10008,12 +9240,6 @@ export type CreateIdentityProviderResponse = CreateIdentityProviderResponses[key
 
 export type DiscoverIdentityProviderData = {
     body: DiscoverIdentityProviderRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/identity-providers/discovery';
@@ -10072,12 +9298,6 @@ export type ListGroupsResponse = ListGroupsResponses[keyof ListGroupsResponses];
 
 export type CreateGroupData = {
     body: CreateGroupRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/groups';
@@ -10094,12 +9314,6 @@ export type CreateGroupResponse = CreateGroupResponses[keyof CreateGroupResponse
 
 export type RemoveGroupSourceData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         groupId: string;
         sourceId: string;
@@ -10119,12 +9333,6 @@ export type RemoveGroupSourceResponse = RemoveGroupSourceResponses[keyof RemoveG
 
 export type RenameGroupData = {
     body: RenameGroupRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         groupId: string;
     };
@@ -10165,12 +9373,6 @@ export type ListGroupMembersResponse = ListGroupMembersResponses[keyof ListGroup
 
 export type AddGroupMembersData = {
     body: AddGroupMembersRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         groupId: string;
     };
@@ -10189,12 +9391,6 @@ export type AddGroupMembersResponse = AddGroupMembersResponses[keyof AddGroupMem
 
 export type RemoveGroupMemberData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         groupId: string;
         actorId: string;
@@ -10223,12 +9419,6 @@ export type RemoveGroupMemberResponse = RemoveGroupMemberResponses[keyof RemoveG
 
 export type RemoveGroupManagerData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         groupId: string;
         actorId: string;
@@ -10248,12 +9438,6 @@ export type RemoveGroupManagerResponse = RemoveGroupManagerResponses[keyof Remov
 
 export type AssignGroupManagerData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         groupId: string;
         actorId: string;
@@ -10273,12 +9457,6 @@ export type AssignGroupManagerResponse = AssignGroupManagerResponses[keyof Assig
 
 export type DeleteGroupData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         groupId: string;
     };
@@ -10306,12 +9484,6 @@ export type DeleteGroupResponse = DeleteGroupResponses[keyof DeleteGroupResponse
 
 export type ReplaceGroupCapabilitiesData = {
     body: ReplaceGroupCapabilitiesRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         groupId: string;
     };
@@ -10375,12 +9547,6 @@ export type ListSharePointCredentialsResponse = ListSharePointCredentialsRespons
 
 export type CreateSharePointCredentialData = {
     body: SharePointCredentialRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/credentials/sharepoint';
@@ -10426,12 +9592,6 @@ export type CreateSharePointCredentialResponse = CreateSharePointCredentialRespo
 
 export type TestSharePointCredentialData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         credentialId: string;
     };
@@ -10479,12 +9639,6 @@ export type TestSharePointCredentialResponse = TestSharePointCredentialResponses
 
 export type RevokeGoogleDriveCredentialData = {
     body: RevokeGoogleDriveCredentialRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         credentialId: string;
     };
@@ -10503,12 +9657,6 @@ export type RevokeGoogleDriveCredentialResponse = RevokeGoogleDriveCredentialRes
 
 export type CreateGoogleDriveServiceAccountData = {
     body: GoogleDriveServiceAccountRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/credentials/google-drive/service-account';
@@ -10525,12 +9673,6 @@ export type CreateGoogleDriveServiceAccountResponse = CreateGoogleDriveServiceAc
 
 export type StartGoogleDriveAuthorizationData = {
     body: StartGoogleDriveAuthorizationRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/credentials/google-drive/authorization';
@@ -10547,12 +9689,6 @@ export type StartGoogleDriveAuthorizationResponse = StartGoogleDriveAuthorizatio
 
 export type TestChatWebConnectionData = {
     body: WebTestRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
     };
@@ -10600,12 +9736,6 @@ export type TestChatWebConnectionResponse = TestChatWebConnectionResponses[keyof
 
 export type ListChatWebEnginesData = {
     body: WebEnginesRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         provider: 'BRAVE' | 'TAVILY' | 'EXA' | 'SERPER' | 'GOOGLE_PSE' | 'SEARXNG' | 'NINEROUTER' | 'FIRECRAWL';
     };
@@ -10653,12 +9783,6 @@ export type ListChatWebEnginesResponse = ListChatWebEnginesResponses[keyof ListC
 
 export type CreateChatVoiceTicketData = {
     body?: VoiceTicketRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/voice/tickets';
@@ -10700,12 +9824,6 @@ export type CreateChatVoiceTicketResponse = CreateChatVoiceTicketResponses[keyof
 
 export type SynthesizeChatVoiceData = {
     body: VoiceSynthesisRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/voice/synthesize';
@@ -10747,12 +9865,6 @@ export type SynthesizeChatVoiceResponse = SynthesizeChatVoiceResponses[keyof Syn
 
 export type TestChatVoiceConnectionData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         provider: 'OPENAI' | 'OPENAI_COMPATIBLE' | 'ELEVENLABS' | 'AZURE' | 'SONIOX';
     };
@@ -10800,12 +9912,6 @@ export type TestChatVoiceConnectionResponse = TestChatVoiceConnectionResponses[k
 
 export type DeleteAllChatSessionsData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/sessions';
@@ -10887,12 +9993,6 @@ export type ListChatSessionsResponse = ListChatSessionsResponses[keyof ListChatS
 
 export type CreateChatSessionData = {
     body: CreateChatSession;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/sessions';
@@ -10930,12 +10030,6 @@ export type CreateChatSessionResponse = CreateChatSessionResponses[keyof CreateC
 
 export type UnarchiveChatSessionData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -11017,12 +10111,6 @@ export type GetChatHistoryResponse = GetChatHistoryResponses[keyof GetChatHistor
 
 export type SendChatMessageData = {
     body: Send;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -11070,12 +10158,6 @@ export type SendChatMessageResponse = SendChatMessageResponses[keyof SendChatMes
 
 export type RegenerateChatMessageData = {
     body: Regenerate;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
         userMessageId: string;
@@ -11124,12 +10206,6 @@ export type RegenerateChatMessageResponse = RegenerateChatMessageResponses[keyof
 
 export type EditChatMessageData = {
     body: Edit;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
         userMessageId: string;
@@ -11178,12 +10254,6 @@ export type EditChatMessageResponse = EditChatMessageResponses[keyof EditChatMes
 
 export type BranchChatSessionData = {
     body?: BranchChatSessionRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
         messageId: string;
@@ -11224,12 +10294,6 @@ export type BranchChatSessionResponse = BranchChatSessionResponses[keyof BranchC
 
 export type CancelChatMessageData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
         assistantMessageId: string;
@@ -11278,12 +10342,6 @@ export type CancelChatMessageResponse = CancelChatMessageResponses[keyof CancelC
 
 export type ArchiveChatSessionData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -11323,12 +10381,6 @@ export type ArchiveChatSessionResponse = ArchiveChatSessionResponses[keyof Archi
 
 export type ArchiveAllChatSessionsData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/sessions/archive-all';
@@ -11411,12 +10463,6 @@ export type ListChatProvidersResponse = ListChatProvidersResponses[keyof ListCha
 
 export type CreateChatProviderData = {
     body: ProviderInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/providers';
@@ -11509,12 +10555,6 @@ export type ListConfiguredChatModelsResponse = ListConfiguredChatModelsResponses
 
 export type CreateChatModelData = {
     body: ModelInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         providerId: string;
     };
@@ -11562,12 +10602,6 @@ export type CreateChatModelResponse = CreateChatModelResponses[keyof CreateChatM
 
 export type TestChatProviderData = {
     body: ProviderTestInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/providers/test';
@@ -11613,12 +10647,6 @@ export type TestChatProviderResponse = TestChatProviderResponses[keyof TestChatP
 
 export type ListReportedProviderModelsData = {
     body: ProviderTestInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/providers/reported-models';
@@ -11707,12 +10735,6 @@ export type ListChatPromptShortcutsResponse = ListChatPromptShortcutsResponses[k
 
 export type CreateChatPromptShortcutData = {
     body: ShortcutInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/prompt-shortcuts';
@@ -11795,12 +10817,6 @@ export type ListPublicChatPromptShortcutsResponse = ListPublicChatPromptShortcut
 
 export type CreatePublicChatPromptShortcutData = {
     body: ShortcutInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/prompt-shortcuts/public';
@@ -11886,12 +10902,6 @@ export type ListChatProjectsResponse = ListChatProjectsResponses[keyof ListChatP
 
 export type CreateChatProjectData = {
     body: ProjectInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/projects';
@@ -11979,12 +10989,6 @@ export type ListProjectChatSessionsResponse = ListProjectChatSessionsResponses[k
 
 export type CreateProjectChatSessionData = {
     body: ProjectConversation;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         projectId: string;
     };
@@ -12075,12 +11079,6 @@ export type ListChatPersonasResponse = ListChatPersonasResponses[keyof ListChatP
 
 export type CreateChatPersonaData = {
     body: PersonaInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/personas';
@@ -12122,12 +11120,6 @@ export type CreateChatPersonaResponse = CreateChatPersonaResponses[keyof CreateC
 
 export type RestoreChatPersonaData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         personaId: string;
     };
@@ -12171,12 +11163,6 @@ export type RestoreChatPersonaResponse = RestoreChatPersonaResponses[keyof Resto
 
 export type TransferChatPersonaData = {
     body: TransferInput;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         personaId: string;
     };
@@ -12263,12 +11249,6 @@ export type ListChatPersonaLabelsResponse = ListChatPersonaLabelsResponses[keyof
 
 export type CreateChatPersonaLabelData = {
     body: LabelRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/persona-labels';
@@ -12310,12 +11290,6 @@ export type CreateChatPersonaLabelResponse = CreateChatPersonaLabelResponses[key
 
 export type ValidateChatModelData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         modelId: string;
     };
@@ -12363,12 +11337,6 @@ export type ValidateChatModelResponse = ValidateChatModelResponses[keyof Validat
 
 export type RestoreChatLibraryFileData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
         id: string;
@@ -12413,12 +11381,6 @@ export type RestoreChatLibraryFileResponse = RestoreChatLibraryFileResponses[key
 
 export type PurgeChatLibraryFileData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
         id: string;
@@ -12463,12 +11425,6 @@ export type PurgeChatLibraryFileResponse = PurgeChatLibraryFileResponses[keyof P
 
 export type CopyChatLibraryFileData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         source: 'GENERATED' | 'IMAGE';
         id: string;
@@ -12513,12 +11469,6 @@ export type CopyChatLibraryFileResponse = CopyChatLibraryFileResponses[keyof Cop
 
 export type EmptyChatLibraryTrashData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/library/trash/empty';
@@ -12601,12 +11551,6 @@ export type ListChatLibraryArchivesResponse = ListChatLibraryArchivesResponses[k
 
 export type RequestChatLibraryArchiveData = {
     body: ChatLibraryArchiveRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/library/archives';
@@ -12648,12 +11592,6 @@ export type RequestChatLibraryArchiveResponse = RequestChatLibraryArchiveRespons
 
 export type TestChatImageConnectionData = {
     body?: ImageConnectionTestRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         provider: 'OPENAI_IMAGE' | 'CLOUDFLARE_WORKERS_AI';
     };
@@ -12701,12 +11639,6 @@ export type TestChatImageConnectionResponse = TestChatImageConnectionResponses[k
 
 export type RetryChatFileData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         fileId: string;
     };
@@ -12754,12 +11686,6 @@ export type RetryChatFileResponse = RetryChatFileResponses[keyof RetryChatFileRe
 
 export type FinalizeChatFileUploadData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         fileId: string;
     };
@@ -12807,12 +11733,6 @@ export type FinalizeChatFileUploadResponse = FinalizeChatFileUploadResponses[key
 
 export type InitiateChatFileUploadData = {
     body: ChatFileUploadRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/files/uploads';
@@ -12899,12 +11819,6 @@ export type ListChatExportsResponse = ListChatExportsResponses[keyof ListChatExp
 
 export type RequestChatExportData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/exports';
@@ -12982,12 +11896,6 @@ export type ListDocumentSetsResponse = ListDocumentSetsResponses[keyof ListDocum
 
 export type CreateDocumentSetData = {
     body: Input;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/document-sets';
@@ -13054,12 +11962,6 @@ export type ListUsageReportsResponse = ListUsageReportsResponses[keyof ListUsage
 
 export type RequestUsageReportData = {
     body: UsageReportRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/ai-costs/reports';
@@ -13126,12 +12028,6 @@ export type ListAiUsageLimitsResponse = ListAiUsageLimitsResponses[keyof ListAiU
 
 export type CreateAiUsageLimitData = {
     body: AiUsageLimitRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/ai-costs/limits';
@@ -13206,12 +12102,6 @@ export type GetChatVoiceSettingsResponse = GetChatVoiceSettingsResponses[keyof G
 
 export type UpdateChatVoiceSettingsData = {
     body: VoiceSettingsRequest;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path?: never;
     query?: never;
     url: '/api/chat/voice/settings';
@@ -13253,12 +12143,6 @@ export type UpdateChatVoiceSettingsResponse = UpdateChatVoiceSettingsResponses[k
 
 export type ChangeChatLibraryFileData = {
     body: ChatLibraryFileChange;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         source: 'UPLOAD' | 'GENERATED' | 'IMAGE';
         id: string;
@@ -14559,12 +13443,6 @@ export type GetSharedChatHistoryResponse = GetSharedChatHistoryResponses[keyof G
 
 export type DeleteChatSessionData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         sessionId: string;
     };
@@ -16000,12 +14878,6 @@ export type ListChatFilesResponse = ListChatFilesResponses[keyof ListChatFilesRe
 
 export type DeleteChatFileData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         fileId: string;
     };
@@ -17209,12 +16081,6 @@ export type ListAiCostBreakdownResponse = ListAiCostBreakdownResponses[keyof Lis
 
 export type DismissMeetingSpeakerSuggestionData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
         track: 'MIC' | 'TAB';
@@ -17256,12 +16122,6 @@ export type DismissMeetingSpeakerSuggestionResponse = DismissMeetingSpeakerSugge
 
 export type RemoveMeetingBookmarkData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         meetingId: string;
         bookmarkId: string;
@@ -17302,12 +16162,6 @@ export type RemoveMeetingBookmarkResponse = RemoveMeetingBookmarkResponses[keyof
 
 export type DisconnectMcpServerOAuthData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -17355,12 +16209,6 @@ export type DisconnectMcpServerOAuthResponse = DisconnectMcpServerOAuthResponses
 
 export type DisconnectMcpConnectionData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         serverId: string;
     };
@@ -17409,10 +16257,6 @@ export type DisconnectMcpConnectionResponse = DisconnectMcpConnectionResponses[k
 export type DeleteGoogleDriveCredentialData = {
     body?: never;
     headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
         'If-Match': string;
     };
     path: {
@@ -17433,12 +16277,6 @@ export type DeleteGoogleDriveCredentialResponse = DeleteGoogleDriveCredentialRes
 
 export type LeaveChatPersonaData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         personaId: string;
     };
@@ -17482,12 +16320,6 @@ export type LeaveChatPersonaResponse = LeaveChatPersonaResponses[keyof LeaveChat
 
 export type DeleteChatImageArtifactData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         artifactId: string;
     };
@@ -17531,12 +16363,6 @@ export type DeleteChatImageArtifactResponse = DeleteChatImageArtifactResponses[k
 
 export type DeleteChatFileArtifactData = {
     body?: never;
-    headers: {
-        /**
-         * Same-origin non-simple request guard for browser-session mutations.
-         */
-        'X-MemoryOS-CSRF': '1';
-    };
     path: {
         artifactId: string;
     };

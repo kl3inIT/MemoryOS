@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { chatSessionsKey } from "@/features/chat/chat-api";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { deleteAllChatSessions } from "@/lib/hey-api/sdk.gen";
 
 /** Onyx Danger Zone: delete every conversation the member owns, after confirmation. */
@@ -37,10 +36,7 @@ export function DangerZoneSection() {
               pendingLabel={ui("Deleting…")}
               confirmTone="danger"
               onConfirm={async () => {
-                await deleteAllChatSessions({
-                  headers: sameOriginMutationHeaders,
-                  throwOnError: true,
-                });
+                await deleteAllChatSessions();
                 await cache.invalidateQueries({ queryKey: chatSessionsKey });
               }}
             />

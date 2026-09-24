@@ -14,7 +14,6 @@ import {
 import { Input } from "@/components/ui/input";
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   renameSourceMutation,
   updateSourceAccessMutation,
@@ -62,13 +61,11 @@ export function SourceMetadataDialog({
       if (field === "name") {
         await rename.mutateAsync({
           path: { sourceId: source.id },
-          headers: sameOriginMutationHeaders,
           body: { name: name.trim() },
         });
       } else {
         await updateAccess.mutateAsync({
           path: { sourceId: source.id },
-          headers: sameOriginMutationHeaders,
           body: { access },
         });
       }

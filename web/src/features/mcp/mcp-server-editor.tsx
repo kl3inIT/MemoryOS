@@ -51,8 +51,7 @@ export function McpServerEditor({
 
   const groups = useQuery({
     queryKey: ["mcp", "group-options"],
-    queryFn: async () =>
-      (await listMcpGroupOptions({ query: { size: 50 }, throwOnError: true })).data,
+    queryFn: async () => (await listMcpGroupOptions({ query: { size: 50 } })).data,
     enabled: !tenantWide,
   });
 

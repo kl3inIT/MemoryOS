@@ -5,7 +5,6 @@ import { DropdownMenu } from "radix-ui";
 import { LogOut, MoreHorizontal, Trash2, UserRoundCog } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { deleteChatPersona, leaveChatPersona } from "@/lib/hey-api/sdk.gen";
 import { can } from "@/lib/resource-permissions";
 import { chatActionError } from "@/features/chat/chat-action-utils";
@@ -91,9 +90,7 @@ export function AgentActions({ agent }: { agent: Persona }) {
           await deleteChatPersona({
             path: { personaId: agent.id },
             query: { revision: agent.revision },
-            headers: sameOriginMutationHeaders,
             signal: AbortSignal.timeout(30000),
-            throwOnError: true,
           });
           await refresh();
         }}
@@ -112,9 +109,7 @@ export function AgentActions({ agent }: { agent: Persona }) {
         onConfirm={async () => {
           await leaveChatPersona({
             path: { personaId: agent.id },
-            headers: sameOriginMutationHeaders,
             signal: AbortSignal.timeout(30000),
-            throwOnError: true,
           });
           await refresh();
         }}

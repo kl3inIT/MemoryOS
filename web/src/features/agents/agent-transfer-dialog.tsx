@@ -2,7 +2,6 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { User, Users } from "lucide-react";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { transferChatPersona } from "@/lib/hey-api/sdk.gen";
 import { ChatDialog } from "@/features/chat/chat-dialog";
 import { personLabel, type Persona } from "@/features/chat/chat-workspace-api";
@@ -34,9 +33,7 @@ export function AgentTransferDialog({ agent, onClose }: { agent: Persona; onClos
             target.kind === "person"
               ? { actorId: target.person.actorId }
               : { groupId: target.group.id },
-          headers: sameOriginMutationHeaders,
           signal: AbortSignal.timeout(30000),
-          throwOnError: true,
         });
         await cache.invalidateQueries({ queryKey: ["chat-personas"] });
       }}

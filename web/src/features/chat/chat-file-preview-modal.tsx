@@ -59,20 +59,17 @@ async function readBlob(target: PreviewTarget, signal: AbortSignal): Promise<Blo
           path: { artifactId: target.id },
           parseAs: "blob",
           signal,
-          throwOnError: true,
         })
       : target.source === "image"
         ? await getChatImageArtifact({
             path: { artifactId: target.id },
             parseAs: "blob",
             signal,
-            throwOnError: true,
           })
         : await downloadChatFile({
             path: { fileId: target.id },
             parseAs: "blob",
             signal,
-            throwOnError: true,
           });
   if (!(data instanceof Blob)) throw new Error("Invalid file content");
   return data;
@@ -84,12 +81,10 @@ async function readSheets(target: PreviewTarget, signal: AbortSignal): Promise<S
       ? await previewChatFileArtifactSpreadsheet({
           path: { artifactId: target.id },
           signal,
-          throwOnError: true,
         })
       : await previewChatFileSpreadsheet({
           path: { fileId: target.id },
           signal,
-          throwOnError: true,
         });
   return sheetsSchema.parse(data).sheets;
 }
@@ -116,7 +111,6 @@ async function load(target: PreviewTarget, signal: AbortSignal): Promise<Loaded>
       path: { artifactId: target.id },
       parseAs: "blob",
       signal,
-      throwOnError: true,
     });
     if (!(data instanceof Blob)) throw new Error("Invalid preview");
     return { kind: "pdf", blob: data.slice(0, data.size, "application/pdf"), converted: true };

@@ -199,7 +199,7 @@ it("sends a pasted application with its secret posted in the token request", asy
   );
 });
 
-it("asks the SDK to throw so a failed load shows an alert instead of an empty list", async () => {
+it("shows an alert instead of an empty list when the load fails", async () => {
   const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   listMcpServerOAuthClients.mockRejectedValue(new ApiError(503, {}));
   render(
@@ -208,9 +208,6 @@ it("asks the SDK to throw so a failed load shows an alert instead of an empty li
     </QueryClientProvider>,
   );
   expect(await screen.findByRole("alert")).toBeInTheDocument();
-  expect(listMcpServerOAuthClients).toHaveBeenCalledWith(
-    expect.objectContaining({ throwOnError: true }),
-  );
   expect(
     screen.queryByText("Chưa có ứng dụng OAuth nào. Người dùng chưa kết nối được máy chủ này."),
   ).not.toBeInTheDocument();

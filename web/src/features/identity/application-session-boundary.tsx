@@ -25,7 +25,7 @@ export function ApplicationSessionBoundary({ children }: { children?: ReactNode 
   const sessionQuery = useQuery({
     queryKey: currentIdentityQueryKey,
     queryFn: async ({ signal }) => {
-      const { data } = await getCurrentIdentity({ signal, throwOnError: true });
+      const { data } = await getCurrentIdentity({ signal });
       acceptCurrentIdentity(queryClient, data);
       return data;
     },

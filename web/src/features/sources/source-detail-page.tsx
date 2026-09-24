@@ -27,7 +27,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import {
   deleteSourceMutation,
@@ -237,7 +236,6 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
       const checksum = await sha256(file, controller.signal);
       const authorization = await initiateUpload.mutateAsync({
         path: { sourceId: selectedId },
-        headers: sameOriginMutationHeaders,
         body: {
           filename: file.name,
           mediaType: file.type || "application/octet-stream",
@@ -253,7 +251,6 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
       try {
         await finalizeUpload.mutateAsync({
           path: { sourceId: selectedId, uploadId: authorization.uploadId },
-          headers: sameOriginMutationHeaders,
           signal: controller.signal,
         });
       } catch (cause) {
@@ -337,7 +334,6 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     try {
       await finalizeUpload.mutateAsync({
         path: { sourceId: pending.sourceId, uploadId: pending.uploadId },
-        headers: sameOriginMutationHeaders,
         signal: controller.signal,
       });
       controller.signal.throwIfAborted();
@@ -398,7 +394,6 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     try {
       let operation = await reindexItem.mutateAsync({
         path: { sourceId: selectedId, itemId: item.id },
-        headers: sameOriginMutationHeaders,
         signal: controller.signal,
       });
       controller.signal.throwIfAborted();
@@ -470,7 +465,6 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     try {
       const operation = await removeItem.mutateAsync({
         path: { sourceId: selectedId, itemId: item.id },
-        headers: sameOriginMutationHeaders,
         signal: controller.signal,
       });
       controller.signal.throwIfAborted();
@@ -556,7 +550,6 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     try {
       const operation = await deleteSource.mutateAsync({
         path: { sourceId: selectedId },
-        headers: sameOriginMutationHeaders,
         signal: controller.signal,
       });
       controller.signal.throwIfAborted();
@@ -590,7 +583,6 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
     try {
       const summary = await (paused ? resumeSource : pauseSource).mutateAsync({
         path: { sourceId: selectedId },
-        headers: sameOriginMutationHeaders,
       });
       notify({
         tone: "success",

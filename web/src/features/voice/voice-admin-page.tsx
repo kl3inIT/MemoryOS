@@ -6,7 +6,6 @@ import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   listChatVoiceConnections,
   listChatVoiceProviders,
@@ -33,15 +32,13 @@ export function VoiceAdminPage() {
   const providers = useQuery({
     queryKey: [...voiceQueryKey, "providers", session.actorId, session.authorizationVersion],
     enabled: manager,
-    queryFn: async ({ signal }) =>
-      (await listChatVoiceProviders({ signal, throwOnError: true })).data,
+    queryFn: async ({ signal }) => (await listChatVoiceProviders({ signal })).data,
     retry: false,
   });
   const connections = useQuery({
     queryKey: [...voiceQueryKey, "connections", session.actorId, session.authorizationVersion],
     enabled: manager,
-    queryFn: async ({ signal }) =>
-      (await listChatVoiceConnections({ signal, throwOnError: true })).data,
+    queryFn: async ({ signal }) => (await listChatVoiceConnections({ signal })).data,
     retry: false,
   });
   if (!manager)
@@ -129,8 +126,6 @@ function VoiceFunctionSection({
     try {
       await selectChatVoiceProvider({
         body: { function: fn, provider: provider ?? undefined },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
       await onChanged();
     } catch (failed) {

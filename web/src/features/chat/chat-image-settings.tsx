@@ -12,7 +12,6 @@ import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   listChatImageConnections,
   listChatImageProviders,
@@ -96,15 +95,13 @@ export function ChatImageSettings() {
   const providers = useQuery({
     queryKey: ["image-providers", session.actorId, session.authorizationVersion],
     enabled: manager,
-    queryFn: async ({ signal }) =>
-      (await listChatImageProviders({ signal, throwOnError: true })).data,
+    queryFn: async ({ signal }) => (await listChatImageProviders({ signal })).data,
     retry: false,
   });
   const connections = useQuery({
     queryKey: ["image-connections", session.actorId, session.authorizationVersion],
     enabled: manager,
-    queryFn: async ({ signal }) =>
-      (await listChatImageConnections({ signal, throwOnError: true })).data,
+    queryFn: async ({ signal }) => (await listChatImageConnections({ signal })).data,
     retry: false,
   });
   async function changed() {
@@ -119,8 +116,6 @@ export function ChatImageSettings() {
     try {
       await selectChatImageProvider({
         body: { provider: provider ?? undefined },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
       await changed();
     } catch (failed) {
@@ -134,12 +129,10 @@ export function ChatImageSettings() {
     if (replacement) {
       await selectChatImageProvider({
         body: { provider: replacement },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
     }
     // Selection advances revisions, so remove the key against the stored state.
-    const fresh = (await listChatImageConnections({ throwOnError: true })).data;
+    const fresh = (await listChatImageConnections()).data;
     const current = fresh.find((connection) => connection.provider === provider);
     if (current) {
       await saveChatImageConnection({
@@ -150,8 +143,6 @@ export function ChatImageSettings() {
           revision: current.revision,
           credentialAction: "REMOVE",
         },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
     }
     await changed();
@@ -354,8 +345,6 @@ function ConnectionCard({
           credentialAction: key ? "REPLACE" : "KEEP",
           credentialValue: key || undefined,
         },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
       setKey("");
       await onChanged();
@@ -370,8 +359,6 @@ function ConnectionCard({
           model,
           credentialValue: key || undefined,
         },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
       setTested(true);
     });

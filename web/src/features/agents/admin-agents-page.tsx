@@ -15,7 +15,6 @@ import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { useNavigate } from "@tanstack/react-router";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   deleteChatPersonaLabel,
   listChatPersonaLabels,
@@ -67,7 +66,6 @@ export function AdminAgentsPage() {
             await listChatPersonasForAdministration({
               query: { includeDeleted, offset, limit: 100 },
               signal,
-              throwOnError: true,
             })
           ).data,
         ),
@@ -80,9 +78,7 @@ export function AdminAgentsPage() {
     try {
       await restoreChatPersona({
         path: { personaId: agent.id },
-        headers: sameOriginMutationHeaders,
         signal: AbortSignal.timeout(30000),
-        throwOnError: true,
       });
       await refresh();
     } catch (cause) {
@@ -101,9 +97,7 @@ export function AdminAgentsPage() {
           featured: change.featured ?? agent.featured,
           displayPriority: agent.displayPriority ?? undefined,
         },
-        headers: sameOriginMutationHeaders,
         signal: AbortSignal.timeout(30000),
-        throwOnError: true,
       });
       if (change.featured !== undefined)
         notify({
@@ -132,9 +126,7 @@ export function AdminAgentsPage() {
             .filter((agent) => !agent.builtin && !agent.deletedAt)
             .map((agent) => agent.id),
         },
-        headers: sameOriginMutationHeaders,
         signal: AbortSignal.timeout(30000),
-        throwOnError: true,
       });
     } catch (cause) {
       cache.setQueryData(key, previous);
@@ -233,9 +225,7 @@ function AgentLabels() {
   const labels = useQuery({
     queryKey: ["chat-persona-labels", actorId, authorizationVersion],
     queryFn: async ({ signal }) =>
-      agentLabelSchema
-        .array()
-        .parse((await listChatPersonaLabels({ signal, throwOnError: true })).data),
+      agentLabelSchema.array().parse((await listChatPersonaLabels({ signal })).data),
   });
   const refresh = async () => {
     await cache.invalidateQueries({ queryKey: ["chat-persona-labels"] });
@@ -289,9 +279,7 @@ function AgentLabels() {
             await renameChatPersonaLabel({
               path: { labelId: renaming.id },
               body: { name },
-              headers: sameOriginMutationHeaders,
               signal: AbortSignal.timeout(30000),
-              throwOnError: true,
             });
             await refresh();
           }}
@@ -315,9 +303,7 @@ function AgentLabels() {
           if (!removing) return;
           await deleteChatPersonaLabel({
             path: { labelId: removing.id },
-            headers: sameOriginMutationHeaders,
             signal: AbortSignal.timeout(30000),
-            throwOnError: true,
           });
           await refresh();
         }}

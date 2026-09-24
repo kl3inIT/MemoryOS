@@ -50,7 +50,6 @@ export function AgentPrincipalPicker({
           await listChatPersonaShareOptions({
             query: { q: query, limit: 20 },
             signal,
-            throwOnError: true,
           })
         ).data,
       ),

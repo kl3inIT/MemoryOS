@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/table";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { listReportedProviderModels } from "@/lib/hey-api/sdk.gen";
 import type { ProviderTestInput } from "@/lib/hey-api/types.gen";
 import {
@@ -55,9 +54,7 @@ export function ProviderModelsField({
     if (!body) return;
     const result = await listReportedProviderModels({
       body,
-      headers: sameOriginMutationHeaders,
       signal,
-      throwOnError: true,
     });
     signal.throwIfAborted();
     setReported(result.data.models);

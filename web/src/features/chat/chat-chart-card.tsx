@@ -51,7 +51,6 @@ export function ChatChartCard({ file }: { file: GeneratedFile }) {
           await getChatFileArtifactChart({
             path: { artifactId: file.id },
             signal,
-            throwOnError: true,
           })
         ).data,
       ) ?? null,

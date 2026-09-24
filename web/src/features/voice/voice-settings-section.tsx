@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { updateChatVoiceSettings } from "@/lib/hey-api/sdk.gen";
 import type { VoiceSettingsRequest } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
@@ -33,8 +32,6 @@ export function VoiceSettingsSection() {
       (
         await updateChatVoiceSettings({
           body: change,
-          headers: sameOriginMutationHeaders,
-          throwOnError: true,
         })
       ).data,
     onSuccess: (data) => cache.setQueryData(key, data),
