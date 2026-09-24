@@ -596,6 +596,13 @@ public class MeetingRepository {
                 """).param("tenant", tenant).param("utterance", utterance).param("actor", actor).update();
     }
 
+    /** Whether anybody said anything in this meeting, without reading the transcript. */
+    public boolean hasUtterances(UUID tenant, UUID meeting) {
+        return Boolean.TRUE.equals(jdbc.sql("""
+                SELECT EXISTS (SELECT 1 FROM meeting_utterance WHERE tenant_id = :tenant AND meeting_id = :meeting)
+                """).param("tenant", tenant).param("meeting", meeting).query(Boolean.class).single());
+    }
+
     /** Whether this line belongs to this meeting, which is what makes starring it meaningful. */
     public boolean hasUtterance(UUID tenant, UUID meeting, UUID utterance) {
         return jdbc.sql("""

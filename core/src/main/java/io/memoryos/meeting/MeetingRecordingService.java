@@ -78,7 +78,7 @@ public class MeetingRecordingService {
         UUID tenant = tenant(actor);
         var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         if (meeting.status() != Meeting.Status.RECORDING) throw MeetingException.ended();
-        if (!meetings.utterances(tenant, id).isEmpty())
+        if (meetings.hasUtterances(tenant, id))
             throw MeetingException.invalid("This meeting already has a transcript.");
         var available = transcription.transcribers(actor);
         if (available.isEmpty())

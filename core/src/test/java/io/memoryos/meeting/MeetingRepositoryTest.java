@@ -82,6 +82,16 @@ class MeetingRepositoryTest {
         assertTrue(meetings.failAbandonedAudio(MAX).isEmpty());
     }
 
+    @Test void aMeetingHasUtterancesOnlyOnceSomebodySpoke() {
+        UUID spoken = meeting(), silent = meeting();
+        meetings.insertUtterance(tenant, spoken, new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.MIC, "0", 0, 1200,
+                "Chào mọi người", 0.9, List.of(), null));
+
+        assertTrue(meetings.hasUtterances(tenant, spoken));
+        assertFalse(meetings.hasUtterances(tenant, silent));
+        assertFalse(meetings.hasUtterances(UUID.randomUUID(), spoken), "another Tenant sees nothing");
+    }
+
     private UUID meeting() {
         UUID id = UUID.randomUUID();
         meetings.insert(tenant, id, owner, new Meeting.Draft("Họp giao ban", Meeting.Kind.IN_PERSON, "vi", List.of(), List.of()));

@@ -11,9 +11,6 @@ package io.memoryos.meeting.persistence;
 public final class MeetingAccessSql {
     private MeetingAccessSql() {}
 
-    /** Record, rename a speaker, write notes, end, rerun the minutes, share, delete. */
-    public static final String OWNS = "m.owner_actor_id = :actor";
-
     /** Read the transcript, the minutes and the biên bản, while the meeting runs and after it ends. */
     public static final String READS = """
             (m.owner_actor_id = :actor
