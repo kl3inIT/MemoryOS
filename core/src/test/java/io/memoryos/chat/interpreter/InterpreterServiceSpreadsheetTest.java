@@ -39,7 +39,7 @@ class InterpreterServiceSpreadsheetTest {
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
         var key = new ObjectKey("raw/chart");
         when(repository.ownedArtifact(tenant, actor, id)).thenReturn(Optional.of(
-                new JdbcInterpreterRepository.Artifact(key, "chart.png", "image/png")));
+                new InterpreterArtifact(key, "chart.png", "image/png")));
         var closed = new AtomicBoolean();
         when(storage.open(key)).thenReturn(content(closed));
 
