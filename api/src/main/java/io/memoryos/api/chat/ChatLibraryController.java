@@ -18,7 +18,7 @@ import io.memoryos.library.ChatLibraryArchiveItem;
 import io.memoryos.library.ChatLibraryFile;
 import io.memoryos.library.ChatLibraryService;
 import io.memoryos.library.ChatLibraryArchiveService;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

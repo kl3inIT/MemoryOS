@@ -8,7 +8,7 @@ import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceType;
 import io.memoryos.document.DocumentId;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import java.time.Instant;
 import java.util.List;

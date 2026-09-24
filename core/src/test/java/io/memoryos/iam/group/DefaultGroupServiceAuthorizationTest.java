@@ -8,6 +8,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.memoryos.audit.AuditTrail;
+import io.memoryos.iam.Authority;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.IamAccess;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
 import io.memoryos.shared.TenantId;

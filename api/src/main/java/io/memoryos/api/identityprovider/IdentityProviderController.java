@@ -5,10 +5,10 @@ import io.memoryos.api.identityprovider.contract.DiscoverIdentityProviderRequest
 import io.memoryos.api.identityprovider.contract.DiscoveredProviderResponse;
 import io.memoryos.api.identityprovider.contract.IdentityProviderResponse;
 import io.memoryos.api.identityprovider.contract.UpdateIdentityProviderRequest;
-import io.memoryos.iam.identity.IdentityContext;
-import io.memoryos.iam.identityprovider.IdentityProviderAdministration;
-import io.memoryos.iam.identityprovider.IdentityProviderCommand;
-import io.memoryos.iam.identityprovider.IdentityProviderUpdate;
+import io.memoryos.iam.IdentityContext;
+import io.memoryos.iam.IdentityProviderAdministration;
+import io.memoryos.iam.IdentityProviderCommand;
+import io.memoryos.iam.IdentityProviderUpdate;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

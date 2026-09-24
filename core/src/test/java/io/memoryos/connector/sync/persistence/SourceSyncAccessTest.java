@@ -16,7 +16,7 @@ import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.source.DefaultSourceDocumentAccessResolver;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import java.time.Duration;
 import java.time.Instant;

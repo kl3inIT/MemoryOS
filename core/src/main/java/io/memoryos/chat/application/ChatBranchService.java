@@ -6,7 +6,7 @@ import io.memoryos.chat.ChatSession;
 import io.memoryos.chat.persistence.JdbcChatArtifactRepository;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectStorageException;

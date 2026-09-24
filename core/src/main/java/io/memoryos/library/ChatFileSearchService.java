@@ -2,7 +2,7 @@ package io.memoryos.library;
 
 import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.DocumentSearchService;
 import io.memoryos.retrieval.SearchHit;

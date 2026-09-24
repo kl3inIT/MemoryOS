@@ -12,11 +12,11 @@ import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveCredentialRe
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleGroupRepository;
 import io.memoryos.connector.source.SourceAccessPolicy;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.TenantId;
-import io.memoryos.iam.group.Authority;
-import io.memoryos.iam.group.IamAccess;
+import io.memoryos.iam.Authority;
+import io.memoryos.iam.IamAccess;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.List;

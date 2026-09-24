@@ -8,7 +8,7 @@ import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.SharePointCredentialService;
 import io.memoryos.connector.SharePointException;
 import io.memoryos.connector.SharePointProvider;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

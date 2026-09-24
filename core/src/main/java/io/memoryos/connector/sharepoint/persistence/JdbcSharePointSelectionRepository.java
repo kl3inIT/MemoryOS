@@ -15,7 +15,7 @@ import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.sync.persistence.WorkLeases;
-import io.memoryos.iam.group.GroupId;
+import io.memoryos.iam.GroupId;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.sql.ResultSet;

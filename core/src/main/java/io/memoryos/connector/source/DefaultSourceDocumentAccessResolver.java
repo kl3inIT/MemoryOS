@@ -4,7 +4,7 @@ import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.document.DocumentId;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.TenantAccessResolver;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;

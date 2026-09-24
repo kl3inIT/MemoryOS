@@ -40,8 +40,8 @@ import io.memoryos.document.DocumentContent;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.persistence.JdbcDocumentRepository;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.IamException;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.DefaultGroupScopeService;
@@ -359,7 +359,7 @@ class PostgresSourceLifecycleTest {
         assertThrows(IamException.class, () -> service.replaceSourceGroups(manager, shared.id(), List.of(a)));
         assertThrows(IamException.class, () -> service.replaceSourceGroups(manager, shared.id(), List.of(adminGroupId(), b)));
         service.replaceSourceGroups(manager, shared.id(), List.of(b));
-        assertThat(service.listSourceGroups(owner, shared.id())).extracting(io.memoryos.iam.group.GroupIdentity::id).containsExactly(b);
+        assertThat(service.listSourceGroups(owner, shared.id())).extracting(io.memoryos.iam.GroupIdentity::id).containsExactly(b);
         assertTrue(service.getSource(manager, shared.id()).permissions().edit());
         assertThrows(IamException.class, () -> service.updateSourceAccess(manager, shared.id(), SourceAccess.PUBLIC));
 
@@ -409,7 +409,7 @@ class PostgresSourceLifecycleTest {
         assertEquals("Renamed", service.renameSource(manager, source.id(), "Renamed").name());
         service.replaceSourceGroups(manager, source.id(), List.of(managed));
         assertThat(service.listSourceGroups(manager, source.id()))
-                .extracting(io.memoryos.iam.group.GroupIdentity::id).containsExactly(managed);
+                .extracting(io.memoryos.iam.GroupIdentity::id).containsExactly(managed);
         assertThrows(SourceException.class, () -> service.deleteSource(manager, source.id()));
         service.replaceSourceGroups(manager, source.id(), List.of());
         assertThat(service.listSourceGroups(manager, source.id())).isEmpty();
@@ -516,7 +516,7 @@ class PostgresSourceLifecycleTest {
         );
         service.replaceSourceGroups(manager, managed.id(), List.of(managedGroupId));
         assertThat(service.listSourceGroupOptions(manager, "", 0, 25).items())
-                .extracting(io.memoryos.iam.group.GroupIdentity::id).containsExactly(managedGroupId);
+                .extracting(io.memoryos.iam.GroupIdentity::id).containsExactly(managedGroupId);
 
         // Moving the Source to another manager's Group leaves its recorded manager in place: they keep the catalog
         // row and their operations, while reading its documents still needs membership they no longer have.
@@ -558,7 +558,7 @@ class PostgresSourceLifecycleTest {
                     () -> service.removeGroupSource(coManager, sharedGroup, sourceId)).code());
         }
         assertThat(service.listSourceGroups(owner, managed.id()))
-                .extracting(io.memoryos.iam.group.GroupIdentity::id)
+                .extracting(io.memoryos.iam.GroupIdentity::id)
                 .containsExactlyInAnyOrder(sharedGroup, foreignGroup);
 
         // The responsible manager detaches their own Source from a Group they manage, and only from that Group.
@@ -569,14 +569,14 @@ class PostgresSourceLifecycleTest {
                 () -> service.removeGroupSource(responsible, sharedGroup, unmanaged.id())).code());
         service.removeGroupSource(responsible, sharedGroup, managed.id());
         assertThat(service.listSourceGroups(owner, managed.id()))
-                .extracting(io.memoryos.iam.group.GroupIdentity::id).containsExactly(foreignGroup);
+                .extracting(io.memoryos.iam.GroupIdentity::id).containsExactly(foreignGroup);
         assertEquals("SOURCE_NOT_FOUND", assertThrows(SourceException.class,
                 () -> service.removeGroupSource(responsible, sharedGroup, managed.id())).code());
 
         // What the responsible manager detached, they can attach again.
         service.replaceSourceGroups(responsible, managed.id(), List.of(sharedGroup, foreignGroup));
         assertThat(service.listSourceGroups(owner, managed.id()))
-                .extracting(io.memoryos.iam.group.GroupIdentity::id)
+                .extracting(io.memoryos.iam.GroupIdentity::id)
                 .containsExactlyInAnyOrder(sharedGroup, foreignGroup);
 
         // Global Source management detaches any Source from any Group.
@@ -587,7 +587,7 @@ class PostgresSourceLifecycleTest {
         service.removeGroupSource(owner, foreignGroup, managed.id());
         assertThat(service.listSourceGroups(owner, unmanaged.id())).isEmpty();
         assertThat(service.listSourceGroups(owner, managed.id()))
-                .extracting(io.memoryos.iam.group.GroupIdentity::id).containsExactly(sharedGroup);
+                .extracting(io.memoryos.iam.GroupIdentity::id).containsExactly(sharedGroup);
     }
 
     @Test

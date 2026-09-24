@@ -8,10 +8,10 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
-import io.memoryos.iam.tenant.TenantMembership;
-import io.memoryos.iam.tenant.TenantMembershipRole;
+import io.memoryos.iam.TenantMembership;
+import io.memoryos.iam.TenantMembershipRole;
 
 import java.sql.SQLException;
 import java.util.UUID;

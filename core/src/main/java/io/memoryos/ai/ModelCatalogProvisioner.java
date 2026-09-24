@@ -1,7 +1,7 @@
 package io.memoryos.ai;
 
 import io.memoryos.ai.persistence.ModelCatalogRepository;
-import io.memoryos.iam.tenant.TenantBootstrapped;
+import io.memoryos.iam.TenantBootstrapped;
 import io.memoryos.shared.TenantId;
 import java.util.Objects;
 import java.util.Set;

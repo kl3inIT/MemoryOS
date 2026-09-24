@@ -49,7 +49,7 @@ import io.memoryos.objectstorage.application.ObjectUploadProperties;
 import io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
 import io.memoryos.shared.TenantId;
-import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.group.DefaultIamAuthorization;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.group.persistence.IamLockRepository;

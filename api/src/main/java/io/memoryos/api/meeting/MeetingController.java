@@ -11,7 +11,7 @@ import io.memoryos.api.meeting.contract.MeetingParticularsResponse;
 import io.memoryos.api.meeting.contract.MeetingReaderResponse;
 import io.memoryos.api.meeting.contract.MeetingSpeakerResponse;
 import io.memoryos.api.meeting.contract.MeetingUtteranceResponse;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.meeting.Meeting;
 import io.memoryos.meeting.MeetingCorrectionService;
 import io.memoryos.meeting.MeetingException;

@@ -1,7 +1,7 @@
 package io.memoryos.retrieval.settings;
 
 import io.memoryos.document.DocumentChunk;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.retrieval.SearchUnavailableException;
 import io.memoryos.retrieval.embedding.OpenAiCompatibleEmbeddings;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;

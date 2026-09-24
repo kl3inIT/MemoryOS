@@ -2,7 +2,7 @@ package io.memoryos.api.chat;
 
 import io.memoryos.api.chat.contract.VoiceSynthesisRequest;
 import io.memoryos.voice.VoiceSynthesisService;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

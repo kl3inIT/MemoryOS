@@ -10,7 +10,7 @@ import static org.mockito.Mockito.when;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.document.DocumentChunk;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.opensearch.SearchProperties;
 import io.memoryos.retrieval.settings.persistence.JdbcSearchSettingsRepository;

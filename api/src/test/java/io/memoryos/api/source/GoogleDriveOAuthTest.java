@@ -18,7 +18,7 @@ import io.memoryos.connector.GoogleDriveOAuthClient;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.shared.TenantId;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;

@@ -1,8 +1,8 @@
 package io.memoryos.iam.invitation.persistence;
 
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.invitation.InvitationStatus;
-import io.memoryos.iam.invitation.InvitationView;
+import io.memoryos.iam.InvitationStatus;
+import io.memoryos.iam.InvitationView;
 import io.memoryos.shared.TenantId;
 
 import jakarta.persistence.EntityManager;

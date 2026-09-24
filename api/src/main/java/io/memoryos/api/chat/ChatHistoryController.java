@@ -7,7 +7,7 @@ import io.memoryos.api.chat.contract.ChatHistoryTranscriptResponse;
 import io.memoryos.chat.history.ChatHistoryFeedback;
 import io.memoryos.chat.history.ChatHistoryQuery;
 import io.memoryos.chat.history.ChatHistoryService;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

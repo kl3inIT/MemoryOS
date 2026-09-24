@@ -8,7 +8,7 @@ import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.sync.persistence.WorkLeases;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
-import io.memoryos.iam.group.GroupId;
+import io.memoryos.iam.GroupId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;

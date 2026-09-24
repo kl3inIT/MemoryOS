@@ -39,8 +39,8 @@ import io.memoryos.connector.SourceOperationStatus;
 import io.memoryos.connector.GoogleDriveSourceService.SelectionReceipt;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.group.DefaultIamAuthorization;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
@@ -141,7 +141,7 @@ class GoogleDriveCredentialAuthorityTest {
 
     @Test
     void scopedCredentialsAreOwnedAndTheRecordedSourceManagerKeepsMutationAuthority() {
-        var group = new io.memoryos.iam.group.GroupId(UUID.randomUUID());
+        var group = new io.memoryos.iam.GroupId(UUID.randomUUID());
         var scoped = scopedManager(group);
         var foreign = authorize();
         var own = authorize(scoped);
@@ -151,7 +151,7 @@ class GoogleDriveCredentialAuthorityTest {
                 List.of(link("one")), List.of(group), null));
         mockSelection();
         assertThrows(IamException.class, () -> drive.create(scoped, UUID.randomUUID(), "Outside", own, ScopeMode.SPECIFIC,
-                List.of(link("one")), List.of(group, new io.memoryos.iam.group.GroupId(tenant.value())), null));
+                List.of(link("one")), List.of(group, new io.memoryos.iam.GroupId(tenant.value())), null));
         UUID request = UUID.randomUUID();
         var receipt = drive.create(scoped, request, "Managed", own, ScopeMode.SPECIFIC,
                 List.of(link("one")), List.of(group, group), null);
@@ -160,12 +160,12 @@ class GoogleDriveCredentialAuthorityTest {
         assertEquals(SourceOperationStatus.SUCCEEDED, process(receipt).status());
         var source = receipt.sourceId();
         assertEquals(List.of(group), new io.memoryos.connector.source.persistence.JdbcSourceGroupRepository(jdbc, event -> { }).list(tenant, source)
-                .stream().map(io.memoryos.iam.group.GroupIdentity::id).toList());
+                .stream().map(io.memoryos.iam.GroupIdentity::id).toList());
         assertEquals(scoped.value(), jdbc.sql("SELECT created_by_actor_id FROM connector_credential_pairs WHERE id=:id")
                 .param("id", source.value()).query(UUID.class).single());
         assertTrue(authorizations.list(scoped).getFirst().actions().contains("reauthorize"));
         var consent = authorizations.prepare(scoped, "Reconnected", own, 1L, null);
-        var foreignGroup = new io.memoryos.iam.group.GroupId(UUID.randomUUID());
+        var foreignGroup = new io.memoryos.iam.GroupId(UUID.randomUUID());
         scopedManager(foreignGroup);
         jdbc.sql("INSERT INTO source_group_grants(tenant_id,group_id,connector_credential_pair_id) VALUES(:tenant,:group,:source)")
                 .param("tenant", tenant.value()).param("group", foreignGroup.value()).param("source", source.value()).update();
@@ -200,7 +200,7 @@ class GoogleDriveCredentialAuthorityTest {
 
     @Test
     void driveCreationDefaultsToAutoSyncAndKeepsTheRequestedMode() {
-        var group = new io.memoryos.iam.group.GroupId(UUID.randomUUID());
+        var group = new io.memoryos.iam.GroupId(UUID.randomUUID());
         var scoped = scopedManager(group);
         var own = authorize(scoped);
         var global = authorize();
@@ -237,7 +237,7 @@ class GoogleDriveCredentialAuthorityTest {
 
     @Test
     void scopedActivationAndConsentRejectRevokedManagerAuthorityAfterProviderIo() {
-        var group = new io.memoryos.iam.group.GroupId(UUID.randomUUID());
+        var group = new io.memoryos.iam.GroupId(UUID.randomUUID());
         var scoped = scopedManager(group);
         var own = authorize(scoped);
         var preparation = authorizations.prepare(scoped, "Reconnect", own, 1L, null);
@@ -258,7 +258,7 @@ class GoogleDriveCredentialAuthorityTest {
 
     @Test
     void scopedPauseLeavesActiveWorkAndManualSynchronizationIntact() {
-        var group = new io.memoryos.iam.group.GroupId(UUID.randomUUID());
+        var group = new io.memoryos.iam.GroupId(UUID.randomUUID());
         var scoped = scopedManager(group);
         var own = authorize(scoped);
         mockSelection();
@@ -285,7 +285,7 @@ class GoogleDriveCredentialAuthorityTest {
         assertEquals(source, sync.due(10).getFirst().sourceId());
     }
 
-    private ActorId scopedManager(io.memoryos.iam.group.GroupId group) {
+    private ActorId scopedManager(io.memoryos.iam.GroupId group) {
         var actor = new ActorId(UUID.randomUUID());
         jdbc.sql("INSERT INTO actors(id) VALUES(:actor)").param("actor", actor.value()).update();
         jdbc.sql("INSERT INTO tenant_memberships(tenant_id,actor_id,role,status) VALUES(:tenant,:actor,'MEMBER','ACTIVE')")

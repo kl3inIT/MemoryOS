@@ -11,10 +11,10 @@ import io.memoryos.audit.AuditOutcome;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.invitation.InvitationException;
-import io.memoryos.iam.invitation.InvitationFailureReason;
-import io.memoryos.iam.invitation.InvitationService;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.InvitationException;
+import io.memoryos.iam.InvitationFailureReason;
+import io.memoryos.iam.InvitationService;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 
 import java.time.Instant;

@@ -7,6 +7,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupPermissions;
+import io.memoryos.iam.GroupService;
+import io.memoryos.iam.IamAuthorization;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
 import io.memoryos.shared.TenantId;
@@ -59,7 +63,7 @@ class PostgresGroupMembershipReplacementTest {
                 transactionManager
         );
         GroupAdministrationGuard administrationGuard = TestDatabase.transactionalProxy(
-                new DefaultGroupAdministrationGuard(new GroupInvariantRepository(jdbc)),
+                new GroupAdministrationGuard(new GroupInvariantRepository(jdbc)),
                 GroupAdministrationGuard.class,
                 transactionManager
         );

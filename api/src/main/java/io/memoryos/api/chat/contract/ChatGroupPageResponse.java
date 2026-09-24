@@ -1,7 +1,7 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.iam.group.GroupIdentity;
-import io.memoryos.iam.group.GroupIdentityPage;
+import io.memoryos.iam.GroupIdentity;
+import io.memoryos.iam.GroupIdentityPage;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import java.util.UUID;

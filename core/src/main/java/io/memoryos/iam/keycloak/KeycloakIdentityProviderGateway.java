@@ -1,7 +1,7 @@
 package io.memoryos.iam.keycloak;
 
-import io.memoryos.iam.identityprovider.IdentityProviderException;
-import io.memoryos.iam.identityprovider.IdentityProviderFailureReason;
+import io.memoryos.iam.IdentityProviderException;
+import io.memoryos.iam.IdentityProviderFailureReason;
 import io.memoryos.iam.identityprovider.IdentityProviderGateway;
 
 import jakarta.ws.rs.NotFoundException;

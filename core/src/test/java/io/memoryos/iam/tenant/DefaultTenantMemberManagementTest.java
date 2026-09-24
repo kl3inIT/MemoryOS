@@ -6,11 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
+import io.memoryos.iam.TenantMemberException;
+import io.memoryos.iam.TenantMemberManagement;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.identity.ExternalIdentity;
+import io.memoryos.iam.ExternalIdentity;
 import io.memoryos.iam.IamException;
-import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapRequest;
-import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapper;
+import io.memoryos.iam.InitialTenantBootstrapRequest;
+import io.memoryos.iam.InitialTenantBootstrapper;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
 import io.memoryos.iam.group.persistence.GroupInvariantRepository;
@@ -32,10 +34,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import io.memoryos.iam.group.DefaultGroupAdministrationGuard;
-import io.memoryos.iam.group.DefaultGroupProvisioner;
+import io.memoryos.iam.group.GroupAdministrationGuard;
+import io.memoryos.iam.group.GroupProvisioner;
 import io.memoryos.iam.group.DefaultIamAuthorization;
-import io.memoryos.iam.tenant.bootstrap.DefaultInitialTenantBootstrapper;
 
 // SQL is exercised against the isolated, migrated Testcontainers database.
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
@@ -63,7 +64,7 @@ class DefaultTenantMemberManagementTest {
         var tenants = new JpaTenantRepository(jpa.entityManager());
         var identities = new JpaExternalIdentityRegistry(jpa.entityManager());
         var locks = new IamLockRepository(jdbcClient);
-        var groupProvisioner = new DefaultGroupProvisioner(
+        var groupProvisioner = new GroupProvisioner(
                 new GroupRepository(jpa.entityManager()),
                 new GroupMembershipRepository(jpa.entityManager()),
                 new GroupCapabilityGrantRepository(jpa.entityManager())
@@ -93,7 +94,7 @@ class DefaultTenantMemberManagementTest {
                 new IamAuthorizationRepository(jdbcClient),
                 locks
         );
-        var guard = new DefaultGroupAdministrationGuard(new GroupInvariantRepository(jdbcClient));
+        var guard = new GroupAdministrationGuard(new GroupInvariantRepository(jdbcClient));
         memberManagement = TestDatabase.transactionalProxy(
                 new DefaultTenantMemberManagement(
                         authorization,

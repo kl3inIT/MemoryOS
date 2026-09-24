@@ -9,12 +9,12 @@ import io.memoryos.chat.ChatModelAccess;
 import io.memoryos.chat.persistence.JdbcAgentModelRepository;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.ai.persistence.ModelCatalogRepository;
-import io.memoryos.iam.group.GroupScopeService;
-import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.GroupScopeService;
+import io.memoryos.iam.IamAuthorization;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
-import io.memoryos.iam.tenant.TenantMembership;
+import io.memoryos.iam.TenantMembership;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 
@@ -164,9 +164,9 @@ class ModelCatalogSelectionTest {
             when(catalog.flowDefaults(tenant)).thenReturn(List.of(value));
         }
         void manage() {
-            var access = new io.memoryos.iam.group.IamAccess(new TenantId(tenant), io.memoryos.iam.group.Authority.GLOBAL);
-            when(authorization.require(actor, io.memoryos.iam.group.IamCapability.MODELS_MANAGE, false)).thenReturn(access);
-            when(authorization.lockAndRequireExclusive(actor, io.memoryos.iam.group.IamCapability.MODELS_MANAGE)).thenReturn(access);
+            var access = new io.memoryos.iam.IamAccess(new TenantId(tenant), io.memoryos.iam.Authority.GLOBAL);
+            when(authorization.require(actor, io.memoryos.iam.IamCapability.MODELS_MANAGE, false)).thenReturn(access);
+            when(authorization.lockAndRequireExclusive(actor, io.memoryos.iam.IamCapability.MODELS_MANAGE)).thenReturn(access);
         }
         void preferPersona() {
             when(agents.personaModel(tenant, actor.value(), false, persona)).thenReturn(new PersonaModelDefault(persona, otherId, 1));

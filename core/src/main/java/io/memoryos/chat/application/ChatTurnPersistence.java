@@ -17,11 +17,11 @@ import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.image.GeneratedImage;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.identity.ActorLanguageService;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.ActorLanguageService;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import java.time.Duration;
 import java.time.Instant;
@@ -48,7 +48,7 @@ public class ChatTurnPersistence {
     private final JdbcImageArtifactRepository imageArtifacts;
     private final io.memoryos.usage.@Nullable AiUsageRecorder usage;
     private final io.memoryos.chat.persistence.@Nullable JdbcChatPreferencesRepository preferences;
-    private final io.memoryos.iam.identity.@Nullable ActorProfileReader profiles;
+    private final io.memoryos.iam.@Nullable ActorProfileReader profiles;
 
     public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
                                ChatFileService files, ActorLanguageService languages,
@@ -61,7 +61,7 @@ public class ChatTurnPersistence {
                                ChatFileService files, ActorLanguageService languages,
                                JdbcImageArtifactRepository imageArtifacts, io.memoryos.usage.@Nullable AiUsageRecorder usage,
                                io.memoryos.chat.persistence.@Nullable JdbcChatPreferencesRepository preferences,
-                               io.memoryos.iam.identity.@Nullable ActorProfileReader profiles) {
+                               io.memoryos.iam.@Nullable ActorProfileReader profiles) {
         this.usage = usage;
         this.preferences = preferences;
         this.profiles = profiles;

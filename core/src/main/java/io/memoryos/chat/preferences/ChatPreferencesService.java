@@ -4,8 +4,8 @@ import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatModelAccess;
 import io.memoryos.chat.persistence.JdbcChatPreferencesRepository;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.identity.ActorProfileReader;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.ActorProfileReader;
+import io.memoryos.iam.TenantAccessResolver;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

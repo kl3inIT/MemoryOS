@@ -2,7 +2,7 @@ package io.memoryos.api.source;
 
 import io.memoryos.connector.GoogleDriveAuthorizationService.Preparation;
 import io.memoryos.connector.CredentialId;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.shared.TenantId;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.Serial;

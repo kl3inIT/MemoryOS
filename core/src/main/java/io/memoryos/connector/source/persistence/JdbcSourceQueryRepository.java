@@ -15,7 +15,7 @@ import io.memoryos.connector.SourceSummary;
 import io.memoryos.connector.SourceType;
 import io.memoryos.connector.sync.persistence.WorkLeases;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.group.GroupId;
+import io.memoryos.iam.GroupId;
 import io.memoryos.shared.TenantId;
 import java.sql.ResultSet;
 import java.sql.SQLException;

@@ -6,6 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupSystemKey;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
@@ -48,7 +51,7 @@ class PostgresGroupProvisionerTest {
         jdbc = JdbcClient.create(dataSource);
         jpa = TestDatabase.jpa(dataSource);
         transactions = new TransactionTemplate(jpa.transactionManager());
-        var target = new DefaultGroupProvisioner(
+        var target = new GroupProvisioner(
                 new GroupRepository(jpa.entityManager()),
                 new GroupMembershipRepository(jpa.entityManager()),
                 new GroupCapabilityGrantRepository(jpa.entityManager())

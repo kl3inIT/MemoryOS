@@ -6,7 +6,7 @@ import io.memoryos.library.work.persistence.JdbcUserFileWorkRepository;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.shared.TenantId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.library.LibraryException;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectStorage;

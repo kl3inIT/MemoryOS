@@ -2,7 +2,7 @@ package io.memoryos.api.usage;
 
 import io.memoryos.api.usage.contract.UsageReportRequest;
 import io.memoryos.api.usage.contract.UsageReportResponse;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.usage.report.UsageReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

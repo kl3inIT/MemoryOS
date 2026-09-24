@@ -3,6 +3,8 @@ package io.memoryos.iam.identity;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditRecord;
 import io.memoryos.audit.AuditTrail;
+import io.memoryos.iam.ExternalIdentity;
+import io.memoryos.iam.TrustedIdentityAdmission;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.group.GroupProvisioner;
 import io.memoryos.iam.IamException;

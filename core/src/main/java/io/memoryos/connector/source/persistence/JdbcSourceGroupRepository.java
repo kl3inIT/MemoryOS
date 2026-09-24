@@ -2,8 +2,8 @@ package io.memoryos.connector.source.persistence;
 
 import io.memoryos.connector.SourceAccessChanged;
 import io.memoryos.connector.SourceId;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.GroupIdentity;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupIdentity;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 

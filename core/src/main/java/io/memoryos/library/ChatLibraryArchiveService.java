@@ -3,7 +3,7 @@ package io.memoryos.library;
 import io.memoryos.library.persistence.JdbcChatLibraryArchiveRepository.Claim;
 import io.memoryos.library.persistence.JdbcChatLibraryArchiveRepository;
 import io.memoryos.shared.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
+import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectStorage;

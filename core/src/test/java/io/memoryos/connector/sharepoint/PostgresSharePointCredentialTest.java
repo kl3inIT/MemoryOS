@@ -16,7 +16,7 @@ import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.sharepoint.persistence.SharePointCredentialConfiguration;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.group.DefaultIamAuthorization;
-import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.group.persistence.IamAuthorizationRepository;
 import io.memoryos.iam.group.persistence.IamLockRepository;
 import io.memoryos.shared.ActorId;

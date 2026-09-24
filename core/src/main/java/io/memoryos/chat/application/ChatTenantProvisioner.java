@@ -1,7 +1,7 @@
 package io.memoryos.chat.application;
 
 import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.iam.tenant.TenantBootstrapped;
+import io.memoryos.iam.TenantBootstrapped;
 import io.memoryos.shared.TenantId;
 import java.util.Objects;
 import org.springframework.context.event.EventListener;
