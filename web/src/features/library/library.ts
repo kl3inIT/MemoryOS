@@ -24,7 +24,7 @@ import type {
 import type { PreviewTarget } from "./file-preview";
 import { chatFileSchema, waitForChatFile, type ChatFile } from "./files";
 import { projectSchema } from "@/features/chat/chat-workspace-api";
-import { imageArtifactUrl } from "@/features/chat/image/chat-image";
+import { imageArtifactUrl } from "./content-urls";
 
 export type LibraryFile = ChatLibraryFile;
 export type LibrarySource = ChatLibraryFile["source"];

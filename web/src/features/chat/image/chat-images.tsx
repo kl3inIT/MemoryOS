@@ -4,7 +4,8 @@ import { useContext, useState } from "react";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAui, useAuiState } from "@assistant-ui/react";
 import { ImageGeneration } from "@/components/assistant-ui/elements/image-generation";
-import { imageArtifactUrl, type GeneratedImage } from "./chat-image";
+import { imageArtifactUrl } from "@/features/library/content-urls";
+import { type GeneratedImage } from "./chat-image";
 import { ChatImageEditDialog } from "./chat-image-edit";
 import { ChatImageEditContext } from "./chat-image-edit-context";
 

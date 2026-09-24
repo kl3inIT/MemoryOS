@@ -32,8 +32,3 @@ export function parseGeneratedFiles(value: unknown): GeneratedFile[] {
     .catch([])
     .parse(value ?? []);
 }
-
-/** Authorized serving URL for a generated file; the backend enforces ownership. */
-export function fileArtifactUrl(id: string): string {
-  return `/api/chat/file-artifacts/${id}/content`;
-}

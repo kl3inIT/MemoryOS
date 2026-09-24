@@ -6,7 +6,8 @@ import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ChatChartCard } from "./chat-chart-card";
 import { fileSize } from "@/lib/file-size";
-import { fileArtifactUrl, type GeneratedFile } from "./chat-code";
+import { fileArtifactUrl } from "@/features/library/content-urls";
+import { type GeneratedFile } from "./chat-code";
 
 const emptyFiles: GeneratedFile[] = [];
 
