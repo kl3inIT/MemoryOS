@@ -16,7 +16,6 @@ import type * as VoiceDictationModule from "@/features/voice/voice-dictation";
 import { SearchPage } from "./search-page";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type * as ChatSdk from "@/lib/hey-api/sdk.gen";
-import type * as DocumentSetsApi from "@/features/document-sets/document-sets-api";
 
 const searchDocumentsMock = vi.hoisted(() => vi.fn());
 const voiceAvailabilityMock = vi.hoisted(() => vi.fn());
@@ -33,11 +32,6 @@ vi.mock("@/lib/hey-api/sdk.gen", async (importOriginal) => ({
 vi.mock("@/features/voice/voice-dictation", async (importOriginal) => ({
   ...(await importOriginal<typeof VoiceDictationModule>()),
   startVoiceDictation: startVoiceDictationMock,
-}));
-
-vi.mock("@/features/document-sets/document-sets-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof DocumentSetsApi>()),
-  loadDocumentSets: loadDocumentSetsMock,
 }));
 
 const OWNER_SESSION: ApplicationSession = {
@@ -80,7 +74,7 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
     component: () => (
       <ApplicationSessionProvider session={session}>
         <ThemeProvider>
-          <SearchPage />
+          <SearchPage loadDocumentSets={loadDocumentSetsMock} />
         </ThemeProvider>
       </ApplicationSessionProvider>
     ),
