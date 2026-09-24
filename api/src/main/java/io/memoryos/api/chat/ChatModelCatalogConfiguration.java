@@ -1,5 +1,6 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.catalog.ChatModelClients;
 import io.memoryos.chat.catalog.ChatModelResolver;
 import io.memoryos.chat.catalog.ChatProviderAdapter;
@@ -71,7 +72,7 @@ class ChatModelCatalogConfiguration {
     @Bean
     ModelCatalogService modelCatalogService(ModelCatalogRepository catalog, JdbcChatRepository chats, TenantAccessResolver tenants,
             IamAuthorization authorization, ChatProviderAdapters adapters, ProviderCredentials credentials,
-            GroupScopeService groups, io.memoryos.iam.audit.AuditTrail audit) {
+            GroupScopeService groups, AuditTrail audit) {
         return new ModelCatalogService(catalog, chats, tenants, authorization, adapters, credentials, groups, audit);
     }
     /** Listens for the Tenant bootstrap; it lives here because the deployment model is API configuration. */

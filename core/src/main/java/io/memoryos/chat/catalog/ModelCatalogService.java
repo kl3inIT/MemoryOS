@@ -1,5 +1,8 @@
 package io.memoryos.chat.catalog;
 
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.ModelCatalogRepository;
@@ -34,11 +37,11 @@ public class ModelCatalogService {
     private final ChatProviderAdapters adapters;
     private final ProviderCredentials credentials;
     private final GroupScopeService groups;
-    private final io.memoryos.iam.audit.AuditTrail audit;
+    private final AuditTrail audit;
 
     public ModelCatalogService(ModelCatalogRepository catalog, JdbcChatRepository chats, TenantAccessResolver tenants,
             IamAuthorization authorization, ChatProviderAdapters adapters, ProviderCredentials credentials,
-            GroupScopeService groups, io.memoryos.iam.audit.AuditTrail audit) {
+            GroupScopeService groups, AuditTrail audit) {
         this.audit = audit;
         this.catalog = catalog;
         this.chats = chats;
@@ -93,7 +96,7 @@ public class ModelCatalogService {
         UUID id = UUID.randomUUID();
         var provider = validated(tenant, id, input, null, 1);
         catalog.insertProvider(provider, null);
-        record(tenant, actor, io.memoryos.iam.audit.AuditAction.PROVIDER_CREATE, "LLM_PROVIDER", id, provider.name(), event -> event
+        record(tenant, actor, AuditAction.PROVIDER_CREATE, "LLM_PROVIDER", id, provider.name(), event -> event
                 .detail("adapter", provider.adapterType()).detail("dataBoundary", provider.dataBoundary().name()));
         return view(provider);
     }
@@ -111,7 +114,7 @@ public class ModelCatalogService {
         if (models.stream().anyMatch(m -> m.id().equals(defaultId)) && !usableDefaultProvider(provider))
             throw ChatException.invalid("Choose another available public Chat default before restricting this provider.");
         catalog.updateProvider(provider);
-        record(tenant, actor, io.memoryos.iam.audit.AuditAction.PROVIDER_UPDATE, "LLM_PROVIDER", id, provider.name(), event -> event
+        record(tenant, actor, AuditAction.PROVIDER_UPDATE, "LLM_PROVIDER", id, provider.name(), event -> event
                 .detail("before", providerFacts(old)).detail("after", providerFacts(provider))
                 .detail("credentialChange", input.credential() == null ? "KEEP" : input.credential().action().name()));
         return view(catalog.provider(tenant, id).orElseThrow());
@@ -152,7 +155,7 @@ public class ModelCatalogService {
         if (catalog.models(tenant).stream().anyMatch(m -> m.providerId().equals(id) && m.id().equals(defaultId)))
             throw ChatException.invalid("Choose another Chat default before deleting this provider.");
         catalog.deleteProvider(tenant, id, revision);
-        record(tenant, actor, io.memoryos.iam.audit.AuditAction.PROVIDER_DELETE, "LLM_PROVIDER", id, provider.name(),
+        record(tenant, actor, AuditAction.PROVIDER_DELETE, "LLM_PROVIDER", id, provider.name(),
                 event -> event.detail("adapter", provider.adapterType()));
     }
 
@@ -172,7 +175,7 @@ public class ModelCatalogService {
         requireUnique(all, providerId, null, input.modelName());
         var model = validated(tenant, UUID.randomUUID(), provider, input, 1);
         catalog.insertModel(model);
-        record(tenant, actor, io.memoryos.iam.audit.AuditAction.MODEL_CREATE, "MODEL", model.id(), model.displayName(),
+        record(tenant, actor, AuditAction.MODEL_CREATE, "MODEL", model.id(), model.displayName(),
                 event -> event.detail("provider", provider.name()));
         return model;
     }
@@ -188,7 +191,7 @@ public class ModelCatalogService {
         if (!model.visible() && id.equals(catalog.defaultModel(tenant).modelConfigurationId()))
             throw ChatException.invalid("Choose another Chat default before hiding this model.");
         catalog.updateModel(model);
-        record(tenant, actor, io.memoryos.iam.audit.AuditAction.MODEL_UPDATE, "MODEL", id, model.displayName(),
+        record(tenant, actor, AuditAction.MODEL_UPDATE, "MODEL", id, model.displayName(),
                 event -> event.detail("provider", provider.name()));
         return catalog.model(tenant, id).orElseThrow();
     }
@@ -202,7 +205,7 @@ public class ModelCatalogService {
             throw ChatException.invalid("Choose another Chat default before deleting this model.");
         catalog.deleteModel(tenant, id, revision);
         String providerName = catalog.provider(tenant, model.providerId()).map(ModelCatalogRepository.Provider::name).orElse(null);
-        record(tenant, actor, io.memoryos.iam.audit.AuditAction.MODEL_DELETE, "MODEL", id, model.displayName(),
+        record(tenant, actor, AuditAction.MODEL_DELETE, "MODEL", id, model.displayName(),
                 event -> event.detail("provider", providerName));
     }
 
@@ -223,7 +226,7 @@ public class ModelCatalogService {
         catalog.setDefault(tenant, id, revision);
         if (!id.equals(before)) {
             // The Chat default decides where every conversation goes, Internal or External.
-            record(tenant, actor, io.memoryos.iam.audit.AuditAction.MODEL_DEFAULT_CHANGE, "MODEL", id, model.displayName(),
+            record(tenant, actor, AuditAction.MODEL_DEFAULT_CHANGE, "MODEL", id, model.displayName(),
                     event -> event.detail("before", modelFacts(tenant, before)).detail("after", modelFacts(tenant, id)));
         }
         return catalog.defaultModel(tenant);
@@ -244,7 +247,7 @@ public class ModelCatalogService {
         UUID before = catalog.flowDefault(tenant, flow).modelConfigurationId();
         catalog.setFlowDefault(tenant, flow, id, revision);
         if (!java.util.Objects.equals(before, id)) {
-            record(tenant, actor, io.memoryos.iam.audit.AuditAction.MODEL_FLOW_CHANGE, "MODEL_FLOW", flow.name(), null,
+            record(tenant, actor, AuditAction.MODEL_FLOW_CHANGE, "MODEL_FLOW", flow.name(), null,
                     event -> event.detail("flow", flow.name()).detail("before", modelFacts(tenant, before))
                             .detail("after", modelFacts(tenant, id)));
         }
@@ -528,10 +531,10 @@ public class ModelCatalogService {
             throw ChatException.conflict();
     }
 
-    private void record(UUID tenant, ActorId actor, io.memoryos.iam.audit.AuditAction action, String type, Object id,
+    private void record(UUID tenant, ActorId actor, AuditAction action, String type, Object id,
                         @Nullable String label,
-                        java.util.function.UnaryOperator<io.memoryos.iam.audit.AuditRecord.Builder> details) {
-        audit.record(details.apply(io.memoryos.iam.audit.AuditRecord.of(action, new TenantId(tenant)).actor(actor)
+                        java.util.function.UnaryOperator<AuditRecord.Builder> details) {
+        audit.record(details.apply(AuditRecord.of(action, tenant).actor(actor.value())
                 .resource(type, id, label)).build());
     }
 

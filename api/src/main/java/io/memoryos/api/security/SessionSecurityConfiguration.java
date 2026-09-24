@@ -1,5 +1,6 @@
 package io.memoryos.api.security;
 
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.iam.identity.ActorProfileRecorder;
 import io.memoryos.iam.identity.ExternalIdentityResolver;
 import io.memoryos.iam.identity.ProviderSessionTerminator;
@@ -41,7 +42,7 @@ class SessionSecurityConfiguration {
             TrustedIdentityAdmission trustedIdentityAdmission,
             JitAdmissionPolicy jitAdmissionPolicy,
             ProviderSessionTerminator providerSessionTerminator,
-            io.memoryos.iam.audit.AuditTrail audit,
+            AuditTrail audit,
             @Value("${memoryos.initial-tenant.id}") UUID tenantId,
             @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String trustedIssuer
     ) {

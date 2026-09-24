@@ -21,7 +21,8 @@ class CoreDependencyRulesTest {
             "chat",
             "mcp",
             "usage",
-            "meeting"
+            "meeting",
+            "audit"
     );
 
     private final JavaClasses coreClasses = new ClassFileImporter()

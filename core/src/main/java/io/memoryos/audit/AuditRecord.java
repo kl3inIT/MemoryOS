@@ -1,21 +1,23 @@
-package io.memoryos.iam.audit;
+package io.memoryos.audit;
 
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One event on its way to the stream. Built through {@link #of} so a call site reads as a sentence, and so the
+ * One event on its way to the stream. The Tenant and the actor are their UUIDs: audit sits below IAM, which records
+ * through it, so it cannot name IAM's identifier types.
+ *
+ * <p>Built through {@link #of} so a call site reads as a sentence, and so the
  * declared fields of the action are the only thing its details can carry.
  */
 public record AuditRecord(
         AuditAction action,
         AuditOutcome outcome,
-        TenantId tenant,
-        @Nullable ActorId actor,
+        UUID tenant,
+        @Nullable UUID actor,
         @Nullable String actorLabel,
         @Nullable String resourceType,
         @Nullable String resourceId,
@@ -34,33 +36,33 @@ public record AuditRecord(
         details = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(details));
     }
 
-    public static Builder of(AuditAction action, TenantId tenant) {
+    public static Builder of(AuditAction action, UUID tenant) {
         return new Builder(action, tenant);
     }
 
     public static final class Builder {
         private final AuditAction action;
-        private final TenantId tenant;
+        private final UUID tenant;
         private final Map<String, @Nullable Object> details = new LinkedHashMap<>();
         private AuditOutcome outcome = AuditOutcome.SUCCESS;
-        private @Nullable ActorId actor;
+        private @Nullable UUID actor;
         private @Nullable String actorLabel;
         private @Nullable String resourceType;
         private @Nullable String resourceId;
         private @Nullable String resourceLabel;
 
-        private Builder(AuditAction action, TenantId tenant) {
+        private Builder(AuditAction action, UUID tenant) {
             this.action = Objects.requireNonNull(action, "action must not be null");
             this.tenant = Objects.requireNonNull(tenant, "tenant must not be null");
         }
 
         /** Who did it; their name and e-mail at this moment are looked up and kept with the record. */
-        public Builder actor(@Nullable ActorId actor) {
+        public Builder actor(@Nullable UUID actor) {
             return actor(actor, null);
         }
 
         /** Who did it, named by the caller: for someone not yet in the profile table, such as a refused sign-in. */
-        public Builder actor(@Nullable ActorId actor, @Nullable String label) {
+        public Builder actor(@Nullable UUID actor, @Nullable String label) {
             this.actor = actor;
             this.actorLabel = cut(label, LABEL_MAX);
             return this;

@@ -1,8 +1,8 @@
 package io.memoryos.api.security;
 
-import io.memoryos.iam.audit.AuditAction;
-import io.memoryos.iam.audit.AuditRecord;
-import io.memoryos.iam.audit.AuditTrail;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.iam.identity.IdentityContext;
 import io.memoryos.iam.identity.ProviderSessionTerminator;
 import io.memoryos.iam.tenant.TenantAccessResolver;
@@ -56,7 +56,7 @@ final class ProviderSessionLogoutHandler implements LogoutHandler {
         if (authentication != null && authentication.getPrincipal() instanceof IdentityContext identity) {
             boolean providerEnded = ended;
             tenants.findActiveTenant(identity.actorId()).ifPresent(tenant -> audit.recordSeparately(
-                    AuditRecord.of(AuditAction.LOGOUT, tenant).actor(identity.actorId())
+                    AuditRecord.of(AuditAction.LOGOUT, tenant.value()).actor(identity.actorId().value())
                             .detail("providerSessionEnded", providerEnded).build()));
         }
     }

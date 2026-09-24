@@ -1,8 +1,8 @@
 package io.memoryos.iam.tenant;
 
-import io.memoryos.iam.audit.AuditAction;
-import io.memoryos.iam.audit.AuditRecord;
-import io.memoryos.iam.audit.AuditTrail;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.group.GroupAdministrationGuard;
 import io.memoryos.iam.group.IamAuthorization;
@@ -93,10 +93,10 @@ public class DefaultTenantMemberManagement implements TenantMemberManagement {
             administrationGuard.requireCanDeactivate(tenantId, target);
         }
         member.changeStatus(requestedStatus, clock.instant());
-        var person = audit.person(target);
+        var person = audit.person(target.value());
         audit.record(AuditRecord.of(requestedStatus == TenantMembershipStatus.ACTIVE
-                        ? AuditAction.USER_REACTIVATE : AuditAction.USER_DEACTIVATE, tenantId)
-                .actor(administrator).resource("USER", target.value(), person.label())
+                        ? AuditAction.USER_REACTIVATE : AuditAction.USER_DEACTIVATE, tenantId.value())
+                .actor(administrator.value()).resource("USER", target.value(), person.label())
                 .detail("email", person.email()).build());
     }
 }

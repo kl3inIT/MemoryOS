@@ -1,5 +1,8 @@
 package io.memoryos.chat.web;
 
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.catalog.ModelCatalogService;
 import io.memoryos.chat.catalog.ProviderCredentials;
@@ -23,11 +26,11 @@ public class WebConnectionService {
     private final ProviderCredentials credentials;
     private final IamAuthorization authorization;
     private final TenantAccessResolver tenants;
-    private final io.memoryos.iam.audit.AuditTrail audit;
+    private final AuditTrail audit;
 
     public WebConnectionService(WebConnectionRepository connections, ProviderCredentials credentials,
                                 IamAuthorization authorization, TenantAccessResolver tenants,
-                                io.memoryos.iam.audit.AuditTrail audit) {
+                                AuditTrail audit) {
         this.audit = audit;
         this.connections = connections; this.credentials = credentials;
         this.authorization = authorization; this.tenants = tenants;
@@ -67,7 +70,7 @@ public class WebConnectionService {
             entity.selectSearch(false); entity.selectContent(false);
         }
         var saved = connections.saveAndFlush(entity);
-        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.WEB_CONNECTION_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant)).actor(actor).resource("WEB_CONNECTION", provider.name(), provider.name()).detail("change", "CONFIGURE").detail("credentialChange", input.credential() == null ? "KEEP" : input.credential().action().name()).build());
+        audit.record(AuditRecord.of(AuditAction.WEB_CONNECTION_CHANGE, tenant).actor(actor.value()).resource("WEB_CONNECTION", provider.name(), provider.name()).detail("change", "CONFIGURE").detail("credentialChange", input.credential() == null ? "KEEP" : input.credential().action().name()).build());
         return view(saved);
     }
 
@@ -87,7 +90,7 @@ public class WebConnectionService {
         connections.flush(); // Clear the old partial-unique-index winner before selecting another.
         if (selected != null) { if (search) selected.selectSearch(true); else selected.selectContent(true); }
         String role = search ? "SEARCH" : "CONTENT";
-        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.WEB_CONNECTION_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant)).actor(actor).resource("WEB_CONNECTION", provider == null ? null : provider.name(), provider == null ? null : provider.name()).detail("change", (provider == null ? "DISABLE_" : "SELECT_") + role).build());
+        audit.record(AuditRecord.of(AuditAction.WEB_CONNECTION_CHANGE, tenant).actor(actor.value()).resource("WEB_CONNECTION", provider == null ? null : provider.name(), provider == null ? null : provider.name()).detail("change", (provider == null ? "DISABLE_" : "SELECT_") + role).build());
     }
 
     @Transactional(readOnly = true)

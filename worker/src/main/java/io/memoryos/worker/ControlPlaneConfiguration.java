@@ -1,5 +1,6 @@
 package io.memoryos.worker;
 
+import io.memoryos.audit.AuditRetention;
 import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerCustomizer;
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask;
 import com.github.kagkarlsson.scheduler.task.helper.Tasks;
@@ -187,10 +188,10 @@ class ControlPlaneConfiguration {
 
     /** Deletes audit events past their retention (ADR 0013), a batch at a time until none remain. */
     @Bean
-    RecurringTask<Void> auditRetentionTask(io.memoryos.iam.audit.AuditRetention retention) {
+    RecurringTask<Void> auditRetentionTask(AuditRetention retention) {
         return Tasks.recurring("memoryos-audit-retention-v1", FixedDelay.of(Duration.ofHours(1)))
                 .execute((_, _) -> {
-                    for (int batch = 0; batch < 20 && retention.sweep() == io.memoryos.iam.audit.AuditRetention.BATCH; batch++) {
+                    for (int batch = 0; batch < 20 && retention.sweep() == AuditRetention.BATCH; batch++) {
                         // A full batch means more may be waiting.
                     }
                 });

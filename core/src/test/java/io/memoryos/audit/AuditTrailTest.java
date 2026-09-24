@@ -1,11 +1,9 @@
-package io.memoryos.iam.audit;
+package io.memoryos.audit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.UUID;
@@ -23,8 +21,8 @@ class AuditTrailTest {
     private TransactionTemplate tx;
     private SimpleMeterRegistry meters;
     private AuditTrail trail;
-    private TenantId tenant;
-    private ActorId manager;
+    private UUID tenant;
+    private UUID manager;
 
     @BeforeEach void setup() throws Exception {
         dataSource = TestDatabase.freshPostgres();
@@ -33,8 +31,8 @@ class AuditTrailTest {
         tx = new TransactionTemplate(transactions);
         meters = new SimpleMeterRegistry();
         trail = new AuditTrail(jdbc, AuditRequestContext.TRACE_ONLY, meters, transactions);
-        tenant = new TenantId(tenant());
-        manager = new ActorId(actor("Trần Thu Hà"));
+        tenant = tenant();
+        manager = actor("Trần Thu Hà");
     }
 
     @AfterEach void close() { if (dataSource != null) dataSource.close(); }
@@ -42,7 +40,7 @@ class AuditTrailTest {
     @Test void anEventBelongsToTheTransactionOfTheChangeItRecords() {
         tx.executeWithoutResult(ignored -> {
             jdbc.sql("INSERT INTO iam_groups(tenant_id, id, name) VALUES (:t, :id, 'Kế toán')")
-                    .param("t", tenant.value()).param("id", UUID.randomUUID()).update();
+                    .param("t", tenant).param("id", UUID.randomUUID()).update();
             trail.record(AuditRecord.of(AuditAction.GROUP_CREATE, tenant).actor(manager, "Trần Thu Hà").build());
         });
         assertEquals(1, events());
@@ -61,7 +59,7 @@ class AuditTrailTest {
         jdbc.sql("ALTER TABLE audit_event ALTER COLUMN action TYPE varchar(4)").update();
         tx.executeWithoutResult(ignored -> {
             jdbc.sql("INSERT INTO iam_groups(tenant_id, id, name) VALUES (:t, :id, 'Pháp chế')")
-                    .param("t", tenant.value()).param("id", group).update();
+                    .param("t", tenant).param("id", group).update();
             trail.record(AuditRecord.of(AuditAction.GROUP_CREATE, tenant).actor(manager, "Trần Thu Hà")
                     .resource("GROUP", group, "Pháp chế").build());
         });
@@ -124,7 +122,7 @@ class AuditTrailTest {
     }
 
     private long events() {
-        return jdbc.sql("SELECT count(*) FROM audit_event WHERE tenant_id = :t").param("t", tenant.value())
+        return jdbc.sql("SELECT count(*) FROM audit_event WHERE tenant_id = :t").param("t", tenant)
                 .query(Long.class).single();
     }
 

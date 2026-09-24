@@ -1,5 +1,8 @@
 package io.memoryos.chat.image;
 
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.catalog.ModelCatalogService;
 import io.memoryos.chat.catalog.ProviderCredentials;
@@ -23,11 +26,11 @@ public class ImageConnectionService {
     private final ProviderCredentials credentials;
     private final IamAuthorization authorization;
     private final TenantAccessResolver tenants;
-    private final io.memoryos.iam.audit.AuditTrail audit;
+    private final AuditTrail audit;
 
     public ImageConnectionService(ImageConnectionRepository connections, ProviderCredentials credentials,
                                   IamAuthorization authorization, TenantAccessResolver tenants,
-                                  io.memoryos.iam.audit.AuditTrail audit) {
+                                  AuditTrail audit) {
         this.audit = audit;
         this.connections = connections; this.credentials = credentials;
         this.authorization = authorization; this.tenants = tenants;
@@ -80,7 +83,7 @@ public class ImageConnectionService {
         entity.configure(endpoint, input.model(), credential);
         if (provider.requiresKey() && !credentials.configured(credential)) entity.select(false);
         var saved = connections.saveAndFlush(entity);
-        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.IMAGE_CONNECTION_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant)).actor(actor).resource("IMAGE_CONNECTION", provider.name(), provider.name()).detail("change", "CONFIGURE").detail("credentialChange", input.credential() == null ? "KEEP" : input.credential().action().name()).build());
+        audit.record(AuditRecord.of(AuditAction.IMAGE_CONNECTION_CHANGE, tenant).actor(actor.value()).resource("IMAGE_CONNECTION", provider.name(), provider.name()).detail("change", "CONFIGURE").detail("credentialChange", input.credential() == null ? "KEEP" : input.credential().action().name()).build());
         return view(saved);
     }
 
@@ -97,7 +100,7 @@ public class ImageConnectionService {
         for (var connection : all) connection.select(false);
         connections.flush(); // Clear the old partial-unique-index winner before selecting another.
         if (selected != null) selected.select(true);
-        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.IMAGE_CONNECTION_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant)).actor(actor).resource("IMAGE_CONNECTION", provider == null ? null : provider.name(), provider == null ? null : provider.name()).detail("change", provider == null ? "DISABLE" : "SELECT").build());
+        audit.record(AuditRecord.of(AuditAction.IMAGE_CONNECTION_CHANGE, tenant).actor(actor.value()).resource("IMAGE_CONNECTION", provider == null ? null : provider.name(), provider == null ? null : provider.name()).detail("change", provider == null ? "DISABLE" : "SELECT").build());
     }
 
     /**

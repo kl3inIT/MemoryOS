@@ -1,9 +1,9 @@
 package io.memoryos.api.audit;
 
-import io.memoryos.iam.audit.AuditAction;
-import io.memoryos.iam.audit.AuditEventClass;
-import io.memoryos.iam.audit.AuditLog;
-import io.memoryos.iam.audit.AuditOutcome;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditEventClass;
+import io.memoryos.audit.AuditLog;
+import io.memoryos.audit.AuditOutcome;
 import io.memoryos.iam.identity.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -108,7 +108,7 @@ class AuditLogController {
                         @RequestParam(required = false) @Nullable String cursor,
                         @Parameter(schema = @Schema(type = "integer", format = "int32", minimum = "1", maximum = "100", defaultValue = "50"))
                         @RequestParam(defaultValue = "50") int size) {
-        var page = log.page(identity.actorId(), new AuditLog.Query(from, to, q, eventClass, action, outcome, actorId,
+        var page = log.page(identity.actorId().value(), new AuditLog.Query(from, to, q, eventClass, action, outcome, actorId,
                 resourceType, resourceId), cursor, size);
         return new PageResponse(page.items().stream().map(EventResponse::from).toList(), page.nextCursor());
     }
@@ -118,14 +118,14 @@ class AuditLogController {
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @ApiResponse(responseCode = "404", description = "No event with this id in the Tenant", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
     EventResponse event(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID eventId) {
-        return EventResponse.from(log.get(identity.actorId(), eventId));
+        return EventResponse.from(log.get(identity.actorId().value(), eventId));
     }
 
     @GetMapping("/catalog")
     @Operation(operationId = "getAuditCatalog", summary = "Every action the audit stream can hold, for the viewer's action filter; requires AUDIT_READ")
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     CatalogResponse catalog(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        log.requireReader(identity.actorId());
+        log.requireReader(identity.actorId().value());
         return new CatalogResponse(Arrays.stream(AuditAction.values())
                 .map(action -> new CatalogAction(action.value(), action.eventClass())).toList());
     }
@@ -155,7 +155,7 @@ class AuditLogController {
         var csv = new CSVPrinter(writer, CSVFormat.DEFAULT);
         csv.printRecord("occurred_at", "action", "event_class", "outcome", "actor_id", "actor", "actor_email", "resource_type",
                 "resource_id", "resource", "details", "source_ip", "endpoint", "trace_id");
-        log.export(identity.actorId(), query, event -> {
+        log.export(identity.actorId().value(), query, event -> {
             try {
                 csv.printRecord(event.occurredAt(), event.action(), event.eventClass(), event.outcome(), event.actorId(),
                         guard(event.actorLabel()), guard(event.actorEmail()), event.resourceType(), guard(event.resourceId()),

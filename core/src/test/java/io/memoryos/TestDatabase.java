@@ -1,5 +1,7 @@
 package io.memoryos;
 
+import io.memoryos.audit.AuditRequestContext;
+import io.memoryos.audit.AuditTrail;
 import com.zaxxer.hikari.HikariDataSource;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
@@ -214,18 +216,18 @@ public final class TestDatabase {
     }
 
     /** The audit writer over the test database; it joins whatever transaction the service under test opened. */
-    public static io.memoryos.iam.audit.AuditTrail audit(org.springframework.jdbc.core.simple.JdbcClient jdbc,
+    public static AuditTrail audit(org.springframework.jdbc.core.simple.JdbcClient jdbc,
                                                          PlatformTransactionManager transactions) {
-        return new io.memoryos.iam.audit.AuditTrail(jdbc, io.memoryos.iam.audit.AuditRequestContext.TRACE_ONLY,
+        return new AuditTrail(jdbc, AuditRequestContext.TRACE_ONLY,
                 new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), transactions);
     }
 
     /** An audit writer that records nothing, for tests of behaviour other than the audit stream itself. */
-    public static io.memoryos.iam.audit.AuditTrail noAudit() {
-        var audit = org.mockito.Mockito.mock(io.memoryos.iam.audit.AuditTrail.class);
+    public static AuditTrail noAudit() {
+        var audit = org.mockito.Mockito.mock(AuditTrail.class);
         org.mockito.Mockito.when(audit.person(org.mockito.ArgumentMatchers.any())).thenAnswer(call ->
-                new io.memoryos.iam.audit.AuditTrail.Person(
-                        call.<io.memoryos.iam.identity.ActorId>getArgument(0).value().toString(), null));
+                new AuditTrail.Person(
+                        call.<java.util.UUID>getArgument(0).toString(), null));
         return audit;
     }
 }

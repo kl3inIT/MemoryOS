@@ -1,5 +1,8 @@
 package io.memoryos.chat;
 
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.persistence.ChatSettingsEntity;
 import io.memoryos.chat.persistence.JpaChatSettingsRepository;
 import io.memoryos.iam.group.IamAuthorization;
@@ -15,10 +18,10 @@ public class ChatSettingsService {
     private final JpaChatSettingsRepository settings;
     private final IamAuthorization authorization;
     private final TenantAccessResolver tenants;
-    private final io.memoryos.iam.audit.AuditTrail audit;
+    private final AuditTrail audit;
 
     public ChatSettingsService(JpaChatSettingsRepository settings, IamAuthorization authorization,
-                               TenantAccessResolver tenants, io.memoryos.iam.audit.AuditTrail audit) {
+                               TenantAccessResolver tenants, AuditTrail audit) {
         this.settings = settings; this.authorization = authorization; this.tenants = tenants; this.audit = audit;
     }
 
@@ -44,10 +47,10 @@ public class ChatSettingsService {
 
     /** One audit line per administrative change to these settings; the Tenant comes from the row itself. */
     private void record(ActorId actor, ChatSettingsEntity saved, String field, Object value) {
-        audit.record(io.memoryos.iam.audit.AuditRecord
-                .of(io.memoryos.iam.audit.AuditAction.CHAT_SETTINGS_CHANGE,
-                        new io.memoryos.iam.tenant.TenantId(saved.tenantId()))
-                .actor(actor).resource("SETTING", "chat", "Chat").detail(field, value).build());
+        audit.record(AuditRecord
+                .of(AuditAction.CHAT_SETTINGS_CHANGE,
+                        saved.tenantId())
+                .actor(actor.value()).resource("SETTING", "chat", "Chat").detail(field, value).build());
     }
 
     private ChatSettingsEntity writable(ActorId actor, long revision) {

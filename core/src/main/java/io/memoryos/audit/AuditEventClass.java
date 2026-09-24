@@ -1,4 +1,4 @@
-package io.memoryos.iam.audit;
+package io.memoryos.audit;
 
 /**
  * The OCSF class an action belongs to, as Onyx routes its events, so a SIEM can subscribe to "who signed in" or

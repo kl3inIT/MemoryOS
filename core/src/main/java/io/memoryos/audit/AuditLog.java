@@ -1,9 +1,5 @@
-package io.memoryos.iam.audit;
+package io.memoryos.audit;
 
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -22,7 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Reads the Tenant's audit stream for people who hold {@link IamCapability#AUDIT_READ}. The stream only grows, so pages
+ * Reads the Tenant's audit stream for people IAM lets read it ({@link AuditReaders}). The stream only grows, so pages
  * are keyed by {@code (occurred_at, id)} rather than by offset: a page read while events arrive neither skips nor
  * repeats one. Exporting it is itself recorded.
  */
@@ -35,12 +31,12 @@ public class AuditLog {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     private final JdbcClient jdbc;
-    private final IamAuthorization authorization;
+    private final AuditReaders readers;
     private final AuditTrail trail;
 
-    public AuditLog(JdbcClient jdbc, IamAuthorization authorization, AuditTrail trail) {
+    public AuditLog(JdbcClient jdbc, AuditReaders readers, AuditTrail trail) {
         this.jdbc = jdbc;
-        this.authorization = authorization;
+        this.readers = readers;
         this.trail = trail;
     }
 
@@ -67,7 +63,7 @@ public class AuditLog {
     public record Page(List<Event> items, @Nullable String nextCursor) {}
 
     @Transactional(readOnly = true)
-    public Page page(ActorId reader, Query query, @Nullable String cursor, int size) {
+    public Page page(UUID reader, Query query, @Nullable String cursor, int size) {
         if (size < 1 || size > MAX_PAGE) throw AuditException.invalid("Page size must be between 1 and 100.");
         var tenant = reader(reader);
         var after = cursor == null ? null : Cursor.decode(cursor);
@@ -78,10 +74,10 @@ public class AuditLog {
     }
 
     @Transactional(readOnly = true)
-    public Event get(ActorId reader, UUID id) {
+    public Event get(UUID reader, UUID id) {
         var tenant = reader(reader);
         return jdbc.sql("SELECT * FROM audit_event WHERE tenant_id = :tenant AND id = :id")
-                .param("tenant", tenant.value()).param("id", id).query(AuditLog::event).optional()
+                .param("tenant", tenant).param("id", id).query(AuditLog::event).optional()
                 .orElseThrow(AuditException::notFound);
     }
 
@@ -90,7 +86,7 @@ public class AuditLog {
      * outside this read, so an export that breaks halfway still leaves evidence of what was read before it broke.
      */
     @Transactional(readOnly = true)
-    public int export(ActorId reader, Query query, Consumer<Event> sink) {
+    public int export(UUID reader, Query query, Consumer<Event> sink) {
         var tenant = reader(reader);
         int rows = 0;
         Cursor after = null;
@@ -113,7 +109,7 @@ public class AuditLog {
         return rows;
     }
 
-    private void recordExport(TenantId tenant, ActorId reader, Query query, int rows, AuditOutcome outcome) {
+    private void recordExport(UUID tenant, UUID reader, Query query, int rows, AuditOutcome outcome) {
         trail.recordSeparately(AuditRecord.of(AuditAction.AUDIT_EXPORT, tenant).actor(reader)
                 .resource("AUDIT_LOG", null, null).outcome(outcome)
                 .detail("from", query.from() == null ? null : query.from().toString())
@@ -122,15 +118,15 @@ public class AuditLog {
 
     /** Refuses anyone who may not read the stream; for reads that need no row, such as the action catalog. */
     @Transactional(readOnly = true)
-    public void requireReader(ActorId reader) {
+    public void requireReader(UUID reader) {
         reader(reader);
     }
 
-    private TenantId reader(ActorId reader) {
-        return authorization.require(reader, IamCapability.AUDIT_READ, false).tenantId();
+    private UUID reader(UUID reader) {
+        return readers.requireReader(reader);
     }
 
-    private List<Event> select(TenantId tenant, Query query, @Nullable Cursor after, int limit) {
+    private List<Event> select(UUID tenant, Query query, @Nullable Cursor after, int limit) {
         return jdbc.sql("""
                 SELECT * FROM audit_event
                 WHERE tenant_id = :tenant
@@ -148,7 +144,7 @@ public class AuditLog {
                 ORDER BY occurred_at DESC, id DESC
                 LIMIT :limit
                 """)
-                .param("tenant", tenant.value())
+                .param("tenant", tenant)
                 .param("from", query.from() == null ? null : Timestamp.from(query.from()), java.sql.Types.TIMESTAMP)
                 .param("to", query.to() == null ? null : Timestamp.from(query.to()), java.sql.Types.TIMESTAMP)
                 .param("class", query.eventClass() == null ? null : query.eventClass().name(), java.sql.Types.VARCHAR)

@@ -1,4 +1,4 @@
-package io.memoryos.iam.audit;
+package io.memoryos.audit;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
@@ -100,10 +100,10 @@ public class AuditTrail {
                     VALUES (:id, :tenant, :at, :action, :class, :outcome, :actor, :actorLabel, :actorEmail, :resourceType, :resourceId,
                         :resourceLabel, CAST(:details AS jsonb), :trace, :endpoint, :ip, :version)
                     """)
-                    .param("id", id).param("tenant", event.tenant().value()).param("at", java.sql.Timestamp.from(at))
+                    .param("id", id).param("tenant", event.tenant()).param("at", java.sql.Timestamp.from(at))
                     .param("action", event.action().value()).param("class", event.action().eventClass().name())
                     .param("outcome", event.outcome().name())
-                    .param("actor", event.actor() == null ? null : event.actor().value(), java.sql.Types.OTHER)
+                    .param("actor", event.actor() == null ? null : event.actor(), java.sql.Types.OTHER)
                     .param("actorLabel", actorLabel, java.sql.Types.VARCHAR)
                     .param("actorEmail", actorEmail, java.sql.Types.VARCHAR)
                     .param("resourceType", event.resourceType(), java.sql.Types.VARCHAR)
@@ -137,13 +137,13 @@ public class AuditTrail {
      * Who {@code actor} is, for a record that names them. Read in the caller's transaction, so it sees a person the
      * same change has just admitted.
      */
-    public Person person(io.memoryos.iam.identity.ActorId actor) {
+    public Person person(UUID actor) {
         return jdbc.sql("""
                 SELECT COALESCE(NULLIF(display_name, ''), email, CAST(actor_id AS varchar)) AS label, email
                 FROM actor_profiles WHERE actor_id = :actor
-                """).param("actor", actor.value())
+                """).param("actor", actor)
                 .query((r, ignored) -> new Person(r.getString("label"), r.getString("email"))).optional()
-                .orElse(new Person(actor.value().toString(), null));
+                .orElse(new Person(actor.toString(), null));
     }
 
     /** One JSON line per event, on a logger named for its class, as Onyx emits for a SIEM. */
@@ -157,8 +157,8 @@ public class AuditTrail {
             line.put("action", event.action().value());
             line.put("ocsf_class", event.action().eventClass().ocsfClassId());
             line.put("outcome", event.outcome().name().toLowerCase(java.util.Locale.ROOT));
-            line.put("tenant_id", event.tenant().value().toString());
-            line.put("actor_id", event.actor() == null ? null : event.actor().value().toString());
+            line.put("tenant_id", event.tenant().toString());
+            line.put("actor_id", event.actor() == null ? null : event.actor().toString());
             line.put("actor", actorLabel);
             line.put("resource_type", event.resourceType());
             line.put("resource_id", event.resourceId());

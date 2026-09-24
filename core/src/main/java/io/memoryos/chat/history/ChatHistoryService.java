@@ -6,10 +6,10 @@ import io.memoryos.chat.history.persistence.JdbcChatHistoryRepository;
 import io.memoryos.chat.history.persistence.JdbcChatHistoryRepository.Cursor;
 import io.memoryos.chat.history.persistence.JdbcChatHistoryRepository.Entry;
 import io.memoryos.chat.history.persistence.JdbcChatHistoryRepository.Message;
-import io.memoryos.iam.audit.AuditAction;
-import io.memoryos.iam.audit.AuditOutcome;
-import io.memoryos.iam.audit.AuditRecord;
-import io.memoryos.iam.audit.AuditTrail;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditOutcome;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.identity.ActorId;
@@ -134,7 +134,7 @@ public class ChatHistoryService {
 
     private void recordRead(Access access, ActorId reader, Entry entry, int messages) {
         boolean named = access.visibility() == ChatHistoryVisibility.NORMAL;
-        audit.recordSeparately(AuditRecord.of(AuditAction.CHAT_HISTORY_READ, access.tenant()).actor(reader)
+        audit.recordSeparately(AuditRecord.of(AuditAction.CHAT_HISTORY_READ, access.tenant().value()).actor(reader.value())
                 .resource("CHAT_SESSION", entry.id(), entry.title())
                 .detail("person", named ? entry.actorLabel() : null)
                 .detail("email", named ? entry.actorEmail() : null)
@@ -143,7 +143,7 @@ public class ChatHistoryService {
 
     private void recordExport(TenantId tenant, ActorId reader, JdbcChatHistoryRepository.Query query, int rows,
                               AuditOutcome outcome) {
-        audit.recordSeparately(AuditRecord.of(AuditAction.CHAT_HISTORY_EXPORT, tenant).actor(reader)
+        audit.recordSeparately(AuditRecord.of(AuditAction.CHAT_HISTORY_EXPORT, tenant.value()).actor(reader.value())
                 .resource("CHAT_HISTORY", null, null).outcome(outcome)
                 .detail("from", query.from() == null ? null : query.from().toString())
                 .detail("to", query.to() == null ? null : query.to().toString())

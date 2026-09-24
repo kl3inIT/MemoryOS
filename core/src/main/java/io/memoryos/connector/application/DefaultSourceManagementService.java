@@ -1,5 +1,8 @@
 package io.memoryos.connector.application;
 
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.connector.GroupSources;
 import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceException;
@@ -70,7 +73,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     private final TransactionTemplate transactions;
     private final io.memoryos.connector.persistence.JdbcSourceSyncRepository sync;
     private final io.memoryos.connector.persistence.JdbcGoogleDriveSelectionRepository selections;
-    private final io.memoryos.iam.audit.AuditTrail audit;
+    private final AuditTrail audit;
     private final io.memoryos.connector.GoogleDriveConnectionService connections;
 
     public DefaultSourceManagementService(
@@ -91,7 +94,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
             io.memoryos.connector.GoogleDriveConnectionService connections,
             SourceAccessPolicy sourceAccess
     ,
-            io.memoryos.iam.audit.AuditTrail audit) {
+            AuditTrail audit) {
         this.audit = Objects.requireNonNull(audit, "audit must not be null");
         this.sources = Objects.requireNonNull(sources, "sources must not be null");
         this.items = Objects.requireNonNull(items, "items must not be null");
@@ -128,7 +131,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         var pair = sources.createFileSource(access.tenantId(), requiredActorId, normalizedName, creation.access(),
                 sourceManagerFor(access, requiredActorId));
         sourceGroups.replace(access.tenantId(), pair.sourceId(), creation.groupIds());
-        record(access.tenantId(), requiredActorId, io.memoryos.iam.audit.AuditAction.SOURCE_CREATE, pair.sourceId(), event -> event
+        record(access.tenantId(), requiredActorId, AuditAction.SOURCE_CREATE, pair.sourceId(), event -> event
                 .detail("provider", SourceType.FILE.name()).detail("access", creation.access().name())
                 .detail("groups", groupNames(access.tenantId(), pair.sourceId())));
         return getSource(requiredActorId, pair.sourceId());
@@ -142,7 +145,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         var pair = requireMutable(sources.lock(access.tenantId(), sourceId));
         String before = sources.auditView(access.tenantId(), sourceId).map(JdbcSourceRepository.AuditView::name).orElse(null);
         sources.rename(access.tenantId(), pair, normalizedName);
-        if (!normalizedName.equals(before)) record(access.tenantId(), actorId, io.memoryos.iam.audit.AuditAction.SOURCE_UPDATE, sourceId,
+        if (!normalizedName.equals(before)) record(access.tenantId(), actorId, AuditAction.SOURCE_UPDATE, sourceId,
                 event -> event.detail("change", "RENAME").detail("before", before).detail("after", normalizedName));
         return getSource(actorId, sourceId);
     }
@@ -155,7 +158,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         requireMutable(sources.lock(access.tenantId(), sourceId));
         String before = sources.auditView(access.tenantId(), sourceId).map(JdbcSourceRepository.AuditView::access).orElse(null);
         sources.updateAccess(access.tenantId(), sourceId, requestedAccess);
-        if (!requestedAccess.name().equals(before)) record(access.tenantId(), actorId, io.memoryos.iam.audit.AuditAction.SOURCE_ACCESS_CHANGE,
+        if (!requestedAccess.name().equals(before)) record(access.tenantId(), actorId, AuditAction.SOURCE_ACCESS_CHANGE,
                 sourceId, event -> event.detail("before", before).detail("after", requestedAccess.name()));
         return getSource(actorId, sourceId);
     }
@@ -241,7 +244,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         List<String> before = groupNames(access.tenantId(), requiredSourceId);
         sourceGroups.replace(access.tenantId(), requiredSourceId, requiredGroupIds);
         List<String> after = groupNames(access.tenantId(), requiredSourceId);
-        if (!before.equals(after)) record(access.tenantId(), requiredActorId, io.memoryos.iam.audit.AuditAction.SOURCE_GROUP_CHANGE,
+        if (!before.equals(after)) record(access.tenantId(), requiredActorId, AuditAction.SOURCE_GROUP_CHANGE,
                 requiredSourceId, event -> event
                         .detail("added", after.stream().filter(name -> !before.contains(name)).toList())
                         .detail("removed", before.stream().filter(name -> !after.contains(name)).toList()));
@@ -266,7 +269,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 .orElse(null);
         sources.assignManager(access.tenantId(), requiredSourceId, managerActorId);
         UUID after = managerActorId == null ? null : managerActorId.value();
-        if (!Objects.equals(before, after)) record(access.tenantId(), requiredActorId, io.memoryos.iam.audit.AuditAction.SOURCE_MANAGER_CHANGE,
+        if (!Objects.equals(before, after)) record(access.tenantId(), requiredActorId, AuditAction.SOURCE_MANAGER_CHANGE,
                 requiredSourceId, event -> event.detail("before", person(before)).detail("after", person(after)));
         return getSource(requiredActorId, requiredSourceId);
     }
@@ -350,7 +353,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         String groupName = sourceGroups.list(access.tenantId(), requiredSourceId).stream()
                 .filter(group -> group.id().equals(requiredGroupId)).map(GroupIdentity::name).findFirst().orElse(null);
         sourceGroups.remove(access.tenantId(), requiredSourceId, requiredGroupId);
-        record(access.tenantId(), requiredActorId, io.memoryos.iam.audit.AuditAction.SOURCE_GROUP_CHANGE, requiredSourceId,
+        record(access.tenantId(), requiredActorId, AuditAction.SOURCE_GROUP_CHANGE, requiredSourceId,
                 event -> event.detail("added", List.of()).detail("removed", groupName == null ? List.of() : List.of(groupName)));
     }
 
@@ -541,7 +544,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
             sources.setPaused(access.tenantId(), requiredSourceId);
             sync.cancelQueuedForPause(access.tenantId(), requiredSourceId);
             attempts.cancelQueuedForPause(access.tenantId(), requiredSourceId);
-            record(access.tenantId(), requiredActorId, io.memoryos.iam.audit.AuditAction.SOURCE_PAUSE, requiredSourceId, event -> event);
+            record(access.tenantId(), requiredActorId, AuditAction.SOURCE_PAUSE, requiredSourceId, event -> event);
         }
         return getSource(requiredActorId, requiredSourceId);
     }
@@ -576,7 +579,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 }
             }
             sources.recomputeStatus(access.tenantId(), requiredSourceId, false);
-            record(access.tenantId(), requiredActorId, io.memoryos.iam.audit.AuditAction.SOURCE_RESUME, requiredSourceId, event -> event);
+            record(access.tenantId(), requiredActorId, AuditAction.SOURCE_RESUME, requiredSourceId, event -> event);
         }
         return getSource(requiredActorId, requiredSourceId);
     }
@@ -621,7 +624,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         items.markDeleting(access.tenantId(), mutablePair, requiredItemId);
         sourceDocuments.invalidateItem(access.tenantId(), requiredSourceId, requiredItemId);
         attempts.cancelForItem(access.tenantId(), requiredSourceId, requiredItemId);
-        record(access.tenantId(), requiredActorId, io.memoryos.iam.audit.AuditAction.SOURCE_ITEM_REMOVE, requiredSourceId,
+        record(access.tenantId(), requiredActorId, AuditAction.SOURCE_ITEM_REMOVE, requiredSourceId,
                 event -> event.detail("item", requiredItemId.value().toString()));
         return sources.createCleanup(
                 new SourceOperationId(UUID.randomUUID()),
@@ -671,7 +674,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         }
         var deleted = sources.auditView(access.tenantId(), requiredSourceId);
         sources.markDeleting(access.tenantId(), pair);
-        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.SOURCE_DELETE, access.tenantId()).actor(requiredActorId)
+        audit.record(AuditRecord.of(AuditAction.SOURCE_DELETE, access.tenantId().value()).actor(requiredActorId.value())
                 .resource("SOURCE", requiredSourceId.value(), deleted.map(JdbcSourceRepository.AuditView::name).orElse(null))
                 .detail("provider", deleted.map(JdbcSourceRepository.AuditView::provider).orElse(null)).build());
         sourceDocuments.invalidateSource(access.tenantId(), requiredSourceId);
@@ -818,10 +821,10 @@ public class DefaultSourceManagementService implements SourceManagementService {
     }
 
 
-    private void record(TenantId tenant, ActorId actor, io.memoryos.iam.audit.AuditAction action, SourceId sourceId,
-                        java.util.function.UnaryOperator<io.memoryos.iam.audit.AuditRecord.Builder> details) {
+    private void record(TenantId tenant, ActorId actor, AuditAction action, SourceId sourceId,
+                        java.util.function.UnaryOperator<AuditRecord.Builder> details) {
         String name = sources.auditView(tenant, sourceId).map(JdbcSourceRepository.AuditView::name).orElse(null);
-        audit.record(details.apply(io.memoryos.iam.audit.AuditRecord.of(action, tenant).actor(actor)
+        audit.record(details.apply(AuditRecord.of(action, tenant.value()).actor(actor.value())
                 .resource("SOURCE", sourceId.value(), name)).build());
     }
 
@@ -831,7 +834,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
 
     private @Nullable String person(@Nullable UUID actor) {
         if (actor == null) return null;
-        var person = audit.person(new ActorId(actor));
+        var person = audit.person(actor);
         return person.email() != null ? person.email() : person.label();
     }
 }

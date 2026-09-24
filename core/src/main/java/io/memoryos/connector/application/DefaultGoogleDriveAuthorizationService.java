@@ -1,5 +1,8 @@
 package io.memoryos.connector.application;
 
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.GoogleDriveAuthorizationService;
 import io.memoryos.connector.GoogleDriveException;
@@ -29,11 +32,11 @@ public class DefaultGoogleDriveAuthorizationService implements GoogleDriveAuthor
     private final IamAuthorization authorization;
     private final SourceAccessPolicy sourceAccess;
     private final JdbcGoogleGroupRepository groups;
-    private final io.memoryos.iam.audit.AuditTrail audit;
+    private final AuditTrail audit;
 
     public DefaultGoogleDriveAuthorizationService(JdbcGoogleDriveCredentialRepository credentials,
             IamAuthorization authorization, SourceAccessPolicy sourceAccess, JdbcGoogleGroupRepository groups,
-            io.memoryos.iam.audit.AuditTrail audit) {
+            AuditTrail audit) {
         this.audit = Objects.requireNonNull(audit, "audit must not be null");
         this.credentials = credentials;
         this.authorization = authorization;
@@ -96,14 +99,14 @@ public class DefaultGoogleDriveAuthorizationService implements GoogleDriveAuthor
             String name = requireName(preparation.name());
             if (preparation.credentialId() == null) {
                 var created = credentials.create(tenantId, actorId, name, grant, client);
-                audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.CREDENTIAL_CREATE, tenantId).actor(actorId).resource("CREDENTIAL", created.value(), name).detail("provider", "GOOGLE_DRIVE").detail("authentication", "OAUTH").build());
+                audit.record(AuditRecord.of(AuditAction.CREDENTIAL_CREATE, tenantId.value()).actor(actorId.value()).resource("CREDENTIAL", created.value(), name).detail("provider", "GOOGLE_DRIVE").detail("authentication", "OAUTH").build());
                 return created;
             }
             CredentialId credentialId = preparation.credentialId();
             var stored = requireOAuthCredential(requireCredentialMutation(actorId, tenantId, credentialId));
             requireOAuthClientMutation(actorId, tenantId, stored, client);
             credentials.reauthorize(tenantId, credentialId, name, Objects.requireNonNull(preparation.expectedRevision()), grant, client);
-            audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.CREDENTIAL_UPDATE, tenantId).actor(actorId).resource("CREDENTIAL", credentialId.value(), name).detail("provider", "GOOGLE_DRIVE").detail("change", "REAUTHORIZE").build());
+            audit.record(AuditRecord.of(AuditAction.CREDENTIAL_UPDATE, tenantId.value()).actor(actorId.value()).resource("CREDENTIAL", credentialId.value(), name).detail("provider", "GOOGLE_DRIVE").detail("change", "REAUTHORIZE").build());
             return credentialId;
         }
     }
@@ -116,7 +119,7 @@ public class DefaultGoogleDriveAuthorizationService implements GoogleDriveAuthor
         byte[] revoked = credentials.disconnect(tenant, credentialId, expectedRevision);
         // A revoked service account's Google Group memberships stop granting access at once.
         groups.removeAll(tenant, credentialId);
-        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.CREDENTIAL_UPDATE, tenant).actor(actorId).resource("CREDENTIAL", credentialId.value(), null).detail("provider", "GOOGLE_DRIVE").detail("change", "REVOKE").build());
+        audit.record(AuditRecord.of(AuditAction.CREDENTIAL_UPDATE, tenant.value()).actor(actorId.value()).resource("CREDENTIAL", credentialId.value(), null).detail("provider", "GOOGLE_DRIVE").detail("change", "REVOKE").build());
         return revoked;
     }
 
@@ -157,7 +160,7 @@ public class DefaultGoogleDriveAuthorizationService implements GoogleDriveAuthor
         var tenant = requireManagement(actorId);
         requireCredentialMutation(actorId, tenant, credentialId);
         credentials.delete(tenant, credentialId, expectedRevision);
-        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.CREDENTIAL_DELETE, tenant).actor(actorId).resource("CREDENTIAL", credentialId.value(), null).detail("provider", "GOOGLE_DRIVE").build());
+        audit.record(AuditRecord.of(AuditAction.CREDENTIAL_DELETE, tenant.value()).actor(actorId.value()).resource("CREDENTIAL", credentialId.value(), null).detail("provider", "GOOGLE_DRIVE").build());
     }
 
     private TenantId requireManagement(ActorId actorId) {
