@@ -120,7 +120,8 @@ class ChatTenantProvisioningTest {
         jdbc.sql("UPDATE model_flow_default SET model_configuration_id = NULL, revision = revision + 1").update();
         restarted.bootstrap(request());
 
-        assertProvisioned();
+        assertCatalogProvisioned();
+        assertAgentProvisioned();
         assertEquals("Trợ lý Tasco", jdbc.sql("SELECT name FROM persona WHERE builtin_key = 'default'").query(String.class).single());
         assertEquals(0L, jdbc.sql("SELECT count(*) FROM model_flow_default WHERE model_configuration_id IS NOT NULL")
                 .query(Long.class).single());
@@ -160,7 +161,7 @@ class ChatTenantProvisioningTest {
         assertProvisioned();
     }
 
-    private void assertProvisioned() {
+    private UUID assertCatalogProvisioned() {
         assertEquals(1L, count("chat_model_default"));
         var provider = jdbc.sql("SELECT id, base_url, builtin_key FROM llm_provider").query().singleRow();
         assertEquals("https://api.openai.com/v1", provider.get("base_url"));
@@ -169,6 +170,18 @@ class ChatTenantProvisioningTest {
         assertEquals(model, jdbc.sql("SELECT model_configuration_id FROM chat_model_default WHERE tenant_id = :tenant")
                 .param("tenant", TENANT.value()).query(UUID.class).single());
         assertEquals((long) ModelFlow.values().length, count("model_flow_default"));
+        return model;
+    }
+
+    private void assertProvisioned() {
+        UUID model = assertCatalogProvisioned();
+        // Each task names the Chat default from the start, as the lazy path seeded it.
+        assertEquals((long) ModelFlow.values().length, jdbc.sql("SELECT count(*) FROM model_flow_default WHERE model_configuration_id = :model")
+                .param("model", model).query(Long.class).single());
+        assertAgentProvisioned();
+    }
+
+    private void assertAgentProvisioned() {
         UUID persona = jdbc.sql("SELECT id FROM persona WHERE tenant_id = :tenant AND builtin_key = 'default'")
                 .param("tenant", TENANT.value()).query(UUID.class).single();
         assertEquals((long) ChatPersonaService.TOOLS.size(), jdbc.sql("SELECT count(*) FROM persona_tool WHERE persona_id = :persona")

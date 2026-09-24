@@ -11,5 +11,5 @@
 
 - `./gradlew :core:compileJava :core:compileTestJava :api:compileJava :worker:compileJava --no-daemon`: passed.
 - `:core:test` with `ChatTenantProvisioningTest`, `DefaultInitialTenantBootstrapperTest`, `ModelCatalogSelectionTest`, `ModelCatalogConstraintsTest`, `ChatExportIntegrationTest`, `ChatLifecycleIntegrationTest`, `ChatPersistenceIntegrationTest`, `ChatTurnServiceTest`, `ChatTurnSetupTest`, the five IAM tests that build the bootstrapper, `io.memoryos.ModulithArchitectureTest` and `*CoreDependencyRulesTest*`: passed.
-- `:api:test --tests '*OpenApiContractTest*'`: passed. Three `ChatSessionApiIntegrationTest` cases (persona projection, concrete model IDs, send with usage) passed against a Spring context whose bootstrap provisions Chat through the listener.
+- `:api:test --tests '*OpenApiContractTest*' --tests '*ChatModelCatalogConfigurationTest*'`: passed. Four `ChatSessionApiIntegrationTest` cases (persona projection, concrete model IDs, send with usage, the editors/projects/personas round trip) passed against a Spring context whose bootstrap provisions Chat through the listener.
 - `git diff dathip04/owner-decisions-group-1...HEAD -- openapi.yml web/`: empty. The two-dot form lists files that later merges changed on the integration branch; none of them are in this branch.
