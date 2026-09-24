@@ -1,12 +1,12 @@
 # Managed local inference and application integration handoff
 
-The remaining MEM-77 work is defined by [design](design.md) and the [phased plan](plan.md). MEM-66 supplies feasibility evidence and the small SmolLM2 model chosen for initial delivery; MEM-77 must complete an operational self-hosted serving deployment and its application integration, not select a larger model. The backend extension point is already delivered. Reuse `OpenAiChatProviderAdapter`/type `openai` unless a reproduced protocol/native-integration difference requires otherwise; endpoint/model/tokenizer/hardware differences alone do not justify another transport class.
+The remaining MEM-77 work is defined by [design](design.md) and the [phased plan](plan.md). MEM-66 supplies feasibility evidence and the small SmolLM2 model chosen for initial delivery; MEM-77 must complete an operational self-hosted serving deployment and its application integration, not select a larger model. The backend extension point is already delivered. Reuse `OpenAiProviderAdapter`/type `openai` unless a reproduced protocol/native-integration difference requires otherwise; endpoint/model/tokenizer/hardware differences alone do not justify another transport class.
 
 ## Reuse the delivered boundary
 
 - Configure endpoint and real gateway credential on the provider; configure model API name, visibility, explicit limits/options/capabilities/pricing and the planned tokenizer profile on the model.
 - Select the stable model configuration UUID, never resolve a model globally by its API name. Keep catalog authorization, revision conflicts, idempotency and fallback semantics.
-- Reuse `ChatModelResolver`, bounded `ChatModelClients` leases, native `SpringAiLlmService`/`OptionsConverter`, the existing executor and HTTP/SSE transport.
+- Reuse `ModelResolver`, bounded `ModelClients` leases, native `SpringAiLlmService`/`OptionsConverter`, the existing executor and HTTP/SSE transport.
 - Keep `maxRetries(0)`, the supplied timeout, native observations, provider-reported usage and exclusively owned HTTP-client cleanup. A retired binding does not close while a turn still leases it.
 - New provider creation and existing Access-field preservation follow [the deferred-Access contract](design.md#safe-administration-while-access-is-deferred). A Persona default is not an access grant.
 
@@ -29,8 +29,8 @@ The [implementation plan](plan.md#fixed-implementation-decisions) owns fixed IDs
 
 ## When a new adapter is justified
 
-Only introduce another `ChatProviderAdapter` after reproducing a protocol, native option/response mapping or lifecycle requirement that cannot be represented cleanly by the current verified integration. The decision must name that difference and its runtime evidence.
+Only introduce another `ProviderAdapter` after reproducing a protocol, native option/response mapping or lifecycle requirement that cannot be represented cleanly by the current verified integration. The decision must name that difference and its runtime evidence.
 
 If that condition is met, retain the existing extension contract: stable type and truthful credential requirement; local-only validation; native Spring AI model and Embabel service/converter; explicit token/context/output policy; exclusively owned cleanup. Do not substitute dummy credentials, copy an inference loop or branch the executor on a provider/model name.
 
-Use `OpenAiChatProviderAdapterTest`, `ChatModelClientsTest`, `ChatTurnSetupTest` and catalog cases in `ChatSessionApiIntegrationTest` as the existing regression boundaries. `LocalAdapterFixture` proves the extension seam only; it does not certify a shipped local provider. Keep new evidence in [verification](verification.md) with its exact boundary, and do not replace the historical backend receipts.
+Use `OpenAiProviderAdapterTest`, `ModelClientsTest`, `ChatTurnSetupTest` and catalog cases in `ChatSessionApiIntegrationTest` as the existing regression boundaries. `LocalAdapterFixture` proves the extension seam only; it does not certify a shipped local provider. Keep new evidence in [verification](verification.md) with its exact boundary, and do not replace the historical backend receipts.

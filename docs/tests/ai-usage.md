@@ -8,7 +8,7 @@ Contract: [AI usage and costs](../specs/ai-usage.md).
 | Day, flow, model and boundary each start a separate row; system work without actor or boundary merges into one row (`NULLS NOT DISTINCT`) | `AiUsageRecorderTest.dayFlowModelAndBoundaryStartSeparateRows`, `systemWorkWithoutActorOrBoundaryMergesIntoOneRow` |
 | Deleting catalog entries leaves history unchanged; invalid usage is rejected | `AiUsageRecorderTest.catalogDeletionDoesNotTouchHistoryAndInvalidInputIsRejected` |
 | Totals separate known, External and unknown cost and count active people; daily series split by boundary or model; breakdowns rank by cost and label people, Groups, models, flows and providers | `core/src/test/java/io/memoryos/usage/AiCostQueriesTest.java` |
-| Cached input costs the cache-read rate and defaults to the input rate | `core/src/test/java/io/memoryos/ai/ChatModelPricingTest.java` |
+| Cached input costs the cache-read rate and defaults to the input rate | `core/src/test/java/io/memoryos/ai/ModelPricingTest.java` |
 | A Chat turn and its naming call reach the daily ledger with provider, boundary and cost | `api/src/test/java/io/memoryos/api/chat/ChatSessionApiIntegrationTest.java` — `aiUsageRecordsTheTurnAndItsNamingToTheDailyLedger` (Spring API, PostgreSQL, synthetic provider) |
 | `/api/ai-costs` reports the ledger only to model managers; `/mine` returns only the caller's own usage to any member | `ChatSessionApiIntegrationTest.aiCostsReportTheLedgerOnlyToModelManagers` |
 | Settings → Usage shows the caller's spend, tokens per model, model prices with unpriced models and no budget | `web/src/features/usage/my-usage-page.test.tsx` |
