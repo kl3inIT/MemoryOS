@@ -71,8 +71,8 @@ public class DefaultTrustedIdentityAdmission implements TrustedIdentityAdmission
         memberships.grantMember(tenantId, actorId);
         groups.addToBasicGroup(tenantId, actorId);
         // Admitted by a trusted identity provider rather than an invitation (MEM-59): the first sign-in is the join.
-        audit.record(AuditRecord.of(AuditAction.JIT_ADMIT, tenantId.value())
-                .actor(actorId.value(), identity.subject()).resource("USER", actorId.value(), null)
+        audit.record(AuditRecord.of(AuditAction.JIT_ADMIT, tenantId)
+                .actor(actorId, identity.subject()).resource("USER", actorId.value(), null)
                 .detail("issuer", identity.issuer()).build());
         return actorId;
     }

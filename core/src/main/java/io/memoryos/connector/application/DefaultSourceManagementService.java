@@ -674,7 +674,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         }
         var deleted = sources.auditView(access.tenantId(), requiredSourceId);
         sources.markDeleting(access.tenantId(), pair);
-        audit.record(AuditRecord.of(AuditAction.SOURCE_DELETE, access.tenantId().value()).actor(requiredActorId.value())
+        audit.record(AuditRecord.of(AuditAction.SOURCE_DELETE, access.tenantId()).actor(requiredActorId)
                 .resource("SOURCE", requiredSourceId.value(), deleted.map(JdbcSourceRepository.AuditView::name).orElse(null))
                 .detail("provider", deleted.map(JdbcSourceRepository.AuditView::provider).orElse(null)).build());
         sourceDocuments.invalidateSource(access.tenantId(), requiredSourceId);
@@ -824,7 +824,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     private void record(TenantId tenant, ActorId actor, AuditAction action, SourceId sourceId,
                         java.util.function.UnaryOperator<AuditRecord.Builder> details) {
         String name = sources.auditView(tenant, sourceId).map(JdbcSourceRepository.AuditView::name).orElse(null);
-        audit.record(details.apply(AuditRecord.of(action, tenant.value()).actor(actor.value())
+        audit.record(details.apply(AuditRecord.of(action, tenant).actor(actor)
                 .resource("SOURCE", sourceId.value(), name)).build());
     }
 
@@ -834,7 +834,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
 
     private @Nullable String person(@Nullable UUID actor) {
         if (actor == null) return null;
-        var person = audit.person(actor);
+        var person = audit.person(new ActorId(actor));
         return person.email() != null ? person.email() : person.label();
     }
 }

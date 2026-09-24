@@ -2,7 +2,7 @@ package io.memoryos.iam.group;
 
 import io.memoryos.audit.AuditReaders;
 import io.memoryos.shared.ActorId;
-import java.util.UUID;
+import io.memoryos.shared.TenantId;
 import org.springframework.stereotype.Component;
 
 /** The audit stream is read by whoever holds {@link IamCapability#AUDIT_READ} in their Tenant, never scoped. */
@@ -15,7 +15,7 @@ public class IamAuditReaders implements AuditReaders {
     }
 
     @Override
-    public UUID requireReader(UUID reader) {
-        return authorization.require(new ActorId(reader), IamCapability.AUDIT_READ, false).tenantId().value();
+    public TenantId requireReader(ActorId reader) {
+        return authorization.require(reader, IamCapability.AUDIT_READ, false).tenantId();
     }
 }

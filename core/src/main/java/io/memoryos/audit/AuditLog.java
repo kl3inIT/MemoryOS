@@ -1,6 +1,8 @@
 package io.memoryos.audit;
 
 import io.memoryos.audit.persistence.JdbcAuditLogQueryRepository;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -37,7 +39,7 @@ public class AuditLog {
 
     /** Every filter is optional; {@code text} matches the actor's name or e-mail and the resource's name. */
     public record Query(@Nullable Instant from, @Nullable Instant to, @Nullable String text, @Nullable AuditEventClass eventClass,
-                        @Nullable String action, @Nullable AuditOutcome outcome, @Nullable UUID actor,
+                        @Nullable String action, @Nullable AuditOutcome outcome, @Nullable ActorId actor,
                         @Nullable String resourceType, @Nullable String resourceId) {
         public Query {
             if (from != null && to != null && !from.isBefore(to)) throw AuditException.invalid("The period must end after it starts.");
@@ -50,7 +52,7 @@ public class AuditLog {
     }
 
     public record Event(UUID id, Instant occurredAt, String action, AuditEventClass eventClass, AuditOutcome outcome,
-                        @Nullable UUID actorId, @Nullable String actorLabel, @Nullable String actorEmail,
+                        @Nullable ActorId actorId, @Nullable String actorLabel, @Nullable String actorEmail,
                         @Nullable String resourceType, @Nullable String resourceId, @Nullable String resourceLabel,
                         Map<String, Object> details, @Nullable String traceId, @Nullable String endpoint,
                         @Nullable String sourceIp) {}
@@ -58,7 +60,7 @@ public class AuditLog {
     public record Page(List<Event> items, @Nullable String nextCursor) {}
 
     @Transactional(readOnly = true)
-    public Page page(UUID reader, Query query, @Nullable String cursor, int size) {
+    public Page page(ActorId reader, Query query, @Nullable String cursor, int size) {
         if (size < 1 || size > MAX_PAGE) throw AuditException.invalid("Page size must be between 1 and 100.");
         var tenant = reader(reader);
         var after = cursor == null ? null : Cursor.decode(cursor);
@@ -69,9 +71,9 @@ public class AuditLog {
     }
 
     @Transactional(readOnly = true)
-    public Event get(UUID reader, UUID id) {
+    public Event get(ActorId reader, UUID id) {
         var tenant = reader(reader);
-        return events.find(tenant, id).orElseThrow(AuditException::notFound);
+        return events.find(tenant.value(), id).orElseThrow(AuditException::notFound);
     }
 
     /**
@@ -79,7 +81,7 @@ public class AuditLog {
      * outside this read, so an export that breaks halfway still leaves evidence of what was read before it broke.
      */
     @Transactional(readOnly = true)
-    public int export(UUID reader, Query query, Consumer<Event> sink) {
+    public int export(ActorId reader, Query query, Consumer<Event> sink) {
         var tenant = reader(reader);
         int rows = 0;
         Cursor after = null;
@@ -102,7 +104,7 @@ public class AuditLog {
         return rows;
     }
 
-    private void recordExport(UUID tenant, UUID reader, Query query, int rows, AuditOutcome outcome) {
+    private void recordExport(TenantId tenant, ActorId reader, Query query, int rows, AuditOutcome outcome) {
         trail.recordSeparately(AuditRecord.of(AuditAction.AUDIT_EXPORT, tenant).actor(reader)
                 .resource("AUDIT_LOG", null, null).outcome(outcome)
                 .detail("from", query.from() == null ? null : query.from().toString())
@@ -111,16 +113,16 @@ public class AuditLog {
 
     /** Refuses anyone who may not read the stream; for reads that need no row, such as the action catalog. */
     @Transactional(readOnly = true)
-    public void requireReader(UUID reader) {
+    public void requireReader(ActorId reader) {
         reader(reader);
     }
 
-    private UUID reader(UUID reader) {
+    private TenantId reader(ActorId reader) {
         return readers.requireReader(reader);
     }
 
-    private List<Event> select(UUID tenant, Query query, @Nullable Cursor after, int limit) {
-        return events.select(tenant, query, after == null ? null : after.at(), after == null ? null : after.id(), limit);
+    private List<Event> select(TenantId tenant, Query query, @Nullable Cursor after, int limit) {
+        return events.select(tenant.value(), query, after == null ? null : after.at(), after == null ? null : after.id(), limit);
     }
 
     /** An opaque position in the stream: the last event a page returned. */

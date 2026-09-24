@@ -8,6 +8,8 @@ import io.memoryos.audit.persistence.JdbcAuditEventRepository;
 import io.memoryos.audit.persistence.JdbcAuditLogQueryRepository;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -27,8 +29,8 @@ class AuditLogTest {
     private TransactionTemplate tx;
     private AuditTrail trail;
     private AuditLog log;
-    private UUID tenant, other;
-    private UUID reader, stranger;
+    private TenantId tenant, other;
+    private ActorId reader, stranger;
 
     @BeforeEach void setup() throws Exception {
         dataSource = TestDatabase.freshPostgres();
@@ -39,8 +41,8 @@ class AuditLogTest {
         jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT IF EXISTS uq_tenants_deployment_slot").update();
         tenant = tenant();
         other = tenant();
-        reader = UUID.randomUUID();
-        stranger = UUID.randomUUID();
+        reader = new ActorId(UUID.randomUUID());
+        stranger = new ActorId(UUID.randomUUID());
         // IAM answers who may read; here the reader may and anyone else is refused as IAM refuses them.
         AuditReaders readers = actor -> {
             if (actor.equals(reader)) return tenant;
@@ -109,7 +111,7 @@ class AuditLogTest {
             jdbc.sql("""
                     INSERT INTO audit_event(id, tenant_id, occurred_at, action, event_class, outcome, resource_label)
                     VALUES (:id, :tenant, :at, 'user_group.create', 'GROUP_MANAGEMENT', 'SUCCESS', 'Cũ')
-                    """).param("id", UUID.randomUUID()).param("tenant", tenant)
+                    """).param("id", UUID.randomUUID()).param("tenant", tenant.value())
                     .param("at", java.sql.Timestamp.from(Instant.now().minus(Duration.ofDays(400)))).update();
         });
         var retention = TestDatabase.transactionalProxy(new AuditRetention(new JdbcAuditEventRepository(jdbc), Duration.ofDays(365)), AuditRetention.class,
@@ -121,15 +123,15 @@ class AuditLogTest {
         assertThrows(RuntimeException.class, () -> jdbc.sql("DELETE FROM audit_event").update());
     }
 
-    private void record(UUID in, AuditAction action, String label) {
+    private void record(TenantId in, AuditAction action, String label) {
         tx.executeWithoutResult(ignored -> trail.record(AuditRecord.of(action, in).actor(null, "Trần Thu Hà")
                 .resource(action == AuditAction.USER_DEACTIVATE ? "USER" : "GROUP", UUID.randomUUID(), label).build()));
     }
 
-    private UUID tenant() {
+    private TenantId tenant() {
         UUID id = UUID.randomUUID();
         jdbc.sql("INSERT INTO tenants(id, slug, display_name, status, bootstrap_reference) VALUES (:id, :slug, 'Tasco', 'ACTIVE', 'test')")
                 .param("id", id).param("slug", id.toString()).update();
-        return id;
+        return new TenantId(id);
     }
 }

@@ -71,8 +71,8 @@ public class SourceAccessPolicy {
     /** A Source manager reaching a Source that exists but is not theirs: the refusal Onyx records as denied. */
     private void recordRefusal(IamAccess access, ActorId actorId, SourceId sourceId) {
         if (access.authority() == Authority.SCOPED && sources.exists(access.tenantId(), sourceId)) {
-            audit.recordSeparately(AuditRecord.of(AuditAction.PERMISSION_DENIED, access.tenantId().value())
-                    .outcome(AuditOutcome.DENIED).actor(actorId.value())
+            audit.recordSeparately(AuditRecord.of(AuditAction.PERMISSION_DENIED, access.tenantId())
+                    .outcome(AuditOutcome.DENIED).actor(actorId)
                     .resource("SOURCE", sourceId.value(), sources.auditView(access.tenantId(), sourceId)
                             .map(JdbcSourceRepository.AuditView::name).orElse(null))
                     .detail("capability", IamCapability.SOURCES_MANAGE.name()).detail("scope", "SOURCE").build());

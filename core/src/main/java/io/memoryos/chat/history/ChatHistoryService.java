@@ -133,7 +133,7 @@ public class ChatHistoryService {
 
     private void recordRead(Access access, ActorId reader, Entry entry, int messages) {
         boolean named = access.visibility() == ChatHistoryVisibility.NORMAL;
-        audit.recordSeparately(AuditRecord.of(AuditAction.CHAT_HISTORY_READ, access.tenant().value()).actor(reader.value())
+        audit.recordSeparately(AuditRecord.of(AuditAction.CHAT_HISTORY_READ, access.tenant()).actor(reader)
                 .resource("CHAT_SESSION", entry.id(), entry.title())
                 .detail("person", named ? entry.actorLabel() : null)
                 .detail("email", named ? entry.actorEmail() : null)
@@ -142,7 +142,7 @@ public class ChatHistoryService {
 
     private void recordExport(TenantId tenant, ActorId reader, ChatHistoryQuery query, int rows,
                               AuditOutcome outcome) {
-        audit.recordSeparately(AuditRecord.of(AuditAction.CHAT_HISTORY_EXPORT, tenant.value()).actor(reader.value())
+        audit.recordSeparately(AuditRecord.of(AuditAction.CHAT_HISTORY_EXPORT, tenant).actor(reader)
                 .resource("CHAT_HISTORY", null, null).outcome(outcome)
                 .detail("from", query.from() == null ? null : query.from().toString())
                 .detail("to", query.to() == null ? null : query.to().toString())

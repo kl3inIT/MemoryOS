@@ -78,7 +78,7 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
                 TenantId tenantId = requireManagement(actorId);
                 var created = credentials.create(tenantId, actorId, name, directoryId, clientId, draft.cloud(),
                         authentication, verification.tenantHost());
-                audit.record(AuditRecord.of(AuditAction.CREDENTIAL_CREATE, tenantId.value()).actor(actorId.value()).resource("CREDENTIAL", created.value(), name).detail("provider", "SHAREPOINT").detail("authentication", draft.authMethod().name()).build());
+                audit.record(AuditRecord.of(AuditAction.CREDENTIAL_CREATE, tenantId).actor(actorId).resource("CREDENTIAL", created.value(), name).detail("provider", "SHAREPOINT").detail("authentication", draft.authMethod().name()).build());
                 return created;
             }));
         }
@@ -103,7 +103,7 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
                 requireCredentialMutation(actorId, credentialId);
                 long revision = credentials.replaceAuthentication(tenantId, credentialId, expectedRevision, name,
                         authentication, verification.tenantHost());
-                audit.record(AuditRecord.of(AuditAction.CREDENTIAL_UPDATE, tenantId.value()).actor(actorId.value()).resource("CREDENTIAL", credentialId.value(), name).detail("provider", "SHAREPOINT").detail("change", "REPLACE_AUTHENTICATION").build());
+                audit.record(AuditRecord.of(AuditAction.CREDENTIAL_UPDATE, tenantId).actor(actorId).resource("CREDENTIAL", credentialId.value(), name).detail("provider", "SHAREPOINT").detail("change", "REPLACE_AUTHENTICATION").build());
                 return revision;
             }));
         }
@@ -115,7 +115,7 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
         TenantId tenantId = requireManagement(actorId);
         requireCredentialMutation(actorId, credentialId);
         credentials.rename(tenantId, credentialId, expectedRevision, requireName(name));
-        audit.record(AuditRecord.of(AuditAction.CREDENTIAL_UPDATE, tenantId.value()).actor(actorId.value()).resource("CREDENTIAL", credentialId.value(), requireName(name)).detail("provider", "SHAREPOINT").detail("change", "RENAME").build());
+        audit.record(AuditRecord.of(AuditAction.CREDENTIAL_UPDATE, tenantId).actor(actorId).resource("CREDENTIAL", credentialId.value(), requireName(name)).detail("provider", "SHAREPOINT").detail("change", "RENAME").build());
     }
 
     @Override
@@ -124,7 +124,7 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
         TenantId tenantId = requireManagement(actorId);
         requireCredentialMutation(actorId, credentialId);
         credentials.delete(tenantId, credentialId, expectedRevision);
-        audit.record(AuditRecord.of(AuditAction.CREDENTIAL_DELETE, tenantId.value()).actor(actorId.value()).resource("CREDENTIAL", credentialId.value(), null).detail("provider", "SHAREPOINT").build());
+        audit.record(AuditRecord.of(AuditAction.CREDENTIAL_DELETE, tenantId).actor(actorId).resource("CREDENTIAL", credentialId.value(), null).detail("provider", "SHAREPOINT").build());
     }
 
     @Override

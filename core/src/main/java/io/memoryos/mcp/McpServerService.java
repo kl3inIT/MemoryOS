@@ -437,8 +437,8 @@ public class McpServerService {
 
     private void record(UUID tenant, ActorId actor, AuditAction action, UUID serverId, String name,
                         java.util.function.UnaryOperator<AuditRecord.Builder> details) {
-        audit.record(details.apply(AuditRecord.of(action, tenant)
-                .actor(actor.value()).resource("MCP_SERVER", serverId, name)).build());
+        audit.record(details.apply(AuditRecord.of(action, new TenantId(tenant))
+                .actor(actor).resource("MCP_SERVER", serverId, name)).build());
     }
 
     /** Where the server is, how it authenticates and who may use it; header values and keys are never recorded. */

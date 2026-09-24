@@ -3,6 +3,7 @@ package io.memoryos.audit.persistence;
 import io.memoryos.audit.AuditEventClass;
 import io.memoryos.audit.AuditLog;
 import io.memoryos.audit.AuditOutcome;
+import io.memoryos.shared.ActorId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -60,7 +61,7 @@ public class JdbcAuditLogQueryRepository {
                 .param("class", query.eventClass() == null ? null : query.eventClass().name(), Types.VARCHAR)
                 .param("action", query.action(), Types.VARCHAR)
                 .param("outcome", query.outcome() == null ? null : query.outcome().name(), Types.VARCHAR)
-                .param("actor", query.actor(), Types.OTHER)
+                .param("actor", query.actor() == null ? null : query.actor().value(), Types.OTHER)
                 .param("resourceType", query.resourceType(), Types.VARCHAR)
                 .param("resourceId", query.resourceId(), Types.VARCHAR)
                 .param("text", query.text(), Types.VARCHAR)
@@ -86,9 +87,13 @@ public class JdbcAuditLogQueryRepository {
         }
         return new AuditLog.Event(r.getObject("id", UUID.class), r.getTimestamp("occurred_at").toInstant(),
                 r.getString("action"), AuditEventClass.valueOf(r.getString("event_class")),
-                AuditOutcome.valueOf(r.getString("outcome")), r.getObject("actor_id", UUID.class),
+                AuditOutcome.valueOf(r.getString("outcome")), actor(r.getObject("actor_id", UUID.class)),
                 r.getString("actor_label"), r.getString("actor_email"), r.getString("resource_type"),
                 r.getString("resource_id"), r.getString("resource_label"), details, r.getString("trace_id"),
                 r.getString("endpoint"), r.getString("source_ip"));
+    }
+
+    private static @Nullable ActorId actor(@Nullable UUID id) {
+        return id == null ? null : new ActorId(id);
     }
 }

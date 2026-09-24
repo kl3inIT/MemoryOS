@@ -251,7 +251,7 @@ public class AiUsageLimitService {
     }
 
     private AuditRecord.Builder record(AuditAction action, TenantId tenant, ActorId manager, AiUsageLimit limit) {
-        return AuditRecord.of(action, tenant.value()).actor(manager.value())
+        return AuditRecord.of(action, tenant).actor(manager)
                 .resource("AI_LIMIT", limit.id(), limit.groupName() == null ? limit.scope().name() : limit.groupName())
                 .detail("scope", limit.scope().name()).detail("group", limit.groupName());
     }

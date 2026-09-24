@@ -562,7 +562,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     private void record(TenantId tenant, ActorId actor, AuditAction action, SourceId source, @Nullable String name,
                         java.util.function.UnaryOperator<AuditRecord.Builder> details) {
         String label = name != null ? name : sources.auditView(tenant, source).map(JdbcSourceRepository.AuditView::name).orElse(null);
-        audit.record(details.apply(AuditRecord.of(action, tenant.value()).actor(actor.value())
+        audit.record(details.apply(AuditRecord.of(action, tenant).actor(actor)
                 .resource("SOURCE", source.value(), label)).build());
     }
 }

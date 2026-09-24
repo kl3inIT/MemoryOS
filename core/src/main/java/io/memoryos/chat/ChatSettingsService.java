@@ -51,8 +51,8 @@ public class ChatSettingsService {
     private void record(ActorId actor, ChatSettingsEntity saved, String field, Object value) {
         audit.record(AuditRecord
                 .of(AuditAction.CHAT_SETTINGS_CHANGE,
-                        saved.tenantId())
-                .actor(actor.value()).resource("SETTING", "chat", "Chat").detail(field, value).build());
+                        new TenantId(saved.tenantId()))
+                .actor(actor).resource("SETTING", "chat", "Chat").detail(field, value).build());
     }
 
     private ChatSettingsEntity writable(ActorId actor, long revision) {

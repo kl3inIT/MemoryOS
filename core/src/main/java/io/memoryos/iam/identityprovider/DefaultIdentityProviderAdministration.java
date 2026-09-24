@@ -90,7 +90,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
         var created = toView(gateway.find(command.alias()).orElseThrow(
                 DefaultIdentityProviderAdministration::unavailableAfterWrite), command.jitAllowed());
         // Settled in Keycloak: no database transaction covers it, so the event is written on its own.
-        audit.recordSeparately(AuditRecord.of(AuditAction.IDENTITY_PROVIDER_CREATE, tenant.value()).actor(actorId.value())
+        audit.recordSeparately(AuditRecord.of(AuditAction.IDENTITY_PROVIDER_CREATE, tenant).actor(actorId)
                 .resource("IDENTITY_PROVIDER", command.alias(), command.displayName())
                 .detail("after", facts(command.alias(), command.issuer(), command.jitAllowed())).build());
         return created;
@@ -136,7 +136,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
         });
         var updated = toView(gateway.find(effectiveAlias).orElseThrow(
                 DefaultIdentityProviderAdministration::unavailableAfterWrite), update.jitAllowed());
-        audit.recordSeparately(AuditRecord.of(AuditAction.IDENTITY_PROVIDER_UPDATE, tenant.value()).actor(actorId.value())
+        audit.recordSeparately(AuditRecord.of(AuditAction.IDENTITY_PROVIDER_UPDATE, tenant).actor(actorId)
                 .resource("IDENTITY_PROVIDER", effectiveAlias, existing.getDisplayName())
                 .detail("before", before).detail("after", facts(effectiveAlias, targetIssuer, update.jitAllowed())).build());
         return updated;
@@ -150,7 +150,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
             allowlist.disallow(alias);
         });
         gateway.delete(alias);
-        audit.recordSeparately(AuditRecord.of(AuditAction.IDENTITY_PROVIDER_DELETE, tenant.value()).actor(actorId.value())
+        audit.recordSeparately(AuditRecord.of(AuditAction.IDENTITY_PROVIDER_DELETE, tenant).actor(actorId)
                 .resource("IDENTITY_PROVIDER", alias, alias).detail("alias", alias).build());
     }
 

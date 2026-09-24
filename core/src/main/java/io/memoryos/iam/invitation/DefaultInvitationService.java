@@ -182,7 +182,7 @@ public class DefaultInvitationService implements InvitationService {
                         now,
                         expiresAt
                 ));
-                audit.record(AuditRecord.of(AuditAction.USER_INVITE, tenantId.value()).actor(administrator.value())
+                audit.record(AuditRecord.of(AuditAction.USER_INVITE, tenantId).actor(administrator)
                         .resource("INVITATION", invitationId, normalizedEmail)
                         .detail("email", normalizedEmail).detail("expiresAt", expiresAt.toString()).build());
                 return created;
@@ -224,8 +224,8 @@ public class DefaultInvitationService implements InvitationService {
         try {
             invitation.rotate(digest(plaintextSecret), now, expiresAt);
             invitations.flush();
-            audit.record(AuditRecord.of(AuditAction.USER_INVITE_ROTATE, invitation.getTenant().getId())
-                    .actor(administrator.value()).resource("INVITATION", invitation.getId(), invitation.getNormalizedEmail())
+            audit.record(AuditRecord.of(AuditAction.USER_INVITE_ROTATE, new TenantId(invitation.getTenant().getId()))
+                    .actor(administrator).resource("INVITATION", invitation.getId(), invitation.getNormalizedEmail())
                     .detail("email", invitation.getNormalizedEmail()).detail("expiresAt", expiresAt.toString()).build());
         } catch (DataIntegrityViolationException exception) {
             throw new InvitationException(InvitationFailureReason.CONFLICT, "could not rotate invitation", exception);
@@ -243,8 +243,8 @@ public class DefaultInvitationService implements InvitationService {
         InvitationEntity invitation = pendingAdministrativeInvitation(administrator, invitationId);
         invitation.revoke(invitations.requireActor(administrator), clock.instant());
         invitations.flush();
-        audit.record(AuditRecord.of(AuditAction.USER_INVITE_REVOKE, invitation.getTenant().getId())
-                .actor(administrator.value()).resource("INVITATION", invitation.getId(), invitation.getNormalizedEmail())
+        audit.record(AuditRecord.of(AuditAction.USER_INVITE_REVOKE, new TenantId(invitation.getTenant().getId()))
+                .actor(administrator).resource("INVITATION", invitation.getId(), invitation.getNormalizedEmail())
                 .detail("email", invitation.getNormalizedEmail()).build());
     }
 
@@ -343,7 +343,7 @@ public class DefaultInvitationService implements InvitationService {
             invitation.accept(actor, clock.instant());
             invitations.flush();
             // The new member is both who acted and who joined; a profile may not exist yet, so name them by e-mail.
-            audit.record(AuditRecord.of(AuditAction.USER_JOIN, target.tenantId().value()).actor(actorId.value(), normalizedEmail)
+            audit.record(AuditRecord.of(AuditAction.USER_JOIN, target.tenantId()).actor(actorId, normalizedEmail)
                     .resource("USER", actorId.value(), normalizedEmail)
                     .detail("email", normalizedEmail).detail("admission", "INVITATION").build());
             return actorId;

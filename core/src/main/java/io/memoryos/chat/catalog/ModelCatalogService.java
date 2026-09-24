@@ -533,7 +533,7 @@ public class ModelCatalogService {
     private void record(UUID tenant, ActorId actor, AuditAction action, String type, Object id,
                         @Nullable String label,
                         java.util.function.UnaryOperator<AuditRecord.Builder> details) {
-        audit.record(details.apply(AuditRecord.of(action, tenant).actor(actor.value())
+        audit.record(details.apply(AuditRecord.of(action, new TenantId(tenant)).actor(actor)
                 .resource(type, id, label)).build());
     }
 

@@ -76,7 +76,7 @@ public class InterpreterService {
         if (current != revision) throw ChatException.conflict();
         if (enabled && !properties.configured()) throw ChatException.providerUnavailable();
         var saved = repository.save(tenant, enabled);
-        audit.record(AuditRecord.of(AuditAction.INTERPRETER_CHANGE, tenant.value()).actor(actor.value()).resource("SETTING", "interpreter", "Code Interpreter").detail("enabled", enabled).build());
+        audit.record(AuditRecord.of(AuditAction.INTERPRETER_CHANGE, tenant).actor(actor).resource("SETTING", "interpreter", "Code Interpreter").detail("enabled", enabled).build());
         return new Settings(properties.configured(), saved.enabled(), saved.revision());
     }
 

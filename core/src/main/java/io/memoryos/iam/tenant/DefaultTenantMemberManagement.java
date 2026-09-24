@@ -93,10 +93,10 @@ public class DefaultTenantMemberManagement implements TenantMemberManagement {
             administrationGuard.requireCanDeactivate(tenantId, target);
         }
         member.changeStatus(requestedStatus, clock.instant());
-        var person = audit.person(target.value());
+        var person = audit.person(target);
         audit.record(AuditRecord.of(requestedStatus == TenantMembershipStatus.ACTIVE
-                        ? AuditAction.USER_REACTIVATE : AuditAction.USER_DEACTIVATE, tenantId.value())
-                .actor(administrator.value()).resource("USER", target.value(), person.label())
+                        ? AuditAction.USER_REACTIVATE : AuditAction.USER_DEACTIVATE, tenantId)
+                .actor(administrator).resource("USER", target.value(), person.label())
                 .detail("email", person.email()).build());
     }
 }

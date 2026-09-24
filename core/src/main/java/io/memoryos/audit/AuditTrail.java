@@ -1,6 +1,7 @@
 package io.memoryos.audit;
 
 import io.memoryos.audit.persistence.JdbcAuditEventRepository;
+import io.memoryos.shared.ActorId;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -94,8 +95,8 @@ public class AuditTrail {
             Person actor = event.actor() == null ? null : person(event.actor());
             if (actorLabel == null && actor != null) actorLabel = actor.label();
             if (actor != null) actorEmail = actor.email();
-            events.insert(new JdbcAuditEventRepository.NewEvent(id, event.tenant(), at, event.action().value(),
-                    event.action().eventClass().name(), event.outcome().name(), event.actor(), actorLabel, actorEmail,
+            events.insert(new JdbcAuditEventRepository.NewEvent(id, event.tenant().value(), at, event.action().value(),
+                    event.action().eventClass().name(), event.outcome().name(), event.actor() == null ? null : event.actor().value(), actorLabel, actorEmail,
                     event.resourceType(), event.resourceId(), event.resourceLabel(), details, requestContext.traceId(),
                     requestContext.endpoint(), requestContext.sourceIp(), SCHEMA_VERSION));
             events.releaseSavepoint();
@@ -120,9 +121,9 @@ public class AuditTrail {
      * Who {@code actor} is, for a record that names them. Read in the caller's transaction, so it sees a person the
      * same change has just admitted.
      */
-    public Person person(UUID actor) {
-        return events.person(actor)
-                .orElse(new Person(actor.toString(), null));
+    public Person person(ActorId actor) {
+        return events.person(actor.value())
+                .orElse(new Person(actor.value().toString(), null));
     }
 
     /** One JSON line per event, on a logger named for its class, as Onyx emits for a SIEM. */
@@ -136,8 +137,8 @@ public class AuditTrail {
             line.put("action", event.action().value());
             line.put("ocsf_class", event.action().eventClass().ocsfClassId());
             line.put("outcome", event.outcome().name().toLowerCase(java.util.Locale.ROOT));
-            line.put("tenant_id", event.tenant().toString());
-            line.put("actor_id", event.actor() == null ? null : event.actor().toString());
+            line.put("tenant_id", event.tenant().value().toString());
+            line.put("actor_id", event.actor() == null ? null : event.actor().value().toString());
             line.put("actor", actorLabel);
             line.put("resource_type", event.resourceType());
             line.put("resource_id", event.resourceId());

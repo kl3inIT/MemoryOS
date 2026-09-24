@@ -56,7 +56,7 @@ final class ProviderSessionLogoutHandler implements LogoutHandler {
         if (authentication != null && authentication.getPrincipal() instanceof IdentityContext identity) {
             boolean providerEnded = ended;
             tenants.findActiveTenant(identity.actorId()).ifPresent(tenant -> audit.recordSeparately(
-                    AuditRecord.of(AuditAction.LOGOUT, tenant.value()).actor(identity.actorId().value())
+                    AuditRecord.of(AuditAction.LOGOUT, tenant).actor(identity.actorId())
                             .detail("providerSessionEnded", providerEnded).build()));
         }
     }

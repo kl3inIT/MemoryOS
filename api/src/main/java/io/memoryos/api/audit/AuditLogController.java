@@ -5,6 +5,7 @@ import io.memoryos.audit.AuditEventClass;
 import io.memoryos.audit.AuditLog;
 import io.memoryos.audit.AuditOutcome;
 import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.shared.ActorId;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -74,7 +75,7 @@ class AuditLogController {
                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String sourceIp) {
         static EventResponse from(AuditLog.Event event) {
             return new EventResponse(event.id(), event.occurredAt(), event.action(), event.eventClass(), event.outcome(),
-                    event.actorId(), event.actorLabel(), event.actorEmail(), event.resourceType(), event.resourceId(),
+                    actorUuid(event), event.actorLabel(), event.actorEmail(), event.resourceType(), event.resourceId(),
                     event.resourceLabel(), event.details(), event.traceId(), event.endpoint(), event.sourceIp());
         }
     }
@@ -108,7 +109,7 @@ class AuditLogController {
                         @RequestParam(required = false) @Nullable String cursor,
                         @Parameter(schema = @Schema(type = "integer", format = "int32", minimum = "1", maximum = "100", defaultValue = "50"))
                         @RequestParam(defaultValue = "50") int size) {
-        var page = log.page(identity.actorId().value(), new AuditLog.Query(from, to, q, eventClass, action, outcome, actorId,
+        var page = log.page(identity.actorId(), new AuditLog.Query(from, to, q, eventClass, action, outcome, actor(actorId),
                 resourceType, resourceId), cursor, size);
         return new PageResponse(page.items().stream().map(EventResponse::from).toList(), page.nextCursor());
     }
@@ -118,14 +119,14 @@ class AuditLogController {
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @ApiResponse(responseCode = "404", description = "No event with this id in the Tenant", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
     EventResponse event(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID eventId) {
-        return EventResponse.from(log.get(identity.actorId().value(), eventId));
+        return EventResponse.from(log.get(identity.actorId(), eventId));
     }
 
     @GetMapping("/catalog")
     @Operation(operationId = "getAuditCatalog", summary = "Every action the audit stream can hold, for the viewer's action filter; requires AUDIT_READ")
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     CatalogResponse catalog(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        log.requireReader(identity.actorId().value());
+        log.requireReader(identity.actorId());
         return new CatalogResponse(Arrays.stream(AuditAction.values())
                 .map(action -> new CatalogAction(action.value(), action.eventClass())).toList());
     }
@@ -142,7 +143,7 @@ class AuditLogController {
                 @RequestParam(required = false) @Nullable AuditOutcome outcome,
                 @RequestParam(required = false) @Nullable UUID actorId,
                 HttpServletResponse response) throws IOException {
-        var query = new AuditLog.Query(from, to, q, eventClass, action, outcome, actorId, null, null);
+        var query = new AuditLog.Query(from, to, q, eventClass, action, outcome, actor(actorId), null, null);
         response.setContentType("text/csv; charset=UTF-8");
         response.setHeader("Cache-Control", "no-store");
         response.setHeader("X-Content-Type-Options", "nosniff");
@@ -155,9 +156,9 @@ class AuditLogController {
         var csv = new CSVPrinter(writer, CSVFormat.DEFAULT);
         csv.printRecord("occurred_at", "action", "event_class", "outcome", "actor_id", "actor", "actor_email", "resource_type",
                 "resource_id", "resource", "details", "source_ip", "endpoint", "trace_id");
-        log.export(identity.actorId().value(), query, event -> {
+        log.export(identity.actorId(), query, event -> {
             try {
-                csv.printRecord(event.occurredAt(), event.action(), event.eventClass(), event.outcome(), event.actorId(),
+                csv.printRecord(event.occurredAt(), event.action(), event.eventClass(), event.outcome(), actorUuid(event),
                         guard(event.actorLabel()), guard(event.actorEmail()), event.resourceType(), guard(event.resourceId()),
                         guard(event.resourceLabel()), guard(JSON.writeValueAsString(event.details())), event.sourceIp(),
                         event.endpoint(), event.traceId());
@@ -169,6 +170,14 @@ class AuditLogController {
     }
 
     /** User-controlled text only; the usage report guards the same prefixes. */
+    private static @Nullable UUID actorUuid(AuditLog.Event event) {
+        return event.actorId() == null ? null : event.actorId().value();
+    }
+
+    private static @Nullable ActorId actor(@Nullable UUID actorId) {
+        return actorId == null ? null : new ActorId(actorId);
+    }
+
     private static @Nullable String guard(@Nullable String value) {
         if (value == null || value.isEmpty()) return value;
         return FORMULA_PREFIXES.indexOf(value.charAt(0)) >= 0 ? "'" + value : value;

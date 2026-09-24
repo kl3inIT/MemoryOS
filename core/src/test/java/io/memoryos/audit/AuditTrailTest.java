@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.audit.persistence.JdbcAuditEventRepository;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.UUID;
@@ -22,8 +24,8 @@ class AuditTrailTest {
     private TransactionTemplate tx;
     private SimpleMeterRegistry meters;
     private AuditTrail trail;
-    private UUID tenant;
-    private UUID manager;
+    private TenantId tenant;
+    private ActorId manager;
 
     @BeforeEach void setup() throws Exception {
         dataSource = TestDatabase.freshPostgres();
@@ -41,7 +43,7 @@ class AuditTrailTest {
     @Test void anEventBelongsToTheTransactionOfTheChangeItRecords() {
         tx.executeWithoutResult(ignored -> {
             jdbc.sql("INSERT INTO iam_groups(tenant_id, id, name) VALUES (:t, :id, 'Kế toán')")
-                    .param("t", tenant).param("id", UUID.randomUUID()).update();
+                    .param("t", tenant.value()).param("id", UUID.randomUUID()).update();
             trail.record(AuditRecord.of(AuditAction.GROUP_CREATE, tenant).actor(manager, "Trần Thu Hà").build());
         });
         assertEquals(1, events());
@@ -60,7 +62,7 @@ class AuditTrailTest {
         jdbc.sql("ALTER TABLE audit_event ALTER COLUMN action TYPE varchar(4)").update();
         tx.executeWithoutResult(ignored -> {
             jdbc.sql("INSERT INTO iam_groups(tenant_id, id, name) VALUES (:t, :id, 'Pháp chế')")
-                    .param("t", tenant).param("id", group).update();
+                    .param("t", tenant.value()).param("id", group).update();
             trail.record(AuditRecord.of(AuditAction.GROUP_CREATE, tenant).actor(manager, "Trần Thu Hà")
                     .resource("GROUP", group, "Pháp chế").build());
         });
@@ -123,19 +125,19 @@ class AuditTrailTest {
     }
 
     private long events() {
-        return jdbc.sql("SELECT count(*) FROM audit_event WHERE tenant_id = :t").param("t", tenant)
+        return jdbc.sql("SELECT count(*) FROM audit_event WHERE tenant_id = :t").param("t", tenant.value())
                 .query(Long.class).single();
     }
 
-    private UUID tenant() {
+    private TenantId tenant() {
         UUID id = UUID.randomUUID();
         jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT IF EXISTS uq_tenants_deployment_slot").update();
         jdbc.sql("INSERT INTO tenants(id, slug, display_name, status, bootstrap_reference) VALUES (:id, :slug, 'Tasco', 'ACTIVE', 'test')")
                 .param("id", id).param("slug", id.toString()).update();
-        return id;
+        return new TenantId(id);
     }
 
-    private UUID actor(String name) {
+    private ActorId actor(String name) {
         UUID id = UUID.randomUUID();
         jdbc.sql("INSERT INTO actors(id) VALUES (:id)").param("id", id).update();
         jdbc.sql("INSERT INTO external_identity_bindings(issuer, subject, actor_id) VALUES ('https://id.test', :subject, :id)")
@@ -145,7 +147,7 @@ class AuditTrailTest {
                 VALUES (:id, 'https://id.test', :subject, :name, :email, true, :at)""")
                 .param("id", id).param("subject", id.toString()).param("name", name).param("email", "ha@tasco.vn")
                 .param("at", java.sql.Timestamp.from(Instant.now())).update();
-        return id;
+        return new ActorId(id);
     }
 
 }

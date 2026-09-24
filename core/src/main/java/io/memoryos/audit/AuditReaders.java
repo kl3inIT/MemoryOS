@@ -1,6 +1,7 @@
 package io.memoryos.audit;
 
-import java.util.UUID;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 
 /**
  * Who may read a Tenant's audit stream. IAM decides it and implements this; audit cannot ask IAM directly, because IAM
@@ -11,5 +12,5 @@ public interface AuditReaders {
     /**
      * The Tenant whose stream {@code reader} may read. Refuses, with IAM's own failure, anyone who may not read it.
      */
-    UUID requireReader(UUID reader);
+    TenantId requireReader(ActorId reader);
 }
