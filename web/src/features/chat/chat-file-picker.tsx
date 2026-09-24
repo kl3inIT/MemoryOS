@@ -17,7 +17,7 @@ import {
   deleteChatFile,
   finalizeChatFileUpload,
 } from "@/lib/hey-api/sdk.gen";
-import { sameOriginMutationHeaders } from "@/lib/api";
+import { isNotFound, sameOriginMutationHeaders } from "@/lib/api";
 import { chatFileSchema, uploadChatFile, chatAttachmentProblem, type ChatFile } from "./chat-files";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import type { ErrorMessage } from "@/lib/problem-presentation";
@@ -193,10 +193,13 @@ export function ChatFilePickerContent({
       const pageSize = recent.length;
       const unavailable: string[] = [];
       for (const id of selected.filter((id) => !recent.some((file) => file.id === id))) {
-        const result = await getChatFile({ path: { fileId: id }, signal });
-        if (result.response?.status === 404) unavailable.push(id);
-        else if (result.error) throw result.error;
-        else recent.unshift(chatFileSchema.parse(result.data));
+        try {
+          const { data } = await getChatFile({ path: { fileId: id }, signal });
+          recent.unshift(chatFileSchema.parse(data));
+        } catch (error) {
+          if (!isNotFound(error)) throw error;
+          unavailable.push(id);
+        }
       }
       return { entries: recent, pageSize, unavailable };
     },

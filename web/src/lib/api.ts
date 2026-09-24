@@ -36,6 +36,10 @@ export function isUnauthenticated(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 401;
 }
 
+export function isNotFound(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 404;
+}
+
 export function problemCode(error: ApiError) {
   const cause = error.cause;
   if (!cause || typeof cause !== "object" || !("code" in cause)) return undefined;
