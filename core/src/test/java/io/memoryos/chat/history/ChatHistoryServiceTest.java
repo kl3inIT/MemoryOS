@@ -10,8 +10,6 @@ import io.memoryos.TestDatabase;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatSettingsService;
 import io.memoryos.chat.history.persistence.JdbcChatHistoryRepository;
-import io.memoryos.chat.history.persistence.JdbcChatHistoryRepository.Feedback;
-import io.memoryos.chat.history.persistence.JdbcChatHistoryRepository.Query;
 import io.memoryos.iam.group.Authority;
 import io.memoryos.iam.group.IamAccess;
 import io.memoryos.iam.group.IamAuthorization;
@@ -70,7 +68,7 @@ class ChatHistoryServiceTest {
         assertEquals("ha@tasco.vn", entry.email());
         assertEquals("Tôi còn bao nhiêu ngày phép?", entry.question());
         assertEquals("Bạn còn 5 ngày.", entry.answer());
-        assertEquals(Feedback.POSITIVE, entry.feedback());
+        assertEquals(ChatHistoryFeedback.POSITIVE, entry.feedback());
         assertFalse(entry.deleted());
         assertEquals(1, page.totals().conversations());
         assertEquals(1, page.totals().positive());
@@ -94,7 +92,7 @@ class ChatHistoryServiceTest {
         // The question and the answer are not hidden; only who asked is. The screen says as much.
         assertEquals("Tôi còn bao nhiêu ngày phép?", entry.question());
         assertThrows(ChatException.class, () -> history.page(new ActorId(reader),
-                new Query(null, null, null, asker, null), null, 30));
+                new ChatHistoryQuery(null, null, null, asker, null), null, 30));
         assertNotNull(history.transcript(new ActorId(reader), session).messages());
     }
 
@@ -111,7 +109,7 @@ class ChatHistoryServiceTest {
         rate(session, false);
         var transcript = history.transcript(new ActorId(reader), session);
         assertEquals(List.of("USER", "ASSISTANT"),
-                transcript.messages().stream().map(JdbcChatHistoryRepository.Message::role).toList());
+                transcript.messages().stream().map(ChatHistoryMessage::role).toList());
         var answer = transcript.messages().get(1);
         assertEquals(List.of("Hợp đồng Tasco 2026"), answer.citations(), "a citation is named, never opened here");
         assertEquals(Boolean.FALSE, answer.positive());
@@ -123,8 +121,8 @@ class ChatHistoryServiceTest {
         var disliked = conversation("Chưa tốt", "Hỏi 2", "Đáp 2", false, false);
         rate(disliked, false);
         conversation("Chưa chấm", "Hỏi 3", "Đáp 3", false, false);
-        assertEquals(List.of("Chưa tốt"), titles(new Query(null, null, null, null, Feedback.NEGATIVE)));
-        assertEquals(List.of("Chưa chấm"), titles(new Query(null, null, null, null, Feedback.NONE)));
+        assertEquals(List.of("Chưa tốt"), titles(new ChatHistoryQuery(null, null, null, null, ChatHistoryFeedback.NEGATIVE)));
+        assertEquals(List.of("Chưa chấm"), titles(new ChatHistoryQuery(null, null, null, null, ChatHistoryFeedback.NONE)));
     }
 
     @Test void theCursorWalksEveryConversationOnceAndTheSearchIsLiteral() {
@@ -141,7 +139,7 @@ class ChatHistoryServiceTest {
         assertEquals(3, seen.size());
         assertEquals(3, seen.stream().distinct().count());
         // "100%" is text to find, not a pattern that matches everything.
-        assertEquals(List.of("100% chắc"), titles(new Query(null, null, "100%", null, null)));
+        assertEquals(List.of("100% chắc"), titles(new ChatHistoryQuery(null, null, "100%", null, null)));
     }
 
     @Test void theExportCarriesEveryConversationTheFiltersSelect() {
@@ -153,13 +151,13 @@ class ChatHistoryServiceTest {
         assertEquals(2, rows.size());
     }
 
-    private List<String> titles(Query query) {
+    private List<String> titles(ChatHistoryQuery query) {
         return history.page(new ActorId(reader), query, null, 30).items().stream()
                 .map(ChatHistoryService.Conversation::title).toList();
     }
 
-    private static Query all() {
-        return new Query(null, null, null, null, null);
+    private static ChatHistoryQuery all() {
+        return new ChatHistoryQuery(null, null, null, null, null);
     }
 
     private IamAuthorization authorization() {
