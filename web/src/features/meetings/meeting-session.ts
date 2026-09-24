@@ -17,7 +17,7 @@ import {
 type Active = { meetingId: string; recorder: MeetingRecorder };
 
 let active: Active | undefined;
-/** Why the last recording in this tab stopped on its own; it stays until the next recording starts. */
+/** Why the last recording in this tab stopped on its own; it stays until the next recording starts or the meeting ends. */
 type Failure = { meetingId: string; code: string };
 let failure: Failure | undefined;
 const listeners = new Set<() => void>();
@@ -99,6 +99,10 @@ export async function stopRecording() {
 export async function endMeeting(meetingId: string, cache: QueryClient) {
   if (active?.meetingId === meetingId) await stopRecording();
   const ended = await finishMeeting(meetingId);
+  if (failure?.meetingId === meetingId) {
+    failure = undefined;
+    publish();
+  }
   cache.setQueryData(meetingKey(meetingId), ended);
   void invalidateMeetingList(cache);
   return ended;

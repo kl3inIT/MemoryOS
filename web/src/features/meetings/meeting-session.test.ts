@@ -34,13 +34,14 @@ class FakeRecorder {
 
 vi.mock("./meeting-recorder", () => ({ MeetingRecorder: FakeRecorder }));
 vi.mock("./meetings-api", () => ({
-  finishMeeting: vi.fn(),
+  finishMeeting: vi.fn(async (id: string) => ({ id })),
   issueMeetingTicket: vi.fn(),
   meetingKey: (id: string) => ["meetings", id],
   invalidateMeetingList: vi.fn(),
 }));
 
-const { startRecording, useActiveMeeting, useRecordingFailure } = await import("./meeting-session");
+const { endMeeting, startRecording, useActiveMeeting, useRecordingFailure } =
+  await import("./meeting-session");
 
 describe("meeting session", () => {
   it("keeps why a recording failed after it stops, until the next recording starts", async () => {
@@ -55,6 +56,18 @@ describe("meeting session", () => {
     expect(failure.result.current).toEqual({ meetingId: "meeting-1", code: "MEETING_BUSY" });
 
     await act(() => startRecording("meeting-1", [], cache));
+    expect(failure.result.current).toBeUndefined();
+  });
+
+  it("forgets the failure once that meeting ends", async () => {
+    const cache = new QueryClient();
+    const failure = renderHook(() => useRecordingFailure());
+
+    await act(() => startRecording("meeting-2", [], cache));
+    act(() => recorders.at(-1)!.update({ phase: "failed", error: "MEETING_TOO_LONG" }));
+    expect(failure.result.current).toEqual({ meetingId: "meeting-2", code: "MEETING_TOO_LONG" });
+
+    await act(() => endMeeting("meeting-2", cache));
     expect(failure.result.current).toBeUndefined();
   });
 });
