@@ -87,12 +87,12 @@ All operations are under `/api/search` with tag `Search settings` and require `M
 | `POST /settings/past/{id}/restore` | 200 settings | 404, 409 retention ended or FUTURE exists |
 | `GET /embedding-providers` | 200, keys never returned (`hasApiKey`, `inUse`) | |
 | `POST /embedding-providers` | 201 | 400 endpoint or name, 409 name taken |
-| `PUT /embedding-providers/{id}` | 200 at `revision + 1`; `apiKey` null keeps, empty removes | 404, 409 stale `revision` in the body or name taken |
+| `PUT /embedding-providers/{id}` | 200 at `revision + 1`; `apiKey` null keeps, empty removes | 400 a changed endpoint with `apiKey` null while a key is stored, 404, 409 stale `revision` in the body or name taken |
 | `DELETE /embedding-providers/{id}` | 204 | 404, 409 a generation (PAST included) uses it |
-| `POST /embedding-providers/test` | 200 `ok`, returned model, real dimensions, latency and our own error text | 400, 404 provider |
+| `POST /embedding-providers/test` | 200 `ok`, returned model, real dimensions, latency and our own error text; a saved provider's stored key is sent only to its saved endpoint | 400, including another endpoint with `apiKey` null while a key is stored; 404 provider |
 | `GET /embedding-models` | 200 presets with dimensions, prefixes and input limits | |
 
-A provider saved without a key sends the placeholder bearer `no-key`, which keyless servers (Ollama, LM Studio, TEI without `--api-key`) ignore.
+A stored key belongs to the endpoint it was entered for: moving the endpoint takes a new key or removes it, and the provider editor switches from keeping the key to replacing it when the endpoint changes. A provider saved without a key sends the placeholder bearer `no-key`, which keyless servers (Ollama, LM Studio, TEI without `--api-key`) ignore.
 
 ### Index layout
 

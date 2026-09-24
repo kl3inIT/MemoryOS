@@ -87,9 +87,15 @@ export function EmbeddingProviderEditor({
     };
   }, []);
 
+  // A stored key stays with the endpoint it was saved for; a moved endpoint needs a new key or none.
+  const keepBlocked = Boolean(initial?.hasApiKey) && endpoint.trim() !== initial?.endpoint;
+
   // A new provider may run without a key; replacing one on an existing provider needs the new key typed.
   const invalid =
-    !name.trim() || !endpoint.trim() || (initial != null && keyAction === "REPLACE" && !keyTyped);
+    (keepBlocked && keyAction === "KEEP") ||
+    !name.trim() ||
+    !endpoint.trim() ||
+    (initial != null && keyAction === "REPLACE" && !keyTyped);
   const dimensionsValid = !dimensions.trim() || /^\d+$/.test(dimensions.trim());
   const testable = Boolean(endpoint.trim() && model.trim() && dimensionsValid);
 
@@ -192,7 +198,16 @@ export function EmbeddingProviderEditor({
               placeholder="http://10.0.0.5:8080/v1"
               value={endpoint}
               onChange={(event) => {
-                setEndpoint(event.target.value);
+                const next = event.target.value;
+                setEndpoint(next);
+                if (
+                  initial?.hasApiKey &&
+                  next.trim() !== initial.endpoint &&
+                  keyAction === "KEEP"
+                ) {
+                  setKeyAction("REPLACE");
+                  clearSecret();
+                }
                 connection.reset();
               }}
             />
@@ -208,7 +223,7 @@ export function EmbeddingProviderEditor({
                   connection.reset();
                 }}
               >
-                <option value="KEEP">
+                <option value="KEEP" disabled={keepBlocked}>
                   {initial.hasApiKey ? ui("Keep existing key") : ui("Không có khóa")}
                 </option>
                 <option value="REPLACE">{ui("Replace key")}</option>

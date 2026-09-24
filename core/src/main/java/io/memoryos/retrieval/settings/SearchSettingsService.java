@@ -88,7 +88,10 @@ public class SearchSettingsService {
     public record ProviderView(UUID id, String name, String endpoint, EmbeddingProvider.DataBoundary dataBoundary,
             boolean hasApiKey, long revision, boolean inUse) { }
 
-    /** {@code apiKey} null keeps the stored key and an empty one removes it; {@code revision} is required to update. */
+    /**
+     * {@code apiKey} null keeps the stored key and an empty one removes it; a changed endpoint cannot keep a stored key.
+     * {@code revision} is required to update.
+     */
     public record ProviderInput(String name, String endpoint, @Nullable String apiKey, EmbeddingProvider.DataBoundary dataBoundary,
             @Nullable Long revision) {
         @Override public @NonNull String toString() { return "ProviderInput[name=" + name + ", endpoint=" + endpoint + ", apiKey=REDACTED]"; }
@@ -194,8 +197,13 @@ public class SearchSettingsService {
             String name = name(input.name());
             if (settings.nameTaken(tenant, name, providerId)) throw SearchSettingsException.duplicateName();
             String key = input.apiKey();
+            var endpoint = input.endpoint() == null ? null : endpoint(input.endpoint());
+            // A stored key was entered for its endpoint; another endpoint gets a new key or none, never that one.
+            if (endpoint != null && key == null && existing.credential() != null && !existing.endpoint().equals(endpoint)) {
+                throw SearchSettingsException.invalid("A changed endpoint needs a new API key, or the key removed.");
+            }
             String credential = key == null ? existing.credential() : key.isEmpty() ? null : credentials.seal(tenant, providerId, key);
-            var provider = provider(providerId, tenant, name, input.endpoint(), credential, input.dataBoundary(),
+            var provider = provider(providerId, tenant, name, endpoint, credential, input.dataBoundary(),
                     existing.revision() + 1);
             if (!settings.updateProvider(provider, existing.revision())) throw SearchSettingsException.staleRevision();
             return view(provider, settings.providersInUse(tenant).contains(providerId));
@@ -231,8 +239,12 @@ public class SearchSettingsService {
             }
             var provider = settings.provider(tenant, input.providerId()).orElseThrow(SearchSettingsException::notFound);
             String endpoint = endpoint(input.endpoint() == null ? provider.endpoint() : input.endpoint());
-            String key = input.apiKey() != null ? keyOrNone(input.apiKey()) : storedKey(provider);
-            return new Connection(endpoint, key);
+            if (input.apiKey() != null) return new Connection(endpoint, keyOrNone(input.apiKey()));
+            // The stored key goes only to the endpoint it was saved with.
+            if (provider.credential() != null && !provider.endpoint().equals(endpoint)) {
+                throw SearchSettingsException.invalid("A changed endpoint needs its API key in the check.");
+            }
+            return new Connection(endpoint, storedKey(provider));
         }));
         return probe.probe(connection.endpoint(), connection.key(), input.model().trim(), input.dimensions());
     }

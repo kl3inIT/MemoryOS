@@ -5,7 +5,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -189,6 +191,46 @@ class SearchSettingsApiTest {
     }
 
     @Test
+    void aStoredKeyIsNeverSentToAnEndpointItWasNotSavedWith() throws Exception {
+        String saved = "http://172.24.244.79:18090/v1";
+        String other = "http://10.9.9.9:8080/v1";
+        var created = mockMvc.perform(write(post("/api/search/embedding-providers")
+                        .content(provider("moved-" + UUID.randomUUID(), saved, "tei-key", null))).with(authentication(owner)))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        String name = json.readTree(created).path("name").asString();
+        UUID id = UUID.fromString(json.readTree(created).path("id").asString());
+
+        // Moving the endpoint while keeping the stored key is refused, and nothing changes.
+        mockMvc.perform(write(put("/api/search/embedding-providers/" + id).content(provider(name, other, null, 1L)))
+                        .with(authentication(owner)))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("SEARCH_SETTINGS_INVALID"));
+        // A check of the saved provider at another endpoint needs the key in the request.
+        mockMvc.perform(write(post("/api/search/embedding-providers/test").content(test(id, other, null))).with(authentication(owner)))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("SEARCH_SETTINGS_INVALID"));
+        verify(probe, never()).probe(eq(other), anyString(), anyString(), any());
+        mockMvc.perform(write(post("/api/search/embedding-providers/test").content(test(id, saved, null))).with(authentication(owner)))
+                .andExpect(status().isOk());
+        verify(probe).probe(eq(saved), eq("tei-key"), anyString(), any());
+        mockMvc.perform(write(post("/api/search/embedding-providers/test").content(test(id, other, "other-key"))).with(authentication(owner)))
+                .andExpect(status().isOk());
+        verify(probe).probe(eq(other), eq("other-key"), anyString(), any());
+
+        // A new key, or removing the key, moves it.
+        mockMvc.perform(write(put("/api/search/embedding-providers/" + id).content(provider(name, other, "other-key", 1L)))
+                        .with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.endpoint").value(other))
+                .andExpect(jsonPath("$.hasApiKey").value(true)).andExpect(jsonPath("$.revision").value(2));
+        mockMvc.perform(write(put("/api/search/embedding-providers/" + id).content(provider(name, saved, "", 2L)))
+                        .with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.endpoint").value(saved))
+                .andExpect(jsonPath("$.hasApiKey").value(false));
+        // Without a stored key there is nothing to carry over.
+        mockMvc.perform(write(put("/api/search/embedding-providers/" + id).content(provider(name, other, null, 3L)))
+                        .with(authentication(owner)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.endpoint").value(other));
+    }
+
+    @Test
     void theRebuildIsStartedRefusedTwiceCancelledSwitchedAndRestored() throws Exception {
         var created = mockMvc.perform(write(post("/api/search/embedding-providers").content(provider("tei-" + UUID.randomUUID(), "k", null)))
                 .with(authentication(owner))).andReturn().getResponse().getContentAsString();
@@ -267,9 +309,19 @@ class SearchSettingsApiTest {
     }
 
     private static String provider(String name, String key, Long revision) {
+        return provider(name, "http://172.24.244.79:18090/v1", key, revision);
+    }
+
+    private static String provider(String name, String endpoint, String key, Long revision) {
         return """
-                {"name":"%s","endpoint":"http://172.24.244.79:18090/v1","apiKey":%s,"dataBoundary":"INTERNAL","revision":%s}
-                """.formatted(name, key == null ? "null" : "\"" + key + "\"", revision == null ? "null" : revision);
+                {"name":"%s","endpoint":"%s","apiKey":%s,"dataBoundary":"INTERNAL","revision":%s}
+                """.formatted(name, endpoint, key == null ? "null" : "\"" + key + "\"", revision == null ? "null" : revision);
+    }
+
+    private static String test(UUID provider, String endpoint, String key) {
+        return """
+                {"providerId":"%s","endpoint":"%s","apiKey":%s,"model":"Qwen/Qwen3-Embedding-0.6B","dimensions":1024}
+                """.formatted(provider, endpoint, key == null ? "null" : "\"" + key + "\"");
     }
 
     private static String test(UUID provider) {

@@ -446,6 +446,13 @@ for (const width of [1440, 390]) {
         }),
       ).toBe(true);
       await capture(page, "provider-editor", width);
+      await editor.getByLabel("Endpoint").fill("http://10.9.9.9:8080/v1");
+      await expect(editor.getByRole("combobox")).toHaveValue("REPLACE");
+      await expect(editor.getByRole("option", { name: "Giữ khóa đang lưu" })).toHaveJSProperty(
+        "disabled",
+        true,
+      );
+      await expect(editor.getByRole("button", { name: "Lưu provider" })).toBeDisabled();
       await editor.getByRole("button", { name: "Đóng", exact: true }).click();
 
       await providers.getByRole("button", { name: "Xoá provider OpenAI" }).click();

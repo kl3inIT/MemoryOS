@@ -116,7 +116,7 @@ Schema:
 * `SearchRebuildProgressResponse`: `ready`, `total`, `failed`, `pending` (số tài liệu), `estimatedSecondsRemaining` (hoặc `null`), `switchable` (boolean).
 * `SearchGenerationRequest`: `providerId`, `model`, `dimensions`, `queryPrefix`, `documentPrefix`, `minimumSemanticScore`.
 * `EmbeddingProviderResponse`: `id`, `name`, `endpoint`, `dataBoundary`, `hasApiKey` (key không bao giờ trả về), `revision`, `inUse` (boolean).
-* `EmbeddingProviderRequest`: `name`, `endpoint`, `apiKey` (`null` giữ key cũ, chuỗi rỗng xoá key), `dataBoundary`, `revision` (chỉ khi sửa).
+* `EmbeddingProviderRequest`: `name`, `endpoint`, `apiKey` (`null` giữ key cũ, chuỗi rỗng xoá key), `dataBoundary`, `revision` (chỉ khi sửa). Đổi endpoint mà `apiKey` là `null` trong khi đang lưu key thì bị từ chối (400): key đã lưu chỉ đi tới endpoint nó được nhập cho; kiểm tra kết nối cũng vậy.
 * `EmbeddingProviderTestRequest`: `providerId` hoặc `endpoint` + `apiKey`, cùng `model` và `dimensions` (có thể `null`). Gọi `/v1/embeddings` thật một lần.
 * `EmbeddingProviderTestResponse`: `ok`, `model` (tên provider trả về), `dimensions` (số chiều thật), `latencyMs`, `error` (hoặc `null`).
 * `EmbeddingModelPresetResponse`: `model`, `label`, `dimensions`, `queryPrefix`, `documentPrefix`, `maxInputTokens`: các model đã biết để điền sẵn (Qwen3-Embedding 0.6B/4B/8B, BGE-M3, OpenAI `text-embedding-3-small/large`, multilingual-e5-large-instruct).
