@@ -1,6 +1,6 @@
 package io.memoryos.library.persistence;
 
-import io.memoryos.library.ChatLibraryFile;
+import io.memoryos.library.LibraryFile;
 import io.memoryos.library.UserFile;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
@@ -27,12 +27,12 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
-public class JdbcChatLibraryRepository {
+public class JdbcLibraryRepository {
     private final JdbcClient jdbc;
 
-    public JdbcChatLibraryRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
+    public JdbcLibraryRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
-    public record Page(List<ChatLibraryFile> items, long totalCount, long totalBytes) {}
+    public record Page(List<LibraryFile> items, long totalCount, long totalBytes) {}
 
     /**
      * A category is derived from the stored media type and name rather than stored, so it cannot drift from
@@ -135,7 +135,7 @@ public class JdbcChatLibraryRepository {
         }
     }
 
-    public Page page(TenantId tenant, ActorId actor, Filter filter, ChatLibraryFile.Sort sort, int offset, int limit) {
+    public Page page(TenantId tenant, ActorId actor, Filter filter, LibraryFile.Sort sort, int offset, int limit) {
         String order = switch (sort) {
             case NEWEST -> "created_at DESC, id";
             case OLDEST -> "created_at, id";
@@ -153,10 +153,10 @@ public class JdbcChatLibraryRepository {
                 ORDER BY %s OFFSET :offset LIMIT :limit
                 """.formatted(filtered(), order)), tenant, actor, filter)
                 .param("offset", offset).param("limit", limit)
-                .query((row, ignored) -> new Row(new ChatLibraryFile(
-                        ChatLibraryFile.Source.valueOf(row.getString("source")), row.getObject("id", UUID.class),
+                .query((row, ignored) -> new Row(new LibraryFile(
+                        LibraryFile.Source.valueOf(row.getString("source")), row.getObject("id", UUID.class),
                         row.getString("filename"), row.getString("media_type"), row.getLong("size_bytes"),
-                        row.getTimestamp("created_at").toInstant(), ChatLibraryFile.Category.valueOf(row.getString("category")),
+                        row.getTimestamp("created_at").toInstant(), LibraryFile.Category.valueOf(row.getString("category")),
                         row.getObject("session_id", UUID.class), row.getString("session_title"),
                         row.getObject("message_id", UUID.class), row.getTimestamp("favorite_at") != null,
                         UserFile.Status.valueOf(row.getString("status")), row.getString("error_code"),
@@ -218,13 +218,13 @@ public class JdbcChatLibraryRepository {
         return value == null ? null : value.toInstant();
     }
 
-    private record Row(ChatLibraryFile file, long totalCount, long totalBytes) {}
+    private record Row(LibraryFile file, long totalCount, long totalBytes) {}
 
     /** What one person's library holds, in total and per category; the same rows the listing shows. */
-    public record Usage(long totalBytes, long fileCount, java.util.Map<ChatLibraryFile.Category, Long> byCategory) {}
+    public record Usage(long totalBytes, long fileCount, java.util.Map<LibraryFile.Category, Long> byCategory) {}
 
     public Usage usage(TenantId tenant, ActorId actor) {
-        var byCategory = new java.util.EnumMap<ChatLibraryFile.Category, Long>(ChatLibraryFile.Category.class);
+        var byCategory = new java.util.EnumMap<LibraryFile.Category, Long>(LibraryFile.Category.class);
         long[] totals = new long[2];
         bind(jdbc.sql("""
                 SELECT category, COALESCE(SUM(size_bytes), 0) AS bytes, count(*) AS files
@@ -233,7 +233,7 @@ public class JdbcChatLibraryRepository {
                 new Filter("", Set.of(), Set.of(), null, false, false, null))
                 .query((row, ignored) -> {
                     long bytes = row.getLong("bytes");
-                    byCategory.put(ChatLibraryFile.Category.valueOf(row.getString("category")), bytes);
+                    byCategory.put(LibraryFile.Category.valueOf(row.getString("category")), bytes);
                     totals[0] += bytes;
                     totals[1] += row.getLong("files");
                     return true;
@@ -248,7 +248,7 @@ public class JdbcChatLibraryRepository {
      * An artifact the actor owns, in a conversation that is not deleted, and not deleted itself: exactly what the
      * library lists, so a file can be copied only while the library shows it.
      */
-    public Optional<Artifact> artifact(TenantId tenant, ActorId actor, ChatLibraryFile.Source source, UUID id) {
+    public Optional<Artifact> artifact(TenantId tenant, ActorId actor, LibraryFile.Source source, UUID id) {
         String table = switch (source) {
             case GENERATED -> "chat_file_artifact";
             case IMAGE -> "chat_image_artifact";

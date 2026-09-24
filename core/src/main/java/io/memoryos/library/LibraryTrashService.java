@@ -20,7 +20,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 @EnableConfigurationProperties(LibraryTrashProperties.class)
-public class ChatLibraryTrashService {
+public class LibraryTrashService {
     /** Emptying the trash acts on a bounded batch, so one request cannot queue unbounded work. */
     public static final int EMPTY_LIMIT = 500;
 
@@ -30,7 +30,7 @@ public class ChatLibraryTrashService {
     private final LibraryTrashProperties trash;
     private final TransactionTemplate tx;
 
-    public ChatLibraryTrashService(TenantAccessResolver tenants, JdbcUserFileRepository files, LibraryArtifacts artifacts,
+    public LibraryTrashService(TenantAccessResolver tenants, JdbcUserFileRepository files, LibraryArtifacts artifacts,
                                    LibraryTrashProperties trash, PlatformTransactionManager transactionManager) {
         this.tenants = tenants; this.files = files; this.artifacts = artifacts; this.trash = trash;
         this.tx = new TransactionTemplate(transactionManager);
@@ -39,7 +39,7 @@ public class ChatLibraryTrashService {
     /** How long a deleted file stays restorable; zero means deletion releases the bytes at once. */
     public Duration window() { return trash.trashAfter(); }
 
-    public void restore(ActorId actor, ChatLibraryFile.Source source, UUID id) {
+    public void restore(ActorId actor, LibraryFile.Source source, UUID id) {
         boolean restored = Boolean.TRUE.equals(tx.execute(ignored -> {
             var tenant = write(actor);
             return switch (source) {
@@ -51,7 +51,7 @@ public class ChatLibraryTrashService {
     }
 
     /** Ends the window now: the bytes are released by the same routes that release them when it lapses. */
-    public void purge(ActorId actor, ChatLibraryFile.Source source, UUID id) {
+    public void purge(ActorId actor, LibraryFile.Source source, UUID id) {
         boolean purged = Boolean.TRUE.equals(tx.execute(ignored -> {
             var tenant = write(actor);
             return switch (source) {

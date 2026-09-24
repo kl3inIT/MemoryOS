@@ -12,12 +12,12 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 
 @Service
-public class ChatFileSearchService {
+public class UserFileSearchService {
     private final JdbcUserFileRepository files;
     private final FileAttachments attachments;
     private final TenantAccessResolver tenants;
     private final DocumentSearchService search;
-    public ChatFileSearchService(JdbcUserFileRepository files, FileAttachments attachments, TenantAccessResolver tenants,
+    public UserFileSearchService(JdbcUserFileRepository files, FileAttachments attachments, TenantAccessResolver tenants,
                                  DocumentSearchService search) {
         this.files = files; this.attachments = attachments; this.tenants = tenants; this.search = search;
     }

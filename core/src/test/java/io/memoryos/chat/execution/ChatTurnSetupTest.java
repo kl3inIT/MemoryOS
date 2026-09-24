@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
-import io.memoryos.library.ChatFileContentService;
-import io.memoryos.library.ChatFileService;
+import io.memoryos.library.UserFileContentService;
+import io.memoryos.library.UserFileService;
 
 class ChatTurnSetupTest {
     @Test
@@ -55,7 +55,7 @@ class ChatTurnSetupTest {
         assertEquals(java.util.Map.of(), setup.images());
         org.junit.jupiter.api.Assertions.assertTrue(setup.messages().get(1).getContent().contains("this model cannot view images"));
         org.junit.jupiter.api.Assertions.assertTrue(setup.messages().getLast().getContent().contains("this model cannot view images"));
-        var content = mock(ChatFileContentService.class);
+        var content = mock(UserFileContentService.class);
         assertEquals(setup.messages(), ChatFileInputs.materialize(setup, content, () -> {}));
         org.mockito.Mockito.verifyNoInteractions(content);
     }
@@ -70,7 +70,7 @@ class ChatTurnSetupTest {
         var vision = new ModelBinding(base.service(), base.finalRequest(), base.policy(), base.contextWindow(), base.maxOutputTokens(), false, true);
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context(List.of(question)), 32000, vision, "");
         assertEquals(List.of(first, second), setup.images().get(1));
-        var content = mock(ChatFileContentService.class);
+        var content = mock(UserFileContentService.class);
         var checks = new java.util.concurrent.atomic.AtomicInteger();
         org.mockito.Mockito.when(content.image(setup.actor(), setup.tenant(), first.id())).thenReturn(new byte[]{1, 2, 3});
         assertThrows(java.util.concurrent.CancellationException.class, () -> ChatFileInputs.materialize(setup, content, () -> {
@@ -158,7 +158,7 @@ class ChatTurnSetupTest {
                 "Tóm tắt", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(file));
         var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture",
                 "Answer", List.of(question), io.memoryos.chat.ChatTurnOptions.DEFAULT,
-                java.util.Map.of(id, new ChatFileService.FileText("A😀Việt", 0, 6)), List.of(file));
+                java.util.Map.of(id, new UserFileService.FileText("A😀Việt", 0, 6)), List.of(file));
         var setup = ChatTurnSetup.resolve(UUID.randomUUID(), UUID.randomUUID(), context, 32000, binding(), "");
         assertEquals(4, setup.messages().size());
         org.junit.jupiter.api.Assertions.assertTrue(setup.messages().get(1).getContent().contains("A😀Việt"));
@@ -174,7 +174,7 @@ class ChatTurnSetupTest {
                 "Summarize", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now(), List.of(), List.of(file));
         var context = new TurnContext(new ActorId(UUID.randomUUID()), new TenantId(UUID.randomUUID()), "fixture",
                 "Answer", List.of(question), io.memoryos.chat.ChatTurnOptions.DEFAULT,
-                java.util.Map.of(file.id(), new ChatFileService.FileText("text", 0, 4)), List.of());
+                java.util.Map.of(file.id(), new UserFileService.FileText("text", 0, 4)), List.of());
         var base = binding();
         var policy = new ModelRequestPolicy(base.policy().tokens(),
                 prompt -> base.policy().framing().applyAsInt(prompt)

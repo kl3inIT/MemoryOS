@@ -1,9 +1,9 @@
 package io.memoryos.meeting;
 
-import io.memoryos.library.ChatFileInUseException;
-import io.memoryos.library.ChatFileService;
-import io.memoryos.library.ChatLibraryFile;
-import io.memoryos.library.ChatLibraryService;
+import io.memoryos.library.UserFileInUseException;
+import io.memoryos.library.UserFileService;
+import io.memoryos.library.LibraryFile;
+import io.memoryos.library.LibraryService;
 import io.memoryos.shared.ActorId;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -20,10 +20,10 @@ public class MeetingLibraryService {
     private static final Logger LOG = LoggerFactory.getLogger(MeetingLibraryService.class);
 
     private final MeetingService meetings;
-    private final ChatLibraryService library;
-    private final ChatFileService files;
+    private final LibraryService library;
+    private final UserFileService files;
 
-    public MeetingLibraryService(MeetingService meetings, ChatLibraryService library, ChatFileService files) {
+    public MeetingLibraryService(MeetingService meetings, LibraryService library, UserFileService files) {
         this.meetings = meetings;
         this.library = library;
         this.files = files;
@@ -37,7 +37,7 @@ public class MeetingLibraryService {
         var meeting = meetings.get(actor, meetingId);
         if (meeting.minutes().status() != Meeting.MinutesStatus.READY)
             throw MeetingException.invalid("The minutes are not written yet.");
-        var file = library.publish(actor, ChatLibraryFile.Source.MEETING, meetingId,
+        var file = library.publish(actor, LibraryFile.Source.MEETING, meetingId,
                 MeetingMinutesMarkdown.filename(meeting), "text/markdown", MeetingMinutesMarkdown.render(meeting));
         return new PublishedMinutes(file.id(), file.filename(), file.status().name());
     }
@@ -49,10 +49,10 @@ public class MeetingLibraryService {
      */
     public Meeting.Detail rerunMinutes(ActorId actor, UUID meetingId, boolean discardEdits) {
         var meeting = meetings.rerunMinutes(actor, meetingId, discardEdits);
-        library.published(actor, ChatLibraryFile.Source.MEETING, meetingId).ifPresent(file -> {
+        library.published(actor, LibraryFile.Source.MEETING, meetingId).ifPresent(file -> {
             try {
                 files.delete(actor, file.id());
-            } catch (ChatFileInUseException inUse) {
+            } catch (UserFileInUseException inUse) {
                 LOG.info("Published meeting minutes kept because something still uses them");
             }
         });

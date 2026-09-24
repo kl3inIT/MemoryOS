@@ -11,7 +11,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.memoryos.library.persistence.JdbcChatLibraryRepository;
+import io.memoryos.library.persistence.JdbcLibraryRepository;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectWriteService;
@@ -32,21 +32,21 @@ import org.springframework.transaction.PlatformTransactionManager;
  * them as library rows. The collaborators are stubbed here: what matters is the scope handed to the search, the
  * grouping of its passages and that a file the library no longer lists is dropped.
  */
-class ChatLibraryContentSearchTest {
+class LibraryContentSearchTest {
     private final TenantId tenant = new TenantId(UUID.randomUUID());
     private final ActorId actor = new ActorId(UUID.randomUUID());
     private final TenantAccessResolver tenants = mock(TenantAccessResolver.class);
-    private final JdbcChatLibraryRepository library = mock(JdbcChatLibraryRepository.class);
+    private final JdbcLibraryRepository library = mock(JdbcLibraryRepository.class);
     private final JdbcUserFileRepository files = mock(JdbcUserFileRepository.class);
-    private final ChatFileSearchService fileSearch = mock(ChatFileSearchService.class);
-    private final ChatLibraryService service = new ChatLibraryService(tenants, library, files,
+    private final UserFileSearchService fileSearch = mock(UserFileSearchService.class);
+    private final LibraryService service = new LibraryService(tenants, library, files,
             mock(FileAttachments.class), mock(LibraryArtifacts.class), mock(ObjectStorage.class),
-            mock(ObjectWriteService.class), new ChatFileProperties(104857600L, 104857600L),
-            mock(ChatStorageQuotaService.class), mock(PlatformTransactionManager.class), fileSearch);
+            mock(ObjectWriteService.class), new UserFileProperties(104857600L, 104857600L),
+            mock(StorageQuotaService.class), mock(PlatformTransactionManager.class), fileSearch);
 
-    private static ChatLibraryFile row(UUID id, String filename) {
-        return new ChatLibraryFile(ChatLibraryFile.Source.UPLOAD, id, filename, "application/pdf", 10,
-                Instant.now(), ChatLibraryFile.Category.DOCUMENT, null, null, null, false,
+    private static LibraryFile row(UUID id, String filename) {
+        return new LibraryFile(LibraryFile.Source.UPLOAD, id, filename, "application/pdf", 10,
+                Instant.now(), LibraryFile.Category.DOCUMENT, null, null, null, false,
                 UserFile.Status.READY, null, null, null, List.of());
     }
 
@@ -62,13 +62,13 @@ class ChatLibraryContentSearchTest {
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
         when(files.searchable(tenant, actor, 4000)).thenReturn(List.of(first, second));
         when(fileSearch.search(eq(actor), eq(tenant), anySet(), eq("điều khoản"))).thenReturn(List.of(
-                new ChatFileSearchService.FileHit(second, hit(UUID.randomUUID(), 1, "điều khoản thanh toán")),
-                new ChatFileSearchService.FileHit(first, hit(UUID.randomUUID(), 4, "điều khoản bảo hành")),
-                new ChatFileSearchService.FileHit(second, hit(UUID.randomUUID(), 2, "b")),
-                new ChatFileSearchService.FileHit(second, hit(UUID.randomUUID(), 3, "c")),
-                new ChatFileSearchService.FileHit(second, hit(UUID.randomUUID(), 9, "a fourth passage"))));
+                new UserFileSearchService.FileHit(second, hit(UUID.randomUUID(), 1, "điều khoản thanh toán")),
+                new UserFileSearchService.FileHit(first, hit(UUID.randomUUID(), 4, "điều khoản bảo hành")),
+                new UserFileSearchService.FileHit(second, hit(UUID.randomUUID(), 2, "b")),
+                new UserFileSearchService.FileHit(second, hit(UUID.randomUUID(), 3, "c")),
+                new UserFileSearchService.FileHit(second, hit(UUID.randomUUID(), 9, "a fourth passage"))));
         when(library.page(eq(tenant), eq(actor), any(), any(), eq(0), eq(2)))
-                .thenReturn(new JdbcChatLibraryRepository.Page(List.of(row(first, "bao-hanh.pdf"),
+                .thenReturn(new JdbcLibraryRepository.Page(List.of(row(first, "bao-hanh.pdf"),
                         row(second, "hop-dong.pdf")), 2, 20));
 
         var matches = service.searchContent(actor, "  điều khoản  ");
@@ -76,7 +76,7 @@ class ChatLibraryContentSearchTest {
         // Best match first, as the search ranked it, and a file carries at most three passages.
         assertEquals(List.of(second, first), matches.stream().map(match -> match.file().id()).toList());
         assertEquals(List.of("điều khoản thanh toán", "b", "c"),
-                matches.getFirst().passages().stream().map(ChatLibraryService.Passage::text).toList());
+                matches.getFirst().passages().stream().map(LibraryService.Passage::text).toList());
         assertEquals(1, matches.getFirst().passages().getFirst().ordinal());
         assertEquals("hop-dong.pdf", matches.getFirst().file().filename());
 
@@ -90,9 +90,9 @@ class ChatLibraryContentSearchTest {
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
         when(files.searchable(tenant, actor, 4000)).thenReturn(List.of(gone));
         when(fileSearch.search(eq(actor), eq(tenant), anySet(), eq("hợp đồng"))).thenReturn(List.of(
-                new ChatFileSearchService.FileHit(gone, hit(UUID.randomUUID(), 1, "hợp đồng"))));
+                new UserFileSearchService.FileHit(gone, hit(UUID.randomUUID(), 1, "hợp đồng"))));
         when(library.page(eq(tenant), eq(actor), any(), any(), eq(0), eq(1)))
-                .thenReturn(new JdbcChatLibraryRepository.Page(List.of(), 0, 0));
+                .thenReturn(new JdbcLibraryRepository.Page(List.of(), 0, 0));
         assertTrue(service.searchContent(actor, "hợp đồng").isEmpty());
 
         when(files.searchable(tenant, actor, 4000)).thenReturn(List.of());

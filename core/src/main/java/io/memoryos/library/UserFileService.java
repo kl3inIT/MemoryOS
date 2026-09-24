@@ -21,19 +21,19 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
-@EnableConfigurationProperties({ChatFileProperties.class, LibraryTrashProperties.class})
-public class ChatFileService {
+@EnableConfigurationProperties({UserFileProperties.class, LibraryTrashProperties.class})
+public class UserFileService {
     private final TenantAccessResolver tenants;
     private final JdbcUserFileRepository files;
     private final FileAttachments attachments;
     private final ObjectUploadService uploads;
-    private final ChatFileProperties policy;
-    private final ChatStorageQuotaService quotas;
+    private final UserFileProperties policy;
+    private final StorageQuotaService quotas;
     private final LibraryTrashProperties trash;
     private final TransactionTemplate tx;
 
-    public ChatFileService(TenantAccessResolver tenants, JdbcUserFileRepository files, FileAttachments attachments,
-            ObjectUploadService uploads, ChatFileProperties policy, ChatStorageQuotaService quotas,
+    public UserFileService(TenantAccessResolver tenants, JdbcUserFileRepository files, FileAttachments attachments,
+            ObjectUploadService uploads, UserFileProperties policy, StorageQuotaService quotas,
             LibraryTrashProperties trash, PlatformTransactionManager transactionManager) {
         this.tenants = tenants; this.files = files; this.attachments = attachments; this.uploads = uploads;
         this.policy = policy; this.quotas = quotas; this.trash = trash;
@@ -43,7 +43,7 @@ public class ChatFileService {
     public record UploadInput(UUID requestId, String filename, String mediaType, long sizeBytes, String sha256) {}
     public record UploadReceipt(UserFile file, @Nullable UploadAuthorization upload) {}
 
-    public ChatFileProperties policy(ActorId actor) { tenant(actor); return policy; }
+    public UserFileProperties policy(ActorId actor) { tenant(actor); return policy; }
 
     public UploadReceipt initiate(ActorId actor, UploadInput input) {
         Objects.requireNonNull(input.requestId(), "requestId");
@@ -154,8 +154,8 @@ public class ChatFileService {
             var file = owned(tenant, actor, id, true).file();
             if (file.status() != UserFile.Status.DELETING && file.status() != UserFile.Status.DELETED) {
                 var usage = attachments.holders(tenant, List.of(id));
-                if (!usage.isEmpty()) throw new ChatFileInUseException(usage.stream()
-                        .map(used -> new ChatFileInUseException.Usage(used.kind().name(), used.id(), used.name())).toList());
+                if (!usage.isEmpty()) throw new UserFileInUseException(usage.stream()
+                        .map(used -> new UserFileInUseException.Usage(used.kind().name(), used.id(), used.name())).toList());
                 files.delete(tenant, id, file.status() == UserFile.Status.UPLOADING || "UPLOAD_EXPIRED".equals(file.errorCode()),
                         trash.trashAfter());
             }

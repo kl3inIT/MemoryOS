@@ -1,7 +1,7 @@
 package io.memoryos.library;
 
-import io.memoryos.library.persistence.JdbcChatLibraryArchiveRepository;
-import io.memoryos.library.persistence.JdbcChatLibraryRepository;
+import io.memoryos.library.persistence.JdbcLibraryArchiveRepository;
+import io.memoryos.library.persistence.JdbcLibraryRepository;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.library.work.DefaultUserFileWorkService;
 import io.memoryos.library.work.persistence.JdbcUserFileWorkRepository;
@@ -18,10 +18,10 @@ import org.springframework.context.annotation.Import;
         DefaultUserFileWorkService.class,
         JdbcUserFileRepository.class,
         UserFileMaintenance.class,
-        JdbcChatLibraryRepository.class,
+        JdbcLibraryRepository.class,
         LibraryContents.class,
-        JdbcChatLibraryArchiveRepository.class,
-        ChatLibraryArchiveService.class
+        JdbcLibraryArchiveRepository.class,
+        LibraryArchiveService.class
 })
 public class LibraryWorkerComponents {
 }

@@ -1,7 +1,7 @@
 package io.memoryos.chat.files.persistence;
 
 import io.memoryos.chat.persona.persistence.AgentAccessSql;
-import io.memoryos.library.ChatLibraryFile;
+import io.memoryos.library.LibraryFile;
 import io.memoryos.library.FileAttachments;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
@@ -61,7 +61,7 @@ public class JdbcChatFileAttachmentRepository {
                 ORDER BY kind, name
                 """).param("tenant", tenant.value()).param("texts", texts(files)).param("ids", files)
                 .query((row, ignored) -> new FileAttachments.Holder(row.getObject("file_id", UUID.class),
-                        ChatLibraryFile.Usage.Kind.valueOf(row.getString("kind")), row.getObject("id", UUID.class),
+                        LibraryFile.Usage.Kind.valueOf(row.getString("kind")), row.getObject("id", UUID.class),
                         row.getString("name")))
                 .list();
     }

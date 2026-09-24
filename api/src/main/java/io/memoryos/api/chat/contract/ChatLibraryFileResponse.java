@@ -1,6 +1,6 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.library.ChatLibraryFile;
+import io.memoryos.library.LibraryFile;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.List;
@@ -39,7 +39,7 @@ public record ChatLibraryFileResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "False while a project or assistant holds the file") boolean deletable
 ) {
 
-    public static ChatLibraryFileResponse from(ChatLibraryFile file) {
+    public static ChatLibraryFileResponse from(LibraryFile file) {
         return new ChatLibraryFileResponse(file.source().name(), file.id(), file.filename(), file.mediaType(),
                 file.sizeBytes(), file.createdAt(), file.category().name(), file.sessionId(), file.sessionTitle(),
                 file.messageId(), file.favorite(), file.status().name(), file.errorCode(), file.deletedAt(),

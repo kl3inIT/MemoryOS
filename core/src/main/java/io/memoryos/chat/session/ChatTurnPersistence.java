@@ -6,7 +6,7 @@ import io.memoryos.ai.ModelAccounting;
 import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatFileDescriptor;
-import io.memoryos.library.ChatFileService;
+import io.memoryos.library.UserFileService;
 import io.memoryos.library.LibraryException;
 import io.memoryos.library.UserFile;
 import io.memoryos.chat.ChatMessage;
@@ -43,7 +43,7 @@ public class ChatTurnPersistence {
     private final TenantAccessResolver tenants;
     private final IamAuthorization authorization;
     private final JdbcChatRepository chats;
-    private final ChatFileService files;
+    private final UserFileService files;
     private final ActorLanguageService languages;
     private final JdbcImageArtifactRepository imageArtifacts;
     private final io.memoryos.usage.@Nullable AiUsageRecorder usage;
@@ -51,14 +51,14 @@ public class ChatTurnPersistence {
     private final io.memoryos.iam.identity.@Nullable ActorProfileReader profiles;
 
     public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
-                               ChatFileService files, ActorLanguageService languages,
+                               UserFileService files, ActorLanguageService languages,
                                JdbcImageArtifactRepository imageArtifacts) {
         this(tenants, authorization, chats, files, languages, imageArtifacts, null, null, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
     public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
-                               ChatFileService files, ActorLanguageService languages,
+                               UserFileService files, ActorLanguageService languages,
                                JdbcImageArtifactRepository imageArtifacts, io.memoryos.usage.@Nullable AiUsageRecorder usage,
                                io.memoryos.chat.preferences.persistence.@Nullable JdbcChatPreferencesRepository preferences,
                                io.memoryos.iam.identity.@Nullable ActorProfileReader profiles) {
@@ -282,7 +282,7 @@ public class ChatTurnPersistence {
     private TurnContext context(ActorId actor, TenantId tenant, UUID session, UUID user, JdbcChatRepository.Persona settings, String instructions) {
         var history = chats.context(session, user, 200);
         var workspaceFiles = descriptors(files.admit(tenant, actor, settings.fileIds()));
-        var plaintext = new LinkedHashMap<UUID, ChatFileService.FileText>();
+        var plaintext = new LinkedHashMap<UUID, UserFileService.FileText>();
         java.util.stream.Stream.concat(history.stream().flatMap(message -> message.files().stream()), workspaceFiles.stream())
                 .map(ChatFileDescriptor::id)
                 .distinct().limit(20).forEach(id -> {
@@ -306,15 +306,15 @@ public class ChatTurnPersistence {
 
     public record TurnContext(ActorId actor, TenantId tenant, String model, String instructions,
                               List<ChatMessage> newestFirst, ChatTurnOptions options,
-                              Map<UUID, ChatFileService.FileText> fileTexts, List<ChatFileDescriptor> workspaceFiles,
+                              Map<UUID, UserFileService.FileText> fileTexts, List<ChatFileDescriptor> workspaceFiles,
                               @Nullable String uiLanguage, Map<UUID, List<UUID>> generatedImages) {
         public TurnContext { newestFirst = List.copyOf(newestFirst); fileTexts = Map.copyOf(fileTexts); workspaceFiles = List.copyOf(workspaceFiles); generatedImages = Map.copyOf(generatedImages); }
         public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, ChatTurnOptions options,
-                           Map<UUID, ChatFileService.FileText> fileTexts, List<ChatFileDescriptor> workspaceFiles, @Nullable String uiLanguage) {
+                           Map<UUID, UserFileService.FileText> fileTexts, List<ChatFileDescriptor> workspaceFiles, @Nullable String uiLanguage) {
             this(actor, tenant, model, instructions, newestFirst, options, fileTexts, workspaceFiles, uiLanguage, Map.of());
         }
         public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, ChatTurnOptions options,
-                           Map<UUID, ChatFileService.FileText> fileTexts, List<ChatFileDescriptor> workspaceFiles) {
+                           Map<UUID, UserFileService.FileText> fileTexts, List<ChatFileDescriptor> workspaceFiles) {
             this(actor, tenant, model, instructions, newestFirst, options, fileTexts, workspaceFiles, null);
         }
         public TurnContext(ActorId actor, TenantId tenant, String model, String instructions, List<ChatMessage> newestFirst, ChatTurnOptions options) {

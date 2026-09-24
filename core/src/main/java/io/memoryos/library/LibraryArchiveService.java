@@ -1,7 +1,7 @@
 package io.memoryos.library;
 
-import io.memoryos.library.persistence.JdbcChatLibraryArchiveRepository.Claim;
-import io.memoryos.library.persistence.JdbcChatLibraryArchiveRepository;
+import io.memoryos.library.persistence.JdbcLibraryArchiveRepository.Claim;
+import io.memoryos.library.persistence.JdbcLibraryArchiveRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
@@ -39,8 +39,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * because a selection is normally still being edited while the archive is built.
  */
 @Service
-public class ChatLibraryArchiveService {
-    private static final Logger LOG = LoggerFactory.getLogger(ChatLibraryArchiveService.class);
+public class LibraryArchiveService {
+    private static final Logger LOG = LoggerFactory.getLogger(LibraryArchiveService.class);
 
     public static final int MAX_FILES = 100;
     /** The storage adapter writes an object of at most 32 MiB, so an archive's input is bounded below it. */
@@ -53,14 +53,14 @@ public class ChatLibraryArchiveService {
     static final String MEDIA_TYPE = "application/zip";
 
     private final TenantAccessResolver tenants;
-    private final JdbcChatLibraryArchiveRepository archives;
+    private final JdbcLibraryArchiveRepository archives;
     private final LibraryContents contents;
     private final ObjectWriteService writes;
     private final ObjectStorage storage;
     private final StoredObjectRegistry storedObjects;
     private final TransactionTemplate tx;
 
-    public ChatLibraryArchiveService(TenantAccessResolver tenants, JdbcChatLibraryArchiveRepository archives,
+    public LibraryArchiveService(TenantAccessResolver tenants, JdbcLibraryArchiveRepository archives,
                                      LibraryContents contents, ObjectWriteService writes, ObjectStorage storage,
                                      StoredObjectRegistry storedObjects, PlatformTransactionManager transactionManager) {
         this.tenants = tenants; this.archives = archives; this.contents = contents;
@@ -72,7 +72,7 @@ public class ChatLibraryArchiveService {
 
     /** Records a request for the files the caller's library lists right now. */
     @Transactional
-    public ChatLibraryArchive request(ActorId actor, List<ChatLibraryArchiveItem> requested) {
+    public LibraryArchive request(ActorId actor, List<LibraryArchiveItem> requested) {
         var unique = new LinkedHashSet<>(requested);
         if (unique.isEmpty() || unique.size() > MAX_FILES) {
             throw LibraryException.invalid("Select between 1 and " + MAX_FILES + " files.");
@@ -83,7 +83,7 @@ public class ChatLibraryArchiveService {
         }
         var listed = listed(tenant, actor, unique);
         if (listed.size() != unique.size()) throw LibraryException.unavailable();
-        long total = listed.stream().mapToLong(ChatLibraryFile::sizeBytes).sum();
+        long total = listed.stream().mapToLong(LibraryFile::sizeBytes).sum();
         if (total > MAX_TOTAL_BYTES) {
             throw LibraryException.invalid("The selection exceeds " + MAX_TOTAL_BYTES / (1024 * 1024) + " MiB. Select fewer files.");
         }
@@ -91,12 +91,12 @@ public class ChatLibraryArchiveService {
     }
 
     @Transactional(readOnly = true)
-    public List<ChatLibraryArchive> list(ActorId actor) {
+    public List<LibraryArchive> list(ActorId actor) {
         return archives.list(tenant(actor), actor, LIST_LIMIT);
     }
 
     @Transactional(readOnly = true)
-    public ChatLibraryArchive get(ActorId actor, UUID id) {
+    public LibraryArchive get(ActorId actor, UUID id) {
         return archives.find(tenant(actor), actor, id).orElseThrow(LibraryException::unavailable);
     }
 
@@ -217,7 +217,7 @@ public class ChatLibraryArchiveService {
         return released;
     }
 
-    private List<ChatLibraryFile> listed(TenantId tenant, ActorId owner, java.util.Collection<ChatLibraryArchiveItem> requested) {
+    private List<LibraryFile> listed(TenantId tenant, ActorId owner, java.util.Collection<LibraryArchiveItem> requested) {
         return contents.listed(tenant, owner, requested, MAX_FILES);
     }
 

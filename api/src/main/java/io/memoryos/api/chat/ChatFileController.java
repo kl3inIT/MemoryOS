@@ -4,8 +4,8 @@ import io.memoryos.api.chat.contract.ChatFilePolicyResponse;
 import io.memoryos.api.chat.contract.ChatFileResponse;
 import io.memoryos.api.chat.contract.ChatFileUploadRequest;
 import io.memoryos.api.chat.contract.ChatFileUploadResponse;
-import io.memoryos.library.ChatFileService;
-import io.memoryos.library.ChatFileContentService;
+import io.memoryos.library.UserFileService;
+import io.memoryos.library.UserFileContentService;
 import io.memoryos.api.chat.contract.ChatFileTextResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.ContentDisposition;
@@ -27,7 +27,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import io.memoryos.library.ChatFileSearchService;
+import io.memoryos.library.UserFileSearchService;
 import io.memoryos.library.UserFile;
 
 @RestController
@@ -42,10 +42,10 @@ import io.memoryos.library.UserFile;
 @SecurityRequirement(name="browserSession")
 @SecurityRequirement(name="bearerAuth")
 class ChatFileController {
-    private final ChatFileService files;
-    private final ChatFileContentService content;
-    private final ChatFileSearchService search;
-    ChatFileController(ChatFileService files, ChatFileContentService content, ChatFileSearchService search) {
+    private final UserFileService files;
+    private final UserFileContentService content;
+    private final UserFileSearchService search;
+    ChatFileController(UserFileService files, UserFileContentService content, UserFileSearchService search) {
         this.files = files; this.content = content; this.search = search;
     }
 
@@ -122,7 +122,7 @@ class ChatFileController {
     @ApiResponse(responseCode="200",description="Upload receipt and authorization when pending",useReturnTypeSchema=true)
     ChatFileUploadResponse upload(@Parameter(hidden=true) @AuthenticationPrincipal IdentityContext identity,
             @Valid @RequestBody ChatFileUploadRequest request) {
-        var result = files.initiate(identity.actorId(), new ChatFileService.UploadInput(request.requestId(), request.filename(),
+        var result = files.initiate(identity.actorId(), new UserFileService.UploadInput(request.requestId(), request.filename(),
                 request.mediaType(), request.sizeBytes(), request.sha256()));
         return new ChatFileUploadResponse(ChatFileResponse.from(result.file()), result.upload());
     }

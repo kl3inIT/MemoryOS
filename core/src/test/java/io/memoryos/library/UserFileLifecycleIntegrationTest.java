@@ -38,20 +38,20 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
-import io.memoryos.library.persistence.JdbcChatLibraryRepository;
+import io.memoryos.library.persistence.JdbcLibraryRepository;
 import io.memoryos.chat.files.ChatFileAttachments;
 import io.memoryos.chat.files.persistence.JdbcChatFileAttachmentRepository;
 
 /** Real PostgreSQL, migrations, IAM guards, adoption and claims; storage IO is a controlled test double. */
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
-class ChatFileLifecycleIntegrationTest {
+class UserFileLifecycleIntegrationTest {
     private static final String SHA = "a".repeat(64);
     private HikariDataSource database;
     private TestDatabase.JpaHarness jpa;
     private JdbcClient jdbc;
     private TransactionTemplate tx;
-    private ChatFileService files;
-    private ChatFileContentService fileContent;
+    private UserFileService files;
+    private UserFileContentService fileContent;
     private DefaultObjectUploadService uploads;
     private ObjectStorage storage;
     private UserFileWorkPort work;
@@ -79,12 +79,12 @@ class ChatFileLifecycleIntegrationTest {
         uploads = new DefaultObjectUploadService(new JdbcStoredObjectRepository(jdbc), new JdbcObjectUploadRepository(jdbc),
                 storage, new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5),
                 Duration.ofMinutes(1), 16), jpa.transactionManager());
-        files = new ChatFileService(tenants, new JdbcUserFileRepository(jdbc), new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbc)), uploads,
-                new ChatFileProperties(104857600,262144000),
-                new ChatStorageQuotaService(tenants,
-                new ChatStorageProperties(0), new JdbcChatLibraryRepository(jdbc)),
+        files = new UserFileService(tenants, new JdbcUserFileRepository(jdbc), new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbc)), uploads,
+                new UserFileProperties(104857600,262144000),
+                new StorageQuotaService(tenants,
+                new LibraryStorageProperties(0), new JdbcLibraryRepository(jdbc)),
                 // This suite covers the release itself, so deletion releases at once; the trash window is
-                // covered by ChatLibraryTrashIntegrationTest.
+                // covered by LibraryTrashIntegrationTest.
                 new LibraryTrashProperties(java.time.Duration.ZERO),
                 jpa.transactionManager());
         var storedObjects = new JdbcStoredObjectRepository(jdbc);
@@ -92,7 +92,7 @@ class ChatFileLifecycleIntegrationTest {
                 new io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository(jdbc), storage,
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5),
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
-        fileContent = new ChatFileContentService(new JdbcUserFileRepository(jdbc), new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbc)), tenants, storage, writes,
+        fileContent = new UserFileContentService(new JdbcUserFileRepository(jdbc), new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbc)), tenants, storage, writes,
                 jpa.transactionManager());
         documents = TestDatabase.transactionalProxy(new JdbcDocumentRepository(jdbc, new ObjectMapper(), ignored -> {}),
                 DocumentCommandPort.class, jpa.transactionManager());
@@ -222,7 +222,7 @@ class ChatFileLifecycleIntegrationTest {
         assertDoesNotThrow(() -> files.initiate(owner,input(UUID.randomUUID(),104857600)));
         assertThrows(LibraryException.class,() -> files.initiate(owner,input(UUID.randomUUID(),104857601)));
         assertThrows(IllegalArgumentException.class,() -> new ObjectUploadSpecification("a.txt","text/plain",104857601,new ContentSha256(SHA)));
-        assertThrows(IllegalArgumentException.class,() -> new ChatFileProperties(262144001,262144000));
+        assertThrows(IllegalArgumentException.class,() -> new UserFileProperties(262144001,262144000));
         var input = input(UUID.randomUUID(),4);
         files.initiate(owner,input);
         jdbc.sql("UPDATE stored_objects SET expires_at=CURRENT_TIMESTAMP-INTERVAL '1 second' WHERE tenant_id=:tenant")
@@ -249,7 +249,7 @@ class ChatFileLifecycleIntegrationTest {
         var delivery = dispatch();
         var claim = work.claim(tenant, delivery.operationId().value(), delivery.deliveryId()).orElseThrow();
         assertTrue(work.complete(claim, new DocumentContent("text/plain", "test.txt", "A😀Việt", Map.of())));
-        assertEquals(new ChatFileService.FileText("😀V", 1, 6), files.read(owner, id, 1, 2));
+        assertEquals(new UserFileService.FileText("😀V", 1, 6), files.read(owner, id, 1, 2));
         assertEquals("iệt", files.read(owner, id, 3, 10).text());
         assertEquals("", files.read(owner, id, 6, 1).text());
         assertThrows(LibraryException.class, () -> files.read(owner, id, -1, 1));
@@ -317,7 +317,7 @@ class ChatFileLifecycleIntegrationTest {
             byte[] bytes = written.getOrDefault((ObjectKey) call.getArgument(0), png);
             return content(bytes, bytes == png ? "image/png" : "image/jpeg");
         });
-        var id = files.initiate(owner, new ChatFileService.UploadInput(UUID.randomUUID(), "photo.png", "image/png",
+        var id = files.initiate(owner, new UserFileService.UploadInput(UUID.randomUUID(), "photo.png", "image/png",
                 png.length, SHA)).file().id();
         files.finalizeUpload(owner, id);
         var delivery = dispatch();
@@ -390,8 +390,8 @@ class ChatFileLifecycleIntegrationTest {
         return java.util.Objects.requireNonNull(tx.execute(ignored -> new JdbcOperationDispatchRepository(jdbc).claim(OperationWorkload.USER_FILE,1)))
                 .getFirst().delivery();
     }
-    private static ChatFileService.UploadInput input(UUID request,long size) {
-        return new ChatFileService.UploadInput(request,"test.txt","text/plain",size,SHA);
+    private static UserFileService.UploadInput input(UUID request,long size) {
+        return new UserFileService.UploadInput(request,"test.txt","text/plain",size,SHA);
     }
     private static DocumentContent content() { return new DocumentContent("text/plain","test.txt","hello",Map.of()); }
     private int count(String table) { return jdbc.sql("SELECT count(*) FROM " + table).query(Integer.class).single(); }

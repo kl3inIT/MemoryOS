@@ -1,7 +1,7 @@
 package io.memoryos.chat;
 
 import io.memoryos.chat.session.persistence.JdbcChatRepository;
-import io.memoryos.library.ChatFileService;
+import io.memoryos.library.UserFileService;
 import io.memoryos.chat.project.persistence.JpaProjectRepository;
 import io.memoryos.chat.project.persistence.ChatPage;
 import io.memoryos.chat.project.persistence.ProjectEntity;
@@ -25,9 +25,9 @@ public class ChatProjectService {
     private final JdbcChatRepository chats;
     private final JpaProjectRepository settings;
     private final ChatSessionService sessions;
-    private final ChatFileService files;
+    private final UserFileService files;
     public ChatProjectService(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
-                              JpaProjectRepository settings, ChatSessionService sessions, ChatFileService files) {
+                              JpaProjectRepository settings, ChatSessionService sessions, UserFileService files) {
         this.tenants = tenants; this.authorization = authorization; this.chats = chats; this.settings = settings; this.sessions = sessions;
         this.files = files;
     }

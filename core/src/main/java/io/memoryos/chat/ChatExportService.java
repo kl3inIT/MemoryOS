@@ -1,7 +1,7 @@
 package io.memoryos.chat;
 
 import io.memoryos.chat.export.ChatExportWriter;
-import io.memoryos.library.ChatLibraryFile;
+import io.memoryos.library.LibraryFile;
 import io.memoryos.library.LibraryContents;
 import io.memoryos.chat.export.persistence.JdbcChatExportRepository.Claim;
 import io.memoryos.chat.export.persistence.JdbcChatExportRepository;
@@ -247,11 +247,11 @@ public class ChatExportService {
     }
 
     /** The files the owner's library lists right now, newest first; the library already hides what is gone. */
-    private List<ChatLibraryFile> libraryFiles(TenantId tenant, ActorId owner) {
+    private List<LibraryFile> libraryFiles(TenantId tenant, ActorId owner) {
         return library.listed(tenant, owner, null, MAX_FILES);
     }
 
-    private Optional<byte[]> read(TenantId tenant, ActorId owner, ChatLibraryFile file) {
+    private Optional<byte[]> read(TenantId tenant, ActorId owner, LibraryFile file) {
         return library.read(tenant, owner, file);
     }
 

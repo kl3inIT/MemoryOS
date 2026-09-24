@@ -15,8 +15,8 @@ import io.memoryos.TestDatabase;
 import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
-import io.memoryos.library.persistence.JdbcChatLibraryArchiveRepository;
-import io.memoryos.library.persistence.JdbcChatLibraryRepository;
+import io.memoryos.library.persistence.JdbcLibraryArchiveRepository;
+import io.memoryos.library.persistence.JdbcLibraryRepository;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.persistence.IamLockRepository;
@@ -56,15 +56,15 @@ import org.springframework.jdbc.core.simple.JdbcClient;
  * Real PostgreSQL and real adoption; storage IO is a controlled double that remembers what it was given.
  */
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
-class ChatLibraryArchiveIntegrationTest {
+class LibraryArchiveIntegrationTest {
     private HikariDataSource database;
     private TestDatabase.JpaHarness jpa;
     private JdbcClient jdbc;
     private ObjectStorage storage;
     private final Map<String, byte[]> stored = new ConcurrentHashMap<>();
     private final Map<String, String> types = new ConcurrentHashMap<>();
-    private ChatLibraryArchiveService archives;
-    private JdbcChatLibraryArchiveRepository repository;
+    private LibraryArchiveService archives;
+    private JdbcLibraryArchiveRepository repository;
     private InterpreterService interpreter;
     private TenantId tenant;
     private ActorId owner;
@@ -105,17 +105,17 @@ class ChatLibraryArchiveIntegrationTest {
         var writes = new DefaultObjectWriteService(objects, new JdbcObjectWriteRepository(jdbc), storage,
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5),
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
-        repository = new JdbcChatLibraryArchiveRepository(jdbc);
+        repository = new JdbcLibraryArchiveRepository(jdbc);
         interpreter = new InterpreterService(new JdbcInterpreterRepository(jdbc), new InterpreterProperties(null, null),
                 mock(IamAuthorization.class), tenants, writes, storage,
-                new ChatStorageQuotaService(tenants,
-                new ChatStorageProperties(0), new JdbcChatLibraryRepository(jdbc)),
+                new StorageQuotaService(tenants,
+                new LibraryStorageProperties(0), new JdbcLibraryRepository(jdbc)),
                 new LibraryTrashProperties(java.time.Duration.ZERO),
                 jpa.transactionManager(), io.memoryos.TestDatabase.noAudit());
         // The service is used directly: its @Transactional boundaries are Spring's, and each call here is one
         // statement group against real PostgreSQL, which auto-commits without them.
-        archives = new ChatLibraryArchiveService(tenants, repository,
-                new LibraryContents(new JdbcChatLibraryRepository(jdbc), new JdbcUserFileRepository(jdbc), storage),
+        archives = new LibraryArchiveService(tenants, repository,
+                new LibraryContents(new JdbcLibraryRepository(jdbc), new JdbcUserFileRepository(jdbc), storage),
                 writes, storage, new DefaultStoredObjectRegistry(objects),
                 jpa.transactionManager());
         seedConversation();
@@ -132,12 +132,12 @@ class ChatLibraryArchiveIntegrationTest {
         var first = interpreter.store(tenant, messageId, "bao-cao.csv", "text/csv", "one".getBytes());
         var second = interpreter.store(tenant, messageId, "bao-cao.csv", "text/csv", "two".getBytes());
         var removed = interpreter.store(tenant, messageId, "sap-xoa.csv", "text/csv", "three".getBytes());
-        var requested = List.of(new ChatLibraryArchiveItem(ChatLibraryFile.Source.GENERATED, first),
-                new ChatLibraryArchiveItem(ChatLibraryFile.Source.GENERATED, second),
-                new ChatLibraryArchiveItem(ChatLibraryFile.Source.GENERATED, removed));
+        var requested = List.of(new LibraryArchiveItem(LibraryFile.Source.GENERATED, first),
+                new LibraryArchiveItem(LibraryFile.Source.GENERATED, second),
+                new LibraryArchiveItem(LibraryFile.Source.GENERATED, removed));
 
         var archive = archives.request(owner, requested);
-        assertEquals(ChatLibraryArchiveStatus.PENDING, archive.status());
+        assertEquals(LibraryArchiveStatus.PENDING, archive.status());
         assertEquals(3, archive.fileCount());
         // The selection keeps being edited while the archive waits: this file is gone by packing time.
         interpreter.delete(owner, removed);
@@ -145,7 +145,7 @@ class ChatLibraryArchiveIntegrationTest {
         assertTrue(archives.buildNext());
         assertFalse(archives.buildNext(), "one request, packed once");
         var packed = archives.get(owner, archive.id());
-        assertEquals(ChatLibraryArchiveStatus.READY, packed.status());
+        assertEquals(LibraryArchiveStatus.READY, packed.status());
         assertEquals(List.of(removed.toString()), packed.skipped());
 
         var entries = unzip(archives.open(owner, archive.id()));
@@ -162,7 +162,7 @@ class ChatLibraryArchiveIntegrationTest {
     @Test
     void releasesTheBytesOfAnExpiredArchiveAndRefusesItBeforehand() {
         var file = interpreter.store(tenant, messageId, "ghi-chu.csv", "text/csv", "x".getBytes());
-        var archive = archives.request(owner, List.of(new ChatLibraryArchiveItem(ChatLibraryFile.Source.GENERATED, file)));
+        var archive = archives.request(owner, List.of(new LibraryArchiveItem(LibraryFile.Source.GENERATED, file)));
         assertTrue(archives.buildNext());
         var key = jdbc.sql("SELECT object_key FROM chat_library_archive WHERE id = :id")
                 .param("id", archive.id()).query(String.class).single();
@@ -187,21 +187,21 @@ class ChatLibraryArchiveIntegrationTest {
     @Test
     void refusesAnEmptyOversizedOrForeignSelectionAndTooManyAtOnce() {
         var file = interpreter.store(tenant, messageId, "ghi-chu.csv", "text/csv", "x".getBytes());
-        var mine = new ChatLibraryArchiveItem(ChatLibraryFile.Source.GENERATED, file);
+        var mine = new LibraryArchiveItem(LibraryFile.Source.GENERATED, file);
         assertThrows(LibraryException.class, () -> archives.request(owner, List.of()));
         // Another member's files are not in the caller's library, so the request names nothing it may pack.
         assertThrows(LibraryException.class, () -> archives.request(other, List.of(mine)));
         assertThrows(LibraryException.class,
-                () -> archives.request(owner, List.of(mine, new ChatLibraryArchiveItem(ChatLibraryFile.Source.GENERATED, UUID.randomUUID()))));
+                () -> archives.request(owner, List.of(mine, new LibraryArchiveItem(LibraryFile.Source.GENERATED, UUID.randomUUID()))));
 
         // The selection's bytes are bounded, because the archive is written as one object.
         jdbc.sql("UPDATE chat_file_artifact SET size_bytes = :size WHERE id = :id")
-                .param("size", ChatLibraryArchiveService.MAX_TOTAL_BYTES + 1).param("id", file).update();
+                .param("size", LibraryArchiveService.MAX_TOTAL_BYTES + 1).param("id", file).update();
         assertThrows(LibraryException.class, () -> archives.request(owner, List.of(mine)));
         jdbc.sql("UPDATE chat_file_artifact SET size_bytes = 1 WHERE id = :id").param("id", file).update();
 
         // One person may only queue a few at a time; a duplicated file counts once.
-        for (int queued = 0; queued < ChatLibraryArchiveService.MAX_ACTIVE_PER_OWNER; queued++) {
+        for (int queued = 0; queued < LibraryArchiveService.MAX_ACTIVE_PER_OWNER; queued++) {
             assertEquals(1, archives.request(owner, List.of(mine, mine)).fileCount());
         }
         assertThrows(LibraryException.class, () -> archives.request(owner, List.of(mine)));
@@ -210,13 +210,13 @@ class ChatLibraryArchiveIntegrationTest {
     @Test
     void aRequestThatKeepsFailingStopsBeingRetried() {
         var file = interpreter.store(tenant, messageId, "ghi-chu.csv", "text/csv", "x".getBytes());
-        var archive = archives.request(owner, List.of(new ChatLibraryArchiveItem(ChatLibraryFile.Source.GENERATED, file)));
+        var archive = archives.request(owner, List.of(new LibraryArchiveItem(LibraryFile.Source.GENERATED, file)));
         // Every selected file has lost its bytes, so there is nothing to pack.
         stored.clear();
 
         assertTrue(archives.buildNext());
         var failed = archives.get(owner, archive.id());
-        assertEquals(ChatLibraryArchiveStatus.FAILED, failed.status());
+        assertEquals(LibraryArchiveStatus.FAILED, failed.status());
         assertEquals("None of the selected files is available any more.", failed.failure());
         assertFalse(archives.buildNext(), "a failed request is not claimed again");
         assertTrue(archives.list(owner).isEmpty(), "a failed archive is not offered");
@@ -232,7 +232,7 @@ class ChatLibraryArchiveIntegrationTest {
         return new ContentSha256(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
     }
 
-    private static Map<String, byte[]> unzip(ChatLibraryArchiveService.Download download) throws Exception {
+    private static Map<String, byte[]> unzip(LibraryArchiveService.Download download) throws Exception {
         var entries = new LinkedHashMap<String, byte[]>();
         try (var content = download.content(); var zip = new ZipInputStream(content.inputStream())) {
             for (var entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {

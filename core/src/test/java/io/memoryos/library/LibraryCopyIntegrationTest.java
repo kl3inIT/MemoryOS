@@ -16,7 +16,7 @@ import io.memoryos.library.work.DefaultUserFileWorkService;
 import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
-import io.memoryos.library.persistence.JdbcChatLibraryRepository;
+import io.memoryos.library.persistence.JdbcLibraryRepository;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.library.work.persistence.JdbcUserFileWorkRepository;
 import io.memoryos.document.DocumentCommandPort;
@@ -68,7 +68,7 @@ import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
  * PostgreSQL and object-storage lifecycle; the provider is a double.
  */
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
-class ChatLibraryCopyIntegrationTest {
+class LibraryCopyIntegrationTest {
     private static final byte[] CONTENT = "một,hai".getBytes(StandardCharsets.UTF_8);
 
     private HikariDataSource database;
@@ -82,7 +82,7 @@ class ChatLibraryCopyIntegrationTest {
     private ObjectUploadService uploads;
     private DefaultObjectWriteService writes;
     private InterpreterService interpreter;
-    private ChatLibraryService library;
+    private LibraryService library;
     private UserFileWorkPort work;
     private JdbcUserFileRepository files;
     private TenantId tenant;
@@ -126,17 +126,17 @@ class ChatLibraryCopyIntegrationTest {
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5),
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
         files = new JdbcUserFileRepository(jdbc);
-        var libraryRows = new JdbcChatLibraryRepository(jdbc);
-        var quotas = new ChatStorageQuotaService(tenants, new ChatStorageProperties(0), libraryRows);
+        var libraryRows = new JdbcLibraryRepository(jdbc);
+        var quotas = new StorageQuotaService(tenants, new LibraryStorageProperties(0), libraryRows);
         var retention = new LibraryTrashProperties(Duration.ofDays(30));
         interpreter = new InterpreterService(new JdbcInterpreterRepository(jdbc), new InterpreterProperties(null, null),
                 mock(IamAuthorization.class), tenants, writes, storage, quotas, retention, jpa.transactionManager(),
                 TestDatabase.noAudit());
-        library = new ChatLibraryService(tenants, libraryRows, files, new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbc)),
+        library = new LibraryService(tenants, libraryRows, files, new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbc)),
                 new ChatLibraryArtifacts(new JdbcChatArtifactRepository(jdbc), new JdbcInterpreterRepository(jdbc),
                         new JdbcImageArtifactRepository(jdbc)), storage, writes,
-                new ChatFileProperties(104857600, 262144000), quotas, jpa.transactionManager(),
-                mock(ChatFileSearchService.class));
+                new UserFileProperties(104857600, 262144000), quotas, jpa.transactionManager(),
+                mock(UserFileSearchService.class));
         uploads = mock(ObjectUploadService.class);
         work = TestDatabase.transactionalProxy(new DefaultUserFileWorkService(new JdbcUserFileWorkRepository(jdbc),
                 mock(DocumentCommandPort.class), uploads, tenants, new DefaultStoredObjectRegistry(objects), writes,
@@ -154,9 +154,9 @@ class ChatLibraryCopyIntegrationTest {
     void aCopyIsAnAdoptedServerWriteThatTheFileWorkReleasesWhenTheCopyIsDeleted() {
         var artifact = interpreter.store(tenant, messageId, "bao-cao.csv", "text/csv", CONTENT);
 
-        var copy = library.copy(owner, ChatLibraryFile.Source.GENERATED, artifact);
+        var copy = library.copy(owner, LibraryFile.Source.GENERATED, artifact);
         assertEquals(UserFile.Status.PROCESSING, copy.status());
-        assertEquals(copy.id(), library.copy(owner, ChatLibraryFile.Source.GENERATED, artifact).id());
+        assertEquals(copy.id(), library.copy(owner, LibraryFile.Source.GENERATED, artifact).id());
         var object = copyObject(copy.id());
         assertEquals("ADOPTED", writeStatus(object));
         assertEquals("ACTIVE", objectState(object));
@@ -173,7 +173,7 @@ class ChatLibraryCopyIntegrationTest {
         assertEquals(1, stored.size(), "only the artifact's bytes remain");
         verifyNoInteractions(uploads);
         // The artifact can be copied again.
-        assertFalse(copy.id().equals(library.copy(owner, ChatLibraryFile.Source.GENERATED, artifact).id()));
+        assertFalse(copy.id().equals(library.copy(owner, LibraryFile.Source.GENERATED, artifact).id()));
     }
 
     @Test
@@ -181,9 +181,9 @@ class ChatLibraryCopyIntegrationTest {
         var meeting = UUID.randomUUID();
         var bytes = "# Biên bản".getBytes(StandardCharsets.UTF_8);
 
-        var file = library.publish(owner, ChatLibraryFile.Source.MEETING, meeting, "bien-ban.md", "text/markdown", bytes);
+        var file = library.publish(owner, LibraryFile.Source.MEETING, meeting, "bien-ban.md", "text/markdown", bytes);
         assertEquals(UserFile.Status.PROCESSING, file.status());
-        assertEquals(file.id(), library.publish(owner, ChatLibraryFile.Source.MEETING, meeting, "bien-ban.md",
+        assertEquals(file.id(), library.publish(owner, LibraryFile.Source.MEETING, meeting, "bien-ban.md",
                 "text/markdown", bytes).id());
         assertEquals("ADOPTED", writeStatus(copyObject(file.id())));
         assertEquals(0L, count("object_uploads"));
@@ -197,7 +197,7 @@ class ChatLibraryCopyIntegrationTest {
         };
 
         var failure = assertThrows(ObjectUploadException.class,
-                () -> library.copy(owner, ChatLibraryFile.Source.GENERATED, artifact));
+                () -> library.copy(owner, LibraryFile.Source.GENERATED, artifact));
         assertEquals("OBJECT_UPLOAD_STORAGE_UNAVAILABLE", failure.code());
         assertEquals(0L, count("chat_user_file"));
         // No pending reservation waits for an expiry: the stage is discarded and the next sweep deletes it.
@@ -215,10 +215,10 @@ class ChatLibraryCopyIntegrationTest {
         var competitor = new UUID[1];
         onCopyWrite = key -> {
             onCopyWrite = ignored -> {};
-            competitor[0] = library.copy(owner, ChatLibraryFile.Source.GENERATED, artifact).id();
+            competitor[0] = library.copy(owner, LibraryFile.Source.GENERATED, artifact).id();
         };
 
-        var copied = library.copy(owner, ChatLibraryFile.Source.GENERATED, artifact).id();
+        var copied = library.copy(owner, LibraryFile.Source.GENERATED, artifact).id();
         assertEquals(competitor[0], copied, "the loser returns the winner's copy");
         assertEquals(1L, count("chat_user_file"));
         assertEquals(2L, count("object_writes WHERE status='ADOPTED'"), "the artifact and the winner's copy");
@@ -227,7 +227,7 @@ class ChatLibraryCopyIntegrationTest {
         // An artifact deleted while its copy is written leaves nothing behind either.
         var other = interpreter.store(tenant, messageId, "khac.csv", "text/csv", CONTENT);
         onCopyWrite = key -> interpreter.delete(owner, other);
-        assertThrows(LibraryException.class, () -> library.copy(owner, ChatLibraryFile.Source.GENERATED, other));
+        assertThrows(LibraryException.class, () -> library.copy(owner, LibraryFile.Source.GENERATED, other));
         assertEquals(1L, count("chat_user_file"));
         assertEquals(2L, count("object_writes WHERE status='DISCARDED'"));
     }

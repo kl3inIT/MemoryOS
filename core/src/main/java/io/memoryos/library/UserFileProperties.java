@@ -5,9 +5,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 @ConfigurationProperties("memoryos.chat.files")
-public record ChatFileProperties(@DefaultValue("104857600") long maxSizeBytes,
+public record UserFileProperties(@DefaultValue("104857600") long maxSizeBytes,
         @DefaultValue("262144000") long deploymentCeilingBytes) {
-    public ChatFileProperties {
+    public UserFileProperties {
         if (maxSizeBytes < 1 || maxSizeBytes > deploymentCeilingBytes
                 || deploymentCeilingBytes > ObjectUploadPurpose.CHAT_FILE.maximumBytes()) {
             throw new IllegalArgumentException("Chat file limit must be positive and not exceed deployment ceiling or 250 MiB");

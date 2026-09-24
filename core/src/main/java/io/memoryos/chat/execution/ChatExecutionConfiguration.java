@@ -19,9 +19,9 @@ import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.memoryos.chat.tools.ChatSearchProperties;
 import io.memoryos.chat.web.WebConnectionService;
 import io.memoryos.chat.web.WebProviderClient;
-import io.memoryos.library.ChatFileContentService;
-import io.memoryos.library.ChatFileSearchService;
-import io.memoryos.library.ChatFileService;
+import io.memoryos.library.UserFileContentService;
+import io.memoryos.library.UserFileSearchService;
+import io.memoryos.library.UserFileService;
 import io.memoryos.mcp.McpTurnService;
 import io.memoryos.retrieval.DocumentOriginalService;
 import io.memoryos.retrieval.DocumentSearchService;
@@ -63,7 +63,7 @@ class ChatExecutionConfiguration {
     ChatModelExecutor chatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository repository,
                                         ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits,
                                         @Qualifier("chatInferenceScheduler") Scheduler scheduler, SearchTimings timings,
-                                        ChatFileService files, ChatFileSearchService fileSearch, ChatFileContentService fileContent,
+                                        UserFileService files, UserFileSearchService fileSearch, UserFileContentService fileContent,
                                         WebProviderClient web, ImageProviderClient image, ImageArtifactService imageArtifacts,
                                         InterpreterClient interpreter, InterpreterService interpreterSettings,
                                         DocumentOriginalService originals, ResearchProperties research,

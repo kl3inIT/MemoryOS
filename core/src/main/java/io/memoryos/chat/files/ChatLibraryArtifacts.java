@@ -3,7 +3,7 @@ package io.memoryos.chat.files;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.chat.files.persistence.JdbcChatArtifactRepository;
 import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
-import io.memoryos.library.ChatLibraryFile;
+import io.memoryos.library.LibraryFile;
 import io.memoryos.library.LibraryArtifacts;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
@@ -27,13 +27,13 @@ public class ChatLibraryArtifacts implements LibraryArtifacts {
     }
 
     @Override
-    public boolean update(TenantId tenant, ActorId owner, ChatLibraryFile.Source source, UUID id,
+    public boolean update(TenantId tenant, ActorId owner, LibraryFile.Source source, UUID id,
                           @Nullable String filename, @Nullable Boolean favorite) {
         return artifacts.update(tenant, owner, source, id, filename, favorite);
     }
 
     @Override
-    public boolean restore(TenantId tenant, ActorId owner, ChatLibraryFile.Source source, UUID id) {
+    public boolean restore(TenantId tenant, ActorId owner, LibraryFile.Source source, UUID id) {
         return switch (source) {
             case GENERATED -> generated.restoreArtifact(tenant, owner, id);
             case IMAGE -> images.restore(tenant, owner, id);
@@ -42,7 +42,7 @@ public class ChatLibraryArtifacts implements LibraryArtifacts {
     }
 
     @Override
-    public boolean purgeNow(TenantId tenant, ActorId owner, ChatLibraryFile.Source source, UUID id) {
+    public boolean purgeNow(TenantId tenant, ActorId owner, LibraryFile.Source source, UUID id) {
         return switch (source) {
             case GENERATED -> generated.purgeArtifactNow(tenant, owner, id);
             case IMAGE -> images.purgeNow(tenant, owner, id);

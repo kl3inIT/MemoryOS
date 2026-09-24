@@ -6,14 +6,14 @@ import com.embabel.chat.Message;
 import com.embabel.chat.TextPart;
 import com.embabel.chat.UserMessage;
 import io.memoryos.chat.ChatException;
-import io.memoryos.library.ChatFileContentService;
+import io.memoryos.library.UserFileContentService;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
 /** Resolves private bytes after database admission, within the execution's cancellable IO scope. */
 final class ChatFileInputs {
-    static List<Message> materialize(ChatTurnSetup setup, ChatFileContentService content, Runnable checkActive) {
+    static List<Message> materialize(ChatTurnSetup setup, UserFileContentService content, Runnable checkActive) {
         var messages = new ArrayList<>(setup.messages());
         if (!setup.images().isEmpty() && !setup.binding().vision())
             throw ChatException.invalid("Choose a vision-capable model to read images.");

@@ -19,7 +19,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
-public class ChatFileContentService {
+public class UserFileContentService {
     /** What an upload has to be for a thumbnail to exist: the types the renderer and the browser both take. */
     private static final Set<String> IMAGE_MEDIA_TYPES = Set.of("image/png", "image/jpeg", "image/webp");
     /** A thumbnail source is read fully into memory, the ceiling generated images use; past it the original is served unshrunk. */
@@ -31,7 +31,7 @@ public class ChatFileContentService {
     private final ObjectStorage storage;
     private final ObjectWriteService writes;
     private final TransactionTemplate tx;
-    public ChatFileContentService(JdbcUserFileRepository files, FileAttachments attachments, TenantAccessResolver tenants,
+    public UserFileContentService(JdbcUserFileRepository files, FileAttachments attachments, TenantAccessResolver tenants,
                                   ObjectStorage storage, ObjectWriteService writes,
                                   PlatformTransactionManager transactionManager) {
         this.files = files; this.attachments = attachments; this.tenants = tenants; this.storage = storage; this.writes = writes;

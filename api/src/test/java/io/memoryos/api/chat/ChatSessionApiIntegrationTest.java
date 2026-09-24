@@ -152,7 +152,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import io.memoryos.library.ChatLibraryArchiveService;
+import io.memoryos.library.LibraryArchiveService;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "memoryos.chat.provider.api-key=test-only-model-is-mocked",
@@ -208,7 +208,7 @@ class ChatSessionApiIntegrationTest {
     @MockitoSpyBean
     private OpenAiProviderAdapter providerAdapter;
     @MockitoBean private OpenSearchIndexService searchIndex;
-    @Autowired private ChatLibraryArchiveService libraryArchives;
+    @Autowired private LibraryArchiveService libraryArchives;
     @MockitoBean private DocumentChunkPort chunks;
     @MockitoBean private SourceDocumentAccessResolver sourceAccess;
     @MockitoBean private io.memoryos.connector.SourceSearchService sourceSearch;
@@ -408,7 +408,7 @@ class ChatSessionApiIntegrationTest {
         assertEquals(1,jdbc.sql("SELECT count(*) FROM chat_file_work WHERE file_id=:id").param("id",UUID.fromString(id)).query(Integer.class).single());
         mockMvc.perform(get("/api/chat/files/"+id+"/text").with(authentication(actor)))
                 .andExpect(status().isNotFound());
-        // Extraction itself is covered through real claims in ChatFileLifecycleIntegrationTest.
+        // Extraction itself is covered through real claims in UserFileLifecycleIntegrationTest.
         jdbc.sql("UPDATE chat_user_file SET status='READY',plaintext=:text,detected_media_type='text/plain' WHERE id=:id")
                 .param("text", "A😀Việt").param("id", UUID.fromString(id)).update();
         mockMvc.perform(get("/api/chat/files/"+id+"/text").with(authentication(actor)).param("offset","1").param("count","2"))

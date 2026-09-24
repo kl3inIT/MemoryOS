@@ -16,7 +16,7 @@ import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.chat.files.persistence.JdbcChatArtifactCleanupRepository;
-import io.memoryos.library.persistence.JdbcChatLibraryRepository;
+import io.memoryos.library.persistence.JdbcLibraryRepository;
 import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.iam.group.IamAuthorization;
@@ -60,7 +60,7 @@ import io.memoryos.chat.files.persistence.JdbcChatArtifactRepository;
  * only when the window ends or the owner ends it (ADR 0014). Real PostgreSQL; storage IO is a double.
  */
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
-class ChatLibraryTrashIntegrationTest {
+class LibraryTrashIntegrationTest {
     private static final Duration WINDOW = Duration.ofDays(30);
 
     private HikariDataSource database;
@@ -70,9 +70,9 @@ class ChatLibraryTrashIntegrationTest {
     private final Map<String, String> types = new ConcurrentHashMap<>();
     private ObjectStorage storage;
     private JdbcUserFileRepository files;
-    private JdbcChatLibraryRepository library;
+    private JdbcLibraryRepository library;
     private JdbcInterpreterRepository artifacts;
-    private ChatLibraryTrashService trash;
+    private LibraryTrashService trash;
     private InterpreterService interpreter;
     private ChatArtifactCleanupService cleanup;
     private TenantId tenant;
@@ -105,17 +105,17 @@ class ChatLibraryTrashIntegrationTest {
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5),
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
         files = new JdbcUserFileRepository(jdbc);
-        library = new JdbcChatLibraryRepository(jdbc);
+        library = new JdbcLibraryRepository(jdbc);
         artifacts = new JdbcInterpreterRepository(jdbc);
-        var quotas = new ChatStorageQuotaService(tenants,
-                new ChatStorageProperties(0), library);
+        var quotas = new StorageQuotaService(tenants,
+                new LibraryStorageProperties(0), library);
         interpreter = new InterpreterService(artifacts, new InterpreterProperties(null, null),
                 mock(IamAuthorization.class), tenants, writes, storage, quotas,
                 new LibraryTrashProperties(WINDOW), jpa.transactionManager(),
                 io.memoryos.TestDatabase.noAudit());
         cleanup = new ChatArtifactCleanupService(new JdbcChatArtifactCleanupRepository(jdbc),
                 new DefaultStoredObjectRegistry(objects), writes, storage, jpa.transactionManager());
-        trash = new ChatLibraryTrashService(tenants, files,
+        trash = new LibraryTrashService(tenants, files,
                 new ChatLibraryArtifacts(new JdbcChatArtifactRepository(jdbc), artifacts, new JdbcImageArtifactRepository(jdbc)),
                 new LibraryTrashProperties(WINDOW), jpa.transactionManager());
         seedConversation();
@@ -142,15 +142,15 @@ class ChatLibraryTrashIntegrationTest {
         assertTrue(trashed.items().getFirst().purgeAfter() != null);
 
         // Restoring brings it back whole, because its document and text were never removed.
-        trash.restore(owner, ChatLibraryFile.Source.UPLOAD, id);
+        trash.restore(owner, LibraryFile.Source.UPLOAD, id);
         assertEquals(List.of(id), ids(page(false)));
         assertEquals(List.of(), ids(page(true)));
-        assertThrows(LibraryException.class, () -> trash.restore(owner, ChatLibraryFile.Source.UPLOAD, id));
+        assertThrows(LibraryException.class, () -> trash.restore(owner, LibraryFile.Source.UPLOAD, id));
 
         // Ending the window queues the release; the window itself does the same once it passes. The file leaves
         // the trash at that moment rather than when the release runs: there is nothing left to take back.
         files.delete(tenant, id, false, WINDOW);
-        trash.purge(owner, ChatLibraryFile.Source.UPLOAD, id);
+        trash.purge(owner, LibraryFile.Source.UPLOAD, id);
         assertEquals(1, count("chat_file_work"));
         assertEquals(List.of(), ids(page(true)), "a file whose release is queued is out of the trash");
         assertFalse(files.restore(tenant, owner, id), "a file whose release is queued cannot come back");
@@ -169,10 +169,10 @@ class ChatLibraryTrashIntegrationTest {
         var id = readyFile();
         files.delete(tenant, id, false, WINDOW);
 
-        assertThrows(LibraryException.class, () -> trash.restore(other, ChatLibraryFile.Source.UPLOAD, id));
-        assertThrows(LibraryException.class, () -> trash.purge(other, ChatLibraryFile.Source.UPLOAD, id));
-        assertEquals(List.of(), ids(library.page(tenant, other, new JdbcChatLibraryRepository.Filter("", Set.of(),
-                Set.of(), null, false, false, true, null), ChatLibraryFile.Sort.DELETED, 0, 50)));
+        assertThrows(LibraryException.class, () -> trash.restore(other, LibraryFile.Source.UPLOAD, id));
+        assertThrows(LibraryException.class, () -> trash.purge(other, LibraryFile.Source.UPLOAD, id));
+        assertEquals(List.of(), ids(library.page(tenant, other, new JdbcLibraryRepository.Filter("", Set.of(),
+                Set.of(), null, false, false, true, null), LibraryFile.Sort.DELETED, 0, 50)));
         assertEquals(0, count("chat_file_work"));
     }
 
@@ -187,7 +187,7 @@ class ChatLibraryTrashIntegrationTest {
         assertEquals(0, cleanup.cleanup());
         assertEquals(1, count("stored_objects"));
 
-        trash.restore(owner, ChatLibraryFile.Source.GENERATED, file);
+        trash.restore(owner, LibraryFile.Source.GENERATED, file);
         assertEquals(List.of(file), ids(page(false)));
         assertEquals(0, cleanup.cleanup());
 
@@ -197,7 +197,7 @@ class ChatLibraryTrashIntegrationTest {
         assertEquals(1, trash.empty(owner));
         assertEquals(List.of(), ids(page(true)), "an ended window is not a file waiting in the trash");
         assertThrows(LibraryException.class,
-                () -> trash.restore(owner, ChatLibraryFile.Source.GENERATED, file));
+                () -> trash.restore(owner, LibraryFile.Source.GENERATED, file));
         assertEquals(1, cleanup.cleanup());
         assertEquals(0, count("stored_objects"));
         // The row survives as a tombstone so the answer keeps explaining itself.
@@ -205,13 +205,13 @@ class ChatLibraryTrashIntegrationTest {
         assertEquals(List.of(), ids(page(true)));
     }
 
-    private JdbcChatLibraryRepository.Page page(boolean trashed) {
-        return library.page(tenant, owner, new JdbcChatLibraryRepository.Filter("", Set.of(), Set.of(), null,
-                false, false, trashed, null), trashed ? ChatLibraryFile.Sort.DELETED : ChatLibraryFile.Sort.NEWEST, 0, 50);
+    private JdbcLibraryRepository.Page page(boolean trashed) {
+        return library.page(tenant, owner, new JdbcLibraryRepository.Filter("", Set.of(), Set.of(), null,
+                false, false, trashed, null), trashed ? LibraryFile.Sort.DELETED : LibraryFile.Sort.NEWEST, 0, 50);
     }
 
-    private static List<UUID> ids(JdbcChatLibraryRepository.Page page) {
-        return page.items().stream().map(ChatLibraryFile::id).toList();
+    private static List<UUID> ids(JdbcLibraryRepository.Page page) {
+        return page.items().stream().map(LibraryFile::id).toList();
     }
 
     private long count(String table) {

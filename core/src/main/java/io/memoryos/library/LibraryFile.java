@@ -11,12 +11,12 @@ import org.jspecify.annotations.Nullable;
  * is the answer that produced an artifact, or, when the list is narrowed to one conversation, the first message
  * that attached an upload there; it is what "show in conversation" scrolls to.
  */
-public record ChatLibraryFile(Source source, UUID id, String filename, String mediaType, long sizeBytes,
+public record LibraryFile(Source source, UUID id, String filename, String mediaType, long sizeBytes,
                               Instant createdAt, Category category, @Nullable UUID sessionId,
                               @Nullable String sessionTitle, @Nullable UUID messageId, boolean favorite,
                               UserFile.Status status, @Nullable String errorCode, @Nullable Instant deletedAt,
                               @Nullable Instant purgeAfter, List<Usage> usedBy) {
-    public ChatLibraryFile { usedBy = List.copyOf(usedBy); }
+    public LibraryFile { usedBy = List.copyOf(usedBy); }
 
     /** Where the file came from: an upload, a {@code run_python} result, a generated image, or a meeting. */
     public enum Source { UPLOAD, GENERATED, IMAGE, MEETING }
@@ -29,8 +29,8 @@ public record ChatLibraryFile(Source source, UUID id, String filename, String me
         public enum Kind { AGENT, PROJECT }
     }
 
-    public ChatLibraryFile withUsedBy(List<Usage> usages) {
-        return new ChatLibraryFile(source, id, filename, mediaType, sizeBytes, createdAt, category,
+    public LibraryFile withUsedBy(List<Usage> usages) {
+        return new LibraryFile(source, id, filename, mediaType, sizeBytes, createdAt, category,
                 sessionId, sessionTitle, messageId, favorite, status, errorCode, deletedAt, purgeAfter, usages);
     }
 

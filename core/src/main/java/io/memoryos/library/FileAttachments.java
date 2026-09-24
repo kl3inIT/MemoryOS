@@ -24,5 +24,5 @@ public interface FileAttachments {
     List<Holder> holders(TenantId tenant, Collection<UUID> files);
 
     /** One agent or Project attaching one upload. */
-    record Holder(UUID fileId, ChatLibraryFile.Usage.Kind kind, UUID id, String name) {}
+    record Holder(UUID fileId, LibraryFile.Usage.Kind kind, UUID id, String name) {}
 }

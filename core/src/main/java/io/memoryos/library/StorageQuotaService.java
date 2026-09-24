@@ -1,6 +1,6 @@
 package io.memoryos.library;
 
-import io.memoryos.library.persistence.JdbcChatLibraryRepository;
+import io.memoryos.library.persistence.JdbcLibraryRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
@@ -13,24 +13,24 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * How much of their file library a person may hold. The used bytes are the library's own sum, never a listing
  * of object storage, so what the page shows and what the limit reads are one number. The maximum is a
- * deployment setting ({@link ChatStorageProperties}) rather than a Tenant record: only the person whose library
+ * deployment setting ({@link LibraryStorageProperties}) rather than a Tenant record: only the person whose library
  * it is ever sees it, on their own storage page, and no administrator raises or lowers it per person.
  */
 @Service
-@EnableConfigurationProperties(ChatStorageProperties.class)
-public class ChatStorageQuotaService {
+@EnableConfigurationProperties(LibraryStorageProperties.class)
+public class StorageQuotaService {
     private final TenantAccessResolver tenants;
-    private final ChatStorageProperties storage;
-    private final JdbcChatLibraryRepository library;
+    private final LibraryStorageProperties storage;
+    private final JdbcLibraryRepository library;
 
-    public ChatStorageQuotaService(TenantAccessResolver tenants, ChatStorageProperties storage,
-                                   JdbcChatLibraryRepository library) {
+    public StorageQuotaService(TenantAccessResolver tenants, LibraryStorageProperties storage,
+                                   JdbcLibraryRepository library) {
         this.tenants = tenants; this.storage = storage; this.library = library;
     }
 
     /** What the caller's library holds and what it may hold; {@code limitBytes} absent means no limit. */
     public record Usage(long usedBytes, long fileCount, @Nullable Long limitBytes,
-                        Map<ChatLibraryFile.Category, Long> byCategory) {}
+                        Map<LibraryFile.Category, Long> byCategory) {}
 
     @Transactional(readOnly = true)
     public Usage usage(ActorId actor) {

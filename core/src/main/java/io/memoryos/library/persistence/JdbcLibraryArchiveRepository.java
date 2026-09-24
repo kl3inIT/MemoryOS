@@ -1,9 +1,9 @@
 package io.memoryos.library.persistence;
 
-import io.memoryos.library.ChatLibraryArchive;
-import io.memoryos.library.ChatLibraryArchiveItem;
-import io.memoryos.library.ChatLibraryArchiveStatus;
-import io.memoryos.library.ChatLibraryFile;
+import io.memoryos.library.LibraryArchive;
+import io.memoryos.library.LibraryArchiveItem;
+import io.memoryos.library.LibraryArchiveStatus;
+import io.memoryos.library.LibraryFile;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectKey;
@@ -25,19 +25,19 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
-public class JdbcChatLibraryArchiveRepository {
+public class JdbcLibraryArchiveRepository {
     private final JdbcClient jdbc;
 
-    public JdbcChatLibraryArchiveRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
+    public JdbcLibraryArchiveRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
-    public record Claim(UUID id, UUID tenant, UUID owner, List<ChatLibraryArchiveItem> requested, int attempts) {}
+    public record Claim(UUID id, UUID tenant, UUID owner, List<LibraryArchiveItem> requested, int attempts) {}
 
     public record Expired(TenantId tenant, UUID id, StoredObjectId object, ObjectKey key, UUID token) {}
 
     private static final String COLUMNS =
             "a.id, a.status, a.file_count, a.size_bytes, a.skipped::text AS skipped, a.failure, a.created_at, a.expires_at";
 
-    public ChatLibraryArchive insert(TenantId tenant, ActorId owner, UUID id, List<ChatLibraryArchiveItem> requested, long requestedBytes,
+    public LibraryArchive insert(TenantId tenant, ActorId owner, UUID id, List<LibraryArchiveItem> requested, long requestedBytes,
                           Duration lifetime) {
         jdbc.sql("""
                 INSERT INTO chat_library_archive(id, tenant_id, owner_actor_id, requested, file_count, requested_bytes, expires_at)
@@ -49,7 +49,7 @@ public class JdbcChatLibraryArchiveRepository {
         return find(tenant, owner, id).orElseThrow();
     }
 
-    public Optional<ChatLibraryArchive> find(TenantId tenant, ActorId owner, UUID id) {
+    public Optional<LibraryArchive> find(TenantId tenant, ActorId owner, UUID id) {
         return jdbc.sql("SELECT " + COLUMNS + """
                  FROM chat_library_archive a
                 WHERE a.tenant_id = :tenant AND a.owner_actor_id = :owner AND a.id = :id
@@ -58,7 +58,7 @@ public class JdbcChatLibraryArchiveRepository {
     }
 
     /** The owner's archives, newest first; the page offers each one for as long as it lives. */
-    public List<ChatLibraryArchive> list(TenantId tenant, ActorId owner, int limit) {
+    public List<LibraryArchive> list(TenantId tenant, ActorId owner, int limit) {
         return jdbc.sql("SELECT " + COLUMNS + """
                  FROM chat_library_archive a
                 WHERE a.tenant_id = :tenant AND a.owner_actor_id = :owner AND a.status <> 'FAILED'
@@ -163,26 +163,26 @@ public class JdbcChatLibraryArchiveRepository {
                 .param("token", expired.token()).update() == 1;
     }
 
-    private static ChatLibraryArchive archive(ResultSet row) throws SQLException {
+    private static LibraryArchive archive(ResultSet row) throws SQLException {
         Timestamp expires = row.getTimestamp("expires_at");
         Long size = row.getObject("size_bytes", Long.class);
-        return new ChatLibraryArchive(row.getObject("id", UUID.class), ChatLibraryArchiveStatus.valueOf(row.getString("status")),
+        return new LibraryArchive(row.getObject("id", UUID.class), LibraryArchiveStatus.valueOf(row.getString("status")),
                 row.getInt("file_count"), size, strings(row.getString("skipped")), row.getString("failure"),
                 row.getTimestamp("created_at").toInstant(), expires == null ? null : expires.toInstant());
     }
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    private static String json(List<ChatLibraryArchiveItem> requested) {
+    private static String json(List<LibraryArchiveItem> requested) {
         var array = JSON.createArrayNode();
         requested.forEach(file -> array.addObject().put("source", file.source().name()).put("id", file.id().toString()));
         return array.toString();
     }
 
-    private static List<ChatLibraryArchiveItem> requested(String json) {
-        var files = new java.util.ArrayList<ChatLibraryArchiveItem>();
-        JSON.readTree(json).forEach(file -> files.add(new ChatLibraryArchiveItem(
-                ChatLibraryFile.Source.valueOf(file.path("source").asString()),
+    private static List<LibraryArchiveItem> requested(String json) {
+        var files = new java.util.ArrayList<LibraryArchiveItem>();
+        JSON.readTree(json).forEach(file -> files.add(new LibraryArchiveItem(
+                LibraryFile.Source.valueOf(file.path("source").asString()),
                 UUID.fromString(file.path("id").asString()))));
         return List.copyOf(files);
     }

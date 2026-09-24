@@ -1,6 +1,6 @@
 package io.memoryos.chat.files.persistence;
 
-import io.memoryos.library.ChatLibraryFile;
+import io.memoryos.library.LibraryFile;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
@@ -26,7 +26,7 @@ public class JdbcChatArtifactRepository {
      * Renames or stars a generated file or image the owner's library lists: not deleted, in a conversation that is
      * not deleted. Answers false when there is no such artifact.
      */
-    public boolean update(TenantId tenant, ActorId actor, ChatLibraryFile.Source source, UUID id,
+    public boolean update(TenantId tenant, ActorId actor, LibraryFile.Source source, UUID id,
                           @Nullable String filename, @Nullable Boolean favorite) {
         String table = table(source);
         return jdbc.sql("""
@@ -41,7 +41,7 @@ public class JdbcChatArtifactRepository {
                 .param("id", id).param("filename", filename).param("favorite", favorite).update() == 1;
     }
 
-    private static String table(ChatLibraryFile.Source source) {
+    private static String table(LibraryFile.Source source) {
         return switch (source) {
             case GENERATED -> "chat_file_artifact";
             case IMAGE -> "chat_image_artifact";
@@ -56,7 +56,7 @@ public class JdbcChatArtifactRepository {
      * rendering and the lineage of an edited image are left out: a preview is derived again on demand, and
      * lineage names an artifact of the conversation that is being branched from.
      */
-    public record MessageArtifact(ChatLibraryFile.Source source, UUID id, ObjectKey key, String filename,
+    public record MessageArtifact(LibraryFile.Source source, UUID id, ObjectKey key, String filename,
                                   String mediaType, long sizeBytes, @Nullable String chart,
                                   @Nullable String revisedPrompt) {}
 
@@ -68,7 +68,7 @@ public class JdbcChatArtifactRepository {
                 WHERE a.tenant_id = :tenant AND a.message_id = :message AND a.deleted_at IS NULL
                 ORDER BY a.created_at, a.id
                 """).param("tenant", tenant.value()).param("message", messageId)
-                .query((row, ignored) -> new MessageArtifact(ChatLibraryFile.Source.GENERATED,
+                .query((row, ignored) -> new MessageArtifact(LibraryFile.Source.GENERATED,
                         row.getObject("id", UUID.class), new ObjectKey(row.getString("object_key")),
                         row.getString("filename"), row.getString("media_type"), row.getLong("size_bytes"),
                         row.getString("chart"), null))
@@ -79,7 +79,7 @@ public class JdbcChatArtifactRepository {
                 WHERE a.tenant_id = :tenant AND a.message_id = :message AND a.deleted_at IS NULL
                 ORDER BY a.created_at, a.id
                 """).param("tenant", tenant.value()).param("message", messageId)
-                .query((row, ignored) -> new MessageArtifact(ChatLibraryFile.Source.IMAGE,
+                .query((row, ignored) -> new MessageArtifact(LibraryFile.Source.IMAGE,
                         row.getObject("id", UUID.class), new ObjectKey(row.getString("object_key")),
                         row.getString("filename"), row.getString("media_type"), row.getLong("size_bytes"),
                         null, row.getString("revised_prompt")))
@@ -97,7 +97,7 @@ public class JdbcChatArtifactRepository {
      */
     public void copyArtifact(TenantId tenant, MessageArtifact artifact, UUID copyId, UUID messageId,
                              UUID storedObjectId, ObjectKey key) {
-        String statement = artifact.source() == ChatLibraryFile.Source.GENERATED ? """
+        String statement = artifact.source() == LibraryFile.Source.GENERATED ? """
                 INSERT INTO chat_file_artifact(id, tenant_id, message_id, stored_object_id, object_key, filename,
                                                media_type, size_bytes, chart, owner_actor_id, session_id)
                 SELECT :id, :tenant, :message, :object, :key, :filename, :type, :size, CAST(:extra AS jsonb),
@@ -116,7 +116,7 @@ public class JdbcChatArtifactRepository {
                 .param("message", messageId).param("object", storedObjectId).param("key", key.value())
                 .param("filename", artifact.filename()).param("type", artifact.mediaType())
                 .param("size", artifact.sizeBytes())
-                .param("extra", artifact.source() == ChatLibraryFile.Source.GENERATED ? artifact.chart()
+                .param("extra", artifact.source() == LibraryFile.Source.GENERATED ? artifact.chart()
                         : artifact.revisedPrompt())
                 .update();
         if (inserted != 1) throw new IllegalStateException("copied artifact has no answer in this tenant");

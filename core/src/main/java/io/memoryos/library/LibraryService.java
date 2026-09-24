@@ -1,6 +1,6 @@
 package io.memoryos.library;
 
-import io.memoryos.library.persistence.JdbcChatLibraryRepository;
+import io.memoryos.library.persistence.JdbcLibraryRepository;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
@@ -30,28 +30,28 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** Reads the caller's own files across uploads, generated files and generated images (MEM-142). */
 @Service
-public class ChatLibraryService {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ChatLibraryService.class);
+public class LibraryService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(LibraryService.class);
 
     /** The largest object the storage adapter writes from memory; artifacts are bounded well below it. */
     private static final long MAX_COPY_BYTES = 32L * 1024 * 1024;
 
     private final TenantAccessResolver tenants;
-    private final JdbcChatLibraryRepository library;
+    private final JdbcLibraryRepository library;
     private final JdbcUserFileRepository files;
     private final FileAttachments attachments;
     private final LibraryArtifacts artifacts;
     private final ObjectStorage storage;
     private final ObjectWriteService writes;
-    private final ChatFileProperties policy;
-    private final ChatStorageQuotaService quotas;
+    private final UserFileProperties policy;
+    private final StorageQuotaService quotas;
     private final TransactionTemplate tx;
-    private final ChatFileSearchService fileSearch;
+    private final UserFileSearchService fileSearch;
 
-    public ChatLibraryService(TenantAccessResolver tenants, JdbcChatLibraryRepository library, JdbcUserFileRepository files,
+    public LibraryService(TenantAccessResolver tenants, JdbcLibraryRepository library, JdbcUserFileRepository files,
                               FileAttachments attachments, LibraryArtifacts artifacts, ObjectStorage storage,
-                              ObjectWriteService writes, ChatFileProperties policy, ChatStorageQuotaService quotas,
-                              PlatformTransactionManager transactionManager, ChatFileSearchService fileSearch) {
+                              ObjectWriteService writes, UserFileProperties policy, StorageQuotaService quotas,
+                              PlatformTransactionManager transactionManager, UserFileSearchService fileSearch) {
         this.tenants = tenants; this.library = library; this.files = files;
         this.attachments = attachments; this.artifacts = artifacts;
         this.storage = storage; this.writes = writes; this.policy = policy; this.quotas = quotas;
@@ -59,16 +59,16 @@ public class ChatLibraryService {
         this.tx = new TransactionTemplate(transactionManager);
     }
 
-    public record Page(List<ChatLibraryFile> items, long totalCount, long totalBytes, boolean hasMore) {}
+    public record Page(List<LibraryFile> items, long totalCount, long totalBytes, boolean hasMore) {}
 
     /**
      * What to list. {@code session} narrows it to one conversation's own files (MEM-144); {@code favorites} to the
      * starred ones; {@code pending} lists the owner's uploads still uploading, processing or failed instead of the
      * READY files, so the library can show an upload's progress and let it be retried (MEM-152).
      */
-    public record Listing(String query, Set<ChatLibraryFile.Source> sources, Set<ChatLibraryFile.Category> categories,
+    public record Listing(String query, Set<LibraryFile.Source> sources, Set<LibraryFile.Category> categories,
                           @Nullable UUID session, boolean favorites, boolean pending, boolean trash,
-                          ChatLibraryFile.Sort sort, int offset, int limit) {
+                          LibraryFile.Sort sort, int offset, int limit) {
         public Listing {
             sources = Set.copyOf(sources); categories = Set.copyOf(categories);
         }
@@ -80,7 +80,7 @@ public class ChatLibraryService {
         if (query.length() > 200 || query.indexOf('\0') >= 0) throw LibraryException.invalid("Invalid search text.");
         Paging.check(listing.offset(), listing.limit());
         var tenant = tenants.findActiveTenant(actor).orElseThrow(LibraryException::unavailable);
-        var filter = new JdbcChatLibraryRepository.Filter(query.trim(), names(listing.sources()),
+        var filter = new JdbcLibraryRepository.Filter(query.trim(), names(listing.sources()),
                 names(listing.categories()), listing.session(), listing.favorites(), listing.pending(),
                 listing.trash(), null);
         // One extra row answers hasMore without counting twice; the window total already covers the filter.
@@ -91,16 +91,16 @@ public class ChatLibraryService {
     }
 
     /** A file the owner renamed or starred, as the library now lists it. */
-    public ChatLibraryFile update(ActorId actor, ChatLibraryFile.Source source, UUID id,
+    public LibraryFile update(ActorId actor, LibraryFile.Source source, UUID id,
                                   @Nullable String filename, @Nullable Boolean favorite) {
         if (filename == null && favorite == null) throw LibraryException.invalid("Nothing to change.");
         var tenant = tenants.findActiveTenant(actor).orElseThrow(LibraryException::unavailable);
         String name = null;
         if (filename != null) {
             var current = one(tenant, actor, source, id).orElseThrow(LibraryException::unavailable);
-            name = renamed(current.filename(), filename, source == ChatLibraryFile.Source.UPLOAD ? 255 : 200);
+            name = renamed(current.filename(), filename, source == LibraryFile.Source.UPLOAD ? 255 : 200);
         }
-        boolean updated = source == ChatLibraryFile.Source.UPLOAD
+        boolean updated = source == LibraryFile.Source.UPLOAD
                 ? library.update(tenant, actor, id, name, favorite)
                 : artifacts.update(tenant, actor, source, id, name, favorite);
         if (!updated) throw LibraryException.unavailable();
@@ -123,17 +123,17 @@ public class ChatLibraryService {
         return name;
     }
 
-    private java.util.Optional<ChatLibraryFile> one(TenantId tenant, ActorId actor, ChatLibraryFile.Source source, UUID id) {
+    private java.util.Optional<LibraryFile> one(TenantId tenant, ActorId actor, LibraryFile.Source source, UUID id) {
         // An upload is renamed while pending too, so both the READY and the pending lists are consulted.
         for (boolean pending : new boolean[] {false, true}) {
-            var page = library.page(tenant, actor, new JdbcChatLibraryRepository.Filter("", Set.of(source.name()), Set.of(),
-                    null, false, pending, Set.of(id)), ChatLibraryFile.Sort.NEWEST, 0, 1);
+            var page = library.page(tenant, actor, new JdbcLibraryRepository.Filter("", Set.of(source.name()), Set.of(),
+                    null, false, pending, Set.of(id)), LibraryFile.Sort.NEWEST, 0, 1);
             if (!page.items().isEmpty()) return java.util.Optional.of(withUsage(tenant, page.items()).getFirst());
         }
         return java.util.Optional.empty();
     }
 
-    public record ContentMatch(ChatLibraryFile file, List<Passage> passages) {
+    public record ContentMatch(LibraryFile file, List<Passage> passages) {
         public ContentMatch { passages = List.copyOf(passages); }
     }
 
@@ -159,9 +159,9 @@ public class ChatLibraryService {
             if (list.size() < 3) list.add(new Passage(hit.passage().content(), hit.passage().ordinal()));
         }
         if (passages.isEmpty()) return List.of();
-        var page = library.page(tenant, actor, new JdbcChatLibraryRepository.Filter("", Set.of("UPLOAD"), Set.of(), null,
-                false, false, passages.keySet()), ChatLibraryFile.Sort.NEWEST, 0, passages.size());
-        var rows = new LinkedHashMap<UUID, ChatLibraryFile>();
+        var page = library.page(tenant, actor, new JdbcLibraryRepository.Filter("", Set.of("UPLOAD"), Set.of(), null,
+                false, false, passages.keySet()), LibraryFile.Sort.NEWEST, 0, passages.size());
+        var rows = new LinkedHashMap<UUID, LibraryFile>();
         withUsage(tenant, page.items()).forEach(file -> rows.put(file.id(), file));
         return passages.entrySet().stream().filter(entry -> rows.containsKey(entry.getKey()))
                 .map(entry -> new ContentMatch(rows.get(entry.getKey()), entry.getValue())).toList();
@@ -173,10 +173,10 @@ public class ChatLibraryService {
      * the file already made, and deleting that file lets the artifact be taken again, so a rewritten artifact
      * replaces rather than duplicates.
      */
-    public UserFile publish(ActorId actor, ChatLibraryFile.Source source, UUID artifact, String filename,
+    public UserFile publish(ActorId actor, LibraryFile.Source source, UUID artifact, String filename,
             String mediaType, byte[] bytes) {
-        if (source == ChatLibraryFile.Source.UPLOAD || source == ChatLibraryFile.Source.GENERATED
-                || source == ChatLibraryFile.Source.IMAGE)
+        if (source == LibraryFile.Source.UPLOAD || source == LibraryFile.Source.GENERATED
+                || source == LibraryFile.Source.IMAGE)
             throw LibraryException.invalid("Those artifacts are taken with a copy.");
         var tenant = tenants.findActiveTenant(actor).orElseThrow(LibraryException::unavailable);
         var existing = files.copy(tenant, actor, source.name(), artifact);
@@ -188,7 +188,7 @@ public class ChatLibraryService {
     }
 
     /** The file this artifact was already taken into, if the caller still has it. */
-    public java.util.Optional<UserFile> published(ActorId actor, ChatLibraryFile.Source source, UUID artifact) {
+    public java.util.Optional<UserFile> published(ActorId actor, LibraryFile.Source source, UUID artifact) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(LibraryException::unavailable);
         return files.copy(tenant, actor, source.name(), artifact).map(row -> row.file());
     }
@@ -200,8 +200,8 @@ public class ChatLibraryService {
      * never duplicates it. The copy is independent: deleting or purging the artifact leaves it intact, and deleting
      * the copy lets the artifact be copied again.
      */
-    public UserFile copy(ActorId actor, ChatLibraryFile.Source source, UUID id) {
-        if (source == ChatLibraryFile.Source.UPLOAD) throw LibraryException.invalid("An upload is already usable as it is.");
+    public UserFile copy(ActorId actor, LibraryFile.Source source, UUID id) {
+        if (source == LibraryFile.Source.UPLOAD) throw LibraryException.invalid("An upload is already usable as it is.");
         var tenant = tenants.findActiveTenant(actor).orElseThrow(LibraryException::unavailable);
         var existing = files.copy(tenant, actor, source.name(), id);
         if (existing.isPresent()) return existing.get().file();
@@ -221,7 +221,7 @@ public class ChatLibraryService {
      * another request made meanwhile is returned instead, and an artifact deleted meanwhile, a membership that
      * changed, or any failure before the adoption commits discards the staged object at once.
      */
-    private UserFile store(TenantId tenant, ActorId actor, ChatLibraryFile.Source source, UUID artifact,
+    private UserFile store(TenantId tenant, ActorId actor, LibraryFile.Source source, UUID artifact,
             String filename, String mediaType, byte[] bytes, boolean artifactMustRemain) {
         ObjectWriteService.StagedObject staged;
         try {
@@ -268,7 +268,7 @@ public class ChatLibraryService {
     /** What the copy transaction settled on, and whether it adopted the staged object. */
     private record Stored(@Nullable UserFile file, boolean adopted) {}
 
-    private byte[] read(JdbcChatLibraryRepository.Artifact artifact) {
+    private byte[] read(JdbcLibraryRepository.Artifact artifact) {
         try (var content = storage.open(artifact.key())) {
             var bytes = content.inputStream().readNBytes((int) MAX_COPY_BYTES + 1);
             if (bytes.length != artifact.sizeBytes() || bytes.length < 1) throw LibraryException.unavailable();
@@ -288,14 +288,14 @@ public class ChatLibraryService {
     }
 
     /** Only uploads can be attached, so only their ids are looked up. */
-    private List<ChatLibraryFile> withUsage(TenantId tenant, List<ChatLibraryFile> items) {
-        var uploads = items.stream().filter(file -> file.source() == ChatLibraryFile.Source.UPLOAD)
-                .map(ChatLibraryFile::id).toList();
+    private List<LibraryFile> withUsage(TenantId tenant, List<LibraryFile> items) {
+        var uploads = items.stream().filter(file -> file.source() == LibraryFile.Source.UPLOAD)
+                .map(LibraryFile::id).toList();
         if (uploads.isEmpty()) return List.copyOf(items);
-        Map<UUID, List<ChatLibraryFile.Usage>> usage = new LinkedHashMap<>();
+        Map<UUID, List<LibraryFile.Usage>> usage = new LinkedHashMap<>();
         for (var used : attachments.holders(tenant, uploads)) {
             usage.computeIfAbsent(used.fileId(), id -> new ArrayList<>())
-                    .add(new ChatLibraryFile.Usage(used.kind(), used.id(), used.name()));
+                    .add(new LibraryFile.Usage(used.kind(), used.id(), used.name()));
         }
         return items.stream().map(file -> usage.containsKey(file.id()) ? file.withUsedBy(usage.get(file.id())) : file).toList();
     }

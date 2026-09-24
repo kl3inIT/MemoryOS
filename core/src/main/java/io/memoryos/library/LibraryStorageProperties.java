@@ -13,11 +13,11 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * real bound so the storage meter a person sees always means something.
  */
 @ConfigurationProperties("memoryos.chat.storage")
-public record ChatStorageProperties(@DefaultValue("536870912") long libraryBytes) {
+public record LibraryStorageProperties(@DefaultValue("536870912") long libraryBytes) {
     /** A byte less than nothing is not a limit, and no deployment holds a pebibyte for one person. */
     public static final long CEILING = 1024L * 1024 * 1024 * 1024;
 
-    public ChatStorageProperties {
+    public LibraryStorageProperties {
         if (libraryBytes < 0 || libraryBytes > CEILING) {
             throw new IllegalArgumentException(
                     "memoryos.chat.storage.library-bytes must be between 0 (no limit) and 1 TiB");
