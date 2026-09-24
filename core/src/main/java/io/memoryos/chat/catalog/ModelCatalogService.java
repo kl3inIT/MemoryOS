@@ -1,7 +1,6 @@
 package io.memoryos.chat.catalog;
 
 import io.memoryos.chat.ChatException;
-import io.memoryos.chat.application.PersonaProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.ModelCatalogRepository;
 import io.memoryos.chat.persistence.ModelCatalogRepository.Model;
@@ -35,14 +34,11 @@ public class ModelCatalogService {
     private final ChatProviderAdapters adapters;
     private final ProviderCredentials credentials;
     private final GroupScopeService groups;
-    private final PersonaProperties persona;
-    private final Deployment deployment;
     private final io.memoryos.iam.audit.AuditTrail audit;
 
     public ModelCatalogService(ModelCatalogRepository catalog, JdbcChatRepository chats, TenantAccessResolver tenants,
             IamAuthorization authorization, ChatProviderAdapters adapters, ProviderCredentials credentials,
-            GroupScopeService groups, PersonaProperties persona, Deployment deployment,
-            io.memoryos.iam.audit.AuditTrail audit) {
+            GroupScopeService groups, io.memoryos.iam.audit.AuditTrail audit) {
         this.audit = audit;
         this.catalog = catalog;
         this.chats = chats;
@@ -51,8 +47,6 @@ public class ModelCatalogService {
         this.adapters = adapters;
         this.credentials = credentials;
         this.groups = groups;
-        this.persona = persona;
-        this.deployment = deployment;
     }
 
     public record Deployment(String baseUrl, String modelName, ModelSettings settings) {}
@@ -83,20 +77,18 @@ public class ModelCatalogService {
         public PersonaPage { items = List.copyOf(items); }
     }
 
-    @Transactional
-    public void requireModelsManage(ActorId actor) { admin(actor, false); }
+    @Transactional(readOnly = true)
+    public void requireModelsManage(ActorId actor) { reader(actor); }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ProviderView> providers(ActorId actor) {
-        UUID tenant = admin(actor, false);
-        initialize(tenant);
+        UUID tenant = reader(actor);
         return catalog.providers(tenant).stream().map(this::view).toList();
     }
 
     @Transactional
     public ProviderView createProvider(ActorId actor, ProviderInput input) {
         UUID tenant = admin(actor, true);
-        initialize(tenant);
         if (catalog.providers(tenant).size() >= 64) throw ChatException.invalid("Provider limit reached.");
         UUID id = UUID.randomUUID();
         var provider = validated(tenant, id, input, null, 1);
@@ -109,7 +101,6 @@ public class ModelCatalogService {
     @Transactional
     public ProviderView updateProvider(ActorId actor, UUID id, long revision, ProviderInput input) {
         UUID tenant = admin(actor, true);
-        initialize(tenant);
         var old = catalog.provider(tenant, id).orElseThrow(ChatException::unavailable);
         if (old.revision() != revision) throw ChatException.conflict();
         if (!old.adapterType().equals(input.adapterType())) throw ChatException.invalid("Create a new provider to change its adapter type.");
@@ -155,7 +146,6 @@ public class ModelCatalogService {
     @Transactional
     public void deleteProvider(ActorId actor, UUID id, long revision) {
         UUID tenant = admin(actor, true);
-        initialize(tenant);
         var provider = catalog.provider(tenant, id).orElseThrow(ChatException::unavailable);
         if (provider.revision() != revision) throw ChatException.conflict();
         UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
@@ -166,10 +156,9 @@ public class ModelCatalogService {
                 event -> event.detail("adapter", provider.adapterType()));
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<Model> models(ActorId actor, UUID providerId) {
-        UUID tenant = admin(actor, false);
-        initialize(tenant);
+        UUID tenant = reader(actor);
         catalog.provider(tenant, providerId).orElseThrow(ChatException::unavailable);
         return catalog.models(tenant).stream().filter(m -> m.providerId().equals(providerId)).toList();
     }
@@ -177,7 +166,6 @@ public class ModelCatalogService {
     @Transactional
     public Model createModel(ActorId actor, UUID providerId, ModelInput input) {
         UUID tenant = admin(actor, true);
-        initialize(tenant);
         var provider = catalog.provider(tenant, providerId).orElseThrow(ChatException::unavailable);
         var all = catalog.models(tenant);
         if (all.size() >= 256) throw ChatException.invalid("Model limit reached.");
@@ -192,7 +180,6 @@ public class ModelCatalogService {
     @Transactional
     public Model updateModel(ActorId actor, UUID id, long revision, ModelInput input) {
         UUID tenant = admin(actor, true);
-        initialize(tenant);
         var old = catalog.model(tenant, id).orElseThrow(ChatException::unavailable);
         if (old.revision() != revision) throw ChatException.conflict();
         requireUnique(catalog.models(tenant), old.providerId(), id, input.modelName());
@@ -209,7 +196,6 @@ public class ModelCatalogService {
     @Transactional
     public void deleteModel(ActorId actor, UUID id, long revision) {
         UUID tenant = admin(actor, true);
-        initialize(tenant);
         var model = catalog.model(tenant, id).orElseThrow(ChatException::unavailable);
         if (model.revision() != revision) throw ChatException.conflict();
         if (id.equals(catalog.defaultModel(tenant).modelConfigurationId()))
@@ -220,17 +206,15 @@ public class ModelCatalogService {
                 event -> event.detail("provider", providerName));
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public ModelCatalogRepository.Default defaultModel(ActorId actor) {
-        UUID tenant = admin(actor, false);
-        initialize(tenant);
+        UUID tenant = reader(actor);
         return catalog.defaultModel(tenant);
     }
 
     @Transactional
     public ModelCatalogRepository.Default setDefault(ActorId actor, UUID id, long revision) {
         UUID tenant = admin(actor, true);
-        initialize(tenant);
         var model = catalog.model(tenant, id).orElseThrow(ChatException::unavailable);
         var provider = catalog.provider(tenant, model.providerId()).orElseThrow();
         if (!model.visible() || !usableDefaultProvider(provider))
@@ -245,10 +229,9 @@ public class ModelCatalogService {
         return catalog.defaultModel(tenant);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<FlowView> flowDefaults(ActorId actor) {
-        UUID tenant = admin(actor, false);
-        initialize(tenant);
+        UUID tenant = reader(actor);
         return catalog.flowDefaults(tenant).stream().map(value -> flowView(tenant, value)).toList();
     }
 
@@ -256,7 +239,6 @@ public class ModelCatalogService {
     @Transactional
     public FlowView setFlowDefault(ActorId actor, ModelFlow flow, @Nullable UUID id, long revision) {
         UUID tenant = admin(actor, true);
-        initialize(tenant);
         if (id != null && flowSelection(tenant, id) == null)
             throw ChatException.invalid("A task model must be visible and available to the Tenant without Group or Persona restrictions.");
         UUID before = catalog.flowDefault(tenant, flow).modelConfigurationId();
@@ -270,27 +252,27 @@ public class ModelCatalogService {
     }
 
     /** Groups a model manager may associate with a provider; scoped managers see only their own. */
-    @Transactional
+    @Transactional(readOnly = true)
     public GroupIdentityPage groupOptions(ActorId actor, @Nullable String search, int page, int size) {
-        var access = authorization.lockAndRequire(actor, IamCapability.MODELS_MANAGE, false);
+        var access = authorization.require(actor, IamCapability.MODELS_MANAGE, false);
         return access.authority() == Authority.GLOBAL
                 ? groups.listGroupOptions(access.tenantId(), search, page, size)
                 : groups.listManagedGroupOptions(access.tenantId(), actor, search, page, size);
     }
 
     /** Reads one provider's endpoint and decrypted credential; the caller performs the provider call. */
-    @Transactional
+    @Transactional(readOnly = true)
     public ProviderConnection providerConnection(ActorId actor, UUID providerId) {
-        UUID tenant = admin(actor, false);
+        UUID tenant = reader(actor);
         var provider = catalog.provider(tenant, providerId).orElseThrow(ChatException::unavailable);
         if (!provider.enabled()) throw ChatException.invalid("Enable the provider before listing its models.");
         return new ProviderConnection(provider.adapterType(), provider.baseUrl(),
                 credentials.resolve(tenant, providerId, provider.credential()));
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public PersonaPage personas(ActorId actor, @Nullable String cursor, int limit) {
-        UUID tenant = admin(actor, false);
+        UUID tenant = reader(actor);
         if (limit < 1 || limit > 100) throw ChatException.invalid("Persona page limit must be between 1 and 100.");
         UUID after = null;
         if (cursor != null) {
@@ -302,22 +284,20 @@ public class ModelCatalogService {
             }
             if (!catalog.personaExists(tenant, actor.value(), after, agentsManage(actor))) throw ChatException.invalid("Invalid Persona cursor.");
         }
-        chats.provisionPersona(new TenantId(tenant), persona.getName(), persona.getInstructions(), persona.getModel());
         var page = catalog.personas(tenant, actor.value(), agentsManage(actor), after, limit + 1);
         boolean hasMore = page.size() > limit;
         var items = hasMore ? page.subList(0, limit) : page;
         return new PersonaPage(items, hasMore ? items.getLast().id().toString() : null);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public ModelCatalogRepository.PersonaModel personaModel(ActorId actor, UUID id) {
-        return catalog.personaModel(admin(actor, false), actor.value(), agentsManage(actor), id);
+        return catalog.personaModel(reader(actor), actor.value(), agentsManage(actor), id);
     }
 
     @Transactional
     public ModelCatalogRepository.PersonaModel setPersonaModel(ActorId actor, UUID id, @Nullable UUID modelId, long revision) {
         UUID tenant = admin(actor, true);
-        initialize(tenant);
         catalog.personaModel(tenant, actor.value(), agentsManage(actor), id);
         if (modelId != null) {
             var model = catalog.model(tenant, modelId).orElseThrow(ChatException::unavailable);
@@ -328,32 +308,30 @@ public class ModelCatalogService {
         return catalog.personaModel(tenant, actor.value(), agentsManage(actor), id);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<AvailableModel> availableModels(ActorId actor, @Nullable UUID sessionId) {
-        var membership = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable);
+        var membership = tenants.findActiveMembership(actor).orElseThrow(ChatException::unavailable);
         UUID tenant = membership.tenantId().value();
-        initialize(tenant);
         UUID personaId = sessionId == null
-                ? chats.provisionPersona(membership.tenantId(), persona.getName(), persona.getInstructions(), persona.getModel())
+                ? chats.defaultPersona(membership.tenantId()).orElseThrow(ChatException::unavailable)
                 : chats.findOwned(membership.tenantId(), actor, sessionId, false).orElseThrow(ChatException::unavailable).personaId();
         return availableModels(actor, tenant, personaId);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public List<AvailableModel> availableModelsForPersona(ActorId actor, UUID personaId) {
-        var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
+        var tenant = tenants.findActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
         if (!chats.usablePersona(tenant, actor, personaId, authorization.effectiveCapabilities(actor).contains(IamCapability.AGENTS_MANAGE)))
             throw ChatException.unavailable();
-        initialize(tenant.value());
         return availableModels(actor, tenant.value(), personaId);
     }
 
     public record WebModels(List<UUID> automatic, @Nullable UUID inherited, List<UUID> nativeSearch) {}
 
-    @Transactional
+    @Transactional(readOnly = true)
     public WebModels availableWebModels(ActorId actor, @Nullable UUID sessionId) {
         var models = availableModels(actor, sessionId);
-        var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId().value();
+        var tenant = tenants.findActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId().value();
         var providers = catalog.providers(tenant).stream().collect(Collectors.toMap(Provider::id, Function.identity()));
         var automatic = models.stream().filter(m -> m.capabilities().toolCalling()).map(AvailableModel::id).toList();
         var settings = catalog.models(tenant).stream().collect(Collectors.toMap(Model::id, Model::settings));
@@ -386,7 +364,6 @@ public class ModelCatalogService {
         UUID tenant = membership.tenantId().value();
         chats.lockOwner(membership.tenantId(), actor);
         var session = chats.findOwned(membership.tenantId(), actor, sessionId, false).orElseThrow(ChatException::unavailable);
-        initialize(tenant);
         var context = chats.persona(sessionId, true, authorization.effectiveCapabilities(actor).contains(IamCapability.AGENTS_MANAGE));
         UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
         var groups = catalog.actorGroups(tenant, actor.value());
@@ -410,7 +387,6 @@ public class ModelCatalogService {
         UUID tenant = membership.tenantId().value();
         chats.lockOwner(membership.tenantId(), actor);
         chats.findOwned(membership.tenantId(), actor, sessionId, false).orElseThrow(ChatException::unavailable);
-        initialize(tenant);
         UUID id = catalog.flowDefault(tenant, flow).modelConfigurationId();
         var selection = id == null ? null : flowSelection(tenant, id);
         if (selection == null) return resolve(actor, sessionId, null);
@@ -426,7 +402,6 @@ public class ModelCatalogService {
     public Selection resolveFlow(ActorId actor, ModelFlow flow) {
         var membership = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable);
         UUID tenant = membership.tenantId().value();
-        initialize(tenant);
         UUID id = catalog.flowDefault(tenant, flow).modelConfigurationId();
         var selection = id == null ? null : flowSelection(tenant, id);
         if (selection == null) selection = flowSelection(tenant, catalog.defaultModel(tenant).modelConfigurationId());
@@ -434,10 +409,9 @@ public class ModelCatalogService {
         return new Selection(selection.model(), selection.provider(), null);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public Selection validationSelection(ActorId actor, UUID id) {
-        UUID tenant = admin(actor, false);
-        initialize(tenant);
+        UUID tenant = reader(actor);
         var model = catalog.model(tenant, id).orElseThrow(ChatException::unavailable);
         var provider = catalog.provider(tenant, model.providerId()).orElseThrow();
         validateModel(provider, model.modelName(), model.settings());
@@ -488,22 +462,13 @@ public class ModelCatalogService {
         return adapters.supports(p.adapterType()) && (adapters.require(p.adapterType()).credentialRequirement() != ChatProviderAdapter.CredentialRequirement.REQUIRED
                 || credentials.configured(p.credential()));
     }
+    /** Model-manager reads run in read-only transactions, which cannot take the shared Tenant row lock. */
+    private UUID reader(ActorId actor) {
+        return authorization.require(actor, IamCapability.MODELS_MANAGE, false).tenantId().value();
+    }
     private UUID admin(ActorId actor, boolean write) {
         return (write ? authorization.lockAndRequireExclusive(actor, IamCapability.MODELS_MANAGE)
                 : authorization.lockAndRequire(actor, IamCapability.MODELS_MANAGE, false)).tenantId().value();
-    }
-    private void initialize(UUID tenant) {
-        if (!catalog.initialize(tenant)) return;
-        UUID providerId = UUID.randomUUID();
-        var provider = new Provider(providerId, tenant, "OpenAI", "openai", deployment.baseUrl(), true, true,
-                ProviderCredentials.DEPLOYMENT, 1, Set.of(), Set.of(), DataBoundary.EXTERNAL);
-        validateEndpoint(provider.baseUrl());
-        validateModel(provider, deployment.modelName(), deployment.settings());
-        catalog.insertProvider(provider, "deployment");
-        var model = new Model(UUID.randomUUID(), tenant, providerId, deployment.modelName(), deployment.modelName(), true, deployment.settings(), 1);
-        catalog.insertModel(model);
-        catalog.setDefault(tenant, model.id(), 1);
-        catalog.initializeFlows(tenant);
     }
     private Provider validated(UUID tenant, UUID id, ProviderInput input, @Nullable String previous, long revision) {
         if (input == null || input.dataBoundary() == null) throw ChatException.invalid("Provider configuration is required.");
@@ -532,6 +497,9 @@ public class ModelCatalogService {
         return new Model(id, tenant, provider.id(), input.modelName(), input.displayName(), input.visible(), input.settings(), revision);
     }
     private void validateModel(Provider provider, String name, ModelSettings settings) {
+        validateModel(adapters, provider, name, settings);
+    }
+    static void validateModel(ChatProviderAdapters adapters, Provider provider, String name, ModelSettings settings) {
         if (settings == null || !settings.capabilities().streaming()) throw ChatException.invalid("Chat requires a streaming model.");
         var adapter = adapters.require(provider.adapterType());
         if (adapter.tokenizerProfiles().stream().noneMatch(profile -> profile.id().equals(settings.tokenizerProfile())))

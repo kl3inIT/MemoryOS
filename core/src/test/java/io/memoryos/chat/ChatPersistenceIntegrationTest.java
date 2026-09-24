@@ -90,7 +90,7 @@ class ChatPersistenceIntegrationTest {
                 TenantAccessResolver.class, jpa.transactionManager());
         var repository = new JdbcChatRepository(jdbc);
         authorization = mock(IamAuthorization.class);
-        sessions = TestDatabase.transactionalProxy(new DefaultChatSessionService(tenants, authorization, repository, new PersonaProperties(), new JdbcChatSearchRepository(jdbc)),
+        sessions = TestDatabase.transactionalProxy(new DefaultChatSessionService(tenants, authorization, repository, new JdbcChatSearchRepository(jdbc)),
                 ChatSessionService.class, jpa.transactionManager());
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(jpa.transactionManager());
@@ -103,7 +103,7 @@ class ChatPersistenceIntegrationTest {
                 new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
                         java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
                 jpa.transactionManager());
-        var factory = new ProxyFactory(new ChatTurnPersistence(tenants, authorization, repository, new PersonaProperties(), fileService,
+        var factory = new ProxyFactory(new ChatTurnPersistence(tenants, authorization, repository, fileService,
                 new ActorLanguageService(jpa.repository(JpaActorRepository.class,
                         RepositoryFragments.just(new ActorRefreshImpl(jpa.entityManager()))), tenants),
                 new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc)));
@@ -1267,6 +1267,9 @@ class ChatPersistenceIntegrationTest {
         UUID id = UUID.randomUUID();
         jdbc.sql("INSERT INTO tenants(id, slug, display_name, status, bootstrap_reference) VALUES (:id, :slug, 'Chat', 'ACTIVE', 'test')")
                 .param("id", id).param("slug", id.toString()).update();
+        // Tenant provisioning creates the built-in agent in production; the raw fixture does it here.
+        var defaults = new PersonaProperties();
+        new JdbcChatRepository(jdbc).provisionPersona(new TenantId(id), defaults.getName(), defaults.getInstructions(), defaults.getModel());
         return id;
     }
 
