@@ -3525,9 +3525,14 @@ class ChatSessionApiIntegrationTest {
                             .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                             .contentType(MediaType.APPLICATION_JSON).content("{\"text\":null}"))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-            var rewritten = accepted.path("utterances").get(0);
+            assertTrue(accepted.path("utterances").isMissingNode(), "one decision does not send the transcript");
+            var rewritten = accepted.path("utterance");
+            assertEquals(line.toString(), rewritten.path("id").asText());
             assertEquals("Bên Tasco đã gửi bảng KPI.", rewritten.path("text").asText());
             assertEquals("MODEL", rewritten.path("editSource").asText());
+            assertEquals(correction, accepted.path("correction").path("id").asText());
+            assertEquals("ACCEPTED", accepted.path("correction").path("status").asText());
+            assertEquals("Tát cô", accepted.path("correction").path("before").asText());
             assertEquals(0, rewritten.path("spans").size(),
                     "the marks covered the words that were replaced, so they describe nothing now");
             assertEquals(said, jdbc.sql("""
@@ -3545,15 +3550,34 @@ class ChatSessionApiIntegrationTest {
                     post("/api/meetings/" + meeting + "/corrections/" + correction + "/revert")
                             .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-            assertEquals(said, reverted.path("utterances").get(0).path("text").asText());
-            assertTrue(reverted.path("utterances").get(0).path("editSource").isNull(),
+            assertEquals(said, reverted.path("utterance").path("text").asText());
+            assertTrue(reverted.path("utterance").path("editSource").isNull(),
                     "back at the provider's own words, so nobody has changed this line after all");
+            assertEquals("REVERTED", reverted.path("correction").path("status").asText());
             assertEquals("REVERTED", Json.mapper().readTree(mockMvc.perform(
                     get("/api/meetings/" + meeting + "/corrections").with(authentication(actor)))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
                     .get(0).path("status").asText());
-            assertEquals(1, reverted.path("utterances").get(0).path("spans").size(),
+            assertEquals(1, reverted.path("utterance").path("spans").size(),
                     "and the stretch is uncertain again");
+
+            // Declining changes no line, so it answers the proposal alone.
+            UUID declined = UUID.randomUUID();
+            jdbc.sql("""
+                    INSERT INTO meeting_correction(tenant_id, id, meeting_id, utterance_id, run_id, span_start,
+                                                   span_end, before, after, reason, confidence, context_fit,
+                                                   meaning_safe, matched_glossary)
+                    VALUES (:tenant, :id, :meeting, :line, :run, 4, 10, 'Tát cô', 'Tắt cô', '', 0.4, 0.4, 0.4, false)
+                    """).param("tenant", TENANT).param("id", declined).param("meeting", meeting).param("line", line)
+                    .param("run", UUID.randomUUID()).update();
+            mockMvc.perform(post("/api/meetings/" + meeting + "/corrections/" + declined + "/keep")
+                    .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(declined.toString()))
+                    .andExpect(jsonPath("$.status").value("KEPT")).andExpect(jsonPath("$.after").value("Tắt cô"))
+                    .andExpect(jsonPath("$.utterance").doesNotExist())
+                    .andExpect(jsonPath("$.utterances").doesNotExist());
+            assertEquals(said, jdbc.sql("SELECT text FROM meeting_utterance WHERE id = :line").param("line", line)
+                    .query(String.class).single(), "and the line is as the provider heard it");
         } finally {
             jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
         }
@@ -3607,7 +3631,7 @@ class ChatSessionApiIntegrationTest {
                             .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                             .contentType(MediaType.APPLICATION_JSON).content("{\"text\":null}"))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-            assertEquals("Cộc, cốc, cốc.", knocked.path("utterances").get(0).path("text").asText());
+            assertEquals("Cộc, cốc, cốc.", knocked.path("utterance").path("text").asText());
 
             // A proposal stored before this fix still points at "Tr"; accepting it replaces the whole word.
             UUID legacy = UUID.randomUUID();
@@ -3624,14 +3648,18 @@ class ChatSessionApiIntegrationTest {
                             .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                             .contentType(MediaType.APPLICATION_JSON).content("{\"text\":null}"))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-            assertEquals("Trực tiếp limit à?", accepted.path("utterances").get(1).path("text").asText(),
+            assertEquals(direct.toString(), accepted.path("utterance").path("id").asText());
+            assertEquals("Trực tiếp limit à?", accepted.path("utterance").path("text").asText(),
                     "the rest of the word is not put back a second time");
+            assertEquals("Trực", accepted.path("correction").path("before").asText(),
+                    "the proposal records the whole word it replaced");
+            assertEquals("Trực".length(), accepted.path("correction").path("end").asInt());
 
             var reverted = Json.mapper().readTree(mockMvc.perform(
                     post("/api/meetings/" + meeting + "/corrections/" + legacy + "/revert")
                             .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-            assertEquals("Trực tiếp limit à?", reverted.path("utterances").get(1).path("text").asText(),
+            assertEquals("Trực tiếp limit à?", reverted.path("utterance").path("text").asText(),
                     "taking it back puts back exactly the word that was replaced");
         } finally {
             jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
@@ -3678,10 +3706,12 @@ class ChatSessionApiIntegrationTest {
             var written = Json.mapper().readTree(mockMvc.perform(post(path).with(authentication(actor)).with(csrf())
                     .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(tasco))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-            var rewritten = written.path("utterances").get(0);
+            var rewritten = written.path("utterance");
             assertEquals("Bên Tasco đã gửi bảng KPI.", rewritten.path("text").asText());
             assertEquals("HUMAN", rewritten.path("editSource").asText(), "the owner's words lock the line");
             assertEquals(0, rewritten.path("spans").size(), "the word is no longer marked");
+            assertEquals("ACCEPTED", written.path("correction").path("status").asText());
+            assertEquals("Tasco", written.path("correction").path("after").asText());
 
             var corrections = Json.mapper().readTree(mockMvc.perform(get("/api/meetings/" + meeting + "/corrections")
                     .with(authentication(actor))).andExpect(status().isOk()).andReturn().getResponse()
@@ -3689,14 +3719,15 @@ class ChatSessionApiIntegrationTest {
             assertEquals(1, corrections.size(), "it sits with the other corrections");
             assertEquals("ACCEPTED", corrections.get(0).path("status").asText());
             assertEquals("Tát cô", corrections.get(0).path("before").asText());
+            assertEquals(written.path("correction").path("id").asText(), corrections.get(0).path("id").asText(),
+                    "the answer names the correction the list holds");
 
             var reverted = Json.mapper().readTree(mockMvc.perform(
                     post("/api/meetings/" + meeting + "/corrections/" + corrections.get(0).path("id").asText()
                             + "/revert").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-            assertEquals(said, reverted.path("utterances").get(0).path("text").asText(),
-                    "and is taken back the same way");
-            assertEquals(1, reverted.path("utterances").get(0).path("spans").size());
+            assertEquals(said, reverted.path("utterance").path("text").asText(), "and is taken back the same way");
+            assertEquals(1, reverted.path("utterance").path("spans").size());
         } finally {
             jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
         }

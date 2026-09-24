@@ -6654,11 +6654,11 @@ paths:
         required: true
       responses:
         "200":
-          description: The meeting with the line rewritten
+          description: The line as it now reads and the correction recorded for it
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                $ref: "#/components/schemas/MeetingCorrectionApplied"
         "404":
           description: Meeting or line not available
           content:
@@ -7293,11 +7293,11 @@ paths:
           format: uuid
       responses:
         "200":
-          description: The meeting with the line restored
+          description: The line as it now reads and the reverted proposal
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                $ref: "#/components/schemas/MeetingCorrectionApplied"
         "404":
           description: Meeting or proposal not available
           content:
@@ -7356,11 +7356,11 @@ paths:
           format: uuid
       responses:
         "200":
-          description: "The meeting, unchanged"
+          description: The declined proposal; no line changed
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                $ref: "#/components/schemas/MeetingCorrection"
         "404":
           description: Meeting or proposal not available
           content:
@@ -7419,11 +7419,11 @@ paths:
         required: true
       responses:
         "200":
-          description: The meeting with the line rewritten
+          description: The line as it now reads and the accepted proposal
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                $ref: "#/components/schemas/MeetingCorrectionApplied"
         "404":
           description: Meeting or proposal not available
           content:
@@ -22175,6 +22175,76 @@ components:
       - end
       - start
       - text
+    MeetingCorrection:
+      type: object
+      description: One proposal for one uncertain stretch. Nothing changes until it
+        is accepted.
+      properties:
+        id:
+          type: string
+          format: uuid
+        utteranceId:
+          type: string
+          format: uuid
+        runId:
+          type: string
+          format: uuid
+        start:
+          type: integer
+          format: int32
+        end:
+          type: integer
+          format: int32
+        before:
+          type: string
+        after:
+          type: string
+        reason:
+          type: string
+        confidence:
+          type: number
+          format: double
+        contextFit:
+          type: number
+          format: double
+        meaningSafe:
+          type: number
+          format: double
+        matchedGlossary:
+          type: boolean
+        status:
+          type: string
+          enum:
+          - PENDING
+          - ACCEPTED
+          - KEPT
+          - REVERTED
+      required:
+      - after
+      - before
+      - confidence
+      - contextFit
+      - end
+      - id
+      - matchedGlossary
+      - meaningSafe
+      - reason
+      - runId
+      - start
+      - status
+      - utteranceId
+    MeetingCorrectionApplied:
+      type: object
+      description: "What deciding one stretch changed: the one line it rewrote and\
+        \ the proposal as it now stands"
+      properties:
+        utterance:
+          $ref: "#/components/schemas/MeetingUtterance"
+        correction:
+          $ref: "#/components/schemas/MeetingCorrection"
+      required:
+      - correction
+      - utterance
     MeetingTicketRequest:
       type: object
       properties:
@@ -22296,64 +22366,6 @@ components:
       - fileId
       - filename
       - status
-    MeetingCorrection:
-      type: object
-      description: One proposal for one uncertain stretch. Nothing changes until it
-        is accepted.
-      properties:
-        id:
-          type: string
-          format: uuid
-        utteranceId:
-          type: string
-          format: uuid
-        runId:
-          type: string
-          format: uuid
-        start:
-          type: integer
-          format: int32
-        end:
-          type: integer
-          format: int32
-        before:
-          type: string
-        after:
-          type: string
-        reason:
-          type: string
-        confidence:
-          type: number
-          format: double
-        contextFit:
-          type: number
-          format: double
-        meaningSafe:
-          type: number
-          format: double
-        matchedGlossary:
-          type: boolean
-        status:
-          type: string
-          enum:
-          - PENDING
-          - ACCEPTED
-          - KEPT
-          - REVERTED
-      required:
-      - after
-      - before
-      - confidence
-      - contextFit
-      - end
-      - id
-      - matchedGlossary
-      - meaningSafe
-      - reason
-      - runId
-      - start
-      - status
-      - utteranceId
     MeetingCorrectionRun:
       type: object
       properties:
