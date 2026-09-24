@@ -661,11 +661,12 @@ function AuthorizedSearchPage() {
                   <TablePagination
                     label={ui("Search results pages")}
                     className="px-0"
-                    page={currentPage}
+                    // A placeholder is still the previous page, so label the page actually shown.
+                    page={result.data.page}
                     totalPages={totalPages}
                     summary={ui("Showing {{first}}–{{last}} of {{total}}", {
-                      first: currentPage * PAGE_SIZE + 1,
-                      last: currentPage * PAGE_SIZE + result.data.results.length,
+                      first: result.data.page * PAGE_SIZE + 1,
+                      last: result.data.page * PAGE_SIZE + result.data.results.length,
                       total: totalLabel,
                     })}
                     previousDisabled={currentPage <= 0 || result.isPlaceholderData}

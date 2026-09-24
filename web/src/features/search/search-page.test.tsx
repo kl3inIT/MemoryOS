@@ -538,6 +538,7 @@ describe("SearchPage", () => {
     expect(screen.getByText("First page policy")).toBeVisible();
     expect(screen.queryByText("Searching documents…")).not.toBeInTheDocument();
     expect(screen.getByText("Updating")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–1 of 23")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
   });
 
