@@ -130,7 +130,14 @@ async function mockMeetings(page: Page) {
   await page.route(`**/api/meetings/${MEETING_ID}`, async (route) => {
     if (route.request().method() === "PUT") {
       const body = route.request().postDataJSON() as { title: string; participants: string[] };
-      meeting = { ...meeting!, title: body.title.trim(), participants: body.participants };
+      meeting = {
+        ...meeting!,
+        title: body.title.trim(),
+        participants: body.participants,
+        revision: meeting!.revision + 1,
+      };
+      const { title, participants, revision } = meeting;
+      return route.fulfill({ json: { title, participants, revision } });
     }
     await route.fulfill({ json: meeting });
   });
@@ -138,7 +145,7 @@ async function mockMeetings(page: Page) {
     const line = new URL(route.request().url()).pathname.split("/").at(-2)!;
     const starred = route.request().method() === "PUT" ? [line] : [];
     meeting = { ...meeting!, starred };
-    await route.fulfill({ json: meeting });
+    await route.fulfill({ json: starred });
   });
   await page.route(`**/api/meetings/${MEETING_ID}/bookmarks`, async (route) => {
     const body = route.request().postDataJSON() as { atMs: number };
@@ -149,7 +156,7 @@ async function mockMeetings(page: Page) {
         { id: "b1", atMs: body.atMs, label: `Đánh dấu ${meeting!.bookmarks.length + 1}` },
       ],
     };
-    await route.fulfill({ json: meeting });
+    await route.fulfill({ json: meeting!.bookmarks });
   });
   await page.route(`**/api/meetings/${MEETING_ID}/corrections`, (route) =>
     route.fulfill({
@@ -222,7 +229,7 @@ async function mockMeetings(page: Page) {
         speaker.label === "1" ? { ...speaker, suggestion: null } : speaker,
       ),
     };
-    await route.fulfill({ json: meeting });
+    await route.fulfill({ json: meeting!.speakers.find((speaker) => speaker.label === "1") });
   });
   await page.route(`**/api/meetings/${MEETING_ID}/speakers/MIC/1`, async (route) => {
     const { name } = route.request().postDataJSON() as { name: string };
@@ -232,7 +239,7 @@ async function mockMeetings(page: Page) {
         speaker.label === "1" ? { ...speaker, name, suggestion: null } : speaker,
       ),
     };
-    await route.fulfill({ json: meeting });
+    await route.fulfill({ json: meeting!.speakers.find((speaker) => speaker.label === "1") });
   });
   await page.route(`**/api/meetings/${MEETING_ID}/speakers/MIC/2`, async (route) => {
     const { name } = route.request().postDataJSON() as { name: string };
@@ -242,7 +249,7 @@ async function mockMeetings(page: Page) {
         speaker.label === "2" ? { ...speaker, name } : speaker,
       ),
     };
-    await route.fulfill({ json: meeting });
+    await route.fulfill({ json: meeting!.speakers.find((speaker) => speaker.label === "2") });
   });
   await page.route(`**/api/meetings/${MEETING_ID}/end`, async (route) => {
     meeting = {
@@ -294,14 +301,17 @@ async function mockMeetings(page: Page) {
   });
   await page.route(`**/api/meetings/${MEETING_ID}/minutes/*`, async (route) => {
     const { done } = route.request().postDataJSON() as { done: boolean };
+    const id = new URL(route.request().url()).pathname.split("/").at(-1);
     meeting = {
       ...meeting!,
       minutes: {
         ...meeting!.minutes,
-        actions: meeting!.minutes.actions.map((item) => ({ ...item, done })),
+        actions: meeting!.minutes.actions.map((item) =>
+          item.id === id ? { ...item, done } : item,
+        ),
       },
     };
-    await route.fulfill({ json: meeting });
+    await route.fulfill({ json: meeting!.minutes.actions.find((item) => item.id === id) });
   });
   await page.route("**/api/chat/persona-share-options*", (route) =>
     route.fulfill({
@@ -332,7 +342,7 @@ async function mockMeetings(page: Page) {
         ...body.groups.map((id) => ({ kind: "GROUP" as const, id, name: "Khối Tài chính" })),
       ],
     };
-    await route.fulfill({ json: meeting });
+    await route.fulfill({ json: meeting!.readers });
   });
   await page.route("**/api/meetings/transcribers", (route) =>
     route.fulfill({
@@ -495,7 +505,7 @@ async function mockMeetings(page: Page) {
           ? { ...minutes, actions: [...minutes.actions, item], edited: true }
           : { ...minutes, decisions: [...minutes.decisions, item], edited: true },
     };
-    await route.fulfill({ json: meeting });
+    await route.fulfill({ json: item });
   });
   await page.route(`**/api/meetings/${MEETING_ID}/minutes/items/*`, async (route) => {
     if (route.request().method() !== "DELETE") return route.fallback();
@@ -510,7 +520,7 @@ async function mockMeetings(page: Page) {
         edited: true,
       },
     };
-    await route.fulfill({ json: meeting });
+    await route.fulfill({ status: 204 });
   });
   // Registered after the item route above so the heading is not taken for a minutes item.
   await page.route(`**/api/meetings/${MEETING_ID}/minutes/heading`, async (route) => {

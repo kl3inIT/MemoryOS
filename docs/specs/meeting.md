@@ -25,6 +25,24 @@ A reader opens the meeting while it records and after it ends: the transcript as
 | `status` | `RECORDING` until `end`, then `ENDED`; `TRANSCRIBING` while an uploaded recording is being read. Only a `RECORDING` meeting issues tickets (409 `MEETING_ENDED` otherwise) |
 | `provider`, `diarized` | The last stream's provider and whether any stream separated speakers |
 
+## What a change answers
+
+`GET /api/meetings/{id}` is the read that carries the transcript. A small change answers with the part it changed, never with the meeting, so ticking a box on a five-hour meeting reads and sends one row rather than every utterance. The browser folds the answer into the meeting it already holds.
+
+| Change | Answer |
+| --- | --- |
+| `PUT /api/meetings/{id}/notes` | `{notes, revision}`: the notes as stored and the revision the next save names |
+| `PUT /api/meetings/{id}` | `{title, participants, revision}`: the name and the people as stored, and the new revision |
+| `PUT /api/meetings/{id}/speakers/{track}/{label}`, `DELETE …/speakers/{track}/{label}/suggestion` | That one speaker: `{track, label, name, suggestion}`. A voice left without a name is offered the name it gave itself again, read from its own lines only |
+| `PUT`, `DELETE /api/meetings/{id}/utterances/{utteranceId}/star` | Every line the caller starred in this meeting |
+| `POST /api/meetings/{id}/bookmarks`, `DELETE …/bookmarks/{bookmarkId}` | Every mark the caller has in this meeting, in time order |
+| `PUT /api/meetings/{id}/shares` | Everyone the meeting is now shared with |
+| `PUT /api/meetings/{id}/minutes/{itemId}` (tick), `PUT …/minutes/items/{itemId}` (rewrite), `POST …/minutes/items` (write in) | The item as it now reads. An item carrying the owner's words means the minutes are the owner's |
+| `DELETE /api/meetings/{id}/minutes/items/{itemId}` | 204; the minutes are the owner's from then on |
+| `PUT /api/meetings/{id}/minutes/summary` | `{summary, edited}` |
+
+Creating, ending, rerunning the minutes, reserving and finalizing a recording, and every transcript correction (`accept`, `keep`, `revert`, `accept-all`, `revert-all`, a word written by hand) still answer the whole meeting: they change its status, its minutes or the words of its lines, and the page shows all of that at once.
+
 ## Recording a track
 
 1. `POST /api/meetings/{id}/tickets` with `{track}` issues a 60-second single-use ticket bound to the actor, the meeting and the track (the voice ticket store with scope `MEETING:{id}:{track}`).
@@ -45,7 +63,7 @@ An utterance also carries `spans`: the stretches the provider was least sure of,
 
 Searching a transcript happens in the browser over what is already loaded; no route answers a query. Every hit is numbered across the whole meeting so the arrows walk them in reading order, and a hit is drawn over an uncertain stretch where the two overlap.
 
-Two marks belong to whoever left them, and nobody else sees them — a meeting five people read collects five sets. A **star** says a line matters and is left afterwards, while reading: `PUT` and `DELETE /api/meetings/{id}/utterances/{utteranceId}/star`, answered with the meeting as that reader sees it. A **bookmark** says to come back to a moment and is left during the meeting, when there is no line yet to star: `POST /api/meetings/{id}/bookmarks` takes milliseconds from the start of the recording and a label, numbering it `Đánh dấu N` when none is given, and `DELETE /api/meetings/{id}/bookmarks/{bookmarkId}` takes back one of the caller's own. At most 200 bookmarks per person per meeting, and a time outside the recording is refused. Anyone who reads the meeting may leave both; the meeting carries `starred` and `bookmarks` for the caller alone.
+Two marks belong to whoever left them, and nobody else sees them — a meeting five people read collects five sets. A **star** says a line matters and is left afterwards, while reading: `PUT` and `DELETE /api/meetings/{id}/utterances/{utteranceId}/star`, answered with the lines that reader starred. A **bookmark** says to come back to a moment and is left during the meeting, when there is no line yet to star: `POST /api/meetings/{id}/bookmarks` takes milliseconds from the start of the recording and a label, numbering it `Đánh dấu N` when none is given, and `DELETE /api/meetings/{id}/bookmarks/{bookmarkId}` takes back one of the caller's own. At most 200 bookmarks per person per meeting, and a time outside the recording is refused. Anyone who reads the meeting may leave both; the meeting carries `starred` and `bookmarks` for the caller alone.
 
 ## The timeline
 

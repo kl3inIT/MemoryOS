@@ -49,6 +49,7 @@ import type {
   MeetingMinutes,
   MeetingMinutesItem,
   MeetingReader,
+  MeetingSpeaker,
   MeetingSummary,
   MeetingTranscriber,
   MeetingUtterance,
@@ -65,6 +66,7 @@ export type {
   MeetingMinutes,
   MeetingMinutesItem,
   MeetingReader,
+  MeetingSpeaker,
   MeetingSummary,
   MeetingTranscriber,
   MeetingUtterance,
@@ -78,6 +80,77 @@ export const meetingListKey = [...meetingsKey, "list"] as const;
 
 export function invalidateMeetingList(cache: QueryClient) {
   return cache.invalidateQueries({ queryKey: meetingListKey });
+}
+
+/**
+ * Folds the part of a meeting a small change answered with into the cached meeting. The transcript is never sent
+ * back for a tick or a rename; a meeting that is not cached is read whole the next time it is shown.
+ */
+export function patchMeeting(
+  cache: QueryClient,
+  meetingId: string,
+  patch: (meeting: MeetingDetail) => MeetingDetail,
+) {
+  cache.setQueryData<MeetingDetail>(meetingKey(meetingId), (current) =>
+    current ? patch(current) : current,
+  );
+}
+
+/** The meeting with one speaker as the server now has it. */
+export function withSpeaker(meeting: MeetingDetail, speaker: MeetingSpeaker): MeetingDetail {
+  return {
+    ...meeting,
+    speakers: meeting.speakers.map((current) =>
+      current.track === speaker.track && current.label === speaker.label ? speaker : current,
+    ),
+  };
+}
+
+/** The meeting with one decision, piece of work or topic as the server now has it. */
+export function withMinutesItem(meeting: MeetingDetail, item: MeetingMinutesItem): MeetingDetail {
+  const replace = (items: MeetingMinutesItem[]) =>
+    items.map((current) => (current.id === item.id ? item : current));
+  const { minutes } = meeting;
+  return {
+    ...meeting,
+    minutes: {
+      ...minutes,
+      decisions: replace(minutes.decisions),
+      actions: replace(minutes.actions),
+      topics: replace(minutes.topics),
+      // Only the owner's own words are marked edited, and writing them marks the minutes edited too.
+      edited: minutes.edited || item.edited,
+    },
+  };
+}
+
+/** The meeting with an item the owner wrote in, after the others of its kind as the server placed it. */
+export function withAddedMinutesItem(
+  meeting: MeetingDetail,
+  kind: "ACTION" | "DECISION",
+  item: MeetingMinutesItem,
+): MeetingDetail {
+  const { minutes } = meeting;
+  const list = kind === "ACTION" ? "actions" : "decisions";
+  return {
+    ...meeting,
+    minutes: { ...minutes, [list]: [...minutes[list], item], edited: true },
+  };
+}
+
+/** The meeting without an item the owner took out; taking one out makes the minutes the owner's. */
+export function withoutMinutesItem(meeting: MeetingDetail, itemId: string): MeetingDetail {
+  const keep = (items: MeetingMinutesItem[]) => items.filter((item) => item.id !== itemId);
+  const { minutes } = meeting;
+  return {
+    ...meeting,
+    minutes: {
+      ...minutes,
+      decisions: keep(minutes.decisions),
+      actions: keep(minutes.actions),
+      edited: true,
+    },
+  };
 }
 
 export async function loadMeetings(signal: AbortSignal): Promise<MeetingSummary[]> {

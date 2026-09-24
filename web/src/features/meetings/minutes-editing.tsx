@@ -13,8 +13,11 @@ import {
   addMinutesItem,
   editMinutesItem,
   editMinutesSummary,
-  meetingKey,
+  patchMeeting,
   removeMinutesItem,
+  withAddedMinutesItem,
+  withMinutesItem,
+  withoutMinutesItem,
   type MeetingDetail,
   type MeetingMinutesItem,
 } from "./meetings-api";
@@ -43,7 +46,11 @@ export function EditableSummary({ meeting }: { meeting: MeetingDetail }) {
     setPending(true);
     setError(undefined);
     try {
-      cache.setQueryData(meetingKey(meeting.id), await editMinutesSummary(meeting.id, draft));
+      const saved = await editMinutesSummary(meeting.id, draft);
+      patchMeeting(cache, meeting.id, (current) => ({
+        ...current,
+        minutes: { ...current.minutes, summary: saved.summary, edited: saved.edited },
+      }));
       setEditing(false);
     } catch (failed) {
       setError(problemMessage(presentProblem(failed, "mutation").message));
@@ -126,7 +133,8 @@ export function EditableItem({
     setPending("remove");
     setError(undefined);
     try {
-      cache.setQueryData(meetingKey(meeting.id), await removeMinutesItem(meeting.id, item.id));
+      await removeMinutesItem(meeting.id, item.id);
+      patchMeeting(cache, meeting.id, (current) => withoutMinutesItem(current, item.id));
     } catch (failed) {
       setError(problemMessage(presentProblem(failed, "mutation").message));
       setPending(undefined);
@@ -137,16 +145,14 @@ export function EditableItem({
     setPending("save");
     setError(undefined);
     try {
-      cache.setQueryData(
-        meetingKey(meeting.id),
-        await editMinutesItem(
-          meeting.id,
-          item.id,
-          text,
-          assignable ? owner : "",
-          assignable ? due : "",
-        ),
+      const saved = await editMinutesItem(
+        meeting.id,
+        item.id,
+        text,
+        assignable ? owner : "",
+        assignable ? due : "",
       );
+      patchMeeting(cache, meeting.id, (current) => withMinutesItem(current, saved));
       setEditing(false);
     } catch (failed) {
       setError(problemMessage(presentProblem(failed, "mutation").message));
@@ -316,10 +322,8 @@ export function NewItem({
     setPending(true);
     setError(undefined);
     try {
-      cache.setQueryData(
-        meetingKey(meeting.id),
-        await addMinutesItem(meeting.id, kind, text, owner, due),
-      );
+      const added = await addMinutesItem(meeting.id, kind, text, owner, due);
+      patchMeeting(cache, meeting.id, (current) => withAddedMinutesItem(current, kind, added));
       close();
     } catch (failed) {
       setError(problemMessage(presentProblem(failed, "mutation").message));

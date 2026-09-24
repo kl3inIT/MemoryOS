@@ -7,9 +7,11 @@ import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import {
   dismissSpeakerSuggestion,
-  meetingKey,
   nameSpeaker,
+  patchMeeting,
+  withSpeaker,
   type MeetingDetail,
+  type MeetingSpeaker,
 } from "./meetings-api";
 
 /**
@@ -25,11 +27,12 @@ export function SpeakerSuggestions({ meeting }: { meeting: MeetingDetail }) {
   const offered = meeting.speakers.filter((speaker) => speaker.suggestion);
   if (!meeting.owned || offered.length === 0) return null;
 
-  async function decide(key: string, act: () => Promise<MeetingDetail>) {
+  async function decide(key: string, act: () => Promise<MeetingSpeaker>) {
     setPending(key);
     setError(null);
     try {
-      cache.setQueryData(meetingKey(meeting.id), await act());
+      const speaker = await act();
+      patchMeeting(cache, meeting.id, (current) => withSpeaker(current, speaker));
     } catch (failed) {
       setError(problemMessage(presentProblem(failed, "mutation").message));
     } finally {

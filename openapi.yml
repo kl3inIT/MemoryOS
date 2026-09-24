@@ -300,11 +300,11 @@ paths:
         required: true
       responses:
         "200":
-          description: The meeting
+          description: "The name and the people as stored, and the new revision"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                $ref: "#/components/schemas/MeetingParticulars"
         "404":
           description: Meeting not available
           content:
@@ -403,11 +403,14 @@ paths:
           format: uuid
       responses:
         "200":
-          description: The meeting with the caller's marks
+          description: Every line the caller starred in this meeting
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                type: array
+                items:
+                  type: string
+                  format: uuid
         "404":
           description: Meeting or line not available
           content:
@@ -459,11 +462,14 @@ paths:
           format: uuid
       responses:
         "200":
-          description: The meeting with the caller's marks
+          description: Every line the caller still has starred in this meeting
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                type: array
+                items:
+                  type: string
+                  format: uuid
         "404":
           description: Meeting or line not available
           content:
@@ -529,11 +535,11 @@ paths:
         required: true
       responses:
         "200":
-          description: The meeting
+          description: The speaker as now named
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                $ref: "#/components/schemas/MeetingSpeaker"
         "404":
           description: Meeting or speaker not available
           content:
@@ -586,11 +592,13 @@ paths:
         required: true
       responses:
         "200":
-          description: "The meeting, with its readers"
+          description: Everyone the meeting is now shared with
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeetingReader"
         "404":
           description: Meeting not available
           content:
@@ -643,11 +651,11 @@ paths:
         required: true
       responses:
         "200":
-          description: The meeting
+          description: The notes as stored and the new revision
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                $ref: "#/components/schemas/MeetingNotes"
         "404":
           description: Meeting not available
           content:
@@ -712,11 +720,11 @@ paths:
         required: true
       responses:
         "200":
-          description: The meeting
+          description: The item as it now reads
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                $ref: "#/components/schemas/MeetingMinutesItem"
         "404":
           description: Meeting or item not available
           content:
@@ -769,11 +777,11 @@ paths:
         required: true
       responses:
         "200":
-          description: The meeting with the summary as it now reads
+          description: The summary as it now reads
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                $ref: "#/components/schemas/MeetingMinutesSummary"
         "400":
           description: Invalid meeting request
           content:
@@ -832,11 +840,11 @@ paths:
         required: true
       responses:
         "200":
-          description: The meeting with the item as it now reads
+          description: The item as it now reads
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                $ref: "#/components/schemas/MeetingMinutesItem"
         "400":
           description: Invalid meeting request
           content:
@@ -887,12 +895,8 @@ paths:
           type: string
           format: uuid
       responses:
-        "200":
-          description: The meeting without the item
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MeetingDetail"
+        "204":
+          description: Removed; the minutes now count as the owner's words
         "404":
           description: Meeting or item not available
           content:
@@ -6956,11 +6960,11 @@ paths:
         required: true
       responses:
         "200":
-          description: The meeting with the item added
+          description: "The item written in, placed after the others of its kind"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                $ref: "#/components/schemas/MeetingMinutesItem"
         "404":
           description: Meeting not available
           content:
@@ -7598,11 +7602,13 @@ paths:
         required: true
       responses:
         "200":
-          description: The meeting with the caller's marks
+          description: Every mark the caller left in this meeting
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeetingBookmark"
         "404":
           description: Meeting not available
           content:
@@ -17865,11 +17871,11 @@ paths:
           type: string
       responses:
         "200":
-          description: The meeting
+          description: "The speaker, no longer offered a name"
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                $ref: "#/components/schemas/MeetingSpeaker"
         "404":
           description: Meeting or speaker not available
           content:
@@ -17922,11 +17928,13 @@ paths:
           format: uuid
       responses:
         "200":
-          description: The meeting with the caller's marks
+          description: Every mark the caller still has in this meeting
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeetingDetail"
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeetingBookmark"
         "404":
           description: Meeting or mark not available
           content:
@@ -18694,222 +18702,137 @@ components:
       required:
       - participants
       - title
-    MeetingAudio:
+    MeetingParticulars:
       type: object
-      description: An uploaded recording being turned into a transcript
+      description: "The meeting's name and the people in it, as stored"
       properties:
-        status:
-          type: string
-          enum:
-          - NONE
-          - WAITING
-          - PENDING
-          - RUNNING
-          - DONE
-          - FAILED
-        failure:
-          type:
-          - string
-          - "null"
-        filename:
-          type:
-          - string
-          - "null"
-        sizeBytes:
-          type: integer
-          format: int64
-        provider:
-          type:
-          - string
-          - "null"
-      required:
-      - failure
-      - filename
-      - provider
-      - sizeBytes
-      - status
-    MeetingBookmark:
-      type: object
-      description: A moment the caller marked while the meeting was running. Only
-        they see it.
-      properties:
-        id:
-          type: string
-          format: uuid
-        atMs:
-          type: integer
-          format: int64
-        label:
-          type: string
-      required:
-      - atMs
-      - id
-      - label
-    MeetingDetail:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
         title:
           type: string
-        kind:
-          type: string
-          enum:
-          - ONLINE
-          - IN_PERSON
-        language:
-          type:
-          - string
-          - "null"
         participants:
           type: array
           items:
             type: string
-        terms:
-          type: array
-          items:
-            type: string
-        notes:
-          type: string
-        status:
-          type: string
-          enum:
-          - RECORDING
-          - TRANSCRIBING
-          - ENDED
-        provider:
-          type:
-          - string
-          - "null"
-        diarized:
-          type: boolean
-          description: Whether speaker labels distinguish people
-        createdAt:
-          type: string
-          format: date-time
-        endedAt:
-          type:
-          - string
-          - "null"
-          format: date-time
         revision:
           type: integer
           format: int64
-        speakers:
+          description: "The meeting's revision, which the next notes save names"
+      required:
+      - participants
+      - revision
+      - title
+    MeetingSpeakerRequest:
+      type: object
+      description: A blank or absent name restores the automatic label
+      properties:
+        name:
+          type:
+          - string
+          - "null"
+          maxLength: 200
+    MeetingSpeaker:
+      type: object
+      properties:
+        track:
+          type: string
+          enum:
+          - MIC
+          - TAB
+        label:
+          type: string
+        name:
+          type:
+          - string
+          - "null"
+        suggestion:
+          type: "null"
+          $ref: "#/components/schemas/MeetingSpeakerSuggestion"
+          description: "The name this voice gave itself, offered to the owner"
+      required:
+      - label
+      - name
+      - track
+    MeetingSpeakerSuggestion:
+      type: object
+      properties:
+        name:
+          type: string
+        utteranceId:
+          type: string
+          format: uuid
+        confidence:
+          type: number
+          format: double
+      required:
+      - confidence
+      - name
+      - utteranceId
+    MeetingShareRequest:
+      type: object
+      description: "Everyone who may read this meeting, replacing the current list"
+      properties:
+        members:
           type: array
-          items:
-            $ref: "#/components/schemas/MeetingSpeaker"
-        utterances:
-          type: array
-          items:
-            $ref: "#/components/schemas/MeetingUtterance"
-        minutes:
-          $ref: "#/components/schemas/MeetingMinutes"
-        audio:
-          $ref: "#/components/schemas/MeetingAudio"
-        owned:
-          type: boolean
-          description: Whether the reader recorded this meeting; only its owner may
-            edit it
-        readers:
-          type: array
-          description: Who the meeting is shared with; empty for anyone but its owner
-          items:
-            $ref: "#/components/schemas/MeetingReader"
-        starred:
-          type: array
-          description: Lines the caller starred; another reader's stars are their
-            own
           items:
             type: string
             format: uuid
-        bookmarks:
+        groups:
           type: array
-          description: Moments the caller marked while the meeting was running
           items:
-            $ref: "#/components/schemas/MeetingBookmark"
-        correcting:
-          type: boolean
-          description: Whether a correction pass is running on this meeting right
-            now
+            type: string
+            format: uuid
       required:
-      - audio
-      - bookmarks
-      - correcting
-      - createdAt
-      - diarized
-      - endedAt
-      - id
-      - kind
-      - language
-      - minutes
-      - notes
-      - owned
-      - participants
-      - provider
-      - readers
-      - revision
-      - speakers
-      - starred
-      - status
-      - terms
-      - title
-      - utterances
-    MeetingMinutes:
+      - groups
+      - members
+    MeetingReader:
       type: object
-      description: What the model made of the meeting once it ended
+      description: "One member, or one Group, the meeting is shared with"
       properties:
-        status:
-          type: string
-          enum:
-          - NONE
-          - PENDING
-          - RUNNING
-          - READY
-          - FAILED
-        failure:
-          type:
-          - string
-          - "null"
-        summary:
-          type: string
         kind:
           type: string
-          description: What kind of meeting this was
-        generatedAt:
-          type:
-          - string
-          - "null"
-          format: date-time
-        decisions:
-          type: array
-          items:
-            $ref: "#/components/schemas/MeetingMinutesItem"
-        actions:
-          type: array
-          items:
-            $ref: "#/components/schemas/MeetingMinutesItem"
-        edited:
-          type: boolean
-          description: Whether the words standing now are the owner's rather than
-            the model's
-        topics:
-          type: array
-          description: "The subjects the meeting moved through, each at the line it\
-            \ began"
-          items:
-            $ref: "#/components/schemas/MeetingMinutesItem"
+          enum:
+          - MEMBER
+          - GROUP
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
       required:
-      - actions
-      - decisions
-      - edited
-      - failure
-      - generatedAt
+      - id
       - kind
-      - status
-      - summary
-      - topics
+      - name
+    MeetingNotesRequest:
+      type: object
+      properties:
+        notes:
+          type: string
+          maxLength: 50000
+        revision:
+          type: integer
+          format: int64
+      required:
+      - notes
+      - revision
+    MeetingNotes:
+      type: object
+      description: The owner's notes as stored
+      properties:
+        notes:
+          type: string
+        revision:
+          type: integer
+          format: int64
+          description: "The meeting's revision, which the next save names"
+      required:
+      - notes
+      - revision
+    MeetingItemRequest:
+      type: object
+      properties:
+        done:
+          type: boolean
+      required:
+      - done
     MeetingMinutesItem:
       type: object
       description: A decision the meeting reached or work it handed out
@@ -18951,167 +18874,6 @@ components:
       - quote
       - sourceUtteranceId
       - text
-    MeetingReader:
-      type: object
-      description: "One member, or one Group, the meeting is shared with"
-      properties:
-        kind:
-          type: string
-          enum:
-          - MEMBER
-          - GROUP
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-      required:
-      - id
-      - kind
-      - name
-    MeetingSpeaker:
-      type: object
-      properties:
-        track:
-          type: string
-          enum:
-          - MIC
-          - TAB
-        label:
-          type: string
-        name:
-          type:
-          - string
-          - "null"
-        suggestion:
-          type: "null"
-          $ref: "#/components/schemas/MeetingSpeakerSuggestion"
-          description: "The name this voice gave itself, offered to the owner"
-      required:
-      - label
-      - name
-      - track
-    MeetingSpeakerSuggestion:
-      type: object
-      properties:
-        name:
-          type: string
-        utteranceId:
-          type: string
-          format: uuid
-        confidence:
-          type: number
-          format: double
-      required:
-      - confidence
-      - name
-      - utteranceId
-    MeetingUtterance:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        track:
-          type: string
-          enum:
-          - MIC
-          - TAB
-        speaker:
-          type: string
-        startMs:
-          type: integer
-          format: int64
-        endMs:
-          type: integer
-          format: int64
-        text:
-          type: string
-        confidence:
-          type: number
-          format: double
-        spans:
-          type: array
-          items:
-            $ref: "#/components/schemas/MeetingUtteranceSpan"
-        editSource:
-          type: string
-          description: Who last changed what this line says; absent while nobody has
-          enum:
-          - MODEL
-          - HUMAN
-      required:
-      - confidence
-      - endMs
-      - id
-      - spans
-      - speaker
-      - startMs
-      - text
-      - track
-    MeetingUtteranceSpan:
-      type: object
-      description: "A stretch of the utterance the provider was unsure of, by character\
-        \ offset, half-open."
-      properties:
-        start:
-          type: integer
-          format: int32
-        end:
-          type: integer
-          format: int32
-        confidence:
-          type: number
-          format: double
-      required:
-      - confidence
-      - end
-      - start
-    MeetingSpeakerRequest:
-      type: object
-      description: A blank or absent name restores the automatic label
-      properties:
-        name:
-          type:
-          - string
-          - "null"
-          maxLength: 200
-    MeetingShareRequest:
-      type: object
-      description: "Everyone who may read this meeting, replacing the current list"
-      properties:
-        members:
-          type: array
-          items:
-            type: string
-            format: uuid
-        groups:
-          type: array
-          items:
-            type: string
-            format: uuid
-      required:
-      - groups
-      - members
-    MeetingNotesRequest:
-      type: object
-      properties:
-        notes:
-          type: string
-          maxLength: 50000
-        revision:
-          type: integer
-          format: int64
-      required:
-      - notes
-      - revision
-    MeetingItemRequest:
-      type: object
-      properties:
-        done:
-          type: boolean
-      required:
-      - done
     MeetingMinutesSummaryRequest:
       type: object
       properties:
@@ -19120,6 +18882,19 @@ components:
           maxLength: 20000
           minLength: 0
       required:
+      - summary
+    MeetingMinutesSummary:
+      type: object
+      description: The summary of the minutes as it now reads
+      properties:
+        summary:
+          type: string
+        edited:
+          type: boolean
+          description: Whether the words standing now are the owner's rather than
+            the model's
+      required:
+      - edited
       - summary
     MeetingMinutesItemRequest:
       type: object
@@ -22106,6 +21881,283 @@ components:
       required:
       - kind
       - title
+    MeetingAudio:
+      type: object
+      description: An uploaded recording being turned into a transcript
+      properties:
+        status:
+          type: string
+          enum:
+          - NONE
+          - WAITING
+          - PENDING
+          - RUNNING
+          - DONE
+          - FAILED
+        failure:
+          type:
+          - string
+          - "null"
+        filename:
+          type:
+          - string
+          - "null"
+        sizeBytes:
+          type: integer
+          format: int64
+        provider:
+          type:
+          - string
+          - "null"
+      required:
+      - failure
+      - filename
+      - provider
+      - sizeBytes
+      - status
+    MeetingBookmark:
+      type: object
+      description: A moment the caller marked while the meeting was running. Only
+        they see it.
+      properties:
+        id:
+          type: string
+          format: uuid
+        atMs:
+          type: integer
+          format: int64
+        label:
+          type: string
+      required:
+      - atMs
+      - id
+      - label
+    MeetingDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        kind:
+          type: string
+          enum:
+          - ONLINE
+          - IN_PERSON
+        language:
+          type:
+          - string
+          - "null"
+        participants:
+          type: array
+          items:
+            type: string
+        terms:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+        status:
+          type: string
+          enum:
+          - RECORDING
+          - TRANSCRIBING
+          - ENDED
+        provider:
+          type:
+          - string
+          - "null"
+        diarized:
+          type: boolean
+          description: Whether speaker labels distinguish people
+        createdAt:
+          type: string
+          format: date-time
+        endedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        revision:
+          type: integer
+          format: int64
+        speakers:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingSpeaker"
+        utterances:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingUtterance"
+        minutes:
+          $ref: "#/components/schemas/MeetingMinutes"
+        audio:
+          $ref: "#/components/schemas/MeetingAudio"
+        owned:
+          type: boolean
+          description: Whether the reader recorded this meeting; only its owner may
+            edit it
+        readers:
+          type: array
+          description: Who the meeting is shared with; empty for anyone but its owner
+          items:
+            $ref: "#/components/schemas/MeetingReader"
+        starred:
+          type: array
+          description: Lines the caller starred; another reader's stars are their
+            own
+          items:
+            type: string
+            format: uuid
+        bookmarks:
+          type: array
+          description: Moments the caller marked while the meeting was running
+          items:
+            $ref: "#/components/schemas/MeetingBookmark"
+        correcting:
+          type: boolean
+          description: Whether a correction pass is running on this meeting right
+            now
+      required:
+      - audio
+      - bookmarks
+      - correcting
+      - createdAt
+      - diarized
+      - endedAt
+      - id
+      - kind
+      - language
+      - minutes
+      - notes
+      - owned
+      - participants
+      - provider
+      - readers
+      - revision
+      - speakers
+      - starred
+      - status
+      - terms
+      - title
+      - utterances
+    MeetingMinutes:
+      type: object
+      description: What the model made of the meeting once it ended
+      properties:
+        status:
+          type: string
+          enum:
+          - NONE
+          - PENDING
+          - RUNNING
+          - READY
+          - FAILED
+        failure:
+          type:
+          - string
+          - "null"
+        summary:
+          type: string
+        kind:
+          type: string
+          description: What kind of meeting this was
+        generatedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingMinutesItem"
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingMinutesItem"
+        edited:
+          type: boolean
+          description: Whether the words standing now are the owner's rather than
+            the model's
+        topics:
+          type: array
+          description: "The subjects the meeting moved through, each at the line it\
+            \ began"
+          items:
+            $ref: "#/components/schemas/MeetingMinutesItem"
+      required:
+      - actions
+      - decisions
+      - edited
+      - failure
+      - generatedAt
+      - kind
+      - status
+      - summary
+      - topics
+    MeetingUtterance:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        track:
+          type: string
+          enum:
+          - MIC
+          - TAB
+        speaker:
+          type: string
+        startMs:
+          type: integer
+          format: int64
+        endMs:
+          type: integer
+          format: int64
+        text:
+          type: string
+        confidence:
+          type: number
+          format: double
+        spans:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingUtteranceSpan"
+        editSource:
+          type: string
+          description: Who last changed what this line says; absent while nobody has
+          enum:
+          - MODEL
+          - HUMAN
+      required:
+      - confidence
+      - endMs
+      - id
+      - spans
+      - speaker
+      - startMs
+      - text
+      - track
+    MeetingUtteranceSpan:
+      type: object
+      description: "A stretch of the utterance the provider was unsure of, by character\
+        \ offset, half-open."
+      properties:
+        start:
+          type: integer
+          format: int32
+        end:
+          type: integer
+          format: int32
+        confidence:
+          type: number
+          format: double
+      required:
+      - confidence
+      - end
+      - start
     MeetingWordCorrectionRequest:
       type: object
       description: What was said at one marked stretch of a line
