@@ -114,7 +114,6 @@ public class ChatPersonaService {
         page(offset, limit);
         if (query != null && (query.isBlank() || query.length() > 200)) query = null;
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
-        chats.provisionPersona(tenant, defaults.getName(), defaults.getInstructions(), defaults.getModel());
         agents.seedPinsOnce(tenant.value(), actor.value());
         boolean manage = manages(actor);
         return views(tenant, actor, manage, agents.list(tenant.value(), actor.value(), manage, view, label, query == null ? null : query.strip(), offset, limit));

@@ -30,10 +30,13 @@ API startup invokes `InitialTenantBootstrapper` after Flyway migration. The boot
 2. resolves or creates the exact `(issuer, subject)` Actor binding;
 3. persists the configured Tenant;
 4. persists its active `OWNER` membership;
-5. idempotently provisions Admin and Basic and their configured-owner memberships; and
-6. publishes the Tenant through the singleton state.
+5. idempotently provisions Admin and Basic and their configured-owner memberships;
+6. publishes the Tenant through the singleton state; and
+7. publishes `TenantBootstrapped(tenantId, created=true)` as a Spring application event.
 
-A concurrent replica waits on the singleton row and then verifies the published aggregate. Identical configuration returns the existing IDs with `created=false` and repairs missing system-Group bootstrap state idempotently. Configured UUID, owner identity, name, slug, lifecycle status, membership or change-reference drift fails with `TenantBootstrapConflictException`. Identity, Tenant, membership and Group writes roll back together when any bootstrap step fails.
+A concurrent replica waits on the singleton row and then verifies the published aggregate. Identical configuration returns the existing IDs with `created=false`, repairs missing system-Group bootstrap state idempotently and publishes `TenantBootstrapped(tenantId, created=false)`. Configured UUID, owner identity, name, slug, lifecycle status, membership or change-reference drift fails with `TenantBootstrapConflictException`.
+
+`TenantBootstrapped` listeners are synchronous `@EventListener`s that run in the bootstrap transaction and provision their module's per-Tenant defaults insert-only. The re-verification event lets a module added after the Tenant was created provision it on the next start. Chat provisions its model catalog and built-in agent this way ([catalog contract](chat-models.md#credentials-and-provider-extension)). Identity, Tenant, membership, Group and listener writes roll back together when any bootstrap step fails.
 
 ## Request context and IAM authority
 

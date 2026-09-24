@@ -80,7 +80,7 @@ class DefaultTrustedIdentityAdmissionTest {
                 new GroupCapabilityGrantRepository(jpa.entityManager())
         );
         var bootstrapper = TestDatabase.transactionalProxy(
-                new DefaultInitialTenantBootstrapper(tenants, locks, identities, identities, groups),
+                new DefaultInitialTenantBootstrapper(tenants, locks, identities, identities, groups, event -> { }),
                 InitialTenantBootstrapper.class,
                 jpa.transactionManager()
         );

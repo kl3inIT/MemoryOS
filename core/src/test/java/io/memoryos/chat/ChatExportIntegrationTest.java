@@ -16,7 +16,6 @@ import io.memoryos.chat.application.ChatExportService;
 import io.memoryos.chat.application.ChatFileProperties;
 import io.memoryos.chat.application.ChatTurnPersistence;
 import io.memoryos.chat.application.DefaultChatSessionService;
-import io.memoryos.chat.application.PersonaProperties;
 import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
@@ -119,7 +118,7 @@ class ChatExportIntegrationTest {
         var authorization = mock(IamAuthorization.class);
         var chats = new JdbcChatRepository(jdbc);
         sessions = TestDatabase.transactionalProxy(new DefaultChatSessionService(tenants, authorization, chats,
-                new PersonaProperties(), new JdbcChatSearchRepository(jdbc)), ChatSessionService.class,
+                new JdbcChatSearchRepository(jdbc)), ChatSessionService.class,
                 jpa.transactionManager());
         var quotas = new io.memoryos.chat.ChatStorageQuotaService(tenants,
                 new io.memoryos.chat.application.ChatStorageProperties(0), new JdbcChatLibraryRepository(jdbc));
@@ -130,7 +129,7 @@ class ChatExportIntegrationTest {
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(jpa.transactionManager());
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
-        var factory = new ProxyFactory(new ChatTurnPersistence(tenants, authorization, chats, new PersonaProperties(),
+        var factory = new ProxyFactory(new ChatTurnPersistence(tenants, authorization, chats,
                 files, new ActorLanguageService(jpa.repository(JpaActorRepository.class,
                         org.springframework.data.repository.core.support.RepositoryComposition.RepositoryFragments
                                 .just(new ActorRefreshImpl(jpa.entityManager()))), tenants),

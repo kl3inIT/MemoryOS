@@ -153,6 +153,7 @@ Browser tests use synthetic HTTP fixtures and isolate the UI contract. They do n
 | --- | --- |
 | Tenant provider/model/default/association FKs | `ModelCatalogConstraintsTest` (adversarial fixture relaxes only the single-Tenant deployment slot) |
 | Task model rows: seeding, own revision, Tenant FK, cleared when the model is deleted; provider data boundary default and round trip | `ModelCatalogConstraintsTest.flowDefaultsKeepRevisionsStayInTenantAndClearWhenTheirModelIsDeleted` against production migrations |
+| Tenant bootstrap provisions the catalog, flow rows and built-in agent in its transaction through the real `@EventListener`; a failed provisioning leaves no Tenant; a restart provisions a Tenant created without them and keeps later changes; catalog reads succeed in read-only transactions without writing | `ChatTenantProvisioningTest` against production migrations |
 | Task model resolution uses the flow model only while eligible, otherwise the conversation model without a fallback reason; setting requires a Tenant-wide model; clearing | `ModelCatalogSelectionTest` flow cases |
 | Task model HTTP: manager-only read, restricted model and unknown flow `400`, stale revision `409`, clear; provider `dataBoundary` round trip | `ChatSessionApiIntegrationTest.taskModelFlowsAcceptOnlyTenantWideModelsAndProvidersRecordTheirDataBoundary` |
 | Models by task: naming row offers the conversation model, saves and clears with revisions; boundary tags | `models-consumer.test.tsx` "models by task" |

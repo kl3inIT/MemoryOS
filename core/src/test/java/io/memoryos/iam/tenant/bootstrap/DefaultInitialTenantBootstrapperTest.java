@@ -15,6 +15,7 @@ import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapRequest;
 import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapResult;
 import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapper;
 import io.memoryos.iam.tenant.bootstrap.TenantBootstrapConflictException;
+import io.memoryos.iam.tenant.TenantBootstrapped;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
 import io.memoryos.iam.group.persistence.GroupMembershipRepository;
@@ -26,6 +27,7 @@ import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 
@@ -56,6 +58,7 @@ class DefaultInitialTenantBootstrapperTest {
     private JpaTenantRepository tenants;
     private JpaExternalIdentityRegistry identities;
     private IamLockRepository locks;
+    private final List<Object> events = new CopyOnWriteArrayList<>();
 
     @BeforeEach
     void setUp() throws SQLException {
@@ -91,6 +94,8 @@ class DefaultInitialTenantBootstrapperTest {
         assertFalse(replayed.created());
         assertEquals(created.ownerActorId(), replayed.ownerActorId());
         assertEquals(TENANT_ID, created.tenantId());
+        // Creation and every re-verification tell modules to provision their per-Tenant defaults.
+        assertEquals(List.of(new TenantBootstrapped(TENANT_ID, true), new TenantBootstrapped(TENANT_ID, false)), events);
         assertEquals(1L, count("actors"));
         assertEquals(1L, count("external_identity_bindings"));
         assertEquals(1L, count("tenants"));
@@ -183,7 +188,8 @@ class DefaultInitialTenantBootstrapperTest {
                         locks,
                         identities,
                         identities,
-                        groupProvisioner
+                        groupProvisioner,
+                        events::add
                 ),
                 InitialTenantBootstrapper.class,
                 jpa.transactionManager()

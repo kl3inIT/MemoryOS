@@ -145,28 +145,24 @@ class ModelCatalogConstraintsTest {
         assertEquals(DataBoundary.EXTERNAL, read(() -> catalog.provider(tenant, provider).orElseThrow().dataBoundary()));
     }
 
-    @Test void personaCursorRejectsForeignAndMissingAnchorsBeforeBuiltinProvisioning() {
+    @Test void personaCursorRejectsForeignAndMissingAnchors() {
         jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT uq_tenants_deployment_slot").update();
         UUID otherTenant = tenant(), foreign = UUID.randomUUID();
         jdbc.sql("INSERT INTO persona(id,tenant_id,builtin_key,name,instructions,model) VALUES (:id,:tenant,'default','Foreign','private','legacy')")
                 .param("id", foreign).param("tenant", otherTenant).update();
+        var chats = new JdbcChatRepository(jdbc);
+        UUID builtin = chats.provisionPersona(new TenantId(tenant), new PersonaProperties().getName(), "instructions", "hosted");
         var authorization = mock(IamAuthorization.class);
         var actor = new ActorId(UUID.randomUUID());
-        when(authorization.lockAndRequire(actor, IamCapability.MODELS_MANAGE, false))
+        when(authorization.require(actor, IamCapability.MODELS_MANAGE, false))
                 .thenReturn(new IamAccess(new TenantId(tenant), Authority.GLOBAL));
-        var service = new ModelCatalogService(catalog, new JdbcChatRepository(jdbc), mock(TenantAccessResolver.class),
+        var service = new ModelCatalogService(catalog, chats, mock(TenantAccessResolver.class),
                 authorization, new ChatProviderAdapters(List.of()), new ProviderCredentials("", ""),
-                mock(GroupScopeService.class), new PersonaProperties(),
-                new ModelCatalogService.Deployment("http://internal/v1", "hosted", settings),
-                mock(io.memoryos.iam.audit.AuditTrail.class));
+                mock(GroupScopeService.class), mock(io.memoryos.iam.audit.AuditTrail.class));
         var foreignFailure = assertThrows(ChatException.class, () -> read(() -> service.personas(actor, foreign.toString(), 25)));
         var missingFailure = assertThrows(ChatException.class, () -> read(() -> service.personas(actor, UUID.randomUUID().toString(), 25)));
         assertEquals(missingFailure.code(), foreignFailure.code());
-        assertEquals(0, jdbc.sql("SELECT count(*) FROM persona WHERE tenant_id = :tenant")
-                .param("tenant", tenant).query(Integer.class).single());
         var page = read(() -> service.personas(actor, null, 25));
-        UUID builtin = jdbc.sql("SELECT id FROM persona WHERE tenant_id=:tenant AND builtin_key='default'")
-                .param("tenant", tenant).query(UUID.class).single();
         assertEquals(List.of(new ModelCatalogRepository.PersonaSummary(builtin, new PersonaProperties().getName())), page.items());
         assertNull(page.nextCursor());
     }

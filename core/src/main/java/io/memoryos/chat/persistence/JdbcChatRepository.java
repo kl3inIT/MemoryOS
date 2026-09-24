@@ -53,8 +53,13 @@ public class JdbcChatRepository {
                         SELECT :tenant, :id, tool FROM unnest(CAST(:tools AS text[])) AS tool
                         """).param("tenant", tenant.value()).param("id", id)
                 .param("tools", io.memoryos.chat.ChatPersonaService.TOOLS.stream().sorted().toArray(String[]::new)).update();
+        return defaultPersona(tenant).orElseThrow();
+    }
+
+    /** The Tenant's built-in default agent, which Tenant provisioning creates. */
+    public Optional<UUID> defaultPersona(TenantId tenant) {
         return jdbc.sql("SELECT id FROM persona WHERE tenant_id=:tenant AND builtin_key='default'")
-                .param("tenant", tenant.value()).query(UUID.class).single();
+                .param("tenant", tenant.value()).query(UUID.class).optional();
     }
 
     public ChatSession create(TenantId tenant, ActorId actor, UUID personaId, String title, boolean temporary) {
