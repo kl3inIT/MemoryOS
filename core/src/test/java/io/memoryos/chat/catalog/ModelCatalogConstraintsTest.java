@@ -2,26 +2,27 @@ package io.memoryos.chat.catalog;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+
 import io.memoryos.audit.AuditTrail;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.application.PersonaProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.chat.persistence.ModelCatalogRepository;
+import io.memoryos.chat.persistence.JpaChatModelDefaultRepository;
 import io.memoryos.chat.persistence.JpaLlmProviderRepository;
 import io.memoryos.chat.persistence.JpaModelConfigurationRepository;
-import io.memoryos.chat.persistence.JpaChatModelDefaultRepository;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.chat.persistence.ModelCatalogRepository;
 import io.memoryos.iam.group.Authority;
 import io.memoryos.iam.group.GroupScopeService;
 import io.memoryos.iam.group.IamAccess;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.iam.tenant.TenantId;
-import java.util.List;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -60,7 +61,7 @@ class ModelCatalogConstraintsTest {
                 INSERT INTO llm_provider(id,tenant_id,name,adapter_type,base_url,enabled,is_public,credential,revision)
                 VALUES (:id,:tenant,'Provider','openai','http://internal/v1',true,true,'deployment',1)""")
                 .param("id", provider).param("tenant", tenant).update(); });
-        else tx(() -> { catalog.initialize(tenant); catalog.insertProvider(new ModelCatalogRepository.Provider(provider, tenant,
+        else tx(() -> { catalog.initialize(tenant); catalog.insertProvider(new LlmProvider(provider, tenant,
                 "Provider", "openai", "http://internal/v1", true, true, "deployment", 1, Set.of(), Set.of(), DataBoundary.EXTERNAL), null); });
     }
     @AfterEach void close() { if (jpa != null) jpa.close(); if (dataSource != null) dataSource.close(); }
@@ -68,9 +69,9 @@ class ModelCatalogConstraintsTest {
     @Test void databaseRejectsCrossTenantModelsDefaultsGroupsAndPersonasAndPreservesDefaultProvider() {
         jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT uq_tenants_deployment_slot").update();
         UUID otherTenant = tenant(); tx(() -> catalog.initialize(otherTenant));
-        var model = new ModelCatalogRepository.Model(UUID.randomUUID(), tenant, provider, "model", "Model", true, settings, 1);
+        var model = new ModelConfiguration(UUID.randomUUID(), tenant, provider, "model", "Model", true, settings, 1);
         tx(() -> catalog.insertModel(model));
-        assertThrows(DataIntegrityViolationException.class, () -> tx(() -> catalog.insertModel(new ModelCatalogRepository.Model(
+        assertThrows(DataIntegrityViolationException.class, () -> tx(() -> catalog.insertModel(new ModelConfiguration(
                 UUID.randomUUID(), otherTenant, provider, "model", "Foreign", true, settings, 1))));
         assertThrows(DataIntegrityViolationException.class, () -> tx(() -> catalog.setDefault(otherTenant, model.id(), 1)));
         UUID persona = UUID.randomUUID();
@@ -90,7 +91,7 @@ class ModelCatalogConstraintsTest {
     }
 
     @Test void springDataPreservesJsonRevisionsAssociationOnlyChangesAndMixedRollback() {
-        var model = new ModelCatalogRepository.Model(UUID.randomUUID(), tenant, provider, "model", "Model", true, settings, 1);
+        var model = new ModelConfiguration(UUID.randomUUID(), tenant, provider, "model", "Model", true, settings, 1);
         tx(() -> catalog.insertModel(model));
         assertEquals(settings, read(() -> catalog.model(tenant, model.id()).orElseThrow().settings()));
         assertEquals(1L, (long) read(() -> catalog.model(tenant, model.id()).orElseThrow().revision()));
@@ -100,7 +101,7 @@ class ModelCatalogConstraintsTest {
         jdbc.sql("INSERT INTO persona(id,tenant_id,builtin_key,name,instructions,model) VALUES (:id,:tenant,'default','Default','','model')")
                 .param("id", persona).param("tenant", tenant).update();
         var original = read(() -> catalog.provider(tenant, provider).orElseThrow());
-        tx(() -> catalog.updateProvider(new ModelCatalogRepository.Provider(provider, tenant, original.name(), original.adapterType(),
+        tx(() -> catalog.updateProvider(new LlmProvider(provider, tenant, original.name(), original.adapterType(),
                 original.baseUrl(), original.enabled(), original.isPublic(), original.credential(), original.revision(), Set.of(group), Set.of(persona), DataBoundary.INTERNAL)));
         var changed = read(() -> catalog.provider(tenant, provider).orElseThrow());
         assertEquals(Set.of(group), changed.groupIds());
@@ -111,7 +112,7 @@ class ModelCatalogConstraintsTest {
         assertThrows(ChatException.class, () -> tx(() -> catalog.updateProvider(original)));
         UUID rolledBack = UUID.randomUUID();
         assertThrows(IllegalStateException.class, () -> tx(() -> {
-            catalog.insertModel(new ModelCatalogRepository.Model(rolledBack, tenant, provider, "rollback", "Rollback", true, settings, 1));
+            catalog.insertModel(new ModelConfiguration(rolledBack, tenant, provider, "rollback", "Rollback", true, settings, 1));
             jdbc.sql("UPDATE llm_provider SET name='Rollback' WHERE id=:id").param("id", provider).update();
             throw new IllegalStateException("rollback");
         }));
@@ -132,7 +133,7 @@ class ModelCatalogConstraintsTest {
         var defaults = read(() -> catalog.flowDefaults(tenant));
         assertEquals(ModelFlow.values().length, defaults.size(), "initializing seeds one row per task flow, once");
         assertEquals(unset, defaults.getFirst());
-        var model = new ModelCatalogRepository.Model(UUID.randomUUID(), tenant, provider, "mini", "Mini", true, settings, 1);
+        var model = new ModelConfiguration(UUID.randomUUID(), tenant, provider, "mini", "Mini", true, settings, 1);
         tx(() -> catalog.insertModel(model));
         assertThrows(DataIntegrityViolationException.class,
                 () -> tx(() -> catalog.setFlowDefault(otherTenant, ModelFlow.CHAT_NAMING, model.id(), 1)));
@@ -164,7 +165,7 @@ class ModelCatalogConstraintsTest {
         var missingFailure = assertThrows(ChatException.class, () -> read(() -> service.personas(actor, UUID.randomUUID().toString(), 25)));
         assertEquals(missingFailure.code(), foreignFailure.code());
         var page = read(() -> service.personas(actor, null, 25));
-        assertEquals(List.of(new ModelCatalogRepository.PersonaSummary(builtin, new PersonaProperties().getName())), page.items());
+        assertEquals(List.of(new PersonaSummary(builtin, new PersonaProperties().getName())), page.items());
         assertNull(page.nextCursor());
     }
 
@@ -189,7 +190,7 @@ class ModelCatalogConstraintsTest {
             jdbc.sql("INSERT INTO llm_provider_persona VALUES (:tenant, :provider, :persona)")
                     .param("tenant", tenant).param("provider", provider).param("persona", persona).update();
             jdbc.sql("UPDATE llm_provider SET revision=revision+1 WHERE id=:id").param("id", provider).update();
-            catalog.insertModel(new ModelCatalogRepository.Model(installed, tenant, provider, "local", "Local", false, localSettings, 1));
+            catalog.insertModel(new ModelConfiguration(installed, tenant, provider, "local", "Local", false, localSettings, 1));
             String legacySettings = """
                     {"contextWindow":8192,"maxOutputTokens":512,"capabilities":{"streaming":true,"toolCalling":false,"vision":false,"reasoning":false},
                      "options":{"temperature":0.2},"pricing":null}

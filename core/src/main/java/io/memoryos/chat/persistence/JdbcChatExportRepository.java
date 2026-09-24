@@ -1,5 +1,7 @@
 package io.memoryos.chat.persistence;
 
+import io.memoryos.chat.ChatExport;
+import io.memoryos.chat.ChatExportStatus;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.objectstorage.ObjectKey;
@@ -8,12 +10,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -31,12 +31,6 @@ public class JdbcChatExportRepository {
 
     public JdbcChatExportRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
-    public enum Status { PENDING, RUNNING, READY, FAILED }
-
-    public record Export(UUID id, Status status, @Nullable Integer sessionCount, @Nullable Integer fileCount,
-                         List<String> skipped, @Nullable Long sizeBytes, @Nullable String failure,
-                         Instant createdAt, @Nullable Instant expiresAt) {}
-
     public record Claim(UUID id, UUID tenant, UUID owner, int attempts) {}
 
     public record Expired(TenantId tenant, UUID id, StoredObjectId object, ObjectKey key, UUID token) {}
@@ -48,7 +42,7 @@ public class JdbcChatExportRepository {
      * Records the request. The partial unique index allows one waiting export per person, so a second click
      * while one is being packed is a conflict rather than a second read of everything they own.
      */
-    public Optional<Export> insert(TenantId tenant, ActorId owner, UUID id, Duration lifetime) {
+    public Optional<ChatExport> insert(TenantId tenant, ActorId owner, UUID id, Duration lifetime) {
         try {
             jdbc.sql("""
                     INSERT INTO chat_export(id, tenant_id, owner_actor_id, expires_at)
@@ -61,7 +55,7 @@ public class JdbcChatExportRepository {
         return find(tenant, owner, id);
     }
 
-    public Optional<Export> find(TenantId tenant, ActorId owner, UUID id) {
+    public Optional<ChatExport> find(TenantId tenant, ActorId owner, UUID id) {
         return jdbc.sql("SELECT " + COLUMNS + """
                  FROM chat_export e
                 WHERE e.tenant_id = :tenant AND e.owner_actor_id = :owner AND e.id = :id
@@ -70,7 +64,7 @@ public class JdbcChatExportRepository {
     }
 
     /** The owner's exports worth offering: what is being packed, and what is ready and still alive. */
-    public List<Export> list(TenantId tenant, ActorId owner, int limit) {
+    public List<ChatExport> list(TenantId tenant, ActorId owner, int limit) {
         return jdbc.sql("SELECT " + COLUMNS + """
                  FROM chat_export e
                 WHERE e.tenant_id = :tenant AND e.owner_actor_id = :owner AND e.status <> 'FAILED'
@@ -169,9 +163,9 @@ public class JdbcChatExportRepository {
                 .param("token", expired.token()).update() == 1;
     }
 
-    private static Export export(ResultSet row) throws SQLException {
+    private static ChatExport export(ResultSet row) throws SQLException {
         Timestamp expires = row.getTimestamp("expires_at");
-        return new Export(row.getObject("id", UUID.class), Status.valueOf(row.getString("status")),
+        return new ChatExport(row.getObject("id", UUID.class), ChatExportStatus.valueOf(row.getString("status")),
                 row.getObject("session_count", Integer.class), row.getObject("file_count", Integer.class),
                 strings(row.getString("skipped")), row.getObject("size_bytes", Long.class), row.getString("failure"),
                 row.getTimestamp("created_at").toInstant(), expires == null ? null : expires.toInstant());

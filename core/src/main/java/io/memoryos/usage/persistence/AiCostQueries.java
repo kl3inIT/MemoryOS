@@ -1,7 +1,11 @@
 package io.memoryos.usage.persistence;
 
+import io.memoryos.usage.AiCostDay;
+import io.memoryos.usage.AiCostDimension;
+import io.memoryos.usage.AiCostRow;
+import io.memoryos.usage.AiCostSplit;
+import io.memoryos.usage.AiCostTotals;
 import io.memoryos.usage.AiUsageFlow;
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -23,19 +27,6 @@ public class AiCostQueries {
     public record Scope(UUID tenant, LocalDate from, LocalDate to, @Nullable UUID actor, @Nullable String model,
                         @Nullable AiUsageFlow flow, boolean systemOnly) {}
 
-    public record Totals(BigDecimal cost, BigDecimal externalCost, long calls, long unknownCostCalls, long inputTokens,
-                         long outputTokens, long cacheReadTokens, long imageCount, BigDecimal audioSeconds, long activePeople) {}
-
-    public record Day(LocalDate day, String key, BigDecimal cost, long calls, long inputTokens, long outputTokens,
-                      long cacheReadTokens) {}
-
-    public record Row(String key, String label, @Nullable String detail, long calls, long unknownCostCalls, long inputTokens,
-                      long outputTokens, BigDecimal cost) {}
-
-    public enum Split { BOUNDARY, MODEL, NONE }
-
-    public enum Dimension { ACTOR, GROUP, MODEL, FLOW, PROVIDER }
-
     private static final String FILTER = """
             u.tenant_id = :tenant AND u.day BETWEEN :from AND :to
               AND (CAST(:actor AS uuid) IS NULL OR u.actor_id = :actor)
@@ -44,7 +35,7 @@ public class AiCostQueries {
               AND (CAST(:flow AS varchar) IS NULL OR u.flow = :flow)
             """;
 
-    public Totals totals(Scope scope) {
+    public AiCostTotals totals(Scope scope) {
         return bind(jdbc.sql("""
                 SELECT COALESCE(SUM(u.cost_usd), 0) AS cost,
                        COALESCE(SUM(u.cost_usd) FILTER (WHERE u.data_boundary = 'EXTERNAL'), 0) AS external_cost,
@@ -53,13 +44,13 @@ public class AiCostQueries {
                        COALESCE(SUM(u.cache_read_tokens), 0) AS cache_read, COALESCE(SUM(u.image_count), 0) AS images,
                        COALESCE(SUM(u.audio_seconds), 0) AS audio, COUNT(DISTINCT u.actor_id) AS people
                 FROM ai_usage u WHERE\s""" + FILTER), scope)
-                .query((r, ignored) -> new Totals(r.getBigDecimal("cost"), r.getBigDecimal("external_cost"), r.getLong("calls"),
+                .query((r, ignored) -> new AiCostTotals(r.getBigDecimal("cost"), r.getBigDecimal("external_cost"), r.getLong("calls"),
                         r.getLong("unknown"), r.getLong("input"), r.getLong("output"), r.getLong("cache_read"), r.getLong("images"),
                         r.getBigDecimal("audio"), r.getLong("people")))
                 .single();
     }
 
-    public List<Day> daily(Scope scope, Split split) {
+    public List<AiCostDay> daily(Scope scope, AiCostSplit split) {
         // Split keys are internal constants; request values stay bound parameters.
         String key = switch (split) {
             case BOUNDARY -> "COALESCE(u.data_boundary, 'NONE')";
@@ -69,12 +60,12 @@ public class AiCostQueries {
         return bind(jdbc.sql("SELECT u.day, " + key + " AS series, SUM(u.cost_usd) AS cost, SUM(u.calls) AS calls, "
                 + "SUM(u.input_tokens) AS input, SUM(u.output_tokens) AS output, SUM(u.cache_read_tokens) AS cache_read "
                 + "FROM ai_usage u WHERE " + FILTER + " GROUP BY u.day, series ORDER BY u.day, series LIMIT 5000"), scope)
-                .query((r, ignored) -> new Day(r.getObject("day", LocalDate.class), r.getString("series"), r.getBigDecimal("cost"),
+                .query((r, ignored) -> new AiCostDay(r.getObject("day", LocalDate.class), r.getString("series"), r.getBigDecimal("cost"),
                         r.getLong("calls"), r.getLong("input"), r.getLong("output"), r.getLong("cache_read")))
                 .list();
     }
 
-    public List<Row> breakdown(Scope scope, Dimension dimension, int limit) {
+    public List<AiCostRow> breakdown(Scope scope, AiCostDimension dimension, int limit) {
         String sql = switch (dimension) {
             case ACTOR -> """
                     SELECT COALESCE(CAST(u.actor_id AS varchar), 'SYSTEM') AS key,
@@ -107,8 +98,8 @@ public class AiCostQueries {
              SUM(u.output_tokens) AS output, SUM(u.cost_usd) AS cost
             """;
 
-    private static Row row(ResultSet r, int ignored) throws SQLException {
-        return new Row(r.getString("key"), r.getString("label"), r.getString("detail"), r.getLong("calls"), r.getLong("unknown"),
+    private static AiCostRow row(ResultSet r, int ignored) throws SQLException {
+        return new AiCostRow(r.getString("key"), r.getString("label"), r.getString("detail"), r.getLong("calls"), r.getLong("unknown"),
                 r.getLong("input"), r.getLong("output"), r.getBigDecimal("cost"));
     }
 

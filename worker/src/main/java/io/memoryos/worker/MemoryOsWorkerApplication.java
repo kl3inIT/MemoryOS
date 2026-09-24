@@ -1,7 +1,10 @@
 package io.memoryos.worker;
 
+import io.memoryos.chat.application.ChatWorkerComponents;
+import io.memoryos.retrieval.SearchTimings;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Import;
 
 @SpringBootApplication(scanBasePackages = {
         "io.memoryos.worker",
@@ -21,24 +24,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
         "io.memoryos.iam.tenant.persistence",
         "io.memoryos.iam.user.persistence"
 })
-@org.springframework.context.annotation.Import({io.memoryos.retrieval.SearchTimings.class,
-        io.memoryos.chat.persistence.JdbcUserFileWorkRepository.class,
-        io.memoryos.chat.application.DefaultUserFileWorkService.class,
-        // MEM-142: the sweep that releases the bytes of deleted Chat artifacts.
-        io.memoryos.chat.persistence.JdbcChatArtifactCleanupRepository.class,
-        io.memoryos.chat.application.ChatArtifactCleanupService.class,
-        // MEM-143: the sweep that removes conversations their owner deleted.
-        io.memoryos.chat.persistence.JdbcChatSessionPurgeRepository.class,
-        io.memoryos.chat.application.ChatSessionPurgeService.class,
-        // MEM-153: exporting one's own conversations and files, which reads the conversations themselves.
-        io.memoryos.chat.persistence.JdbcChatExportRepository.class,
-        io.memoryos.chat.persistence.JdbcChatRepository.class,
-        io.memoryos.chat.application.ChatExportService.class,
-        // MEM-152: packing a library selection into a ZIP and releasing expired archives.
-        io.memoryos.chat.persistence.JdbcChatLibraryArchiveRepository.class,
-        io.memoryos.chat.persistence.JdbcChatLibraryRepository.class,
-        io.memoryos.chat.persistence.JdbcUserFileRepository.class,
-        io.memoryos.chat.application.ChatLibraryArchiveService.class})
+// MEM-9, MEM-142, MEM-143, MEM-152 and MEM-153: the Chat work the Worker runs, named by Chat itself.
+@Import({SearchTimings.class, ChatWorkerComponents.class})
 public class MemoryOsWorkerApplication {
 
     public static void main(String[] args) {

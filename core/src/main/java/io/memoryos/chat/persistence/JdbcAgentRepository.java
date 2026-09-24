@@ -1,5 +1,13 @@
 package io.memoryos.chat.persistence;
 
+import io.memoryos.chat.AgentGroupShare;
+import io.memoryos.chat.AgentListFilter;
+import io.memoryos.chat.AgentOwner;
+import io.memoryos.chat.AgentPermission;
+import io.memoryos.chat.AgentPerson;
+import io.memoryos.chat.AgentRef;
+import io.memoryos.chat.AgentShareOptions;
+import io.memoryos.chat.AgentUserShare;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -18,19 +26,11 @@ import org.springframework.stereotype.Repository;
 @Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcAgentRepository {
-    public enum Permission { VIEWER, EDITOR }
-    public enum View { ALL, MINE, SHARED }
 
     public record Access(UUID id, boolean uses, boolean edits, boolean owns, boolean vacant) {}
-    public record AgentRef(UUID id, String name) {}
-    public record AgentPerson(UUID actorId, @Nullable String name, @Nullable String email) {}
-    public record AgentUserShare(AgentPerson person, Permission permission) {}
-    public record AgentGroupShare(AgentRef group, Permission permission) {}
-    public record AgentOwner(@Nullable AgentPerson actor, @Nullable AgentRef group) {}
     public record Details(Map<UUID, Set<String>> tools, Map<UUID, List<AgentRef>> mcpServers, Map<UUID, List<AgentRef>> labels,
                           Map<UUID, AgentOwner> owners, Map<UUID, List<AgentUserShare>> userShares, Map<UUID, List<AgentGroupShare>> groupShares,
                           Set<UUID> pinned) {}
-    public record AgentShareOptions(List<AgentPerson> people, List<AgentRef> groups) {}
 
     private final JdbcClient jdbc;
 
@@ -51,7 +51,7 @@ public class JdbcAgentRepository {
     }
 
     /** Usable, non-deleted agents; non-owners only see listed agents, as Onyx. */
-    public List<UUID> list(UUID tenant, UUID actor, boolean agentsManage, View view, @Nullable UUID label, @Nullable String query,
+    public List<UUID> list(UUID tenant, UUID actor, boolean agentsManage, AgentListFilter view, @Nullable UUID label, @Nullable String query,
                            int offset, int limit) {
         String mine = "(p.builtin_key IS NULL AND (COALESCE(p.owner_actor_id = :actor, FALSE) OR EXISTS (SELECT 1 FROM iam_group_memberships m "
                 + "WHERE m.tenant_id = p.tenant_id AND m.group_id = p.owner_group_id AND m.actor_id = :actor)))";
@@ -126,7 +126,7 @@ public class JdbcAgentRepository {
                         """).param("tenant", tenant).param("ids", ids)
                 .query((row, ignored) -> userShares.computeIfAbsent(row.getObject("persona_id", UUID.class), key -> new ArrayList<>())
                         .add(new AgentUserShare(new AgentPerson(row.getObject("actor_id", UUID.class), row.getString("display_name"), row.getString("email")),
-                                Permission.valueOf(row.getString("permission"))))).list();
+                                AgentPermission.valueOf(row.getString("permission"))))).list();
         var groupShares = new HashMap<UUID, List<AgentGroupShare>>();
         jdbc.sql("""
                         SELECT s.persona_id, g.id, g.name, s.permission FROM persona_group_share s
@@ -135,14 +135,14 @@ public class JdbcAgentRepository {
                         """).param("tenant", tenant).param("ids", ids)
                 .query((row, ignored) -> groupShares.computeIfAbsent(row.getObject("persona_id", UUID.class), key -> new ArrayList<>())
                         .add(new AgentGroupShare(new AgentRef(row.getObject("id", UUID.class), row.getString("name")),
-                                Permission.valueOf(row.getString("permission"))))).list();
+                                AgentPermission.valueOf(row.getString("permission"))))).list();
         var pinned = Set.copyOf(jdbc.sql("""
                         SELECT persona_id FROM actor_pinned_persona WHERE tenant_id = :tenant AND actor_id = :actor AND persona_id IN (:ids)
                         """).param("tenant", tenant).param("actor", actor).param("ids", ids).query(UUID.class).list());
         return new Details(tools, servers, labels, owners, userShares, groupShares, pinned);
     }
 
-    public void replaceShares(UUID tenant, UUID persona, Map<UUID, Permission> users, Map<UUID, Permission> groups) {
+    public void replaceShares(UUID tenant, UUID persona, Map<UUID, AgentPermission> users, Map<UUID, AgentPermission> groups) {
         jdbc.sql("DELETE FROM persona_user_share WHERE tenant_id = :tenant AND persona_id = :persona")
                 .param("tenant", tenant).param("persona", persona).update();
         jdbc.sql("DELETE FROM persona_group_share WHERE tenant_id = :tenant AND persona_id = :persona")
@@ -160,7 +160,7 @@ public class JdbcAgentRepository {
                 .param("tenant", tenant).param("persona", persona).param("actor", actor).update() > 0;
     }
 
-    public void upsertUserShare(UUID tenant, UUID persona, UUID actor, Permission permission) {
+    public void upsertUserShare(UUID tenant, UUID persona, UUID actor, AgentPermission permission) {
         jdbc.sql("""
                         INSERT INTO persona_user_share (tenant_id, persona_id, actor_id, permission) VALUES (:tenant, :persona, :actor, :permission)
                         ON CONFLICT (tenant_id, persona_id, actor_id) DO UPDATE SET permission = EXCLUDED.permission

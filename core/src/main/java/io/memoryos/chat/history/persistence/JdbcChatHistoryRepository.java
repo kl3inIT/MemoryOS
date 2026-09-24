@@ -1,5 +1,9 @@
 package io.memoryos.chat.history.persistence;
 
+import io.memoryos.chat.history.ChatHistoryFeedback;
+import io.memoryos.chat.history.ChatHistoryMessage;
+import io.memoryos.chat.history.ChatHistoryQuery;
+import io.memoryos.chat.history.ChatHistoryTotals;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -21,22 +25,11 @@ public class JdbcChatHistoryRepository {
 
     public JdbcChatHistoryRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
-    /** How a conversation's readers rated its answers, rolled up as Onyx rolls a session's feedback up. */
-    public enum Feedback { POSITIVE, NEGATIVE, MIXED, NONE }
-
     /** One conversation as the list shows it; the asker is dropped later when the Tenant hides them. */
     public record Entry(UUID id, UUID rootMessageId, @Nullable UUID actorId, @Nullable String actorLabel, @Nullable String actorEmail,
                         String title, @Nullable String firstQuestion, @Nullable String firstAnswer,
-                        @Nullable String modelName, long messages, Feedback feedback, boolean deleted,
+                        @Nullable String modelName, long messages, ChatHistoryFeedback feedback, boolean deleted,
                         Instant updatedAt) {}
-
-    /** One message of a transcript, with the feedback its readers left and the titles it cited. */
-    public record Message(UUID id, String role, String content, @Nullable String modelName, Instant createdAt,
-                          @Nullable Boolean positive, @Nullable String comment, List<String> citations) {}
-
-    /** The filters the screen offers; every one narrows the same page query. */
-    public record Query(@Nullable Instant from, @Nullable Instant to, @Nullable String text, @Nullable UUID actorId,
-                        @Nullable Feedback feedback) {}
 
     /** The page cursor: a conversation's own (updated_at, id), so a page never repeats or skips one. */
     public record Cursor(Instant updatedAt, UUID id) {}
@@ -80,7 +73,7 @@ public class JdbcChatHistoryRepository {
             LIMIT :limit
             """;
 
-    public List<Entry> page(UUID tenant, Query query, @Nullable Cursor after, int limit) {
+    public List<Entry> page(UUID tenant, ChatHistoryQuery query, @Nullable Cursor after, int limit) {
         return bind(jdbc.sql(PAGE), tenant, query)
                 .param("cursorAt", after == null ? null : java.sql.Timestamp.from(after.updatedAt()), Types.TIMESTAMP)
                 .param("cursorId", after == null ? null : after.id(), Types.OTHER)
@@ -88,17 +81,14 @@ public class JdbcChatHistoryRepository {
                 .query(JdbcChatHistoryRepository::entry).list();
     }
 
-    /** The counts above the list: how much was asked in this period, and how it was rated. */
-    public record Totals(long conversations, long positive, long negative) {}
-
-    public Totals totals(UUID tenant, Query query) {
+    public ChatHistoryTotals totals(UUID tenant, ChatHistoryQuery query) {
         return bind(jdbc.sql("SELECT COUNT(*) AS conversations,"
                 + " COUNT(*) FILTER (WHERE page.feedback = 'POSITIVE') AS positive,"
                 + " COUNT(*) FILTER (WHERE page.feedback IN ('NEGATIVE', 'MIXED')) AS negative"
                 + " FROM (" + PAGE.replace("LIMIT :limit", "") + ") page"), tenant, query)
                 .param("cursorAt", null, Types.TIMESTAMP).param("cursorId", null, Types.OTHER)
                 .param("limit", Integer.MAX_VALUE)
-                .query((row, ignored) -> new Totals(row.getLong("conversations"), row.getLong("positive"),
+                .query((row, ignored) -> new ChatHistoryTotals(row.getLong("conversations"), row.getLong("positive"),
                         row.getLong("negative")))
                 .single();
     }
@@ -106,7 +96,7 @@ public class JdbcChatHistoryRepository {
     /** One conversation, whether or not its owner deleted it, so the detail view can say which it is. */
     public java.util.Optional<Entry> conversation(UUID tenant, UUID session) {
         return bind(jdbc.sql(PAGE.replace("ORDER BY s.updated_at DESC, s.id DESC", "AND s.id = :session ORDER BY s.updated_at DESC, s.id DESC")
-                        .replace("LIMIT :limit", "")), tenant, new Query(null, null, null, null, null))
+                        .replace("LIMIT :limit", "")), tenant, new ChatHistoryQuery(null, null, null, null, null))
                 .param("cursorAt", null, Types.TIMESTAMP).param("cursorId", null, Types.OTHER)
                 .param("session", session)
                 .query(JdbcChatHistoryRepository::entry).optional();
@@ -117,7 +107,7 @@ public class JdbcChatHistoryRepository {
      * feedback and the titles it cited. Citation bodies are not read here: an administrator opens a source through
      * their own authority, never the asker's.
      */
-    public List<Message> transcript(UUID session, UUID rootMessageId, int limit) {
+    public List<ChatHistoryMessage> transcript(UUID session, UUID rootMessageId, int limit) {
         return jdbc.sql("""
                         WITH RECURSIVE branch AS (
                             SELECT m.*, 0 AS depth FROM chat_message m WHERE m.session_id = :session AND m.id = :root
@@ -137,7 +127,7 @@ public class JdbcChatHistoryRepository {
                 .query(JdbcChatHistoryRepository::message).list();
     }
 
-    private JdbcClient.StatementSpec bind(JdbcClient.StatementSpec statement, UUID tenant, Query query) {
+    private JdbcClient.StatementSpec bind(JdbcClient.StatementSpec statement, UUID tenant, ChatHistoryQuery query) {
         return statement.param("tenant", tenant)
                 .param("from", query.from() == null ? null : java.sql.Timestamp.from(query.from()), Types.TIMESTAMP)
                 .param("to", query.to() == null ? null : java.sql.Timestamp.from(query.to()), Types.TIMESTAMP)
@@ -156,12 +146,12 @@ public class JdbcChatHistoryRepository {
                 row.getObject("owner_actor_id", UUID.class),
                 row.getString("display_name"), row.getString("email"), row.getString("title"),
                 row.getString("question"), row.getString("answer"), row.getString("model_name"),
-                row.getLong("messages"), Feedback.valueOf(row.getString("feedback")), row.getBoolean("deleted"),
+                row.getLong("messages"), ChatHistoryFeedback.valueOf(row.getString("feedback")), row.getBoolean("deleted"),
                 row.getTimestamp("updated_at").toInstant());
     }
 
-    private static Message message(ResultSet row, int ignored) throws SQLException {
-        return new Message(row.getObject("id", UUID.class), row.getString("role"), row.getString("content"),
+    private static ChatHistoryMessage message(ResultSet row, int ignored) throws SQLException {
+        return new ChatHistoryMessage(row.getObject("id", UUID.class), row.getString("role"), row.getString("content"),
                 row.getString("model_name"), row.getTimestamp("created_at").toInstant(),
                 row.getObject("positive", Boolean.class), row.getString("comment"),
                 citations(row.getString("sources")));

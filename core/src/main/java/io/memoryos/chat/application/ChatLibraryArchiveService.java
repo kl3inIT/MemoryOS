@@ -1,11 +1,11 @@
 package io.memoryos.chat.application;
 
 import io.memoryos.chat.ChatException;
+import io.memoryos.chat.ChatLibraryArchive;
+import io.memoryos.chat.ChatLibraryArchiveItem;
 import io.memoryos.chat.ChatLibraryFile;
-import io.memoryos.chat.persistence.JdbcChatLibraryArchiveRepository;
-import io.memoryos.chat.persistence.JdbcChatLibraryArchiveRepository.Archive;
 import io.memoryos.chat.persistence.JdbcChatLibraryArchiveRepository.Claim;
-import io.memoryos.chat.persistence.JdbcChatLibraryArchiveRepository.Requested;
+import io.memoryos.chat.persistence.JdbcChatLibraryArchiveRepository;
 import io.memoryos.chat.persistence.JdbcChatLibraryRepository;
 import io.memoryos.chat.persistence.JdbcUserFileRepository;
 import io.memoryos.iam.identity.ActorId;
@@ -83,7 +83,7 @@ public class ChatLibraryArchiveService {
 
     /** Records a request for the files the caller's library lists right now. */
     @Transactional
-    public Archive request(ActorId actor, List<Requested> requested) {
+    public ChatLibraryArchive request(ActorId actor, List<ChatLibraryArchiveItem> requested) {
         var unique = new LinkedHashSet<>(requested);
         if (unique.isEmpty() || unique.size() > MAX_FILES) {
             throw ChatException.invalid("Select between 1 and " + MAX_FILES + " files.");
@@ -102,12 +102,12 @@ public class ChatLibraryArchiveService {
     }
 
     @Transactional(readOnly = true)
-    public List<Archive> list(ActorId actor) {
+    public List<ChatLibraryArchive> list(ActorId actor) {
         return archives.list(tenant(actor), actor, LIST_LIMIT);
     }
 
     @Transactional(readOnly = true)
-    public Archive get(ActorId actor, UUID id) {
+    public ChatLibraryArchive get(ActorId actor, UUID id) {
         return archives.find(tenant(actor), actor, id).orElseThrow(ChatException::unavailable);
     }
 
@@ -228,8 +228,8 @@ public class ChatLibraryArchiveService {
         return released;
     }
 
-    private List<ChatLibraryFile> listed(TenantId tenant, ActorId owner, java.util.Collection<Requested> requested) {
-        Set<UUID> ids = requested.stream().map(Requested::id).collect(java.util.stream.Collectors.toUnmodifiableSet());
+    private List<ChatLibraryFile> listed(TenantId tenant, ActorId owner, java.util.Collection<ChatLibraryArchiveItem> requested) {
+        Set<UUID> ids = requested.stream().map(ChatLibraryArchiveItem::id).collect(java.util.stream.Collectors.toUnmodifiableSet());
         var sources = requested.stream().map(file -> file.source().name())
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
         var filter = new JdbcChatLibraryRepository.Filter("", sources, Set.of(), null, false, false, ids);

@@ -1,11 +1,12 @@
 package io.memoryos.chat.persistence;
 
+import io.memoryos.chat.AgentPerson;
+import io.memoryos.chat.AgentRef;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -21,8 +22,8 @@ public class JdbcDocumentSetRepository {
     public record Row(UUID id, UUID ownerActorId, long revision, String name, String description, boolean isPublic, Instant createdAt,
                       Instant updatedAt, @Nullable Instant deletedAt) {}
     public record Access(UUID id, boolean uses, boolean edits) {}
-    public record Details(List<UUID> sourceIds, List<JdbcAgentRepository.AgentPerson> userShares,
-                          List<JdbcAgentRepository.AgentRef> groupShares) {}
+    public record Details(List<UUID> sourceIds, List<AgentPerson> userShares,
+                          List<AgentRef> groupShares) {}
 
     private final JdbcClient jdbc;
     public JdbcDocumentSetRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
@@ -149,13 +150,13 @@ public class JdbcDocumentSetRepository {
                         WHERE s.tenant_id = :tenant AND s.document_set_id = :id
                         ORDER BY lower(coalesce(profile.display_name, profile.email, '')), s.actor_id
                         """).param("tenant", tenant).param("id", id)
-                .query((row, ignored) -> new JdbcAgentRepository.AgentPerson(row.getObject("actor_id", UUID.class), row.getString("display_name"), row.getString("email"))).list();
+                .query((row, ignored) -> new AgentPerson(row.getObject("actor_id", UUID.class), row.getString("display_name"), row.getString("email"))).list();
         var groups = jdbc.sql("""
                         SELECT g.id, g.name FROM document_set_group_share s
                         JOIN iam_groups g ON g.tenant_id = s.tenant_id AND g.id = s.group_id
                         WHERE s.tenant_id = :tenant AND s.document_set_id = :id ORDER BY lower(g.name), g.id
                         """).param("tenant", tenant).param("id", id)
-                .query((row, ignored) -> new JdbcAgentRepository.AgentRef(row.getObject("id", UUID.class), row.getString("name"))).list();
+                .query((row, ignored) -> new AgentRef(row.getObject("id", UUID.class), row.getString("name"))).list();
         return new Details(sources, users, groups);
     }
 

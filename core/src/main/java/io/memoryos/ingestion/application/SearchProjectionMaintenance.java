@@ -6,6 +6,8 @@ import io.memoryos.document.DocumentChanged;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.ingestion.persistence.JdbcSearchWorkRepository;
 import io.memoryos.retrieval.SearchIndex;
+import io.micrometer.core.instrument.MeterRegistry;
+import java.util.concurrent.ScheduledExecutorService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
@@ -33,6 +35,12 @@ public class SearchProjectionMaintenance {
         if (rebuildWindow < 1 || rebuildWindow > 1000) throw new IllegalArgumentException("invalid search rebuild window");
         this.documents = documents; this.work = work; this.index = index; this.rebuildWindow = rebuildWindow;
         this.transactions = new TransactionTemplate(transactionManager);
+    }
+
+    /** The Worker's coordinator for the SEARCH work this projection queues. */
+    public SearchIngestionCoordinator coordinator(TransactionTemplate transactions, ScheduledExecutorService leases,
+            MeterRegistry metrics) {
+        return new SearchIngestionCoordinator(work, documents, index, transactions, leases, metrics);
     }
 
     /** Runs in the transaction that changed the document; a rebuild in progress receives the change too. */

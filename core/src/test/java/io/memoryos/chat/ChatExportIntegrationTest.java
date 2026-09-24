@@ -170,14 +170,14 @@ class ChatExportIntegrationTest {
         var temporary = sessions.create(owner, "Tạm thời", true);
 
         var requested = exports.request(owner);
-        assertEquals(JdbcChatExportRepository.Status.PENDING, requested.status());
+        assertEquals(ChatExportStatus.PENDING, requested.status());
         // One at a time: an export reads everything the person owns.
         assertEquals("CHAT_CONFLICT", assertThrows(ChatException.class, () -> exports.request(owner)).code());
 
         assertTrue(exports.buildNext());
         assertFalse(exports.buildNext(), "one request, packed once");
         var ready = exports.get(owner, requested.id());
-        assertEquals(JdbcChatExportRepository.Status.READY, ready.status());
+        assertEquals(ChatExportStatus.READY, ready.status());
         assertEquals(2, ready.sessionCount(), "the sidebar's conversation and the archived one");
         assertEquals(1, ready.fileCount());
 
@@ -223,7 +223,7 @@ class ChatExportIntegrationTest {
         assertEquals(0, count("chat_export"));
         assertEquals(0, exports.sweepExpired());
         // Asking again is allowed once the last one is gone.
-        assertEquals(JdbcChatExportRepository.Status.PENDING, exports.request(owner).status());
+        assertEquals(ChatExportStatus.PENDING, exports.request(owner).status());
     }
 
     private Map<String, byte[]> unzip(UUID id) throws Exception {

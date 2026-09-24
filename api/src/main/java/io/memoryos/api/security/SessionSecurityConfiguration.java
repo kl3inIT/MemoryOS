@@ -4,14 +4,13 @@ import io.memoryos.audit.AuditTrail;
 import io.memoryos.iam.identity.ActorProfileRecorder;
 import io.memoryos.iam.identity.ExternalIdentityResolver;
 import io.memoryos.iam.identity.ProviderSessionTerminator;
+import io.memoryos.iam.identity.TrustedIdentityAdmission;
+import io.memoryos.iam.identityprovider.JitAdmissionPolicy;
+import io.memoryos.iam.identityprovider.JitAllowlistSeeder;
 import io.memoryos.iam.invitation.InvitationService;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.iam.tenant.TenantId;
-import io.memoryos.iam.identity.TrustedIdentityAdmission;
-import io.memoryos.iam.identityprovider.JitAdmissionPolicy;
-
 import java.util.UUID;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

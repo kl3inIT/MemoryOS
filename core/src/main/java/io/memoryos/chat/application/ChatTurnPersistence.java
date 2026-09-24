@@ -1,31 +1,30 @@
 package io.memoryos.chat.application;
 
-import io.memoryos.chat.ChatException;
-import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatCommand;
-import io.memoryos.chat.ChatTurnOptions;
-import io.memoryos.chat.ChatSource;
+import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatFileService;
+import io.memoryos.chat.ChatMessage;
+import io.memoryos.chat.ChatSource;
+import io.memoryos.chat.ChatTurnOptions;
+import io.memoryos.chat.execution.ChatModelBinding;
+import io.memoryos.chat.execution.ChatTurnSetup;
+import io.memoryos.chat.image.GeneratedImage;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
-import io.memoryos.chat.execution.ChatTurnSetup;
-import io.memoryos.chat.execution.ChatModelBinding;
+import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.identity.ActorLanguageService;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.iam.tenant.TenantId;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-
 import java.time.Duration;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.Map;
-import java.util.LinkedHashMap;
-
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -289,7 +288,7 @@ public class ChatTurnPersistence {
         var generated = new LinkedHashMap<UUID, List<UUID>>();
         imageArtifacts.byMessages(tenant, history.stream().filter(message -> message.role() == ChatMessage.Role.ASSISTANT)
                 .map(ChatMessage::id).toList(), false).forEach((message, images) ->
-                generated.put(message, images.stream().map(JdbcImageArtifactRepository.Artifact::id).toList()));
+                generated.put(message, images.stream().map(GeneratedImage::id).toList()));
         return new TurnContext(actor, tenant, settings.model(), instructions, history,
                 settings.options().withSampling(sampling(tenant, actor, settings)), plaintext, workspaceFiles,
                 languages.read(actor), generated);

@@ -1,56 +1,54 @@
 package io.memoryos.chat;
 
-import io.memoryos.chat.persistence.JdbcPromptShortcutRepository;
-import io.memoryos.chat.persistence.JdbcAgentRepository;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
+import com.embabel.agent.spi.support.springai.SpringAiLlmService;
+import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.TestDatabase;
 import io.memoryos.chat.application.ChatTurnPersistence;
 import io.memoryos.chat.application.DefaultChatSessionService;
 import io.memoryos.chat.application.PersonaProperties;
-import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.chat.persistence.JdbcChatSearchRepository;
-import io.memoryos.chat.persistence.JpaPersonaRepository;
-import io.memoryos.chat.persistence.JpaProjectRepository;
-import io.memoryos.chat.persistence.JpaChatSharingRepository;
-import io.memoryos.chat.persistence.JpaChatFeedbackRepository;
 import io.memoryos.chat.catalog.ModelCatalogService;
 import io.memoryos.chat.catalog.ModelSettings;
-import io.memoryos.connector.SourceSearchService;
-import io.memoryos.connector.SourceSearchScope;
-import io.memoryos.connector.SourceType;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.tenant.TenantId;
-import java.util.Map;
-import java.util.Set;
-import static org.mockito.Mockito.*;
 import io.memoryos.chat.execution.ChatModelBinding;
 import io.memoryos.chat.execution.ChatRequestPolicy;
 import io.memoryos.chat.execution.ChatTurnSetup;
-import com.embabel.agent.spi.support.springai.SpringAiLlmService;
-import com.knuddels.jtokkit.api.EncodingType;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
-import org.springframework.ai.chat.model.ChatModel;
+import io.memoryos.chat.persistence.JdbcAgentRepository;
+import io.memoryos.chat.persistence.JdbcChatRepository;
+import io.memoryos.chat.persistence.JdbcChatSearchRepository;
+import io.memoryos.chat.persistence.JdbcPromptShortcutRepository;
+import io.memoryos.chat.persistence.JpaChatFeedbackRepository;
+import io.memoryos.chat.persistence.JpaChatSharingRepository;
+import io.memoryos.chat.persistence.JpaPersonaRepository;
+import io.memoryos.chat.persistence.JpaProjectRepository;
+import io.memoryos.connector.SourceSearchScope;
+import io.memoryos.connector.SourceSearchService;
+import io.memoryos.connector.SourceType;
+import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.group.persistence.IamLockRepository;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.identity.ActorLanguageService;
 import io.memoryos.iam.identity.persistence.ActorRefreshImpl;
 import io.memoryos.iam.identity.persistence.JpaActorRepository;
 import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.group.persistence.IamLockRepository;
+import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
-
 import java.time.Duration;
-import java.util.UUID;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.repository.core.support.RepositoryComposition.RepositoryFragments;
@@ -187,7 +185,7 @@ class ChatPersistenceIntegrationTest {
                 List.of(), List.of(), List.of(set.id()), Set.of("search"), null, null, null, null, List.of(), null, null,
                 null, false, false, null));
         personas.share(owner, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(
-                List.of(), List.of(), true, JdbcAgentRepository.Permission.VIEWER));
+                List.of(), List.of(), true, AgentPermission.VIEWER));
 
         var session = sessions.create(other, "Shared agent");
         personas.select(other, session.id(), agent.id());
@@ -1045,8 +1043,8 @@ class ChatPersistenceIntegrationTest {
 
         UUID editors = group("Ban điều hành", Map.of(groupEditor, false, manager, true));
         var shared = personas.share(creator, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(
-                List.of(new ChatPersonaService.UserShareInput(viewer.value(), JdbcAgentRepository.Permission.VIEWER)),
-                List.of(new ChatPersonaService.GroupShareInput(editors, JdbcAgentRepository.Permission.EDITOR)), null, null));
+                List.of(new ChatPersonaService.UserShareInput(viewer.value(), AgentPermission.VIEWER)),
+                List.of(new ChatPersonaService.GroupShareInput(editors, AgentPermission.EDITOR)), null, null));
         assertTrue(shared.revision() > agent.revision(), "Relation-only changes advance the revision");
         assertThrows(ChatException.class, () -> personas.share(creator, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(List.of(), List.of(), null, null)));
 
@@ -1061,23 +1059,23 @@ class ChatPersistenceIntegrationTest {
         assertEquals("KPI tháng", edited.name());
         // A non-owner editor cannot change Tenant-wide visibility; the rest of the share replacement applies.
         var editorShare = personas.share(groupEditor, agent.id(), edited.revision(), new ChatPersonaService.SharingInput(
-                List.of(), List.of(new ChatPersonaService.GroupShareInput(editors, JdbcAgentRepository.Permission.EDITOR)), true,
-                JdbcAgentRepository.Permission.EDITOR));
+                List.of(), List.of(new ChatPersonaService.GroupShareInput(editors, AgentPermission.EDITOR)), true,
+                AgentPermission.EDITOR));
         assertFalse(editorShare.isPublic());
         assertThrows(ChatException.class, () -> personas.get(viewer, agent.id()));
         // The Group manager edits a private agent whose share Groups they all manage.
         assertTrue(personas.get(manager, agent.id()).permissions().edit());
 
         var published = personas.share(creator, agent.id(), editorShare.revision(), new ChatPersonaService.SharingInput(
-                List.of(), List.of(new ChatPersonaService.GroupShareInput(editors, JdbcAgentRepository.Permission.VIEWER)), true,
-                JdbcAgentRepository.Permission.VIEWER));
+                List.of(), List.of(new ChatPersonaService.GroupShareInput(editors, AgentPermission.VIEWER)), true,
+                AgentPermission.VIEWER));
         assertTrue(published.isPublic());
         assertFalse(personas.get(stranger, agent.id()).permissions().edit());
         assertFalse(personas.get(manager, agent.id()).permissions().edit(), "Managers only edit private agents");
         var strangerSession = sessions.create(stranger, "Public agent");
         personas.select(stranger, strangerSession.id(), agent.id());
         assertEquals(List.of(sourceId), tx.execute(ignored -> new JdbcChatRepository(jdbc).persona(strangerSession.id(), false, false)).options().sourceIds());
-        assertTrue(personas.list(stranger, JdbcAgentRepository.View.SHARED, null, "kpi", 0, 30).stream().anyMatch(view -> view.id().equals(agent.id())));
+        assertTrue(personas.list(stranger, AgentListFilter.SHARED, null, "kpi", 0, 30).stream().anyMatch(view -> view.id().equals(agent.id())));
 
         var privateAgain = personas.share(creator, agent.id(), published.revision(), new ChatPersonaService.SharingInput(List.of(), List.of(), false, null));
         assertThrows(ChatException.class, () -> tx.execute(ignored -> new JdbcChatRepository(jdbc).persona(strangerSession.id(), false, false)),
@@ -1086,7 +1084,7 @@ class ChatPersistenceIntegrationTest {
         var transferred = personas.transfer(creator, agent.id(), privateAgain.revision(), new ChatPersonaService.TransferInput(viewer.value(), null));
         assertEquals(viewer.value(), transferred.owner().actor().actorId());
         assertTrue(transferred.userShares().stream().anyMatch(share -> share.person().actorId().equals(creator.value())
-                && share.permission() == JdbcAgentRepository.Permission.EDITOR), "The previous owner keeps editing access");
+                && share.permission() == AgentPermission.EDITOR), "The previous owner keeps editing access");
         assertTrue(personas.get(creator, agent.id()).permissions().edit());
         assertFalse(personas.get(creator, agent.id()).permissions().delete());
 
@@ -1098,7 +1096,7 @@ class ChatPersistenceIntegrationTest {
         var adopted = personas.transfer(owner, agent.id(), vacant.revision(), new ChatPersonaService.TransferInput(null, editors));
         assertEquals(editors, adopted.owner().group().id());
         // A direct sharee outside the owner Group sees a Group-owned agent under Shared.
-        assertTrue(personas.list(creator, JdbcAgentRepository.View.SHARED, null, null, 0, 30).stream()
+        assertTrue(personas.list(creator, AgentListFilter.SHARED, null, null, 0, 30).stream()
                 .anyMatch(view -> view.id().equals(agent.id())));
         assertTrue(personas.get(groupEditor, agent.id()).permissions().delete(), "AgentOwner Group members own the agent");
         personas.delete(groupEditor, agent.id(), personas.get(groupEditor, agent.id()).revision());
@@ -1154,10 +1152,10 @@ class ChatPersistenceIntegrationTest {
         var shared = shortcuts.create(owner, new ChatPromptShortcutService.ShortcutInput("kpi", "Xếp loại KPI tháng này", null), true);
         assertThrows(ChatException.class, () -> shortcuts.update(other, own.id(), own.revision(),
                 new ChatPromptShortcutService.ShortcutInput("tomtat", "Changed", null), false));
-        assertEquals(List.of("tomtat", "kpi"), shortcuts.list(member, false).stream().map(JdbcPromptShortcutRepository.PromptShortcut::name).toList());
+        assertEquals(List.of("tomtat", "kpi"), shortcuts.list(member, false).stream().map(PromptShortcut::name).toList());
         shortcuts.hide(member, shared.id(), true);
-        assertEquals(List.of("tomtat"), shortcuts.list(member, false).stream().map(JdbcPromptShortcutRepository.PromptShortcut::name).toList());
-        assertTrue(shortcuts.list(member, true).stream().anyMatch(JdbcPromptShortcutRepository.PromptShortcut::hidden));
+        assertEquals(List.of("tomtat"), shortcuts.list(member, false).stream().map(PromptShortcut::name).toList());
+        assertTrue(shortcuts.list(member, true).stream().anyMatch(PromptShortcut::hidden));
         assertTrue(shortcuts.preferences(member).enabled());
         assertFalse(shortcuts.preferences(member, false).enabled());
     }

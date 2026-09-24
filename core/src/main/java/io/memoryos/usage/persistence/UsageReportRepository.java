@@ -1,11 +1,12 @@
 package io.memoryos.usage.persistence;
 
+import io.memoryos.usage.report.UsageReport;
+import io.memoryos.usage.report.UsageReportStatus;
 import java.math.BigDecimal;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
@@ -24,12 +25,6 @@ public class UsageReportRepository {
 
     public UsageReportRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
-    public enum Status { PENDING, RUNNING, READY, FAILED }
-
-    public record Report(UUID id, UUID requestedBy, String requester, LocalDate from, LocalDate to, Status status,
-                         @Nullable Long sizeBytes, boolean hasPdf, @Nullable String failure, Instant createdAt,
-                         @Nullable Instant finishedAt, @Nullable String objectKey) {}
-
     public record Claim(UUID id, UUID tenant, LocalDate from, LocalDate to, int attempts) {}
 
     /** One rollup row as exported: a person (or system work), a UTC day, a task, a provider and model, a boundary. */
@@ -45,7 +40,7 @@ public class UsageReportRepository {
             r.period_from, r.period_to, r.status, r.size_bytes, r.has_pdf, r.failure, r.created_at, r.finished_at, r.object_key
             """;
 
-    public Report insert(UUID tenant, UUID id, UUID requestedBy, LocalDate from, LocalDate to) {
+    public UsageReport insert(UUID tenant, UUID id, UUID requestedBy, LocalDate from, LocalDate to) {
         jdbc.sql("""
                 INSERT INTO ai_usage_report(id, tenant_id, requested_by, period_from, period_to)
                 VALUES (:id, :tenant, :actor, :from, :to)
@@ -54,14 +49,14 @@ public class UsageReportRepository {
         return find(tenant, id).orElseThrow();
     }
 
-    public List<Report> list(UUID tenant, int limit) {
+    public List<UsageReport> list(UUID tenant, int limit) {
         return jdbc.sql("SELECT " + REPORT_COLUMNS + """
                 FROM ai_usage_report r LEFT JOIN actor_profiles p ON p.actor_id = r.requested_by
                 WHERE r.tenant_id = :tenant ORDER BY r.created_at DESC, r.id LIMIT :limit
                 """).param("tenant", tenant).param("limit", limit).query(UsageReportRepository::report).list();
     }
 
-    public Optional<Report> find(UUID tenant, UUID id) {
+    public Optional<UsageReport> find(UUID tenant, UUID id) {
         return jdbc.sql("SELECT " + REPORT_COLUMNS + """
                 FROM ai_usage_report r LEFT JOIN actor_profiles p ON p.actor_id = r.requested_by
                 WHERE r.tenant_id = :tenant AND r.id = :id
@@ -170,11 +165,11 @@ public class UsageReportRepository {
         return Arrays.stream((Object[]) array.getArray()).map(String::valueOf).toList();
     }
 
-    private static Report report(ResultSet r, int ignored) throws SQLException {
+    private static UsageReport report(ResultSet r, int ignored) throws SQLException {
         Long size = r.getObject("size_bytes", Long.class);
-        return new Report(r.getObject("id", UUID.class), r.getObject("requested_by", UUID.class), r.getString("requester"),
+        return new UsageReport(r.getObject("id", UUID.class), r.getObject("requested_by", UUID.class), r.getString("requester"),
                 r.getObject("period_from", LocalDate.class), r.getObject("period_to", LocalDate.class),
-                Status.valueOf(r.getString("status")), size, r.getBoolean("has_pdf"),
+                UsageReportStatus.valueOf(r.getString("status")), size, r.getBoolean("has_pdf"),
                 r.getString("failure"), r.getTimestamp("created_at").toInstant(),
                 r.getTimestamp("finished_at") == null ? null : r.getTimestamp("finished_at").toInstant(),
                 r.getString("object_key"));

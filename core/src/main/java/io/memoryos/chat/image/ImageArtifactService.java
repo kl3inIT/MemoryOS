@@ -156,7 +156,7 @@ public class ImageArtifactService {
      * Images for an already-authorized page of messages, keyed by message id. The caller has resolved these
      * message ids from an ownership-checked history read; results are scoped to the actor's active Tenant.
      */
-    public Map<UUID, List<JdbcImageArtifactRepository.Artifact>> forMessages(ActorId actor, Collection<UUID> messageIds) {
+    public Map<UUID, List<GeneratedImage>> forMessages(ActorId actor, Collection<UUID> messageIds) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         return artifacts.byMessages(tenant, messageIds, true);
     }

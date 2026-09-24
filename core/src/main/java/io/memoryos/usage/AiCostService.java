@@ -37,21 +37,21 @@ public class AiCostService {
         }
     }
 
-    public record Detail(AiCostQueries.Totals totals, List<AiCostQueries.Day> daily, List<AiCostQueries.Row> models,
-                         List<AiCostQueries.Row> flows, List<AiCostQueries.Row> providers) {}
+    public record Detail(AiCostTotals totals, List<AiCostDay> daily, List<AiCostRow> models,
+                         List<AiCostRow> flows, List<AiCostRow> providers) {}
 
     @Transactional(readOnly = true)
-    public AiCostQueries.Totals summary(ActorId reader, Range range) {
+    public AiCostTotals summary(ActorId reader, Range range) {
         return queries.totals(scope(reader, range));
     }
 
     @Transactional(readOnly = true)
-    public List<AiCostQueries.Day> daily(ActorId reader, Range range, AiCostQueries.Split split) {
+    public List<AiCostDay> daily(ActorId reader, Range range, AiCostSplit split) {
         return queries.daily(scope(reader, range), split);
     }
 
     @Transactional(readOnly = true)
-    public List<AiCostQueries.Row> breakdown(ActorId reader, Range range, AiCostQueries.Dimension dimension, int limit) {
+    public List<AiCostRow> breakdown(ActorId reader, Range range, AiCostDimension dimension, int limit) {
         if (limit < 1 || limit > MAX_ROWS) throw AiCostException.invalid("Row limit must be between 1 and 200.");
         return queries.breakdown(scope(reader, range), dimension, limit);
     }
@@ -61,10 +61,10 @@ public class AiCostService {
     public Detail detail(ActorId reader, Range range) {
         if (range.actor() == null && !range.system()) throw AiCostException.invalid("Choose a person or system work.");
         var scope = scope(reader, range);
-        return new Detail(queries.totals(scope), queries.daily(scope, AiCostQueries.Split.NONE),
-                queries.breakdown(scope, AiCostQueries.Dimension.MODEL, MAX_ROWS),
-                queries.breakdown(scope, AiCostQueries.Dimension.FLOW, MAX_ROWS),
-                queries.breakdown(scope, AiCostQueries.Dimension.PROVIDER, MAX_ROWS));
+        return new Detail(queries.totals(scope), queries.daily(scope, AiCostSplit.NONE),
+                queries.breakdown(scope, AiCostDimension.MODEL, MAX_ROWS),
+                queries.breakdown(scope, AiCostDimension.FLOW, MAX_ROWS),
+                queries.breakdown(scope, AiCostDimension.PROVIDER, MAX_ROWS));
     }
 
     /**
@@ -76,10 +76,10 @@ public class AiCostService {
         var tenant = authorization.require(reader, IamCapability.CHAT_READ, false).tenantId().value();
         var range = new Range(from, to, reader.value(), false, null, null);
         var scope = new AiCostQueries.Scope(tenant, range.from(), range.to(), reader.value(), null, null, false);
-        return new Detail(queries.totals(scope), queries.daily(scope, AiCostQueries.Split.NONE),
-                queries.breakdown(scope, AiCostQueries.Dimension.MODEL, MAX_ROWS),
-                queries.breakdown(scope, AiCostQueries.Dimension.FLOW, MAX_ROWS),
-                queries.breakdown(scope, AiCostQueries.Dimension.PROVIDER, MAX_ROWS));
+        return new Detail(queries.totals(scope), queries.daily(scope, AiCostSplit.NONE),
+                queries.breakdown(scope, AiCostDimension.MODEL, MAX_ROWS),
+                queries.breakdown(scope, AiCostDimension.FLOW, MAX_ROWS),
+                queries.breakdown(scope, AiCostDimension.PROVIDER, MAX_ROWS));
     }
 
     private AiCostQueries.Scope scope(ActorId reader, Range range) {

@@ -1,5 +1,6 @@
 package io.memoryos.chat.persistence;
 
+import io.memoryos.chat.image.GeneratedImage;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.objectstorage.ObjectKey;
@@ -21,7 +22,6 @@ public class JdbcImageArtifactRepository {
 
     public JdbcImageArtifactRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
-    public record Artifact(UUID id, String mediaType, @Nullable String revisedPrompt, boolean deleted) {}
     public record Content(ObjectKey key, String mediaType) {}
 
     /**
@@ -69,9 +69,9 @@ public class JdbcImageArtifactRepository {
      * a deleted image as a tombstone; a turn context must not, or the model would be offered an image to edit
      * that no longer exists.
      */
-    public Map<UUID, List<Artifact>> byMessages(TenantId tenant, Collection<UUID> messageIds, boolean includeDeleted) {
+    public Map<UUID, List<GeneratedImage>> byMessages(TenantId tenant, Collection<UUID> messageIds, boolean includeDeleted) {
         if (messageIds.isEmpty()) return Map.of();
-        var result = new LinkedHashMap<UUID, List<Artifact>>();
+        var result = new LinkedHashMap<UUID, List<GeneratedImage>>();
         jdbc.sql("""
                 SELECT message_id, id, media_type, revised_prompt, deleted_at IS NOT NULL AS deleted FROM chat_image_artifact
                 WHERE tenant_id = :tenant AND message_id IN (:messages) AND (:includeDeleted OR deleted_at IS NULL)
@@ -79,7 +79,7 @@ public class JdbcImageArtifactRepository {
                 """).param("tenant", tenant.value()).param("messages", messageIds).param("includeDeleted", includeDeleted)
                 .query((row, ignored) -> {
                     result.computeIfAbsent(row.getObject("message_id", UUID.class), key -> new ArrayList<>())
-                            .add(new Artifact(row.getObject("id", UUID.class), row.getString("media_type"),
+                            .add(new GeneratedImage(row.getObject("id", UUID.class), row.getString("media_type"),
                                     row.getString("revised_prompt"), row.getBoolean("deleted")));
                     return true;
                 }).list();
@@ -130,12 +130,12 @@ public class JdbcImageArtifactRepository {
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("limit", limit).update();
     }
 
-    public List<Artifact> byMessage(TenantId tenant, UUID messageId) {
+    public List<GeneratedImage> byMessage(TenantId tenant, UUID messageId) {
         return jdbc.sql("""
                 SELECT id, media_type, revised_prompt FROM chat_image_artifact
                 WHERE tenant_id = :tenant AND message_id = :message AND deleted_at IS NULL ORDER BY created_at, id
                 """).param("tenant", tenant.value()).param("message", messageId)
-                .query((row, ignored) -> new Artifact(row.getObject("id", UUID.class), row.getString("media_type"),
+                .query((row, ignored) -> new GeneratedImage(row.getObject("id", UUID.class), row.getString("media_type"),
                         row.getString("revised_prompt"), false))
                 .list();
     }

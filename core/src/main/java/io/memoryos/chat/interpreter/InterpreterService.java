@@ -95,7 +95,7 @@ public class InterpreterService {
      * Generated files for an already-authorized page of messages, keyed by message id. The caller has resolved these
      * message ids from an ownership-checked history read; results are scoped to the actor's active Tenant.
      */
-    public java.util.Map<UUID, java.util.List<JdbcInterpreterRepository.GeneratedFile>> forMessages(
+    public java.util.Map<UUID, java.util.List<GeneratedFile>> forMessages(
             ActorId actor, java.util.Collection<UUID> messageIds) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(io.memoryos.chat.ChatException::unavailable);
         return repository.byMessages(tenant, messageIds);
@@ -147,7 +147,7 @@ public class InterpreterService {
     static final String PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
     /** The owner-private presentation to preview, with its cached PDF when one exists. */
-    public JdbcInterpreterRepository.Artifact presentation(ActorId actor, UUID id) {
+    public InterpreterArtifact presentation(ActorId actor, UUID id) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         var artifact = repository.ownedArtifact(tenant, actor, id).orElseThrow(ChatException::unavailable);
         if (!PPTX.equals(artifact.mediaType())) throw ChatException.invalid("Only pptx files have a PDF preview");

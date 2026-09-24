@@ -2,10 +2,9 @@ package io.memoryos.chat.history;
 
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatSettingsService;
-import io.memoryos.chat.history.persistence.JdbcChatHistoryRepository;
 import io.memoryos.chat.history.persistence.JdbcChatHistoryRepository.Cursor;
 import io.memoryos.chat.history.persistence.JdbcChatHistoryRepository.Entry;
-import io.memoryos.chat.history.persistence.JdbcChatHistoryRepository.Message;
+import io.memoryos.chat.history.persistence.JdbcChatHistoryRepository;
 import io.memoryos.audit.AuditAction;
 import io.memoryos.audit.AuditOutcome;
 import io.memoryos.audit.AuditRecord;
@@ -55,16 +54,16 @@ public class ChatHistoryService {
     public record Conversation(UUID id, @Nullable UUID actorId, @Nullable String person, @Nullable String email,
                                String title, @Nullable String question, @Nullable String answer,
                                @Nullable String modelName, long messages,
-                               JdbcChatHistoryRepository.Feedback feedback, boolean deleted, Instant updatedAt) {}
+                               ChatHistoryFeedback feedback, boolean deleted, Instant updatedAt) {}
 
     public record Page(List<Conversation> items, @Nullable String nextCursor,
-                       JdbcChatHistoryRepository.Totals totals) {}
+                       ChatHistoryTotals totals) {}
 
-    public record Transcript(Conversation conversation, List<Message> messages) {}
+    public record Transcript(Conversation conversation, List<ChatHistoryMessage> messages) {}
 
     /** A page of the Tenant's conversations, newest first. */
     @Transactional(readOnly = true)
-    public Page page(ActorId reader, JdbcChatHistoryRepository.Query query, @Nullable String cursor, int size) {
+    public Page page(ActorId reader, ChatHistoryQuery query, @Nullable String cursor, int size) {
         if (size < 1 || size > MAX_PAGE) throw ChatException.invalid("Page size must be between 1 and 100.");
         var access = readable(reader, query);
         var entries = history.page(access.tenant().value(), query, decode(cursor), size);
@@ -80,7 +79,7 @@ public class ChatHistoryService {
      */
     @Transactional(readOnly = true)
     public Transcript transcript(ActorId reader, UUID sessionId) {
-        var access = readable(reader, new JdbcChatHistoryRepository.Query(null, null, null, null, null));
+        var access = readable(reader, new ChatHistoryQuery(null, null, null, null, null));
         var entry = history.conversation(access.tenant().value(), sessionId).orElseThrow(ChatException::unavailable);
         var messages = history.transcript(sessionId, entry.rootMessageId(), MAX_TRANSCRIPT);
         recordRead(access, reader, entry, messages.size());
@@ -89,7 +88,7 @@ public class ChatHistoryService {
 
     /** The filtered conversations, one row per question and answer, bounded as the audit export is. */
     @Transactional(readOnly = true)
-    public int export(ActorId reader, JdbcChatHistoryRepository.Query query, Consumer<Conversation> sink) {
+    public int export(ActorId reader, ChatHistoryQuery query, Consumer<Conversation> sink) {
         var access = readable(reader, query);
         int rows = 0;
         Cursor after = null;
@@ -114,7 +113,7 @@ public class ChatHistoryService {
     /** What the Tenant lets this reader see, resolved once per request. */
     private record Access(TenantId tenant, ChatHistoryVisibility visibility) {}
 
-    private Access readable(ActorId reader, JdbcChatHistoryRepository.Query query) {
+    private Access readable(ActorId reader, ChatHistoryQuery query) {
         var tenant = authorization.require(reader, IamCapability.CHAT_HISTORY_READ, false).tenantId();
         var visibility = settings.historyVisibility(tenant);
         if (visibility == ChatHistoryVisibility.DISABLED)
@@ -141,7 +140,7 @@ public class ChatHistoryService {
                 .detail("messages", messages).build());
     }
 
-    private void recordExport(TenantId tenant, ActorId reader, JdbcChatHistoryRepository.Query query, int rows,
+    private void recordExport(TenantId tenant, ActorId reader, ChatHistoryQuery query, int rows,
                               AuditOutcome outcome) {
         audit.recordSeparately(AuditRecord.of(AuditAction.CHAT_HISTORY_EXPORT, tenant.value()).actor(reader.value())
                 .resource("CHAT_HISTORY", null, null).outcome(outcome)

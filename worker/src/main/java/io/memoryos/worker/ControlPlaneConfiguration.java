@@ -5,6 +5,7 @@ import com.github.kagkarlsson.scheduler.boot.config.DbSchedulerCustomizer;
 import com.github.kagkarlsson.scheduler.task.helper.RecurringTask;
 import com.github.kagkarlsson.scheduler.task.helper.Tasks;
 import com.github.kagkarlsson.scheduler.task.schedule.FixedDelay;
+import io.memoryos.chat.application.UserFileMaintenance;
 import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
@@ -109,7 +110,7 @@ class ControlPlaneConfiguration {
     }
 
     @Bean
-    RecurringTask<Void> expiredChatUploadTask(io.memoryos.chat.persistence.JdbcUserFileWorkRepository files) {
+    RecurringTask<Void> expiredChatUploadTask(UserFileMaintenance files) {
         return Tasks.recurring("memoryos-expired-chat-upload-v1", FixedDelay.of(Duration.ofMinutes(1)))
                 .execute((_, _) -> files.expireUploads(100));
     }
@@ -213,9 +214,9 @@ class ControlPlaneConfiguration {
      * DELETE work then owns the release itself.
      */
     @Bean
-    RecurringTask<Void> chatLibraryTrashTask(io.memoryos.chat.persistence.JdbcUserFileRepository files) {
+    RecurringTask<Void> chatLibraryTrashTask(UserFileMaintenance files) {
         return Tasks.recurring("memoryos-chat-library-trash-v1", FixedDelay.of(Duration.ofMinutes(5)))
-                .execute((_, _) -> files.enqueueDuePurges(100));
+                .execute((_, _) -> files.queueTrashPurges(100));
     }
 
     /** Packs requested library archives and releases the ones that expired (MEM-152). */
