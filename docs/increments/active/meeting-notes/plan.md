@@ -27,6 +27,7 @@ Reading the transcript back — [MEM-183](https://linear.app/memory-os/issue/MEM
 - [x] Star a line and filter to starred lines only, plus a bookmark for a moment while the meeting is still running. Both belong to whoever left them. Scoping what the model reads to starred lines belongs with the minutes work ([MEM-188](https://linear.app/memory-os/issue/MEM-188)).
 - [x] Show the provider's low confidence: the uncertain stretches are highlighted in the transcript, with the percentage on hover. Soniox reports a confidence per token, so the mark is the word rather than the line; every other provider reports none and marks nothing.
 - [x] A topic timeline that jumps to its utterance, named in the same model call as the minutes — [MEM-188](https://linear.app/memory-os/issue/MEM-188).
+- [x] Small changes answer with what they changed (audit item 1.4, approved 2026-09-24): notes, the name and people, a speaker, stars, bookmarks, readers, a minutes item and the summary no longer re-read and send every utterance, and the page folds the answer into the meeting it holds. Creating, ending, rerunning, recordings and transcript corrections still answer the whole meeting. The contract is in [the spec](../../../specs/meeting.md#what-a-change-answers). Evidence 2026-09-24: `:core:test --tests 'io.memoryos.meeting.*'`, the six meeting methods of `ChatSessionApiIntegrationTest`, `MeetingStreamWatchdogTest` and `OpenApiContractTest` pass; web typecheck, oxlint, oxfmt and `vitest run src/features/meetings` clean. Playwright was not run locally.
 
 Minutes to send:
 
