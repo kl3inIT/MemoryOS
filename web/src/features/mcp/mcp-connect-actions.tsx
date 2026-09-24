@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { CatalogDialog } from "@/features/models/catalog-dialog";
+import { CatalogDialog } from "@/components/composites/catalog-dialog";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { saveMcpConnectionApiKey, startMcpConnectionAuthorization } from "@/lib/hey-api/sdk.gen";
 import type { McpConnection } from "@/lib/hey-api/types.gen";

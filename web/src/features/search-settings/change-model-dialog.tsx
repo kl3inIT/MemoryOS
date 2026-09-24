@@ -10,7 +10,7 @@ import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { createSearchFutureGeneration } from "@/lib/hey-api/sdk.gen";
 import type { EmbeddingProviderResponse } from "@/lib/hey-api/types.gen";
-import { CatalogDialog } from "@/features/models/catalog-dialog";
+import { CatalogDialog } from "@/components/composites/catalog-dialog";
 import { DataBoundaryTag } from "@/features/models/data-boundary";
 import { useEmbeddingTest } from "./embedding-connection";
 import { ConnectionOutcome } from "./embedding-provider-editor";
