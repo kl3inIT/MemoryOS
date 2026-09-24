@@ -13,28 +13,47 @@ import org.apache.pdfbox.text.PDFTextStripper;
  * loaded the document.
  *
  * @param pages the page count
- * @param sizes each page's CropBox in points, width and height swapped for a page turned by
- *              {@code /Rotate} 90 or 270, because that is the page a renderer draws
+ * @param frames each page's CropBox in user space and its {@code /Rotate}, one per page
  * @param scanned the text layer holds fewer than {@link DoclingSourceContentExtractor#MIN_FALLBACK_CHARACTERS_PER_PDF_PAGE}
  *                non-whitespace characters a page; false when the density was not measured
  */
-record PdfLayout(int pages, List<Page> sizes, boolean scanned) {
+record PdfLayout(int pages, List<Frame> frames, boolean scanned) {
     PdfLayout {
-        sizes = List.copyOf(sizes);
+        frames = List.copyOf(frames);
     }
+
+    /**
+     * A page's CropBox as stored: lower-left corner and size in PDF user space (y up), before
+     * {@code /Rotate}, which is normalized to 0, 90, 180 or 270. The viewer receives the same box as
+     * the page's {@code view}.
+     */
+    record Frame(double x0, double y0, double width, double height, int rotation) {}
 
     static PdfLayout of(PDDocument pdf, boolean measureTextLayer) throws IOException {
         int pages = pdf.getNumberOfPages();
-        var sizes = new ArrayList<Page>(pages);
+        var frames = new ArrayList<Frame>(pages);
         for (int index = 0; index < pages; index++) {
             var page = pdf.getPage(index);
             var box = page.getCropBox();
-            int rotation = Math.floorMod(page.getRotation(), 360);
-            boolean turned = rotation == 90 || rotation == 270;
-            sizes.add(new Page(index + 1, turned ? box.getHeight() : box.getWidth(),
-                    turned ? box.getWidth() : box.getHeight()));
+            frames.add(new Frame(box.getLowerLeftX(), box.getLowerLeftY(), box.getWidth(), box.getHeight(),
+                    Math.floorMod(page.getRotation(), 360)));
         }
-        return new PdfLayout(pages, sizes, measureTextLayer && scanned(pdf, pages));
+        return new PdfLayout(pages, frames, measureTextLayer && scanned(pdf, pages));
+    }
+
+    /**
+     * Each page in points as a renderer draws it: width and height swapped for a page turned by
+     * {@code /Rotate} 90 or 270.
+     */
+    List<Page> sizes() {
+        var sizes = new ArrayList<Page>(frames.size());
+        for (int index = 0; index < frames.size(); index++) {
+            var frame = frames.get(index);
+            boolean turned = frame.rotation() == 90 || frame.rotation() == 270;
+            sizes.add(new Page(index + 1, turned ? frame.height() : frame.width(),
+                    turned ? frame.width() : frame.height()));
+        }
+        return List.copyOf(sizes);
     }
 
     /**
