@@ -122,7 +122,9 @@ services:
 
   minio:
     <<: *service-defaults
-    image: ${MEMORYOS_MINIO_IMAGE:-quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e}
+    # Mirrored to GHCR from quay.io/minio/minio@sha256:a1ea29fa…, which upstream withdrew; the
+    # layers are unchanged and a label names the source. See docs/runbooks/ci-cd.md#minio-images.
+    image: ${MEMORYOS_MINIO_IMAGE:-ghcr.io/kl3init/memoryos-minio:RELEASE.2025-04-22T22-12-26Z@sha256:159a90402c72e031227cdf0f3fb0ba82c54e517a110b2d0b462817dc849b0ac2}
     container_name: memoryos-minio
     cap_add:
       - DAC_OVERRIDE
@@ -168,9 +170,10 @@ services:
           memory: 256m
 
   minio-bootstrap:
-    # The same registry the server comes from, and by the same digest: Docker Hub no longer
-    # serves minio/mc, so a host without it already cached cannot pull the client at all.
-    image: ${MEMORYOS_MINIO_MC_IMAGE:-quay.io/minio/mc:RELEASE.2025-04-16T18-13-26Z@sha256:aead63c77f9db9107f1696fb08ecb0faeda23729cde94b0f663edf4fe09728e3}
+    # The same registry the server comes from. MinIO withdrew its public images from Docker Hub
+    # and quay.io on 2026-09-24; both come from the repository's own mirror, whose layers are
+    # those of the upstream digests a host already running MinIO has cached.
+    image: ${MEMORYOS_MINIO_MC_IMAGE:-ghcr.io/kl3init/memoryos-minio-mc:RELEASE.2025-04-16T18-13-26Z@sha256:bddaf9ead3bf24765ffe4c63f7baf4791d3bbd594f1fb8b7cbaff17b433ef2dd}
     container_name: memoryos-minio-bootstrap
     cap_add:
       - DAC_OVERRIDE

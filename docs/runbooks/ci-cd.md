@@ -235,6 +235,17 @@ The jump is an SSH forward through the application node's deployment user. That 
 
 **Staging path.** Staging reads scans through the same layout API at `MEMORYOS_EXTRACTION_PADDLEOCR_VL_ENDPOINT=https://ocr.vadan.app`, a deliberate exception to the [MEM-171](../increments/active/mem-171-production-deployment/design.md) environment separation, accepted by the product owner on 2026-09-23. `ocr.vadan.app` is a Nginx Proxy Manager host on the application node whose access list admits only the staging server's address `72.62.193.33` (403 from anywhere else) and forwards to `172.24.244.79:18080`. The serving node therefore still sees every request come from `172.24.244.120`, and its `DOCKER-USER` rule is unchanged. Each worker sends at most `MEMORYOS_EXTRACTION_PADDLEOCR_VL_MAX_CONCURRENT_REQUESTS` documents at once, so staging load stays bounded on the production GPU.
 
+### MinIO images
+
+MinIO withdrew its public images on 2026-09-24: `quay.io/minio/minio` and `quay.io/minio/mc` answer 401 or "no such manifest", and `minio/minio` no longer exists on Docker Hub. CI and any host without a cached copy could no longer pull them. The copies cached on the production application node were mirrored, unchanged, to public GHCR packages of this repository:
+
+| Image | Mirror | Upstream digest it came from |
+| --- | --- | --- |
+| MinIO server `RELEASE.2025-04-22T22-12-26Z` | `ghcr.io/kl3init/memoryos-minio@sha256:159a90402c72e031227cdf0f3fb0ba82c54e517a110b2d0b462817dc849b0ac2` | `quay.io/minio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e` |
+| MinIO client `RELEASE.2025-04-16T18-13-26Z` | `ghcr.io/kl3init/memoryos-minio-mc@sha256:bddaf9ead3bf24765ffe4c63f7baf4791d3bbd594f1fb8b7cbaff17b433ef2dd` | `quay.io/minio/mc@sha256:aead63c77f9db9107f1696fb08ecb0faeda23729cde94b0f663edf4fe09728e3` |
+
+Each mirror is the upstream image plus labels naming this repository, the upstream digest, the AGPL-3.0 licence and the upstream source tag; the layers are unchanged, so the digest differs only because the configuration gained labels. `compose.base.yaml` and the Testcontainers tests pin the mirrors. A host that already runs the upstream digest keeps it until MinIO is next recreated. Building MinIO from source, or replacing it, is a separate decision.
+
 ## Deploy and accept
 
 Start the first deployment after the implementation is merged and its main CI has published a release:
