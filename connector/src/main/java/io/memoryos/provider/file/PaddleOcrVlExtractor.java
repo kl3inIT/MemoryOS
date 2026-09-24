@@ -45,7 +45,7 @@ final class PaddleOcrVlExtractor implements AutoCloseable {
         else if (layout.pages() > properties.maxPages()) throw DocumentAssembly.failure(ExtractionFailure.WRITE_LIMIT);
         var results = client.parse(input, layout == null ? PaddleOcrVlClient.FileType.IMAGE : PaddleOcrVlClient.FileType.PDF);
         List<Page> pages = layout == null ? List.of() : layout.sizes();
-        var blocks = PaddleOcrVlDocument.blocks(results, pages);
+        var blocks = PaddleOcrVlDocument.blocks(results, layout == null ? List.of() : layout.frames());
         if (DocumentAssembly.semanticText(blocks).isBlank()) return null;
         return DocumentAssembly.publish(mapper, blocks, pages, null, mediaType, filename,
                 Map.of("parser", "paddleocr-vl", "parser_configuration", properties.parserConfiguration(maxInput)),

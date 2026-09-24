@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import tools.jackson.databind.JsonNode;
@@ -27,6 +28,10 @@ import tools.jackson.databind.ObjectMapper;
  * becomes a String or a second byte array on the heap. The answer is read up to a fixed size. Each
  * request is sent once; nothing here retries, because a failed extraction is terminal for the
  * attempt and the Source manager decides when to read it again (MEM-192).
+ *
+ * <p>A worker reads several operations at once and the GPU serves them all, so at most
+ * {@code max-concurrent-requests} are at the service at a time; the rest wait in line, fairly. The
+ * deadline counts from when a request is sent, so a document is never timed out for waiting.
  */
 final class PaddleOcrVlClient implements AutoCloseable {
     /**
@@ -41,6 +46,7 @@ final class PaddleOcrVlClient implements AutoCloseable {
     private final Duration timeout;
     private final ObjectMapper mapper;
     private final int maxResponseBytes;
+    private final Semaphore permits;
     private final HttpClient transport = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1)
             .followRedirects(HttpClient.Redirect.NEVER).connectTimeout(Duration.ofSeconds(5)).build();
 
@@ -80,14 +86,22 @@ final class PaddleOcrVlClient implements AutoCloseable {
                 .replaceAll("/+$", "") + "/layout-parsing");
         this.timeout = properties.timeout();
         this.mapper = mapper;
+        this.permits = new Semaphore(java.util.Objects.requireNonNull(properties.maxConcurrentRequests()), true);
     }
 
     /** @return the envelope's {@code result.layoutParsingResults}, one element per page */
     JsonNode parse(Input input, FileType type) throws ExtractionException {
-        long started = System.nanoTime();
+        long queued = System.nanoTime();
+        long started = queued;
         int status = -1;
+        long waited = 0;
+        boolean permitted = false;
         try {
             if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
+            permits.acquire();
+            permitted = true;
+            started = System.nanoTime();
+            waited = started - queued;
             byte[] prefix = ("{\"fileType\":" + type.code + ",\"visualize\":false,\"mergeTables\":false,"
                     + "\"useDocOrientationClassify\":false,\"useDocUnwarping\":false,\"file\":\"")
                     .getBytes(StandardCharsets.US_ASCII);
@@ -108,7 +122,7 @@ final class PaddleOcrVlClient implements AutoCloseable {
             status = response.statusCode();
             byte[] answer;
             // The request timeout ends with the response headers. A server that then stalls mid-body
-            // would hold the worker for ever, so the same deadline, counted from the start, closes
+            // would hold the worker for ever, so the same deadline, counted from sending, closes
             // the body; a read that fails after it has passed is a timeout, not a transport fault.
             var expired = new java.util.concurrent.atomic.AtomicBoolean();
             try (var stream = response.body()) {
@@ -126,27 +140,28 @@ final class PaddleOcrVlClient implements AutoCloseable {
                 try {
                     answer = stream.readNBytes(maxResponseBytes + 1);
                 } catch (IOException read) {
-                    if (expired.get()) throw failed(ExtractionFailure.TIMEOUT, status, "response_deadline");
+                    if (expired.get()) throw failed(ExtractionFailure.TIMEOUT, status, "response_deadline", waited);
                     throw read;
                 }
-                if (expired.get()) throw failed(ExtractionFailure.TIMEOUT, status, "response_deadline");
+                if (expired.get()) throw failed(ExtractionFailure.TIMEOUT, status, "response_deadline", waited);
             }
-            if (answer.length > maxResponseBytes) throw failed(ExtractionFailure.WRITE_LIMIT, status, "response_limit");
+            if (answer.length > maxResponseBytes) throw failed(ExtractionFailure.WRITE_LIMIT, status, "response_limit", waited);
             JsonNode envelope;
             try {
                 envelope = mapper.readTree(answer);
             } catch (RuntimeException unparseable) {
-                throw failed(ExtractionFailure.MALFORMED, status, unparseable.getClass().getName());
+                throw failed(ExtractionFailure.MALFORMED, status, unparseable.getClass().getName(), waited);
             }
             JsonNode results = envelope == null ? null : envelope.path("result").path("layoutParsingResults");
             if (results == null || !envelope.path("errorCode").isIntegralNumber() || envelope.path("errorCode").asInt() != 0
                     || !results.isArray() || results.isEmpty()) {
-                throw failed(ExtractionFailure.MALFORMED, status, "envelope");
+                throw failed(ExtractionFailure.MALFORMED, status, "envelope", waited);
             }
             String logId = envelope.path("logId").asString("");
             LOG.atInfo().addKeyValue("event", "paddleocr_vl.request.completed")
                     .addKeyValue("log_id", LOG_ID.matcher(logId).matches() ? logId : "invalid")
                     .addKeyValue("page_count", results.size())
+                    .addKeyValue("queued_ms", TimeUnit.NANOSECONDS.toMillis(waited))
                     .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
                     .log("PaddleOCR-VL returned a layout; content validation follows");
             return results;
@@ -154,15 +169,18 @@ final class PaddleOcrVlClient implements AutoCloseable {
             throw e;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw failed(ExtractionFailure.TIMEOUT, status, e.getClass().getName());
+            if (!permitted) waited = System.nanoTime() - queued;
+            throw failed(ExtractionFailure.TIMEOUT, status, e.getClass().getName(), waited);
         } catch (StatusFailure e) {
             throw failed(switch (e.status) {
                 case 413 -> ExtractionFailure.WRITE_LIMIT;
                 case 408, 504 -> ExtractionFailure.TIMEOUT;
                 default -> ExtractionFailure.INTERNAL;
-            }, e.status, e.getClass().getName());
+            }, e.status, e.getClass().getName(), waited);
         } catch (IOException | RuntimeException e) {
-            throw failed(transportFailure(e), status, e.getClass().getName());
+            throw failed(transportFailure(e), status, e.getClass().getName(), waited);
+        } finally {
+            if (permitted) permits.release();
         }
     }
 
@@ -182,10 +200,11 @@ final class PaddleOcrVlClient implements AutoCloseable {
         return ExtractionFailure.INTERNAL;
     }
 
-    private ExtractionException failed(ExtractionFailure failure, int status, String errorType) {
+    private ExtractionException failed(ExtractionFailure failure, int status, String errorType, long waitedNanos) {
         LOG.atWarn().addKeyValue("event", "paddleocr_vl.extraction.failed")
                 .addKeyValue("error_code", failure.name()).addKeyValue("http_status", status)
                 .addKeyValue("error_type", errorType)
+                .addKeyValue("queued_ms", TimeUnit.NANOSECONDS.toMillis(waitedNanos))
                 .log("PaddleOCR-VL extraction failed");
         return DocumentAssembly.failure(failure);
     }
