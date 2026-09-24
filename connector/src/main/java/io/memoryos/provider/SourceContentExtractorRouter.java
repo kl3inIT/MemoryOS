@@ -16,6 +16,8 @@ import org.apache.tika.Tika;
 import tools.jackson.databind.ObjectMapper;
 
 public final class SourceContentExtractorRouter implements SourceContentExtractor {
+    /** Detection holds no per-call state, so one facade serves every document. */
+    private static final Tika TIKA = new Tika();
     private final DoclingSourceContentExtractor docling;
     private final SpreadsheetSourceContentExtractor spreadsheets;
     private final GoogleSheetsSourceContentExtractor sheets;
@@ -43,7 +45,7 @@ public final class SourceContentExtractorRouter implements SourceContentExtracto
     private DocumentContent binary(InputStream content, long size, String filename,
                                     SourceInputDescriptor input) throws ExtractionException {
         byte[] bytes = StructuredContent.read(content, size, Math.toIntExact(ObjectUploadSpecification.MAX_SIZE_BYTES));
-        String mediaType = new Tika().detect(bytes, filename);
+        String mediaType = TIKA.detect(bytes, filename);
         if (DoclingSourceContentExtractor.usesDocling(mediaType)) {
             return docling.extract(bytes, filename, mediaType, input);
         }
