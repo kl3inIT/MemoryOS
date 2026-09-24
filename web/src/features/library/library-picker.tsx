@@ -21,7 +21,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
 import { ChatDialog } from "@/features/chat/chat-dialog";
-import { fileSize } from "@/features/chat/chat-code";
+import { fileSize } from "@/features/chat/interpreter/chat-code";
 import { LibraryCategoryFilter } from "./library-toolbar";
 import {
   chatLibraryKey,

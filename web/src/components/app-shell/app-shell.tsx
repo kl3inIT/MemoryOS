@@ -38,8 +38,8 @@ import { SidebarSection } from "@/components/ui/sidebar-section";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { useAdminAccess } from "@/features/identity/application-session-context";
 import { cn } from "@/lib/utils";
-import { ChatHistorySearch } from "@/features/chat/chat-history-search";
-import { ChatNavigation } from "@/features/chat/chat-navigation";
+import { ChatHistorySearch } from "@/features/chat/session/chat-history-search";
+import { ChatNavigation } from "@/features/chat/session/chat-navigation";
 
 export type AppShellArea = "app" | "admin" | "settings";
 /** Personal settings tabs, as Onyx Settings (MEM-145). */

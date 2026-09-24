@@ -19,7 +19,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
 import { chatSessionsKey, newChatSession } from "@/features/chat/chat-api";
 import { chatActionError } from "@/features/chat/chat-action-utils";
-import { ChatAddToProjectDialog } from "@/features/chat/chat-add-to-project";
+import { ChatAddToProjectDialog } from "@/features/chat/projects/chat-add-to-project";
 import { ChatDialog } from "@/features/chat/chat-dialog";
 import { LibraryContentMatches } from "./library-content";
 import { LibraryDropZone, LibraryUploadButton, LibraryUploadTray } from "./library-uploads";

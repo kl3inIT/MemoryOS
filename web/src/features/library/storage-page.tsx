@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { chatLibraryKey, loadLibraryUsage, loadTrashWindow } from "./library";
-import { ChatRetentionSection } from "@/features/chat/chat-retention-section";
+import { ChatRetentionSection } from "@/features/chat/settings/chat-retention-section";
 import { StorageMeter } from "./storage-meter";
 
 /**

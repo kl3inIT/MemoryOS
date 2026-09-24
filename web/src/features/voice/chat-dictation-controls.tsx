@@ -3,7 +3,7 @@ import { ComposerPrimitive, useAui, useAuiState } from "@assistant-ui/react";
 import { Link } from "@tanstack/react-router";
 import { Check, Mic, MicOff, X } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
-import { useFilesBlocked } from "@/features/chat/use-files-blocked";
+import { useFilesBlocked } from "@/features/chat/composer/use-files-blocked";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";

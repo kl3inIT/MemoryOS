@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { ChatRetentionSection } from "@/features/chat/chat-retention-section";
+import { ChatRetentionSection } from "@/features/chat/settings/chat-retention-section";
 import { type LibraryCategory } from "./library";
 import { StorageMeter, type LibraryUsage } from "./storage-meter";
 

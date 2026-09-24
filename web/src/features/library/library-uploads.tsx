@@ -7,7 +7,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
 import { useProblemMessage } from "@/lib/use-problem-message";
-import { fileSize } from "@/features/chat/chat-code";
+import { fileSize } from "@/features/chat/interpreter/chat-code";
 import type { LibraryUpload } from "./use-library-uploads";
 
 /** A whole-page drop target; the browser's own file dialog stays on the Upload button. */

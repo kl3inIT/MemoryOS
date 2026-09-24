@@ -37,7 +37,7 @@ import {
 } from "@/lib/hey-api/sdk.gen";
 import { cn } from "@/lib/utils";
 import { ChatFileAskComposer, type AskExtras } from "./file-ask-composer";
-import { fileSize } from "@/features/chat/chat-code";
+import { fileSize } from "@/features/chat/interpreter/chat-code";
 import { downloadUrl, type PreviewTarget } from "./file-preview";
 import { ImageCropper } from "./image-cropper";
 import { croppedFileName, cropPixels, cropType, renderCrop, type CropRect } from "./image-crop";
