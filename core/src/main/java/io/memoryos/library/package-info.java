@@ -4,7 +4,7 @@
  * meetings and ingestion use it; what Chat attaches files to is asked through ports Chat implements.
  */
 @ApplicationModule(displayName = "File library", type = ApplicationModule.Type.CLOSED,
-        allowedDependencies = {"shared", "iam :: tenant", "objectstorage", "document", "retrieval", "connector"})
+        allowedDependencies = {"shared", "iam", "objectstorage", "document", "retrieval", "connector"})
 package io.memoryos.library;
 
 import org.springframework.modulith.ApplicationModule;
