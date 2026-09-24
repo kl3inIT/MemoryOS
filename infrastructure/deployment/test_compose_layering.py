@@ -114,12 +114,15 @@ class ComposeLayeringTest(unittest.TestCase):
         """A pinned digest says which bytes; it does not say who still serves them.
 
         Docker Hub stopped serving minio/mc, so a host that had not already cached it could not
-        pull the client at all, while the server it belongs to pulled from quay.io without
-        trouble. The digest is unchanged: quay.io carries the same one.
+        pull the client at all. On 2026-09-24 MinIO withdrew quay.io too, and both now come from
+        this repository's own GHCR mirror, pinned by digest, which no upstream can withdraw.
         """
         base = (DEPLOYMENT / "compose.base.yaml").read_text(encoding="utf-8")
-        registries = set(re.findall(r"image: \$\{MEMORYOS_MINIO(?:_MC)?_IMAGE:-([^/]+/)", base))
-        self.assertEqual(registries, {"quay.io/"}, "the client and the server disagree on a source")
+        images = re.findall(r"image: \$\{MEMORYOS_MINIO(?:_MC)?_IMAGE:-([^}]+)\}", base)
+        self.assertEqual(2, len(images))
+        for image in images:
+            self.assertRegex(image, r"^ghcr\.io/kl3init/memoryos-minio(-mc)?:RELEASE\.[0-9TZ-]+@sha256:[0-9a-f]{64}$",
+                             "MinIO comes from the repository's mirror, pinned by digest")
 
 
     def test_the_services_that_call_out_have_a_way_off_the_host(self):
