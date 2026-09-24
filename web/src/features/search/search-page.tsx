@@ -42,7 +42,6 @@ import {
   useGlobalCapability,
 } from "@/features/identity/application-session-context";
 import { loadDocumentSets } from "@/features/chat/chat-workspace-api";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import { cn } from "@/lib/utils";
 import { searchDocuments } from "@/lib/hey-api/sdk.gen";
@@ -143,9 +142,7 @@ function AuthorizedSearchPage() {
     queryFn: async ({ signal }) => {
       const response = await searchDocuments({
         body: request!,
-        headers: sameOriginMutationHeaders,
         signal,
-        throwOnError: true,
       });
       return response.data;
     },

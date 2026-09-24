@@ -2,7 +2,6 @@ import type { UIMessage } from "ai";
 import { i18n } from "@/i18n";
 import { sourcesSchema, type ChatSource } from "./chat-evidence";
 import { activitySchema, historyParts } from "./chat-activity";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { createChatSession, getChatHistory, getChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import { fileReference } from "./chat-files";
@@ -41,7 +40,6 @@ export async function loadChatHistory(
   const { data: session } = await getChatSession({
     path: { sessionId },
     signal,
-    throwOnError: true,
   });
   const messages: ChatMessage[] = [];
   let characters = 0;
@@ -51,7 +49,6 @@ export async function loadChatHistory(
       path: { sessionId },
       query: { limit: 100, after: messages.at(-1)?.id },
       signal,
-      throwOnError: true,
     });
     if (data.length === 0) return { session, messages };
     characters += data.reduce(
@@ -81,9 +78,7 @@ export async function newChatSession(
 ) {
   const { data } = await createChatSession({
     body: { title: initialChatTitle(text), personaId, projectId, temporary },
-    headers: sameOriginMutationHeaders,
     signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
-    throwOnError: true,
   });
   return data;
 }

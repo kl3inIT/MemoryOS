@@ -17,7 +17,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TablePagination } from "@/components/ui/table-pagination";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { chatActionError } from "@/features/chat/chat-action-utils";
 import {
   documentSetsKey,
@@ -196,8 +195,6 @@ function DocumentSetTable({ sets }: { sets: DocumentSet[] }) {
                           await deleteDocumentSet({
                             path: { documentSetId: set.id },
                             query: { revision: set.revision },
-                            headers: sameOriginMutationHeaders,
-                            throwOnError: true,
                           });
                           await cache.invalidateQueries({ queryKey: documentSetsKey });
                         }}

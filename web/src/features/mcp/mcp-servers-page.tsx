@@ -10,7 +10,6 @@ import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   createMcpServer,
   deleteMcpServer,
@@ -45,7 +44,7 @@ export function McpServersPage() {
 
   const list = useQuery({
     queryKey: servers.queryKey,
-    queryFn: async () => (await listMcpServers({ throwOnError: true })).data,
+    queryFn: async () => (await listMcpServers()).data,
   });
   const invalidate = () => client.invalidateQueries({ queryKey: servers.queryKey });
 
@@ -54,15 +53,11 @@ export function McpServersPage() {
       revision === undefined
         ? await createMcpServer({
             body: input,
-            headers: sameOriginMutationHeaders,
-            throwOnError: true,
           })
         : await updateMcpServer({
             path: { serverId: (editing as McpServerView).id },
             query: { revision },
             body: input,
-            headers: sameOriginMutationHeaders,
-            throwOnError: true,
           }),
     onSuccess: async () => {
       setEditing(null);
@@ -77,8 +72,6 @@ export function McpServersPage() {
       await deleteMcpServer({
         path: { serverId: server.id },
         query: { revision: server.revision },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       }),
     onSuccess: async () => {
       setRemoving(null);
@@ -90,8 +83,6 @@ export function McpServersPage() {
     mutationFn: async (server: McpServerView) =>
       await refreshMcpServerTools({
         path: { serverId: server.id },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       }),
     onSuccess: async (_, server) => {
       setError(undefined);
@@ -303,8 +294,7 @@ function McpToolList({ serverId }: { serverId: string }) {
     setError(problem(presentProblem(failure, "mutation").message));
   const tools = useQuery({
     queryKey: ["mcp", "tools", serverId],
-    queryFn: async () =>
-      (await listMcpServerTools({ path: { serverId }, throwOnError: true })).data,
+    queryFn: async () => (await listMcpServerTools({ path: { serverId } })).data,
   });
   const invalidate = () =>
     Promise.all([
@@ -326,8 +316,6 @@ function McpToolList({ serverId }: { serverId: string }) {
         path: { serverId, toolId },
         query: { revision },
         body: { enabled },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       }),
     onSuccess: async () => {
       setError(undefined);
@@ -340,8 +328,6 @@ function McpToolList({ serverId }: { serverId: string }) {
       await setAllMcpServerToolsEnabled({
         path: { serverId },
         body: { enabled },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       }),
     onSuccess: async () => {
       setError(undefined);

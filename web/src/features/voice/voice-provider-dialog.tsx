@@ -16,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   saveChatVoiceConnection,
   selectChatVoiceProvider,
@@ -125,15 +124,11 @@ export function VoiceProviderDialog({
           activate: becomesDefault && !connection ? fn : undefined,
           revision: connection?.revision ?? 0,
         },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
       // The server activates only newly created rows; an existing row is selected explicitly.
       if (becomesDefault && connection)
         await selectChatVoiceProvider({
           body: { function: fn, provider: provider.provider },
-          headers: sameOriginMutationHeaders,
-          throwOnError: true,
         });
       setKey("");
       await onSaved();
@@ -152,8 +147,6 @@ export function VoiceProviderDialog({
     try {
       await testChatVoiceConnection({
         path: { provider: provider.provider },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       });
       setTested(true);
     } catch (failed) {

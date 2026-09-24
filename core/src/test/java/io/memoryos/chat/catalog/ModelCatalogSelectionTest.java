@@ -1,6 +1,5 @@
 package io.memoryos.chat.catalog;
 
-import io.memoryos.chat.application.PersonaProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.ModelCatalogRepository;
 import io.memoryos.iam.group.GroupScopeService;
@@ -122,6 +121,7 @@ class ModelCatalogSelectionTest {
             var membership = mock(TenantMembership.class);
             when(membership.tenantId()).thenReturn(new TenantId(tenant));
             when(tenants.lockActiveMembership(actor)).thenReturn(Optional.of(membership));
+            when(tenants.findActiveMembership(actor)).thenReturn(Optional.of(membership));
             when(chats.usablePersona(new TenantId(tenant), actor, persona, false)).thenReturn(true);
             when(authorization.effectiveCapabilities(actor)).thenReturn(Set.of());
             var adapters = mock(ChatProviderAdapters.class);
@@ -144,8 +144,7 @@ class ModelCatalogSelectionTest {
                     io.memoryos.chat.ChatTurnOptions.DEFAULT, "7", null, List.of(), Set.of(), null, false));
             when(catalog.personaModel(tenant, actor.value(), false, persona)).thenReturn(new ModelCatalogRepository.PersonaModel(persona, null, 1));
             service = new ModelCatalogService(catalog, chats, tenants, authorization, adapters,
-                    mock(ProviderCredentials.class), mock(GroupScopeService.class), new PersonaProperties(), null,
-                    mock(io.memoryos.iam.audit.AuditTrail.class));
+                    mock(ProviderCredentials.class), mock(GroupScopeService.class), mock(io.memoryos.iam.audit.AuditTrail.class));
         }
         ModelCatalogRepository.Provider provider() {
             return new ModelCatalogRepository.Provider(UUID.randomUUID(), tenant, "Connection", "test", "http://model.invalid",
@@ -158,7 +157,7 @@ class ModelCatalogSelectionTest {
         }
         void manage() {
             var access = new io.memoryos.iam.group.IamAccess(new TenantId(tenant), io.memoryos.iam.group.Authority.GLOBAL);
-            when(authorization.lockAndRequire(actor, io.memoryos.iam.group.IamCapability.MODELS_MANAGE, false)).thenReturn(access);
+            when(authorization.require(actor, io.memoryos.iam.group.IamCapability.MODELS_MANAGE, false)).thenReturn(access);
             when(authorization.lockAndRequireExclusive(actor, io.memoryos.iam.group.IamCapability.MODELS_MANAGE)).thenReturn(access);
         }
         void preferPersona() {

@@ -3,6 +3,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "@/lib/api";
 import {
   ApplicationSessionContext,
   type ApplicationSession,
@@ -271,7 +272,7 @@ describe("File selection", () => {
     await i18n.changeLanguage("vi");
   });
   it("retains missing identities when selecting another file or removing just one missing file", async () => {
-    backend.get.mockResolvedValue({ response: new Response(null, { status: 404 }) });
+    backend.get.mockRejectedValue(new ApiError(404, undefined));
     const changed = vi.fn();
     function Picker() {
       const [selected, setSelected] = useState([missing, missing2]);

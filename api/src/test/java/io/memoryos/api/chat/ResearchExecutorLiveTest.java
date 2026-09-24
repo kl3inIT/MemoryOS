@@ -19,6 +19,8 @@ import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.chat.catalog.ChatProviderAdapter;
 import io.memoryos.chat.catalog.ModelSettings;
+import io.memoryos.chat.catalog.openai.ChatTokenizerProfiles;
+import io.memoryos.chat.catalog.openai.OpenAiChatProviderAdapter;
 import io.memoryos.chat.execution.ChatModelGuard;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.research.ResearchExecutor;

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { getChatLibraryArchive, requestChatLibraryArchive } from "@/lib/hey-api/sdk.gen";
 import type { ChatLibraryArchive } from "@/lib/hey-api/types.gen";
 import { chatActionError } from "./chat-action-utils";
@@ -41,9 +40,7 @@ export function useLibraryArchive(): LibraryArchive {
     try {
       const { data } = await requestChatLibraryArchive({
         body: { files: files.map((file) => ({ source: file.source, id: file.id })) },
-        headers: sameOriginMutationHeaders,
         signal,
-        throwOnError: true,
       });
       let archive = data;
       while (archive.status === "PENDING" || archive.status === "RUNNING") {
@@ -62,7 +59,6 @@ export function useLibraryArchive(): LibraryArchive {
           await getChatLibraryArchive({
             path: { archiveId: archive.id },
             signal,
-            throwOnError: true,
           })
         ).data;
       }

@@ -1,5 +1,4 @@
 import { appText } from "@/i18n/app-text";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { testEmbeddingProvider } from "@/lib/hey-api/sdk.gen";
 import type {
   EmbeddingProviderTestRequest,
@@ -32,9 +31,7 @@ export function useEmbeddingTest() {
     async (body: EmbeddingProviderTestRequest, signal) => {
       const { data } = await testEmbeddingProvider({
         body,
-        headers: sameOriginMutationHeaders,
         signal,
-        throwOnError: true,
       });
       return embeddingTestOutcome(data);
     },

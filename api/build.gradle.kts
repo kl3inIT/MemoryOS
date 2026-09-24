@@ -19,7 +19,6 @@ dependencies {
     implementation(platform(libs.spring.ai.bom))
     implementation(libs.embabel.platform)
     implementation(libs.embabel.openai)
-    implementation(libs.okhttp)
     implementation(libs.spring.ai.model.tool)
     implementation(platform(libs.arconia.bom))
     implementation(platform(libs.otel.instrumentation.bom))

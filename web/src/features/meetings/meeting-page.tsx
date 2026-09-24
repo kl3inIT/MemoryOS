@@ -77,6 +77,7 @@ import {
   meetingKey,
   invalidateMeetingList,
   nameSpeaker,
+  patchMeeting,
   publishMinutes,
   removeMeeting,
   rerunMinutes,
@@ -84,6 +85,8 @@ import {
   saveMeetingNotes,
   setUtteranceStar,
   trackOffsets,
+  withMinutesItem,
+  withSpeaker,
   type MeetingDetail,
   type MeetingMinutesItem,
 } from "./meetings-api";
@@ -252,15 +255,13 @@ export function MeetingPage({
     }
   }
 
-  /** A mark is the reader's own, so it is applied straight away and the whole meeting comes back with it. */
+  /** A mark is the reader's own, so it is applied straight away and answers with the reader's marks. */
   function star(utteranceId: string, starred: boolean) {
     void (async () => {
       setActionError(undefined);
       try {
-        cache.setQueryData(
-          meetingKey(meetingId),
-          await setUtteranceStar(meetingId, utteranceId, starred),
-        );
+        const marked = await setUtteranceStar(meetingId, utteranceId, starred);
+        patchMeeting(cache, meetingId, (current) => ({ ...current, starred: marked }));
       } catch (failed) {
         setActionError(problemMessage(presentProblem(failed, "mutation").message));
       }
@@ -271,7 +272,8 @@ export function MeetingPage({
     void (async () => {
       setActionError(undefined);
       try {
-        cache.setQueryData(meetingKey(meetingId), await addBookmark(meetingId, atMs));
+        const bookmarks = await addBookmark(meetingId, atMs);
+        patchMeeting(cache, meetingId, (current) => ({ ...current, bookmarks }));
       } catch (failed) {
         setActionError(problemMessage(presentProblem(failed, "mutation").message));
       }
@@ -632,14 +634,12 @@ function Sharing({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
   async function save(next: MeetingAudience) {
     setPending(true);
     try {
-      cache.setQueryData(
-        meetingKey(meeting.id),
-        await shareMeeting(
-          meeting.id,
-          next.people.map((person) => person.actorId),
-          next.groups.map((group) => group.id),
-        ),
+      const readers = await shareMeeting(
+        meeting.id,
+        next.people.map((person) => person.actorId),
+        next.groups.map((group) => group.id),
       );
+      patchMeeting(cache, meeting.id, (current) => ({ ...current, readers }));
     } finally {
       setPending(false);
     }
@@ -813,7 +813,8 @@ function MinutesItems({
   async function toggle(item: MeetingMinutesItem, done: boolean) {
     setFailed(false);
     try {
-      cache.setQueryData(meetingKey(meeting.id), await markMinutesItem(meeting.id, item.id, done));
+      const marked = await markMinutesItem(meeting.id, item.id, done);
+      patchMeeting(cache, meeting.id, (current) => withMinutesItem(current, marked));
     } catch {
       setFailed(true);
     }
@@ -1331,9 +1332,7 @@ function SpeakerChip({
     setError(undefined);
     try {
       const saved = await nameSpeaker(meeting.id, track, label, value);
-      cache.setQueryData(meetingKey(meeting.id), (current: MeetingDetail | undefined) =>
-        current ? { ...current, speakers: saved.speakers } : saved,
-      );
+      patchMeeting(cache, meeting.id, (current) => withSpeaker(current, saved));
       setOpen(false);
       setName("");
     } catch (failed) {
@@ -1447,9 +1446,11 @@ function Notes({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
       const saved = await saveMeetingNotes(meeting.id, next, revision.current);
       revision.current = saved.revision;
       stored.current = next;
-      cache.setQueryData(meetingKey(meeting.id), (current: MeetingDetail | undefined) =>
-        current ? { ...current, notes: saved.notes, revision: saved.revision } : saved,
-      );
+      patchMeeting(cache, meeting.id, (current) => ({
+        ...current,
+        notes: saved.notes,
+        revision: saved.revision,
+      }));
       setState(latest.current === next ? "saved" : "dirty");
     } catch (failed) {
       setState(failed instanceof ApiError && failed.status === 409 ? "conflict" : "dirty");

@@ -34,7 +34,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   createChatPersona,
   createChatPersonaLabel,
@@ -156,9 +155,7 @@ export function AgentEditorPage({ agentId }: { agentId?: string }) {
     queryKey: ["chat-personas", "detail", actorId, authorizationVersion, agentId],
     enabled: !!agentId,
     queryFn: async ({ signal }) =>
-      personaSchema.parse(
-        (await getChatPersona({ path: { personaId: agentId! }, signal, throwOnError: true })).data,
-      ),
+      personaSchema.parse((await getChatPersona({ path: { personaId: agentId! }, signal })).data),
   });
   const title = agentId ? (agent.data?.name ?? ui("Sửa trợ lý")) : ui("Tạo trợ lý");
   return (
@@ -230,17 +227,14 @@ function AgentEditor({ agent }: { agent?: Persona }) {
             await listChatPersonaModels({
               path: { personaId: agent.id },
               signal,
-              throwOnError: true,
             })
           ).data
-        : (await listAvailableChatModels({ signal, throwOnError: true })).data,
+        : (await listAvailableChatModels({ signal })).data,
   });
   const labels = useQuery({
     queryKey: ["chat-persona-labels", actorId, authorizationVersion],
     queryFn: async ({ signal }) =>
-      agentLabelSchema
-        .array()
-        .parse((await listChatPersonaLabels({ signal, throwOnError: true })).data),
+      agentLabelSchema.array().parse((await listChatPersonaLabels({ signal })).data),
   });
   const mcp = useMcpConnections();
   const toolNames: Record<AgentTool, { label: string; hint: string }> = {
@@ -298,9 +292,7 @@ function AgentEditor({ agent }: { agent?: Persona }) {
         (
           await createChatPersonaLabel({
             body: { name },
-            headers: sameOriginMutationHeaders,
             signal: AbortSignal.timeout(30000),
-            throwOnError: true,
           })
         ).data,
       );
@@ -342,16 +334,12 @@ function AgentEditor({ agent }: { agent?: Persona }) {
           path: { personaId: agent.id },
           query: { revision: agent.revision },
           body,
-          headers: sameOriginMutationHeaders,
           signal: AbortSignal.timeout(30000),
-          throwOnError: true,
         });
       else
         await createChatPersona({
           body,
-          headers: sameOriginMutationHeaders,
           signal: AbortSignal.timeout(30000),
-          throwOnError: true,
         });
       saved.current = true;
       if (!agent) writeDraft(actorId, undefined);

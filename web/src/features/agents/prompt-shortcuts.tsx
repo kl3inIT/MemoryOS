@@ -17,7 +17,6 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   createChatPromptShortcut,
   createPublicChatPromptShortcut,
@@ -63,7 +62,7 @@ function useShortcutPreferences() {
     queryFn: async ({ signal }) =>
       z
         .object({ enabled: z.boolean() })
-        .parse((await getChatPromptShortcutPreferences({ signal, throwOnError: true })).data),
+        .parse((await getChatPromptShortcutPreferences({ signal })).data),
   });
 }
 
@@ -74,10 +73,7 @@ function useShortcuts(includeHidden: boolean) {
     queryFn: async ({ signal }) =>
       shortcutSchema
         .array()
-        .parse(
-          (await listChatPromptShortcuts({ query: { includeHidden }, signal, throwOnError: true }))
-            .data,
-        ),
+        .parse((await listChatPromptShortcuts({ query: { includeHidden }, signal })).data),
   });
 }
 
@@ -224,9 +220,7 @@ export function PersonalPromptShortcuts() {
                 try {
                   await setChatPromptShortcutPreferences({
                     body: { enabled },
-                    headers: sameOriginMutationHeaders,
                     signal: AbortSignal.timeout(30000),
-                    throwOnError: true,
                   });
                   await cache.invalidateQueries({ queryKey: shortcutsKey });
                 } catch (cause) {
@@ -273,9 +267,7 @@ export function PublicPromptShortcuts() {
   const shortcuts = useQuery({
     queryKey: [...shortcutsKey, "public", actorId, authorizationVersion],
     queryFn: async ({ signal }) =>
-      shortcutSchema
-        .array()
-        .parse((await listPublicChatPromptShortcuts({ signal, throwOnError: true })).data),
+      shortcutSchema.array().parse((await listPublicChatPromptShortcuts({ signal })).data),
   });
   return (
     <section aria-labelledby="public-prompt-shortcuts" className="flex flex-col gap-4">
@@ -433,9 +425,7 @@ function ShortcutFields({
     setError(undefined);
     const body = { name: trimmed, content };
     const options = {
-      headers: sameOriginMutationHeaders,
       signal: AbortSignal.timeout(30000),
-      throwOnError: true as const,
     };
     try {
       if (shortcut) {
@@ -477,9 +467,7 @@ function ShortcutFields({
     try {
       const request = {
         path: { shortcutId: shortcut.id },
-        headers: sameOriginMutationHeaders,
         signal: AbortSignal.timeout(30000),
-        throwOnError: true as const,
       };
       if (scope === "public") await deletePublicChatPromptShortcut(request);
       else await deleteChatPromptShortcut(request);
@@ -558,9 +546,7 @@ function SharedShortcut({ shortcut }: { shortcut: Shortcut }) {
             await hideChatPromptShortcut({
               path: { shortcutId: shortcut.id },
               body: { hidden: !shortcut.hidden },
-              headers: sameOriginMutationHeaders,
               signal: AbortSignal.timeout(30000),
-              throwOnError: true,
             });
             await cache.invalidateQueries({ queryKey: shortcutsKey });
           } catch (cause) {

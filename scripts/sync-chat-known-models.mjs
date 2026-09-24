@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Regenerates api/src/main/resources/chat/known-models.json from the pinned LiteLLM
+// Regenerates core/src/main/resources/chat/known-models.json from the pinned LiteLLM
 // model metadata file. Run with: node scripts/sync-chat-known-models.mjs [commit-sha]
 // Bump SOURCE_COMMIT to refresh prices; review the diff before committing it.
 import { writeFileSync } from "node:fs";
@@ -15,7 +15,7 @@ const PROVIDERS = new Set(["openai", "anthropic", "gemini", "xai", "deepseek", "
 const OUTPUT = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
-  "api",
+  "core",
   "src",
   "main",
   "resources",

@@ -7,13 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { createEmbeddingProvider, updateEmbeddingProvider } from "@/lib/hey-api/sdk.gen";
 import type { EmbeddingProviderRequest, EmbeddingProviderResponse } from "@/lib/hey-api/types.gen";
 import { CatalogDialog } from "@/features/models/catalog-dialog";
 import { DataBoundaryField, type DataBoundary } from "@/features/models/data-boundary";
 import type { ProviderTestOutcome } from "@/features/models/provider-test";
-import { useModelAction } from "@/features/models/use-model-action";
+import { useModelMutation } from "@/features/models/model-mutation";
 import { useEmbeddingTest } from "./embedding-connection";
 import { refreshSearchSettings, searchSettingsError } from "./search-settings";
 
@@ -52,7 +51,6 @@ export function EmbeddingProviderEditor({
 }) {
   const ui = useAppTranslation();
   const client = useQueryClient();
-  const action = useModelAction((cause) => searchSettingsError(cause, "saveProvider"));
   const connection = useEmbeddingTest();
   const [name, setName] = useState(initial?.name ?? "");
   const [endpoint, setEndpoint] = useState(initial?.endpoint ?? "");
@@ -119,41 +117,41 @@ export function EmbeddingProviderEditor({
     });
   }
 
-  async function save() {
-    if (invalid || action.pending) return;
-    const body: EmbeddingProviderRequest = {
-      name: name.trim(),
-      endpoint: endpoint.trim(),
-      apiKey: apiKey(),
-      dataBoundary,
-      revision: initial?.revision ?? null,
-    };
-    clearSecret();
-    try {
-      await action.run(async (signal) => {
+  const action = useModelMutation(
+    async (signal) => {
+      // The key is read when the write starts and cleared at once; it is never a mutation variable.
+      const body: EmbeddingProviderRequest = {
+        name: name.trim(),
+        endpoint: endpoint.trim(),
+        apiKey: apiKey(),
+        dataBoundary,
+        revision: initial?.revision ?? null,
+      };
+      clearSecret();
+      try {
         if (initial)
           await updateEmbeddingProvider({
             path: { providerId: initial.id },
             body,
-            headers: sameOriginMutationHeaders,
             signal,
-            throwOnError: true,
           });
-        else
-          await createEmbeddingProvider({
-            body,
-            headers: sameOriginMutationHeaders,
-            signal,
-            throwOnError: true,
-          });
-        signal.throwIfAborted();
-        await refreshSearchSettings(client);
-      });
+        else await createEmbeddingProvider({ body, signal });
+      } finally {
+        body.apiKey = null;
+      }
+      signal.throwIfAborted();
+      await refreshSearchSettings(client);
+    },
+    { describe: (cause) => searchSettingsError(cause, "saveProvider") },
+  );
+
+  async function save() {
+    if (invalid || action.pending) return;
+    try {
+      await action.run();
       onClose();
     } catch {
-      /* useModelAction shows the safe message. */
-    } finally {
-      body.apiKey = null;
+      /* The mutation settles with the safe message shown below. */
     }
   }
 

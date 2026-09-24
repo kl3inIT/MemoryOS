@@ -8,9 +8,11 @@ import io.memoryos.document.DocumentContent;
 import io.memoryos.iam.tenant.TenantId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.chat.ChatException;
+import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectUploadService;
 import io.memoryos.objectstorage.ObjectWriteService;
+import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.objectstorage.StoredObjectRegistry;
 import java.util.List;
 import java.util.Optional;
@@ -61,23 +63,29 @@ public class DefaultUserFileWorkService implements UserFileWorkPort {
         if (!work.lockCurrent(claim)) return false;
         var refs = work.detach(claim);
         if (refs.document() != null) documents.removeUnreferenced(claim.tenantId(), List.of(refs.document()));
-        // Existing upload cleanup owns durable raw-object deletion and retries.
-        uploads.retireAdopted(claim.tenantId(), refs.upload());
-        releaseThumbnail(claim.tenantId(), refs);
+        if (refs.upload() != null) {
+            // Existing upload cleanup owns durable raw-object deletion and retries.
+            uploads.retireAdopted(claim.tenantId(), refs.upload());
+        } else {
+            // A copy the server wrote has no upload; its object is an adopted write of this capability (V127).
+            releaseWritten(claim.tenantId(), refs.object(), refs.objectKey());
+        }
+        releaseWritten(claim.tenantId(), refs.thumbnail(), refs.thumbnailKey());
         return true;
     }
 
     /**
-     * Deletes the library thumbnail derived from this upload. It is an adopted write, which the generic
-     * reapers never select, so the capability that wrote it releases its bytes and its ownership here; the
-     * columns naming it were cleared in the same transaction, so a deleted upload leaves no unreferenced object.
+     * Deletes an object this capability wrote and adopted: a copy's bytes or the library thumbnail derived from
+     * a file. Adopted writes are never selected by the generic reapers, so the capability releases their bytes
+     * and ownership here; the columns naming them were cleared in the same transaction, so a deleted file leaves
+     * no unreferenced object. A storage failure rolls the release back and the DELETE work retries it.
      */
-    private void releaseThumbnail(TenantId tenant, JdbcUserFileWorkRepository.DeletedReferences refs) {
-        if (refs.thumbnail() == null || refs.thumbnailKey() == null) return;
-        storedObjects.markDeletePending(tenant, refs.thumbnail());
-        storage.delete(refs.thumbnailKey());
-        writes.releaseAdopted(tenant, refs.thumbnail());
-        storedObjects.remove(tenant, refs.thumbnail());
+    private void releaseWritten(TenantId tenant, @Nullable StoredObjectId object, @Nullable ObjectKey key) {
+        if (object == null || key == null) return;
+        storedObjects.markDeletePending(tenant, object);
+        storage.delete(key);
+        writes.releaseAdopted(tenant, object);
+        storedObjects.remove(tenant, object);
     }
 
     @Override @Transactional

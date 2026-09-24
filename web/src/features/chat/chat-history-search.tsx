@@ -69,7 +69,6 @@ export function ChatHistorySearch({
         await searchChatSessions({
           query: { query: debouncedQuery, offset: pageParam, limit: PAGE_SIZE },
           signal,
-          throwOnError: true,
         })
       ).data,
     getNextPageParam: (last, pages) =>

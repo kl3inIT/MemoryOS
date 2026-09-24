@@ -95,29 +95,6 @@ public class DefaultObjectUploadService implements ObjectUploadService, ObjectUp
     }
 
     @Override
-    public VerifiedObject write(TenantId tenantId, ObjectUploadSpecification specification, byte[] content) {
-        Objects.requireNonNull(tenantId, "tenantId must not be null");
-        Objects.requireNonNull(specification, "specification must not be null");
-        Objects.requireNonNull(content, "content must not be null");
-        if (content.length != specification.sizeBytes()) throw new IllegalArgumentException("content does not match its size");
-        Instant expiresAt = Instant.now(clock).plus(properties.lifetime());
-        StoredObjectId storedObjectId = new StoredObjectId(UUID.randomUUID());
-        ObjectUploadId uploadId = new ObjectUploadId(UUID.randomUUID());
-        var key = new io.memoryos.objectstorage.ObjectKey("raw/" + tenantId.value() + "/" + storedObjectId.value());
-        transactions.executeWithoutResult(_ -> {
-            objects.create(tenantId, storedObjectId, key, specification, expiresAt);
-            uploads.create(tenantId, uploadId, storedObjectId, specification.purpose());
-        });
-        try {
-            storage.write(key, content, specification.mediaType());
-        } catch (ObjectStorageException exception) {
-            // The pending reservation expires and is reclaimed like an abandoned browser upload.
-            throw ObjectUploadException.storageUnavailable(exception.code(), exception);
-        }
-        return verify(tenantId, uploadId, specification.purpose());
-    }
-
-    @Override
     public VerifiedObject verify(TenantId tenantId, ObjectUploadId uploadId) {
         return verify(tenantId, uploadId, ObjectUploadPurpose.BINARY);
     }

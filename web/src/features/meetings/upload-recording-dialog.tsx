@@ -113,15 +113,15 @@ export function UploadRecordingDialog({
         controller.signal,
         setPercent,
       );
-      const shared =
+      const readers =
         audience.people.length > 0 || audience.groups.length > 0
           ? await shareMeeting(
               uploaded.id,
               audience.people.map((person) => person.actorId),
               audience.groups.map((group) => group.id),
             )
-          : uploaded;
-      cache.setQueryData(meetingKey(shared.id), shared);
+          : uploaded.readers;
+      cache.setQueryData(meetingKey(uploaded.id), { ...uploaded, readers });
       void invalidateMeetingList(cache);
       onOpenChange(false);
       await navigate({ to: "/meetings/$meetingId", params: { meetingId: uploaded.id } });

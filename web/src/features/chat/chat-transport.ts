@@ -1,7 +1,7 @@
 import { injectQuoteContext } from "@assistant-ui/ai-sdk";
 import type { ChatTransport, UIMessageChunk } from "ai";
 import { z } from "zod";
-import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
+import { ApiError } from "@/lib/api";
 import {
   cancelChatMessage,
   getChatHistory,
@@ -274,9 +274,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
       const { data } = await sendChatMessage({
         path: { sessionId: this.session.id },
         body,
-        headers: sameOriginMutationHeaders,
         signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
-        throwOnError: true,
       });
       this.runId = data.assistantMessageId;
       this.runCreatedAt = new Date().toISOString();
@@ -316,9 +314,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
     if (this.stopRequest) return this.stopRequest;
     this.stopRequest = cancelChatMessage({
       path: { sessionId: this.session.id, assistantMessageId: this.runId },
-      headers: sameOriginMutationHeaders,
       signal: AbortSignal.timeout(15_000),
-      throwOnError: true,
     })
       .then(() => undefined)
       .finally(() => {
@@ -561,7 +557,6 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
             path: { sessionId },
             query: { after: this.runParentId, limit: 1 },
             signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
-            throwOnError: true,
           });
           const message = messages.find((candidate) => candidate.id === runId);
           if (!message) throw new Error("Reply is no longer available");
@@ -590,7 +585,6 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
           path: { sessionId },
           query: { after: this.runParentId, limit: 1 },
           signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
-          throwOnError: true,
         });
         const message = messages.find((candidate) => candidate.id === runId);
         if (!message || message.status === "RUNNING")

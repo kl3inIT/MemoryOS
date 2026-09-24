@@ -28,6 +28,8 @@ import io.memoryos.chat.streaming.ChatStreamProperties;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.mcp.McpTurnService;
+import io.memoryos.mcp.McpTurnTools;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -39,9 +41,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Executors;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import reactor.core.publisher.Mono;
@@ -275,6 +279,158 @@ class ChatTurnServiceTest {
             } finally { release.countDown(); }
             execution.get(5, TimeUnit.SECONDS);
             verify(persistence).finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        }
+    }
+
+    private final McpTurnService mcp = mock(McpTurnService.class);
+    private final McpTurnTools tools = mock(McpTurnTools.class);
+    private final ChatExecutionProperties twoTurns = new ChatExecutionProperties(2, Duration.ofMinutes(30), Duration.ofSeconds(60),
+            Duration.ofSeconds(60), 6, 1024, 32000, 10000, null, null, 10, Duration.ofSeconds(60));
+
+    private ChatTurnService withMcp(ChatExecutionProperties properties, TaskExecutor executor) {
+        return new ChatTurnService(persistence, model, properties, executor, streams, models, null, null, null, null, mcp);
+    }
+
+    private ChatCommand mcpCommand(UUID requestId) {
+        return new ChatCommand(ChatCommand.Operation.SEND, parent, requestId, "Question", null, List.of(), WebSearchMode.off,
+                ImageMode.off, List.of(UUID.randomUUID()));
+    }
+
+    /** Blocks {@code mcp.open} until released, as a slow MCP server or OAuth token endpoint would. */
+    private void slowMcpOpen(CountDownLatch opening, CountDownLatch release) {
+        when(mcp.open(any(), any())).thenAnswer(_ -> {
+            opening.countDown();
+            assertTrue(release.await(5, TimeUnit.SECONDS));
+            return tools;
+        });
+    }
+
+    private UUID sameStripeAs(UUID session) {
+        UUID other;
+        do { other = UUID.randomUUID(); }
+        while (Math.floorMod(other.hashCode(), 128) != Math.floorMod(session.hashCode(), 128));
+        return other;
+    }
+
+    @Test
+    void slowMcpOpenDoesNotBlockSendStopOrSubscribeForAnotherSessionOnTheSameStripe() throws Exception {
+        prepare();
+        var other = sameStripeAs(session);
+        var otherPair = new ChatTurnPersistence.Reservation(UUID.randomUUID(), UUID.randomUUID(), true);
+        when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
+                .thenAnswer(call -> session.equals(call.getArgument(1)) ? pair : otherPair);
+        when(persistence.authorizeReply(actor, other, otherPair.assistantMessageId())).thenReturn(ChatMessage.Status.RUNNING);
+        var opening = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        slowMcpOpen(opening, release);
+        var queued = new ConcurrentLinkedQueue<Runnable>();
+        try (var tasks = Executors.newVirtualThreadPerTaskExecutor(); var service = withMcp(twoTurns, queued::add)) {
+            try {
+                var sending = tasks.submit(() -> service.command(actor, session, mcpCommand(request)));
+                assertTrue(opening.await(5, TimeUnit.SECONDS));
+                var accepted = tasks.submit(() -> service.send(actor, other, parent, UUID.randomUUID(), "Question", null))
+                        .get(1, TimeUnit.SECONDS);
+                assertEquals(otherPair.assistantMessageId(), accepted.assistantMessageId());
+                assertEquals(ChatMessage.Status.RUNNING, tasks.submit(() -> service.cancel(actor, other, otherPair.assistantMessageId()))
+                        .get(1, TimeUnit.SECONDS).status());
+                tasks.submit(() -> {
+                    try (var reader = service.subscribe(actor, other, otherPair.assistantMessageId(), 0).get()) {
+                        assertFalse(reader.read().done());
+                    }
+                    return null;
+                }).get(1, TimeUnit.SECONDS);
+                assertFalse(sending.isDone());
+                release.countDown();
+                assertEquals(pair.assistantMessageId(), sending.get(5, TimeUnit.SECONDS).assistantMessageId());
+            } finally {
+                release.countDown();
+                for (Runnable run; (run = queued.poll()) != null; ) run.run();
+            }
+        }
+    }
+
+    @Test
+    void replayedRequestDuringSlowMcpOpenReturnsTheReservedTurnWithoutReservingAgain() throws Exception {
+        prepare();
+        // The mock models the database: once reserved, the request id resolves to that reservation.
+        var stored = new AtomicReference<ChatTurnPersistence.Reservation>();
+        when(persistence.existing(any(), any(), any(ChatCommand.class))).thenAnswer(_ -> Optional.ofNullable(stored.get())
+                .map(saved -> new ChatTurnPersistence.Reservation(saved.userMessageId(), saved.assistantMessageId(), false)));
+        when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenAnswer(_ -> {
+            stored.set(pair);
+            return pair;
+        });
+        var opening = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        slowMcpOpen(opening, release);
+        var queued = new ConcurrentLinkedQueue<Runnable>();
+        try (var tasks = Executors.newVirtualThreadPerTaskExecutor(); var service = withMcp(limits, queued::add)) {
+            try {
+                var first = tasks.submit(() -> service.command(actor, session, mcpCommand(request)));
+                assertTrue(opening.await(5, TimeUnit.SECONDS));
+                var second = tasks.submit(() -> service.command(actor, session, mcpCommand(request))).get(1, TimeUnit.SECONDS);
+                release.countDown();
+                assertEquals(pair.assistantMessageId(), second.assistantMessageId());
+                assertEquals(pair.assistantMessageId(), first.get(5, TimeUnit.SECONDS).assistantMessageId());
+                verify(persistence).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());
+                verify(mcp).open(any(), any());
+                assertEquals(1, queued.size());
+            } finally {
+                release.countDown();
+                for (Runnable run; (run = queued.poll()) != null; ) run.run();
+            }
+        }
+    }
+
+    @Test
+    void stopWhileMcpOpensCancelsTheTurnWithoutCallingTheModel() throws Exception {
+        prepare();
+        when(persistence.authorizeReply(actor, session, pair.assistantMessageId())).thenReturn(ChatMessage.Status.RUNNING);
+        var opening = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        slowMcpOpen(opening, release);
+        try (var tasks = Executors.newVirtualThreadPerTaskExecutor(); var service = withMcp(limits, Runnable::run)) {
+            try {
+                var sending = tasks.submit(() -> service.command(actor, session, mcpCommand(request)));
+                assertTrue(opening.await(5, TimeUnit.SECONDS));
+                assertEquals(ChatMessage.Status.RUNNING, tasks.submit(() -> service.cancel(actor, session, pair.assistantMessageId()))
+                        .get(1, TimeUnit.SECONDS).status());
+                release.countDown();
+                assertEquals(pair.assistantMessageId(), sending.get(5, TimeUnit.SECONDS).assistantMessageId());
+            } finally { release.countDown(); }
+            verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+            verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.CANCELED), eq(""),
+                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any(), eq(ChatResearch.EMPTY), any());
+            // The opened sessions belong to the run, which closes them with its model lease.
+            verify(tools).close();
+            verify(lease).close();
+            // The permit returned: a new turn is admitted.
+            when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
+                    .thenReturn(new ChatTurnPersistence.Reservation(pair.userMessageId(), UUID.randomUUID(), true));
+            service.send(actor, session, parent, UUID.randomUUID(), "Question", null);
+        }
+    }
+
+    @Test
+    void mcpOpenFailureAfterReservationFailsTheReservedTurn() throws Exception {
+        prepare();
+        when(mcp.open(any(), any())).thenThrow(new IllegalStateException("authorization server unavailable"));
+        try (var service = withMcp(limits, Runnable::run)) {
+            assertThrows(IllegalStateException.class, () -> service.command(actor, session, mcpCommand(request)));
+            verify(persistence).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());
+            verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.FAILED), eq(""),
+                    eq("CHAT_SETUP_FAILED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), any(), eq(ChatResearch.EMPTY), any());
+            verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+            verify(lease).close();
+            // A subscriber sees the failed outcome, and the permit returned so a new turn is admitted.
+            try (var reader = streams.subscribe(pair.assistantMessageId(), 0, () -> true)) {
+                var outcome = reader.read();
+                assertTrue(outcome.done());
+                assertEquals("CHAT_SETUP_FAILED", outcome.events().getLast().failureCode());
+            }
+            when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
+                    .thenReturn(new ChatTurnPersistence.Reservation(pair.userMessageId(), UUID.randomUUID(), true));
+            service.send(actor, session, parent, UUID.randomUUID(), "Question", null);
         }
     }
 }

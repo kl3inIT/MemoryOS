@@ -1,5 +1,4 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   acceptAllMeetingCorrections,
   acceptMeetingCorrection,
@@ -42,6 +41,7 @@ import {
 import type {
   MeetingAudio,
   MeetingCorrection,
+  MeetingCorrectionApplied,
   MeetingCorrectionRun,
   MeetingCreateRequest,
   MeetingHeadingRequest,
@@ -49,6 +49,7 @@ import type {
   MeetingMinutes,
   MeetingMinutesItem,
   MeetingReader,
+  MeetingSpeaker,
   MeetingSummary,
   MeetingTranscriber,
   MeetingUtterance,
@@ -59,12 +60,14 @@ import type { MeetingTrack } from "./meeting-socket";
 export type {
   MeetingAudio,
   MeetingCorrection,
+  MeetingCorrectionApplied,
   MeetingCorrectionRun,
   MeetingDetail,
   MeetingHeadingRequest,
   MeetingMinutes,
   MeetingMinutesItem,
   MeetingReader,
+  MeetingSpeaker,
   MeetingSummary,
   MeetingTranscriber,
   MeetingUtterance,
@@ -80,21 +83,126 @@ export function invalidateMeetingList(cache: QueryClient) {
   return cache.invalidateQueries({ queryKey: meetingListKey });
 }
 
+/**
+ * Folds the part of a meeting a small change answered with into the cached meeting. The transcript is never sent
+ * back for a tick or a rename; a meeting that is not cached is read whole the next time it is shown.
+ */
+export function patchMeeting(
+  cache: QueryClient,
+  meetingId: string,
+  patch: (meeting: MeetingDetail) => MeetingDetail,
+) {
+  cache.setQueryData<MeetingDetail>(meetingKey(meetingId), (current) =>
+    current ? patch(current) : current,
+  );
+}
+
+/** The meeting with one speaker as the server now has it. */
+export function withSpeaker(meeting: MeetingDetail, speaker: MeetingSpeaker): MeetingDetail {
+  return {
+    ...meeting,
+    speakers: meeting.speakers.map((current) =>
+      current.track === speaker.track && current.label === speaker.label ? speaker : current,
+    ),
+  };
+}
+
+/** The meeting with one decision or piece of work as the server now has it; a topic is never changed. */
+export function withMinutesItem(meeting: MeetingDetail, item: MeetingMinutesItem): MeetingDetail {
+  const replace = (items: MeetingMinutesItem[]) =>
+    items.map((current) => (current.id === item.id ? item : current));
+  const { minutes } = meeting;
+  return {
+    ...meeting,
+    minutes: {
+      ...minutes,
+      decisions: replace(minutes.decisions),
+      actions: replace(minutes.actions),
+      // Only the owner's own words are marked edited, and writing them marks the minutes edited too.
+      edited: minutes.edited || item.edited,
+    },
+  };
+}
+
+/** The meeting with an item the owner wrote in, after the others of its kind as the server placed it. */
+export function withAddedMinutesItem(
+  meeting: MeetingDetail,
+  kind: "ACTION" | "DECISION",
+  item: MeetingMinutesItem,
+): MeetingDetail {
+  const { minutes } = meeting;
+  const list = kind === "ACTION" ? "actions" : "decisions";
+  return {
+    ...meeting,
+    minutes: { ...minutes, [list]: [...minutes[list], item], edited: true },
+  };
+}
+
+/** The meeting without an item the owner took out; taking one out makes the minutes the owner's. */
+export function withoutMinutesItem(meeting: MeetingDetail, itemId: string): MeetingDetail {
+  const keep = (items: MeetingMinutesItem[]) => items.filter((item) => item.id !== itemId);
+  const { minutes } = meeting;
+  return {
+    ...meeting,
+    minutes: {
+      ...minutes,
+      decisions: keep(minutes.decisions),
+      actions: keep(minutes.actions),
+      edited: true,
+    },
+  };
+}
+
+/** The meeting with one line as the server now has it. */
+export function withUtterance(meeting: MeetingDetail, utterance: MeetingUtterance): MeetingDetail {
+  return {
+    ...meeting,
+    utterances: meeting.utterances.map((current) =>
+      current.id === utterance.id ? utterance : current,
+    ),
+  };
+}
+
+/** The proposals with one as the server now has it; a correction written by hand is new and comes last. */
+export function withCorrection(
+  corrections: MeetingCorrection[],
+  correction: MeetingCorrection,
+): MeetingCorrection[] {
+  return corrections.some((current) => current.id === correction.id)
+    ? corrections.map((current) => (current.id === correction.id ? correction : current))
+    : [...corrections, correction];
+}
+
+/**
+ * Folds what deciding one stretch answered into the cached meeting and its proposals: the line it rewrote, when it
+ * rewrote one, and the proposal as it now stands. Neither is read again.
+ */
+export function foldCorrection(
+  cache: QueryClient,
+  meetingId: string,
+  answer: MeetingCorrectionApplied | MeetingCorrection,
+) {
+  const correction = "utterance" in answer ? answer.correction : answer;
+  if ("utterance" in answer)
+    patchMeeting(cache, meetingId, (meeting) => withUtterance(meeting, answer.utterance));
+  cache.setQueryData<MeetingCorrection[]>(correctionsKey(meetingId), (current) =>
+    current ? withCorrection(current, correction) : current,
+  );
+}
+
 export async function loadMeetings(signal: AbortSignal): Promise<MeetingSummary[]> {
-  const { data } = await listMeetings({ signal, throwOnError: true });
+  const { data } = await listMeetings({ signal });
   return data;
 }
 
 export async function loadMeeting(id: string, signal: AbortSignal): Promise<MeetingDetail> {
-  const { data } = await getMeeting({ path: { meetingId: id }, signal, throwOnError: true });
+  const { data } = await getMeeting({ path: { meetingId: id }, signal });
   return data;
 }
 
 export async function startMeeting(body: MeetingCreateRequest): Promise<MeetingDetail> {
   const { data } = await createMeeting({
     body,
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -103,8 +211,6 @@ export async function issueMeetingTicket(meetingId: string, track: MeetingTrack)
   const { data } = await createMeetingTicket({
     path: { meetingId },
     body: { track },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data.ticket;
 }
@@ -113,8 +219,6 @@ export async function saveMeetingNotes(meetingId: string, notes: string, revisio
   const { data } = await updateMeetingNotes({
     path: { meetingId },
     body: { notes, revision },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -128,8 +232,6 @@ export async function nameSpeaker(
   const { data } = await nameMeetingSpeaker({
     path: { meetingId, track, label },
     body: { name },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -142,8 +244,6 @@ export async function dismissSpeakerSuggestion(
 ) {
   const { data } = await dismissMeetingSpeakerSuggestion({
     path: { meetingId, track, label },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -151,8 +251,6 @@ export async function dismissSpeakerSuggestion(
 export async function finishMeeting(meetingId: string) {
   const { data } = await endMeeting({
     path: { meetingId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -161,8 +259,6 @@ export async function setUtteranceStar(meetingId: string, utteranceId: string, s
   const request = starred ? starMeetingUtterance : unstarMeetingUtterance;
   const { data } = await request({
     path: { meetingId, utteranceId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -171,8 +267,6 @@ export async function addBookmark(meetingId: string, atMs: number, label?: strin
   const { data } = await bookmarkMeetingMoment({
     path: { meetingId },
     body: { atMs, label: label ?? null },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -180,8 +274,6 @@ export async function addBookmark(meetingId: string, atMs: number, label?: strin
 export async function removeBookmark(meetingId: string, bookmarkId: string) {
   const { data } = await removeMeetingBookmark({
     path: { meetingId, bookmarkId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -195,7 +287,6 @@ export async function loadCorrections(
   const { data } = await listMeetingCorrections({
     path: { meetingId: id },
     signal,
-    throwOnError: true,
   });
   return data;
 }
@@ -203,8 +294,6 @@ export async function loadCorrections(
 export async function proposeCorrections(meetingId: string): Promise<MeetingCorrectionRun> {
   const { data } = await proposeMeetingCorrections({
     path: { meetingId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -213,8 +302,6 @@ export async function acceptCorrection(meetingId: string, correctionId: string, 
   const { data } = await acceptMeetingCorrection({
     path: { meetingId, correctionId },
     body: { text: text ?? null },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -230,8 +317,6 @@ export async function correctWords(
   const { data } = await correctMeetingWords({
     path: { meetingId, utteranceId },
     body: { start, end, text },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -239,8 +324,6 @@ export async function correctWords(
 export async function keepWording(meetingId: string, correctionId: string) {
   const { data } = await keepMeetingWording({
     path: { meetingId, correctionId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -249,8 +332,6 @@ export async function acceptAllCorrections(meetingId: string, runId: string) {
   const { data } = await acceptAllMeetingCorrections({
     path: { meetingId },
     body: { runId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -259,8 +340,6 @@ export async function revertAllCorrections(meetingId: string, runId: string) {
   const { data } = await revertAllMeetingCorrections({
     path: { meetingId },
     body: { runId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -268,8 +347,6 @@ export async function revertAllCorrections(meetingId: string, runId: string) {
 export async function revertCorrection(meetingId: string, correctionId: string) {
   const { data } = await revertMeetingCorrection({
     path: { meetingId, correctionId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -279,8 +356,6 @@ export async function rerunMinutes(meetingId: string, discardEdits = false) {
   const { data } = await rerunMeetingMinutes({
     path: { meetingId },
     query: { discardEdits },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -289,8 +364,6 @@ export async function editMinutesSummary(meetingId: string, summary: string) {
   const { data } = await editMeetingMinutesSummary({
     path: { meetingId },
     body: { summary },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -305,8 +378,6 @@ export async function editMinutesItem(
   const { data } = await editMeetingMinutesItem({
     path: { meetingId, itemId },
     body: { text, owner: owner.trim() || null, due: due.trim() || null },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -315,8 +386,6 @@ export async function markMinutesItem(meetingId: string, itemId: string, done: b
   const { data } = await markMeetingMinutesItem({
     path: { meetingId, itemId },
     body: { done },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -331,8 +400,6 @@ export async function exportMinutes(
     path: { meetingId },
     query: { format },
     body: heading,
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data as Blob;
 }
@@ -348,8 +415,6 @@ export async function addMinutesItem(
   const { data } = await addMeetingMinutesItem({
     path: { meetingId },
     body: { kind, text, owner: owner || null, due: due || null },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -357,8 +422,6 @@ export async function addMinutesItem(
 export async function removeMinutesItem(meetingId: string, itemId: string) {
   const { data } = await removeMeetingMinutesItem({
     path: { meetingId, itemId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -370,7 +433,6 @@ export async function loadMinutesHeading(meetingId: string, signal: AbortSignal)
   const { data } = await getMeetingMinutesHeading({
     path: { meetingId },
     signal,
-    throwOnError: true,
   });
   return data;
 }
@@ -379,8 +441,6 @@ export async function saveMinutesHeading(meetingId: string, heading: MeetingHead
   const { data } = await saveMeetingMinutesHeading({
     path: { meetingId },
     body: heading,
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -394,8 +454,6 @@ export async function updateMeetingDetails(
   const { data } = await updateMeeting({
     path: { meetingId },
     body: { title, participants },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -405,7 +463,6 @@ export async function exportTranscript(meetingId: string, format: "DOCX" | "PDF"
   const { data } = await exportMeetingTranscript({
     path: { meetingId },
     query: { format },
-    throwOnError: true,
   });
   return data as Blob;
 }
@@ -414,7 +471,7 @@ export const transcribersKey = [...meetingsKey, "transcribers"] as const;
 
 /** The speech connections a recording may be transcribed with, the Tenant's own first. */
 export async function loadTranscribers(signal: AbortSignal): Promise<MeetingTranscriber[]> {
-  const { data } = await listMeetingTranscribers({ signal, throwOnError: true });
+  const { data } = await listMeetingTranscribers({ signal });
   return data;
 }
 
@@ -438,9 +495,7 @@ export async function uploadRecording(
       sha256: await sha256(file, signal),
       provider,
     },
-    headers: sameOriginMutationHeaders,
     signal,
-    throwOnError: true,
   });
   await putAuthorizedObject(
     {
@@ -454,8 +509,6 @@ export async function uploadRecording(
   );
   const { data } = await finalizeMeetingRecording({
     path: { meetingId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -465,8 +518,6 @@ export async function shareMeeting(meetingId: string, members: string[], groups:
   const { data } = await shareMeetingRequest({
     path: { meetingId },
     body: { members, groups },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -475,8 +526,6 @@ export async function shareMeeting(meetingId: string, members: string[], groups:
 export async function publishMinutes(meetingId: string) {
   const { data } = await publishMeetingMinutes({
     path: { meetingId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
   return data;
 }
@@ -484,8 +533,6 @@ export async function publishMinutes(meetingId: string) {
 export async function removeMeeting(meetingId: string) {
   await deleteMeeting({
     path: { meetingId },
-    headers: sameOriginMutationHeaders,
-    throwOnError: true,
   });
 }
 

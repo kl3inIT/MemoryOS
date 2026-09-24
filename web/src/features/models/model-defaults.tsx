@@ -7,7 +7,6 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { setChatModelDefault, setChatModelFlow } from "@/lib/hey-api/sdk.gen";
 import type { ModelFlow } from "@/lib/hey-api/types.gen";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   modelLabel,
@@ -17,7 +16,7 @@ import {
   type ManagedModel,
   type ManagedProvider,
 } from "./model-catalog";
-import { useModelAction } from "./use-model-action";
+import { useModelCatalogBusy, useModelMutation } from "./model-mutation";
 import { ModelPicker } from "./model-picker";
 
 type Catalog = {
@@ -52,10 +51,30 @@ function SelectionEditor({
 }) {
   const ui = useAppTranslation();
   const client = useQueryClient();
-  const action = useModelAction();
+  const busy = useModelCatalogBusy();
+  const [conflict, setConflict] = useState(false);
   const [baseline, setBaseline] = useState(selection);
   const [chosen, setChosen] = useState(selection.modelConfigurationId ?? "");
   const [saved, setSaved] = useState(false);
+  const saving = useModelMutation(
+    async (signal) => {
+      const result = await row.save(baseline.revision, chosen || null, signal);
+      signal.throwIfAborted();
+      setBaseline(result);
+      setChosen(result.modelConfigurationId ?? "");
+      await refreshModelCatalog(client);
+      signal.throwIfAborted();
+      setSaved(true);
+    },
+    { onConflict: () => setConflict(true) },
+  );
+  const reconciling = useModelMutation(async (signal) => {
+    const current = await reload();
+    signal.throwIfAborted();
+    setBaseline(current);
+    setConflict(false);
+  });
+  const actionError = saving.error ?? reconciling.error;
   // Deleting a task model clears it, and catalog changes alter availability, without a revision change.
   if (
     selection.revision === baseline.revision &&
@@ -76,42 +95,25 @@ function SelectionEditor({
     baseline.modelConfigurationId &&
     !candidates.some((model) => model.id === baseline.modelConfigurationId);
   const candidateChosen = candidates.some((model) => model.id === chosen);
-  const conflicted = action.conflict || selection.revision !== baseline.revision;
+  const conflicted = conflict || selection.revision !== baseline.revision;
 
   async function save() {
-    if (
-      action.pending ||
-      conflicted ||
-      !candidateChosen ||
-      chosen === (baseline.modelConfigurationId ?? "")
-    )
+    if (busy || conflicted || !candidateChosen || chosen === (baseline.modelConfigurationId ?? ""))
       return;
     setSaved(false);
+    reconciling.cancel();
     try {
-      await action.run(async (signal) => {
-        const result = await row.save(baseline.revision, chosen || null, signal);
-        signal.throwIfAborted();
-        setBaseline(result);
-        setChosen(result.modelConfigurationId ?? "");
-        await refreshModelCatalog(client);
-        signal.throwIfAborted();
-        setSaved(true);
-      });
+      await saving.run();
     } catch {
       /* Action errors are safe strings, never provider payloads. */
     }
   }
 
   async function reconcile() {
-    action.cancel();
+    saving.cancel();
     setSaved(false);
     try {
-      await action.run(async (signal) => {
-        const current = await reload();
-        signal.throwIfAborted();
-        setBaseline(current);
-        action.reconciled();
-      });
+      await reconciling.run();
     } catch {
       /* Keep the selection draft; require manual retry after review. */
     }
@@ -127,7 +129,7 @@ function SelectionEditor({
         <ModelPicker
           ariaLabel={row.ariaLabel}
           value={chosen}
-          disabled={action.pending}
+          disabled={busy}
           placeholder={ui("Choose an eligible model")}
           onChange={(modelId) => {
             setChosen(modelId);
@@ -189,17 +191,17 @@ function SelectionEditor({
               "The saved selection changed or conflicted. Refresh its own revision and review before retrying; model/provider revisions are not selection revisions.",
             )}
           </p>
-          <Button prominence="secondary" disabled={action.pending} onClick={() => void reconcile()}>
+          <Button prominence="secondary" disabled={busy} onClick={() => void reconcile()}>
             {ui("Reconcile saved selection")}
           </Button>
         </div>
       )}
-      {action.error && <p role="alert">{ui(action.error)}</p>}
+      {actionError && <p role="alert">{ui(actionError)}</p>}
       {saved && <p role="status">{row.savedMessage}</p>}
       {chosen !== (baseline.modelConfigurationId ?? "") && (
         <Button
-          pending={action.pending}
-          disabled={conflicted || !candidateChosen}
+          pending={saving.pending}
+          disabled={conflicted || !candidateChosen || busy}
           onClick={() => void save()}
         >
           {row.saveLabel}
@@ -242,9 +244,7 @@ export function TenantDefault(catalog: Catalog) {
           (
             await setChatModelDefault({
               query: { revision, modelConfigurationId: modelConfigurationId ?? "" },
-              headers: sameOriginMutationHeaders,
               signal,
-              throwOnError: true,
             })
           ).data,
       }}
@@ -318,9 +318,7 @@ export function TaskModels(catalog: Catalog) {
             await setChatModelFlow({
               path: { flow: flow.flow },
               query: { revision, ...(modelConfigurationId ? { modelConfigurationId } : {}) },
-              headers: sameOriginMutationHeaders,
               signal,
-              throwOnError: true,
             })
           ).data,
       }}

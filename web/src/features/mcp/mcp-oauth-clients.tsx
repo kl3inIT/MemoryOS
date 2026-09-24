@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CatalogDialog } from "@/features/models/catalog-dialog";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   createMcpServerOAuthClient,
   deleteMcpServerOAuthClient,
@@ -39,8 +38,7 @@ export function McpOAuthClients({ server }: { server: McpServerView }) {
   const clientsKey = ["mcp", "oauth-clients", server.id] as const;
   const clients = useQuery({
     queryKey: clientsKey,
-    queryFn: async () =>
-      (await listMcpServerOAuthClients({ path: { serverId: server.id }, throwOnError: true })).data,
+    queryFn: async () => (await listMcpServerOAuthClients({ path: { serverId: server.id } })).data,
   });
   const refresh = async () => {
     await Promise.all([
@@ -54,8 +52,6 @@ export function McpOAuthClients({ server }: { server: McpServerView }) {
       (
         await discoverMcpServerOAuth({
           path: { serverId: server.id },
-          headers: sameOriginMutationHeaders,
-          throwOnError: true,
         })
       ).data,
     onError: (failure) => setError(message(failure)),
@@ -74,8 +70,6 @@ export function McpOAuthClients({ server }: { server: McpServerView }) {
       await registerMcpServerOAuthClient({
         path: { serverId: server.id },
         body: { issuer, label, source },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       }),
     onSuccess: async () => {
       setError(undefined);
@@ -90,8 +84,6 @@ export function McpOAuthClients({ server }: { server: McpServerView }) {
       await deleteMcpServerOAuthClient({
         path: { serverId: server.id, clientId: client.id },
         query: { revision: client.revision },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       }),
     onSuccess: refresh,
     onError: (failure) => setError(message(failure)),
@@ -102,8 +94,6 @@ export function McpOAuthClients({ server }: { server: McpServerView }) {
       await startMcpServerOAuthAuthorization({
         path: { serverId: server.id },
         body: { oauthClientId: client.id },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       }),
     onSuccess: (response) => {
       const url = response.data?.authorizationUrl;
@@ -116,8 +106,6 @@ export function McpOAuthClients({ server }: { server: McpServerView }) {
     mutationFn: async () =>
       await disconnectMcpServerOAuth({
         path: { serverId: server.id },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       }),
     onSuccess: refresh,
     onError: (failure) => setError(message(failure)),
@@ -357,8 +345,6 @@ function McpOAuthClientEditor({
           revocationEndpoint: revocationEndpoint.trim() === "" ? null : revocationEndpoint.trim(),
           issParameterRequired: false,
         },
-        headers: sameOriginMutationHeaders,
-        throwOnError: true,
       }),
     onSuccess: onSaved,
     onError: (failure) => setError(problem(presentProblem(failure, "mutation").message)),

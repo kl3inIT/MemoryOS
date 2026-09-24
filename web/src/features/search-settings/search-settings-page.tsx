@@ -30,7 +30,7 @@ import { providerTileClassName } from "@/components/provider-logos/provider-card
 import { appText } from "@/i18n/app-text";
 import { formatUiDate, uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { ApiError, sameOriginMutationHeaders } from "@/lib/api";
+import { ApiError } from "@/lib/api";
 import {
   getSearchSettingsOptions,
   listEmbeddingModelPresetsOptions,
@@ -574,10 +574,7 @@ function Confirm({
           confirmLabel={ui("Chuyển index")}
           pendingLabel={ui("Đang chuyển")}
           onConfirm={async () => {
-            await switchSearchFutureGeneration({
-              headers: sameOriginMutationHeaders,
-              throwOnError: true,
-            });
+            await switchSearchFutureGeneration();
             await onDone();
           }}
           errorMessage={(cause) => searchSettingsProblem(cause, "switch")}
@@ -594,10 +591,7 @@ function Confirm({
           confirmLabel={ui("Hủy dựng lại")}
           pendingLabel={ui("Đang hủy")}
           onConfirm={async () => {
-            await cancelSearchFutureGeneration({
-              headers: sameOriginMutationHeaders,
-              throwOnError: true,
-            });
+            await cancelSearchFutureGeneration();
             await onDone();
           }}
           errorMessage={(cause) => searchSettingsProblem(cause, "cancel")}
@@ -615,8 +609,6 @@ function Confirm({
           onConfirm={async () => {
             await restoreSearchPastGeneration({
               path: { generationId: confirmation.past.id },
-              headers: sameOriginMutationHeaders,
-              throwOnError: true,
             });
             await onDone();
           }}
@@ -634,8 +626,6 @@ function Confirm({
           onConfirm={async () => {
             await deleteEmbeddingProvider({
               path: { providerId: confirmation.provider.id },
-              headers: sameOriginMutationHeaders,
-              throwOnError: true,
             });
             await onDone();
           }}

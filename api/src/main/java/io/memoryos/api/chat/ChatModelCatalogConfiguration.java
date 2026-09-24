@@ -4,10 +4,13 @@ import io.memoryos.chat.catalog.ChatModelClients;
 import io.memoryos.chat.catalog.ChatModelResolver;
 import io.memoryos.chat.catalog.ChatProviderAdapter;
 import io.memoryos.chat.catalog.ChatProviderAdapters;
+import io.memoryos.chat.catalog.ChatTenantProvisioner;
 import io.memoryos.chat.catalog.ModelCatalogService;
 import io.memoryos.chat.catalog.ModelSettings;
 import io.memoryos.chat.catalog.ProviderCredentials;
 import io.memoryos.chat.application.PersonaProperties;
+import io.memoryos.chat.catalog.openai.ChatKnownModels;
+import io.memoryos.chat.catalog.openai.OpenAiChatProviderAdapter;
 import io.memoryos.chat.execution.ChatExecutionProperties;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.ModelCatalogRepository;
@@ -68,9 +71,14 @@ class ChatModelCatalogConfiguration {
     @Bean
     ModelCatalogService modelCatalogService(ModelCatalogRepository catalog, JdbcChatRepository chats, TenantAccessResolver tenants,
             IamAuthorization authorization, ChatProviderAdapters adapters, ProviderCredentials credentials,
-            GroupScopeService groups, PersonaProperties persona, ModelCatalogService.Deployment deployment,
-            io.memoryos.iam.audit.AuditTrail audit) {
-        return new ModelCatalogService(catalog, chats, tenants, authorization, adapters, credentials, groups, persona, deployment, audit);
+            GroupScopeService groups, io.memoryos.iam.audit.AuditTrail audit) {
+        return new ModelCatalogService(catalog, chats, tenants, authorization, adapters, credentials, groups, audit);
+    }
+    /** Listens for the Tenant bootstrap; it lives here because the deployment model is API configuration. */
+    @Bean
+    ChatTenantProvisioner chatTenantProvisioner(ModelCatalogRepository catalog, JdbcChatRepository chats,
+            ChatProviderAdapters adapters, PersonaProperties persona, ModelCatalogService.Deployment deployment) {
+        return new ChatTenantProvisioner(catalog, chats, adapters, persona, deployment);
     }
     @Bean
     ChatModelResolver chatModelResolver(ModelCatalogService catalog, ChatProviderAdapters adapters, ProviderCredentials credentials,

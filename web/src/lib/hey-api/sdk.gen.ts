@@ -21,7 +21,7 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 /**
  * Replace what a SharePoint source synchronizes; the new scope is verified before it applies
  */
-export const replaceSharePointScope = <ThrowOnError extends boolean = false>(options: Options<ReplaceSharePointScopeData, ThrowOnError>): RequestResult<ReplaceSharePointScopeResponses, ReplaceSharePointScopeErrors, ThrowOnError> => (options.client ?? client).put<ReplaceSharePointScopeResponses, ReplaceSharePointScopeErrors, ThrowOnError>({
+export const replaceSharePointScope = <ThrowOnError extends boolean = true>(options: Options<ReplaceSharePointScopeData, ThrowOnError>): RequestResult<ReplaceSharePointScopeResponses, ReplaceSharePointScopeErrors, ThrowOnError> => (options.client ?? client).put<ReplaceSharePointScopeResponses, ReplaceSharePointScopeErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -38,7 +38,7 @@ export const replaceSharePointScope = <ThrowOnError extends boolean = false>(opt
 /**
  * Update the automatic synchronization and prune intervals
  */
-export const updateSharePointSchedule = <ThrowOnError extends boolean = false>(options: Options<UpdateSharePointScheduleData, ThrowOnError>): RequestResult<UpdateSharePointScheduleResponses, UpdateSharePointScheduleErrors, ThrowOnError> => (options.client ?? client).put<UpdateSharePointScheduleResponses, UpdateSharePointScheduleErrors, ThrowOnError>({
+export const updateSharePointSchedule = <ThrowOnError extends boolean = true>(options: Options<UpdateSharePointScheduleData, ThrowOnError>): RequestResult<UpdateSharePointScheduleResponses, UpdateSharePointScheduleErrors, ThrowOnError> => (options.client ?? client).put<UpdateSharePointScheduleResponses, UpdateSharePointScheduleErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -55,7 +55,7 @@ export const updateSharePointSchedule = <ThrowOnError extends boolean = false>(o
 /**
  * Update the automatic Google Drive sync interval
  */
-export const updateGoogleDriveSchedule = <ThrowOnError extends boolean = false>(options: Options<UpdateGoogleDriveScheduleData, ThrowOnError>): RequestResult<UpdateGoogleDriveScheduleResponses, unknown, ThrowOnError> => (options.client ?? client).put<UpdateGoogleDriveScheduleResponses, unknown, ThrowOnError>({
+export const updateGoogleDriveSchedule = <ThrowOnError extends boolean = true>(options: Options<UpdateGoogleDriveScheduleData, ThrowOnError>): RequestResult<UpdateGoogleDriveScheduleResponses, unknown, ThrowOnError> => (options.client ?? client).put<UpdateGoogleDriveScheduleResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -72,7 +72,7 @@ export const updateGoogleDriveSchedule = <ThrowOnError extends boolean = false>(
 /**
  * Replace selected Google Drive roots without changing the creation-time scope mode
  */
-export const replaceGoogleDriveRoots = <ThrowOnError extends boolean = false>(options: Options<ReplaceGoogleDriveRootsData, ThrowOnError>): RequestResult<ReplaceGoogleDriveRootsResponses, unknown, ThrowOnError> => (options.client ?? client).put<ReplaceGoogleDriveRootsResponses, unknown, ThrowOnError>({
+export const replaceGoogleDriveRoots = <ThrowOnError extends boolean = true>(options: Options<ReplaceGoogleDriveRootsData, ThrowOnError>): RequestResult<ReplaceGoogleDriveRootsResponses, unknown, ThrowOnError> => (options.client ?? client).put<ReplaceGoogleDriveRootsResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -89,7 +89,7 @@ export const replaceGoogleDriveRoots = <ThrowOnError extends boolean = false>(op
 /**
  * Delete an embedding provider that no search generation uses
  */
-export const deleteEmbeddingProvider = <ThrowOnError extends boolean = false>(options: Options<DeleteEmbeddingProviderData, ThrowOnError>): RequestResult<DeleteEmbeddingProviderResponses, DeleteEmbeddingProviderErrors, ThrowOnError> => (options.client ?? client).delete<DeleteEmbeddingProviderResponses, DeleteEmbeddingProviderErrors, ThrowOnError>({
+export const deleteEmbeddingProvider = <ThrowOnError extends boolean = true>(options: Options<DeleteEmbeddingProviderData, ThrowOnError>): RequestResult<DeleteEmbeddingProviderResponses, DeleteEmbeddingProviderErrors, ThrowOnError> => (options.client ?? client).delete<DeleteEmbeddingProviderResponses, DeleteEmbeddingProviderErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -102,7 +102,7 @@ export const deleteEmbeddingProvider = <ThrowOnError extends boolean = false>(op
 /**
  * Replace an embedding provider at the expected revision
  */
-export const updateEmbeddingProvider = <ThrowOnError extends boolean = false>(options: Options<UpdateEmbeddingProviderData, ThrowOnError>): RequestResult<UpdateEmbeddingProviderResponses, UpdateEmbeddingProviderErrors, ThrowOnError> => (options.client ?? client).put<UpdateEmbeddingProviderResponses, UpdateEmbeddingProviderErrors, ThrowOnError>({
+export const updateEmbeddingProvider = <ThrowOnError extends boolean = true>(options: Options<UpdateEmbeddingProviderData, ThrowOnError>): RequestResult<UpdateEmbeddingProviderResponses, UpdateEmbeddingProviderErrors, ThrowOnError> => (options.client ?? client).put<UpdateEmbeddingProviderResponses, UpdateEmbeddingProviderErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -119,7 +119,7 @@ export const updateEmbeddingProvider = <ThrowOnError extends boolean = false>(op
 /**
  * Delete a meeting and its transcript
  */
-export const deleteMeeting = <ThrowOnError extends boolean = false>(options: Options<DeleteMeetingData, ThrowOnError>): RequestResult<DeleteMeetingResponses, DeleteMeetingErrors, ThrowOnError> => (options.client ?? client).delete<DeleteMeetingResponses, DeleteMeetingErrors, ThrowOnError>({
+export const deleteMeeting = <ThrowOnError extends boolean = true>(options: Options<DeleteMeetingData, ThrowOnError>): RequestResult<DeleteMeetingResponses, DeleteMeetingErrors, ThrowOnError> => (options.client ?? client).delete<DeleteMeetingResponses, DeleteMeetingErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -132,7 +132,7 @@ export const deleteMeeting = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * Read one of the current member's meetings with its transcript
  */
-export const getMeeting = <ThrowOnError extends boolean = false>(options: Options<GetMeetingData, ThrowOnError>): RequestResult<GetMeetingResponses, GetMeetingErrors, ThrowOnError> => (options.client ?? client).get<GetMeetingResponses, GetMeetingErrors, ThrowOnError>({
+export const getMeeting = <ThrowOnError extends boolean = true>(options: Options<GetMeetingData, ThrowOnError>): RequestResult<GetMeetingResponses, GetMeetingErrors, ThrowOnError> => (options.client ?? client).get<GetMeetingResponses, GetMeetingErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -145,7 +145,7 @@ export const getMeeting = <ThrowOnError extends boolean = false>(options: Option
 /**
  * Rename the meeting and say who was in it
  */
-export const updateMeeting = <ThrowOnError extends boolean = false>(options: Options<UpdateMeetingData, ThrowOnError>): RequestResult<UpdateMeetingResponses, UpdateMeetingErrors, ThrowOnError> => (options.client ?? client).put<UpdateMeetingResponses, UpdateMeetingErrors, ThrowOnError>({
+export const updateMeeting = <ThrowOnError extends boolean = true>(options: Options<UpdateMeetingData, ThrowOnError>): RequestResult<UpdateMeetingResponses, UpdateMeetingErrors, ThrowOnError> => (options.client ?? client).put<UpdateMeetingResponses, UpdateMeetingErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -162,7 +162,7 @@ export const updateMeeting = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * Take the caller's mark off a line
  */
-export const unstarMeetingUtterance = <ThrowOnError extends boolean = false>(options: Options<UnstarMeetingUtteranceData, ThrowOnError>): RequestResult<UnstarMeetingUtteranceResponses, UnstarMeetingUtteranceErrors, ThrowOnError> => (options.client ?? client).delete<UnstarMeetingUtteranceResponses, UnstarMeetingUtteranceErrors, ThrowOnError>({
+export const unstarMeetingUtterance = <ThrowOnError extends boolean = true>(options: Options<UnstarMeetingUtteranceData, ThrowOnError>): RequestResult<UnstarMeetingUtteranceResponses, UnstarMeetingUtteranceErrors, ThrowOnError> => (options.client ?? client).delete<UnstarMeetingUtteranceResponses, UnstarMeetingUtteranceErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -175,7 +175,7 @@ export const unstarMeetingUtterance = <ThrowOnError extends boolean = false>(opt
 /**
  * Mark one line as one the caller cares about
  */
-export const starMeetingUtterance = <ThrowOnError extends boolean = false>(options: Options<StarMeetingUtteranceData, ThrowOnError>): RequestResult<StarMeetingUtteranceResponses, StarMeetingUtteranceErrors, ThrowOnError> => (options.client ?? client).put<StarMeetingUtteranceResponses, StarMeetingUtteranceErrors, ThrowOnError>({
+export const starMeetingUtterance = <ThrowOnError extends boolean = true>(options: Options<StarMeetingUtteranceData, ThrowOnError>): RequestResult<StarMeetingUtteranceResponses, StarMeetingUtteranceErrors, ThrowOnError> => (options.client ?? client).put<StarMeetingUtteranceResponses, StarMeetingUtteranceErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -188,7 +188,7 @@ export const starMeetingUtterance = <ThrowOnError extends boolean = false>(optio
 /**
  * Name a speaker of a meeting track
  */
-export const nameMeetingSpeaker = <ThrowOnError extends boolean = false>(options: Options<NameMeetingSpeakerData, ThrowOnError>): RequestResult<NameMeetingSpeakerResponses, NameMeetingSpeakerErrors, ThrowOnError> => (options.client ?? client).put<NameMeetingSpeakerResponses, NameMeetingSpeakerErrors, ThrowOnError>({
+export const nameMeetingSpeaker = <ThrowOnError extends boolean = true>(options: Options<NameMeetingSpeakerData, ThrowOnError>): RequestResult<NameMeetingSpeakerResponses, NameMeetingSpeakerErrors, ThrowOnError> => (options.client ?? client).put<NameMeetingSpeakerResponses, NameMeetingSpeakerErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -205,7 +205,7 @@ export const nameMeetingSpeaker = <ThrowOnError extends boolean = false>(options
 /**
  * Say who else may read this meeting
  */
-export const shareMeeting = <ThrowOnError extends boolean = false>(options: Options<ShareMeetingData, ThrowOnError>): RequestResult<ShareMeetingResponses, ShareMeetingErrors, ThrowOnError> => (options.client ?? client).put<ShareMeetingResponses, ShareMeetingErrors, ThrowOnError>({
+export const shareMeeting = <ThrowOnError extends boolean = true>(options: Options<ShareMeetingData, ThrowOnError>): RequestResult<ShareMeetingResponses, ShareMeetingErrors, ThrowOnError> => (options.client ?? client).put<ShareMeetingResponses, ShareMeetingErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -222,7 +222,7 @@ export const shareMeeting = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * Replace the owner's private notes
  */
-export const updateMeetingNotes = <ThrowOnError extends boolean = false>(options: Options<UpdateMeetingNotesData, ThrowOnError>): RequestResult<UpdateMeetingNotesResponses, UpdateMeetingNotesErrors, ThrowOnError> => (options.client ?? client).put<UpdateMeetingNotesResponses, UpdateMeetingNotesErrors, ThrowOnError>({
+export const updateMeetingNotes = <ThrowOnError extends boolean = true>(options: Options<UpdateMeetingNotesData, ThrowOnError>): RequestResult<UpdateMeetingNotesResponses, UpdateMeetingNotesErrors, ThrowOnError> => (options.client ?? client).put<UpdateMeetingNotesResponses, UpdateMeetingNotesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -239,7 +239,7 @@ export const updateMeetingNotes = <ThrowOnError extends boolean = false>(options
 /**
  * Tick off a task the minutes found
  */
-export const markMeetingMinutesItem = <ThrowOnError extends boolean = false>(options: Options<MarkMeetingMinutesItemData, ThrowOnError>): RequestResult<MarkMeetingMinutesItemResponses, MarkMeetingMinutesItemErrors, ThrowOnError> => (options.client ?? client).put<MarkMeetingMinutesItemResponses, MarkMeetingMinutesItemErrors, ThrowOnError>({
+export const markMeetingMinutesItem = <ThrowOnError extends boolean = true>(options: Options<MarkMeetingMinutesItemData, ThrowOnError>): RequestResult<MarkMeetingMinutesItemResponses, MarkMeetingMinutesItemErrors, ThrowOnError> => (options.client ?? client).put<MarkMeetingMinutesItemResponses, MarkMeetingMinutesItemErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -256,7 +256,7 @@ export const markMeetingMinutesItem = <ThrowOnError extends boolean = false>(opt
 /**
  * Rewrite the summary in the owner's own words
  */
-export const editMeetingMinutesSummary = <ThrowOnError extends boolean = false>(options: Options<EditMeetingMinutesSummaryData, ThrowOnError>): RequestResult<EditMeetingMinutesSummaryResponses, EditMeetingMinutesSummaryErrors, ThrowOnError> => (options.client ?? client).put<EditMeetingMinutesSummaryResponses, EditMeetingMinutesSummaryErrors, ThrowOnError>({
+export const editMeetingMinutesSummary = <ThrowOnError extends boolean = true>(options: Options<EditMeetingMinutesSummaryData, ThrowOnError>): RequestResult<EditMeetingMinutesSummaryResponses, EditMeetingMinutesSummaryErrors, ThrowOnError> => (options.client ?? client).put<EditMeetingMinutesSummaryResponses, EditMeetingMinutesSummaryErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -273,7 +273,7 @@ export const editMeetingMinutesSummary = <ThrowOnError extends boolean = false>(
 /**
  * Take a decision or a piece of work out of the minutes
  */
-export const removeMeetingMinutesItem = <ThrowOnError extends boolean = false>(options: Options<RemoveMeetingMinutesItemData, ThrowOnError>): RequestResult<RemoveMeetingMinutesItemResponses, RemoveMeetingMinutesItemErrors, ThrowOnError> => (options.client ?? client).delete<RemoveMeetingMinutesItemResponses, RemoveMeetingMinutesItemErrors, ThrowOnError>({
+export const removeMeetingMinutesItem = <ThrowOnError extends boolean = true>(options: Options<RemoveMeetingMinutesItemData, ThrowOnError>): RequestResult<RemoveMeetingMinutesItemResponses, RemoveMeetingMinutesItemErrors, ThrowOnError> => (options.client ?? client).delete<RemoveMeetingMinutesItemResponses, RemoveMeetingMinutesItemErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -286,7 +286,7 @@ export const removeMeetingMinutesItem = <ThrowOnError extends boolean = false>(o
 /**
  * Rewrite one decision or one piece of work, its owner and its deadline
  */
-export const editMeetingMinutesItem = <ThrowOnError extends boolean = false>(options: Options<EditMeetingMinutesItemData, ThrowOnError>): RequestResult<EditMeetingMinutesItemResponses, EditMeetingMinutesItemErrors, ThrowOnError> => (options.client ?? client).put<EditMeetingMinutesItemResponses, EditMeetingMinutesItemErrors, ThrowOnError>({
+export const editMeetingMinutesItem = <ThrowOnError extends boolean = true>(options: Options<EditMeetingMinutesItemData, ThrowOnError>): RequestResult<EditMeetingMinutesItemResponses, EditMeetingMinutesItemErrors, ThrowOnError> => (options.client ?? client).put<EditMeetingMinutesItemResponses, EditMeetingMinutesItemErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -303,7 +303,7 @@ export const editMeetingMinutesItem = <ThrowOnError extends boolean = false>(opt
 /**
  * The biên bản heading as the owner last saved it
  */
-export const getMeetingMinutesHeading = <ThrowOnError extends boolean = false>(options: Options<GetMeetingMinutesHeadingData, ThrowOnError>): RequestResult<GetMeetingMinutesHeadingResponses, GetMeetingMinutesHeadingErrors, ThrowOnError> => (options.client ?? client).get<GetMeetingMinutesHeadingResponses, GetMeetingMinutesHeadingErrors, ThrowOnError>({
+export const getMeetingMinutesHeading = <ThrowOnError extends boolean = true>(options: Options<GetMeetingMinutesHeadingData, ThrowOnError>): RequestResult<GetMeetingMinutesHeadingResponses, GetMeetingMinutesHeadingErrors, ThrowOnError> => (options.client ?? client).get<GetMeetingMinutesHeadingResponses, GetMeetingMinutesHeadingErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -316,7 +316,7 @@ export const getMeetingMinutesHeading = <ThrowOnError extends boolean = false>(o
 /**
  * Keep the biên bản heading the owner typed
  */
-export const saveMeetingMinutesHeading = <ThrowOnError extends boolean = false>(options: Options<SaveMeetingMinutesHeadingData, ThrowOnError>): RequestResult<SaveMeetingMinutesHeadingResponses, SaveMeetingMinutesHeadingErrors, ThrowOnError> => (options.client ?? client).put<SaveMeetingMinutesHeadingResponses, SaveMeetingMinutesHeadingErrors, ThrowOnError>({
+export const saveMeetingMinutesHeading = <ThrowOnError extends boolean = true>(options: Options<SaveMeetingMinutesHeadingData, ThrowOnError>): RequestResult<SaveMeetingMinutesHeadingResponses, SaveMeetingMinutesHeadingErrors, ThrowOnError> => (options.client ?? client).put<SaveMeetingMinutesHeadingResponses, SaveMeetingMinutesHeadingErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -333,7 +333,7 @@ export const saveMeetingMinutesHeading = <ThrowOnError extends boolean = false>(
 /**
  * Delete an MCP server with its tools and credentials at the expected revision
  */
-export const deleteMcpServer = <ThrowOnError extends boolean = false>(options: Options<DeleteMcpServerData, ThrowOnError>): RequestResult<DeleteMcpServerResponses, DeleteMcpServerErrors, ThrowOnError> => (options.client ?? client).delete<DeleteMcpServerResponses, DeleteMcpServerErrors, ThrowOnError>({
+export const deleteMcpServer = <ThrowOnError extends boolean = true>(options: Options<DeleteMcpServerData, ThrowOnError>): RequestResult<DeleteMcpServerResponses, DeleteMcpServerErrors, ThrowOnError> => (options.client ?? client).delete<DeleteMcpServerResponses, DeleteMcpServerErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -346,7 +346,7 @@ export const deleteMcpServer = <ThrowOnError extends boolean = false>(options: O
 /**
  * Read one MCP server with secrets redacted; requires MCP_MANAGE
  */
-export const getMcpServer = <ThrowOnError extends boolean = false>(options: Options<GetMcpServerData, ThrowOnError>): RequestResult<GetMcpServerResponses, GetMcpServerErrors, ThrowOnError> => (options.client ?? client).get<GetMcpServerResponses, GetMcpServerErrors, ThrowOnError>({
+export const getMcpServer = <ThrowOnError extends boolean = true>(options: Options<GetMcpServerData, ThrowOnError>): RequestResult<GetMcpServerResponses, GetMcpServerErrors, ThrowOnError> => (options.client ?? client).get<GetMcpServerResponses, GetMcpServerErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -359,7 +359,7 @@ export const getMcpServer = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * Replace server settings at the expected revision; changing URL, authentication type or performer removes stored credentials
  */
-export const updateMcpServer = <ThrowOnError extends boolean = false>(options: Options<UpdateMcpServerData, ThrowOnError>): RequestResult<UpdateMcpServerResponses, UpdateMcpServerErrors, ThrowOnError> => (options.client ?? client).put<UpdateMcpServerResponses, UpdateMcpServerErrors, ThrowOnError>({
+export const updateMcpServer = <ThrowOnError extends boolean = true>(options: Options<UpdateMcpServerData, ThrowOnError>): RequestResult<UpdateMcpServerResponses, UpdateMcpServerErrors, ThrowOnError> => (options.client ?? client).put<UpdateMcpServerResponses, UpdateMcpServerErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -376,7 +376,7 @@ export const updateMcpServer = <ThrowOnError extends boolean = false>(options: O
 /**
  * Enable or disable one tool at the expected revision
  */
-export const setMcpServerToolEnabled = <ThrowOnError extends boolean = false>(options: Options<SetMcpServerToolEnabledData, ThrowOnError>): RequestResult<SetMcpServerToolEnabledResponses, SetMcpServerToolEnabledErrors, ThrowOnError> => (options.client ?? client).put<SetMcpServerToolEnabledResponses, SetMcpServerToolEnabledErrors, ThrowOnError>({
+export const setMcpServerToolEnabled = <ThrowOnError extends boolean = true>(options: Options<SetMcpServerToolEnabledData, ThrowOnError>): RequestResult<SetMcpServerToolEnabledResponses, SetMcpServerToolEnabledErrors, ThrowOnError> => (options.client ?? client).put<SetMcpServerToolEnabledResponses, SetMcpServerToolEnabledErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -393,7 +393,7 @@ export const setMcpServerToolEnabled = <ThrowOnError extends boolean = false>(op
 /**
  * Enable every exposable tool or disable every tool
  */
-export const setAllMcpServerToolsEnabled = <ThrowOnError extends boolean = false>(options: Options<SetAllMcpServerToolsEnabledData, ThrowOnError>): RequestResult<SetAllMcpServerToolsEnabledResponses, SetAllMcpServerToolsEnabledErrors, ThrowOnError> => (options.client ?? client).put<SetAllMcpServerToolsEnabledResponses, SetAllMcpServerToolsEnabledErrors, ThrowOnError>({
+export const setAllMcpServerToolsEnabled = <ThrowOnError extends boolean = true>(options: Options<SetAllMcpServerToolsEnabledData, ThrowOnError>): RequestResult<SetAllMcpServerToolsEnabledResponses, SetAllMcpServerToolsEnabledErrors, ThrowOnError> => (options.client ?? client).put<SetAllMcpServerToolsEnabledResponses, SetAllMcpServerToolsEnabledErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -410,7 +410,7 @@ export const setAllMcpServerToolsEnabled = <ThrowOnError extends boolean = false
 /**
  * Delete an OAuth client and the connections made with it
  */
-export const deleteMcpServerOAuthClient = <ThrowOnError extends boolean = false>(options: Options<DeleteMcpServerOAuthClientData, ThrowOnError>): RequestResult<DeleteMcpServerOAuthClientResponses, DeleteMcpServerOAuthClientErrors, ThrowOnError> => (options.client ?? client).delete<DeleteMcpServerOAuthClientResponses, DeleteMcpServerOAuthClientErrors, ThrowOnError>({
+export const deleteMcpServerOAuthClient = <ThrowOnError extends boolean = true>(options: Options<DeleteMcpServerOAuthClientData, ThrowOnError>): RequestResult<DeleteMcpServerOAuthClientResponses, DeleteMcpServerOAuthClientErrors, ThrowOnError> => (options.client ?? client).delete<DeleteMcpServerOAuthClientResponses, DeleteMcpServerOAuthClientErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -423,7 +423,7 @@ export const deleteMcpServerOAuthClient = <ThrowOnError extends boolean = false>
 /**
  * Replace a pre-registered OAuth client at the expected revision
  */
-export const updateMcpServerOAuthClient = <ThrowOnError extends boolean = false>(options: Options<UpdateMcpServerOAuthClientData, ThrowOnError>): RequestResult<UpdateMcpServerOAuthClientResponses, UpdateMcpServerOAuthClientErrors, ThrowOnError> => (options.client ?? client).put<UpdateMcpServerOAuthClientResponses, UpdateMcpServerOAuthClientErrors, ThrowOnError>({
+export const updateMcpServerOAuthClient = <ThrowOnError extends boolean = true>(options: Options<UpdateMcpServerOAuthClientData, ThrowOnError>): RequestResult<UpdateMcpServerOAuthClientResponses, UpdateMcpServerOAuthClientErrors, ThrowOnError> => (options.client ?? client).put<UpdateMcpServerOAuthClientResponses, UpdateMcpServerOAuthClientErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -440,7 +440,7 @@ export const updateMcpServerOAuthClient = <ThrowOnError extends boolean = false>
 /**
  * Store the User's own API key after listing the server with it
  */
-export const saveMcpConnectionApiKey = <ThrowOnError extends boolean = false>(options: Options<SaveMcpConnectionApiKeyData, ThrowOnError>): RequestResult<SaveMcpConnectionApiKeyResponses, SaveMcpConnectionApiKeyErrors, ThrowOnError> => (options.client ?? client).put<SaveMcpConnectionApiKeyResponses, SaveMcpConnectionApiKeyErrors, ThrowOnError>({
+export const saveMcpConnectionApiKey = <ThrowOnError extends boolean = true>(options: Options<SaveMcpConnectionApiKeyData, ThrowOnError>): RequestResult<SaveMcpConnectionApiKeyResponses, SaveMcpConnectionApiKeyErrors, ThrowOnError> => (options.client ?? client).put<SaveMcpConnectionApiKeyResponses, SaveMcpConnectionApiKeyErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -457,7 +457,7 @@ export const saveMcpConnectionApiKey = <ThrowOnError extends boolean = false>(op
 /**
  * Set the authenticated account's interface language
  */
-export const setCurrentIdentityLanguage = <ThrowOnError extends boolean = false>(options: Options<SetCurrentIdentityLanguageData, ThrowOnError>): RequestResult<SetCurrentIdentityLanguageResponses, unknown, ThrowOnError> => (options.client ?? client).put<SetCurrentIdentityLanguageResponses, unknown, ThrowOnError>({
+export const setCurrentIdentityLanguage = <ThrowOnError extends boolean = true>(options: Options<SetCurrentIdentityLanguageData, ThrowOnError>): RequestResult<SetCurrentIdentityLanguageResponses, unknown, ThrowOnError> => (options.client ?? client).put<SetCurrentIdentityLanguageResponses, unknown, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'SESSION',
@@ -474,7 +474,7 @@ export const setCurrentIdentityLanguage = <ThrowOnError extends boolean = false>
 /**
  * Delete an upstream identity provider and its JIT allowlist entry
  */
-export const deleteIdentityProvider = <ThrowOnError extends boolean = false>(options: Options<DeleteIdentityProviderData, ThrowOnError>): RequestResult<DeleteIdentityProviderResponses, DeleteIdentityProviderErrors, ThrowOnError> => (options.client ?? client).delete<DeleteIdentityProviderResponses, DeleteIdentityProviderErrors, ThrowOnError>({
+export const deleteIdentityProvider = <ThrowOnError extends boolean = true>(options: Options<DeleteIdentityProviderData, ThrowOnError>): RequestResult<DeleteIdentityProviderResponses, DeleteIdentityProviderErrors, ThrowOnError> => (options.client ?? client).delete<DeleteIdentityProviderResponses, DeleteIdentityProviderErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'SESSION',
@@ -489,7 +489,7 @@ export const deleteIdentityProvider = <ThrowOnError extends boolean = false>(opt
  *
  * A null alias or issuerUrl keeps the stored value; a null clientSecret keeps the stored secret.
  */
-export const updateIdentityProvider = <ThrowOnError extends boolean = false>(options: Options<UpdateIdentityProviderData, ThrowOnError>): RequestResult<UpdateIdentityProviderResponses, UpdateIdentityProviderErrors, ThrowOnError> => (options.client ?? client).put<UpdateIdentityProviderResponses, UpdateIdentityProviderErrors, ThrowOnError>({
+export const updateIdentityProvider = <ThrowOnError extends boolean = true>(options: Options<UpdateIdentityProviderData, ThrowOnError>): RequestResult<UpdateIdentityProviderResponses, UpdateIdentityProviderErrors, ThrowOnError> => (options.client ?? client).put<UpdateIdentityProviderResponses, UpdateIdentityProviderErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'SESSION',
@@ -506,7 +506,7 @@ export const updateIdentityProvider = <ThrowOnError extends boolean = false>(opt
 /**
  * Delete an unused SharePoint credential with a revision precondition
  */
-export const deleteSharePointCredential = <ThrowOnError extends boolean = false>(options: Options<DeleteSharePointCredentialData, ThrowOnError>): RequestResult<DeleteSharePointCredentialResponses, DeleteSharePointCredentialErrors, ThrowOnError> => (options.client ?? client).delete<DeleteSharePointCredentialResponses, DeleteSharePointCredentialErrors, ThrowOnError>({
+export const deleteSharePointCredential = <ThrowOnError extends boolean = true>(options: Options<DeleteSharePointCredentialData, ThrowOnError>): RequestResult<DeleteSharePointCredentialResponses, DeleteSharePointCredentialErrors, ThrowOnError> => (options.client ?? client).delete<DeleteSharePointCredentialResponses, DeleteSharePointCredentialErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -519,7 +519,7 @@ export const deleteSharePointCredential = <ThrowOnError extends boolean = false>
 /**
  * Rename a SharePoint credential with a revision precondition
  */
-export const renameSharePointCredential = <ThrowOnError extends boolean = false>(options: Options<RenameSharePointCredentialData, ThrowOnError>): RequestResult<RenameSharePointCredentialResponses, RenameSharePointCredentialErrors, ThrowOnError> => (options.client ?? client).put<RenameSharePointCredentialResponses, RenameSharePointCredentialErrors, ThrowOnError>({
+export const renameSharePointCredential = <ThrowOnError extends boolean = true>(options: Options<RenameSharePointCredentialData, ThrowOnError>): RequestResult<RenameSharePointCredentialResponses, RenameSharePointCredentialErrors, ThrowOnError> => (options.client ?? client).put<RenameSharePointCredentialResponses, RenameSharePointCredentialErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -536,7 +536,7 @@ export const renameSharePointCredential = <ThrowOnError extends boolean = false>
 /**
  * Replace the client secret or certificate of an existing SharePoint credential
  */
-export const replaceSharePointCredentialAuthentication = <ThrowOnError extends boolean = false>(options: Options<ReplaceSharePointCredentialAuthenticationData, ThrowOnError>): RequestResult<ReplaceSharePointCredentialAuthenticationResponses, ReplaceSharePointCredentialAuthenticationErrors, ThrowOnError> => (options.client ?? client).put<ReplaceSharePointCredentialAuthenticationResponses, ReplaceSharePointCredentialAuthenticationErrors, ThrowOnError>({
+export const replaceSharePointCredentialAuthentication = <ThrowOnError extends boolean = true>(options: Options<ReplaceSharePointCredentialAuthenticationData, ThrowOnError>): RequestResult<ReplaceSharePointCredentialAuthenticationResponses, ReplaceSharePointCredentialAuthenticationErrors, ThrowOnError> => (options.client ?? client).put<ReplaceSharePointCredentialAuthenticationResponses, ReplaceSharePointCredentialAuthenticationErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -553,7 +553,7 @@ export const replaceSharePointCredentialAuthentication = <ThrowOnError extends b
 /**
  * Replace the key and acting admin of the same service account with a revision precondition
  */
-export const replaceGoogleDriveServiceAccount = <ThrowOnError extends boolean = false>(options: Options<ReplaceGoogleDriveServiceAccountData, ThrowOnError>): RequestResult<ReplaceGoogleDriveServiceAccountResponses, unknown, ThrowOnError> => (options.client ?? client).put<ReplaceGoogleDriveServiceAccountResponses, unknown, ThrowOnError>({
+export const replaceGoogleDriveServiceAccount = <ThrowOnError extends boolean = true>(options: Options<ReplaceGoogleDriveServiceAccountData, ThrowOnError>): RequestResult<ReplaceGoogleDriveServiceAccountResponses, unknown, ThrowOnError> => (options.client ?? client).put<ReplaceGoogleDriveServiceAccountResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -570,7 +570,7 @@ export const replaceGoogleDriveServiceAccount = <ThrowOnError extends boolean = 
 /**
  * Select the search or content provider; null disables search or restores built-in reading
  */
-export const selectChatWebProvider = <ThrowOnError extends boolean = false>(options: Options<SelectChatWebProviderData, ThrowOnError>): RequestResult<SelectChatWebProviderResponses, SelectChatWebProviderErrors, ThrowOnError> => (options.client ?? client).put<SelectChatWebProviderResponses, SelectChatWebProviderErrors, ThrowOnError>({
+export const selectChatWebProvider = <ThrowOnError extends boolean = true>(options: Options<SelectChatWebProviderData, ThrowOnError>): RequestResult<SelectChatWebProviderResponses, SelectChatWebProviderErrors, ThrowOnError> => (options.client ?? client).put<SelectChatWebProviderResponses, SelectChatWebProviderErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -587,7 +587,7 @@ export const selectChatWebProvider = <ThrowOnError extends boolean = false>(opti
 /**
  * Configure one Web connection without automatically enabling it
  */
-export const saveChatWebConnection = <ThrowOnError extends boolean = false>(options: Options<SaveChatWebConnectionData, ThrowOnError>): RequestResult<SaveChatWebConnectionResponses, SaveChatWebConnectionErrors, ThrowOnError> => (options.client ?? client).put<SaveChatWebConnectionResponses, SaveChatWebConnectionErrors, ThrowOnError>({
+export const saveChatWebConnection = <ThrowOnError extends boolean = true>(options: Options<SaveChatWebConnectionData, ThrowOnError>): RequestResult<SaveChatWebConnectionResponses, SaveChatWebConnectionErrors, ThrowOnError> => (options.client ?? client).put<SaveChatWebConnectionResponses, SaveChatWebConnectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -604,7 +604,7 @@ export const saveChatWebConnection = <ThrowOnError extends boolean = false>(opti
 /**
  * Select the speech-to-text or text-to-speech default; null turns the function off
  */
-export const selectChatVoiceProvider = <ThrowOnError extends boolean = false>(options: Options<SelectChatVoiceProviderData, ThrowOnError>): RequestResult<SelectChatVoiceProviderResponses, SelectChatVoiceProviderErrors, ThrowOnError> => (options.client ?? client).put<SelectChatVoiceProviderResponses, SelectChatVoiceProviderErrors, ThrowOnError>({
+export const selectChatVoiceProvider = <ThrowOnError extends boolean = true>(options: Options<SelectChatVoiceProviderData, ThrowOnError>): RequestResult<SelectChatVoiceProviderResponses, SelectChatVoiceProviderErrors, ThrowOnError> => (options.client ?? client).put<SelectChatVoiceProviderResponses, SelectChatVoiceProviderErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -621,7 +621,7 @@ export const selectChatVoiceProvider = <ThrowOnError extends boolean = false>(op
 /**
  * Disconnect a voice provider and clear its stored credential
  */
-export const deleteChatVoiceConnection = <ThrowOnError extends boolean = false>(options: Options<DeleteChatVoiceConnectionData, ThrowOnError>): RequestResult<DeleteChatVoiceConnectionResponses, DeleteChatVoiceConnectionErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatVoiceConnectionResponses, DeleteChatVoiceConnectionErrors, ThrowOnError>({
+export const deleteChatVoiceConnection = <ThrowOnError extends boolean = true>(options: Options<DeleteChatVoiceConnectionData, ThrowOnError>): RequestResult<DeleteChatVoiceConnectionResponses, DeleteChatVoiceConnectionErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatVoiceConnectionResponses, DeleteChatVoiceConnectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -634,7 +634,7 @@ export const deleteChatVoiceConnection = <ThrowOnError extends boolean = false>(
 /**
  * Verify and save one voice connection; a first connection may select one function
  */
-export const saveChatVoiceConnection = <ThrowOnError extends boolean = false>(options: Options<SaveChatVoiceConnectionData, ThrowOnError>): RequestResult<SaveChatVoiceConnectionResponses, SaveChatVoiceConnectionErrors, ThrowOnError> => (options.client ?? client).put<SaveChatVoiceConnectionResponses, SaveChatVoiceConnectionErrors, ThrowOnError>({
+export const saveChatVoiceConnection = <ThrowOnError extends boolean = true>(options: Options<SaveChatVoiceConnectionData, ThrowOnError>): RequestResult<SaveChatVoiceConnectionResponses, SaveChatVoiceConnectionErrors, ThrowOnError> => (options.client ?? client).put<SaveChatVoiceConnectionResponses, SaveChatVoiceConnectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -651,7 +651,7 @@ export const saveChatVoiceConnection = <ThrowOnError extends boolean = false>(op
 /**
  * Read Tenant Chat settings, such as whether Deep research is offered
  */
-export const getChatSettings = <ThrowOnError extends boolean = false>(options?: Options<GetChatSettingsData, ThrowOnError>): RequestResult<GetChatSettingsResponses, GetChatSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetChatSettingsResponses, GetChatSettingsErrors, ThrowOnError>({
+export const getChatSettings = <ThrowOnError extends boolean = true>(options?: Options<GetChatSettingsData, ThrowOnError>): RequestResult<GetChatSettingsResponses, GetChatSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetChatSettingsResponses, GetChatSettingsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -664,7 +664,7 @@ export const getChatSettings = <ThrowOnError extends boolean = false>(options?: 
 /**
  * Change Tenant Chat settings for model managers
  */
-export const saveChatSettings = <ThrowOnError extends boolean = false>(options: Options<SaveChatSettingsData, ThrowOnError>): RequestResult<SaveChatSettingsResponses, SaveChatSettingsErrors, ThrowOnError> => (options.client ?? client).put<SaveChatSettingsResponses, SaveChatSettingsErrors, ThrowOnError>({
+export const saveChatSettings = <ThrowOnError extends boolean = true>(options: Options<SaveChatSettingsData, ThrowOnError>): RequestResult<SaveChatSettingsResponses, SaveChatSettingsErrors, ThrowOnError> => (options.client ?? client).put<SaveChatSettingsResponses, SaveChatSettingsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -681,7 +681,7 @@ export const saveChatSettings = <ThrowOnError extends boolean = false>(options: 
 /**
  * Choose who may read other people's conversations; requires model management
  */
-export const saveChatHistoryVisibility = <ThrowOnError extends boolean = false>(options: Options<SaveChatHistoryVisibilityData, ThrowOnError>): RequestResult<SaveChatHistoryVisibilityResponses, SaveChatHistoryVisibilityErrors, ThrowOnError> => (options.client ?? client).put<SaveChatHistoryVisibilityResponses, SaveChatHistoryVisibilityErrors, ThrowOnError>({
+export const saveChatHistoryVisibility = <ThrowOnError extends boolean = true>(options: Options<SaveChatHistoryVisibilityData, ThrowOnError>): RequestResult<SaveChatHistoryVisibilityResponses, SaveChatHistoryVisibilityErrors, ThrowOnError> => (options.client ?? client).put<SaveChatHistoryVisibilityResponses, SaveChatHistoryVisibilityErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -698,7 +698,7 @@ export const saveChatHistoryVisibility = <ThrowOnError extends boolean = false>(
 /**
  * Generate a short owned conversation title once, preserving manual renames
  */
-export const generateChatTitle = <ThrowOnError extends boolean = false>(options: Options<GenerateChatTitleData, ThrowOnError>): RequestResult<GenerateChatTitleResponses, GenerateChatTitleErrors, ThrowOnError> => (options.client ?? client).post<GenerateChatTitleResponses, GenerateChatTitleErrors, ThrowOnError>({
+export const generateChatTitle = <ThrowOnError extends boolean = true>(options: Options<GenerateChatTitleData, ThrowOnError>): RequestResult<GenerateChatTitleResponses, GenerateChatTitleErrors, ThrowOnError> => (options.client ?? client).post<GenerateChatTitleResponses, GenerateChatTitleErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -711,7 +711,7 @@ export const generateChatTitle = <ThrowOnError extends boolean = false>(options:
 /**
  * Rename an owned conversation
  */
-export const renameChatSession = <ThrowOnError extends boolean = false>(options: Options<RenameChatSessionData, ThrowOnError>): RequestResult<RenameChatSessionResponses, RenameChatSessionErrors, ThrowOnError> => (options.client ?? client).put<RenameChatSessionResponses, RenameChatSessionErrors, ThrowOnError>({
+export const renameChatSession = <ThrowOnError extends boolean = true>(options: Options<RenameChatSessionData, ThrowOnError>): RequestResult<RenameChatSessionResponses, RenameChatSessionErrors, ThrowOnError> => (options.client ?? client).put<RenameChatSessionResponses, RenameChatSessionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -728,7 +728,7 @@ export const renameChatSession = <ThrowOnError extends boolean = false>(options:
 /**
  * Read the owner's sharing settings
  */
-export const getChatSharing = <ThrowOnError extends boolean = false>(options: Options<GetChatSharingData, ThrowOnError>): RequestResult<GetChatSharingResponses, GetChatSharingErrors, ThrowOnError> => (options.client ?? client).get<GetChatSharingResponses, GetChatSharingErrors, ThrowOnError>({
+export const getChatSharing = <ThrowOnError extends boolean = true>(options: Options<GetChatSharingData, ThrowOnError>): RequestResult<GetChatSharingResponses, GetChatSharingErrors, ThrowOnError> => (options.client ?? client).get<GetChatSharingResponses, GetChatSharingErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -741,7 +741,7 @@ export const getChatSharing = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Enable or revoke read access for Tenant members with the link
  */
-export const setChatSharing = <ThrowOnError extends boolean = false>(options: Options<SetChatSharingData, ThrowOnError>): RequestResult<SetChatSharingResponses, SetChatSharingErrors, ThrowOnError> => (options.client ?? client).put<SetChatSharingResponses, SetChatSharingErrors, ThrowOnError>({
+export const setChatSharing = <ThrowOnError extends boolean = true>(options: Options<SetChatSharingData, ThrowOnError>): RequestResult<SetChatSharingResponses, SetChatSharingErrors, ThrowOnError> => (options.client ?? client).put<SetChatSharingResponses, SetChatSharingErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -758,7 +758,7 @@ export const setChatSharing = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Atomically change assistant and project for subsequent turns
  */
-export const configureChatSession = <ThrowOnError extends boolean = false>(options: Options<ConfigureChatSessionData, ThrowOnError>): RequestResult<ConfigureChatSessionResponses, ConfigureChatSessionErrors, ThrowOnError> => (options.client ?? client).put<ConfigureChatSessionResponses, ConfigureChatSessionErrors, ThrowOnError>({
+export const configureChatSession = <ThrowOnError extends boolean = true>(options: Options<ConfigureChatSessionData, ThrowOnError>): RequestResult<ConfigureChatSessionResponses, ConfigureChatSessionErrors, ThrowOnError> => (options.client ?? client).put<ConfigureChatSessionResponses, ConfigureChatSessionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -775,7 +775,7 @@ export const configureChatSession = <ThrowOnError extends boolean = false>(optio
 /**
  * Pin how much this conversation's model should think, or clear the choice
  */
-export const pinChatReasoningEffort = <ThrowOnError extends boolean = false>(options: Options<PinChatReasoningEffortData, ThrowOnError>): RequestResult<PinChatReasoningEffortResponses, PinChatReasoningEffortErrors, ThrowOnError> => (options.client ?? client).put<PinChatReasoningEffortResponses, PinChatReasoningEffortErrors, ThrowOnError>({
+export const pinChatReasoningEffort = <ThrowOnError extends boolean = true>(options: Options<PinChatReasoningEffortData, ThrowOnError>): RequestResult<PinChatReasoningEffortResponses, PinChatReasoningEffortErrors, ThrowOnError> => (options.client ?? client).put<PinChatReasoningEffortResponses, PinChatReasoningEffortErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -792,7 +792,7 @@ export const pinChatReasoningEffort = <ThrowOnError extends boolean = false>(opt
 /**
  * Move an owned conversation into or out of an owned project
  */
-export const moveChatProject = <ThrowOnError extends boolean = false>(options: Options<MoveChatProjectData, ThrowOnError>): RequestResult<MoveChatProjectResponses, MoveChatProjectErrors, ThrowOnError> => (options.client ?? client).put<MoveChatProjectResponses, MoveChatProjectErrors, ThrowOnError>({
+export const moveChatProject = <ThrowOnError extends boolean = true>(options: Options<MoveChatProjectData, ThrowOnError>): RequestResult<MoveChatProjectResponses, MoveChatProjectErrors, ThrowOnError> => (options.client ?? client).put<MoveChatProjectResponses, MoveChatProjectErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -809,7 +809,7 @@ export const moveChatProject = <ThrowOnError extends boolean = false>(options: O
 /**
  * Choose an authorized assistant for subsequent turns
  */
-export const selectChatPersona = <ThrowOnError extends boolean = false>(options: Options<SelectChatPersonaData, ThrowOnError>): RequestResult<SelectChatPersonaResponses, SelectChatPersonaErrors, ThrowOnError> => (options.client ?? client).put<SelectChatPersonaResponses, SelectChatPersonaErrors, ThrowOnError>({
+export const selectChatPersona = <ThrowOnError extends boolean = true>(options: Options<SelectChatPersonaData, ThrowOnError>): RequestResult<SelectChatPersonaResponses, SelectChatPersonaErrors, ThrowOnError> => (options.client ?? client).put<SelectChatPersonaResponses, SelectChatPersonaErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -826,7 +826,7 @@ export const selectChatPersona = <ThrowOnError extends boolean = false>(options:
 /**
  * Remove the actor's rating from an owned assistant output
  */
-export const removeChatFeedback = <ThrowOnError extends boolean = false>(options: Options<RemoveChatFeedbackData, ThrowOnError>): RequestResult<RemoveChatFeedbackResponses, RemoveChatFeedbackErrors, ThrowOnError> => (options.client ?? client).delete<RemoveChatFeedbackResponses, RemoveChatFeedbackErrors, ThrowOnError>({
+export const removeChatFeedback = <ThrowOnError extends boolean = true>(options: Options<RemoveChatFeedbackData, ThrowOnError>): RequestResult<RemoveChatFeedbackResponses, RemoveChatFeedbackErrors, ThrowOnError> => (options.client ?? client).delete<RemoveChatFeedbackResponses, RemoveChatFeedbackErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -839,7 +839,7 @@ export const removeChatFeedback = <ThrowOnError extends boolean = false>(options
 /**
  * Add or change a rating on an owned assistant output
  */
-export const setChatFeedback = <ThrowOnError extends boolean = false>(options: Options<SetChatFeedbackData, ThrowOnError>): RequestResult<SetChatFeedbackResponses, SetChatFeedbackErrors, ThrowOnError> => (options.client ?? client).put<SetChatFeedbackResponses, SetChatFeedbackErrors, ThrowOnError>({
+export const setChatFeedback = <ThrowOnError extends boolean = true>(options: Options<SetChatFeedbackData, ThrowOnError>): RequestResult<SetChatFeedbackResponses, SetChatFeedbackErrors, ThrowOnError> => (options.client ?? client).put<SetChatFeedbackResponses, SetChatFeedbackErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -856,7 +856,7 @@ export const setChatFeedback = <ThrowOnError extends boolean = false>(options: O
 /**
  * Select a message version without generating a reply
  */
-export const selectChatBranch = <ThrowOnError extends boolean = false>(options: Options<SelectChatBranchData, ThrowOnError>): RequestResult<SelectChatBranchResponses, SelectChatBranchErrors, ThrowOnError> => (options.client ?? client).put<SelectChatBranchResponses, SelectChatBranchErrors, ThrowOnError>({
+export const selectChatBranch = <ThrowOnError extends boolean = true>(options: Options<SelectChatBranchData, ThrowOnError>): RequestResult<SelectChatBranchResponses, SelectChatBranchErrors, ThrowOnError> => (options.client ?? client).put<SelectChatBranchResponses, SelectChatBranchErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -873,7 +873,7 @@ export const selectChatBranch = <ThrowOnError extends boolean = false>(options: 
 /**
  * Read how long you keep your own conversations
  */
-export const getChatRetention = <ThrowOnError extends boolean = false>(options?: Options<GetChatRetentionData, ThrowOnError>): RequestResult<GetChatRetentionResponses, GetChatRetentionErrors, ThrowOnError> => (options?.client ?? client).get<GetChatRetentionResponses, GetChatRetentionErrors, ThrowOnError>({
+export const getChatRetention = <ThrowOnError extends boolean = true>(options?: Options<GetChatRetentionData, ThrowOnError>): RequestResult<GetChatRetentionResponses, GetChatRetentionErrors, ThrowOnError> => (options?.client ?? client).get<GetChatRetentionResponses, GetChatRetentionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -886,7 +886,7 @@ export const getChatRetention = <ThrowOnError extends boolean = false>(options?:
 /**
  * Set or clear how long you keep your own conversations
  */
-export const saveChatRetention = <ThrowOnError extends boolean = false>(options: Options<SaveChatRetentionData, ThrowOnError>): RequestResult<SaveChatRetentionResponses, SaveChatRetentionErrors, ThrowOnError> => (options.client ?? client).put<SaveChatRetentionResponses, SaveChatRetentionErrors, ThrowOnError>({
+export const saveChatRetention = <ThrowOnError extends boolean = true>(options: Options<SaveChatRetentionData, ThrowOnError>): RequestResult<SaveChatRetentionResponses, SaveChatRetentionErrors, ThrowOnError> => (options.client ?? client).put<SaveChatRetentionResponses, SaveChatRetentionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -903,7 +903,7 @@ export const saveChatRetention = <ThrowOnError extends boolean = false>(options:
 /**
  * Delete a provider that is not the Chat default; transcript is preserved
  */
-export const deleteChatProvider = <ThrowOnError extends boolean = false>(options: Options<DeleteChatProviderData, ThrowOnError>): RequestResult<DeleteChatProviderResponses, DeleteChatProviderErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatProviderResponses, DeleteChatProviderErrors, ThrowOnError>({
+export const deleteChatProvider = <ThrowOnError extends boolean = true>(options: Options<DeleteChatProviderData, ThrowOnError>): RequestResult<DeleteChatProviderResponses, DeleteChatProviderErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatProviderResponses, DeleteChatProviderErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -916,7 +916,7 @@ export const deleteChatProvider = <ThrowOnError extends boolean = false>(options
 /**
  * Replace provider settings at the expected revision; credential action is explicit
  */
-export const updateChatProvider = <ThrowOnError extends boolean = false>(options: Options<UpdateChatProviderData, ThrowOnError>): RequestResult<UpdateChatProviderResponses, UpdateChatProviderErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatProviderResponses, UpdateChatProviderErrors, ThrowOnError>({
+export const updateChatProvider = <ThrowOnError extends boolean = true>(options: Options<UpdateChatProviderData, ThrowOnError>): RequestResult<UpdateChatProviderResponses, UpdateChatProviderErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatProviderResponses, UpdateChatProviderErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -933,7 +933,7 @@ export const updateChatProvider = <ThrowOnError extends boolean = false>(options
 /**
  * Delete a private prompt shortcut
  */
-export const deleteChatPromptShortcut = <ThrowOnError extends boolean = false>(options: Options<DeleteChatPromptShortcutData, ThrowOnError>): RequestResult<DeleteChatPromptShortcutResponses, DeleteChatPromptShortcutErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatPromptShortcutResponses, DeleteChatPromptShortcutErrors, ThrowOnError>({
+export const deleteChatPromptShortcut = <ThrowOnError extends boolean = true>(options: Options<DeleteChatPromptShortcutData, ThrowOnError>): RequestResult<DeleteChatPromptShortcutResponses, DeleteChatPromptShortcutErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatPromptShortcutResponses, DeleteChatPromptShortcutErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -946,7 +946,7 @@ export const deleteChatPromptShortcut = <ThrowOnError extends boolean = false>(o
 /**
  * Update a private prompt shortcut with an expected revision
  */
-export const updateChatPromptShortcut = <ThrowOnError extends boolean = false>(options: Options<UpdateChatPromptShortcutData, ThrowOnError>): RequestResult<UpdateChatPromptShortcutResponses, UpdateChatPromptShortcutErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatPromptShortcutResponses, UpdateChatPromptShortcutErrors, ThrowOnError>({
+export const updateChatPromptShortcut = <ThrowOnError extends boolean = true>(options: Options<UpdateChatPromptShortcutData, ThrowOnError>): RequestResult<UpdateChatPromptShortcutResponses, UpdateChatPromptShortcutErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatPromptShortcutResponses, UpdateChatPromptShortcutErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -963,7 +963,7 @@ export const updateChatPromptShortcut = <ThrowOnError extends boolean = false>(o
 /**
  * Hide or show a public prompt shortcut for the actor
  */
-export const hideChatPromptShortcut = <ThrowOnError extends boolean = false>(options: Options<HideChatPromptShortcutData, ThrowOnError>): RequestResult<HideChatPromptShortcutResponses, HideChatPromptShortcutErrors, ThrowOnError> => (options.client ?? client).put<HideChatPromptShortcutResponses, HideChatPromptShortcutErrors, ThrowOnError>({
+export const hideChatPromptShortcut = <ThrowOnError extends boolean = true>(options: Options<HideChatPromptShortcutData, ThrowOnError>): RequestResult<HideChatPromptShortcutResponses, HideChatPromptShortcutErrors, ThrowOnError> => (options.client ?? client).put<HideChatPromptShortcutResponses, HideChatPromptShortcutErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -980,7 +980,7 @@ export const hideChatPromptShortcut = <ThrowOnError extends boolean = false>(opt
 /**
  * Delete a public prompt shortcut; requires AGENTS_MANAGE
  */
-export const deletePublicChatPromptShortcut = <ThrowOnError extends boolean = false>(options: Options<DeletePublicChatPromptShortcutData, ThrowOnError>): RequestResult<DeletePublicChatPromptShortcutResponses, DeletePublicChatPromptShortcutErrors, ThrowOnError> => (options.client ?? client).delete<DeletePublicChatPromptShortcutResponses, DeletePublicChatPromptShortcutErrors, ThrowOnError>({
+export const deletePublicChatPromptShortcut = <ThrowOnError extends boolean = true>(options: Options<DeletePublicChatPromptShortcutData, ThrowOnError>): RequestResult<DeletePublicChatPromptShortcutResponses, DeletePublicChatPromptShortcutErrors, ThrowOnError> => (options.client ?? client).delete<DeletePublicChatPromptShortcutResponses, DeletePublicChatPromptShortcutErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -993,7 +993,7 @@ export const deletePublicChatPromptShortcut = <ThrowOnError extends boolean = fa
 /**
  * Update a public prompt shortcut; requires AGENTS_MANAGE
  */
-export const updatePublicChatPromptShortcut = <ThrowOnError extends boolean = false>(options: Options<UpdatePublicChatPromptShortcutData, ThrowOnError>): RequestResult<UpdatePublicChatPromptShortcutResponses, UpdatePublicChatPromptShortcutErrors, ThrowOnError> => (options.client ?? client).put<UpdatePublicChatPromptShortcutResponses, UpdatePublicChatPromptShortcutErrors, ThrowOnError>({
+export const updatePublicChatPromptShortcut = <ThrowOnError extends boolean = true>(options: Options<UpdatePublicChatPromptShortcutData, ThrowOnError>): RequestResult<UpdatePublicChatPromptShortcutResponses, UpdatePublicChatPromptShortcutErrors, ThrowOnError> => (options.client ?? client).put<UpdatePublicChatPromptShortcutResponses, UpdatePublicChatPromptShortcutErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1010,7 +1010,7 @@ export const updatePublicChatPromptShortcut = <ThrowOnError extends boolean = fa
 /**
  * Read whether the actor uses prompt shortcuts
  */
-export const getChatPromptShortcutPreferences = <ThrowOnError extends boolean = false>(options?: Options<GetChatPromptShortcutPreferencesData, ThrowOnError>): RequestResult<GetChatPromptShortcutPreferencesResponses, GetChatPromptShortcutPreferencesErrors, ThrowOnError> => (options?.client ?? client).get<GetChatPromptShortcutPreferencesResponses, GetChatPromptShortcutPreferencesErrors, ThrowOnError>({
+export const getChatPromptShortcutPreferences = <ThrowOnError extends boolean = true>(options?: Options<GetChatPromptShortcutPreferencesData, ThrowOnError>): RequestResult<GetChatPromptShortcutPreferencesResponses, GetChatPromptShortcutPreferencesErrors, ThrowOnError> => (options?.client ?? client).get<GetChatPromptShortcutPreferencesResponses, GetChatPromptShortcutPreferencesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1023,7 +1023,7 @@ export const getChatPromptShortcutPreferences = <ThrowOnError extends boolean = 
 /**
  * Enable or disable prompt shortcuts for the actor
  */
-export const setChatPromptShortcutPreferences = <ThrowOnError extends boolean = false>(options: Options<SetChatPromptShortcutPreferencesData, ThrowOnError>): RequestResult<SetChatPromptShortcutPreferencesResponses, SetChatPromptShortcutPreferencesErrors, ThrowOnError> => (options.client ?? client).put<SetChatPromptShortcutPreferencesResponses, SetChatPromptShortcutPreferencesErrors, ThrowOnError>({
+export const setChatPromptShortcutPreferences = <ThrowOnError extends boolean = true>(options: Options<SetChatPromptShortcutPreferencesData, ThrowOnError>): RequestResult<SetChatPromptShortcutPreferencesResponses, SetChatPromptShortcutPreferencesErrors, ThrowOnError> => (options.client ?? client).put<SetChatPromptShortcutPreferencesResponses, SetChatPromptShortcutPreferencesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1040,7 +1040,7 @@ export const setChatPromptShortcutPreferences = <ThrowOnError extends boolean = 
 /**
  * Delete a project and retain its conversations
  */
-export const deleteChatProject = <ThrowOnError extends boolean = false>(options: Options<DeleteChatProjectData, ThrowOnError>): RequestResult<DeleteChatProjectResponses, DeleteChatProjectErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatProjectResponses, DeleteChatProjectErrors, ThrowOnError>({
+export const deleteChatProject = <ThrowOnError extends boolean = true>(options: Options<DeleteChatProjectData, ThrowOnError>): RequestResult<DeleteChatProjectResponses, DeleteChatProjectErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatProjectResponses, DeleteChatProjectErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1053,7 +1053,7 @@ export const deleteChatProject = <ThrowOnError extends boolean = false>(options:
 /**
  * Read an owned project
  */
-export const getChatProject = <ThrowOnError extends boolean = false>(options: Options<GetChatProjectData, ThrowOnError>): RequestResult<GetChatProjectResponses, GetChatProjectErrors, ThrowOnError> => (options.client ?? client).get<GetChatProjectResponses, GetChatProjectErrors, ThrowOnError>({
+export const getChatProject = <ThrowOnError extends boolean = true>(options: Options<GetChatProjectData, ThrowOnError>): RequestResult<GetChatProjectResponses, GetChatProjectErrors, ThrowOnError> => (options.client ?? client).get<GetChatProjectResponses, GetChatProjectErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1066,7 +1066,7 @@ export const getChatProject = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Update project instructions with an expected revision
  */
-export const updateChatProject = <ThrowOnError extends boolean = false>(options: Options<UpdateChatProjectData, ThrowOnError>): RequestResult<UpdateChatProjectResponses, UpdateChatProjectErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatProjectResponses, UpdateChatProjectErrors, ThrowOnError>({
+export const updateChatProject = <ThrowOnError extends boolean = true>(options: Options<UpdateChatProjectData, ThrowOnError>): RequestResult<UpdateChatProjectResponses, UpdateChatProjectErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatProjectResponses, UpdateChatProjectErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1083,7 +1083,7 @@ export const updateChatProject = <ThrowOnError extends boolean = false>(options:
 /**
  * Read the current member's Chat preferences and login profile
  */
-export const getChatPreferences = <ThrowOnError extends boolean = false>(options?: Options<GetChatPreferencesData, ThrowOnError>): RequestResult<GetChatPreferencesResponses, GetChatPreferencesErrors, ThrowOnError> => (options?.client ?? client).get<GetChatPreferencesResponses, GetChatPreferencesErrors, ThrowOnError>({
+export const getChatPreferences = <ThrowOnError extends boolean = true>(options?: Options<GetChatPreferencesData, ThrowOnError>): RequestResult<GetChatPreferencesResponses, GetChatPreferencesErrors, ThrowOnError> => (options?.client ?? client).get<GetChatPreferencesResponses, GetChatPreferencesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1096,7 +1096,7 @@ export const getChatPreferences = <ThrowOnError extends boolean = false>(options
 /**
  * Replace the current member's Chat preferences
  */
-export const saveChatPreferences = <ThrowOnError extends boolean = false>(options: Options<SaveChatPreferencesData, ThrowOnError>): RequestResult<SaveChatPreferencesResponses, SaveChatPreferencesErrors, ThrowOnError> => (options.client ?? client).put<SaveChatPreferencesResponses, SaveChatPreferencesErrors, ThrowOnError>({
+export const saveChatPreferences = <ThrowOnError extends boolean = true>(options: Options<SaveChatPreferencesData, ThrowOnError>): RequestResult<SaveChatPreferencesResponses, SaveChatPreferencesErrors, ThrowOnError> => (options.client ?? client).put<SaveChatPreferencesResponses, SaveChatPreferencesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1113,7 +1113,7 @@ export const saveChatPreferences = <ThrowOnError extends boolean = false>(option
 /**
  * Delete an agent while retaining conversation history
  */
-export const deleteChatPersona = <ThrowOnError extends boolean = false>(options: Options<DeleteChatPersonaData, ThrowOnError>): RequestResult<DeleteChatPersonaResponses, DeleteChatPersonaErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatPersonaResponses, DeleteChatPersonaErrors, ThrowOnError>({
+export const deleteChatPersona = <ThrowOnError extends boolean = true>(options: Options<DeleteChatPersonaData, ThrowOnError>): RequestResult<DeleteChatPersonaResponses, DeleteChatPersonaErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatPersonaResponses, DeleteChatPersonaErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1126,7 +1126,7 @@ export const deleteChatPersona = <ThrowOnError extends boolean = false>(options:
 /**
  * Read the full snapshot of a usable agent
  */
-export const getChatPersona = <ThrowOnError extends boolean = false>(options: Options<GetChatPersonaData, ThrowOnError>): RequestResult<GetChatPersonaResponses, GetChatPersonaErrors, ThrowOnError> => (options.client ?? client).get<GetChatPersonaResponses, GetChatPersonaErrors, ThrowOnError>({
+export const getChatPersona = <ThrowOnError extends boolean = true>(options: Options<GetChatPersonaData, ThrowOnError>): RequestResult<GetChatPersonaResponses, GetChatPersonaErrors, ThrowOnError> => (options.client ?? client).get<GetChatPersonaResponses, GetChatPersonaErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1139,7 +1139,7 @@ export const getChatPersona = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Update agent settings with an expected revision
  */
-export const updateChatPersona = <ThrowOnError extends boolean = false>(options: Options<UpdateChatPersonaData, ThrowOnError>): RequestResult<UpdateChatPersonaResponses, UpdateChatPersonaErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatPersonaResponses, UpdateChatPersonaErrors, ThrowOnError>({
+export const updateChatPersona = <ThrowOnError extends boolean = true>(options: Options<UpdateChatPersonaData, ThrowOnError>): RequestResult<UpdateChatPersonaResponses, UpdateChatPersonaErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatPersonaResponses, UpdateChatPersonaErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1156,7 +1156,7 @@ export const updateChatPersona = <ThrowOnError extends boolean = false>(options:
 /**
  * Replace people and Group shares and, for owners, Tenant-wide visibility
  */
-export const shareChatPersona = <ThrowOnError extends boolean = false>(options: Options<ShareChatPersonaData, ThrowOnError>): RequestResult<ShareChatPersonaResponses, ShareChatPersonaErrors, ThrowOnError> => (options.client ?? client).put<ShareChatPersonaResponses, ShareChatPersonaErrors, ThrowOnError>({
+export const shareChatPersona = <ThrowOnError extends boolean = true>(options: Options<ShareChatPersonaData, ThrowOnError>): RequestResult<ShareChatPersonaResponses, ShareChatPersonaErrors, ThrowOnError> => (options.client ?? client).put<ShareChatPersonaResponses, ShareChatPersonaErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1173,7 +1173,7 @@ export const shareChatPersona = <ThrowOnError extends boolean = false>(options: 
 /**
  * Read the Persona model selection and revision; requires model management
  */
-export const getPersonaModel = <ThrowOnError extends boolean = false>(options: Options<GetPersonaModelData, ThrowOnError>): RequestResult<GetPersonaModelResponses, GetPersonaModelErrors, ThrowOnError> => (options.client ?? client).get<GetPersonaModelResponses, GetPersonaModelErrors, ThrowOnError>({
+export const getPersonaModel = <ThrowOnError extends boolean = true>(options: Options<GetPersonaModelData, ThrowOnError>): RequestResult<GetPersonaModelResponses, GetPersonaModelErrors, ThrowOnError> => (options.client ?? client).get<GetPersonaModelResponses, GetPersonaModelErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1186,7 +1186,7 @@ export const getPersonaModel = <ThrowOnError extends boolean = false>(options: O
 /**
  * Set a Persona model or omit the model ID to inherit the Chat default
  */
-export const setPersonaModel = <ThrowOnError extends boolean = false>(options: Options<SetPersonaModelData, ThrowOnError>): RequestResult<SetPersonaModelResponses, SetPersonaModelErrors, ThrowOnError> => (options.client ?? client).put<SetPersonaModelResponses, SetPersonaModelErrors, ThrowOnError>({
+export const setPersonaModel = <ThrowOnError extends boolean = true>(options: Options<SetPersonaModelData, ThrowOnError>): RequestResult<SetPersonaModelResponses, SetPersonaModelErrors, ThrowOnError> => (options.client ?? client).put<SetPersonaModelResponses, SetPersonaModelErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1199,7 +1199,7 @@ export const setPersonaModel = <ThrowOnError extends boolean = false>(options: O
 /**
  * Set listed, featured and display priority; requires AGENTS_MANAGE
  */
-export const setChatPersonaListing = <ThrowOnError extends boolean = false>(options: Options<SetChatPersonaListingData, ThrowOnError>): RequestResult<SetChatPersonaListingResponses, SetChatPersonaListingErrors, ThrowOnError> => (options.client ?? client).put<SetChatPersonaListingResponses, SetChatPersonaListingErrors, ThrowOnError>({
+export const setChatPersonaListing = <ThrowOnError extends boolean = true>(options: Options<SetChatPersonaListingData, ThrowOnError>): RequestResult<SetChatPersonaListingResponses, SetChatPersonaListingErrors, ThrowOnError> => (options.client ?? client).put<SetChatPersonaListingResponses, SetChatPersonaListingErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1216,7 +1216,7 @@ export const setChatPersonaListing = <ThrowOnError extends boolean = false>(opti
 /**
  * List the actor's pinned agents in order
  */
-export const listChatPersonaPins = <ThrowOnError extends boolean = false>(options?: Options<ListChatPersonaPinsData, ThrowOnError>): RequestResult<ListChatPersonaPinsResponses, ListChatPersonaPinsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPersonaPinsResponses, ListChatPersonaPinsErrors, ThrowOnError>({
+export const listChatPersonaPins = <ThrowOnError extends boolean = true>(options?: Options<ListChatPersonaPinsData, ThrowOnError>): RequestResult<ListChatPersonaPinsResponses, ListChatPersonaPinsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPersonaPinsResponses, ListChatPersonaPinsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1229,7 +1229,7 @@ export const listChatPersonaPins = <ThrowOnError extends boolean = false>(option
 /**
  * Replace the actor's ordered pinned agents
  */
-export const replaceChatPersonaPins = <ThrowOnError extends boolean = false>(options: Options<ReplaceChatPersonaPinsData, ThrowOnError>): RequestResult<ReplaceChatPersonaPinsResponses, ReplaceChatPersonaPinsErrors, ThrowOnError> => (options.client ?? client).put<ReplaceChatPersonaPinsResponses, ReplaceChatPersonaPinsErrors, ThrowOnError>({
+export const replaceChatPersonaPins = <ThrowOnError extends boolean = true>(options: Options<ReplaceChatPersonaPinsData, ThrowOnError>): RequestResult<ReplaceChatPersonaPinsResponses, ReplaceChatPersonaPinsErrors, ThrowOnError> => (options.client ?? client).put<ReplaceChatPersonaPinsResponses, ReplaceChatPersonaPinsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1246,7 +1246,7 @@ export const replaceChatPersonaPins = <ThrowOnError extends boolean = false>(opt
 /**
  * Set display priorities from one ordered list; requires AGENTS_MANAGE
  */
-export const reorderChatPersonas = <ThrowOnError extends boolean = false>(options: Options<ReorderChatPersonasData, ThrowOnError>): RequestResult<ReorderChatPersonasResponses, ReorderChatPersonasErrors, ThrowOnError> => (options.client ?? client).put<ReorderChatPersonasResponses, ReorderChatPersonasErrors, ThrowOnError>({
+export const reorderChatPersonas = <ThrowOnError extends boolean = true>(options: Options<ReorderChatPersonasData, ThrowOnError>): RequestResult<ReorderChatPersonasResponses, ReorderChatPersonasErrors, ThrowOnError> => (options.client ?? client).put<ReorderChatPersonasResponses, ReorderChatPersonasErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1263,7 +1263,7 @@ export const reorderChatPersonas = <ThrowOnError extends boolean = false>(option
 /**
  * Delete an agent label; requires AGENTS_MANAGE
  */
-export const deleteChatPersonaLabel = <ThrowOnError extends boolean = false>(options: Options<DeleteChatPersonaLabelData, ThrowOnError>): RequestResult<DeleteChatPersonaLabelResponses, DeleteChatPersonaLabelErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatPersonaLabelResponses, DeleteChatPersonaLabelErrors, ThrowOnError>({
+export const deleteChatPersonaLabel = <ThrowOnError extends boolean = true>(options: Options<DeleteChatPersonaLabelData, ThrowOnError>): RequestResult<DeleteChatPersonaLabelResponses, DeleteChatPersonaLabelErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatPersonaLabelResponses, DeleteChatPersonaLabelErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1276,7 +1276,7 @@ export const deleteChatPersonaLabel = <ThrowOnError extends boolean = false>(opt
 /**
  * Rename an agent label; requires AGENTS_MANAGE
  */
-export const renameChatPersonaLabel = <ThrowOnError extends boolean = false>(options: Options<RenameChatPersonaLabelData, ThrowOnError>): RequestResult<RenameChatPersonaLabelResponses, RenameChatPersonaLabelErrors, ThrowOnError> => (options.client ?? client).put<RenameChatPersonaLabelResponses, RenameChatPersonaLabelErrors, ThrowOnError>({
+export const renameChatPersonaLabel = <ThrowOnError extends boolean = true>(options: Options<RenameChatPersonaLabelData, ThrowOnError>): RequestResult<RenameChatPersonaLabelResponses, RenameChatPersonaLabelErrors, ThrowOnError> => (options.client ?? client).put<RenameChatPersonaLabelResponses, RenameChatPersonaLabelErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1293,7 +1293,7 @@ export const renameChatPersonaLabel = <ThrowOnError extends boolean = false>(opt
 /**
  * Delete a non-default model and clear its Persona defaults; transcript is preserved
  */
-export const deleteChatModel = <ThrowOnError extends boolean = false>(options: Options<DeleteChatModelData, ThrowOnError>): RequestResult<DeleteChatModelResponses, DeleteChatModelErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatModelResponses, DeleteChatModelErrors, ThrowOnError>({
+export const deleteChatModel = <ThrowOnError extends boolean = true>(options: Options<DeleteChatModelData, ThrowOnError>): RequestResult<DeleteChatModelResponses, DeleteChatModelErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatModelResponses, DeleteChatModelErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1306,7 +1306,7 @@ export const deleteChatModel = <ThrowOnError extends boolean = false>(options: O
 /**
  * Replace a model configuration at the expected revision
  */
-export const updateChatModel = <ThrowOnError extends boolean = false>(options: Options<UpdateChatModelData, ThrowOnError>): RequestResult<UpdateChatModelResponses, UpdateChatModelErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatModelResponses, UpdateChatModelErrors, ThrowOnError>({
+export const updateChatModel = <ThrowOnError extends boolean = true>(options: Options<UpdateChatModelData, ThrowOnError>): RequestResult<UpdateChatModelResponses, UpdateChatModelErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatModelResponses, UpdateChatModelErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1323,7 +1323,7 @@ export const updateChatModel = <ThrowOnError extends boolean = false>(options: O
 /**
  * Set a visible, publicly available task model, or omit the model ID to use the conversation model
  */
-export const setChatModelFlow = <ThrowOnError extends boolean = false>(options: Options<SetChatModelFlowData, ThrowOnError>): RequestResult<SetChatModelFlowResponses, SetChatModelFlowErrors, ThrowOnError> => (options.client ?? client).put<SetChatModelFlowResponses, SetChatModelFlowErrors, ThrowOnError>({
+export const setChatModelFlow = <ThrowOnError extends boolean = true>(options: Options<SetChatModelFlowData, ThrowOnError>): RequestResult<SetChatModelFlowResponses, SetChatModelFlowErrors, ThrowOnError> => (options.client ?? client).put<SetChatModelFlowResponses, SetChatModelFlowErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1336,7 +1336,7 @@ export const setChatModelFlow = <ThrowOnError extends boolean = false>(options: 
 /**
  * Read the Tenant Chat default and its revision; requires model management
  */
-export const getChatModelDefault = <ThrowOnError extends boolean = false>(options?: Options<GetChatModelDefaultData, ThrowOnError>): RequestResult<GetChatModelDefaultResponses, GetChatModelDefaultErrors, ThrowOnError> => (options?.client ?? client).get<GetChatModelDefaultResponses, GetChatModelDefaultErrors, ThrowOnError>({
+export const getChatModelDefault = <ThrowOnError extends boolean = true>(options?: Options<GetChatModelDefaultData, ThrowOnError>): RequestResult<GetChatModelDefaultResponses, GetChatModelDefaultErrors, ThrowOnError> => (options?.client ?? client).get<GetChatModelDefaultResponses, GetChatModelDefaultErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1349,7 +1349,7 @@ export const getChatModelDefault = <ThrowOnError extends boolean = false>(option
 /**
  * Set a visible, publicly available Tenant Chat default
  */
-export const setChatModelDefault = <ThrowOnError extends boolean = false>(options: Options<SetChatModelDefaultData, ThrowOnError>): RequestResult<SetChatModelDefaultResponses, SetChatModelDefaultErrors, ThrowOnError> => (options.client ?? client).put<SetChatModelDefaultResponses, SetChatModelDefaultErrors, ThrowOnError>({
+export const setChatModelDefault = <ThrowOnError extends boolean = true>(options: Options<SetChatModelDefaultData, ThrowOnError>): RequestResult<SetChatModelDefaultResponses, SetChatModelDefaultErrors, ThrowOnError> => (options.client ?? client).put<SetChatModelDefaultResponses, SetChatModelDefaultErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1362,7 +1362,7 @@ export const setChatModelDefault = <ThrowOnError extends boolean = false>(option
 /**
  * Read whether Code Interpreter is configured and enabled for the Tenant
  */
-export const getChatInterpreterSettings = <ThrowOnError extends boolean = false>(options?: Options<GetChatInterpreterSettingsData, ThrowOnError>): RequestResult<GetChatInterpreterSettingsResponses, GetChatInterpreterSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetChatInterpreterSettingsResponses, GetChatInterpreterSettingsErrors, ThrowOnError>({
+export const getChatInterpreterSettings = <ThrowOnError extends boolean = true>(options?: Options<GetChatInterpreterSettingsData, ThrowOnError>): RequestResult<GetChatInterpreterSettingsResponses, GetChatInterpreterSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetChatInterpreterSettingsResponses, GetChatInterpreterSettingsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1375,7 +1375,7 @@ export const getChatInterpreterSettings = <ThrowOnError extends boolean = false>
 /**
  * Enable or disable Code Interpreter for the Tenant
  */
-export const updateChatInterpreterSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateChatInterpreterSettingsData, ThrowOnError>): RequestResult<UpdateChatInterpreterSettingsResponses, UpdateChatInterpreterSettingsErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatInterpreterSettingsResponses, UpdateChatInterpreterSettingsErrors, ThrowOnError>({
+export const updateChatInterpreterSettings = <ThrowOnError extends boolean = true>(options: Options<UpdateChatInterpreterSettingsData, ThrowOnError>): RequestResult<UpdateChatInterpreterSettingsResponses, UpdateChatInterpreterSettingsErrors, ThrowOnError> => (options.client ?? client).put<UpdateChatInterpreterSettingsResponses, UpdateChatInterpreterSettingsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1392,7 +1392,7 @@ export const updateChatInterpreterSettings = <ThrowOnError extends boolean = fal
 /**
  * Select the image provider; null disables image generation
  */
-export const selectChatImageProvider = <ThrowOnError extends boolean = false>(options: Options<SelectChatImageProviderData, ThrowOnError>): RequestResult<SelectChatImageProviderResponses, SelectChatImageProviderErrors, ThrowOnError> => (options.client ?? client).put<SelectChatImageProviderResponses, SelectChatImageProviderErrors, ThrowOnError>({
+export const selectChatImageProvider = <ThrowOnError extends boolean = true>(options: Options<SelectChatImageProviderData, ThrowOnError>): RequestResult<SelectChatImageProviderResponses, SelectChatImageProviderErrors, ThrowOnError> => (options.client ?? client).put<SelectChatImageProviderResponses, SelectChatImageProviderErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1409,7 +1409,7 @@ export const selectChatImageProvider = <ThrowOnError extends boolean = false>(op
 /**
  * Configure one image connection without automatically enabling it
  */
-export const saveChatImageConnection = <ThrowOnError extends boolean = false>(options: Options<SaveChatImageConnectionData, ThrowOnError>): RequestResult<SaveChatImageConnectionResponses, SaveChatImageConnectionErrors, ThrowOnError> => (options.client ?? client).put<SaveChatImageConnectionResponses, SaveChatImageConnectionErrors, ThrowOnError>({
+export const saveChatImageConnection = <ThrowOnError extends boolean = true>(options: Options<SaveChatImageConnectionData, ThrowOnError>): RequestResult<SaveChatImageConnectionResponses, SaveChatImageConnectionErrors, ThrowOnError> => (options.client ?? client).put<SaveChatImageConnectionResponses, SaveChatImageConnectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1426,7 +1426,7 @@ export const saveChatImageConnection = <ThrowOnError extends boolean = false>(op
 /**
  * Soft-delete a Document Set and detach it from agents
  */
-export const deleteDocumentSet = <ThrowOnError extends boolean = false>(options: Options<DeleteDocumentSetData, ThrowOnError>): RequestResult<DeleteDocumentSetResponses, DeleteDocumentSetErrors, ThrowOnError> => (options.client ?? client).delete<DeleteDocumentSetResponses, DeleteDocumentSetErrors, ThrowOnError>({
+export const deleteDocumentSet = <ThrowOnError extends boolean = true>(options: Options<DeleteDocumentSetData, ThrowOnError>): RequestResult<DeleteDocumentSetResponses, DeleteDocumentSetErrors, ThrowOnError> => (options.client ?? client).delete<DeleteDocumentSetResponses, DeleteDocumentSetErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1439,7 +1439,7 @@ export const deleteDocumentSet = <ThrowOnError extends boolean = false>(options:
 /**
  * Read a usable Document Set
  */
-export const getDocumentSet = <ThrowOnError extends boolean = false>(options: Options<GetDocumentSetData, ThrowOnError>): RequestResult<GetDocumentSetResponses, GetDocumentSetErrors, ThrowOnError> => (options.client ?? client).get<GetDocumentSetResponses, GetDocumentSetErrors, ThrowOnError>({
+export const getDocumentSet = <ThrowOnError extends boolean = true>(options: Options<GetDocumentSetData, ThrowOnError>): RequestResult<GetDocumentSetResponses, GetDocumentSetErrors, ThrowOnError> => (options.client ?? client).get<GetDocumentSetResponses, GetDocumentSetErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1452,7 +1452,7 @@ export const getDocumentSet = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Update a Document Set with an expected revision
  */
-export const updateDocumentSet = <ThrowOnError extends boolean = false>(options: Options<UpdateDocumentSetData, ThrowOnError>): RequestResult<UpdateDocumentSetResponses, UpdateDocumentSetErrors, ThrowOnError> => (options.client ?? client).put<UpdateDocumentSetResponses, UpdateDocumentSetErrors, ThrowOnError>({
+export const updateDocumentSet = <ThrowOnError extends boolean = true>(options: Options<UpdateDocumentSetData, ThrowOnError>): RequestResult<UpdateDocumentSetResponses, UpdateDocumentSetErrors, ThrowOnError> => (options.client ?? client).put<UpdateDocumentSetResponses, UpdateDocumentSetErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1469,7 +1469,7 @@ export const updateDocumentSet = <ThrowOnError extends boolean = false>(options:
 /**
  * Replace direct people and ordinary Group viewers
  */
-export const shareDocumentSet = <ThrowOnError extends boolean = false>(options: Options<ShareDocumentSetData, ThrowOnError>): RequestResult<ShareDocumentSetResponses, ShareDocumentSetErrors, ThrowOnError> => (options.client ?? client).put<ShareDocumentSetResponses, ShareDocumentSetErrors, ThrowOnError>({
+export const shareDocumentSet = <ThrowOnError extends boolean = true>(options: Options<ShareDocumentSetData, ThrowOnError>): RequestResult<ShareDocumentSetResponses, ShareDocumentSetErrors, ThrowOnError> => (options.client ?? client).put<ShareDocumentSetResponses, ShareDocumentSetErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1486,7 +1486,7 @@ export const shareDocumentSet = <ThrowOnError extends boolean = false>(options: 
 /**
  * Removes a limit; requires model management
  */
-export const deleteAiUsageLimit = <ThrowOnError extends boolean = false>(options: Options<DeleteAiUsageLimitData, ThrowOnError>): RequestResult<DeleteAiUsageLimitResponses, DeleteAiUsageLimitErrors, ThrowOnError> => (options.client ?? client).delete<DeleteAiUsageLimitResponses, DeleteAiUsageLimitErrors, ThrowOnError>({
+export const deleteAiUsageLimit = <ThrowOnError extends boolean = true>(options: Options<DeleteAiUsageLimitData, ThrowOnError>): RequestResult<DeleteAiUsageLimitResponses, DeleteAiUsageLimitErrors, ThrowOnError> => (options.client ?? client).delete<DeleteAiUsageLimitResponses, DeleteAiUsageLimitErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1499,7 +1499,7 @@ export const deleteAiUsageLimit = <ThrowOnError extends boolean = false>(options
 /**
  * Changes a limit's budgets, period or switch; who it applies to is fixed. Requires model management
  */
-export const updateAiUsageLimit = <ThrowOnError extends boolean = false>(options: Options<UpdateAiUsageLimitData, ThrowOnError>): RequestResult<UpdateAiUsageLimitResponses, UpdateAiUsageLimitErrors, ThrowOnError> => (options.client ?? client).put<UpdateAiUsageLimitResponses, UpdateAiUsageLimitErrors, ThrowOnError>({
+export const updateAiUsageLimit = <ThrowOnError extends boolean = true>(options: Options<UpdateAiUsageLimitData, ThrowOnError>): RequestResult<UpdateAiUsageLimitResponses, UpdateAiUsageLimitErrors, ThrowOnError> => (options.client ?? client).put<UpdateAiUsageLimitResponses, UpdateAiUsageLimitErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1516,7 +1516,7 @@ export const updateAiUsageLimit = <ThrowOnError extends boolean = false>(options
 /**
  * Replace a user's ordinary Group memberships
  */
-export const replaceUserGroups = <ThrowOnError extends boolean = false>(options: Options<ReplaceUserGroupsData, ThrowOnError>): RequestResult<ReplaceUserGroupsResponses, ReplaceUserGroupsErrors, ThrowOnError> => (options.client ?? client).post<ReplaceUserGroupsResponses, ReplaceUserGroupsErrors, ThrowOnError>({
+export const replaceUserGroups = <ThrowOnError extends boolean = true>(options: Options<ReplaceUserGroupsData, ThrowOnError>): RequestResult<ReplaceUserGroupsResponses, ReplaceUserGroupsErrors, ThrowOnError> => (options.client ?? client).post<ReplaceUserGroupsResponses, ReplaceUserGroupsErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'SESSION',
@@ -1533,7 +1533,7 @@ export const replaceUserGroups = <ThrowOnError extends boolean = false>(options:
 /**
  * Deactivate an existing Tenant member
  */
-export const deactivateUser = <ThrowOnError extends boolean = false>(options: Options<DeactivateUserData, ThrowOnError>): RequestResult<DeactivateUserResponses, DeactivateUserErrors, ThrowOnError> => (options.client ?? client).post<DeactivateUserResponses, DeactivateUserErrors, ThrowOnError>({
+export const deactivateUser = <ThrowOnError extends boolean = true>(options: Options<DeactivateUserData, ThrowOnError>): RequestResult<DeactivateUserResponses, DeactivateUserErrors, ThrowOnError> => (options.client ?? client).post<DeactivateUserResponses, DeactivateUserErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'SESSION',
@@ -1546,7 +1546,7 @@ export const deactivateUser = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Activate an existing Tenant member
  */
-export const activateUser = <ThrowOnError extends boolean = false>(options: Options<ActivateUserData, ThrowOnError>): RequestResult<ActivateUserResponses, ActivateUserErrors, ThrowOnError> => (options.client ?? client).post<ActivateUserResponses, ActivateUserErrors, ThrowOnError>({
+export const activateUser = <ThrowOnError extends boolean = true>(options: Options<ActivateUserData, ThrowOnError>): RequestResult<ActivateUserResponses, ActivateUserErrors, ThrowOnError> => (options.client ?? client).post<ActivateUserResponses, ActivateUserErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'SESSION',
@@ -1559,7 +1559,7 @@ export const activateUser = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * Authorize one direct FILE source upload
  */
-export const initiateSourceUpload = <ThrowOnError extends boolean = false>(options: Options<InitiateSourceUploadData, ThrowOnError>): RequestResult<InitiateSourceUploadResponses, unknown, ThrowOnError> => (options.client ?? client).post<InitiateSourceUploadResponses, unknown, ThrowOnError>({
+export const initiateSourceUpload = <ThrowOnError extends boolean = true>(options: Options<InitiateSourceUploadData, ThrowOnError>): RequestResult<InitiateSourceUploadResponses, unknown, ThrowOnError> => (options.client ?? client).post<InitiateSourceUploadResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1576,7 +1576,7 @@ export const initiateSourceUpload = <ThrowOnError extends boolean = false>(optio
 /**
  * Verify and adopt one direct FILE source upload
  */
-export const finalizeSourceUpload = <ThrowOnError extends boolean = false>(options: Options<FinalizeSourceUploadData, ThrowOnError>): RequestResult<FinalizeSourceUploadResponses, unknown, ThrowOnError> => (options.client ?? client).post<FinalizeSourceUploadResponses, unknown, ThrowOnError>({
+export const finalizeSourceUpload = <ThrowOnError extends boolean = true>(options: Options<FinalizeSourceUploadData, ThrowOnError>): RequestResult<FinalizeSourceUploadResponses, unknown, ThrowOnError> => (options.client ?? client).post<FinalizeSourceUploadResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1589,7 +1589,7 @@ export const finalizeSourceUpload = <ThrowOnError extends boolean = false>(optio
 /**
  * Schedule a synchronization run now
  */
-export const synchronizeSharePointSource = <ThrowOnError extends boolean = false>(options: Options<SynchronizeSharePointSourceData, ThrowOnError>): RequestResult<SynchronizeSharePointSourceResponses, SynchronizeSharePointSourceErrors, ThrowOnError> => (options.client ?? client).post<SynchronizeSharePointSourceResponses, SynchronizeSharePointSourceErrors, ThrowOnError>({
+export const synchronizeSharePointSource = <ThrowOnError extends boolean = true>(options: Options<SynchronizeSharePointSourceData, ThrowOnError>): RequestResult<SynchronizeSharePointSourceResponses, SynchronizeSharePointSourceErrors, ThrowOnError> => (options.client ?? client).post<SynchronizeSharePointSourceResponses, SynchronizeSharePointSourceErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1602,7 +1602,7 @@ export const synchronizeSharePointSource = <ThrowOnError extends boolean = false
 /**
  * Pause or resume future automatic synchronization
  */
-export const updateSharePointPause = <ThrowOnError extends boolean = false>(options: Options<UpdateSharePointPauseData, ThrowOnError>): RequestResult<UpdateSharePointPauseResponses, UpdateSharePointPauseErrors, ThrowOnError> => (options.client ?? client).post<UpdateSharePointPauseResponses, UpdateSharePointPauseErrors, ThrowOnError>({
+export const updateSharePointPause = <ThrowOnError extends boolean = true>(options: Options<UpdateSharePointPauseData, ThrowOnError>): RequestResult<UpdateSharePointPauseResponses, UpdateSharePointPauseErrors, ThrowOnError> => (options.client ?? client).post<UpdateSharePointPauseResponses, UpdateSharePointPauseErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1619,7 +1619,7 @@ export const updateSharePointPause = <ThrowOnError extends boolean = false>(opti
 /**
  * Resume sync and indexing work for one paused source
  */
-export const resumeSource = <ThrowOnError extends boolean = false>(options: Options<ResumeSourceData, ThrowOnError>): RequestResult<ResumeSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<ResumeSourceResponses, unknown, ThrowOnError>({
+export const resumeSource = <ThrowOnError extends boolean = true>(options: Options<ResumeSourceData, ThrowOnError>): RequestResult<ResumeSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<ResumeSourceResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1632,7 +1632,7 @@ export const resumeSource = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * Rename one source
  */
-export const renameSource = <ThrowOnError extends boolean = false>(options: Options<RenameSourceData, ThrowOnError>): RequestResult<RenameSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<RenameSourceResponses, unknown, ThrowOnError>({
+export const renameSource = <ThrowOnError extends boolean = true>(options: Options<RenameSourceData, ThrowOnError>): RequestResult<RenameSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<RenameSourceResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1649,7 +1649,7 @@ export const renameSource = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * Pause new sync and indexing work for one source
  */
-export const pauseSource = <ThrowOnError extends boolean = false>(options: Options<PauseSourceData, ThrowOnError>): RequestResult<PauseSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<PauseSourceResponses, unknown, ThrowOnError>({
+export const pauseSource = <ThrowOnError extends boolean = true>(options: Options<PauseSourceData, ThrowOnError>): RequestResult<PauseSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<PauseSourceResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1664,7 +1664,7 @@ export const pauseSource = <ThrowOnError extends boolean = false>(options: Optio
  *
  * Administrator only. The appointed actor must manage at least one ordinary group and may then attach the source to those groups.
  */
-export const assignSourceManager = <ThrowOnError extends boolean = false>(options: Options<AssignSourceManagerData, ThrowOnError>): RequestResult<AssignSourceManagerResponses, unknown, ThrowOnError> => (options.client ?? client).post<AssignSourceManagerResponses, unknown, ThrowOnError>({
+export const assignSourceManager = <ThrowOnError extends boolean = true>(options: Options<AssignSourceManagerData, ThrowOnError>): RequestResult<AssignSourceManagerResponses, unknown, ThrowOnError> => (options.client ?? client).post<AssignSourceManagerResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1681,7 +1681,7 @@ export const assignSourceManager = <ThrowOnError extends boolean = false>(option
 /**
  * Start durable source item removal
  */
-export const removeSourceItem = <ThrowOnError extends boolean = false>(options: Options<RemoveSourceItemData, ThrowOnError>): RequestResult<RemoveSourceItemResponses, unknown, ThrowOnError> => (options.client ?? client).post<RemoveSourceItemResponses, unknown, ThrowOnError>({
+export const removeSourceItem = <ThrowOnError extends boolean = true>(options: Options<RemoveSourceItemData, ThrowOnError>): RequestResult<RemoveSourceItemResponses, unknown, ThrowOnError> => (options.client ?? client).post<RemoveSourceItemResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1694,7 +1694,7 @@ export const removeSourceItem = <ThrowOnError extends boolean = false>(options: 
 /**
  * Reindex one source item
  */
-export const reindexSourceItem = <ThrowOnError extends boolean = false>(options: Options<ReindexSourceItemData, ThrowOnError>): RequestResult<ReindexSourceItemResponses, unknown, ThrowOnError> => (options.client ?? client).post<ReindexSourceItemResponses, unknown, ThrowOnError>({
+export const reindexSourceItem = <ThrowOnError extends boolean = true>(options: Options<ReindexSourceItemData, ThrowOnError>): RequestResult<ReindexSourceItemResponses, unknown, ThrowOnError> => (options.client ?? client).post<ReindexSourceItemResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1707,7 +1707,7 @@ export const reindexSourceItem = <ThrowOnError extends boolean = false>(options:
 /**
  * List groups associated with one source
  */
-export const listSourceGroups = <ThrowOnError extends boolean = false>(options: Options<ListSourceGroupsData, ThrowOnError>): RequestResult<ListSourceGroupsResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListSourceGroupsResponses, unknown, ThrowOnError>({
+export const listSourceGroups = <ThrowOnError extends boolean = true>(options: Options<ListSourceGroupsData, ThrowOnError>): RequestResult<ListSourceGroupsResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListSourceGroupsResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1720,7 +1720,7 @@ export const listSourceGroups = <ThrowOnError extends boolean = false>(options: 
 /**
  * Replace groups associated with one source
  */
-export const updateSourceGroups = <ThrowOnError extends boolean = false>(options: Options<UpdateSourceGroupsData, ThrowOnError>): RequestResult<UpdateSourceGroupsResponses, unknown, ThrowOnError> => (options.client ?? client).post<UpdateSourceGroupsResponses, unknown, ThrowOnError>({
+export const updateSourceGroups = <ThrowOnError extends boolean = true>(options: Options<UpdateSourceGroupsData, ThrowOnError>): RequestResult<UpdateSourceGroupsResponses, unknown, ThrowOnError> => (options.client ?? client).post<UpdateSourceGroupsResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1737,7 +1737,7 @@ export const updateSourceGroups = <ThrowOnError extends boolean = false>(options
 /**
  * Schedule durable Google Drive synchronization
  */
-export const synchronizeGoogleDriveSource = <ThrowOnError extends boolean = false>(options: Options<SynchronizeGoogleDriveSourceData, ThrowOnError>): RequestResult<SynchronizeGoogleDriveSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<SynchronizeGoogleDriveSourceResponses, unknown, ThrowOnError>({
+export const synchronizeGoogleDriveSource = <ThrowOnError extends boolean = true>(options: Options<SynchronizeGoogleDriveSourceData, ThrowOnError>): RequestResult<SynchronizeGoogleDriveSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<SynchronizeGoogleDriveSourceResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1750,7 +1750,7 @@ export const synchronizeGoogleDriveSource = <ThrowOnError extends boolean = fals
 /**
  * Pause or resume future automatic Google Drive synchronization
  */
-export const updateGoogleDrivePause = <ThrowOnError extends boolean = false>(options: Options<UpdateGoogleDrivePauseData, ThrowOnError>): RequestResult<UpdateGoogleDrivePauseResponses, unknown, ThrowOnError> => (options.client ?? client).post<UpdateGoogleDrivePauseResponses, unknown, ThrowOnError>({
+export const updateGoogleDrivePause = <ThrowOnError extends boolean = true>(options: Options<UpdateGoogleDrivePauseData, ThrowOnError>): RequestResult<UpdateGoogleDrivePauseResponses, unknown, ThrowOnError> => (options.client ?? client).post<UpdateGoogleDrivePauseResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1767,7 +1767,7 @@ export const updateGoogleDrivePause = <ThrowOnError extends boolean = false>(opt
 /**
  * Discover linked documents without approving or synchronizing them
  */
-export const discoverGoogleDriveLinkedDocuments = <ThrowOnError extends boolean = false>(options: Options<DiscoverGoogleDriveLinkedDocumentsData, ThrowOnError>): RequestResult<DiscoverGoogleDriveLinkedDocumentsResponses, unknown, ThrowOnError> => (options.client ?? client).post<DiscoverGoogleDriveLinkedDocumentsResponses, unknown, ThrowOnError>({
+export const discoverGoogleDriveLinkedDocuments = <ThrowOnError extends boolean = true>(options: Options<DiscoverGoogleDriveLinkedDocumentsData, ThrowOnError>): RequestResult<DiscoverGoogleDriveLinkedDocumentsResponses, unknown, ThrowOnError> => (options.client ?? client).post<DiscoverGoogleDriveLinkedDocumentsResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1780,7 +1780,7 @@ export const discoverGoogleDriveLinkedDocuments = <ThrowOnError extends boolean 
 /**
  * Start durable source deletion
  */
-export const deleteSource = <ThrowOnError extends boolean = false>(options: Options<DeleteSourceData, ThrowOnError>): RequestResult<DeleteSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<DeleteSourceResponses, unknown, ThrowOnError>({
+export const deleteSource = <ThrowOnError extends boolean = true>(options: Options<DeleteSourceData, ThrowOnError>): RequestResult<DeleteSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<DeleteSourceResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1793,7 +1793,7 @@ export const deleteSource = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * Update Source access; SYNC requires a Google Drive source
  */
-export const updateSourceAccess = <ThrowOnError extends boolean = false>(options: Options<UpdateSourceAccessData, ThrowOnError>): RequestResult<UpdateSourceAccessResponses, unknown, ThrowOnError> => (options.client ?? client).post<UpdateSourceAccessResponses, unknown, ThrowOnError>({
+export const updateSourceAccess = <ThrowOnError extends boolean = true>(options: Options<UpdateSourceAccessData, ThrowOnError>): RequestResult<UpdateSourceAccessResponses, unknown, ThrowOnError> => (options.client ?? client).post<UpdateSourceAccessResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1810,7 +1810,7 @@ export const updateSourceAccess = <ThrowOnError extends boolean = false>(options
 /**
  * Create a SharePoint source; its scope is verified with Microsoft before it takes effect
  */
-export const createSharePointSource = <ThrowOnError extends boolean = false>(options: Options<CreateSharePointSourceData, ThrowOnError>): RequestResult<CreateSharePointSourceResponses, CreateSharePointSourceErrors, ThrowOnError> => (options.client ?? client).post<CreateSharePointSourceResponses, CreateSharePointSourceErrors, ThrowOnError>({
+export const createSharePointSource = <ThrowOnError extends boolean = true>(options: Options<CreateSharePointSourceData, ThrowOnError>): RequestResult<CreateSharePointSourceResponses, CreateSharePointSourceErrors, ThrowOnError> => (options.client ?? client).post<CreateSharePointSourceResponses, CreateSharePointSourceErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1827,7 +1827,7 @@ export const createSharePointSource = <ThrowOnError extends boolean = false>(opt
 /**
  * Create a Google Drive source using a reusable credential
  */
-export const createGoogleDriveSource = <ThrowOnError extends boolean = false>(options: Options<CreateGoogleDriveSourceData, ThrowOnError>): RequestResult<CreateGoogleDriveSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<CreateGoogleDriveSourceResponses, unknown, ThrowOnError>({
+export const createGoogleDriveSource = <ThrowOnError extends boolean = true>(options: Options<CreateGoogleDriveSourceData, ThrowOnError>): RequestResult<CreateGoogleDriveSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<CreateGoogleDriveSourceResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1844,7 +1844,7 @@ export const createGoogleDriveSource = <ThrowOnError extends boolean = false>(op
 /**
  * Create a Tenant-owned FILE source
  */
-export const createFileSource = <ThrowOnError extends boolean = false>(options: Options<CreateFileSourceData, ThrowOnError>): RequestResult<CreateFileSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<CreateFileSourceResponses, unknown, ThrowOnError>({
+export const createFileSource = <ThrowOnError extends boolean = true>(options: Options<CreateFileSourceData, ThrowOnError>): RequestResult<CreateFileSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<CreateFileSourceResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1861,7 +1861,7 @@ export const createFileSource = <ThrowOnError extends boolean = false>(options: 
 /**
  * Search current documents with keyword and semantic retrieval
  */
-export const searchDocuments = <ThrowOnError extends boolean = false>(options: Options<SearchDocumentsData, ThrowOnError>): RequestResult<SearchDocumentsResponses, unknown, ThrowOnError> => (options.client ?? client).post<SearchDocumentsResponses, unknown, ThrowOnError>({
+export const searchDocuments = <ThrowOnError extends boolean = true>(options: Options<SearchDocumentsData, ThrowOnError>): RequestResult<SearchDocumentsResponses, unknown, ThrowOnError> => (options.client ?? client).post<SearchDocumentsResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1878,7 +1878,7 @@ export const searchDocuments = <ThrowOnError extends boolean = false>(options: O
 /**
  * Make a retained past generation present again
  */
-export const restoreSearchPastGeneration = <ThrowOnError extends boolean = false>(options: Options<RestoreSearchPastGenerationData, ThrowOnError>): RequestResult<RestoreSearchPastGenerationResponses, RestoreSearchPastGenerationErrors, ThrowOnError> => (options.client ?? client).post<RestoreSearchPastGenerationResponses, RestoreSearchPastGenerationErrors, ThrowOnError>({
+export const restoreSearchPastGeneration = <ThrowOnError extends boolean = true>(options: Options<RestoreSearchPastGenerationData, ThrowOnError>): RequestResult<RestoreSearchPastGenerationResponses, RestoreSearchPastGenerationErrors, ThrowOnError> => (options.client ?? client).post<RestoreSearchPastGenerationResponses, RestoreSearchPastGenerationErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1891,7 +1891,7 @@ export const restoreSearchPastGeneration = <ThrowOnError extends boolean = false
 /**
  * Cancel the rebuild and delete the future generation's index
  */
-export const cancelSearchFutureGeneration = <ThrowOnError extends boolean = false>(options: Options<CancelSearchFutureGenerationData, ThrowOnError>): RequestResult<CancelSearchFutureGenerationResponses, CancelSearchFutureGenerationErrors, ThrowOnError> => (options.client ?? client).delete<CancelSearchFutureGenerationResponses, CancelSearchFutureGenerationErrors, ThrowOnError>({
+export const cancelSearchFutureGeneration = <ThrowOnError extends boolean = true>(options?: Options<CancelSearchFutureGenerationData, ThrowOnError>): RequestResult<CancelSearchFutureGenerationResponses, CancelSearchFutureGenerationErrors, ThrowOnError> => (options?.client ?? client).delete<CancelSearchFutureGenerationResponses, CancelSearchFutureGenerationErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1904,7 +1904,7 @@ export const cancelSearchFutureGeneration = <ThrowOnError extends boolean = fals
 /**
  * Start rebuilding the index for a new embedding model as the future generation
  */
-export const createSearchFutureGeneration = <ThrowOnError extends boolean = false>(options: Options<CreateSearchFutureGenerationData, ThrowOnError>): RequestResult<CreateSearchFutureGenerationResponses, CreateSearchFutureGenerationErrors, ThrowOnError> => (options.client ?? client).post<CreateSearchFutureGenerationResponses, CreateSearchFutureGenerationErrors, ThrowOnError>({
+export const createSearchFutureGeneration = <ThrowOnError extends boolean = true>(options: Options<CreateSearchFutureGenerationData, ThrowOnError>): RequestResult<CreateSearchFutureGenerationResponses, CreateSearchFutureGenerationErrors, ThrowOnError> => (options.client ?? client).post<CreateSearchFutureGenerationResponses, CreateSearchFutureGenerationErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1921,7 +1921,7 @@ export const createSearchFutureGeneration = <ThrowOnError extends boolean = fals
 /**
  * Make the fully rebuilt future generation present; the present one becomes past
  */
-export const switchSearchFutureGeneration = <ThrowOnError extends boolean = false>(options: Options<SwitchSearchFutureGenerationData, ThrowOnError>): RequestResult<SwitchSearchFutureGenerationResponses, SwitchSearchFutureGenerationErrors, ThrowOnError> => (options.client ?? client).post<SwitchSearchFutureGenerationResponses, SwitchSearchFutureGenerationErrors, ThrowOnError>({
+export const switchSearchFutureGeneration = <ThrowOnError extends boolean = true>(options?: Options<SwitchSearchFutureGenerationData, ThrowOnError>): RequestResult<SwitchSearchFutureGenerationResponses, SwitchSearchFutureGenerationErrors, ThrowOnError> => (options?.client ?? client).post<SwitchSearchFutureGenerationResponses, SwitchSearchFutureGenerationErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1934,7 +1934,7 @@ export const switchSearchFutureGeneration = <ThrowOnError extends boolean = fals
 /**
  * List embedding providers with keys redacted
  */
-export const listEmbeddingProviders = <ThrowOnError extends boolean = false>(options?: Options<ListEmbeddingProvidersData, ThrowOnError>): RequestResult<ListEmbeddingProvidersResponses, ListEmbeddingProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListEmbeddingProvidersResponses, ListEmbeddingProvidersErrors, ThrowOnError>({
+export const listEmbeddingProviders = <ThrowOnError extends boolean = true>(options?: Options<ListEmbeddingProvidersData, ThrowOnError>): RequestResult<ListEmbeddingProvidersResponses, ListEmbeddingProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListEmbeddingProvidersResponses, ListEmbeddingProvidersErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1947,7 +1947,7 @@ export const listEmbeddingProviders = <ThrowOnError extends boolean = false>(opt
 /**
  * Create an OpenAI-compatible embedding provider
  */
-export const createEmbeddingProvider = <ThrowOnError extends boolean = false>(options: Options<CreateEmbeddingProviderData, ThrowOnError>): RequestResult<CreateEmbeddingProviderResponses, CreateEmbeddingProviderErrors, ThrowOnError> => (options.client ?? client).post<CreateEmbeddingProviderResponses, CreateEmbeddingProviderErrors, ThrowOnError>({
+export const createEmbeddingProvider = <ThrowOnError extends boolean = true>(options: Options<CreateEmbeddingProviderData, ThrowOnError>): RequestResult<CreateEmbeddingProviderResponses, CreateEmbeddingProviderErrors, ThrowOnError> => (options.client ?? client).post<CreateEmbeddingProviderResponses, CreateEmbeddingProviderErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1964,7 +1964,7 @@ export const createEmbeddingProvider = <ThrowOnError extends boolean = false>(op
 /**
  * Check a saved or unsaved embedding endpoint with one real /v1/embeddings call
  */
-export const testEmbeddingProvider = <ThrowOnError extends boolean = false>(options: Options<TestEmbeddingProviderData, ThrowOnError>): RequestResult<TestEmbeddingProviderResponses, TestEmbeddingProviderErrors, ThrowOnError> => (options.client ?? client).post<TestEmbeddingProviderResponses, TestEmbeddingProviderErrors, ThrowOnError>({
+export const testEmbeddingProvider = <ThrowOnError extends boolean = true>(options: Options<TestEmbeddingProviderData, ThrowOnError>): RequestResult<TestEmbeddingProviderResponses, TestEmbeddingProviderErrors, ThrowOnError> => (options.client ?? client).post<TestEmbeddingProviderResponses, TestEmbeddingProviderErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1981,7 +1981,7 @@ export const testEmbeddingProvider = <ThrowOnError extends boolean = false>(opti
 /**
  * List the current member's meetings, newest first
  */
-export const listMeetings = <ThrowOnError extends boolean = false>(options?: Options<ListMeetingsData, ThrowOnError>): RequestResult<ListMeetingsResponses, ListMeetingsErrors, ThrowOnError> => (options?.client ?? client).get<ListMeetingsResponses, ListMeetingsErrors, ThrowOnError>({
+export const listMeetings = <ThrowOnError extends boolean = true>(options?: Options<ListMeetingsData, ThrowOnError>): RequestResult<ListMeetingsResponses, ListMeetingsErrors, ThrowOnError> => (options?.client ?? client).get<ListMeetingsResponses, ListMeetingsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -1994,7 +1994,7 @@ export const listMeetings = <ThrowOnError extends boolean = false>(options?: Opt
 /**
  * Create a meeting to record
  */
-export const createMeeting = <ThrowOnError extends boolean = false>(options: Options<CreateMeetingData, ThrowOnError>): RequestResult<CreateMeetingResponses, CreateMeetingErrors, ThrowOnError> => (options.client ?? client).post<CreateMeetingResponses, CreateMeetingErrors, ThrowOnError>({
+export const createMeeting = <ThrowOnError extends boolean = true>(options: Options<CreateMeetingData, ThrowOnError>): RequestResult<CreateMeetingResponses, CreateMeetingErrors, ThrowOnError> => (options.client ?? client).post<CreateMeetingResponses, CreateMeetingErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2011,7 +2011,7 @@ export const createMeeting = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * Write what was said at a stretch the provider was unsure of
  */
-export const correctMeetingWords = <ThrowOnError extends boolean = false>(options: Options<CorrectMeetingWordsData, ThrowOnError>): RequestResult<CorrectMeetingWordsResponses, CorrectMeetingWordsErrors, ThrowOnError> => (options.client ?? client).post<CorrectMeetingWordsResponses, CorrectMeetingWordsErrors, ThrowOnError>({
+export const correctMeetingWords = <ThrowOnError extends boolean = true>(options: Options<CorrectMeetingWordsData, ThrowOnError>): RequestResult<CorrectMeetingWordsResponses, CorrectMeetingWordsErrors, ThrowOnError> => (options.client ?? client).post<CorrectMeetingWordsResponses, CorrectMeetingWordsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2028,7 +2028,7 @@ export const correctMeetingWords = <ThrowOnError extends boolean = false>(option
 /**
  * Issue a 60-second single-use ticket for one track's recording WebSocket
  */
-export const createMeetingTicket = <ThrowOnError extends boolean = false>(options: Options<CreateMeetingTicketData, ThrowOnError>): RequestResult<CreateMeetingTicketResponses, CreateMeetingTicketErrors, ThrowOnError> => (options.client ?? client).post<CreateMeetingTicketResponses, CreateMeetingTicketErrors, ThrowOnError>({
+export const createMeetingTicket = <ThrowOnError extends boolean = true>(options: Options<CreateMeetingTicketData, ThrowOnError>): RequestResult<CreateMeetingTicketResponses, CreateMeetingTicketErrors, ThrowOnError> => (options.client ?? client).post<CreateMeetingTicketResponses, CreateMeetingTicketErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2045,7 +2045,7 @@ export const createMeetingTicket = <ThrowOnError extends boolean = false>(option
 /**
  * Reserve storage for a recording of this meeting
  */
-export const reserveMeetingRecording = <ThrowOnError extends boolean = false>(options: Options<ReserveMeetingRecordingData, ThrowOnError>): RequestResult<ReserveMeetingRecordingResponses, ReserveMeetingRecordingErrors, ThrowOnError> => (options.client ?? client).post<ReserveMeetingRecordingResponses, ReserveMeetingRecordingErrors, ThrowOnError>({
+export const reserveMeetingRecording = <ThrowOnError extends boolean = true>(options: Options<ReserveMeetingRecordingData, ThrowOnError>): RequestResult<ReserveMeetingRecordingResponses, ReserveMeetingRecordingErrors, ThrowOnError> => (options.client ?? client).post<ReserveMeetingRecordingResponses, ReserveMeetingRecordingErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2062,7 +2062,7 @@ export const reserveMeetingRecording = <ThrowOnError extends boolean = false>(op
 /**
  * Accept the uploaded recording and queue its transcript
  */
-export const finalizeMeetingRecording = <ThrowOnError extends boolean = false>(options: Options<FinalizeMeetingRecordingData, ThrowOnError>): RequestResult<FinalizeMeetingRecordingResponses, FinalizeMeetingRecordingErrors, ThrowOnError> => (options.client ?? client).post<FinalizeMeetingRecordingResponses, FinalizeMeetingRecordingErrors, ThrowOnError>({
+export const finalizeMeetingRecording = <ThrowOnError extends boolean = true>(options: Options<FinalizeMeetingRecordingData, ThrowOnError>): RequestResult<FinalizeMeetingRecordingResponses, FinalizeMeetingRecordingErrors, ThrowOnError> => (options.client ?? client).post<FinalizeMeetingRecordingResponses, FinalizeMeetingRecordingErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2075,7 +2075,7 @@ export const finalizeMeetingRecording = <ThrowOnError extends boolean = false>(o
 /**
  * Write the minutes again after the meeting changed
  */
-export const rerunMeetingMinutes = <ThrowOnError extends boolean = false>(options: Options<RerunMeetingMinutesData, ThrowOnError>): RequestResult<RerunMeetingMinutesResponses, RerunMeetingMinutesErrors, ThrowOnError> => (options.client ?? client).post<RerunMeetingMinutesResponses, RerunMeetingMinutesErrors, ThrowOnError>({
+export const rerunMeetingMinutes = <ThrowOnError extends boolean = true>(options: Options<RerunMeetingMinutesData, ThrowOnError>): RequestResult<RerunMeetingMinutesResponses, RerunMeetingMinutesErrors, ThrowOnError> => (options.client ?? client).post<RerunMeetingMinutesResponses, RerunMeetingMinutesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2088,7 +2088,7 @@ export const rerunMeetingMinutes = <ThrowOnError extends boolean = false>(option
 /**
  * Write in a decision or a piece of work the model missed
  */
-export const addMeetingMinutesItem = <ThrowOnError extends boolean = false>(options: Options<AddMeetingMinutesItemData, ThrowOnError>): RequestResult<AddMeetingMinutesItemResponses, AddMeetingMinutesItemErrors, ThrowOnError> => (options.client ?? client).post<AddMeetingMinutesItemResponses, AddMeetingMinutesItemErrors, ThrowOnError>({
+export const addMeetingMinutesItem = <ThrowOnError extends boolean = true>(options: Options<AddMeetingMinutesItemData, ThrowOnError>): RequestResult<AddMeetingMinutesItemResponses, AddMeetingMinutesItemErrors, ThrowOnError> => (options.client ?? client).post<AddMeetingMinutesItemResponses, AddMeetingMinutesItemErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2105,7 +2105,7 @@ export const addMeetingMinutesItem = <ThrowOnError extends boolean = false>(opti
 /**
  * Download the minutes as a Vietnamese biên bản, in Word or as a PDF
  */
-export const exportMeetingMinutes = <ThrowOnError extends boolean = false>(options: Options<ExportMeetingMinutesData, ThrowOnError>): RequestResult<ExportMeetingMinutesResponses, ExportMeetingMinutesErrors, ThrowOnError> => (options.client ?? client).post<ExportMeetingMinutesResponses, ExportMeetingMinutesErrors, ThrowOnError>({
+export const exportMeetingMinutes = <ThrowOnError extends boolean = true>(options: Options<ExportMeetingMinutesData, ThrowOnError>): RequestResult<ExportMeetingMinutesResponses, ExportMeetingMinutesErrors, ThrowOnError> => (options.client ?? client).post<ExportMeetingMinutesResponses, ExportMeetingMinutesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2122,7 +2122,7 @@ export const exportMeetingMinutes = <ThrowOnError extends boolean = false>(optio
 /**
  * Take the minutes into the caller's file library so a conversation can use them
  */
-export const publishMeetingMinutes = <ThrowOnError extends boolean = false>(options: Options<PublishMeetingMinutesData, ThrowOnError>): RequestResult<PublishMeetingMinutesResponses, PublishMeetingMinutesErrors, ThrowOnError> => (options.client ?? client).post<PublishMeetingMinutesResponses, PublishMeetingMinutesErrors, ThrowOnError>({
+export const publishMeetingMinutes = <ThrowOnError extends boolean = true>(options: Options<PublishMeetingMinutesData, ThrowOnError>): RequestResult<PublishMeetingMinutesResponses, PublishMeetingMinutesErrors, ThrowOnError> => (options.client ?? client).post<PublishMeetingMinutesResponses, PublishMeetingMinutesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2135,7 +2135,7 @@ export const publishMeetingMinutes = <ThrowOnError extends boolean = false>(opti
 /**
  * End recording
  */
-export const endMeeting = <ThrowOnError extends boolean = false>(options: Options<EndMeetingData, ThrowOnError>): RequestResult<EndMeetingResponses, EndMeetingErrors, ThrowOnError> => (options.client ?? client).post<EndMeetingResponses, EndMeetingErrors, ThrowOnError>({
+export const endMeeting = <ThrowOnError extends boolean = true>(options: Options<EndMeetingData, ThrowOnError>): RequestResult<EndMeetingResponses, EndMeetingErrors, ThrowOnError> => (options.client ?? client).post<EndMeetingResponses, EndMeetingErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2148,7 +2148,7 @@ export const endMeeting = <ThrowOnError extends boolean = false>(options: Option
 /**
  * Every proposal made for this meeting, decided or not
  */
-export const listMeetingCorrections = <ThrowOnError extends boolean = false>(options: Options<ListMeetingCorrectionsData, ThrowOnError>): RequestResult<ListMeetingCorrectionsResponses, ListMeetingCorrectionsErrors, ThrowOnError> => (options.client ?? client).get<ListMeetingCorrectionsResponses, ListMeetingCorrectionsErrors, ThrowOnError>({
+export const listMeetingCorrections = <ThrowOnError extends boolean = true>(options: Options<ListMeetingCorrectionsData, ThrowOnError>): RequestResult<ListMeetingCorrectionsResponses, ListMeetingCorrectionsErrors, ThrowOnError> => (options.client ?? client).get<ListMeetingCorrectionsResponses, ListMeetingCorrectionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2161,7 +2161,7 @@ export const listMeetingCorrections = <ThrowOnError extends boolean = false>(opt
 /**
  * Ask a model what the speech provider probably meant at each uncertain stretch
  */
-export const proposeMeetingCorrections = <ThrowOnError extends boolean = false>(options: Options<ProposeMeetingCorrectionsData, ThrowOnError>): RequestResult<ProposeMeetingCorrectionsResponses, ProposeMeetingCorrectionsErrors, ThrowOnError> => (options.client ?? client).post<ProposeMeetingCorrectionsResponses, ProposeMeetingCorrectionsErrors, ThrowOnError>({
+export const proposeMeetingCorrections = <ThrowOnError extends boolean = true>(options: Options<ProposeMeetingCorrectionsData, ThrowOnError>): RequestResult<ProposeMeetingCorrectionsResponses, ProposeMeetingCorrectionsErrors, ThrowOnError> => (options.client ?? client).post<ProposeMeetingCorrectionsResponses, ProposeMeetingCorrectionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2174,7 +2174,7 @@ export const proposeMeetingCorrections = <ThrowOnError extends boolean = false>(
 /**
  * Put back what the line said before this proposal
  */
-export const revertMeetingCorrection = <ThrowOnError extends boolean = false>(options: Options<RevertMeetingCorrectionData, ThrowOnError>): RequestResult<RevertMeetingCorrectionResponses, RevertMeetingCorrectionErrors, ThrowOnError> => (options.client ?? client).post<RevertMeetingCorrectionResponses, RevertMeetingCorrectionErrors, ThrowOnError>({
+export const revertMeetingCorrection = <ThrowOnError extends boolean = true>(options: Options<RevertMeetingCorrectionData, ThrowOnError>): RequestResult<RevertMeetingCorrectionResponses, RevertMeetingCorrectionErrors, ThrowOnError> => (options.client ?? client).post<RevertMeetingCorrectionResponses, RevertMeetingCorrectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2187,7 +2187,7 @@ export const revertMeetingCorrection = <ThrowOnError extends boolean = false>(op
 /**
  * Decline a proposal and keep what the provider heard
  */
-export const keepMeetingWording = <ThrowOnError extends boolean = false>(options: Options<KeepMeetingWordingData, ThrowOnError>): RequestResult<KeepMeetingWordingResponses, KeepMeetingWordingErrors, ThrowOnError> => (options.client ?? client).post<KeepMeetingWordingResponses, KeepMeetingWordingErrors, ThrowOnError>({
+export const keepMeetingWording = <ThrowOnError extends boolean = true>(options: Options<KeepMeetingWordingData, ThrowOnError>): RequestResult<KeepMeetingWordingResponses, KeepMeetingWordingErrors, ThrowOnError> => (options.client ?? client).post<KeepMeetingWordingResponses, KeepMeetingWordingErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2200,7 +2200,7 @@ export const keepMeetingWording = <ThrowOnError extends boolean = false>(options
 /**
  * Put the proposed words, or the caller's own, into the transcript
  */
-export const acceptMeetingCorrection = <ThrowOnError extends boolean = false>(options: Options<AcceptMeetingCorrectionData, ThrowOnError>): RequestResult<AcceptMeetingCorrectionResponses, AcceptMeetingCorrectionErrors, ThrowOnError> => (options.client ?? client).post<AcceptMeetingCorrectionResponses, AcceptMeetingCorrectionErrors, ThrowOnError>({
+export const acceptMeetingCorrection = <ThrowOnError extends boolean = true>(options: Options<AcceptMeetingCorrectionData, ThrowOnError>): RequestResult<AcceptMeetingCorrectionResponses, AcceptMeetingCorrectionErrors, ThrowOnError> => (options.client ?? client).post<AcceptMeetingCorrectionResponses, AcceptMeetingCorrectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2217,7 +2217,7 @@ export const acceptMeetingCorrection = <ThrowOnError extends boolean = false>(op
 /**
  * Take back everything one pass put in
  */
-export const revertAllMeetingCorrections = <ThrowOnError extends boolean = false>(options: Options<RevertAllMeetingCorrectionsData, ThrowOnError>): RequestResult<RevertAllMeetingCorrectionsResponses, RevertAllMeetingCorrectionsErrors, ThrowOnError> => (options.client ?? client).post<RevertAllMeetingCorrectionsResponses, RevertAllMeetingCorrectionsErrors, ThrowOnError>({
+export const revertAllMeetingCorrections = <ThrowOnError extends boolean = true>(options: Options<RevertAllMeetingCorrectionsData, ThrowOnError>): RequestResult<RevertAllMeetingCorrectionsResponses, RevertAllMeetingCorrectionsErrors, ThrowOnError> => (options.client ?? client).post<RevertAllMeetingCorrectionsResponses, RevertAllMeetingCorrectionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2234,7 +2234,7 @@ export const revertAllMeetingCorrections = <ThrowOnError extends boolean = false
 /**
  * Accept everything a pass proposed and has not decided
  */
-export const acceptAllMeetingCorrections = <ThrowOnError extends boolean = false>(options: Options<AcceptAllMeetingCorrectionsData, ThrowOnError>): RequestResult<AcceptAllMeetingCorrectionsResponses, AcceptAllMeetingCorrectionsErrors, ThrowOnError> => (options.client ?? client).post<AcceptAllMeetingCorrectionsResponses, AcceptAllMeetingCorrectionsErrors, ThrowOnError>({
+export const acceptAllMeetingCorrections = <ThrowOnError extends boolean = true>(options: Options<AcceptAllMeetingCorrectionsData, ThrowOnError>): RequestResult<AcceptAllMeetingCorrectionsResponses, AcceptAllMeetingCorrectionsErrors, ThrowOnError> => (options.client ?? client).post<AcceptAllMeetingCorrectionsResponses, AcceptAllMeetingCorrectionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2251,7 +2251,7 @@ export const acceptAllMeetingCorrections = <ThrowOnError extends boolean = false
 /**
  * Mark the moment the caller is at, while the meeting is still running
  */
-export const bookmarkMeetingMoment = <ThrowOnError extends boolean = false>(options: Options<BookmarkMeetingMomentData, ThrowOnError>): RequestResult<BookmarkMeetingMomentResponses, BookmarkMeetingMomentErrors, ThrowOnError> => (options.client ?? client).post<BookmarkMeetingMomentResponses, BookmarkMeetingMomentErrors, ThrowOnError>({
+export const bookmarkMeetingMoment = <ThrowOnError extends boolean = true>(options: Options<BookmarkMeetingMomentData, ThrowOnError>): RequestResult<BookmarkMeetingMomentResponses, BookmarkMeetingMomentErrors, ThrowOnError> => (options.client ?? client).post<BookmarkMeetingMomentResponses, BookmarkMeetingMomentErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2268,7 +2268,7 @@ export const bookmarkMeetingMoment = <ThrowOnError extends boolean = false>(opti
 /**
  * List Tenant MCP servers with secrets redacted; requires MCP_MANAGE
  */
-export const listMcpServers = <ThrowOnError extends boolean = false>(options?: Options<ListMcpServersData, ThrowOnError>): RequestResult<ListMcpServersResponses, ListMcpServersErrors, ThrowOnError> => (options?.client ?? client).get<ListMcpServersResponses, ListMcpServersErrors, ThrowOnError>({
+export const listMcpServers = <ThrowOnError extends boolean = true>(options?: Options<ListMcpServersData, ThrowOnError>): RequestResult<ListMcpServersResponses, ListMcpServersErrors, ThrowOnError> => (options?.client ?? client).get<ListMcpServersResponses, ListMcpServersErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2281,7 +2281,7 @@ export const listMcpServers = <ThrowOnError extends boolean = false>(options?: O
 /**
  * Register a remote Streamable HTTP MCP server; requires MCP_MANAGE
  */
-export const createMcpServer = <ThrowOnError extends boolean = false>(options: Options<CreateMcpServerData, ThrowOnError>): RequestResult<CreateMcpServerResponses, CreateMcpServerErrors, ThrowOnError> => (options.client ?? client).post<CreateMcpServerResponses, CreateMcpServerErrors, ThrowOnError>({
+export const createMcpServer = <ThrowOnError extends boolean = true>(options: Options<CreateMcpServerData, ThrowOnError>): RequestResult<CreateMcpServerResponses, CreateMcpServerErrors, ThrowOnError> => (options.client ?? client).post<CreateMcpServerResponses, CreateMcpServerErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2298,7 +2298,7 @@ export const createMcpServer = <ThrowOnError extends boolean = false>(options: O
 /**
  * Explicitly list tools from the server with the administrator credential and replace the snapshot
  */
-export const refreshMcpServerTools = <ThrowOnError extends boolean = false>(options: Options<RefreshMcpServerToolsData, ThrowOnError>): RequestResult<RefreshMcpServerToolsResponses, RefreshMcpServerToolsErrors, ThrowOnError> => (options.client ?? client).post<RefreshMcpServerToolsResponses, RefreshMcpServerToolsErrors, ThrowOnError>({
+export const refreshMcpServerTools = <ThrowOnError extends boolean = true>(options: Options<RefreshMcpServerToolsData, ThrowOnError>): RequestResult<RefreshMcpServerToolsResponses, RefreshMcpServerToolsErrors, ThrowOnError> => (options.client ?? client).post<RefreshMcpServerToolsResponses, RefreshMcpServerToolsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2311,7 +2311,7 @@ export const refreshMcpServerTools = <ThrowOnError extends boolean = false>(opti
 /**
  * Explicitly discover the server's authorization servers; nothing is saved
  */
-export const discoverMcpServerOAuth = <ThrowOnError extends boolean = false>(options: Options<DiscoverMcpServerOAuthData, ThrowOnError>): RequestResult<DiscoverMcpServerOAuthResponses, DiscoverMcpServerOAuthErrors, ThrowOnError> => (options.client ?? client).post<DiscoverMcpServerOAuthResponses, DiscoverMcpServerOAuthErrors, ThrowOnError>({
+export const discoverMcpServerOAuth = <ThrowOnError extends boolean = true>(options: Options<DiscoverMcpServerOAuthData, ThrowOnError>): RequestResult<DiscoverMcpServerOAuthResponses, DiscoverMcpServerOAuthErrors, ThrowOnError> => (options.client ?? client).post<DiscoverMcpServerOAuthResponses, DiscoverMcpServerOAuthErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2324,7 +2324,7 @@ export const discoverMcpServerOAuth = <ThrowOnError extends boolean = false>(opt
 /**
  * List the server's labelled OAuth clients; requires MCP_MANAGE
  */
-export const listMcpServerOAuthClients = <ThrowOnError extends boolean = false>(options: Options<ListMcpServerOAuthClientsData, ThrowOnError>): RequestResult<ListMcpServerOAuthClientsResponses, ListMcpServerOAuthClientsErrors, ThrowOnError> => (options.client ?? client).get<ListMcpServerOAuthClientsResponses, ListMcpServerOAuthClientsErrors, ThrowOnError>({
+export const listMcpServerOAuthClients = <ThrowOnError extends boolean = true>(options: Options<ListMcpServerOAuthClientsData, ThrowOnError>): RequestResult<ListMcpServerOAuthClientsResponses, ListMcpServerOAuthClientsErrors, ThrowOnError> => (options.client ?? client).get<ListMcpServerOAuthClientsResponses, ListMcpServerOAuthClientsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2337,7 +2337,7 @@ export const listMcpServerOAuthClients = <ThrowOnError extends boolean = false>(
 /**
  * Add a pre-registered OAuth client, e.g. one organization's Internal app
  */
-export const createMcpServerOAuthClient = <ThrowOnError extends boolean = false>(options: Options<CreateMcpServerOAuthClientData, ThrowOnError>): RequestResult<CreateMcpServerOAuthClientResponses, CreateMcpServerOAuthClientErrors, ThrowOnError> => (options.client ?? client).post<CreateMcpServerOAuthClientResponses, CreateMcpServerOAuthClientErrors, ThrowOnError>({
+export const createMcpServerOAuthClient = <ThrowOnError extends boolean = true>(options: Options<CreateMcpServerOAuthClientData, ThrowOnError>): RequestResult<CreateMcpServerOAuthClientResponses, CreateMcpServerOAuthClientErrors, ThrowOnError> => (options.client ?? client).post<CreateMcpServerOAuthClientResponses, CreateMcpServerOAuthClientErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2354,7 +2354,7 @@ export const createMcpServerOAuthClient = <ThrowOnError extends boolean = false>
 /**
  * Register with a discovered authorization server by DCR or the client metadata document
  */
-export const registerMcpServerOAuthClient = <ThrowOnError extends boolean = false>(options: Options<RegisterMcpServerOAuthClientData, ThrowOnError>): RequestResult<RegisterMcpServerOAuthClientResponses, RegisterMcpServerOAuthClientErrors, ThrowOnError> => (options.client ?? client).post<RegisterMcpServerOAuthClientResponses, RegisterMcpServerOAuthClientErrors, ThrowOnError>({
+export const registerMcpServerOAuthClient = <ThrowOnError extends boolean = true>(options: Options<RegisterMcpServerOAuthClientData, ThrowOnError>): RequestResult<RegisterMcpServerOAuthClientResponses, RegisterMcpServerOAuthClientErrors, ThrowOnError> => (options.client ?? client).post<RegisterMcpServerOAuthClientResponses, RegisterMcpServerOAuthClientErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2371,7 +2371,7 @@ export const registerMcpServerOAuthClient = <ThrowOnError extends boolean = fals
 /**
  * Start the administrator's OAuth connection for a shared-connection server
  */
-export const startMcpServerOAuthAuthorization = <ThrowOnError extends boolean = false>(options: Options<StartMcpServerOAuthAuthorizationData, ThrowOnError>): RequestResult<StartMcpServerOAuthAuthorizationResponses, StartMcpServerOAuthAuthorizationErrors, ThrowOnError> => (options.client ?? client).post<StartMcpServerOAuthAuthorizationResponses, StartMcpServerOAuthAuthorizationErrors, ThrowOnError>({
+export const startMcpServerOAuthAuthorization = <ThrowOnError extends boolean = true>(options: Options<StartMcpServerOAuthAuthorizationData, ThrowOnError>): RequestResult<StartMcpServerOAuthAuthorizationResponses, StartMcpServerOAuthAuthorizationErrors, ThrowOnError> => (options.client ?? client).post<StartMcpServerOAuthAuthorizationResponses, StartMcpServerOAuthAuthorizationErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2388,7 +2388,7 @@ export const startMcpServerOAuthAuthorization = <ThrowOnError extends boolean = 
 /**
  * Start the User's own OAuth connection and return to the originating page
  */
-export const startMcpConnectionAuthorization = <ThrowOnError extends boolean = false>(options: Options<StartMcpConnectionAuthorizationData, ThrowOnError>): RequestResult<StartMcpConnectionAuthorizationResponses, StartMcpConnectionAuthorizationErrors, ThrowOnError> => (options.client ?? client).post<StartMcpConnectionAuthorizationResponses, StartMcpConnectionAuthorizationErrors, ThrowOnError>({
+export const startMcpConnectionAuthorization = <ThrowOnError extends boolean = true>(options: Options<StartMcpConnectionAuthorizationData, ThrowOnError>): RequestResult<StartMcpConnectionAuthorizationResponses, StartMcpConnectionAuthorizationErrors, ThrowOnError> => (options.client ?? client).post<StartMcpConnectionAuthorizationResponses, StartMcpConnectionAuthorizationErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2405,7 +2405,7 @@ export const startMcpConnectionAuthorization = <ThrowOnError extends boolean = f
 /**
  * List Tenant invitations manageable by the current IAM administrator
  */
-export const listInvitations = <ThrowOnError extends boolean = false>(options?: Options<ListInvitationsData, ThrowOnError>): RequestResult<ListInvitationsResponses, ListInvitationsErrors, ThrowOnError> => (options?.client ?? client).get<ListInvitationsResponses, ListInvitationsErrors, ThrowOnError>({
+export const listInvitations = <ThrowOnError extends boolean = true>(options?: Options<ListInvitationsData, ThrowOnError>): RequestResult<ListInvitationsResponses, ListInvitationsErrors, ThrowOnError> => (options?.client ?? client).get<ListInvitationsResponses, ListInvitationsErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'SESSION',
@@ -2418,7 +2418,7 @@ export const listInvitations = <ThrowOnError extends boolean = false>(options?: 
 /**
  * Create one Tenant member invitation
  */
-export const createInvitation = <ThrowOnError extends boolean = false>(options: Options<CreateInvitationData, ThrowOnError>): RequestResult<CreateInvitationResponses, CreateInvitationErrors, ThrowOnError> => (options.client ?? client).post<CreateInvitationResponses, CreateInvitationErrors, ThrowOnError>({
+export const createInvitation = <ThrowOnError extends boolean = true>(options: Options<CreateInvitationData, ThrowOnError>): RequestResult<CreateInvitationResponses, CreateInvitationErrors, ThrowOnError> => (options.client ?? client).post<CreateInvitationResponses, CreateInvitationErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'SESSION',
@@ -2435,7 +2435,7 @@ export const createInvitation = <ThrowOnError extends boolean = false>(options: 
 /**
  * Replace the secret of a pending invitation
  */
-export const rotateInvitation = <ThrowOnError extends boolean = false>(options: Options<RotateInvitationData, ThrowOnError>): RequestResult<RotateInvitationResponses, RotateInvitationErrors, ThrowOnError> => (options.client ?? client).post<RotateInvitationResponses, RotateInvitationErrors, ThrowOnError>({
+export const rotateInvitation = <ThrowOnError extends boolean = true>(options: Options<RotateInvitationData, ThrowOnError>): RequestResult<RotateInvitationResponses, RotateInvitationErrors, ThrowOnError> => (options.client ?? client).post<RotateInvitationResponses, RotateInvitationErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'SESSION',
@@ -2448,7 +2448,7 @@ export const rotateInvitation = <ThrowOnError extends boolean = false>(options: 
 /**
  * Revoke a pending invitation
  */
-export const revokeInvitation = <ThrowOnError extends boolean = false>(options: Options<RevokeInvitationData, ThrowOnError>): RequestResult<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError> => (options.client ?? client).post<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError>({
+export const revokeInvitation = <ThrowOnError extends boolean = true>(options: Options<RevokeInvitationData, ThrowOnError>): RequestResult<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError> => (options.client ?? client).post<RevokeInvitationResponses, RevokeInvitationErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'SESSION',
@@ -2461,7 +2461,7 @@ export const revokeInvitation = <ThrowOnError extends boolean = false>(options: 
 /**
  * List upstream OIDC identity providers on the configured realm
  */
-export const listIdentityProviders = <ThrowOnError extends boolean = false>(options?: Options<ListIdentityProvidersData, ThrowOnError>): RequestResult<ListIdentityProvidersResponses, ListIdentityProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListIdentityProvidersResponses, ListIdentityProvidersErrors, ThrowOnError>({
+export const listIdentityProviders = <ThrowOnError extends boolean = true>(options?: Options<ListIdentityProvidersData, ThrowOnError>): RequestResult<ListIdentityProvidersResponses, ListIdentityProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListIdentityProvidersResponses, ListIdentityProvidersErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'SESSION',
@@ -2474,7 +2474,7 @@ export const listIdentityProviders = <ThrowOnError extends boolean = false>(opti
 /**
  * Create an upstream OIDC identity provider
  */
-export const createIdentityProvider = <ThrowOnError extends boolean = false>(options: Options<CreateIdentityProviderData, ThrowOnError>): RequestResult<CreateIdentityProviderResponses, CreateIdentityProviderErrors, ThrowOnError> => (options.client ?? client).post<CreateIdentityProviderResponses, CreateIdentityProviderErrors, ThrowOnError>({
+export const createIdentityProvider = <ThrowOnError extends boolean = true>(options: Options<CreateIdentityProviderData, ThrowOnError>): RequestResult<CreateIdentityProviderResponses, CreateIdentityProviderErrors, ThrowOnError> => (options.client ?? client).post<CreateIdentityProviderResponses, CreateIdentityProviderErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'SESSION',
@@ -2491,7 +2491,7 @@ export const createIdentityProvider = <ThrowOnError extends boolean = false>(opt
 /**
  * Resolve OIDC endpoints from an issuer discovery document
  */
-export const discoverIdentityProvider = <ThrowOnError extends boolean = false>(options: Options<DiscoverIdentityProviderData, ThrowOnError>): RequestResult<DiscoverIdentityProviderResponses, DiscoverIdentityProviderErrors, ThrowOnError> => (options.client ?? client).post<DiscoverIdentityProviderResponses, DiscoverIdentityProviderErrors, ThrowOnError>({
+export const discoverIdentityProvider = <ThrowOnError extends boolean = true>(options: Options<DiscoverIdentityProviderData, ThrowOnError>): RequestResult<DiscoverIdentityProviderResponses, DiscoverIdentityProviderErrors, ThrowOnError> => (options.client ?? client).post<DiscoverIdentityProviderResponses, DiscoverIdentityProviderErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'SESSION',
@@ -2508,7 +2508,7 @@ export const discoverIdentityProvider = <ThrowOnError extends boolean = false>(o
 /**
  * List Groups visible to the current actor
  */
-export const listGroups = <ThrowOnError extends boolean = false>(options?: Options<ListGroupsData, ThrowOnError>): RequestResult<ListGroupsResponses, ListGroupsErrors, ThrowOnError> => (options?.client ?? client).get<ListGroupsResponses, ListGroupsErrors, ThrowOnError>({
+export const listGroups = <ThrowOnError extends boolean = true>(options?: Options<ListGroupsData, ThrowOnError>): RequestResult<ListGroupsResponses, ListGroupsErrors, ThrowOnError> => (options?.client ?? client).get<ListGroupsResponses, ListGroupsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2521,7 +2521,7 @@ export const listGroups = <ThrowOnError extends boolean = false>(options?: Optio
 /**
  * Create an ordinary Group
  */
-export const createGroup = <ThrowOnError extends boolean = false>(options: Options<CreateGroupData, ThrowOnError>): RequestResult<CreateGroupResponses, unknown, ThrowOnError> => (options.client ?? client).post<CreateGroupResponses, unknown, ThrowOnError>({
+export const createGroup = <ThrowOnError extends boolean = true>(options: Options<CreateGroupData, ThrowOnError>): RequestResult<CreateGroupResponses, unknown, ThrowOnError> => (options.client ?? client).post<CreateGroupResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2540,7 +2540,7 @@ export const createGroup = <ThrowOnError extends boolean = false>(options: Optio
  *
  * Global source managers may remove any association. Otherwise only the source's responsible manager may remove it, from a group they manage; other managers of that group may not. The source's other groups keep their associations.
  */
-export const removeGroupSource = <ThrowOnError extends boolean = false>(options: Options<RemoveGroupSourceData, ThrowOnError>): RequestResult<RemoveGroupSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<RemoveGroupSourceResponses, unknown, ThrowOnError>({
+export const removeGroupSource = <ThrowOnError extends boolean = true>(options: Options<RemoveGroupSourceData, ThrowOnError>): RequestResult<RemoveGroupSourceResponses, unknown, ThrowOnError> => (options.client ?? client).post<RemoveGroupSourceResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2553,7 +2553,7 @@ export const removeGroupSource = <ThrowOnError extends boolean = false>(options:
 /**
  * Rename an ordinary Group
  */
-export const renameGroup = <ThrowOnError extends boolean = false>(options: Options<RenameGroupData, ThrowOnError>): RequestResult<RenameGroupResponses, unknown, ThrowOnError> => (options.client ?? client).post<RenameGroupResponses, unknown, ThrowOnError>({
+export const renameGroup = <ThrowOnError extends boolean = true>(options: Options<RenameGroupData, ThrowOnError>): RequestResult<RenameGroupResponses, unknown, ThrowOnError> => (options.client ?? client).post<RenameGroupResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2570,7 +2570,7 @@ export const renameGroup = <ThrowOnError extends boolean = false>(options: Optio
 /**
  * List members of one visible Group
  */
-export const listGroupMembers = <ThrowOnError extends boolean = false>(options: Options<ListGroupMembersData, ThrowOnError>): RequestResult<ListGroupMembersResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListGroupMembersResponses, unknown, ThrowOnError>({
+export const listGroupMembers = <ThrowOnError extends boolean = true>(options: Options<ListGroupMembersData, ThrowOnError>): RequestResult<ListGroupMembersResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListGroupMembersResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2583,7 +2583,7 @@ export const listGroupMembers = <ThrowOnError extends boolean = false>(options: 
 /**
  * Add Tenant members to a Group
  */
-export const addGroupMembers = <ThrowOnError extends boolean = false>(options: Options<AddGroupMembersData, ThrowOnError>): RequestResult<AddGroupMembersResponses, unknown, ThrowOnError> => (options.client ?? client).post<AddGroupMembersResponses, unknown, ThrowOnError>({
+export const addGroupMembers = <ThrowOnError extends boolean = true>(options: Options<AddGroupMembersData, ThrowOnError>): RequestResult<AddGroupMembersResponses, unknown, ThrowOnError> => (options.client ?? client).post<AddGroupMembersResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2600,7 +2600,7 @@ export const addGroupMembers = <ThrowOnError extends boolean = false>(options: O
 /**
  * Remove one member from a Group
  */
-export const removeGroupMember = <ThrowOnError extends boolean = false>(options: Options<RemoveGroupMemberData, ThrowOnError>): RequestResult<RemoveGroupMemberResponses, RemoveGroupMemberErrors, ThrowOnError> => (options.client ?? client).post<RemoveGroupMemberResponses, RemoveGroupMemberErrors, ThrowOnError>({
+export const removeGroupMember = <ThrowOnError extends boolean = true>(options: Options<RemoveGroupMemberData, ThrowOnError>): RequestResult<RemoveGroupMemberResponses, RemoveGroupMemberErrors, ThrowOnError> => (options.client ?? client).post<RemoveGroupMemberResponses, RemoveGroupMemberErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2613,7 +2613,7 @@ export const removeGroupMember = <ThrowOnError extends boolean = false>(options:
 /**
  * Remove a manager from an ordinary Group
  */
-export const removeGroupManager = <ThrowOnError extends boolean = false>(options: Options<RemoveGroupManagerData, ThrowOnError>): RequestResult<RemoveGroupManagerResponses, unknown, ThrowOnError> => (options.client ?? client).post<RemoveGroupManagerResponses, unknown, ThrowOnError>({
+export const removeGroupManager = <ThrowOnError extends boolean = true>(options: Options<RemoveGroupManagerData, ThrowOnError>): RequestResult<RemoveGroupManagerResponses, unknown, ThrowOnError> => (options.client ?? client).post<RemoveGroupManagerResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2626,7 +2626,7 @@ export const removeGroupManager = <ThrowOnError extends boolean = false>(options
 /**
  * Assign a manager to an ordinary Group
  */
-export const assignGroupManager = <ThrowOnError extends boolean = false>(options: Options<AssignGroupManagerData, ThrowOnError>): RequestResult<AssignGroupManagerResponses, unknown, ThrowOnError> => (options.client ?? client).post<AssignGroupManagerResponses, unknown, ThrowOnError>({
+export const assignGroupManager = <ThrowOnError extends boolean = true>(options: Options<AssignGroupManagerData, ThrowOnError>): RequestResult<AssignGroupManagerResponses, unknown, ThrowOnError> => (options.client ?? client).post<AssignGroupManagerResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2639,7 +2639,7 @@ export const assignGroupManager = <ThrowOnError extends boolean = false>(options
 /**
  * Delete an ordinary Group
  */
-export const deleteGroup = <ThrowOnError extends boolean = false>(options: Options<DeleteGroupData, ThrowOnError>): RequestResult<DeleteGroupResponses, DeleteGroupErrors, ThrowOnError> => (options.client ?? client).post<DeleteGroupResponses, DeleteGroupErrors, ThrowOnError>({
+export const deleteGroup = <ThrowOnError extends boolean = true>(options: Options<DeleteGroupData, ThrowOnError>): RequestResult<DeleteGroupResponses, DeleteGroupErrors, ThrowOnError> => (options.client ?? client).post<DeleteGroupResponses, DeleteGroupErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2652,7 +2652,7 @@ export const deleteGroup = <ThrowOnError extends boolean = false>(options: Optio
 /**
  * Replace an ordinary Group's explicit capability grants
  */
-export const replaceGroupCapabilities = <ThrowOnError extends boolean = false>(options: Options<ReplaceGroupCapabilitiesData, ThrowOnError>): RequestResult<ReplaceGroupCapabilitiesResponses, unknown, ThrowOnError> => (options.client ?? client).post<ReplaceGroupCapabilitiesResponses, unknown, ThrowOnError>({
+export const replaceGroupCapabilities = <ThrowOnError extends boolean = true>(options: Options<ReplaceGroupCapabilitiesData, ThrowOnError>): RequestResult<ReplaceGroupCapabilitiesResponses, unknown, ThrowOnError> => (options.client ?? client).post<ReplaceGroupCapabilitiesResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2669,7 +2669,7 @@ export const replaceGroupCapabilities = <ThrowOnError extends boolean = false>(o
 /**
  * List reusable Tenant-owned SharePoint credentials
  */
-export const listSharePointCredentials = <ThrowOnError extends boolean = false>(options?: Options<ListSharePointCredentialsData, ThrowOnError>): RequestResult<ListSharePointCredentialsResponses, ListSharePointCredentialsErrors, ThrowOnError> => (options?.client ?? client).get<ListSharePointCredentialsResponses, ListSharePointCredentialsErrors, ThrowOnError>({
+export const listSharePointCredentials = <ThrowOnError extends boolean = true>(options?: Options<ListSharePointCredentialsData, ThrowOnError>): RequestResult<ListSharePointCredentialsResponses, ListSharePointCredentialsErrors, ThrowOnError> => (options?.client ?? client).get<ListSharePointCredentialsResponses, ListSharePointCredentialsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2682,7 +2682,7 @@ export const listSharePointCredentials = <ThrowOnError extends boolean = false>(
 /**
  * Verify an Entra application with Microsoft and store it; nothing is stored when Microsoft rejects it
  */
-export const createSharePointCredential = <ThrowOnError extends boolean = false>(options: Options<CreateSharePointCredentialData, ThrowOnError>): RequestResult<CreateSharePointCredentialResponses, CreateSharePointCredentialErrors, ThrowOnError> => (options.client ?? client).post<CreateSharePointCredentialResponses, CreateSharePointCredentialErrors, ThrowOnError>({
+export const createSharePointCredential = <ThrowOnError extends boolean = true>(options: Options<CreateSharePointCredentialData, ThrowOnError>): RequestResult<CreateSharePointCredentialResponses, CreateSharePointCredentialErrors, ThrowOnError> => (options.client ?? client).post<CreateSharePointCredentialResponses, CreateSharePointCredentialErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2699,7 +2699,7 @@ export const createSharePointCredential = <ThrowOnError extends boolean = false>
 /**
  * Ask Microsoft for a token and read the root site; records the resolved Tenant host
  */
-export const testSharePointCredential = <ThrowOnError extends boolean = false>(options: Options<TestSharePointCredentialData, ThrowOnError>): RequestResult<TestSharePointCredentialResponses, TestSharePointCredentialErrors, ThrowOnError> => (options.client ?? client).post<TestSharePointCredentialResponses, TestSharePointCredentialErrors, ThrowOnError>({
+export const testSharePointCredential = <ThrowOnError extends boolean = true>(options: Options<TestSharePointCredentialData, ThrowOnError>): RequestResult<TestSharePointCredentialResponses, TestSharePointCredentialErrors, ThrowOnError> => (options.client ?? client).post<TestSharePointCredentialResponses, TestSharePointCredentialErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2712,7 +2712,7 @@ export const testSharePointCredential = <ThrowOnError extends boolean = false>(o
 /**
  * Revoke a shared Google Drive credential and disconnect all attached Sources
  */
-export const revokeGoogleDriveCredential = <ThrowOnError extends boolean = false>(options: Options<RevokeGoogleDriveCredentialData, ThrowOnError>): RequestResult<RevokeGoogleDriveCredentialResponses, unknown, ThrowOnError> => (options.client ?? client).post<RevokeGoogleDriveCredentialResponses, unknown, ThrowOnError>({
+export const revokeGoogleDriveCredential = <ThrowOnError extends boolean = true>(options: Options<RevokeGoogleDriveCredentialData, ThrowOnError>): RequestResult<RevokeGoogleDriveCredentialResponses, unknown, ThrowOnError> => (options.client ?? client).post<RevokeGoogleDriveCredentialResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2729,7 +2729,7 @@ export const revokeGoogleDriveCredential = <ThrowOnError extends boolean = false
 /**
  * Verify a domain-wide-delegated service account as its admin and store it; nothing is stored when Google rejects it
  */
-export const createGoogleDriveServiceAccount = <ThrowOnError extends boolean = false>(options: Options<CreateGoogleDriveServiceAccountData, ThrowOnError>): RequestResult<CreateGoogleDriveServiceAccountResponses, unknown, ThrowOnError> => (options.client ?? client).post<CreateGoogleDriveServiceAccountResponses, unknown, ThrowOnError>({
+export const createGoogleDriveServiceAccount = <ThrowOnError extends boolean = true>(options: Options<CreateGoogleDriveServiceAccountData, ThrowOnError>): RequestResult<CreateGoogleDriveServiceAccountResponses, unknown, ThrowOnError> => (options.client ?? client).post<CreateGoogleDriveServiceAccountResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2746,7 +2746,7 @@ export const createGoogleDriveServiceAccount = <ThrowOnError extends boolean = f
 /**
  * Authorize a reusable Google Drive credential
  */
-export const startGoogleDriveAuthorization = <ThrowOnError extends boolean = false>(options: Options<StartGoogleDriveAuthorizationData, ThrowOnError>): RequestResult<StartGoogleDriveAuthorizationResponses, unknown, ThrowOnError> => (options.client ?? client).post<StartGoogleDriveAuthorizationResponses, unknown, ThrowOnError>({
+export const startGoogleDriveAuthorization = <ThrowOnError extends boolean = true>(options: Options<StartGoogleDriveAuthorizationData, ThrowOnError>): RequestResult<StartGoogleDriveAuthorizationResponses, unknown, ThrowOnError> => (options.client ?? client).post<StartGoogleDriveAuthorizationResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2763,7 +2763,7 @@ export const startGoogleDriveAuthorization = <ThrowOnError extends boolean = fal
 /**
  * Explicitly perform a provider request; provider charges may apply
  */
-export const testChatWebConnection = <ThrowOnError extends boolean = false>(options: Options<TestChatWebConnectionData, ThrowOnError>): RequestResult<TestChatWebConnectionResponses, TestChatWebConnectionErrors, ThrowOnError> => (options.client ?? client).post<TestChatWebConnectionResponses, TestChatWebConnectionErrors, ThrowOnError>({
+export const testChatWebConnection = <ThrowOnError extends boolean = true>(options: Options<TestChatWebConnectionData, ThrowOnError>): RequestResult<TestChatWebConnectionResponses, TestChatWebConnectionErrors, ThrowOnError> => (options.client ?? client).post<TestChatWebConnectionResponses, TestChatWebConnectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2780,7 +2780,7 @@ export const testChatWebConnection = <ThrowOnError extends boolean = false>(opti
 /**
  * List the search engines a 9Router gateway offers, with the typed key or the saved one for the same endpoint
  */
-export const listChatWebEngines = <ThrowOnError extends boolean = false>(options: Options<ListChatWebEnginesData, ThrowOnError>): RequestResult<ListChatWebEnginesResponses, ListChatWebEnginesErrors, ThrowOnError> => (options.client ?? client).post<ListChatWebEnginesResponses, ListChatWebEnginesErrors, ThrowOnError>({
+export const listChatWebEngines = <ThrowOnError extends boolean = true>(options: Options<ListChatWebEnginesData, ThrowOnError>): RequestResult<ListChatWebEnginesResponses, ListChatWebEnginesErrors, ThrowOnError> => (options.client ?? client).post<ListChatWebEnginesResponses, ListChatWebEnginesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2797,7 +2797,7 @@ export const listChatWebEngines = <ThrowOnError extends boolean = false>(options
 /**
  * Issue a 60-second single-use ticket for the transcription or read-aloud voice WebSocket
  */
-export const createChatVoiceTicket = <ThrowOnError extends boolean = false>(options: Options<CreateChatVoiceTicketData, ThrowOnError>): RequestResult<CreateChatVoiceTicketResponses, CreateChatVoiceTicketErrors, ThrowOnError> => (options.client ?? client).post<CreateChatVoiceTicketResponses, CreateChatVoiceTicketErrors, ThrowOnError>({
+export const createChatVoiceTicket = <ThrowOnError extends boolean = true>(options?: Options<CreateChatVoiceTicketData, ThrowOnError>): RequestResult<CreateChatVoiceTicketResponses, CreateChatVoiceTicketErrors, ThrowOnError> => (options?.client ?? client).post<CreateChatVoiceTicketResponses, CreateChatVoiceTicketErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2807,14 +2807,14 @@ export const createChatVoiceTicket = <ThrowOnError extends boolean = false>(opti
     ...options,
     headers: {
         'Content-Type': 'application/json',
-        ...options.headers
+        ...options?.headers
     }
 });
 
 /**
  * Read text aloud with the Tenant's default text-to-speech provider
  */
-export const synthesizeChatVoice = <ThrowOnError extends boolean = false>(options: Options<SynthesizeChatVoiceData, ThrowOnError>): RequestResult<SynthesizeChatVoiceResponses, SynthesizeChatVoiceErrors, ThrowOnError> => (options.client ?? client).post<SynthesizeChatVoiceResponses, SynthesizeChatVoiceErrors, ThrowOnError>({
+export const synthesizeChatVoice = <ThrowOnError extends boolean = true>(options: Options<SynthesizeChatVoiceData, ThrowOnError>): RequestResult<SynthesizeChatVoiceResponses, SynthesizeChatVoiceErrors, ThrowOnError> => (options.client ?? client).post<SynthesizeChatVoiceResponses, SynthesizeChatVoiceErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2831,7 +2831,7 @@ export const synthesizeChatVoice = <ThrowOnError extends boolean = false>(option
 /**
  * Verify a stored voice connection with the provider
  */
-export const testChatVoiceConnection = <ThrowOnError extends boolean = false>(options: Options<TestChatVoiceConnectionData, ThrowOnError>): RequestResult<TestChatVoiceConnectionResponses, TestChatVoiceConnectionErrors, ThrowOnError> => (options.client ?? client).post<TestChatVoiceConnectionResponses, TestChatVoiceConnectionErrors, ThrowOnError>({
+export const testChatVoiceConnection = <ThrowOnError extends boolean = true>(options: Options<TestChatVoiceConnectionData, ThrowOnError>): RequestResult<TestChatVoiceConnectionResponses, TestChatVoiceConnectionErrors, ThrowOnError> => (options.client ?? client).post<TestChatVoiceConnectionResponses, TestChatVoiceConnectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2844,7 +2844,7 @@ export const testChatVoiceConnection = <ThrowOnError extends boolean = false>(op
 /**
  * Delete every owned conversation as deleting each one would, stopping active replies (Onyx Delete All Chats)
  */
-export const deleteAllChatSessions = <ThrowOnError extends boolean = false>(options: Options<DeleteAllChatSessionsData, ThrowOnError>): RequestResult<DeleteAllChatSessionsResponses, DeleteAllChatSessionsErrors, ThrowOnError> => (options.client ?? client).delete<DeleteAllChatSessionsResponses, DeleteAllChatSessionsErrors, ThrowOnError>({
+export const deleteAllChatSessions = <ThrowOnError extends boolean = true>(options?: Options<DeleteAllChatSessionsData, ThrowOnError>): RequestResult<DeleteAllChatSessionsResponses, DeleteAllChatSessionsErrors, ThrowOnError> => (options?.client ?? client).delete<DeleteAllChatSessionsResponses, DeleteAllChatSessionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2857,7 +2857,7 @@ export const deleteAllChatSessions = <ThrowOnError extends boolean = false>(opti
 /**
  * List the actor's private chat sessions
  */
-export const listChatSessions = <ThrowOnError extends boolean = false>(options?: Options<ListChatSessionsData, ThrowOnError>): RequestResult<ListChatSessionsResponses, ListChatSessionsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatSessionsResponses, ListChatSessionsErrors, ThrowOnError>({
+export const listChatSessions = <ThrowOnError extends boolean = true>(options?: Options<ListChatSessionsData, ThrowOnError>): RequestResult<ListChatSessionsResponses, ListChatSessionsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatSessionsResponses, ListChatSessionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2870,7 +2870,7 @@ export const listChatSessions = <ThrowOnError extends boolean = false>(options?:
 /**
  * Create a private chat session
  */
-export const createChatSession = <ThrowOnError extends boolean = false>(options: Options<CreateChatSessionData, ThrowOnError>): RequestResult<CreateChatSessionResponses, CreateChatSessionErrors, ThrowOnError> => (options.client ?? client).post<CreateChatSessionResponses, CreateChatSessionErrors, ThrowOnError>({
+export const createChatSession = <ThrowOnError extends boolean = true>(options: Options<CreateChatSessionData, ThrowOnError>): RequestResult<CreateChatSessionResponses, CreateChatSessionErrors, ThrowOnError> => (options.client ?? client).post<CreateChatSessionResponses, CreateChatSessionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2887,7 +2887,7 @@ export const createChatSession = <ThrowOnError extends boolean = false>(options:
 /**
  * Put an archived conversation back on the sidebar
  */
-export const unarchiveChatSession = <ThrowOnError extends boolean = false>(options: Options<UnarchiveChatSessionData, ThrowOnError>): RequestResult<UnarchiveChatSessionResponses, UnarchiveChatSessionErrors, ThrowOnError> => (options.client ?? client).post<UnarchiveChatSessionResponses, UnarchiveChatSessionErrors, ThrowOnError>({
+export const unarchiveChatSession = <ThrowOnError extends boolean = true>(options: Options<UnarchiveChatSessionData, ThrowOnError>): RequestResult<UnarchiveChatSessionResponses, UnarchiveChatSessionErrors, ThrowOnError> => (options.client ?? client).post<UnarchiveChatSessionResponses, UnarchiveChatSessionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2900,7 +2900,7 @@ export const unarchiveChatSession = <ThrowOnError extends boolean = false>(optio
 /**
  * Read the selected chat branch after a message cursor
  */
-export const getChatHistory = <ThrowOnError extends boolean = false>(options: Options<GetChatHistoryData, ThrowOnError>): RequestResult<GetChatHistoryResponses, GetChatHistoryErrors, ThrowOnError> => (options.client ?? client).get<GetChatHistoryResponses, GetChatHistoryErrors, ThrowOnError>({
+export const getChatHistory = <ThrowOnError extends boolean = true>(options: Options<GetChatHistoryData, ThrowOnError>): RequestResult<GetChatHistoryResponses, GetChatHistoryErrors, ThrowOnError> => (options.client ?? client).get<GetChatHistoryResponses, GetChatHistoryErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2913,7 +2913,7 @@ export const getChatHistory = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Reserve and execute a chat reply in the background
  */
-export const sendChatMessage = <ThrowOnError extends boolean = false>(options: Options<SendChatMessageData, ThrowOnError>): RequestResult<SendChatMessageResponses, SendChatMessageErrors, ThrowOnError> => (options.client ?? client).post<SendChatMessageResponses, SendChatMessageErrors, ThrowOnError>({
+export const sendChatMessage = <ThrowOnError extends boolean = true>(options: Options<SendChatMessageData, ThrowOnError>): RequestResult<SendChatMessageResponses, SendChatMessageErrors, ThrowOnError> => (options.client ?? client).post<SendChatMessageResponses, SendChatMessageErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2930,7 +2930,7 @@ export const sendChatMessage = <ThrowOnError extends boolean = false>(options: O
 /**
  * Generate a new answer under the existing question
  */
-export const regenerateChatMessage = <ThrowOnError extends boolean = false>(options: Options<RegenerateChatMessageData, ThrowOnError>): RequestResult<RegenerateChatMessageResponses, RegenerateChatMessageErrors, ThrowOnError> => (options.client ?? client).post<RegenerateChatMessageResponses, RegenerateChatMessageErrors, ThrowOnError>({
+export const regenerateChatMessage = <ThrowOnError extends boolean = true>(options: Options<RegenerateChatMessageData, ThrowOnError>): RequestResult<RegenerateChatMessageResponses, RegenerateChatMessageErrors, ThrowOnError> => (options.client ?? client).post<RegenerateChatMessageResponses, RegenerateChatMessageErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2947,7 +2947,7 @@ export const regenerateChatMessage = <ThrowOnError extends boolean = false>(opti
 /**
  * Create a new question branch and execute its reply
  */
-export const editChatMessage = <ThrowOnError extends boolean = false>(options: Options<EditChatMessageData, ThrowOnError>): RequestResult<EditChatMessageResponses, EditChatMessageErrors, ThrowOnError> => (options.client ?? client).post<EditChatMessageResponses, EditChatMessageErrors, ThrowOnError>({
+export const editChatMessage = <ThrowOnError extends boolean = true>(options: Options<EditChatMessageData, ThrowOnError>): RequestResult<EditChatMessageResponses, EditChatMessageErrors, ThrowOnError> => (options.client ?? client).post<EditChatMessageResponses, EditChatMessageErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2964,7 +2964,7 @@ export const editChatMessage = <ThrowOnError extends boolean = false>(options: O
 /**
  * Copy this conversation's selected path up to one message into a new conversation
  */
-export const branchChatSession = <ThrowOnError extends boolean = false>(options: Options<BranchChatSessionData, ThrowOnError>): RequestResult<BranchChatSessionResponses, BranchChatSessionErrors, ThrowOnError> => (options.client ?? client).post<BranchChatSessionResponses, BranchChatSessionErrors, ThrowOnError>({
+export const branchChatSession = <ThrowOnError extends boolean = true>(options: Options<BranchChatSessionData, ThrowOnError>): RequestResult<BranchChatSessionResponses, BranchChatSessionErrors, ThrowOnError> => (options.client ?? client).post<BranchChatSessionResponses, BranchChatSessionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2981,7 +2981,7 @@ export const branchChatSession = <ThrowOnError extends boolean = false>(options:
 /**
  * Request Stop; read history for the committed terminal outcome
  */
-export const cancelChatMessage = <ThrowOnError extends boolean = false>(options: Options<CancelChatMessageData, ThrowOnError>): RequestResult<CancelChatMessageResponses, CancelChatMessageErrors, ThrowOnError> => (options.client ?? client).post<CancelChatMessageResponses, CancelChatMessageErrors, ThrowOnError>({
+export const cancelChatMessage = <ThrowOnError extends boolean = true>(options: Options<CancelChatMessageData, ThrowOnError>): RequestResult<CancelChatMessageResponses, CancelChatMessageErrors, ThrowOnError> => (options.client ?? client).post<CancelChatMessageResponses, CancelChatMessageErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -2994,7 +2994,7 @@ export const cancelChatMessage = <ThrowOnError extends boolean = false>(options:
 /**
  * Take one of the caller's conversations off the sidebar while keeping it
  */
-export const archiveChatSession = <ThrowOnError extends boolean = false>(options: Options<ArchiveChatSessionData, ThrowOnError>): RequestResult<ArchiveChatSessionResponses, ArchiveChatSessionErrors, ThrowOnError> => (options.client ?? client).post<ArchiveChatSessionResponses, ArchiveChatSessionErrors, ThrowOnError>({
+export const archiveChatSession = <ThrowOnError extends boolean = true>(options: Options<ArchiveChatSessionData, ThrowOnError>): RequestResult<ArchiveChatSessionResponses, ArchiveChatSessionErrors, ThrowOnError> => (options.client ?? client).post<ArchiveChatSessionResponses, ArchiveChatSessionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3007,7 +3007,7 @@ export const archiveChatSession = <ThrowOnError extends boolean = false>(options
 /**
  * Archive the caller's conversations in one command
  */
-export const archiveAllChatSessions = <ThrowOnError extends boolean = false>(options: Options<ArchiveAllChatSessionsData, ThrowOnError>): RequestResult<ArchiveAllChatSessionsResponses, ArchiveAllChatSessionsErrors, ThrowOnError> => (options.client ?? client).post<ArchiveAllChatSessionsResponses, ArchiveAllChatSessionsErrors, ThrowOnError>({
+export const archiveAllChatSessions = <ThrowOnError extends boolean = true>(options?: Options<ArchiveAllChatSessionsData, ThrowOnError>): RequestResult<ArchiveAllChatSessionsResponses, ArchiveAllChatSessionsErrors, ThrowOnError> => (options?.client ?? client).post<ArchiveAllChatSessionsResponses, ArchiveAllChatSessionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3020,7 +3020,7 @@ export const archiveAllChatSessions = <ThrowOnError extends boolean = false>(opt
 /**
  * List Tenant provider configuration with credentials redacted
  */
-export const listChatProviders = <ThrowOnError extends boolean = false>(options?: Options<ListChatProvidersData, ThrowOnError>): RequestResult<ListChatProvidersResponses, ListChatProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListChatProvidersResponses, ListChatProvidersErrors, ThrowOnError>({
+export const listChatProviders = <ThrowOnError extends boolean = true>(options?: Options<ListChatProvidersData, ThrowOnError>): RequestResult<ListChatProvidersResponses, ListChatProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListChatProvidersResponses, ListChatProvidersErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3033,7 +3033,7 @@ export const listChatProviders = <ThrowOnError extends boolean = false>(options?
 /**
  * Create a Tenant provider; requires MODELS_MANAGE
  */
-export const createChatProvider = <ThrowOnError extends boolean = false>(options: Options<CreateChatProviderData, ThrowOnError>): RequestResult<CreateChatProviderResponses, CreateChatProviderErrors, ThrowOnError> => (options.client ?? client).post<CreateChatProviderResponses, CreateChatProviderErrors, ThrowOnError>({
+export const createChatProvider = <ThrowOnError extends boolean = true>(options: Options<CreateChatProviderData, ThrowOnError>): RequestResult<CreateChatProviderResponses, CreateChatProviderErrors, ThrowOnError> => (options.client ?? client).post<CreateChatProviderResponses, CreateChatProviderErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3050,7 +3050,7 @@ export const createChatProvider = <ThrowOnError extends boolean = false>(options
 /**
  * List all configured models on a provider; requires model management
  */
-export const listConfiguredChatModels = <ThrowOnError extends boolean = false>(options: Options<ListConfiguredChatModelsData, ThrowOnError>): RequestResult<ListConfiguredChatModelsResponses, ListConfiguredChatModelsErrors, ThrowOnError> => (options.client ?? client).get<ListConfiguredChatModelsResponses, ListConfiguredChatModelsErrors, ThrowOnError>({
+export const listConfiguredChatModels = <ThrowOnError extends boolean = true>(options: Options<ListConfiguredChatModelsData, ThrowOnError>): RequestResult<ListConfiguredChatModelsResponses, ListConfiguredChatModelsErrors, ThrowOnError> => (options.client ?? client).get<ListConfiguredChatModelsResponses, ListConfiguredChatModelsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3063,7 +3063,7 @@ export const listConfiguredChatModels = <ThrowOnError extends boolean = false>(o
 /**
  * Add a concrete model configuration to a Tenant provider
  */
-export const createChatModel = <ThrowOnError extends boolean = false>(options: Options<CreateChatModelData, ThrowOnError>): RequestResult<CreateChatModelResponses, CreateChatModelErrors, ThrowOnError> => (options.client ?? client).post<CreateChatModelResponses, CreateChatModelErrors, ThrowOnError>({
+export const createChatModel = <ThrowOnError extends boolean = true>(options: Options<CreateChatModelData, ThrowOnError>): RequestResult<CreateChatModelResponses, CreateChatModelErrors, ThrowOnError> => (options.client ?? client).post<CreateChatModelResponses, CreateChatModelErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3080,7 +3080,7 @@ export const createChatModel = <ThrowOnError extends boolean = false>(options: O
 /**
  * Check an unsaved or edited provider endpoint and key by listing its models; requires model management
  */
-export const testChatProvider = <ThrowOnError extends boolean = false>(options: Options<TestChatProviderData, ThrowOnError>): RequestResult<TestChatProviderResponses, TestChatProviderErrors, ThrowOnError> => (options.client ?? client).post<TestChatProviderResponses, TestChatProviderErrors, ThrowOnError>({
+export const testChatProvider = <ThrowOnError extends boolean = true>(options: Options<TestChatProviderData, ThrowOnError>): RequestResult<TestChatProviderResponses, TestChatProviderErrors, ThrowOnError> => (options.client ?? client).post<TestChatProviderResponses, TestChatProviderErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3097,7 +3097,7 @@ export const testChatProvider = <ThrowOnError extends boolean = false>(options: 
 /**
  * List the models an endpoint reports with the limits, capabilities and prices it or the installed catalog publishes; takes the provider being edited, saved or not, as the connection check does; requires model management
  */
-export const listReportedProviderModels = <ThrowOnError extends boolean = false>(options: Options<ListReportedProviderModelsData, ThrowOnError>): RequestResult<ListReportedProviderModelsResponses, ListReportedProviderModelsErrors, ThrowOnError> => (options.client ?? client).post<ListReportedProviderModelsResponses, ListReportedProviderModelsErrors, ThrowOnError>({
+export const listReportedProviderModels = <ThrowOnError extends boolean = true>(options: Options<ListReportedProviderModelsData, ThrowOnError>): RequestResult<ListReportedProviderModelsResponses, ListReportedProviderModelsErrors, ThrowOnError> => (options.client ?? client).post<ListReportedProviderModelsResponses, ListReportedProviderModelsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3114,7 +3114,7 @@ export const listReportedProviderModels = <ThrowOnError extends boolean = false>
 /**
  * List the actor's own and public prompt shortcuts
  */
-export const listChatPromptShortcuts = <ThrowOnError extends boolean = false>(options?: Options<ListChatPromptShortcutsData, ThrowOnError>): RequestResult<ListChatPromptShortcutsResponses, ListChatPromptShortcutsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPromptShortcutsResponses, ListChatPromptShortcutsErrors, ThrowOnError>({
+export const listChatPromptShortcuts = <ThrowOnError extends boolean = true>(options?: Options<ListChatPromptShortcutsData, ThrowOnError>): RequestResult<ListChatPromptShortcutsResponses, ListChatPromptShortcutsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPromptShortcutsResponses, ListChatPromptShortcutsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3127,7 +3127,7 @@ export const listChatPromptShortcuts = <ThrowOnError extends boolean = false>(op
 /**
  * Create a private prompt shortcut
  */
-export const createChatPromptShortcut = <ThrowOnError extends boolean = false>(options: Options<CreateChatPromptShortcutData, ThrowOnError>): RequestResult<CreateChatPromptShortcutResponses, CreateChatPromptShortcutErrors, ThrowOnError> => (options.client ?? client).post<CreateChatPromptShortcutResponses, CreateChatPromptShortcutErrors, ThrowOnError>({
+export const createChatPromptShortcut = <ThrowOnError extends boolean = true>(options: Options<CreateChatPromptShortcutData, ThrowOnError>): RequestResult<CreateChatPromptShortcutResponses, CreateChatPromptShortcutErrors, ThrowOnError> => (options.client ?? client).post<CreateChatPromptShortcutResponses, CreateChatPromptShortcutErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3144,7 +3144,7 @@ export const createChatPromptShortcut = <ThrowOnError extends boolean = false>(o
 /**
  * List public prompt shortcuts; requires AGENTS_MANAGE
  */
-export const listPublicChatPromptShortcuts = <ThrowOnError extends boolean = false>(options?: Options<ListPublicChatPromptShortcutsData, ThrowOnError>): RequestResult<ListPublicChatPromptShortcutsResponses, ListPublicChatPromptShortcutsErrors, ThrowOnError> => (options?.client ?? client).get<ListPublicChatPromptShortcutsResponses, ListPublicChatPromptShortcutsErrors, ThrowOnError>({
+export const listPublicChatPromptShortcuts = <ThrowOnError extends boolean = true>(options?: Options<ListPublicChatPromptShortcutsData, ThrowOnError>): RequestResult<ListPublicChatPromptShortcutsResponses, ListPublicChatPromptShortcutsErrors, ThrowOnError> => (options?.client ?? client).get<ListPublicChatPromptShortcutsResponses, ListPublicChatPromptShortcutsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3157,7 +3157,7 @@ export const listPublicChatPromptShortcuts = <ThrowOnError extends boolean = fal
 /**
  * Create a public prompt shortcut; requires AGENTS_MANAGE
  */
-export const createPublicChatPromptShortcut = <ThrowOnError extends boolean = false>(options: Options<CreatePublicChatPromptShortcutData, ThrowOnError>): RequestResult<CreatePublicChatPromptShortcutResponses, CreatePublicChatPromptShortcutErrors, ThrowOnError> => (options.client ?? client).post<CreatePublicChatPromptShortcutResponses, CreatePublicChatPromptShortcutErrors, ThrowOnError>({
+export const createPublicChatPromptShortcut = <ThrowOnError extends boolean = true>(options: Options<CreatePublicChatPromptShortcutData, ThrowOnError>): RequestResult<CreatePublicChatPromptShortcutResponses, CreatePublicChatPromptShortcutErrors, ThrowOnError> => (options.client ?? client).post<CreatePublicChatPromptShortcutResponses, CreatePublicChatPromptShortcutErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3174,7 +3174,7 @@ export const createPublicChatPromptShortcut = <ThrowOnError extends boolean = fa
 /**
  * List actor-owned projects
  */
-export const listChatProjects = <ThrowOnError extends boolean = false>(options?: Options<ListChatProjectsData, ThrowOnError>): RequestResult<ListChatProjectsResponses, ListChatProjectsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatProjectsResponses, ListChatProjectsErrors, ThrowOnError>({
+export const listChatProjects = <ThrowOnError extends boolean = true>(options?: Options<ListChatProjectsData, ThrowOnError>): RequestResult<ListChatProjectsResponses, ListChatProjectsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatProjectsResponses, ListChatProjectsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3187,7 +3187,7 @@ export const listChatProjects = <ThrowOnError extends boolean = false>(options?:
 /**
  * Create a private project
  */
-export const createChatProject = <ThrowOnError extends boolean = false>(options: Options<CreateChatProjectData, ThrowOnError>): RequestResult<CreateChatProjectResponses, CreateChatProjectErrors, ThrowOnError> => (options.client ?? client).post<CreateChatProjectResponses, CreateChatProjectErrors, ThrowOnError>({
+export const createChatProject = <ThrowOnError extends boolean = true>(options: Options<CreateChatProjectData, ThrowOnError>): RequestResult<CreateChatProjectResponses, CreateChatProjectErrors, ThrowOnError> => (options.client ?? client).post<CreateChatProjectResponses, CreateChatProjectErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3204,7 +3204,7 @@ export const createChatProject = <ThrowOnError extends boolean = false>(options:
 /**
  * List owned conversations in an owned project
  */
-export const listProjectChatSessions = <ThrowOnError extends boolean = false>(options: Options<ListProjectChatSessionsData, ThrowOnError>): RequestResult<ListProjectChatSessionsResponses, ListProjectChatSessionsErrors, ThrowOnError> => (options.client ?? client).get<ListProjectChatSessionsResponses, ListProjectChatSessionsErrors, ThrowOnError>({
+export const listProjectChatSessions = <ThrowOnError extends boolean = true>(options: Options<ListProjectChatSessionsData, ThrowOnError>): RequestResult<ListProjectChatSessionsResponses, ListProjectChatSessionsErrors, ThrowOnError> => (options.client ?? client).get<ListProjectChatSessionsResponses, ListProjectChatSessionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3217,7 +3217,7 @@ export const listProjectChatSessions = <ThrowOnError extends boolean = false>(op
 /**
  * Create a conversation inside an owned project
  */
-export const createProjectChatSession = <ThrowOnError extends boolean = false>(options: Options<CreateProjectChatSessionData, ThrowOnError>): RequestResult<CreateProjectChatSessionResponses, CreateProjectChatSessionErrors, ThrowOnError> => (options.client ?? client).post<CreateProjectChatSessionResponses, CreateProjectChatSessionErrors, ThrowOnError>({
+export const createProjectChatSession = <ThrowOnError extends boolean = true>(options: Options<CreateProjectChatSessionData, ThrowOnError>): RequestResult<CreateProjectChatSessionResponses, CreateProjectChatSessionErrors, ThrowOnError> => (options.client ?? client).post<CreateProjectChatSessionResponses, CreateProjectChatSessionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3234,7 +3234,7 @@ export const createProjectChatSession = <ThrowOnError extends boolean = false>(o
 /**
  * List usable agents: all listed, the actor's own, or shared with the actor
  */
-export const listChatPersonas = <ThrowOnError extends boolean = false>(options?: Options<ListChatPersonasData, ThrowOnError>): RequestResult<ListChatPersonasResponses, ListChatPersonasErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPersonasResponses, ListChatPersonasErrors, ThrowOnError>({
+export const listChatPersonas = <ThrowOnError extends boolean = true>(options?: Options<ListChatPersonasData, ThrowOnError>): RequestResult<ListChatPersonasResponses, ListChatPersonasErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPersonasResponses, ListChatPersonasErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3247,7 +3247,7 @@ export const listChatPersonas = <ThrowOnError extends boolean = false>(options?:
 /**
  * Create a private agent; requires AGENTS_CREATE
  */
-export const createChatPersona = <ThrowOnError extends boolean = false>(options: Options<CreateChatPersonaData, ThrowOnError>): RequestResult<CreateChatPersonaResponses, CreateChatPersonaErrors, ThrowOnError> => (options.client ?? client).post<CreateChatPersonaResponses, CreateChatPersonaErrors, ThrowOnError>({
+export const createChatPersona = <ThrowOnError extends boolean = true>(options: Options<CreateChatPersonaData, ThrowOnError>): RequestResult<CreateChatPersonaResponses, CreateChatPersonaErrors, ThrowOnError> => (options.client ?? client).post<CreateChatPersonaResponses, CreateChatPersonaErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3264,7 +3264,7 @@ export const createChatPersona = <ThrowOnError extends boolean = false>(options:
 /**
  * Restore a deleted agent; requires AGENTS_MANAGE
  */
-export const restoreChatPersona = <ThrowOnError extends boolean = false>(options: Options<RestoreChatPersonaData, ThrowOnError>): RequestResult<RestoreChatPersonaResponses, RestoreChatPersonaErrors, ThrowOnError> => (options.client ?? client).post<RestoreChatPersonaResponses, RestoreChatPersonaErrors, ThrowOnError>({
+export const restoreChatPersona = <ThrowOnError extends boolean = true>(options: Options<RestoreChatPersonaData, ThrowOnError>): RequestResult<RestoreChatPersonaResponses, RestoreChatPersonaErrors, ThrowOnError> => (options.client ?? client).post<RestoreChatPersonaResponses, RestoreChatPersonaErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3277,7 +3277,7 @@ export const restoreChatPersona = <ThrowOnError extends boolean = false>(options
 /**
  * Transfer agent ownership to an active member or a Group
  */
-export const transferChatPersona = <ThrowOnError extends boolean = false>(options: Options<TransferChatPersonaData, ThrowOnError>): RequestResult<TransferChatPersonaResponses, TransferChatPersonaErrors, ThrowOnError> => (options.client ?? client).post<TransferChatPersonaResponses, TransferChatPersonaErrors, ThrowOnError>({
+export const transferChatPersona = <ThrowOnError extends boolean = true>(options: Options<TransferChatPersonaData, ThrowOnError>): RequestResult<TransferChatPersonaResponses, TransferChatPersonaErrors, ThrowOnError> => (options.client ?? client).post<TransferChatPersonaResponses, TransferChatPersonaErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3294,7 +3294,7 @@ export const transferChatPersona = <ThrowOnError extends boolean = false>(option
 /**
  * List agent labels
  */
-export const listChatPersonaLabels = <ThrowOnError extends boolean = false>(options?: Options<ListChatPersonaLabelsData, ThrowOnError>): RequestResult<ListChatPersonaLabelsResponses, ListChatPersonaLabelsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPersonaLabelsResponses, ListChatPersonaLabelsErrors, ThrowOnError>({
+export const listChatPersonaLabels = <ThrowOnError extends boolean = true>(options?: Options<ListChatPersonaLabelsData, ThrowOnError>): RequestResult<ListChatPersonaLabelsResponses, ListChatPersonaLabelsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPersonaLabelsResponses, ListChatPersonaLabelsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3307,7 +3307,7 @@ export const listChatPersonaLabels = <ThrowOnError extends boolean = false>(opti
 /**
  * Create an agent label
  */
-export const createChatPersonaLabel = <ThrowOnError extends boolean = false>(options: Options<CreateChatPersonaLabelData, ThrowOnError>): RequestResult<CreateChatPersonaLabelResponses, CreateChatPersonaLabelErrors, ThrowOnError> => (options.client ?? client).post<CreateChatPersonaLabelResponses, CreateChatPersonaLabelErrors, ThrowOnError>({
+export const createChatPersonaLabel = <ThrowOnError extends boolean = true>(options: Options<CreateChatPersonaLabelData, ThrowOnError>): RequestResult<CreateChatPersonaLabelResponses, CreateChatPersonaLabelErrors, ThrowOnError> => (options.client ?? client).post<CreateChatPersonaLabelResponses, CreateChatPersonaLabelErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3324,7 +3324,7 @@ export const createChatPersonaLabel = <ThrowOnError extends boolean = false>(opt
 /**
  * Explicit bounded provider connectivity check; does not certify model capabilities
  */
-export const validateChatModel = <ThrowOnError extends boolean = false>(options: Options<ValidateChatModelData, ThrowOnError>): RequestResult<ValidateChatModelResponses, ValidateChatModelErrors, ThrowOnError> => (options.client ?? client).post<ValidateChatModelResponses, ValidateChatModelErrors, ThrowOnError>({
+export const validateChatModel = <ThrowOnError extends boolean = true>(options: Options<ValidateChatModelData, ThrowOnError>): RequestResult<ValidateChatModelResponses, ValidateChatModelErrors, ThrowOnError> => (options.client ?? client).post<ValidateChatModelResponses, ValidateChatModelErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3337,7 +3337,7 @@ export const validateChatModel = <ThrowOnError extends boolean = false>(options:
 /**
  * Take one of the caller's files out of the trash while its bytes are still there
  */
-export const restoreChatLibraryFile = <ThrowOnError extends boolean = false>(options: Options<RestoreChatLibraryFileData, ThrowOnError>): RequestResult<RestoreChatLibraryFileResponses, RestoreChatLibraryFileErrors, ThrowOnError> => (options.client ?? client).post<RestoreChatLibraryFileResponses, RestoreChatLibraryFileErrors, ThrowOnError>({
+export const restoreChatLibraryFile = <ThrowOnError extends boolean = true>(options: Options<RestoreChatLibraryFileData, ThrowOnError>): RequestResult<RestoreChatLibraryFileResponses, RestoreChatLibraryFileErrors, ThrowOnError> => (options.client ?? client).post<RestoreChatLibraryFileResponses, RestoreChatLibraryFileErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3350,7 +3350,7 @@ export const restoreChatLibraryFile = <ThrowOnError extends boolean = false>(opt
 /**
  * End the trash window of one file now, so its bytes are released
  */
-export const purgeChatLibraryFile = <ThrowOnError extends boolean = false>(options: Options<PurgeChatLibraryFileData, ThrowOnError>): RequestResult<PurgeChatLibraryFileResponses, PurgeChatLibraryFileErrors, ThrowOnError> => (options.client ?? client).post<PurgeChatLibraryFileResponses, PurgeChatLibraryFileErrors, ThrowOnError>({
+export const purgeChatLibraryFile = <ThrowOnError extends boolean = true>(options: Options<PurgeChatLibraryFileData, ThrowOnError>): RequestResult<PurgeChatLibraryFileResponses, PurgeChatLibraryFileErrors, ThrowOnError> => (options.client ?? client).post<PurgeChatLibraryFileResponses, PurgeChatLibraryFileErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3363,7 +3363,7 @@ export const purgeChatLibraryFile = <ThrowOnError extends boolean = false>(optio
 /**
  * Copy a generated file or image into an upload of the caller, so it can be attached to a message, a Project or an assistant; asking again returns the same upload
  */
-export const copyChatLibraryFile = <ThrowOnError extends boolean = false>(options: Options<CopyChatLibraryFileData, ThrowOnError>): RequestResult<CopyChatLibraryFileResponses, CopyChatLibraryFileErrors, ThrowOnError> => (options.client ?? client).post<CopyChatLibraryFileResponses, CopyChatLibraryFileErrors, ThrowOnError>({
+export const copyChatLibraryFile = <ThrowOnError extends boolean = true>(options: Options<CopyChatLibraryFileData, ThrowOnError>): RequestResult<CopyChatLibraryFileResponses, CopyChatLibraryFileErrors, ThrowOnError> => (options.client ?? client).post<CopyChatLibraryFileResponses, CopyChatLibraryFileErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3376,7 +3376,7 @@ export const copyChatLibraryFile = <ThrowOnError extends boolean = false>(option
 /**
  * End the trash window of everything the caller deleted
  */
-export const emptyChatLibraryTrash = <ThrowOnError extends boolean = false>(options: Options<EmptyChatLibraryTrashData, ThrowOnError>): RequestResult<EmptyChatLibraryTrashResponses, EmptyChatLibraryTrashErrors, ThrowOnError> => (options.client ?? client).post<EmptyChatLibraryTrashResponses, EmptyChatLibraryTrashErrors, ThrowOnError>({
+export const emptyChatLibraryTrash = <ThrowOnError extends boolean = true>(options?: Options<EmptyChatLibraryTrashData, ThrowOnError>): RequestResult<EmptyChatLibraryTrashResponses, EmptyChatLibraryTrashErrors, ThrowOnError> => (options?.client ?? client).post<EmptyChatLibraryTrashResponses, EmptyChatLibraryTrashErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3389,7 +3389,7 @@ export const emptyChatLibraryTrash = <ThrowOnError extends boolean = false>(opti
 /**
  * The caller's own archives that have not expired
  */
-export const listChatLibraryArchives = <ThrowOnError extends boolean = false>(options?: Options<ListChatLibraryArchivesData, ThrowOnError>): RequestResult<ListChatLibraryArchivesResponses, ListChatLibraryArchivesErrors, ThrowOnError> => (options?.client ?? client).get<ListChatLibraryArchivesResponses, ListChatLibraryArchivesErrors, ThrowOnError>({
+export const listChatLibraryArchives = <ThrowOnError extends boolean = true>(options?: Options<ListChatLibraryArchivesData, ThrowOnError>): RequestResult<ListChatLibraryArchivesResponses, ListChatLibraryArchivesErrors, ThrowOnError> => (options?.client ?? client).get<ListChatLibraryArchivesResponses, ListChatLibraryArchivesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3402,7 +3402,7 @@ export const listChatLibraryArchives = <ThrowOnError extends boolean = false>(op
 /**
  * Ask for a ZIP of the selected files; a worker packs it and its owner downloads it until it expires
  */
-export const requestChatLibraryArchive = <ThrowOnError extends boolean = false>(options: Options<RequestChatLibraryArchiveData, ThrowOnError>): RequestResult<RequestChatLibraryArchiveResponses, RequestChatLibraryArchiveErrors, ThrowOnError> => (options.client ?? client).post<RequestChatLibraryArchiveResponses, RequestChatLibraryArchiveErrors, ThrowOnError>({
+export const requestChatLibraryArchive = <ThrowOnError extends boolean = true>(options: Options<RequestChatLibraryArchiveData, ThrowOnError>): RequestResult<RequestChatLibraryArchiveResponses, RequestChatLibraryArchiveErrors, ThrowOnError> => (options.client ?? client).post<RequestChatLibraryArchiveResponses, RequestChatLibraryArchiveErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3419,7 +3419,7 @@ export const requestChatLibraryArchive = <ThrowOnError extends boolean = false>(
 /**
  * Explicitly generate a test image; provider charges may apply
  */
-export const testChatImageConnection = <ThrowOnError extends boolean = false>(options: Options<TestChatImageConnectionData, ThrowOnError>): RequestResult<TestChatImageConnectionResponses, TestChatImageConnectionErrors, ThrowOnError> => (options.client ?? client).post<TestChatImageConnectionResponses, TestChatImageConnectionErrors, ThrowOnError>({
+export const testChatImageConnection = <ThrowOnError extends boolean = true>(options: Options<TestChatImageConnectionData, ThrowOnError>): RequestResult<TestChatImageConnectionResponses, TestChatImageConnectionErrors, ThrowOnError> => (options.client ?? client).post<TestChatImageConnectionResponses, TestChatImageConnectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3436,7 +3436,7 @@ export const testChatImageConnection = <ThrowOnError extends boolean = false>(op
 /**
  * Retry processing a failed owner-private file
  */
-export const retryChatFile = <ThrowOnError extends boolean = false>(options: Options<RetryChatFileData, ThrowOnError>): RequestResult<RetryChatFileResponses, RetryChatFileErrors, ThrowOnError> => (options.client ?? client).post<RetryChatFileResponses, RetryChatFileErrors, ThrowOnError>({
+export const retryChatFile = <ThrowOnError extends boolean = true>(options: Options<RetryChatFileData, ThrowOnError>): RequestResult<RetryChatFileResponses, RetryChatFileErrors, ThrowOnError> => (options.client ?? client).post<RetryChatFileResponses, RetryChatFileErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3449,7 +3449,7 @@ export const retryChatFile = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * Verify upload integrity and queue asynchronous extraction
  */
-export const finalizeChatFileUpload = <ThrowOnError extends boolean = false>(options: Options<FinalizeChatFileUploadData, ThrowOnError>): RequestResult<FinalizeChatFileUploadResponses, FinalizeChatFileUploadErrors, ThrowOnError> => (options.client ?? client).post<FinalizeChatFileUploadResponses, FinalizeChatFileUploadErrors, ThrowOnError>({
+export const finalizeChatFileUpload = <ThrowOnError extends boolean = true>(options: Options<FinalizeChatFileUploadData, ThrowOnError>): RequestResult<FinalizeChatFileUploadResponses, FinalizeChatFileUploadErrors, ThrowOnError> => (options.client ?? client).post<FinalizeChatFileUploadResponses, FinalizeChatFileUploadErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3462,7 +3462,7 @@ export const finalizeChatFileUpload = <ThrowOnError extends boolean = false>(opt
 /**
  * Authorize or resume an owner-private, idempotent file upload
  */
-export const initiateChatFileUpload = <ThrowOnError extends boolean = false>(options: Options<InitiateChatFileUploadData, ThrowOnError>): RequestResult<InitiateChatFileUploadResponses, InitiateChatFileUploadErrors, ThrowOnError> => (options.client ?? client).post<InitiateChatFileUploadResponses, InitiateChatFileUploadErrors, ThrowOnError>({
+export const initiateChatFileUpload = <ThrowOnError extends boolean = true>(options: Options<InitiateChatFileUploadData, ThrowOnError>): RequestResult<InitiateChatFileUploadResponses, InitiateChatFileUploadErrors, ThrowOnError> => (options.client ?? client).post<InitiateChatFileUploadResponses, InitiateChatFileUploadErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3479,7 +3479,7 @@ export const initiateChatFileUpload = <ThrowOnError extends boolean = false>(opt
 /**
  * The caller's exports that are still worth offering
  */
-export const listChatExports = <ThrowOnError extends boolean = false>(options?: Options<ListChatExportsData, ThrowOnError>): RequestResult<ListChatExportsResponses, ListChatExportsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatExportsResponses, ListChatExportsErrors, ThrowOnError>({
+export const listChatExports = <ThrowOnError extends boolean = true>(options?: Options<ListChatExportsData, ThrowOnError>): RequestResult<ListChatExportsResponses, ListChatExportsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatExportsResponses, ListChatExportsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3492,7 +3492,7 @@ export const listChatExports = <ThrowOnError extends boolean = false>(options?: 
 /**
  * Ask for a ZIP of the caller's own conversations and files
  */
-export const requestChatExport = <ThrowOnError extends boolean = false>(options: Options<RequestChatExportData, ThrowOnError>): RequestResult<RequestChatExportResponses, RequestChatExportErrors, ThrowOnError> => (options.client ?? client).post<RequestChatExportResponses, RequestChatExportErrors, ThrowOnError>({
+export const requestChatExport = <ThrowOnError extends boolean = true>(options?: Options<RequestChatExportData, ThrowOnError>): RequestResult<RequestChatExportResponses, RequestChatExportErrors, ThrowOnError> => (options?.client ?? client).post<RequestChatExportResponses, RequestChatExportErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3505,7 +3505,7 @@ export const requestChatExport = <ThrowOnError extends boolean = false>(options:
 /**
  * List Document Sets the actor can use
  */
-export const listDocumentSets = <ThrowOnError extends boolean = false>(options?: Options<ListDocumentSetsData, ThrowOnError>): RequestResult<ListDocumentSetsResponses, ListDocumentSetsErrors, ThrowOnError> => (options?.client ?? client).get<ListDocumentSetsResponses, ListDocumentSetsErrors, ThrowOnError>({
+export const listDocumentSets = <ThrowOnError extends boolean = true>(options?: Options<ListDocumentSetsData, ThrowOnError>): RequestResult<ListDocumentSetsResponses, ListDocumentSetsErrors, ThrowOnError> => (options?.client ?? client).get<ListDocumentSetsResponses, ListDocumentSetsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3518,7 +3518,7 @@ export const listDocumentSets = <ThrowOnError extends boolean = false>(options?:
 /**
  * Create a private Document Set; requires AGENTS_CREATE
  */
-export const createDocumentSet = <ThrowOnError extends boolean = false>(options: Options<CreateDocumentSetData, ThrowOnError>): RequestResult<CreateDocumentSetResponses, CreateDocumentSetErrors, ThrowOnError> => (options.client ?? client).post<CreateDocumentSetResponses, CreateDocumentSetErrors, ThrowOnError>({
+export const createDocumentSet = <ThrowOnError extends boolean = true>(options: Options<CreateDocumentSetData, ThrowOnError>): RequestResult<CreateDocumentSetResponses, CreateDocumentSetErrors, ThrowOnError> => (options.client ?? client).post<CreateDocumentSetResponses, CreateDocumentSetErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3535,7 +3535,7 @@ export const createDocumentSet = <ThrowOnError extends boolean = false>(options:
 /**
  * The Tenant's usage reports, newest first; requires model management
  */
-export const listUsageReports = <ThrowOnError extends boolean = false>(options?: Options<ListUsageReportsData, ThrowOnError>): RequestResult<ListUsageReportsResponses, ListUsageReportsErrors, ThrowOnError> => (options?.client ?? client).get<ListUsageReportsResponses, ListUsageReportsErrors, ThrowOnError>({
+export const listUsageReports = <ThrowOnError extends boolean = true>(options?: Options<ListUsageReportsData, ThrowOnError>): RequestResult<ListUsageReportsResponses, ListUsageReportsErrors, ThrowOnError> => (options?.client ?? client).get<ListUsageReportsResponses, ListUsageReportsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3548,7 +3548,7 @@ export const listUsageReports = <ThrowOnError extends boolean = false>(options?:
 /**
  * Queue a usage report for a UTC day range; requires model management
  */
-export const requestUsageReport = <ThrowOnError extends boolean = false>(options: Options<RequestUsageReportData, ThrowOnError>): RequestResult<RequestUsageReportResponses, RequestUsageReportErrors, ThrowOnError> => (options.client ?? client).post<RequestUsageReportResponses, RequestUsageReportErrors, ThrowOnError>({
+export const requestUsageReport = <ThrowOnError extends boolean = true>(options: Options<RequestUsageReportData, ThrowOnError>): RequestResult<RequestUsageReportResponses, RequestUsageReportErrors, ThrowOnError> => (options.client ?? client).post<RequestUsageReportResponses, RequestUsageReportErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3565,7 +3565,7 @@ export const requestUsageReport = <ThrowOnError extends boolean = false>(options
 /**
  * The Tenant's AI spending limits; requires model management
  */
-export const listAiUsageLimits = <ThrowOnError extends boolean = false>(options?: Options<ListAiUsageLimitsData, ThrowOnError>): RequestResult<ListAiUsageLimitsResponses, ListAiUsageLimitsErrors, ThrowOnError> => (options?.client ?? client).get<ListAiUsageLimitsResponses, ListAiUsageLimitsErrors, ThrowOnError>({
+export const listAiUsageLimits = <ThrowOnError extends boolean = true>(options?: Options<ListAiUsageLimitsData, ThrowOnError>): RequestResult<ListAiUsageLimitsResponses, ListAiUsageLimitsErrors, ThrowOnError> => (options?.client ?? client).get<ListAiUsageLimitsResponses, ListAiUsageLimitsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3578,7 +3578,7 @@ export const listAiUsageLimits = <ThrowOnError extends boolean = false>(options?
 /**
  * Sets a spending limit for the Tenant, a Group or each person; requires model management
  */
-export const createAiUsageLimit = <ThrowOnError extends boolean = false>(options: Options<CreateAiUsageLimitData, ThrowOnError>): RequestResult<CreateAiUsageLimitResponses, CreateAiUsageLimitErrors, ThrowOnError> => (options.client ?? client).post<CreateAiUsageLimitResponses, CreateAiUsageLimitErrors, ThrowOnError>({
+export const createAiUsageLimit = <ThrowOnError extends boolean = true>(options: Options<CreateAiUsageLimitData, ThrowOnError>): RequestResult<CreateAiUsageLimitResponses, CreateAiUsageLimitErrors, ThrowOnError> => (options.client ?? client).post<CreateAiUsageLimitResponses, CreateAiUsageLimitErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3595,7 +3595,7 @@ export const createAiUsageLimit = <ThrowOnError extends boolean = false>(options
 /**
  * Read the current member's voice settings
  */
-export const getChatVoiceSettings = <ThrowOnError extends boolean = false>(options?: Options<GetChatVoiceSettingsData, ThrowOnError>): RequestResult<GetChatVoiceSettingsResponses, GetChatVoiceSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetChatVoiceSettingsResponses, GetChatVoiceSettingsErrors, ThrowOnError>({
+export const getChatVoiceSettings = <ThrowOnError extends boolean = true>(options?: Options<GetChatVoiceSettingsData, ThrowOnError>): RequestResult<GetChatVoiceSettingsResponses, GetChatVoiceSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetChatVoiceSettingsResponses, GetChatVoiceSettingsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3608,7 +3608,7 @@ export const getChatVoiceSettings = <ThrowOnError extends boolean = false>(optio
 /**
  * Change the current member's voice settings; absent values are kept
  */
-export const updateChatVoiceSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateChatVoiceSettingsData, ThrowOnError>): RequestResult<UpdateChatVoiceSettingsResponses, UpdateChatVoiceSettingsErrors, ThrowOnError> => (options.client ?? client).patch<UpdateChatVoiceSettingsResponses, UpdateChatVoiceSettingsErrors, ThrowOnError>({
+export const updateChatVoiceSettings = <ThrowOnError extends boolean = true>(options: Options<UpdateChatVoiceSettingsData, ThrowOnError>): RequestResult<UpdateChatVoiceSettingsResponses, UpdateChatVoiceSettingsErrors, ThrowOnError> => (options.client ?? client).patch<UpdateChatVoiceSettingsResponses, UpdateChatVoiceSettingsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3625,7 +3625,7 @@ export const updateChatVoiceSettings = <ThrowOnError extends boolean = false>(op
 /**
  * Rename or star one of the caller's files
  */
-export const changeChatLibraryFile = <ThrowOnError extends boolean = false>(options: Options<ChangeChatLibraryFileData, ThrowOnError>): RequestResult<ChangeChatLibraryFileResponses, ChangeChatLibraryFileErrors, ThrowOnError> => (options.client ?? client).patch<ChangeChatLibraryFileResponses, ChangeChatLibraryFileErrors, ThrowOnError>({
+export const changeChatLibraryFile = <ThrowOnError extends boolean = true>(options: Options<ChangeChatLibraryFileData, ThrowOnError>): RequestResult<ChangeChatLibraryFileResponses, ChangeChatLibraryFileErrors, ThrowOnError> => (options.client ?? client).patch<ChangeChatLibraryFileResponses, ChangeChatLibraryFileErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3642,7 +3642,7 @@ export const changeChatLibraryFile = <ThrowOnError extends boolean = false>(opti
 /**
  * List users manageable by the current IAM administrator
  */
-export const listUsers = <ThrowOnError extends boolean = false>(options?: Options<ListUsersData, ThrowOnError>): RequestResult<ListUsersResponses, ListUsersErrors, ThrowOnError> => (options?.client ?? client).get<ListUsersResponses, ListUsersErrors, ThrowOnError>({
+export const listUsers = <ThrowOnError extends boolean = true>(options?: Options<ListUsersData, ThrowOnError>): RequestResult<ListUsersResponses, ListUsersErrors, ThrowOnError> => (options?.client ?? client).get<ListUsersResponses, ListUsersErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'SESSION',
@@ -3655,7 +3655,7 @@ export const listUsers = <ThrowOnError extends boolean = false>(options?: Option
 /**
  * List Tenant sources
  */
-export const listSources = <ThrowOnError extends boolean = false>(options?: Options<ListSourcesData, ThrowOnError>): RequestResult<ListSourcesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListSourcesResponses, unknown, ThrowOnError>({
+export const listSources = <ThrowOnError extends boolean = true>(options?: Options<ListSourcesData, ThrowOnError>): RequestResult<ListSourcesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListSourcesResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3668,7 +3668,7 @@ export const listSources = <ThrowOnError extends boolean = false>(options?: Opti
 /**
  * Get one source summary
  */
-export const getSource = <ThrowOnError extends boolean = false>(options: Options<GetSourceData, ThrowOnError>): RequestResult<GetSourceResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetSourceResponses, unknown, ThrowOnError>({
+export const getSource = <ThrowOnError extends boolean = true>(options: Options<GetSourceData, ThrowOnError>): RequestResult<GetSourceResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetSourceResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3681,7 +3681,7 @@ export const getSource = <ThrowOnError extends boolean = false>(options: Options
 /**
  * Get SharePoint source configuration
  */
-export const getSharePointConfiguration = <ThrowOnError extends boolean = false>(options: Options<GetSharePointConfigurationData, ThrowOnError>): RequestResult<GetSharePointConfigurationResponses, GetSharePointConfigurationErrors, ThrowOnError> => (options.client ?? client).get<GetSharePointConfigurationResponses, GetSharePointConfigurationErrors, ThrowOnError>({
+export const getSharePointConfiguration = <ThrowOnError extends boolean = true>(options: Options<GetSharePointConfigurationData, ThrowOnError>): RequestResult<GetSharePointConfigurationResponses, GetSharePointConfigurationErrors, ThrowOnError> => (options.client ?? client).get<GetSharePointConfigurationResponses, GetSharePointConfigurationErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3694,7 +3694,7 @@ export const getSharePointConfiguration = <ThrowOnError extends boolean = false>
 /**
  * Page the site, library and folder addresses in scope
  */
-export const getSharePointRoots = <ThrowOnError extends boolean = false>(options: Options<GetSharePointRootsData, ThrowOnError>): RequestResult<GetSharePointRootsResponses, GetSharePointRootsErrors, ThrowOnError> => (options.client ?? client).get<GetSharePointRootsResponses, GetSharePointRootsErrors, ThrowOnError>({
+export const getSharePointRoots = <ThrowOnError extends boolean = true>(options: Options<GetSharePointRootsData, ThrowOnError>): RequestResult<GetSharePointRootsResponses, GetSharePointRootsErrors, ThrowOnError> => (options.client ?? client).get<GetSharePointRootsResponses, GetSharePointRootsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3707,7 +3707,7 @@ export const getSharePointRoots = <ThrowOnError extends boolean = false>(options
 /**
  * List source synchronization runs and independent activity summaries
  */
-export const listSourceRuns = <ThrowOnError extends boolean = false>(options: Options<ListSourceRunsData, ThrowOnError>): RequestResult<ListSourceRunsResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListSourceRunsResponses, unknown, ThrowOnError>({
+export const listSourceRuns = <ThrowOnError extends boolean = true>(options: Options<ListSourceRunsData, ThrowOnError>): RequestResult<ListSourceRunsResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListSourceRunsResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3720,7 +3720,7 @@ export const listSourceRuns = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Get acquisition and owned indexing outcomes for one source run
  */
-export const getSourceRun = <ThrowOnError extends boolean = false>(options: Options<GetSourceRunData, ThrowOnError>): RequestResult<GetSourceRunResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetSourceRunResponses, unknown, ThrowOnError>({
+export const getSourceRun = <ThrowOnError extends boolean = true>(options: Options<GetSourceRunData, ThrowOnError>): RequestResult<GetSourceRunResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetSourceRunResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3733,7 +3733,7 @@ export const getSourceRun = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * List retained safe run and file errors
  */
-export const listSourceRunErrors = <ThrowOnError extends boolean = false>(options: Options<ListSourceRunErrorsData, ThrowOnError>): RequestResult<ListSourceRunErrorsResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListSourceRunErrorsResponses, unknown, ThrowOnError>({
+export const listSourceRunErrors = <ThrowOnError extends boolean = true>(options: Options<ListSourceRunErrorsData, ThrowOnError>): RequestResult<ListSourceRunErrorsResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListSourceRunErrorsResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3746,7 +3746,7 @@ export const listSourceRunErrors = <ThrowOnError extends boolean = false>(option
 /**
  * List a page of current source items
  */
-export const listSourceItems = <ThrowOnError extends boolean = false>(options: Options<ListSourceItemsData, ThrowOnError>): RequestResult<ListSourceItemsResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListSourceItemsResponses, unknown, ThrowOnError>({
+export const listSourceItems = <ThrowOnError extends boolean = true>(options: Options<ListSourceItemsData, ThrowOnError>): RequestResult<ListSourceItemsResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListSourceItemsResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3759,7 +3759,7 @@ export const listSourceItems = <ThrowOnError extends boolean = false>(options: O
 /**
  * List source indexing attempts
  */
-export const listSourceIndexAttempts = <ThrowOnError extends boolean = false>(options: Options<ListSourceIndexAttemptsData, ThrowOnError>): RequestResult<ListSourceIndexAttemptsResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListSourceIndexAttemptsResponses, unknown, ThrowOnError>({
+export const listSourceIndexAttempts = <ThrowOnError extends boolean = true>(options: Options<ListSourceIndexAttemptsData, ThrowOnError>): RequestResult<ListSourceIndexAttemptsResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListSourceIndexAttemptsResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3772,7 +3772,7 @@ export const listSourceIndexAttempts = <ThrowOnError extends boolean = false>(op
 /**
  * Get Google Drive source configuration
  */
-export const getGoogleDriveConfiguration = <ThrowOnError extends boolean = false>(options: Options<GetGoogleDriveConfigurationData, ThrowOnError>): RequestResult<GetGoogleDriveConfigurationResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGoogleDriveConfigurationResponses, unknown, ThrowOnError>({
+export const getGoogleDriveConfiguration = <ThrowOnError extends boolean = true>(options: Options<GetGoogleDriveConfigurationData, ThrowOnError>): RequestResult<GetGoogleDriveConfigurationResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGoogleDriveConfigurationResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3785,7 +3785,7 @@ export const getGoogleDriveConfiguration = <ThrowOnError extends boolean = false
 /**
  * Page selected roots and verified linked documents within a pinned Source snapshot
  */
-export const getGoogleDriveSelection = <ThrowOnError extends boolean = false>(options: Options<GetGoogleDriveSelectionData, ThrowOnError>): RequestResult<GetGoogleDriveSelectionResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGoogleDriveSelectionResponses, unknown, ThrowOnError>({
+export const getGoogleDriveSelection = <ThrowOnError extends boolean = true>(options: Options<GetGoogleDriveSelectionData, ThrowOnError>): RequestResult<GetGoogleDriveSelectionResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGoogleDriveSelectionResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3798,7 +3798,7 @@ export const getGoogleDriveSelection = <ThrowOnError extends boolean = false>(op
 /**
  * Expand selected Google Drive folders, files, and discovered links within the Source scope
  */
-export const getGoogleDriveSelectionTree = <ThrowOnError extends boolean = false>(options: Options<GetGoogleDriveSelectionTreeData, ThrowOnError>): RequestResult<GetGoogleDriveSelectionTreeResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGoogleDriveSelectionTreeResponses, unknown, ThrowOnError>({
+export const getGoogleDriveSelectionTree = <ThrowOnError extends boolean = true>(options: Options<GetGoogleDriveSelectionTreeData, ThrowOnError>): RequestResult<GetGoogleDriveSelectionTreeResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGoogleDriveSelectionTreeResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3811,7 +3811,7 @@ export const getGoogleDriveSelectionTree = <ThrowOnError extends boolean = false
 /**
  * Get the complete bounded active selection for editing
  */
-export const getGoogleDriveSelectionDraft = <ThrowOnError extends boolean = false>(options: Options<GetGoogleDriveSelectionDraftData, ThrowOnError>): RequestResult<GetGoogleDriveSelectionDraftResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGoogleDriveSelectionDraftResponses, unknown, ThrowOnError>({
+export const getGoogleDriveSelectionDraft = <ThrowOnError extends boolean = true>(options: Options<GetGoogleDriveSelectionDraftData, ThrowOnError>): RequestResult<GetGoogleDriveSelectionDraftResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGoogleDriveSelectionDraftResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3824,7 +3824,7 @@ export const getGoogleDriveSelectionDraft = <ThrowOnError extends boolean = fals
 /**
  * Recover the receipt of an accepted scope request
  */
-export const getSharePointSelectionRequest = <ThrowOnError extends boolean = false>(options: Options<GetSharePointSelectionRequestData, ThrowOnError>): RequestResult<GetSharePointSelectionRequestResponses, GetSharePointSelectionRequestErrors, ThrowOnError> => (options.client ?? client).get<GetSharePointSelectionRequestResponses, GetSharePointSelectionRequestErrors, ThrowOnError>({
+export const getSharePointSelectionRequest = <ThrowOnError extends boolean = true>(options: Options<GetSharePointSelectionRequestData, ThrowOnError>): RequestResult<GetSharePointSelectionRequestResponses, GetSharePointSelectionRequestErrors, ThrowOnError> => (options.client ?? client).get<GetSharePointSelectionRequestResponses, GetSharePointSelectionRequestErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3837,7 +3837,7 @@ export const getSharePointSelectionRequest = <ThrowOnError extends boolean = fal
 /**
  * Get the configured scope admission limits
  */
-export const getSharePointSelectionPolicy = <ThrowOnError extends boolean = false>(options?: Options<GetSharePointSelectionPolicyData, ThrowOnError>): RequestResult<GetSharePointSelectionPolicyResponses, GetSharePointSelectionPolicyErrors, ThrowOnError> => (options?.client ?? client).get<GetSharePointSelectionPolicyResponses, GetSharePointSelectionPolicyErrors, ThrowOnError>({
+export const getSharePointSelectionPolicy = <ThrowOnError extends boolean = true>(options?: Options<GetSharePointSelectionPolicyData, ThrowOnError>): RequestResult<GetSharePointSelectionPolicyResponses, GetSharePointSelectionPolicyErrors, ThrowOnError> => (options?.client ?? client).get<GetSharePointSelectionPolicyResponses, GetSharePointSelectionPolicyErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3850,7 +3850,7 @@ export const getSharePointSelectionPolicy = <ThrowOnError extends boolean = fals
 /**
  * List groups available for source association
  */
-export const listSourceGroupOptions = <ThrowOnError extends boolean = false>(options?: Options<ListSourceGroupOptionsData, ThrowOnError>): RequestResult<ListSourceGroupOptionsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListSourceGroupOptionsResponses, unknown, ThrowOnError>({
+export const listSourceGroupOptions = <ThrowOnError extends boolean = true>(options?: Options<ListSourceGroupOptionsData, ThrowOnError>): RequestResult<ListSourceGroupOptionsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListSourceGroupOptionsResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3863,7 +3863,7 @@ export const listSourceGroupOptions = <ThrowOnError extends boolean = false>(opt
 /**
  * Recover an accepted selection receipt for the initiating owner
  */
-export const getGoogleDriveSelectionRequest = <ThrowOnError extends boolean = false>(options: Options<GetGoogleDriveSelectionRequestData, ThrowOnError>): RequestResult<GetGoogleDriveSelectionRequestResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGoogleDriveSelectionRequestResponses, unknown, ThrowOnError>({
+export const getGoogleDriveSelectionRequest = <ThrowOnError extends boolean = true>(options: Options<GetGoogleDriveSelectionRequestData, ThrowOnError>): RequestResult<GetGoogleDriveSelectionRequestResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGoogleDriveSelectionRequestResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3876,7 +3876,7 @@ export const getGoogleDriveSelectionRequest = <ThrowOnError extends boolean = fa
 /**
  * Get the configured selection admission limits
  */
-export const getGoogleDriveSelectionPolicy = <ThrowOnError extends boolean = false>(options?: Options<GetGoogleDriveSelectionPolicyData, ThrowOnError>): RequestResult<GetGoogleDriveSelectionPolicyResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetGoogleDriveSelectionPolicyResponses, unknown, ThrowOnError>({
+export const getGoogleDriveSelectionPolicy = <ThrowOnError extends boolean = true>(options?: Options<GetGoogleDriveSelectionPolicyData, ThrowOnError>): RequestResult<GetGoogleDriveSelectionPolicyResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetGoogleDriveSelectionPolicyResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3889,7 +3889,7 @@ export const getGoogleDriveSelectionPolicy = <ThrowOnError extends boolean = fal
 /**
  * Get a durable source operation
  */
-export const getSourceOperation = <ThrowOnError extends boolean = false>(options: Options<GetSourceOperationData, ThrowOnError>): RequestResult<GetSourceOperationResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetSourceOperationResponses, unknown, ThrowOnError>({
+export const getSourceOperation = <ThrowOnError extends boolean = true>(options: Options<GetSourceOperationData, ThrowOnError>): RequestResult<GetSourceOperationResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetSourceOperationResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3902,7 +3902,7 @@ export const getSourceOperation = <ThrowOnError extends boolean = false>(options
 /**
  * Read the present, future and retained past search generations with rebuild progress
  */
-export const getSearchSettings = <ThrowOnError extends boolean = false>(options?: Options<GetSearchSettingsData, ThrowOnError>): RequestResult<GetSearchSettingsResponses, GetSearchSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetSearchSettingsResponses, GetSearchSettingsErrors, ThrowOnError>({
+export const getSearchSettings = <ThrowOnError extends boolean = true>(options?: Options<GetSearchSettingsData, ThrowOnError>): RequestResult<GetSearchSettingsResponses, GetSearchSettingsErrors, ThrowOnError> => (options?.client ?? client).get<GetSearchSettingsResponses, GetSearchSettingsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3915,7 +3915,7 @@ export const getSearchSettings = <ThrowOnError extends boolean = false>(options?
 /**
  * List known embedding models whose dimensions and prefixes are prefilled
  */
-export const listEmbeddingModelPresets = <ThrowOnError extends boolean = false>(options?: Options<ListEmbeddingModelPresetsData, ThrowOnError>): RequestResult<ListEmbeddingModelPresetsResponses, ListEmbeddingModelPresetsErrors, ThrowOnError> => (options?.client ?? client).get<ListEmbeddingModelPresetsResponses, ListEmbeddingModelPresetsErrors, ThrowOnError>({
+export const listEmbeddingModelPresets = <ThrowOnError extends boolean = true>(options?: Options<ListEmbeddingModelPresetsData, ThrowOnError>): RequestResult<ListEmbeddingModelPresetsResponses, ListEmbeddingModelPresetsErrors, ThrowOnError> => (options?.client ?? client).get<ListEmbeddingModelPresetsResponses, ListEmbeddingModelPresetsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3928,7 +3928,7 @@ export const listEmbeddingModelPresets = <ThrowOnError extends boolean = false>(
 /**
  * Read current document passages around a search result
  */
-export const getSearchDocument = <ThrowOnError extends boolean = false>(options: Options<GetSearchDocumentData, ThrowOnError>): RequestResult<GetSearchDocumentResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetSearchDocumentResponses, unknown, ThrowOnError>({
+export const getSearchDocument = <ThrowOnError extends boolean = true>(options: Options<GetSearchDocumentData, ThrowOnError>): RequestResult<GetSearchDocumentResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetSearchDocumentResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3941,7 +3941,7 @@ export const getSearchDocument = <ThrowOnError extends boolean = false>(options:
 /**
  * Read the workbook original of a search result as CSV text per sheet
  */
-export const readSearchDocumentSpreadsheet = <ThrowOnError extends boolean = false>(options: Options<ReadSearchDocumentSpreadsheetData, ThrowOnError>): RequestResult<ReadSearchDocumentSpreadsheetResponses, unknown, ThrowOnError> => (options.client ?? client).get<ReadSearchDocumentSpreadsheetResponses, unknown, ThrowOnError>({
+export const readSearchDocumentSpreadsheet = <ThrowOnError extends boolean = true>(options: Options<ReadSearchDocumentSpreadsheetData, ThrowOnError>): RequestResult<ReadSearchDocumentSpreadsheetResponses, unknown, ThrowOnError> => (options.client ?? client).get<ReadSearchDocumentSpreadsheetResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3954,7 +3954,7 @@ export const readSearchDocumentSpreadsheet = <ThrowOnError extends boolean = fal
 /**
  * Read the stored original of a search result, of any media type, to show the file as it looks
  */
-export const readSearchDocumentOriginal = <ThrowOnError extends boolean = false>(options: Options<ReadSearchDocumentOriginalData, ThrowOnError>): RequestResult<ReadSearchDocumentOriginalResponses, ReadSearchDocumentOriginalErrors, ThrowOnError> => (options.client ?? client).get<ReadSearchDocumentOriginalResponses, ReadSearchDocumentOriginalErrors, ThrowOnError>({
+export const readSearchDocumentOriginal = <ThrowOnError extends boolean = true>(options: Options<ReadSearchDocumentOriginalData, ThrowOnError>): RequestResult<ReadSearchDocumentOriginalResponses, ReadSearchDocumentOriginalErrors, ThrowOnError> => (options.client ?? client).get<ReadSearchDocumentOriginalResponses, ReadSearchDocumentOriginalErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3967,7 +3967,7 @@ export const readSearchDocumentOriginal = <ThrowOnError extends boolean = false>
 /**
  * Download what was said, with its times and speakers, as Word or PDF
  */
-export const exportMeetingTranscript = <ThrowOnError extends boolean = false>(options: Options<ExportMeetingTranscriptData, ThrowOnError>): RequestResult<ExportMeetingTranscriptResponses, ExportMeetingTranscriptErrors, ThrowOnError> => (options.client ?? client).get<ExportMeetingTranscriptResponses, ExportMeetingTranscriptErrors, ThrowOnError>({
+export const exportMeetingTranscript = <ThrowOnError extends boolean = true>(options: Options<ExportMeetingTranscriptData, ThrowOnError>): RequestResult<ExportMeetingTranscriptResponses, ExportMeetingTranscriptErrors, ThrowOnError> => (options.client ?? client).get<ExportMeetingTranscriptResponses, ExportMeetingTranscriptErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3980,7 +3980,7 @@ export const exportMeetingTranscript = <ThrowOnError extends boolean = false>(op
 /**
  * The speech connections a recording may be transcribed with, the Tenant's own first
  */
-export const listMeetingTranscribers = <ThrowOnError extends boolean = false>(options?: Options<ListMeetingTranscribersData, ThrowOnError>): RequestResult<ListMeetingTranscribersResponses, ListMeetingTranscribersErrors, ThrowOnError> => (options?.client ?? client).get<ListMeetingTranscribersResponses, ListMeetingTranscribersErrors, ThrowOnError>({
+export const listMeetingTranscribers = <ThrowOnError extends boolean = true>(options?: Options<ListMeetingTranscribersData, ThrowOnError>): RequestResult<ListMeetingTranscribersResponses, ListMeetingTranscribersErrors, ThrowOnError> => (options?.client ?? client).get<ListMeetingTranscribersResponses, ListMeetingTranscribersErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -3993,7 +3993,7 @@ export const listMeetingTranscribers = <ThrowOnError extends boolean = false>(op
 /**
  * List the stored tool snapshot; requires MCP_MANAGE
  */
-export const listMcpServerTools = <ThrowOnError extends boolean = false>(options: Options<ListMcpServerToolsData, ThrowOnError>): RequestResult<ListMcpServerToolsResponses, ListMcpServerToolsErrors, ThrowOnError> => (options.client ?? client).get<ListMcpServerToolsResponses, ListMcpServerToolsErrors, ThrowOnError>({
+export const listMcpServerTools = <ThrowOnError extends boolean = true>(options: Options<ListMcpServerToolsData, ThrowOnError>): RequestResult<ListMcpServerToolsResponses, ListMcpServerToolsErrors, ThrowOnError> => (options.client ?? client).get<ListMcpServerToolsResponses, ListMcpServerToolsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4006,7 +4006,7 @@ export const listMcpServerTools = <ThrowOnError extends boolean = false>(options
 /**
  * List Groups available for MCP server access; requires MCP_MANAGE
  */
-export const listMcpGroupOptions = <ThrowOnError extends boolean = false>(options?: Options<ListMcpGroupOptionsData, ThrowOnError>): RequestResult<ListMcpGroupOptionsResponses, ListMcpGroupOptionsErrors, ThrowOnError> => (options?.client ?? client).get<ListMcpGroupOptionsResponses, ListMcpGroupOptionsErrors, ThrowOnError>({
+export const listMcpGroupOptions = <ThrowOnError extends boolean = true>(options?: Options<ListMcpGroupOptionsData, ThrowOnError>): RequestResult<ListMcpGroupOptionsResponses, ListMcpGroupOptionsErrors, ThrowOnError> => (options?.client ?? client).get<ListMcpGroupOptionsResponses, ListMcpGroupOptionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4019,7 +4019,7 @@ export const listMcpGroupOptions = <ThrowOnError extends boolean = false>(option
 /**
  * List the MCP servers available to the signed-in User with their own connection state
  */
-export const listMcpConnections = <ThrowOnError extends boolean = false>(options?: Options<ListMcpConnectionsData, ThrowOnError>): RequestResult<ListMcpConnectionsResponses, ListMcpConnectionsErrors, ThrowOnError> => (options?.client ?? client).get<ListMcpConnectionsResponses, ListMcpConnectionsErrors, ThrowOnError>({
+export const listMcpConnections = <ThrowOnError extends boolean = true>(options?: Options<ListMcpConnectionsData, ThrowOnError>): RequestResult<ListMcpConnectionsResponses, ListMcpConnectionsErrors, ThrowOnError> => (options?.client ?? client).get<ListMcpConnectionsResponses, ListMcpConnectionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4032,14 +4032,14 @@ export const listMcpConnections = <ThrowOnError extends boolean = false>(options
 /**
  * Return the redacted invitation landing context from the browser session
  */
-export const getCurrentInvitation = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentInvitationData, ThrowOnError>): RequestResult<GetCurrentInvitationResponses, GetCurrentInvitationErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentInvitationResponses, GetCurrentInvitationErrors, ThrowOnError>({ url: '/api/invitations/current', ...options });
+export const getCurrentInvitation = <ThrowOnError extends boolean = true>(options?: Options<GetCurrentInvitationData, ThrowOnError>): RequestResult<GetCurrentInvitationResponses, GetCurrentInvitationErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentInvitationResponses, GetCurrentInvitationErrors, ThrowOnError>({ url: '/api/invitations/current', ...options });
 
 /**
  * Return the authenticated MemoryOS actor
  *
  * Accepts either an existing MemoryOS browser session or a valid bound bearer identity and returns the stable internal ActorId plus its durable Tenant authority projection.
  */
-export const getCurrentIdentity = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentIdentityData, ThrowOnError>): RequestResult<GetCurrentIdentityResponses, GetCurrentIdentityErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentIdentityResponses, GetCurrentIdentityErrors, ThrowOnError>({
+export const getCurrentIdentity = <ThrowOnError extends boolean = true>(options?: Options<GetCurrentIdentityData, ThrowOnError>): RequestResult<GetCurrentIdentityResponses, GetCurrentIdentityErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentIdentityResponses, GetCurrentIdentityErrors, ThrowOnError>({
     security: [{
             in: 'cookie',
             name: 'SESSION',
@@ -4052,7 +4052,7 @@ export const getCurrentIdentity = <ThrowOnError extends boolean = false>(options
 /**
  * Get one visible Group
  */
-export const getGroup = <ThrowOnError extends boolean = false>(options: Options<GetGroupData, ThrowOnError>): RequestResult<GetGroupResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGroupResponses, unknown, ThrowOnError>({
+export const getGroup = <ThrowOnError extends boolean = true>(options: Options<GetGroupData, ThrowOnError>): RequestResult<GetGroupResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetGroupResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4065,7 +4065,7 @@ export const getGroup = <ThrowOnError extends boolean = false>(options: Options<
 /**
  * List sources associated with one group
  */
-export const listGroupSources = <ThrowOnError extends boolean = false>(options: Options<ListGroupSourcesData, ThrowOnError>): RequestResult<ListGroupSourcesResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListGroupSourcesResponses, unknown, ThrowOnError>({
+export const listGroupSources = <ThrowOnError extends boolean = true>(options: Options<ListGroupSourcesData, ThrowOnError>): RequestResult<ListGroupSourcesResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListGroupSourcesResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4078,7 +4078,7 @@ export const listGroupSources = <ThrowOnError extends boolean = false>(options: 
 /**
  * List Tenant members eligible to join a Group
  */
-export const listGroupCandidates = <ThrowOnError extends boolean = false>(options: Options<ListGroupCandidatesData, ThrowOnError>): RequestResult<ListGroupCandidatesResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListGroupCandidatesResponses, unknown, ThrowOnError>({
+export const listGroupCandidates = <ThrowOnError extends boolean = true>(options: Options<ListGroupCandidatesData, ThrowOnError>): RequestResult<ListGroupCandidatesResponses, unknown, ThrowOnError> => (options.client ?? client).get<ListGroupCandidatesResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4091,7 +4091,7 @@ export const listGroupCandidates = <ThrowOnError extends boolean = false>(option
 /**
  * List the server-owned Group capability registry
  */
-export const listGroupCapabilities = <ThrowOnError extends boolean = false>(options?: Options<ListGroupCapabilitiesData, ThrowOnError>): RequestResult<ListGroupCapabilitiesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListGroupCapabilitiesResponses, unknown, ThrowOnError>({
+export const listGroupCapabilities = <ThrowOnError extends boolean = true>(options?: Options<ListGroupCapabilitiesData, ThrowOnError>): RequestResult<ListGroupCapabilitiesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListGroupCapabilitiesResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4104,7 +4104,7 @@ export const listGroupCapabilities = <ThrowOnError extends boolean = false>(opti
 /**
  * List reusable Tenant-owned Google Drive credentials
  */
-export const listGoogleDriveCredentials = <ThrowOnError extends boolean = false>(options?: Options<ListGoogleDriveCredentialsData, ThrowOnError>): RequestResult<ListGoogleDriveCredentialsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListGoogleDriveCredentialsResponses, unknown, ThrowOnError>({
+export const listGoogleDriveCredentials = <ThrowOnError extends boolean = true>(options?: Options<ListGoogleDriveCredentialsData, ThrowOnError>): RequestResult<ListGoogleDriveCredentialsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListGoogleDriveCredentialsResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4117,7 +4117,7 @@ export const listGoogleDriveCredentials = <ThrowOnError extends boolean = false>
 /**
  * Read configured Web availability without credentials
  */
-export const getChatWebAvailability = <ThrowOnError extends boolean = false>(options?: Options<GetChatWebAvailabilityData, ThrowOnError>): RequestResult<GetChatWebAvailabilityResponses, GetChatWebAvailabilityErrors, ThrowOnError> => (options?.client ?? client).get<GetChatWebAvailabilityResponses, GetChatWebAvailabilityErrors, ThrowOnError>({
+export const getChatWebAvailability = <ThrowOnError extends boolean = true>(options?: Options<GetChatWebAvailabilityData, ThrowOnError>): RequestResult<GetChatWebAvailabilityResponses, GetChatWebAvailabilityErrors, ThrowOnError> => (options?.client ?? client).get<GetChatWebAvailabilityResponses, GetChatWebAvailabilityErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4130,7 +4130,7 @@ export const getChatWebAvailability = <ThrowOnError extends boolean = false>(opt
 /**
  * List Web connections for model managers
  */
-export const listChatWebConnections = <ThrowOnError extends boolean = false>(options?: Options<ListChatWebConnectionsData, ThrowOnError>): RequestResult<ListChatWebConnectionsResponses, ListChatWebConnectionsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatWebConnectionsResponses, ListChatWebConnectionsErrors, ThrowOnError>({
+export const listChatWebConnections = <ThrowOnError extends boolean = true>(options?: Options<ListChatWebConnectionsData, ThrowOnError>): RequestResult<ListChatWebConnectionsResponses, ListChatWebConnectionsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatWebConnectionsResponses, ListChatWebConnectionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4143,7 +4143,7 @@ export const listChatWebConnections = <ThrowOnError extends boolean = false>(opt
 /**
  * Read whether speech-to-text and text-to-speech are configured
  */
-export const getChatVoiceAvailability = <ThrowOnError extends boolean = false>(options?: Options<GetChatVoiceAvailabilityData, ThrowOnError>): RequestResult<GetChatVoiceAvailabilityResponses, GetChatVoiceAvailabilityErrors, ThrowOnError> => (options?.client ?? client).get<GetChatVoiceAvailabilityResponses, GetChatVoiceAvailabilityErrors, ThrowOnError>({
+export const getChatVoiceAvailability = <ThrowOnError extends boolean = true>(options?: Options<GetChatVoiceAvailabilityData, ThrowOnError>): RequestResult<GetChatVoiceAvailabilityResponses, GetChatVoiceAvailabilityErrors, ThrowOnError> => (options?.client ?? client).get<GetChatVoiceAvailabilityResponses, GetChatVoiceAvailabilityErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4156,7 +4156,7 @@ export const getChatVoiceAvailability = <ThrowOnError extends boolean = false>(o
 /**
  * List implemented voice providers with suggested models and voices
  */
-export const listChatVoiceProviders = <ThrowOnError extends boolean = false>(options?: Options<ListChatVoiceProvidersData, ThrowOnError>): RequestResult<ListChatVoiceProvidersResponses, ListChatVoiceProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListChatVoiceProvidersResponses, ListChatVoiceProvidersErrors, ThrowOnError>({
+export const listChatVoiceProviders = <ThrowOnError extends boolean = true>(options?: Options<ListChatVoiceProvidersData, ThrowOnError>): RequestResult<ListChatVoiceProvidersResponses, ListChatVoiceProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListChatVoiceProvidersResponses, ListChatVoiceProvidersErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4169,7 +4169,7 @@ export const listChatVoiceProviders = <ThrowOnError extends boolean = false>(opt
 /**
  * List voice connections for model managers
  */
-export const listChatVoiceConnections = <ThrowOnError extends boolean = false>(options?: Options<ListChatVoiceConnectionsData, ThrowOnError>): RequestResult<ListChatVoiceConnectionsResponses, ListChatVoiceConnectionsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatVoiceConnectionsResponses, ListChatVoiceConnectionsErrors, ThrowOnError>({
+export const listChatVoiceConnections = <ThrowOnError extends boolean = true>(options?: Options<ListChatVoiceConnectionsData, ThrowOnError>): RequestResult<ListChatVoiceConnectionsResponses, ListChatVoiceConnectionsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatVoiceConnectionsResponses, ListChatVoiceConnectionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4182,7 +4182,7 @@ export const listChatVoiceConnections = <ThrowOnError extends boolean = false>(o
 /**
  * Read a shared conversation after authenticating in its Tenant
  */
-export const getSharedChatSession = <ThrowOnError extends boolean = false>(options: Options<GetSharedChatSessionData, ThrowOnError>): RequestResult<GetSharedChatSessionResponses, GetSharedChatSessionErrors, ThrowOnError> => (options.client ?? client).get<GetSharedChatSessionResponses, GetSharedChatSessionErrors, ThrowOnError>({
+export const getSharedChatSession = <ThrowOnError extends boolean = true>(options: Options<GetSharedChatSessionData, ThrowOnError>): RequestResult<GetSharedChatSessionResponses, GetSharedChatSessionErrors, ThrowOnError> => (options.client ?? client).get<GetSharedChatSessionResponses, GetSharedChatSessionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4195,7 +4195,7 @@ export const getSharedChatSession = <ThrowOnError extends boolean = false>(optio
 /**
  * Read saved messages on the currently shared branch
  */
-export const getSharedChatHistory = <ThrowOnError extends boolean = false>(options: Options<GetSharedChatHistoryData, ThrowOnError>): RequestResult<GetSharedChatHistoryResponses, GetSharedChatHistoryErrors, ThrowOnError> => (options.client ?? client).get<GetSharedChatHistoryResponses, GetSharedChatHistoryErrors, ThrowOnError>({
+export const getSharedChatHistory = <ThrowOnError extends boolean = true>(options: Options<GetSharedChatHistoryData, ThrowOnError>): RequestResult<GetSharedChatHistoryResponses, GetSharedChatHistoryErrors, ThrowOnError> => (options.client ?? client).get<GetSharedChatHistoryResponses, GetSharedChatHistoryErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4208,7 +4208,7 @@ export const getSharedChatHistory = <ThrowOnError extends boolean = false>(optio
 /**
  * Delete an owned conversation and stop its active reply
  */
-export const deleteChatSession = <ThrowOnError extends boolean = false>(options: Options<DeleteChatSessionData, ThrowOnError>): RequestResult<DeleteChatSessionResponses, DeleteChatSessionErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatSessionResponses, DeleteChatSessionErrors, ThrowOnError>({
+export const deleteChatSession = <ThrowOnError extends boolean = true>(options: Options<DeleteChatSessionData, ThrowOnError>): RequestResult<DeleteChatSessionResponses, DeleteChatSessionErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatSessionResponses, DeleteChatSessionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4221,7 +4221,7 @@ export const deleteChatSession = <ThrowOnError extends boolean = false>(options:
 /**
  * Read an owned chat session
  */
-export const getChatSession = <ThrowOnError extends boolean = false>(options: Options<GetChatSessionData, ThrowOnError>): RequestResult<GetChatSessionResponses, GetChatSessionErrors, ThrowOnError> => (options.client ?? client).get<GetChatSessionResponses, GetChatSessionErrors, ThrowOnError>({
+export const getChatSession = <ThrowOnError extends boolean = true>(options: Options<GetChatSessionData, ThrowOnError>): RequestResult<GetChatSessionResponses, GetChatSessionErrors, ThrowOnError> => (options.client ?? client).get<GetChatSessionResponses, GetChatSessionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4236,7 +4236,7 @@ export const getChatSession = <ThrowOnError extends boolean = false>(options: Op
  *
  * Events: text-delta, reasoning, tool, image, research-plan, top-level-branching, research-agent-start, intermediate-report, intermediate-report-citations, outcome, reset. Content event id is assistantMessageId:sequence. Only outcome confirms a committed terminal state. Heartbeats are comments. A reset has no event id.
  */
-export const streamChatMessage = <ThrowOnError extends boolean = false>(options: Options<StreamChatMessageData, ThrowOnError, StreamChatMessageResponse>): Promise<ServerSentEventsResult<StreamChatMessageResponses>> => (options.client ?? client).sse.get<StreamChatMessageResponses, StreamChatMessageErrors, ThrowOnError>({
+export const streamChatMessage = <ThrowOnError extends boolean = true>(options: Options<StreamChatMessageData, ThrowOnError, StreamChatMessageResponse>): Promise<ServerSentEventsResult<StreamChatMessageResponses>> => (options.client ?? client).sse.get<StreamChatMessageResponses, StreamChatMessageErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4249,7 +4249,7 @@ export const streamChatMessage = <ThrowOnError extends boolean = false>(options:
 /**
  * Read the actor's ratings for saved outputs
  */
-export const getChatFeedback = <ThrowOnError extends boolean = false>(options: Options<GetChatFeedbackData, ThrowOnError>): RequestResult<GetChatFeedbackResponses, GetChatFeedbackErrors, ThrowOnError> => (options.client ?? client).get<GetChatFeedbackResponses, GetChatFeedbackErrors, ThrowOnError>({
+export const getChatFeedback = <ThrowOnError extends boolean = true>(options: Options<GetChatFeedbackData, ThrowOnError>): RequestResult<GetChatFeedbackResponses, GetChatFeedbackErrors, ThrowOnError> => (options.client ?? client).get<GetChatFeedbackResponses, GetChatFeedbackErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4262,7 +4262,7 @@ export const getChatFeedback = <ThrowOnError extends boolean = false>(options: O
 /**
  * Read version relationships in an owned conversation
  */
-export const getChatBranches = <ThrowOnError extends boolean = false>(options: Options<GetChatBranchesData, ThrowOnError>): RequestResult<GetChatBranchesResponses, GetChatBranchesErrors, ThrowOnError> => (options.client ?? client).get<GetChatBranchesResponses, GetChatBranchesErrors, ThrowOnError>({
+export const getChatBranches = <ThrowOnError extends boolean = true>(options: Options<GetChatBranchesData, ThrowOnError>): RequestResult<GetChatBranchesResponses, GetChatBranchesErrors, ThrowOnError> => (options.client ?? client).get<GetChatBranchesResponses, GetChatBranchesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4275,7 +4275,7 @@ export const getChatBranches = <ThrowOnError extends boolean = false>(options: O
 /**
  * Search owned conversation titles and all saved message versions
  */
-export const searchChatSessions = <ThrowOnError extends boolean = false>(options?: Options<SearchChatSessionsData, ThrowOnError>): RequestResult<SearchChatSessionsResponses, SearchChatSessionsErrors, ThrowOnError> => (options?.client ?? client).get<SearchChatSessionsResponses, SearchChatSessionsErrors, ThrowOnError>({
+export const searchChatSessions = <ThrowOnError extends boolean = true>(options?: Options<SearchChatSessionsData, ThrowOnError>): RequestResult<SearchChatSessionsResponses, SearchChatSessionsErrors, ThrowOnError> => (options?.client ?? client).get<SearchChatSessionsResponses, SearchChatSessionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4288,7 +4288,7 @@ export const searchChatSessions = <ThrowOnError extends boolean = false>(options
 /**
  * How many of your conversations a retention policy would delete now
  */
-export const previewChatRetention = <ThrowOnError extends boolean = false>(options?: Options<PreviewChatRetentionData, ThrowOnError>): RequestResult<PreviewChatRetentionResponses, PreviewChatRetentionErrors, ThrowOnError> => (options?.client ?? client).get<PreviewChatRetentionResponses, PreviewChatRetentionErrors, ThrowOnError>({
+export const previewChatRetention = <ThrowOnError extends boolean = true>(options?: Options<PreviewChatRetentionData, ThrowOnError>): RequestResult<PreviewChatRetentionResponses, PreviewChatRetentionErrors, ThrowOnError> => (options?.client ?? client).get<PreviewChatRetentionResponses, PreviewChatRetentionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4301,7 +4301,7 @@ export const previewChatRetention = <ThrowOnError extends boolean = false>(optio
 /**
  * List installed adapter types and credential requirements; requires model management
  */
-export const listChatProviderAdapters = <ThrowOnError extends boolean = false>(options?: Options<ListChatProviderAdaptersData, ThrowOnError>): RequestResult<ListChatProviderAdaptersResponses, ListChatProviderAdaptersErrors, ThrowOnError> => (options?.client ?? client).get<ListChatProviderAdaptersResponses, ListChatProviderAdaptersErrors, ThrowOnError>({
+export const listChatProviderAdapters = <ThrowOnError extends boolean = true>(options?: Options<ListChatProviderAdaptersData, ThrowOnError>): RequestResult<ListChatProviderAdaptersResponses, ListChatProviderAdaptersErrors, ThrowOnError> => (options?.client ?? client).get<ListChatProviderAdaptersResponses, ListChatProviderAdaptersErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4314,7 +4314,7 @@ export const listChatProviderAdapters = <ThrowOnError extends boolean = false>(o
 /**
  * List models available to this actor and agent
  */
-export const listChatPersonaModels = <ThrowOnError extends boolean = false>(options: Options<ListChatPersonaModelsData, ThrowOnError>): RequestResult<ListChatPersonaModelsResponses, ListChatPersonaModelsErrors, ThrowOnError> => (options.client ?? client).get<ListChatPersonaModelsResponses, ListChatPersonaModelsErrors, ThrowOnError>({
+export const listChatPersonaModels = <ThrowOnError extends boolean = true>(options: Options<ListChatPersonaModelsData, ThrowOnError>): RequestResult<ListChatPersonaModelsResponses, ListChatPersonaModelsErrors, ThrowOnError> => (options.client ?? client).get<ListChatPersonaModelsResponses, ListChatPersonaModelsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4327,7 +4327,7 @@ export const listChatPersonaModels = <ThrowOnError extends boolean = false>(opti
 /**
  * Read the avatar image of a usable agent
  */
-export const getChatPersonaAvatar = <ThrowOnError extends boolean = false>(options: Options<GetChatPersonaAvatarData, ThrowOnError>): RequestResult<GetChatPersonaAvatarResponses, GetChatPersonaAvatarErrors, ThrowOnError> => (options.client ?? client).get<GetChatPersonaAvatarResponses, GetChatPersonaAvatarErrors, ThrowOnError>({
+export const getChatPersonaAvatar = <ThrowOnError extends boolean = true>(options: Options<GetChatPersonaAvatarData, ThrowOnError>): RequestResult<GetChatPersonaAvatarResponses, GetChatPersonaAvatarErrors, ThrowOnError> => (options.client ?? client).get<GetChatPersonaAvatarResponses, GetChatPersonaAvatarErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4340,7 +4340,7 @@ export const getChatPersonaAvatar = <ThrowOnError extends boolean = false>(optio
 /**
  * List sources eligible for agent search
  */
-export const listChatPersonaSources = <ThrowOnError extends boolean = false>(options?: Options<ListChatPersonaSourcesData, ThrowOnError>): RequestResult<ListChatPersonaSourcesResponses, ListChatPersonaSourcesErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPersonaSourcesResponses, ListChatPersonaSourcesErrors, ThrowOnError>({
+export const listChatPersonaSources = <ThrowOnError extends boolean = true>(options?: Options<ListChatPersonaSourcesData, ThrowOnError>): RequestResult<ListChatPersonaSourcesResponses, ListChatPersonaSourcesErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPersonaSourcesResponses, ListChatPersonaSourcesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4353,7 +4353,7 @@ export const listChatPersonaSources = <ThrowOnError extends boolean = false>(opt
 /**
  * List every agent including unlisted, vacant and deleted ones; requires AGENTS_MANAGE
  */
-export const listChatPersonasForAdministration = <ThrowOnError extends boolean = false>(options?: Options<ListChatPersonasForAdministrationData, ThrowOnError>): RequestResult<ListChatPersonasForAdministrationResponses, ListChatPersonasForAdministrationErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPersonasForAdministrationResponses, ListChatPersonasForAdministrationErrors, ThrowOnError>({
+export const listChatPersonasForAdministration = <ThrowOnError extends boolean = true>(options?: Options<ListChatPersonasForAdministrationData, ThrowOnError>): RequestResult<ListChatPersonasForAdministrationResponses, ListChatPersonasForAdministrationErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPersonasForAdministrationResponses, ListChatPersonasForAdministrationErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4366,7 +4366,7 @@ export const listChatPersonasForAdministration = <ThrowOnError extends boolean =
 /**
  * Search active members and ordinary Groups to share an agent with
  */
-export const listChatPersonaShareOptions = <ThrowOnError extends boolean = false>(options?: Options<ListChatPersonaShareOptionsData, ThrowOnError>): RequestResult<ListChatPersonaShareOptionsResponses, ListChatPersonaShareOptionsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPersonaShareOptionsResponses, ListChatPersonaShareOptionsErrors, ThrowOnError>({
+export const listChatPersonaShareOptions = <ThrowOnError extends boolean = true>(options?: Options<ListChatPersonaShareOptionsData, ThrowOnError>): RequestResult<ListChatPersonaShareOptionsResponses, ListChatPersonaShareOptionsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatPersonaShareOptionsResponses, ListChatPersonaShareOptionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4379,7 +4379,7 @@ export const listChatPersonaShareOptions = <ThrowOnError extends boolean = false
 /**
  * List visible models authorized for this session or the builtin Persona
  */
-export const listAvailableChatModels = <ThrowOnError extends boolean = false>(options?: Options<ListAvailableChatModelsData, ThrowOnError>): RequestResult<ListAvailableChatModelsResponses, ListAvailableChatModelsErrors, ThrowOnError> => (options?.client ?? client).get<ListAvailableChatModelsResponses, ListAvailableChatModelsErrors, ThrowOnError>({
+export const listAvailableChatModels = <ThrowOnError extends boolean = true>(options?: Options<ListAvailableChatModelsData, ThrowOnError>): RequestResult<ListAvailableChatModelsResponses, ListAvailableChatModelsErrors, ThrowOnError> => (options?.client ?? client).get<ListAvailableChatModelsResponses, ListAvailableChatModelsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4392,7 +4392,7 @@ export const listAvailableChatModels = <ThrowOnError extends boolean = false>(op
 /**
  * List builtin and actor-owned Personas for model selection; requires MODELS_MANAGE
  */
-export const listChatModelPersonas = <ThrowOnError extends boolean = false>(options?: Options<ListChatModelPersonasData, ThrowOnError>): RequestResult<ListChatModelPersonasResponses, ListChatModelPersonasErrors, ThrowOnError> => (options?.client ?? client).get<ListChatModelPersonasResponses, ListChatModelPersonasErrors, ThrowOnError>({
+export const listChatModelPersonas = <ThrowOnError extends boolean = true>(options?: Options<ListChatModelPersonasData, ThrowOnError>): RequestResult<ListChatModelPersonasResponses, ListChatModelPersonasErrors, ThrowOnError> => (options?.client ?? client).get<ListChatModelPersonasResponses, ListChatModelPersonasErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4405,7 +4405,7 @@ export const listChatModelPersonas = <ThrowOnError extends boolean = false>(opti
 /**
  * Read the Tenant model of every task flow and its revision; requires model management
  */
-export const listChatModelFlows = <ThrowOnError extends boolean = false>(options?: Options<ListChatModelFlowsData, ThrowOnError>): RequestResult<ListChatModelFlowsResponses, ListChatModelFlowsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatModelFlowsResponses, ListChatModelFlowsErrors, ThrowOnError>({
+export const listChatModelFlows = <ThrowOnError extends boolean = true>(options?: Options<ListChatModelFlowsData, ThrowOnError>): RequestResult<ListChatModelFlowsResponses, ListChatModelFlowsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatModelFlowsResponses, ListChatModelFlowsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4418,7 +4418,7 @@ export const listChatModelFlows = <ThrowOnError extends boolean = false>(options
 /**
  * List the caller's own uploads, generated files and generated images as one paginated library, optionally narrowed to one conversation, to starred files, or to uploads still in progress
  */
-export const listChatLibrary = <ThrowOnError extends boolean = false>(options?: Options<ListChatLibraryData, ThrowOnError>): RequestResult<ListChatLibraryResponses, ListChatLibraryErrors, ThrowOnError> => (options?.client ?? client).get<ListChatLibraryResponses, ListChatLibraryErrors, ThrowOnError>({
+export const listChatLibrary = <ThrowOnError extends boolean = true>(options?: Options<ListChatLibraryData, ThrowOnError>): RequestResult<ListChatLibraryResponses, ListChatLibraryErrors, ThrowOnError> => (options?.client ?? client).get<ListChatLibraryResponses, ListChatLibraryErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4431,7 +4431,7 @@ export const listChatLibrary = <ThrowOnError extends boolean = false>(options?: 
 /**
  * What the caller's file library holds and the storage limit that applies to them
  */
-export const getChatLibraryUsage = <ThrowOnError extends boolean = false>(options?: Options<GetChatLibraryUsageData, ThrowOnError>): RequestResult<GetChatLibraryUsageResponses, GetChatLibraryUsageErrors, ThrowOnError> => (options?.client ?? client).get<GetChatLibraryUsageResponses, GetChatLibraryUsageErrors, ThrowOnError>({
+export const getChatLibraryUsage = <ThrowOnError extends boolean = true>(options?: Options<GetChatLibraryUsageData, ThrowOnError>): RequestResult<GetChatLibraryUsageResponses, GetChatLibraryUsageErrors, ThrowOnError> => (options?.client ?? client).get<GetChatLibraryUsageResponses, GetChatLibraryUsageErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4444,7 +4444,7 @@ export const getChatLibraryUsage = <ThrowOnError extends boolean = false>(option
 /**
  * How long a deleted file stays in the trash in this deployment
  */
-export const getChatLibraryTrashWindow = <ThrowOnError extends boolean = false>(options?: Options<GetChatLibraryTrashWindowData, ThrowOnError>): RequestResult<GetChatLibraryTrashWindowResponses, GetChatLibraryTrashWindowErrors, ThrowOnError> => (options?.client ?? client).get<GetChatLibraryTrashWindowResponses, GetChatLibraryTrashWindowErrors, ThrowOnError>({
+export const getChatLibraryTrashWindow = <ThrowOnError extends boolean = true>(options?: Options<GetChatLibraryTrashWindowData, ThrowOnError>): RequestResult<GetChatLibraryTrashWindowResponses, GetChatLibraryTrashWindowErrors, ThrowOnError> => (options?.client ?? client).get<GetChatLibraryTrashWindowResponses, GetChatLibraryTrashWindowErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4457,7 +4457,7 @@ export const getChatLibraryTrashWindow = <ThrowOnError extends boolean = false>(
 /**
  * Find the caller's own indexed uploads by what they contain, with the matching passages
  */
-export const searchChatLibraryContent = <ThrowOnError extends boolean = false>(options: Options<SearchChatLibraryContentData, ThrowOnError>): RequestResult<SearchChatLibraryContentResponses, SearchChatLibraryContentErrors, ThrowOnError> => (options.client ?? client).get<SearchChatLibraryContentResponses, SearchChatLibraryContentErrors, ThrowOnError>({
+export const searchChatLibraryContent = <ThrowOnError extends boolean = true>(options: Options<SearchChatLibraryContentData, ThrowOnError>): RequestResult<SearchChatLibraryContentResponses, SearchChatLibraryContentErrors, ThrowOnError> => (options.client ?? client).get<SearchChatLibraryContentResponses, SearchChatLibraryContentErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4470,7 +4470,7 @@ export const searchChatLibraryContent = <ThrowOnError extends boolean = false>(o
 /**
  * One archive of the caller, with its status
  */
-export const getChatLibraryArchive = <ThrowOnError extends boolean = false>(options: Options<GetChatLibraryArchiveData, ThrowOnError>): RequestResult<GetChatLibraryArchiveResponses, GetChatLibraryArchiveErrors, ThrowOnError> => (options.client ?? client).get<GetChatLibraryArchiveResponses, GetChatLibraryArchiveErrors, ThrowOnError>({
+export const getChatLibraryArchive = <ThrowOnError extends boolean = true>(options: Options<GetChatLibraryArchiveData, ThrowOnError>): RequestResult<GetChatLibraryArchiveResponses, GetChatLibraryArchiveErrors, ThrowOnError> => (options.client ?? client).get<GetChatLibraryArchiveResponses, GetChatLibraryArchiveErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4483,7 +4483,7 @@ export const getChatLibraryArchive = <ThrowOnError extends boolean = false>(opti
 /**
  * Download the caller's own archive while it lives
  */
-export const downloadChatLibraryArchive = <ThrowOnError extends boolean = false>(options: Options<DownloadChatLibraryArchiveData, ThrowOnError>): RequestResult<DownloadChatLibraryArchiveResponses, DownloadChatLibraryArchiveErrors, ThrowOnError> => (options.client ?? client).get<DownloadChatLibraryArchiveResponses, DownloadChatLibraryArchiveErrors, ThrowOnError>({
+export const downloadChatLibraryArchive = <ThrowOnError extends boolean = true>(options: Options<DownloadChatLibraryArchiveData, ThrowOnError>): RequestResult<DownloadChatLibraryArchiveResponses, DownloadChatLibraryArchiveErrors, ThrowOnError> => (options.client ?? client).get<DownloadChatLibraryArchiveResponses, DownloadChatLibraryArchiveErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4496,7 +4496,7 @@ export const downloadChatLibraryArchive = <ThrowOnError extends boolean = false>
 /**
  * Check the Code Interpreter service without the cache
  */
-export const getChatInterpreterHealth = <ThrowOnError extends boolean = false>(options?: Options<GetChatInterpreterHealthData, ThrowOnError>): RequestResult<GetChatInterpreterHealthResponses, GetChatInterpreterHealthErrors, ThrowOnError> => (options?.client ?? client).get<GetChatInterpreterHealthResponses, GetChatInterpreterHealthErrors, ThrowOnError>({
+export const getChatInterpreterHealth = <ThrowOnError extends boolean = true>(options?: Options<GetChatInterpreterHealthData, ThrowOnError>): RequestResult<GetChatInterpreterHealthResponses, GetChatInterpreterHealthErrors, ThrowOnError> => (options?.client ?? client).get<GetChatInterpreterHealthResponses, GetChatInterpreterHealthErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4509,7 +4509,7 @@ export const getChatInterpreterHealth = <ThrowOnError extends boolean = false>(o
 /**
  * Read configured image-generation availability without credentials
  */
-export const getChatImageAvailability = <ThrowOnError extends boolean = false>(options?: Options<GetChatImageAvailabilityData, ThrowOnError>): RequestResult<GetChatImageAvailabilityResponses, GetChatImageAvailabilityErrors, ThrowOnError> => (options?.client ?? client).get<GetChatImageAvailabilityResponses, GetChatImageAvailabilityErrors, ThrowOnError>({
+export const getChatImageAvailability = <ThrowOnError extends boolean = true>(options?: Options<GetChatImageAvailabilityData, ThrowOnError>): RequestResult<GetChatImageAvailabilityResponses, GetChatImageAvailabilityErrors, ThrowOnError> => (options?.client ?? client).get<GetChatImageAvailabilityResponses, GetChatImageAvailabilityErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4522,7 +4522,7 @@ export const getChatImageAvailability = <ThrowOnError extends boolean = false>(o
 /**
  * List installed image providers and their known models for model managers
  */
-export const listChatImageProviders = <ThrowOnError extends boolean = false>(options?: Options<ListChatImageProvidersData, ThrowOnError>): RequestResult<ListChatImageProvidersResponses, ListChatImageProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListChatImageProvidersResponses, ListChatImageProvidersErrors, ThrowOnError>({
+export const listChatImageProviders = <ThrowOnError extends boolean = true>(options?: Options<ListChatImageProvidersData, ThrowOnError>): RequestResult<ListChatImageProvidersResponses, ListChatImageProvidersErrors, ThrowOnError> => (options?.client ?? client).get<ListChatImageProvidersResponses, ListChatImageProvidersErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4535,7 +4535,7 @@ export const listChatImageProviders = <ThrowOnError extends boolean = false>(opt
 /**
  * List image connections for model managers
  */
-export const listChatImageConnections = <ThrowOnError extends boolean = false>(options?: Options<ListChatImageConnectionsData, ThrowOnError>): RequestResult<ListChatImageConnectionsResponses, ListChatImageConnectionsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatImageConnectionsResponses, ListChatImageConnectionsErrors, ThrowOnError>({
+export const listChatImageConnections = <ThrowOnError extends boolean = true>(options?: Options<ListChatImageConnectionsData, ThrowOnError>): RequestResult<ListChatImageConnectionsResponses, ListChatImageConnectionsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatImageConnectionsResponses, ListChatImageConnectionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4548,7 +4548,7 @@ export const listChatImageConnections = <ThrowOnError extends boolean = false>(o
 /**
  * Read an owner-private generated image
  */
-export const getChatImageArtifact = <ThrowOnError extends boolean = false>(options: Options<GetChatImageArtifactData, ThrowOnError>): RequestResult<GetChatImageArtifactResponses, GetChatImageArtifactErrors, ThrowOnError> => (options.client ?? client).get<GetChatImageArtifactResponses, GetChatImageArtifactErrors, ThrowOnError>({
+export const getChatImageArtifact = <ThrowOnError extends boolean = true>(options: Options<GetChatImageArtifactData, ThrowOnError>): RequestResult<GetChatImageArtifactResponses, GetChatImageArtifactErrors, ThrowOnError> => (options.client ?? client).get<GetChatImageArtifactResponses, GetChatImageArtifactErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4561,7 +4561,7 @@ export const getChatImageArtifact = <ThrowOnError extends boolean = false>(optio
 /**
  * The Tenant's conversations, newest first; requires conversation history access
  */
-export const listChatHistory = <ThrowOnError extends boolean = false>(options?: Options<ListChatHistoryData, ThrowOnError>): RequestResult<ListChatHistoryResponses, ListChatHistoryErrors, ThrowOnError> => (options?.client ?? client).get<ListChatHistoryResponses, ListChatHistoryErrors, ThrowOnError>({
+export const listChatHistory = <ThrowOnError extends boolean = true>(options?: Options<ListChatHistoryData, ThrowOnError>): RequestResult<ListChatHistoryResponses, ListChatHistoryErrors, ThrowOnError> => (options?.client ?? client).get<ListChatHistoryResponses, ListChatHistoryErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4574,7 +4574,7 @@ export const listChatHistory = <ThrowOnError extends boolean = false>(options?: 
 /**
  * One conversation's transcript; the read is itself recorded in the audit log
  */
-export const getChatHistoryTranscript = <ThrowOnError extends boolean = false>(options: Options<GetChatHistoryTranscriptData, ThrowOnError>): RequestResult<GetChatHistoryTranscriptResponses, GetChatHistoryTranscriptErrors, ThrowOnError> => (options.client ?? client).get<GetChatHistoryTranscriptResponses, GetChatHistoryTranscriptErrors, ThrowOnError>({
+export const getChatHistoryTranscript = <ThrowOnError extends boolean = true>(options: Options<GetChatHistoryTranscriptData, ThrowOnError>): RequestResult<GetChatHistoryTranscriptResponses, GetChatHistoryTranscriptErrors, ThrowOnError> => (options.client ?? client).get<GetChatHistoryTranscriptResponses, GetChatHistoryTranscriptErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4587,7 +4587,7 @@ export const getChatHistoryTranscript = <ThrowOnError extends boolean = false>(o
 /**
  * The conversations the filters select as CSV, at most 50,000 rows; the export is itself recorded
  */
-export const exportChatHistory = <ThrowOnError extends boolean = false>(options?: Options<ExportChatHistoryData, ThrowOnError>): RequestResult<ExportChatHistoryResponses, ExportChatHistoryErrors, ThrowOnError> => (options?.client ?? client).get<ExportChatHistoryResponses, ExportChatHistoryErrors, ThrowOnError>({
+export const exportChatHistory = <ThrowOnError extends boolean = true>(options?: Options<ExportChatHistoryData, ThrowOnError>): RequestResult<ExportChatHistoryResponses, ExportChatHistoryErrors, ThrowOnError> => (options?.client ?? client).get<ExportChatHistoryResponses, ExportChatHistoryErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4600,7 +4600,7 @@ export const exportChatHistory = <ThrowOnError extends boolean = false>(options?
 /**
  * List Groups available for provider access; requires model management
  */
-export const listChatGroupOptions = <ThrowOnError extends boolean = false>(options?: Options<ListChatGroupOptionsData, ThrowOnError>): RequestResult<ListChatGroupOptionsResponses, ListChatGroupOptionsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatGroupOptionsResponses, ListChatGroupOptionsErrors, ThrowOnError>({
+export const listChatGroupOptions = <ThrowOnError extends boolean = true>(options?: Options<ListChatGroupOptionsData, ThrowOnError>): RequestResult<ListChatGroupOptionsResponses, ListChatGroupOptionsErrors, ThrowOnError> => (options?.client ?? client).get<ListChatGroupOptionsResponses, ListChatGroupOptionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4613,7 +4613,7 @@ export const listChatGroupOptions = <ThrowOnError extends boolean = false>(optio
 /**
  * List recent owner-private files
  */
-export const listChatFiles = <ThrowOnError extends boolean = false>(options?: Options<ListChatFilesData, ThrowOnError>): RequestResult<ListChatFilesResponses, ListChatFilesErrors, ThrowOnError> => (options?.client ?? client).get<ListChatFilesResponses, ListChatFilesErrors, ThrowOnError>({
+export const listChatFiles = <ThrowOnError extends boolean = true>(options?: Options<ListChatFilesData, ThrowOnError>): RequestResult<ListChatFilesResponses, ListChatFilesErrors, ThrowOnError> => (options?.client ?? client).get<ListChatFilesResponses, ListChatFilesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4626,7 +4626,7 @@ export const listChatFiles = <ThrowOnError extends boolean = false>(options?: Op
 /**
  * Make an owner-private file unavailable and queue cleanup
  */
-export const deleteChatFile = <ThrowOnError extends boolean = false>(options: Options<DeleteChatFileData, ThrowOnError>): RequestResult<DeleteChatFileResponses, DeleteChatFileErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatFileResponses, DeleteChatFileErrors, ThrowOnError>({
+export const deleteChatFile = <ThrowOnError extends boolean = true>(options: Options<DeleteChatFileData, ThrowOnError>): RequestResult<DeleteChatFileResponses, DeleteChatFileErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatFileResponses, DeleteChatFileErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4639,7 +4639,7 @@ export const deleteChatFile = <ThrowOnError extends boolean = false>(options: Op
 /**
  * Read file metadata and processing status
  */
-export const getChatFile = <ThrowOnError extends boolean = false>(options: Options<GetChatFileData, ThrowOnError>): RequestResult<GetChatFileResponses, GetChatFileErrors, ThrowOnError> => (options.client ?? client).get<GetChatFileResponses, GetChatFileErrors, ThrowOnError>({
+export const getChatFile = <ThrowOnError extends boolean = true>(options: Options<GetChatFileData, ThrowOnError>): RequestResult<GetChatFileResponses, GetChatFileErrors, ThrowOnError> => (options.client ?? client).get<GetChatFileResponses, GetChatFileErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4652,7 +4652,7 @@ export const getChatFile = <ThrowOnError extends boolean = false>(options: Optio
 /**
  * Read the file library's small rendering of an owner-private uploaded image
  */
-export const getChatFileThumbnail = <ThrowOnError extends boolean = false>(options: Options<GetChatFileThumbnailData, ThrowOnError>): RequestResult<GetChatFileThumbnailResponses, GetChatFileThumbnailErrors, ThrowOnError> => (options.client ?? client).get<GetChatFileThumbnailResponses, GetChatFileThumbnailErrors, ThrowOnError>({
+export const getChatFileThumbnail = <ThrowOnError extends boolean = true>(options: Options<GetChatFileThumbnailData, ThrowOnError>): RequestResult<GetChatFileThumbnailResponses, GetChatFileThumbnailErrors, ThrowOnError> => (options.client ?? client).get<GetChatFileThumbnailResponses, GetChatFileThumbnailErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4665,7 +4665,7 @@ export const getChatFileThumbnail = <ThrowOnError extends boolean = false>(optio
 /**
  * Read a bounded window of owner-private extracted text
  */
-export const readChatFileText = <ThrowOnError extends boolean = false>(options: Options<ReadChatFileTextData, ThrowOnError>): RequestResult<ReadChatFileTextResponses, ReadChatFileTextErrors, ThrowOnError> => (options.client ?? client).get<ReadChatFileTextResponses, ReadChatFileTextErrors, ThrowOnError>({
+export const readChatFileText = <ThrowOnError extends boolean = true>(options: Options<ReadChatFileTextData, ThrowOnError>): RequestResult<ReadChatFileTextResponses, ReadChatFileTextErrors, ThrowOnError> => (options.client ?? client).get<ReadChatFileTextResponses, ReadChatFileTextErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4678,7 +4678,7 @@ export const readChatFileText = <ThrowOnError extends boolean = false>(options: 
 /**
  * Read an owner-private xlsx attachment as CSV text per sheet, each cut at a row boundary
  */
-export const previewChatFileSpreadsheet = <ThrowOnError extends boolean = false>(options: Options<PreviewChatFileSpreadsheetData, ThrowOnError>): RequestResult<PreviewChatFileSpreadsheetResponses, PreviewChatFileSpreadsheetErrors, ThrowOnError> => (options.client ?? client).get<PreviewChatFileSpreadsheetResponses, PreviewChatFileSpreadsheetErrors, ThrowOnError>({
+export const previewChatFileSpreadsheet = <ThrowOnError extends boolean = true>(options: Options<PreviewChatFileSpreadsheetData, ThrowOnError>): RequestResult<PreviewChatFileSpreadsheetResponses, PreviewChatFileSpreadsheetErrors, ThrowOnError> => (options.client ?? client).get<PreviewChatFileSpreadsheetResponses, PreviewChatFileSpreadsheetErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4691,7 +4691,7 @@ export const previewChatFileSpreadsheet = <ThrowOnError extends boolean = false>
 /**
  * Read current owner-private indexed file passages at a cited position
  */
-export const readChatFilePassages = <ThrowOnError extends boolean = false>(options: Options<ReadChatFilePassagesData, ThrowOnError>): RequestResult<ReadChatFilePassagesResponses, ReadChatFilePassagesErrors, ThrowOnError> => (options.client ?? client).get<ReadChatFilePassagesResponses, ReadChatFilePassagesErrors, ThrowOnError>({
+export const readChatFilePassages = <ThrowOnError extends boolean = true>(options: Options<ReadChatFilePassagesData, ThrowOnError>): RequestResult<ReadChatFilePassagesResponses, ReadChatFilePassagesErrors, ThrowOnError> => (options.client ?? client).get<ReadChatFilePassagesResponses, ReadChatFilePassagesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4704,7 +4704,7 @@ export const readChatFilePassages = <ThrowOnError extends boolean = false>(optio
 /**
  * Download an owner-private original file without inline execution
  */
-export const downloadChatFile = <ThrowOnError extends boolean = false>(options: Options<DownloadChatFileData, ThrowOnError>): RequestResult<DownloadChatFileResponses, DownloadChatFileErrors, ThrowOnError> => (options.client ?? client).get<DownloadChatFileResponses, DownloadChatFileErrors, ThrowOnError>({
+export const downloadChatFile = <ThrowOnError extends boolean = true>(options: Options<DownloadChatFileData, ThrowOnError>): RequestResult<DownloadChatFileResponses, DownloadChatFileErrors, ThrowOnError> => (options.client ?? client).get<DownloadChatFileResponses, DownloadChatFileErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4717,7 +4717,7 @@ export const downloadChatFile = <ThrowOnError extends boolean = false>(options: 
 /**
  * Get the active Chat file upload policy
  */
-export const getChatFilePolicy = <ThrowOnError extends boolean = false>(options?: Options<GetChatFilePolicyData, ThrowOnError>): RequestResult<GetChatFilePolicyResponses, GetChatFilePolicyErrors, ThrowOnError> => (options?.client ?? client).get<GetChatFilePolicyResponses, GetChatFilePolicyErrors, ThrowOnError>({
+export const getChatFilePolicy = <ThrowOnError extends boolean = true>(options?: Options<GetChatFilePolicyData, ThrowOnError>): RequestResult<GetChatFilePolicyResponses, GetChatFilePolicyErrors, ThrowOnError> => (options?.client ?? client).get<GetChatFilePolicyResponses, GetChatFilePolicyErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4730,7 +4730,7 @@ export const getChatFilePolicy = <ThrowOnError extends boolean = false>(options?
 /**
  * Read an owner-private generated xlsx as CSV text per sheet, each cut at a row boundary
  */
-export const previewChatFileArtifactSpreadsheet = <ThrowOnError extends boolean = false>(options: Options<PreviewChatFileArtifactSpreadsheetData, ThrowOnError>): RequestResult<PreviewChatFileArtifactSpreadsheetResponses, PreviewChatFileArtifactSpreadsheetErrors, ThrowOnError> => (options.client ?? client).get<PreviewChatFileArtifactSpreadsheetResponses, PreviewChatFileArtifactSpreadsheetErrors, ThrowOnError>({
+export const previewChatFileArtifactSpreadsheet = <ThrowOnError extends boolean = true>(options: Options<PreviewChatFileArtifactSpreadsheetData, ThrowOnError>): RequestResult<PreviewChatFileArtifactSpreadsheetResponses, PreviewChatFileArtifactSpreadsheetErrors, ThrowOnError> => (options.client ?? client).get<PreviewChatFileArtifactSpreadsheetResponses, PreviewChatFileArtifactSpreadsheetErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4743,7 +4743,7 @@ export const previewChatFileArtifactSpreadsheet = <ThrowOnError extends boolean 
 /**
  * Read a PDF rendering of an owner-private generated presentation, converted in the interpreter on first request
  */
-export const getChatFileArtifactPdfPreview = <ThrowOnError extends boolean = false>(options: Options<GetChatFileArtifactPdfPreviewData, ThrowOnError>): RequestResult<GetChatFileArtifactPdfPreviewResponses, GetChatFileArtifactPdfPreviewErrors, ThrowOnError> => (options.client ?? client).get<GetChatFileArtifactPdfPreviewResponses, GetChatFileArtifactPdfPreviewErrors, ThrowOnError>({
+export const getChatFileArtifactPdfPreview = <ThrowOnError extends boolean = true>(options: Options<GetChatFileArtifactPdfPreviewData, ThrowOnError>): RequestResult<GetChatFileArtifactPdfPreviewResponses, GetChatFileArtifactPdfPreviewErrors, ThrowOnError> => (options.client ?? client).get<GetChatFileArtifactPdfPreviewResponses, GetChatFileArtifactPdfPreviewErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4756,7 +4756,7 @@ export const getChatFileArtifactPdfPreview = <ThrowOnError extends boolean = fal
 /**
  * Read an owner-private file generated by Code Interpreter
  */
-export const getChatFileArtifact = <ThrowOnError extends boolean = false>(options: Options<GetChatFileArtifactData, ThrowOnError>): RequestResult<GetChatFileArtifactResponses, GetChatFileArtifactErrors, ThrowOnError> => (options.client ?? client).get<GetChatFileArtifactResponses, GetChatFileArtifactErrors, ThrowOnError>({
+export const getChatFileArtifact = <ThrowOnError extends boolean = true>(options: Options<GetChatFileArtifactData, ThrowOnError>): RequestResult<GetChatFileArtifactResponses, GetChatFileArtifactErrors, ThrowOnError> => (options.client ?? client).get<GetChatFileArtifactResponses, GetChatFileArtifactErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4769,7 +4769,7 @@ export const getChatFileArtifact = <ThrowOnError extends boolean = false>(option
 /**
  * Read the chart data captured from the figure behind an owner-private generated PNG
  */
-export const getChatFileArtifactChart = <ThrowOnError extends boolean = false>(options: Options<GetChatFileArtifactChartData, ThrowOnError>): RequestResult<GetChatFileArtifactChartResponses, GetChatFileArtifactChartErrors, ThrowOnError> => (options.client ?? client).get<GetChatFileArtifactChartResponses, GetChatFileArtifactChartErrors, ThrowOnError>({
+export const getChatFileArtifactChart = <ThrowOnError extends boolean = true>(options: Options<GetChatFileArtifactChartData, ThrowOnError>): RequestResult<GetChatFileArtifactChartResponses, GetChatFileArtifactChartErrors, ThrowOnError> => (options.client ?? client).get<GetChatFileArtifactChartResponses, GetChatFileArtifactChartErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4782,7 +4782,7 @@ export const getChatFileArtifactChart = <ThrowOnError extends boolean = false>(o
 /**
  * How far one export has got
  */
-export const getChatExport = <ThrowOnError extends boolean = false>(options: Options<GetChatExportData, ThrowOnError>): RequestResult<GetChatExportResponses, GetChatExportErrors, ThrowOnError> => (options.client ?? client).get<GetChatExportResponses, GetChatExportErrors, ThrowOnError>({
+export const getChatExport = <ThrowOnError extends boolean = true>(options: Options<GetChatExportData, ThrowOnError>): RequestResult<GetChatExportResponses, GetChatExportErrors, ThrowOnError> => (options.client ?? client).get<GetChatExportResponses, GetChatExportErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4795,7 +4795,7 @@ export const getChatExport = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * Download a finished export
  */
-export const downloadChatExport = <ThrowOnError extends boolean = false>(options: Options<DownloadChatExportData, ThrowOnError>): RequestResult<DownloadChatExportResponses, DownloadChatExportErrors, ThrowOnError> => (options.client ?? client).get<DownloadChatExportResponses, DownloadChatExportErrors, ThrowOnError>({
+export const downloadChatExport = <ThrowOnError extends boolean = true>(options: Options<DownloadChatExportData, ThrowOnError>): RequestResult<DownloadChatExportResponses, DownloadChatExportErrors, ThrowOnError> => (options.client ?? client).get<DownloadChatExportResponses, DownloadChatExportErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4808,7 +4808,7 @@ export const downloadChatExport = <ThrowOnError extends boolean = false>(options
 /**
  * Read current document passages around a Chat citation
  */
-export const readChatDocumentPassages = <ThrowOnError extends boolean = false>(options: Options<ReadChatDocumentPassagesData, ThrowOnError>): RequestResult<ReadChatDocumentPassagesResponses, ReadChatDocumentPassagesErrors, ThrowOnError> => (options.client ?? client).get<ReadChatDocumentPassagesResponses, ReadChatDocumentPassagesErrors, ThrowOnError>({
+export const readChatDocumentPassages = <ThrowOnError extends boolean = true>(options: Options<ReadChatDocumentPassagesData, ThrowOnError>): RequestResult<ReadChatDocumentPassagesResponses, ReadChatDocumentPassagesErrors, ThrowOnError> => (options.client ?? client).get<ReadChatDocumentPassagesResponses, ReadChatDocumentPassagesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4821,7 +4821,7 @@ export const readChatDocumentPassages = <ThrowOnError extends boolean = false>(o
 /**
  * Read the workbook original of a cited document as CSV text per sheet
  */
-export const readChatDocumentSpreadsheet = <ThrowOnError extends boolean = false>(options: Options<ReadChatDocumentSpreadsheetData, ThrowOnError>): RequestResult<ReadChatDocumentSpreadsheetResponses, ReadChatDocumentSpreadsheetErrors, ThrowOnError> => (options.client ?? client).get<ReadChatDocumentSpreadsheetResponses, ReadChatDocumentSpreadsheetErrors, ThrowOnError>({
+export const readChatDocumentSpreadsheet = <ThrowOnError extends boolean = true>(options: Options<ReadChatDocumentSpreadsheetData, ThrowOnError>): RequestResult<ReadChatDocumentSpreadsheetResponses, ReadChatDocumentSpreadsheetErrors, ThrowOnError> => (options.client ?? client).get<ReadChatDocumentSpreadsheetResponses, ReadChatDocumentSpreadsheetErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4834,7 +4834,7 @@ export const readChatDocumentSpreadsheet = <ThrowOnError extends boolean = false
 /**
  * Read the stored original of a cited document, of any media type, to show the file as it looks
  */
-export const readChatDocumentOriginal = <ThrowOnError extends boolean = false>(options: Options<ReadChatDocumentOriginalData, ThrowOnError>): RequestResult<ReadChatDocumentOriginalResponses, ReadChatDocumentOriginalErrors, ThrowOnError> => (options.client ?? client).get<ReadChatDocumentOriginalResponses, ReadChatDocumentOriginalErrors, ThrowOnError>({
+export const readChatDocumentOriginal = <ThrowOnError extends boolean = true>(options: Options<ReadChatDocumentOriginalData, ThrowOnError>): RequestResult<ReadChatDocumentOriginalResponses, ReadChatDocumentOriginalErrors, ThrowOnError> => (options.client ?? client).get<ReadChatDocumentOriginalResponses, ReadChatDocumentOriginalErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4847,7 +4847,7 @@ export const readChatDocumentOriginal = <ThrowOnError extends boolean = false>(o
 /**
  * The events the filters select as CSV, at most 50,000 rows; the export is itself recorded; requires AUDIT_READ
  */
-export const exportAuditEvents = <ThrowOnError extends boolean = false>(options?: Options<ExportAuditEventsData, ThrowOnError>): RequestResult<ExportAuditEventsResponses, ExportAuditEventsErrors, ThrowOnError> => (options?.client ?? client).get<ExportAuditEventsResponses, ExportAuditEventsErrors, ThrowOnError>({
+export const exportAuditEvents = <ThrowOnError extends boolean = true>(options?: Options<ExportAuditEventsData, ThrowOnError>): RequestResult<ExportAuditEventsResponses, ExportAuditEventsErrors, ThrowOnError> => (options?.client ?? client).get<ExportAuditEventsResponses, ExportAuditEventsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4860,7 +4860,7 @@ export const exportAuditEvents = <ThrowOnError extends boolean = false>(options?
 /**
  * The Tenant's audit events, newest first, one page at a time; requires AUDIT_READ
  */
-export const listAuditEvents = <ThrowOnError extends boolean = false>(options?: Options<ListAuditEventsData, ThrowOnError>): RequestResult<ListAuditEventsResponses, ListAuditEventsErrors, ThrowOnError> => (options?.client ?? client).get<ListAuditEventsResponses, ListAuditEventsErrors, ThrowOnError>({
+export const listAuditEvents = <ThrowOnError extends boolean = true>(options?: Options<ListAuditEventsData, ThrowOnError>): RequestResult<ListAuditEventsResponses, ListAuditEventsErrors, ThrowOnError> => (options?.client ?? client).get<ListAuditEventsResponses, ListAuditEventsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4873,7 +4873,7 @@ export const listAuditEvents = <ThrowOnError extends boolean = false>(options?: 
 /**
  * One audit event; requires AUDIT_READ
  */
-export const getAuditEvent = <ThrowOnError extends boolean = false>(options: Options<GetAuditEventData, ThrowOnError>): RequestResult<GetAuditEventResponses, GetAuditEventErrors, ThrowOnError> => (options.client ?? client).get<GetAuditEventResponses, GetAuditEventErrors, ThrowOnError>({
+export const getAuditEvent = <ThrowOnError extends boolean = true>(options: Options<GetAuditEventData, ThrowOnError>): RequestResult<GetAuditEventResponses, GetAuditEventErrors, ThrowOnError> => (options.client ?? client).get<GetAuditEventResponses, GetAuditEventErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4886,7 +4886,7 @@ export const getAuditEvent = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * Every action the audit stream can hold, for the viewer's action filter; requires AUDIT_READ
  */
-export const getAuditCatalog = <ThrowOnError extends boolean = false>(options?: Options<GetAuditCatalogData, ThrowOnError>): RequestResult<GetAuditCatalogResponses, GetAuditCatalogErrors, ThrowOnError> => (options?.client ?? client).get<GetAuditCatalogResponses, GetAuditCatalogErrors, ThrowOnError>({
+export const getAuditCatalog = <ThrowOnError extends boolean = true>(options?: Options<GetAuditCatalogData, ThrowOnError>): RequestResult<GetAuditCatalogResponses, GetAuditCatalogErrors, ThrowOnError> => (options?.client ?? client).get<GetAuditCatalogResponses, GetAuditCatalogErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4899,7 +4899,7 @@ export const getAuditCatalog = <ThrowOnError extends boolean = false>(options?: 
 /**
  * Tenant AI usage and known costs for a UTC day range; requires model management
  */
-export const getAiCostSummary = <ThrowOnError extends boolean = false>(options: Options<GetAiCostSummaryData, ThrowOnError>): RequestResult<GetAiCostSummaryResponses, GetAiCostSummaryErrors, ThrowOnError> => (options.client ?? client).get<GetAiCostSummaryResponses, GetAiCostSummaryErrors, ThrowOnError>({
+export const getAiCostSummary = <ThrowOnError extends boolean = true>(options: Options<GetAiCostSummaryData, ThrowOnError>): RequestResult<GetAiCostSummaryResponses, GetAiCostSummaryErrors, ThrowOnError> => (options.client ?? client).get<GetAiCostSummaryResponses, GetAiCostSummaryErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4912,7 +4912,7 @@ export const getAiCostSummary = <ThrowOnError extends boolean = false>(options: 
 /**
  * Download a ready usage report as a ZIP; requires model management
  */
-export const downloadUsageReport = <ThrowOnError extends boolean = false>(options: Options<DownloadUsageReportData, ThrowOnError>): RequestResult<DownloadUsageReportResponses, DownloadUsageReportErrors, ThrowOnError> => (options.client ?? client).get<DownloadUsageReportResponses, DownloadUsageReportErrors, ThrowOnError>({
+export const downloadUsageReport = <ThrowOnError extends boolean = true>(options: Options<DownloadUsageReportData, ThrowOnError>): RequestResult<DownloadUsageReportResponses, DownloadUsageReportErrors, ThrowOnError> => (options.client ?? client).get<DownloadUsageReportResponses, DownloadUsageReportErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4925,7 +4925,7 @@ export const downloadUsageReport = <ThrowOnError extends boolean = false>(option
 /**
  * The caller's own AI costs by day, model, task and provider; any Chat reader
  */
-export const getMyAiCosts = <ThrowOnError extends boolean = false>(options: Options<GetMyAiCostsData, ThrowOnError>): RequestResult<GetMyAiCostsResponses, GetMyAiCostsErrors, ThrowOnError> => (options.client ?? client).get<GetMyAiCostsResponses, GetMyAiCostsErrors, ThrowOnError>({
+export const getMyAiCosts = <ThrowOnError extends boolean = true>(options: Options<GetMyAiCostsData, ThrowOnError>): RequestResult<GetMyAiCostsResponses, GetMyAiCostsErrors, ThrowOnError> => (options.client ?? client).get<GetMyAiCostsResponses, GetMyAiCostsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4938,7 +4938,7 @@ export const getMyAiCosts = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * The budget that binds the caller and what they have spent against it; any member
  */
-export const getMyAiUsageStanding = <ThrowOnError extends boolean = false>(options?: Options<GetMyAiUsageStandingData, ThrowOnError>): RequestResult<GetMyAiUsageStandingResponses, GetMyAiUsageStandingErrors, ThrowOnError> => (options?.client ?? client).get<GetMyAiUsageStandingResponses, GetMyAiUsageStandingErrors, ThrowOnError>({
+export const getMyAiUsageStanding = <ThrowOnError extends boolean = true>(options?: Options<GetMyAiUsageStandingData, ThrowOnError>): RequestResult<GetMyAiUsageStandingResponses, GetMyAiUsageStandingErrors, ThrowOnError> => (options?.client ?? client).get<GetMyAiUsageStandingResponses, GetMyAiUsageStandingErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4951,7 +4951,7 @@ export const getMyAiUsageStanding = <ThrowOnError extends boolean = false>(optio
 /**
  * One person's, or system work's, AI costs by day, model, task and provider; requires model management
  */
-export const getAiCostDetail = <ThrowOnError extends boolean = false>(options: Options<GetAiCostDetailData, ThrowOnError>): RequestResult<GetAiCostDetailResponses, GetAiCostDetailErrors, ThrowOnError> => (options.client ?? client).get<GetAiCostDetailResponses, GetAiCostDetailErrors, ThrowOnError>({
+export const getAiCostDetail = <ThrowOnError extends boolean = true>(options: Options<GetAiCostDetailData, ThrowOnError>): RequestResult<GetAiCostDetailResponses, GetAiCostDetailErrors, ThrowOnError> => (options.client ?? client).get<GetAiCostDetailResponses, GetAiCostDetailErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4964,7 +4964,7 @@ export const getAiCostDetail = <ThrowOnError extends boolean = false>(options: O
 /**
  * Daily AI costs split by data boundary, by model or not at all; requires model management
  */
-export const listAiCostDays = <ThrowOnError extends boolean = false>(options: Options<ListAiCostDaysData, ThrowOnError>): RequestResult<ListAiCostDaysResponses, ListAiCostDaysErrors, ThrowOnError> => (options.client ?? client).get<ListAiCostDaysResponses, ListAiCostDaysErrors, ThrowOnError>({
+export const listAiCostDays = <ThrowOnError extends boolean = true>(options: Options<ListAiCostDaysData, ThrowOnError>): RequestResult<ListAiCostDaysResponses, ListAiCostDaysErrors, ThrowOnError> => (options.client ?? client).get<ListAiCostDaysResponses, ListAiCostDaysErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4977,7 +4977,7 @@ export const listAiCostDays = <ThrowOnError extends boolean = false>(options: Op
 /**
  * AI costs ranked by person, Group, model, task or provider; requires model management
  */
-export const listAiCostBreakdown = <ThrowOnError extends boolean = false>(options: Options<ListAiCostBreakdownData, ThrowOnError>): RequestResult<ListAiCostBreakdownResponses, ListAiCostBreakdownErrors, ThrowOnError> => (options.client ?? client).get<ListAiCostBreakdownResponses, ListAiCostBreakdownErrors, ThrowOnError>({
+export const listAiCostBreakdown = <ThrowOnError extends boolean = true>(options: Options<ListAiCostBreakdownData, ThrowOnError>): RequestResult<ListAiCostBreakdownResponses, ListAiCostBreakdownErrors, ThrowOnError> => (options.client ?? client).get<ListAiCostBreakdownResponses, ListAiCostBreakdownErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -4990,7 +4990,7 @@ export const listAiCostBreakdown = <ThrowOnError extends boolean = false>(option
 /**
  * Keep the automatic label for a speaker
  */
-export const dismissMeetingSpeakerSuggestion = <ThrowOnError extends boolean = false>(options: Options<DismissMeetingSpeakerSuggestionData, ThrowOnError>): RequestResult<DismissMeetingSpeakerSuggestionResponses, DismissMeetingSpeakerSuggestionErrors, ThrowOnError> => (options.client ?? client).delete<DismissMeetingSpeakerSuggestionResponses, DismissMeetingSpeakerSuggestionErrors, ThrowOnError>({
+export const dismissMeetingSpeakerSuggestion = <ThrowOnError extends boolean = true>(options: Options<DismissMeetingSpeakerSuggestionData, ThrowOnError>): RequestResult<DismissMeetingSpeakerSuggestionResponses, DismissMeetingSpeakerSuggestionErrors, ThrowOnError> => (options.client ?? client).delete<DismissMeetingSpeakerSuggestionResponses, DismissMeetingSpeakerSuggestionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -5003,7 +5003,7 @@ export const dismissMeetingSpeakerSuggestion = <ThrowOnError extends boolean = f
 /**
  * Take back one of the caller's own marks
  */
-export const removeMeetingBookmark = <ThrowOnError extends boolean = false>(options: Options<RemoveMeetingBookmarkData, ThrowOnError>): RequestResult<RemoveMeetingBookmarkResponses, RemoveMeetingBookmarkErrors, ThrowOnError> => (options.client ?? client).delete<RemoveMeetingBookmarkResponses, RemoveMeetingBookmarkErrors, ThrowOnError>({
+export const removeMeetingBookmark = <ThrowOnError extends boolean = true>(options: Options<RemoveMeetingBookmarkData, ThrowOnError>): RequestResult<RemoveMeetingBookmarkResponses, RemoveMeetingBookmarkErrors, ThrowOnError> => (options.client ?? client).delete<RemoveMeetingBookmarkResponses, RemoveMeetingBookmarkErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -5016,7 +5016,7 @@ export const removeMeetingBookmark = <ThrowOnError extends boolean = false>(opti
 /**
  * Remove the shared OAuth connection and revoke it at the authorization server
  */
-export const disconnectMcpServerOAuth = <ThrowOnError extends boolean = false>(options: Options<DisconnectMcpServerOAuthData, ThrowOnError>): RequestResult<DisconnectMcpServerOAuthResponses, DisconnectMcpServerOAuthErrors, ThrowOnError> => (options.client ?? client).delete<DisconnectMcpServerOAuthResponses, DisconnectMcpServerOAuthErrors, ThrowOnError>({
+export const disconnectMcpServerOAuth = <ThrowOnError extends boolean = true>(options: Options<DisconnectMcpServerOAuthData, ThrowOnError>): RequestResult<DisconnectMcpServerOAuthResponses, DisconnectMcpServerOAuthErrors, ThrowOnError> => (options.client ?? client).delete<DisconnectMcpServerOAuthResponses, DisconnectMcpServerOAuthErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -5029,7 +5029,7 @@ export const disconnectMcpServerOAuth = <ThrowOnError extends boolean = false>(o
 /**
  * Remove the User's own credential and revoke an OAuth connection
  */
-export const disconnectMcpConnection = <ThrowOnError extends boolean = false>(options: Options<DisconnectMcpConnectionData, ThrowOnError>): RequestResult<DisconnectMcpConnectionResponses, DisconnectMcpConnectionErrors, ThrowOnError> => (options.client ?? client).delete<DisconnectMcpConnectionResponses, DisconnectMcpConnectionErrors, ThrowOnError>({
+export const disconnectMcpConnection = <ThrowOnError extends boolean = true>(options: Options<DisconnectMcpConnectionData, ThrowOnError>): RequestResult<DisconnectMcpConnectionResponses, DisconnectMcpConnectionErrors, ThrowOnError> => (options.client ?? client).delete<DisconnectMcpConnectionResponses, DisconnectMcpConnectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -5042,7 +5042,7 @@ export const disconnectMcpConnection = <ThrowOnError extends boolean = false>(op
 /**
  * Delete an unused Google Drive credential with a revision precondition
  */
-export const deleteGoogleDriveCredential = <ThrowOnError extends boolean = false>(options: Options<DeleteGoogleDriveCredentialData, ThrowOnError>): RequestResult<DeleteGoogleDriveCredentialResponses, unknown, ThrowOnError> => (options.client ?? client).delete<DeleteGoogleDriveCredentialResponses, unknown, ThrowOnError>({
+export const deleteGoogleDriveCredential = <ThrowOnError extends boolean = true>(options: Options<DeleteGoogleDriveCredentialData, ThrowOnError>): RequestResult<DeleteGoogleDriveCredentialResponses, unknown, ThrowOnError> => (options.client ?? client).delete<DeleteGoogleDriveCredentialResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -5055,7 +5055,7 @@ export const deleteGoogleDriveCredential = <ThrowOnError extends boolean = false
 /**
  * Remove the actor's direct share of an agent
  */
-export const leaveChatPersona = <ThrowOnError extends boolean = false>(options: Options<LeaveChatPersonaData, ThrowOnError>): RequestResult<LeaveChatPersonaResponses, LeaveChatPersonaErrors, ThrowOnError> => (options.client ?? client).delete<LeaveChatPersonaResponses, LeaveChatPersonaErrors, ThrowOnError>({
+export const leaveChatPersona = <ThrowOnError extends boolean = true>(options: Options<LeaveChatPersonaData, ThrowOnError>): RequestResult<LeaveChatPersonaResponses, LeaveChatPersonaErrors, ThrowOnError> => (options.client ?? client).delete<LeaveChatPersonaResponses, LeaveChatPersonaErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -5068,7 +5068,7 @@ export const leaveChatPersona = <ThrowOnError extends boolean = false>(options: 
 /**
  * Delete an owner-private generated image; the answer keeps a deleted card and a sweep releases the bytes
  */
-export const deleteChatImageArtifact = <ThrowOnError extends boolean = false>(options: Options<DeleteChatImageArtifactData, ThrowOnError>): RequestResult<DeleteChatImageArtifactResponses, DeleteChatImageArtifactErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatImageArtifactResponses, DeleteChatImageArtifactErrors, ThrowOnError>({
+export const deleteChatImageArtifact = <ThrowOnError extends boolean = true>(options: Options<DeleteChatImageArtifactData, ThrowOnError>): RequestResult<DeleteChatImageArtifactResponses, DeleteChatImageArtifactErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatImageArtifactResponses, DeleteChatImageArtifactErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',
@@ -5081,7 +5081,7 @@ export const deleteChatImageArtifact = <ThrowOnError extends boolean = false>(op
 /**
  * Delete an owner-private generated file; the answer keeps a deleted card and a sweep releases the bytes
  */
-export const deleteChatFileArtifact = <ThrowOnError extends boolean = false>(options: Options<DeleteChatFileArtifactData, ThrowOnError>): RequestResult<DeleteChatFileArtifactResponses, DeleteChatFileArtifactErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatFileArtifactResponses, DeleteChatFileArtifactErrors, ThrowOnError>({
+export const deleteChatFileArtifact = <ThrowOnError extends boolean = true>(options: Options<DeleteChatFileArtifactData, ThrowOnError>): RequestResult<DeleteChatFileArtifactResponses, DeleteChatFileArtifactErrors, ThrowOnError> => (options.client ?? client).delete<DeleteChatFileArtifactResponses, DeleteChatFileArtifactErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, {
             in: 'cookie',
             name: 'SESSION',

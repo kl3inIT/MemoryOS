@@ -41,9 +41,7 @@ export function ChatFileReader({
     staleTime: 0,
     retry: false,
     queryFn: async ({ signal }) =>
-      chatFileSchema.parse(
-        (await getChatFile({ path: { fileId }, signal, throwOnError: true })).data,
-      ),
+      chatFileSchema.parse((await getChatFile({ path: { fileId }, signal })).data),
   });
   const file = metadata.data;
   const ready = !metadata.isError && file?.status === "READY";
@@ -61,7 +59,6 @@ export function ChatFileReader({
           path: { fileId },
           parseAs: "blob",
           signal,
-          throwOnError: true,
         });
         if (!(data instanceof Blob) || data.size !== file.sizeBytes)
           throw new Error("Invalid file content");
@@ -74,7 +71,6 @@ export function ChatFileReader({
               path: { fileId },
               query: { offset, count: 16000 },
               signal,
-              throwOnError: true,
             })
           ).data,
         ),

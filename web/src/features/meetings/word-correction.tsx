@@ -6,7 +6,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import type { UtteranceSpan } from "./meeting-socket";
-import { correctionsKey, correctWords, meetingKey, type MeetingDetail } from "./meetings-api";
+import { correctWords, foldCorrection, type MeetingDetail } from "./meetings-api";
 
 /**
  * A word the provider was unsure of, opened by the owner to write what was said. Enter saves, Escape leaves it as it
@@ -43,11 +43,11 @@ export function WordCorrection({
     setPending(true);
     setError(null);
     try {
-      cache.setQueryData(
-        meetingKey(meeting.id),
+      foldCorrection(
+        cache,
+        meeting.id,
         await correctWords(meeting.id, utteranceId, span.start, span.end, written),
       );
-      void cache.invalidateQueries({ queryKey: correctionsKey(meeting.id) });
       setOpen(false);
     } catch (failed) {
       setError(problemMessage(presentProblem(failed, "mutation").message));

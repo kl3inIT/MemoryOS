@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   addGroupMembersMutation,
   assignGroupManagerMutation,
@@ -235,7 +234,6 @@ export const GroupMembersSection = forwardRef<GroupDraftSectionHandle, GroupMemb
         if (addedMembers.size > 0) {
           await addMembers.mutateAsync({
             path: { groupId: group.id },
-            headers: sameOriginMutationHeaders,
             body: { actorIds: [...addedMembers.keys()] },
           });
         }
@@ -244,13 +242,11 @@ export const GroupMembersSection = forwardRef<GroupDraftSectionHandle, GroupMemb
           const mutation = change.target ? assignManager : removeManager;
           await mutation.mutateAsync({
             path: { groupId: group.id, actorId },
-            headers: sameOriginMutationHeaders,
           });
         }
         for (const actorId of removedMemberIds) {
           await removeMember.mutateAsync({
             path: { groupId: group.id, actorId },
-            headers: sameOriginMutationHeaders,
           });
         }
         reset();

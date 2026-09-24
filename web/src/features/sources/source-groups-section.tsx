@@ -5,7 +5,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   listSourceGroupsOptions,
   listSourceGroupOptionsOptions,
@@ -73,7 +72,6 @@ export function SourceGroupsSection({
     try {
       await updateGroups.mutateAsync({
         path: { sourceId },
-        headers: sameOriginMutationHeaders,
         body: { groupIds: [...selectedIds] },
       });
       setBaselineIds(new Set(selectedIds));

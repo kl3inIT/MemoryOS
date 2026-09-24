@@ -26,7 +26,8 @@ public class JdbcUserFileRepository {
 
     public JdbcUserFileRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
-    public record Row(UserFile file, ObjectUploadId uploadId, ContentSha256 checksum, String declaredMediaType) {}
+    /** A file row; {@code uploadId} names the browser upload it came from and is absent for a server-written copy. */
+    public record Row(UserFile file, @Nullable ObjectUploadId uploadId, ContentSha256 checksum, String declaredMediaType) {}
 
     public Optional<Row> request(TenantId tenant, ActorId actor, UUID request) {
         return jdbc.sql("SELECT * FROM chat_user_file WHERE tenant_id=:tenant AND owner_actor_id=:actor AND request_id=:request")
@@ -99,9 +100,8 @@ public class JdbcUserFileRepository {
         return jdbc.sql("""
                 SELECT o.*, f.media_type AS file_media_type, f.detected_media_type,
                        f.thumbnail_object_key, f.thumbnail_media_type
-                FROM chat_user_file f JOIN object_uploads u ON u.tenant_id=f.tenant_id AND u.id=f.upload_id
-                JOIN stored_objects o ON o.tenant_id=u.tenant_id AND o.id=u.stored_object_id
-                WHERE f.tenant_id=:tenant AND f.id=:id AND f.status='READY' AND u.status='ADOPTED' AND
+                FROM chat_user_file f JOIN stored_objects o ON o.tenant_id=f.tenant_id AND o.id=f.stored_object_id
+                WHERE f.tenant_id=:tenant AND f.id=:id AND f.status='READY' AND o.state='ACTIVE' AND
                 """ + READABLE).param("tenant", tenant.value()).param("actor", actor.value()).param("id", id)
                 .query((row, ignored) -> {
                     String detected = row.getString("detected_media_type");
@@ -170,20 +170,30 @@ public class JdbcUserFileRepository {
                 .param("artifact", artifact).query((row, ignored) -> map(row)).optional();
     }
 
-    /** An upload whose bytes the server copied from an artifact; it then follows the ordinary upload lifecycle. */
-    public UUID createCopy(TenantId tenant, ActorId actor, ObjectUploadId upload, ObjectUploadSpecification spec,
-                           String source, UUID artifact) {
-        var id = create(tenant, actor, UUID.randomUUID(), upload, spec);
-        jdbc.sql("UPDATE chat_user_file SET copied_from_source=:source,copied_from_id=:artifact WHERE tenant_id=:tenant AND id=:id")
-                .param("source", source).param("artifact", artifact).param("tenant", tenant.value()).param("id", id).update();
+    /**
+     * A file whose bytes the server copied from an artifact into an object it wrote and adopted itself (V127). It
+     * has no browser upload; from {@link #finalized} on it follows the ordinary file lifecycle.
+     */
+    public UUID createCopy(TenantId tenant, ActorId actor, StoredObjectReference object, String source, UUID artifact) {
+        var id = UUID.randomUUID();
+        jdbc.sql("""
+                INSERT INTO chat_user_file(id,tenant_id,owner_actor_id,request_id,stored_object_id,filename,media_type,
+                    size_bytes,content_sha256,copied_from_source,copied_from_id)
+                VALUES(:id,:tenant,:actor,:request,:object,:name,:type,:size,:sha,:source,:artifact)
+                """).param("id", id).param("tenant", tenant.value()).param("actor", actor.value())
+                .param("request", UUID.randomUUID()).param("object", object.id().value()).param("name", object.filename())
+                .param("type", object.metadata().mediaType()).param("size", object.metadata().sizeBytes())
+                .param("sha", object.metadata().checksum().value()).param("source", source).param("artifact", artifact)
+                .update();
         return id;
     }
 
-    public void finalized(TenantId tenant, UUID id) {
+    /** Hands an uploaded file to the file worker, recording the stored object its adoption made the file's own. */
+    public void finalized(TenantId tenant, UUID id, StoredObjectId object) {
         if (jdbc.sql("""
-                UPDATE chat_user_file SET status='PROCESSING',updated_at=CURRENT_TIMESTAMP
+                UPDATE chat_user_file SET status='PROCESSING',stored_object_id=:object,updated_at=CURRENT_TIMESTAMP
                 WHERE tenant_id=:tenant AND id=:id AND status='UPLOADING'
-                """).param("tenant", tenant.value()).param("id", id).update() != 1) {
+                """).param("tenant", tenant.value()).param("id", id).param("object", object.value()).update() != 1) {
             throw new IllegalStateException("File upload is no longer pending");
         }
         enqueue(tenant, id, "PROCESS");
@@ -303,10 +313,11 @@ public class JdbcUserFileRepository {
     }
 
     private static Row map(ResultSet row) throws SQLException {
+        UUID upload = row.getObject("upload_id", UUID.class);
         String detected = row.getString("detected_media_type");
         return new Row(new UserFile(row.getObject("id", UUID.class), row.getString("filename"), detected == null ? row.getString("media_type") : detected,
                 row.getLong("size_bytes"), UserFile.Status.valueOf(row.getString("status")),
                 row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(), row.getString("error_code")),
-                new ObjectUploadId(row.getObject("upload_id", UUID.class)), new ContentSha256(row.getString("content_sha256")), row.getString("media_type"));
+                upload == null ? null : new ObjectUploadId(upload), new ContentSha256(row.getString("content_sha256")), row.getString("media_type"));
     }
 }

@@ -92,6 +92,80 @@ class MeetingRepositoryTest {
         assertFalse(meetings.hasUtterances(UUID.randomUUID(), spoken), "another Tenant sees nothing");
     }
 
+    @Test void savingNotesOrDetailsAnswersWithTheRevisionTheNextSaveNames() {
+        UUID id = meeting();
+
+        assertEquals(1, meetings.updateNotes(tenant, id, "Hỏi hạn mức"));
+        assertEquals(2, meetings.updateDetails(tenant, id, "Giao ban tuần", List.of("Chị Lan")));
+        assertEquals(2, meetings.find(tenant, owner, id).orElseThrow().revision());
+    }
+
+    @Test void tickingAnItemAnswersWithTheItemAsItNowReads() {
+        UUID id = meeting(), other = meeting(), item = UUID.randomUUID();
+        jdbc.sql("""
+                INSERT INTO meeting_minutes_item(tenant_id, id, meeting_id, kind, position, text, owner)
+                VALUES (:tenant, :id, :meeting, 'ACTION', 0, 'Gửi bảng KPI', 'Chị Lan')
+                """).param("tenant", tenant).param("id", item).param("meeting", id).update();
+
+        var ticked = meetings.markItem(tenant, id, item, true).orElseThrow();
+
+        assertEquals(new Meeting.MinutesItem(item, Meeting.ItemKind.ACTION, "Gửi bảng KPI", "Chị Lan", null, null,
+                null, true, false), ticked);
+        assertTrue(meetings.markItem(tenant, other, item, false).isEmpty(), "another meeting's item is not there");
+    }
+
+    @Test void aTopicIsNotTickedOff() {
+        UUID id = meeting(), topic = UUID.randomUUID();
+        jdbc.sql("""
+                INSERT INTO meeting_minutes_item(tenant_id, id, meeting_id, kind, position, text)
+                VALUES (:tenant, :id, :meeting, 'TOPIC', 0, 'Ngân sách quý 4')
+                """).param("tenant", tenant).param("id", topic).param("meeting", id).update();
+
+        assertTrue(meetings.markItem(tenant, id, topic, true).isEmpty());
+        assertFalse(meetings.lockItem(tenant, id, topic).orElseThrow().done());
+    }
+
+    @Test void oneVoiceIsReadWithoutTheRestOfTheMeeting() {
+        UUID id = meeting();
+        var later = new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.MIC, "1", 5000, 6000, "Mình là Minh", 0.9);
+        var first = new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.MIC, "1", 0, 1000, "Chào mọi người", 0.9);
+        meetings.insertUtterance(tenant, id, later);
+        meetings.insertUtterance(tenant, id, first);
+        meetings.insertUtterance(tenant, id, new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.MIC, "2", 2000,
+                3000, "Tôi là Lan", 0.9));
+        meetings.insertUtterance(tenant, id, new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.TAB, "1", 2500,
+                3500, "Em là Hoa", 0.9));
+
+        assertEquals(List.of(first.id(), later.id()),
+                meetings.utterancesOf(tenant, id, Meeting.Track.MIC, "1").stream().map(Meeting.Utterance::id).toList());
+    }
+
+    @Test void decidingOneStretchAnswersTheLineAndTheProposalAsTheyNowStand() {
+        UUID id = meeting(), run = UUID.randomUUID();
+        var line = new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.MIC, "1", 0, 2000,
+                "Bên Tát cô đã gửi bảng KPI.", 0.5,
+                List.of(new Meeting.Span(4, 10, 0.35), new Meeting.Span(18, 22, 0.4)));
+        meetings.insertUtterance(tenant, id, line);
+        var offered = new Meeting.Correction(UUID.randomUUID(), line.id(), run, 4, 10, "Tát cô", "Tasco",
+                "Tên công ty.", 0.75, 0.75, 0.75, true, Meeting.CorrectionStatus.PENDING);
+        var declined = new Meeting.Correction(UUID.randomUUID(), line.id(), run, 18, 22, "bảng", "băng", "", 0.5,
+                0.5, 0.5, false, Meeting.CorrectionStatus.PENDING);
+        meetings.insertCorrections(tenant, id, run, List.of(offered, declined));
+
+        var rewritten = meetings.rewrite(tenant, id, line.id(), line.text(), "Bên Tasco đã gửi bảng KPI.",
+                List.of(new Meeting.Span(17, 21, 0.4)), Meeting.EditSource.MODEL, run, owner, "MODEL");
+        var accepted = meetings.accepted(tenant, offered.id(), owner, 4, 10, "Tát cô", "Tasco");
+        var kept = meetings.decide(tenant, declined.id(), Meeting.CorrectionStatus.KEPT, owner);
+
+        assertEquals(meetings.utterances(tenant, id).getFirst(), rewritten, "the line as a reader now reads it");
+        assertEquals(Meeting.EditSource.MODEL, rewritten.editSource());
+        assertEquals(new Meeting.Correction(offered.id(), line.id(), run, 4, 10, "Tát cô", "Tasco", "Tên công ty.",
+                0.75, 0.75, 0.75, true, Meeting.CorrectionStatus.ACCEPTED), accepted);
+        assertEquals(Meeting.CorrectionStatus.KEPT, kept.status());
+        assertTrue(meetings.corrections(tenant, id).containsAll(List.of(accepted, kept)),
+                "both answers are what the list holds");
+    }
+
     private UUID meeting() {
         UUID id = UUID.randomUUID();
         meetings.insert(tenant, id, owner, new Meeting.Draft("Họp giao ban", Meeting.Kind.IN_PERSON, "vi", List.of(), List.of()));

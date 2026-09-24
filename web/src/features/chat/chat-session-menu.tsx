@@ -21,7 +21,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { archiveChatSession, deleteChatSession, unarchiveChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { chatSessionsKey } from "./chat-api";
 import { ChatDialog } from "./chat-dialog";
 import { SharingDialog } from "./chat-sharing-dialog";
@@ -84,9 +83,7 @@ export function ChatSessionMenu({
       const call = next ? archiveChatSession : unarchiveChatSession;
       await call({
         path: { sessionId: session.id },
-        headers: sameOriginMutationHeaders,
         signal: AbortSignal.timeout(30000),
-        throwOnError: true,
       });
     }
     onArchive?.(next);
@@ -246,9 +243,7 @@ export function ChatSessionMenu({
           else
             await deleteChatSession({
               path: { sessionId: session.id },
-              headers: sameOriginMutationHeaders,
               signal: AbortSignal.timeout(30000),
-              throwOnError: true,
             });
           onDelete?.();
           if (pathname === `/chat/${session.id}`) await navigate({ to: "/" });

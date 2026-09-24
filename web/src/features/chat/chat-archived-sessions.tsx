@@ -20,7 +20,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   deleteChatSession,
   listChatSessions,
@@ -52,7 +51,6 @@ export function ChatArchivedSessionsPage() {
       listChatSessions({
         query: { archived: true, offset: pageParam, limit: PAGE },
         signal,
-        throwOnError: true,
       }).then((answer) => answer.data),
     initialPageParam: 0,
     getNextPageParam: (last, all) => (last.length === PAGE ? all.length * PAGE : undefined),
@@ -61,7 +59,7 @@ export function ChatArchivedSessionsPage() {
   const matches = useQuery({
     queryKey: [...chatSessionsKey, actorId, authorizationVersion, "archived-search", query],
     queryFn: ({ signal }) =>
-      searchChatSessions({ query: { query, limit: PAGE }, signal, throwOnError: true }).then(
+      searchChatSessions({ query: { query, limit: PAGE }, signal }).then(
         // A search reads every conversation the owner has; this page shows the archived ones.
         (answer) =>
           answer.data.items.filter((item) => item.session.archivedAt).map((item) => item.session),
@@ -179,9 +177,7 @@ export function ChatArchivedSessionsPage() {
                         void act(() =>
                           unarchiveChatSession({
                             path: { sessionId: session.id },
-                            headers: sameOriginMutationHeaders,
                             signal: AbortSignal.timeout(30000),
-                            throwOnError: true,
                           }),
                         )
                       }
@@ -212,9 +208,7 @@ export function ChatArchivedSessionsPage() {
                         act(() =>
                           deleteChatSession({
                             path: { sessionId: session.id },
-                            headers: sameOriginMutationHeaders,
                             signal: AbortSignal.timeout(30000),
-                            throwOnError: true,
                           }),
                         )
                       }

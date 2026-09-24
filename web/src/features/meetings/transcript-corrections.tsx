@@ -13,12 +13,15 @@ import {
   acceptAllCorrections,
   acceptCorrection,
   correctionsKey,
+  foldCorrection,
   keepWording,
   loadCorrections,
   meetingKey,
   proposeCorrections,
   revertAllCorrections,
   revertCorrection,
+  type MeetingCorrection,
+  type MeetingCorrectionApplied,
   type MeetingDetail,
 } from "./meetings-api";
 
@@ -69,7 +72,12 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
         cache.invalidateQueries({ queryKey: meetingKey(meeting.id) }),
       ]),
   });
+  // One stretch answers the line it rewrote and the proposal; a whole pass answers the meeting.
   const decide = useMutation({
+    mutationFn: (act: () => Promise<MeetingCorrectionApplied | MeetingCorrection>) => act(),
+    onSuccess: (answer) => foldCorrection(cache, meeting.id, answer),
+  });
+  const decideAll = useMutation({
     mutationFn: (act: () => Promise<MeetingDetail>) => act(),
     onSuccess: (detail) => {
       cache.setQueryData(meetingKey(meeting.id), detail);
@@ -89,7 +97,7 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
   const all = corrections.data ?? [];
   const pending = all.filter((item) => item.status === "PENDING");
   const applied = all.filter((item) => item.status === "ACCEPTED");
-  const busy = running || run.isPending || decide.isPending;
+  const busy = running || run.isPending || decide.isPending || decideAll.isPending;
   // What a pass would look at: every stretch the provider marked, on lines nobody has rewritten by hand.
   const unclear = meeting.utterances
     .filter((utterance) => utterance.editSource !== "HUMAN")
@@ -143,7 +151,7 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
             confirmLabel={ui("Nhận hết")}
             pendingLabel={ui("Đang nhận…")}
             onConfirm={() =>
-              guard(() => decide.mutateAsync(() => acceptAllCorrections(meeting.id, runId)))
+              guard(() => decideAll.mutateAsync(() => acceptAllCorrections(meeting.id, runId)))
             }
           />
         </div>
@@ -236,7 +244,7 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
             confirmLabel={ui("Hoàn tác cả lượt")}
             pendingLabel={ui("Đang hoàn tác…")}
             onConfirm={() =>
-              guard(() => decide.mutateAsync(() => revertAllCorrections(meeting.id, appliedRun)))
+              guard(() => decideAll.mutateAsync(() => revertAllCorrections(meeting.id, appliedRun)))
             }
           />
         </div>

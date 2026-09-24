@@ -38,7 +38,6 @@ public class ChatTurnPersistence {
     private final TenantAccessResolver tenants;
     private final IamAuthorization authorization;
     private final JdbcChatRepository chats;
-    private final PersonaProperties persona;
     private final ChatFileService files;
     private final ActorLanguageService languages;
     private final JdbcImageArtifactRepository imageArtifacts;
@@ -47,14 +46,14 @@ public class ChatTurnPersistence {
     private final io.memoryos.iam.identity.@Nullable ActorProfileReader profiles;
 
     public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
-                               PersonaProperties persona, ChatFileService files, ActorLanguageService languages,
+                               ChatFileService files, ActorLanguageService languages,
                                JdbcImageArtifactRepository imageArtifacts) {
-        this(tenants, authorization, chats, persona, files, languages, imageArtifacts, null, null, null);
+        this(tenants, authorization, chats, files, languages, imageArtifacts, null, null, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
     public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
-                               PersonaProperties persona, ChatFileService files, ActorLanguageService languages,
+                               ChatFileService files, ActorLanguageService languages,
                                JdbcImageArtifactRepository imageArtifacts, io.memoryos.usage.@Nullable AiUsageRecorder usage,
                                io.memoryos.chat.persistence.@Nullable JdbcChatPreferencesRepository preferences,
                                io.memoryos.iam.identity.@Nullable ActorProfileReader profiles) {
@@ -64,7 +63,6 @@ public class ChatTurnPersistence {
         this.tenants = tenants;
         this.authorization = authorization;
         this.chats = chats;
-        this.persona = persona;
         this.files = files;
         this.languages = languages;
         this.imageArtifacts = imageArtifacts;
@@ -180,8 +178,6 @@ public class ChatTurnPersistence {
             text = command.operation() == ChatCommand.Operation.REGENERATE ? Objects.requireNonNull(target.content()) : command.text();
         }
         if (chats.messageCount(sessionId) > 9998) throw ChatException.invalid("Chat session message limit reached.");
-        // Initialization is insert-only: editor-owned settings must survive every send.
-        chats.provisionPersona(tenant, persona.getName(), persona.getInstructions(), persona.getModel());
         var settings = chats.persona(sessionId, true, agentsManage(actor));
         if (selection != null && selection.contextRevision() != null && !selection.contextRevision().equals(settings.revision()))
             throw ChatException.conflict();

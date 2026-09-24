@@ -1,4 +1,3 @@
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { z } from "zod";
 import {
   moveChatProject,
@@ -153,7 +152,6 @@ export function loadPersonas(signal: AbortSignal, view: AgentView = "ALL") {
         await listChatPersonas({
           query: { offset, limit: 100, view },
           signal,
-          throwOnError: true,
         })
       ).data,
     ),
@@ -163,19 +161,13 @@ export function loadProjects(signal: AbortSignal) {
   return allPages(async (offset) =>
     projectSchema
       .array()
-      .parse(
-        (await listChatProjects({ query: { offset, limit: 100 }, signal, throwOnError: true }))
-          .data,
-      ),
+      .parse((await listChatProjects({ query: { offset, limit: 100 }, signal })).data),
   );
 }
 export function loadPersonaSources(signal: AbortSignal) {
   const schema = z.object({ id: z.string().uuid(), name: z.string(), type: z.string() }).array();
   return allPages(async (offset) =>
-    schema.parse(
-      (await listChatPersonaSources({ query: { offset, limit: 100 }, signal, throwOnError: true }))
-        .data,
-    ),
+    schema.parse((await listChatPersonaSources({ query: { offset, limit: 100 }, signal })).data),
   );
 }
 
@@ -186,10 +178,7 @@ export function loadDocumentSets(signal: AbortSignal) {
   return allPages(async (offset) =>
     documentSetSchema
       .array()
-      .parse(
-        (await listDocumentSets({ query: { offset, limit: 100 }, signal, throwOnError: true }))
-          .data,
-      ),
+      .parse((await listDocumentSets({ query: { offset, limit: 100 }, signal })).data),
   );
 }
 
@@ -197,8 +186,6 @@ export async function moveConversation(sessionId: string, projectId: string | nu
   await moveChatProject({
     path: { sessionId },
     body: { projectId },
-    headers: sameOriginMutationHeaders,
     signal: AbortSignal.timeout(30000),
-    throwOnError: true,
   });
 }

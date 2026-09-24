@@ -96,15 +96,15 @@ export function NewMeetingDialog({
         participants: list(participants),
         terms: list(terms),
       });
-      const shared =
+      const readers =
         audience.people.length > 0 || audience.groups.length > 0
           ? await shareMeeting(
               meeting.id,
               audience.people.map((person) => person.actorId),
               audience.groups.map((group) => group.id),
             )
-          : meeting;
-      cache.setQueryData(meetingKey(shared.id), shared);
+          : meeting.readers;
+      cache.setQueryData(meetingKey(meeting.id), { ...meeting, readers });
       void invalidateMeetingList(cache);
       await startRecording(
         meeting.id,

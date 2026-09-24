@@ -177,7 +177,7 @@ function PinnedAgents({ onNavigate }: { onNavigate?: () => void }) {
   const pins = useQuery({
     queryKey: pinsKey,
     queryFn: async ({ signal }) =>
-      personaSchema.array().parse((await listChatPersonaPins({ signal, throwOnError: true })).data),
+      personaSchema.array().parse((await listChatPersonaPins({ signal })).data),
   });
   if (!pins.data?.length) return null;
 

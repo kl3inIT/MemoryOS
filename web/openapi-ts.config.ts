@@ -11,9 +11,27 @@ export default {
             : undefined,
       },
     },
+    patch: {
+      // The same-origin guard header is added to every unsafe request by the client
+      // interceptor in src/lib/api.ts, so call sites do not pass it.
+      operations: (_method: string, _path: string, operation: { parameters?: unknown[] }) => {
+        operation.parameters = operation.parameters?.filter(
+          (parameter) =>
+            !(
+              typeof parameter === "object" &&
+              parameter !== null &&
+              "in" in parameter &&
+              "name" in parameter &&
+              parameter.in === "header" &&
+              parameter.name === "X-MemoryOS-CSRF"
+            ),
+        );
+      },
+    },
   },
   plugins: [
-    "@hey-api/client-fetch",
+    // Every SDK call rejects with ApiError on a non-2xx response (see src/lib/api.ts).
+    { name: "@hey-api/client-fetch", throwOnError: true },
     "@hey-api/typescript",
     "@hey-api/sdk",
     "@tanstack/react-query",

@@ -2,6 +2,7 @@ package io.memoryos.iam.tenant.bootstrap;
 
 import java.util.Objects;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +14,7 @@ import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapRequest;
 import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapResult;
 import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapper;
 import io.memoryos.iam.tenant.bootstrap.TenantBootstrapConflictException;
+import io.memoryos.iam.tenant.TenantBootstrapped;
 import io.memoryos.iam.tenant.TenantMembershipRole;
 import io.memoryos.iam.tenant.TenantMembershipStatus;
 import io.memoryos.iam.tenant.TenantStatus;
@@ -31,19 +33,22 @@ public class DefaultInitialTenantBootstrapper implements InitialTenantBootstrapp
     private final ExternalIdentityResolver identityResolver;
     private final ExternalIdentityRegistrar identityRegistrar;
     private final GroupProvisioner groupProvisioner;
+    private final ApplicationEventPublisher events;
 
     public DefaultInitialTenantBootstrapper(
             JpaTenantRepository tenants,
             IamLockRepository locks,
             ExternalIdentityResolver identityResolver,
             ExternalIdentityRegistrar identityRegistrar,
-            GroupProvisioner groupProvisioner
+            GroupProvisioner groupProvisioner,
+            ApplicationEventPublisher events
     ) {
         this.tenants = Objects.requireNonNull(tenants, "tenants must not be null");
         this.locks = Objects.requireNonNull(locks, "locks must not be null");
         this.identityResolver = Objects.requireNonNull(identityResolver, "identityResolver must not be null");
         this.identityRegistrar = Objects.requireNonNull(identityRegistrar, "identityRegistrar must not be null");
         this.groupProvisioner = Objects.requireNonNull(groupProvisioner, "groupProvisioner must not be null");
+        this.events = Objects.requireNonNull(events, "events must not be null");
     }
 
     @Override
@@ -60,6 +65,8 @@ public class DefaultInitialTenantBootstrapper implements InitialTenantBootstrapp
             InitialTenantBootstrapResult existing = verifyExisting(request, publishedTenant);
             locks.lockTenant(existing.tenantId());
             groupProvisioner.bootstrap(existing.tenantId(), existing.ownerActorId());
+            // Re-verification provisions defaults a module added after this Tenant was created.
+            events.publishEvent(new TenantBootstrapped(existing.tenantId(), false));
             return existing;
         }
         if (tenants.countTenants() != 0) {
@@ -86,6 +93,7 @@ public class DefaultInitialTenantBootstrapper implements InitialTenantBootstrapp
         groupProvisioner.bootstrap(request.tenantId(), ownerActorId);
         state.publish(tenant);
         tenants.flush();
+        events.publishEvent(new TenantBootstrapped(request.tenantId(), true));
 
         return new InitialTenantBootstrapResult(ownerActorId, request.tenantId(), true);
     }

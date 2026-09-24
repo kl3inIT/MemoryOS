@@ -9,7 +9,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TextButton } from "@/components/ui/text-button";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { listIdentityProvidersOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { deleteIdentityProvider } from "@/lib/hey-api/sdk.gen";
 import type { IdentityProviderResponse } from "@/lib/hey-api/types.gen";
@@ -56,8 +55,6 @@ export function IdentityProvidersPage() {
   async function removeProvider(provider: IdentityProviderResponse) {
     await deleteIdentityProvider({
       path: { alias: provider.alias },
-      headers: sameOriginMutationHeaders,
-      throwOnError: true,
     });
     notify({
       title: ui("{{v1}} was removed.", { v1: provider.displayName }),

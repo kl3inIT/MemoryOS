@@ -7,7 +7,6 @@ import { Check, X } from "lucide-react";
 import { ThreadListRow } from "@/components/assistant-ui/elements/thread-list";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { renameChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { ChatSessionMenu } from "./chat-session-menu";
@@ -91,9 +90,7 @@ export function ChatSessionRow({
                   : renameChatSession({
                       path: { sessionId: session.id },
                       body: { title: title.trim() },
-                      headers: sameOriginMutationHeaders,
                       signal: AbortSignal.timeout(30000),
-                      throwOnError: true,
                     })
               )
                 .then(async () => {

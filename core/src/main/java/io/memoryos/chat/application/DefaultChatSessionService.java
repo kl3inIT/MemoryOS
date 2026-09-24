@@ -24,15 +24,13 @@ public class DefaultChatSessionService implements ChatSessionService {
     private final TenantAccessResolver tenants;
     private final IamAuthorization authorization;
     private final JdbcChatRepository chats;
-    private final PersonaProperties persona;
     private final JdbcChatSearchRepository search;
 
     public DefaultChatSessionService(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
-                                     PersonaProperties persona, JdbcChatSearchRepository search) {
+                                     JdbcChatSearchRepository search) {
         this.tenants = tenants;
         this.authorization = authorization;
         this.chats = chats;
-        this.persona = persona;
         this.search = search;
     }
 
@@ -50,7 +48,7 @@ public class DefaultChatSessionService implements ChatSessionService {
         }
         authorization.require(actor, IamCapability.CHAT_WRITE, false);
         var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
-        var personaId = chats.provisionPersona(tenant, persona.getName(), persona.getInstructions(), persona.getModel());
+        var personaId = chats.defaultPersona(tenant).orElseThrow(ChatException::unavailable);
         return chats.create(tenant, actor, personaId, title.strip(), temporary);
     }
 

@@ -85,7 +85,7 @@ Làm song song với Phase B, vì hai phase không phụ thuộc nhau.
    * Index cũ: hạn giữ và Hoàn tác có xác nhận.
    * Poll `GET /api/search/settings` mỗi 5 giây khi có `FUTURE`, dừng khi không còn.
    * 403 từ Tenant không vận hành hiện trạng thái Không có quyền; người không có `MODELS_MANAGE` không gửi request nào.
-3. **Dùng lại:** `CatalogDialog`, `DataBoundaryField`/`DataBoundaryTag`, `useModelAction` (thêm tham số mô tả lỗi) và `useProviderTest` (tách thành `useConnectionTest` nhận hàm gọi; `useProviderTest` giữ nguyên hành vi). **Không** dùng `ProviderEditor`: nó gắn với adapter, Group, Persona và API của provider chat. Trình sửa provider embedding viết mới nhưng theo đúng cách giữ key của nó (key trong `ref`, xoá khi `pagehide`).
+3. **Dùng lại:** `CatalogDialog`, `DataBoundaryField`/`DataBoundaryTag`, `useModelMutation` (thêm tùy chọn `describe` cho lời báo lỗi) và `useProviderTest` (tách thành `useConnectionTest` nhận hàm gọi; `useProviderTest` giữ nguyên hành vi). **Không** dùng `ProviderEditor`: nó gắn với adapter, Group, Persona và API của provider chat. Trình sửa provider embedding viết mới nhưng theo đúng cách giữ key của nó (key trong `ref`, xoá khi `pagehide`).
 4. Bản dịch: khoá tiếng Việt, bản tiếng Anh trong `app-translations.ts`; giữ `model`, `provider`, `embedding`, `index`.
 5. **Kiểm thử:**
    * `pnpm vitest run src/features/search-settings`: điền sẵn, định dạng tiến độ và thời gian còn lại, nút nào bật ở trạng thái nào, lỗi theo từng thao tác, kết quả kiểm tra.

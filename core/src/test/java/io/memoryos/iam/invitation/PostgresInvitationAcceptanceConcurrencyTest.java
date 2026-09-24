@@ -86,7 +86,8 @@ class PostgresInvitationAcceptanceConcurrencyTest {
                             locks,
                             identities,
                             identities,
-                            groups
+                            groups,
+                            event -> { }
                     ),
                     InitialTenantBootstrapper.class,
                     jpa.transactionManager()

@@ -9,7 +9,6 @@ import { MessageBranches } from "@/components/assistant-ui/elements/message-bran
 import { MessageActions, type Reaction } from "@/components/assistant-ui/elements/message-actions";
 import { FeedbackDialog } from "@/components/assistant-ui/elements/feedback-dialog";
 import { useTranslation } from "react-i18next";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { setChatFeedback, removeChatFeedback } from "@/lib/hey-api/sdk.gen";
 import { ChatEditingContext } from "./chat-editing-context";
 import { ChatDialog } from "./chat-dialog";
@@ -195,9 +194,7 @@ export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
             setRemoving(true);
             void removeChatFeedback({
               path: { sessionId, assistantMessageId: message.id },
-              headers: sameOriginMutationHeaders,
               signal: AbortSignal.timeout(30000),
-              throwOnError: true,
             })
               .then(() => cache.invalidateQueries({ queryKey: ["chat-feedback", sessionId] }))
               .catch((cause: unknown) => setError(chatActionError(cause)))
@@ -282,9 +279,7 @@ function FeedbackEditor({
         await setChatFeedback({
           path: { sessionId, assistantMessageId: messageId },
           body: { positive, comment, reason },
-          headers: sameOriginMutationHeaders,
           signal: AbortSignal.timeout(30000),
-          throwOnError: true,
         });
         await cache.invalidateQueries({ queryKey: ["chat-feedback", sessionId] });
       }}

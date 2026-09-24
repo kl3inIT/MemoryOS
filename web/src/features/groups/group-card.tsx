@@ -8,7 +8,6 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { renameGroupMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { GroupSummary } from "@/lib/hey-api/types.gen";
 import { groupMutationError } from "./group-errors";
@@ -65,7 +64,6 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
     try {
       await renameGroup.mutateAsync({
         path: { groupId: group.id },
-        headers: sameOriginMutationHeaders,
         body: { name: nextName },
       });
       setEditing(false);

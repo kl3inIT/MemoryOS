@@ -25,6 +25,26 @@ A reader opens the meeting while it records and after it ends: the transcript as
 | `status` | `RECORDING` until `end`, then `ENDED`; `TRANSCRIBING` while an uploaded recording is being read. Only a `RECORDING` meeting issues tickets (409 `MEETING_ENDED` otherwise) |
 | `provider`, `diarized` | The last stream's provider and whether any stream separated speakers |
 
+## What a change answers
+
+`GET /api/meetings/{id}` is the read that carries the transcript. A small change answers with the part it changed, never with the meeting, so ticking a box on a five-hour meeting reads and sends one row rather than every utterance. The browser folds the answer into the meeting it already holds.
+
+| Change | Answer |
+| --- | --- |
+| `PUT /api/meetings/{id}/notes` | `{notes, revision}`: the notes as stored and the revision the next save names |
+| `PUT /api/meetings/{id}` | `{title, participants, revision}`: the name and the people as stored, and the new revision |
+| `PUT /api/meetings/{id}/speakers/{track}/{label}`, `DELETE …/speakers/{track}/{label}/suggestion` | That one speaker: `{track, label, name, suggestion}`. A voice left without a name is offered the name it gave itself again, read from its own lines only |
+| `PUT`, `DELETE /api/meetings/{id}/utterances/{utteranceId}/star` | Every line the caller starred in this meeting |
+| `POST /api/meetings/{id}/bookmarks`, `DELETE …/bookmarks/{bookmarkId}` | Every mark the caller has in this meeting, in time order |
+| `PUT /api/meetings/{id}/shares` | Everyone the meeting is now shared with |
+| `PUT /api/meetings/{id}/minutes/{itemId}` (tick), `PUT …/minutes/items/{itemId}` (rewrite), `POST …/minutes/items` (write in) | The item as it now reads. An item carrying the owner's words means the minutes are the owner's |
+| `DELETE /api/meetings/{id}/minutes/items/{itemId}` | 204; the minutes are the owner's from then on |
+| `PUT /api/meetings/{id}/minutes/summary` | `{summary, edited}` |
+| `POST /api/meetings/{id}/corrections/{correctionId}/accept`, `…/revert`; `POST /api/meetings/{id}/utterances/{utteranceId}/corrections` (a word written by hand) | `{utterance, correction}`: the one line as a reader now sees it, marks read as whole words, and the proposal as it now stands — for a word written by hand, the accepted correction it was recorded as. Corrections do not move the meeting's `revision`, so none is answered |
+| `POST /api/meetings/{id}/corrections/{correctionId}/keep` | The declined proposal alone; no line changed |
+
+Creating, ending, rerunning the minutes, reserving and finalizing a recording, and the two corrections that decide a whole pass (`accept-all`, `revert-all`) still answer the whole meeting: they change its status, its minutes or the words of any number of lines, and the page shows all of that at once. A name a voice gave itself is read from the words its lines say now, so a single correction that rewrites an introduction is reflected in the offer on the meeting's next read.
+
 ## Recording a track
 
 1. `POST /api/meetings/{id}/tickets` with `{track}` issues a 60-second single-use ticket bound to the actor, the meeting and the track (the voice ticket store with scope `MEETING:{id}:{track}`).
@@ -45,7 +65,7 @@ An utterance also carries `spans`: the stretches the provider was least sure of,
 
 Searching a transcript happens in the browser over what is already loaded; no route answers a query. Every hit is numbered across the whole meeting so the arrows walk them in reading order, and a hit is drawn over an uncertain stretch where the two overlap.
 
-Two marks belong to whoever left them, and nobody else sees them — a meeting five people read collects five sets. A **star** says a line matters and is left afterwards, while reading: `PUT` and `DELETE /api/meetings/{id}/utterances/{utteranceId}/star`, answered with the meeting as that reader sees it. A **bookmark** says to come back to a moment and is left during the meeting, when there is no line yet to star: `POST /api/meetings/{id}/bookmarks` takes milliseconds from the start of the recording and a label, numbering it `Đánh dấu N` when none is given, and `DELETE /api/meetings/{id}/bookmarks/{bookmarkId}` takes back one of the caller's own. At most 200 bookmarks per person per meeting, and a time outside the recording is refused. Anyone who reads the meeting may leave both; the meeting carries `starred` and `bookmarks` for the caller alone.
+Two marks belong to whoever left them, and nobody else sees them — a meeting five people read collects five sets. A **star** says a line matters and is left afterwards, while reading: `PUT` and `DELETE /api/meetings/{id}/utterances/{utteranceId}/star`, answered with the lines that reader starred. A **bookmark** says to come back to a moment and is left during the meeting, when there is no line yet to star: `POST /api/meetings/{id}/bookmarks` takes milliseconds from the start of the recording and a label, numbering it `Đánh dấu N` when none is given, and `DELETE /api/meetings/{id}/bookmarks/{bookmarkId}` takes back one of the caller's own. At most 200 bookmarks per person per meeting, and a time outside the recording is refused. Anyone who reads the meeting may leave both; the meeting carries `starred` and `bookmarks` for the caller alone.
 
 ## The timeline
 
@@ -53,7 +73,7 @@ The same model call that writes the minutes also names the subjects the meeting 
 
 ## Correcting the minutes
 
-The minutes are the owner's to correct: a model that misheard one conclusion costs one edit, not a rerun of the whole meeting. `PUT /api/meetings/{id}/minutes/summary` rewrites the summary; `PUT /api/meetings/{id}/minutes/items/{itemId}` rewrites one decision or one piece of work, its owner and its deadline. A decision belongs to the meeting rather than to a person, so giving one an owner or a deadline is refused. `POST /api/meetings/{id}/minutes/items` writes in a `DECISION` or an `ACTION` the model missed, after the others of its kind, with at most 100 of a kind; `DELETE /api/meetings/{id}/minutes/items/{itemId}` takes one out. Both are events like any edit: an added item's history starts from empty, a removed one keeps its words as the event's `before`. Only the owner reaches any of these — a reader of a shared meeting gets 404.
+The minutes are the owner's to correct: a model that misheard one conclusion costs one edit, not a rerun of the whole meeting. `PUT /api/meetings/{id}/minutes/summary` rewrites the summary; `PUT /api/meetings/{id}/minutes/items/{itemId}` rewrites one decision or one piece of work, its owner and its deadline. A decision belongs to the meeting rather than to a person, so giving one an owner or a deadline is refused. `POST /api/meetings/{id}/minutes/items` writes in a `DECISION` or an `ACTION` the model missed, after the others of its kind, with at most 100 of a kind; `DELETE /api/meetings/{id}/minutes/items/{itemId}` takes one out. A topic is the model's place in the timeline rather than a line of the minutes the owner answers for, so ticking, rewriting or taking out a `TOPIC` answers 404 as for an item that is not there, and writing one in is refused. Both are events like any edit: an added item's history starts from empty, a removed one keeps its words as the event's `before`. Only the owner reaches any of these — a reader of a shared meeting gets 404.
 
 What the reader sees is the row, and the history is the events beside it: every change is a row in `meeting_minutes_event` carrying the field, who changed it, and what it said before, so the model's own words stay readable after they are replaced. `minutes.edited` and each item's `edited` say whether the words standing now are the owner's.
 
@@ -123,7 +143,7 @@ One call to the Tenant's model for `MEETING_MINUTES`, no tools and no conversati
 
 Each item cites the line it rests on; that line number becomes the utterance id, so the owner can jump from an item to what was said. An item without text is dropped, an owner or due date is at most 100 characters and text or a quote at most 2,000. The call's tokens are recorded as `MEETING_MINUTES` usage against the owner's Tenant.
 
-`PUT /api/meetings/{id}/minutes/{itemId}` ticks an action off; an item that is not the owner's answers `MEETING_NOT_FOUND`.
+`PUT /api/meetings/{id}/minutes/{itemId}` ticks an action off; an item that is not the owner's, or a topic, answers `MEETING_NOT_FOUND`.
 
 ## Taking the minutes into Chat
 

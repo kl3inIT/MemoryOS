@@ -7,20 +7,14 @@ import io.memoryos.chat.persistence.JdbcUserFileRepository;
 import io.memoryos.iam.identity.ActorId;
 import io.memoryos.iam.tenant.TenantAccessResolver;
 import io.memoryos.iam.tenant.TenantId;
-import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectStorageException;
+import io.memoryos.objectstorage.ObjectStorageFailureCode;
 import io.memoryos.objectstorage.ObjectUploadException;
-import io.memoryos.objectstorage.ObjectUploadPurpose;
-import io.memoryos.objectstorage.ObjectUploadService;
-import io.memoryos.objectstorage.ObjectUploadSpecification;
-import io.memoryos.objectstorage.VerifiedObject;
+import io.memoryos.objectstorage.ObjectWriteService;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +23,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +33,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /** Reads the caller's own files across uploads, generated files and generated images (MEM-142). */
 @Service
 public class ChatLibraryService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChatLibraryService.class);
+
     /** The largest object the storage adapter writes from memory; artifacts are bounded well below it. */
     private static final long MAX_COPY_BYTES = 32L * 1024 * 1024;
 
@@ -45,18 +43,18 @@ public class ChatLibraryService {
     private final JdbcUserFileRepository files;
     private final JdbcChatRepository chats;
     private final ObjectStorage storage;
-    private final ObjectUploadService uploads;
+    private final ObjectWriteService writes;
     private final ChatFileProperties policy;
     private final ChatStorageQuotaService quotas;
     private final TransactionTemplate tx;
     private final ChatFileSearchService fileSearch;
 
     public ChatLibraryService(TenantAccessResolver tenants, JdbcChatLibraryRepository library, JdbcUserFileRepository files,
-                              JdbcChatRepository chats, ObjectStorage storage, ObjectUploadService uploads,
+                              JdbcChatRepository chats, ObjectStorage storage, ObjectWriteService writes,
                               ChatFileProperties policy, ChatStorageQuotaService quotas,
                               PlatformTransactionManager transactionManager, ChatFileSearchService fileSearch) {
         this.tenants = tenants; this.library = library; this.files = files; this.chats = chats;
-        this.storage = storage; this.uploads = uploads; this.policy = policy; this.quotas = quotas;
+        this.storage = storage; this.writes = writes; this.policy = policy; this.quotas = quotas;
         this.fileSearch = fileSearch;
         this.tx = new TransactionTemplate(transactionManager);
     }
@@ -167,15 +165,8 @@ public class ChatLibraryService {
     }
 
     /**
-     * Makes a generated file or image usable wherever an upload is (MEM-152): its bytes are copied, inside object
-     * storage's own lifecycle, into a new upload of the same owner, which the file worker then extracts like any
-     * other. Asking again returns the copy already made, so a double click or a retried request never duplicates
-     * it. The copy is independent: deleting or purging the artifact leaves it intact, and deleting the copy lets
-     * the artifact be copied again.
-     */
-    /**
      * Takes bytes another capability produced into the caller's library, under the same rules a copy follows: the
-     * caller's quota, the caller's upload, the file worker's extraction. Asking twice for the same artifact returns
+     * caller's quota, a server-written object of the caller's own, the file worker's extraction. Asking twice for the same artifact returns
      * the file already made, and deleting that file lets the artifact be taken again, so a rewritten artifact
      * replaces rather than duplicates.
      */
@@ -190,26 +181,7 @@ public class ChatLibraryService {
         policy.validateSize(bytes.length);
         if (bytes.length > MAX_COPY_BYTES) throw ChatException.invalid("File exceeds the configured Chat upload limit.");
         quotas.requireRoom(tenant, actor, bytes.length);
-        var spec = new ObjectUploadSpecification(filename, mediaType, bytes.length, checksum(bytes),
-                ObjectUploadPurpose.CHAT_FILE);
-        VerifiedObject verified = uploads.write(tenant, spec, bytes);
-        var published = Objects.requireNonNull(tx.execute(ignored -> {
-            var current = write(actor);
-            if (!current.equals(tenant)) {
-                uploads.discard(tenant, verified.uploadId(), verified.token());
-                return java.util.Optional.<UserFile>empty();
-            }
-            var raced = files.copy(tenant, actor, source.name(), artifact);
-            if (raced.isPresent()) {
-                uploads.discard(tenant, verified.uploadId(), verified.token());
-                return java.util.Optional.of(raced.get().file());
-            }
-            var made = files.createCopy(tenant, actor, verified.uploadId(), spec, source.name(), artifact);
-            uploads.adopt(tenant, verified.uploadId(), verified.token());
-            files.finalized(tenant, made);
-            return java.util.Optional.of(files.owned(tenant, actor, made, false).orElseThrow().file());
-        }));
-        return published.orElseThrow(ChatException::unavailable);
+        return store(tenant, actor, source, artifact, filename, mediaType, bytes, false);
     }
 
     /** The file this artifact was already taken into, if the caller still has it. */
@@ -218,6 +190,13 @@ public class ChatLibraryService {
         return files.copy(tenant, actor, source.name(), artifact).map(row -> row.file());
     }
 
+    /**
+     * Makes a generated file or image usable wherever an upload is (MEM-152): its bytes are copied into a new file
+     * of the same owner, written through object storage's server-write lifecycle, which the file worker then
+     * extracts like any other. Asking again returns the copy already made, so a double click or a retried request
+     * never duplicates it. The copy is independent: deleting or purging the artifact leaves it intact, and deleting
+     * the copy lets the artifact be copied again.
+     */
     public UserFile copy(ActorId actor, ChatLibraryFile.Source source, UUID id) {
         if (source == ChatLibraryFile.Source.UPLOAD) throw ChatException.invalid("An upload is already usable as it is.");
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
@@ -230,32 +209,61 @@ public class ChatLibraryService {
         quotas.requireRoom(tenant, actor, artifact.sizeBytes());
         // Storage IO runs outside any transaction; ownership is checked again under the owner lock below.
         byte[] bytes = read(artifact);
-        var spec = new ObjectUploadSpecification(artifact.filename(), artifact.mediaType(), bytes.length,
-                checksum(bytes), ObjectUploadPurpose.CHAT_FILE);
-        VerifiedObject verified = uploads.write(tenant, spec, bytes);
-        // An artifact deleted meanwhile answers empty, so the discard commits instead of rolling back with a throw.
-        var copied = Objects.requireNonNull(tx.execute(ignored -> {
-            var current = write(actor);
-            if (!current.equals(tenant)) {
-                uploads.discard(tenant, verified.uploadId(), verified.token());
-                return java.util.Optional.<UserFile>empty();
-            }
-            var raced = files.copy(tenant, actor, source.name(), id);
-            if (raced.isPresent()) {
-                uploads.discard(tenant, verified.uploadId(), verified.token());
-                return java.util.Optional.of(raced.get().file());
-            }
-            if (library.artifact(tenant, actor, source, id).isEmpty()) {
-                uploads.discard(tenant, verified.uploadId(), verified.token());
-                return java.util.Optional.<UserFile>empty();
-            }
-            var copy = files.createCopy(tenant, actor, verified.uploadId(), spec, source.name(), id);
-            uploads.adopt(tenant, verified.uploadId(), verified.token());
-            files.finalized(tenant, copy);
-            return java.util.Optional.of(files.owned(tenant, actor, copy, false).orElseThrow().file());
-        }));
-        return copied.orElseThrow(ChatException::unavailable);
+        return store(tenant, actor, source, id, artifact.filename(), artifact.mediaType(), bytes, true);
     }
+
+    /**
+     * Writes a copy's bytes through the server-write lifecycle and records the copy (V127): the object is staged
+     * outside any transaction, then adopted in the transaction that inserts the file under the owner lock. A copy
+     * another request made meanwhile is returned instead, and an artifact deleted meanwhile, a membership that
+     * changed, or any failure before the adoption commits discards the staged object at once.
+     */
+    private UserFile store(TenantId tenant, ActorId actor, ChatLibraryFile.Source source, UUID artifact,
+            String filename, String mediaType, byte[] bytes, boolean artifactMustRemain) {
+        ObjectWriteService.StagedObject staged;
+        try {
+            staged = writes.stage(tenant, new ObjectWriteService.Specification(filename, mediaType, false), bytes);
+        } catch (ObjectStorageException failure) {
+            throw ObjectUploadException.storageUnavailable(failure.code(), failure);
+        }
+        Stored stored = null;
+        try {
+            stored = Objects.requireNonNull(tx.execute(ignored -> {
+                var current = write(actor);
+                if (!current.equals(tenant)) return new Stored(null, false);
+                var raced = files.copy(tenant, actor, source.name(), artifact);
+                if (raced.isPresent()) return new Stored(raced.get().file(), false);
+                if (artifactMustRemain && library.artifact(tenant, actor, source, artifact).isEmpty())
+                    return new Stored(null, false);
+                writes.adopt(tenant, staged);
+                var made = files.createCopy(tenant, actor, staged.object(), source.name(), artifact);
+                files.finalized(tenant, made, staged.object().id());
+                return new Stored(files.owned(tenant, actor, made, false).orElseThrow().file(), true);
+            }));
+        } finally {
+            if (stored == null || !stored.adopted()) discard(tenant, staged);
+        }
+        if (stored.file() == null) throw ChatException.unavailable();
+        return stored.file();
+    }
+
+    /**
+     * Never leaves a staged copy behind. A discard that fails is not the caller's failure: the staged write reaches
+     * its adoption deadline unadopted and the server-write cleanup reclaims it.
+     */
+    private void discard(TenantId tenant, ObjectWriteService.StagedObject staged) {
+        try {
+            writes.discard(tenant, staged);
+        } catch (RuntimeException failure) {
+            LOGGER.atWarn().addKeyValue("event", "chat.library.copy.discard_failed")
+                    .addKeyValue("stored_object_id", staged.object().id().value())
+                    .addKeyValue("error_type", failure.getClass().getName())
+                    .log("Discarding an unadopted library copy failed; server-write cleanup reclaims it");
+        }
+    }
+
+    /** What the copy transaction settled on, and whether it adopted the staged object. */
+    private record Stored(@Nullable UserFile file, boolean adopted) {}
 
     private byte[] read(JdbcChatLibraryRepository.Artifact artifact) {
         try (var content = storage.open(artifact.key())) {
@@ -263,18 +271,10 @@ public class ChatLibraryService {
             if (bytes.length != artifact.sizeBytes() || bytes.length < 1) throw ChatException.unavailable();
             return bytes;
         } catch (ObjectStorageException failure) {
-            if (failure.code() == io.memoryos.objectstorage.ObjectStorageFailureCode.NOT_FOUND) throw ChatException.unavailable();
+            if (failure.code() == ObjectStorageFailureCode.NOT_FOUND) throw ChatException.unavailable();
             throw ObjectUploadException.storageUnavailable(failure.code(), failure);
         } catch (IOException failure) {
             throw new UncheckedIOException(failure);
-        }
-    }
-
-    private static ContentSha256 checksum(byte[] bytes) {
-        try {
-            return new ContentSha256(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException(impossible);
         }
     }
 

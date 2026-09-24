@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.Set;
 import java.util.Arrays;
@@ -155,14 +156,46 @@ public final class ChatTurnService implements AutoCloseable {
         persistence.require(actor, io.memoryos.iam.group.IamCapability.CHAT_WRITE);
         if (command.image() != ImageMode.off) persistence.require(actor, io.memoryos.iam.group.IamCapability.IMAGE_GENERATE);
         var lock = commandLock(session);
+        Admission admission;
         lock.lock();
-        try { return sendLocked(actor, session, command); }
+        try { admission = admit(actor, session, command); }
         finally { lock.unlock(); }
+        // The run is registered before the lock is released, so Stop, subscribe and delete see it from here on.
+        return admission.run() == null ? admission.accepted() : start(actor, command, admission);
     }
 
-    private Accepted sendLocked(ActorId actor, UUID session, ChatCommand command) {
+    /** A replayed or newly registered turn; {@code run} is null when nothing remains to start. */
+    private record Admission(Accepted accepted, @Nullable Active run, boolean opensMcp) {}
+
+    /**
+     * Network work runs here, after the session lock: opening MCP tools may refresh OAuth tokens. The registered run
+     * owns the permit, so every failure settles it through the same terminal path as a failed execution.
+     */
+    private Accepted start(ActorId actor, ChatCommand command, Admission admission) {
+        var run = admission.run();
+        String failure = "CHAT_SETUP_FAILED";
+        boolean dispatched = false;
+        try {
+            // Credentials and OAuth refresh settle here, so the model never waits on an authorization server.
+            // A Stop that arrives meanwhile cancels the run; execution then settles it without calling the model.
+            if (admission.opensMcp()) run.setup = run.setup.withMcp(Objects.requireNonNull(mcp).open(actor, command.mcpServerIds()));
+            failure = "CHAT_SUBMIT_FAILED";
+            if (!accepting.get()) throw ChatException.busy();
+            executor.execute(() -> execute(run));
+            dispatched = true;
+            return admission.accepted();
+        } finally {
+            if (!dispatched) {
+                run.finish(ChatMessage.Status.FAILED, failure);
+                finalizeRun(run);
+                retireWhenDrained(run);
+            }
+        }
+    }
+
+    private Admission admit(ActorId actor, UUID session, ChatCommand command) {
         var previous = persistence.existing(actor, session, command);
-        if (previous.isPresent()) return accepted(previous.orElseThrow());
+        if (previous.isPresent()) return new Admission(accepted(previous.orElseThrow()), null, false);
         // Departure from Onyx, which only hides its button: a disabled mode must not run through the public API.
         if (command.deepResearch() && (settings == null || !settings.read(actor).deepResearchEnabled()))
             throw ChatException.researchUnavailable();
@@ -177,7 +210,6 @@ public final class ChatTurnService implements AutoCloseable {
         if (!accepting.get() || !permits.tryAcquire()) throw ChatException.busy();
         ChatTurnPersistence.Reservation reserved = null;
         ChatModelResolver.Resolved resolved = null;
-        io.memoryos.mcp.McpTurnTools mcpTools = null;
         boolean transferred = false;
         try {
             resolved = models.resolve(actor, session, command.modelConfigurationId());
@@ -223,33 +255,19 @@ public final class ChatTurnService implements AutoCloseable {
             reserved = persistence.reserve(actor, session, command, limits.leaseTtl(), contextLimit,
                     new ChatTurnPersistence.ModelSelection(command.modelConfigurationId(), resolved.modelConfigurationId(),
                             resolved.fallbackReason(), binding, resolved.contextRevision(), contribution));
-            if (!reserved.created()) return accepted(reserved);
+            if (!reserved.created()) return new Admission(accepted(reserved), null, false);
             var context = persistence.loadContext(actor, session, reserved);
             var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, contextLimit, binding, contribution)
                     .withWeb(command.webSearch(), webAccess).withImage(command.image(), imageAccess);
             // Deep research runs its own agents and tool set, so selected MCP servers apply only to ordinary turns.
-            if (!command.mcpServerIds().isEmpty() && !command.deepResearch()) {
-                if (!binding.toolCalling() || mcp == null) throw ChatException.providerUnavailable();
-                // Credentials and OAuth refresh settle here, so the model never waits on an authorization server.
-                setup = setup.withMcp(mcp.open(actor, command.mcpServerIds()));
-                mcpTools = setup.mcp();
-            }
+            boolean opensMcp = !command.mcpServerIds().isEmpty() && !command.deepResearch();
+            if (opensMcp && (!binding.toolCalling() || mcp == null)) throw ChatException.providerUnavailable();
             if (command.deepResearch()) setup = setup.withResearch(researchState(context, setup));
             var run = new Active(setup, resolved);
             streams.open(setup.assistantMessageId());
             active.put(setup.assistantMessageId(), run);
             transferred = true;
-            try {
-                if (!accepting.get()) throw ChatException.busy();
-                executor.execute(() -> execute(run));
-            }
-            catch (RuntimeException failure) {
-                run.finish(ChatMessage.Status.FAILED, "CHAT_SUBMIT_FAILED");
-                finalizeRun(run);
-                retireWhenDrained(run);
-                throw failure;
-            }
-            return accepted(reserved);
+            return new Admission(accepted(reserved), run, opensMcp);
         } catch (RuntimeException failure) {
             if (!transferred) {
                 // Setup errors still own a reserved row; finish it without starting the model.
@@ -259,8 +277,6 @@ public final class ChatTurnService implements AutoCloseable {
             throw failure;
         } finally {
             if (!transferred) {
-                // A setup failure after the tools opened must not leave MCP sessions behind.
-                if (mcpTools != null) mcpTools.close();
                 if (resolved != null) resolved.close();
                 permits.release();
             }
@@ -497,7 +513,8 @@ public final class ChatTurnService implements AutoCloseable {
                            ChatActivity activity, ChatResearch research) {}
 
     private static final class Active {
-        final ChatTurnSetup setup;
+        // Replaced once, by the sending thread, when MCP tools open after registration and before dispatch.
+        volatile ChatTurnSetup setup;
         final ChatModelResolver.Resolved resolved;
         final StringBuilder content = new StringBuilder();
         final List<ChatSource> sources = new ArrayList<>();

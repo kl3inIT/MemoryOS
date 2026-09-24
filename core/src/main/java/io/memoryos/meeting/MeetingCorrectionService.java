@@ -50,6 +50,12 @@ public class MeetingCorrectionService {
     public record Run(UUID id, List<Meeting.Correction> corrections) {}
 
     /**
+     * What deciding one stretch changed: the line as a reader now sees it and the proposal as it now stands. One line
+     * is all a single decision touches, so the transcript is not read back to answer it.
+     */
+    public record Applied(Meeting.Utterance utterance, Meeting.Correction correction) {}
+
+    /**
      * Reads every stretch the provider was unsure of and asks the model about each. The transcript is untouched: the
      * answer is a list of offers. Lines the owner has already rewritten are left out — their words are the owner's
      * now, not the provider's.
@@ -119,15 +125,14 @@ public class MeetingCorrectionService {
      * Applies one proposal. Passing {@code text} accepts the owner's own wording instead of the model's, which is
      * recorded as the owner's change and locks the line against later passes.
      */
-    public Meeting.Detail accept(ActorId actor, UUID meetingId, UUID correctionId, @Nullable String text) {
+    public Applied accept(ActorId actor, UUID meetingId, UUID correctionId, @Nullable String text) {
         UUID tenant = details.tenantOf(actor);
-        tx.executeWithoutResult(ignored -> {
+        return tx.execute(ignored -> {
             meetings.lock(tenant, actor.value(), meetingId).orElseThrow(MeetingException::notFound);
             var correction = meetings.lockCorrection(tenant, meetingId, correctionId)
                     .orElseThrow(MeetingException::notFound);
-            apply(tenant, meetingId, actor, correction, text);
+            return apply(tenant, meetingId, actor, correction, text);
         });
-        return details.get(actor, meetingId);
     }
 
     /**
@@ -135,10 +140,9 @@ public class MeetingCorrectionService {
      * proposal of their own, so it sits with the other corrections and is taken back the same way, and it locks the
      * line against later passes. Only a marked stretch can be corrected this way, and never while recording.
      */
-    public Meeting.Detail correctByHand(ActorId actor, UUID meetingId, UUID utteranceId, int start, int end,
-            String text) {
+    public Applied correctByHand(ActorId actor, UUID meetingId, UUID utteranceId, int start, int end, String text) {
         UUID tenant = details.tenantOf(actor);
-        tx.executeWithoutResult(ignored -> {
+        return tx.execute(ignored -> {
             var meeting = meetings.lock(tenant, actor.value(), meetingId).orElseThrow(MeetingException::notFound);
             if (meeting.status() != Meeting.Status.ENDED) throw MeetingException.conflict();
             var utterance = meetings.lockUtterance(tenant, meetingId, utteranceId)
@@ -151,22 +155,23 @@ public class MeetingCorrectionService {
                     utterance.text().substring(start, end), utterance.text().substring(start, end), "",
                     mark.confidence(), 1, 1, false, Meeting.CorrectionStatus.PENDING);
             meetings.insertCorrections(tenant, meetingId, correction.runId(), List.of(correction));
-            apply(tenant, meetingId, actor, correction, text);
+            return apply(tenant, meetingId, actor, correction, text);
         });
-        return details.get(actor, meetingId);
     }
 
-    /** Keeps the provider's words. The proposal stays on the record as offered and declined. */
-    public Meeting.Detail keep(ActorId actor, UUID meetingId, UUID correctionId) {
+    /**
+     * Keeps the provider's words. The proposal stays on the record as offered and declined, and is all this answers:
+     * no line changed.
+     */
+    public Meeting.Correction keep(ActorId actor, UUID meetingId, UUID correctionId) {
         UUID tenant = details.tenantOf(actor);
-        tx.executeWithoutResult(ignored -> {
+        return tx.execute(ignored -> {
             meetings.lock(tenant, actor.value(), meetingId).orElseThrow(MeetingException::notFound);
             var correction = meetings.lockCorrection(tenant, meetingId, correctionId)
                     .orElseThrow(MeetingException::notFound);
             if (correction.status() != Meeting.CorrectionStatus.PENDING) throw MeetingException.conflict();
-            meetings.decide(tenant, correctionId, Meeting.CorrectionStatus.KEPT, actor.value());
+            return meetings.decide(tenant, correctionId, Meeting.CorrectionStatus.KEPT, actor.value());
         });
-        return details.get(actor, meetingId);
     }
 
     /**
@@ -202,19 +207,18 @@ public class MeetingCorrectionService {
     }
 
     /** Puts back what the line said before this proposal was applied. */
-    public Meeting.Detail revert(ActorId actor, UUID meetingId, UUID correctionId) {
+    public Applied revert(ActorId actor, UUID meetingId, UUID correctionId) {
         UUID tenant = details.tenantOf(actor);
-        tx.executeWithoutResult(ignored -> {
+        return tx.execute(ignored -> {
             meetings.lock(tenant, actor.value(), meetingId).orElseThrow(MeetingException::notFound);
             var correction = meetings.lockCorrection(tenant, meetingId, correctionId)
                     .orElseThrow(MeetingException::notFound);
-            restore(tenant, meetingId, actor, correction);
+            return restore(tenant, meetingId, actor, correction);
         });
-        return details.get(actor, meetingId);
     }
 
     /** Caller holds the meeting lock. */
-    private void restore(UUID tenant, UUID meetingId, ActorId actor, Meeting.Correction correction) {
+    private Applied restore(UUID tenant, UUID meetingId, ActorId actor, Meeting.Correction correction) {
         if (correction.status() != Meeting.CorrectionStatus.ACCEPTED) throw MeetingException.conflict();
         var utterance = meetings.lockUtterance(tenant, meetingId, correction.utteranceId())
                 .orElseThrow(MeetingException::notFound);
@@ -225,14 +229,15 @@ public class MeetingCorrectionService {
                 || !utterance.text().substring(correction.start(), end).equals(correction.after()))
             throw MeetingException.conflict();
         String applied = replaced(utterance.text(), correction.start(), end, correction.before());
-        meetings.rewrite(tenant, meetingId, utterance.id(), utterance.text(), applied,
+        var line = meetings.rewrite(tenant, meetingId, utterance.id(), utterance.text(), applied,
                 restored(utterance.spans(), correction), reverted(tenant, utterance.id(), applied),
                 correction.runId(), actor.value(), "REVERT");
-        meetings.decide(tenant, correction.id(), Meeting.CorrectionStatus.REVERTED, actor.value());
+        return new Applied(line,
+                meetings.decide(tenant, correction.id(), Meeting.CorrectionStatus.REVERTED, actor.value()));
     }
 
     /** Caller holds the meeting lock. */
-    private void apply(UUID tenant, UUID meetingId, ActorId actor, Meeting.Correction correction, @Nullable String own) {
+    private Applied apply(UUID tenant, UUID meetingId, ActorId actor, Meeting.Correction correction, @Nullable String own) {
         if (correction.status() != Meeting.CorrectionStatus.PENDING) throw MeetingException.conflict();
         var utterance = meetings.lockUtterance(tenant, meetingId, correction.utteranceId())
                 .orElseThrow(MeetingException::notFound);
@@ -250,11 +255,11 @@ public class MeetingCorrectionService {
         end = Meeting.Span.wordEnd(utterance.text(), end);
         String before = utterance.text().substring(start, end);
         String after = replaced(utterance.text(), start, end, chosen);
-        meetings.rewrite(tenant, meetingId, utterance.id(), utterance.text(), after,
+        var line = meetings.rewrite(tenant, meetingId, utterance.id(), utterance.text(), after,
                 shifted(utterance.spans(), start, end, chosen.length()),
                 own == null ? Meeting.EditSource.MODEL : Meeting.EditSource.HUMAN, correction.runId(), actor.value(),
                 own == null ? "MODEL" : "HUMAN");
-        meetings.accepted(tenant, correction.id(), actor.value(), start, end, before, chosen);
+        return new Applied(line, meetings.accepted(tenant, correction.id(), actor.value(), start, end, before, chosen));
     }
 
     /**

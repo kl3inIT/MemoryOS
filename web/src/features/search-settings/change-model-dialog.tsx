@@ -8,7 +8,6 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { createSearchFutureGeneration } from "@/lib/hey-api/sdk.gen";
 import type { EmbeddingProviderResponse } from "@/lib/hey-api/types.gen";
 import { CatalogDialog } from "@/features/models/catalog-dialog";
@@ -214,8 +213,6 @@ export function ChangeModelDialog({
           onConfirm={async () => {
             await createSearchFutureGeneration({
               body: parsed.request!,
-              headers: sameOriginMutationHeaders,
-              throwOnError: true,
             });
             await refreshSearchSettings(client);
             onClose();

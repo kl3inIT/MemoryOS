@@ -27,7 +27,7 @@ import {
   useApplicationSession,
   useCapabilityAuthority,
 } from "@/features/identity/application-session-context";
-import { isUnauthenticated, sameOriginMutationHeaders } from "@/lib/api";
+import { isUnauthenticated } from "@/lib/api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 import {
@@ -471,7 +471,7 @@ export function GoogleDrivePanel({
     if (!intervalDraft || intervalMinutes === null || intervalConflicted || stale) return;
     const saved = await updateSchedule.mutateAsync({
       path: { sourceId: source.id },
-      headers: { ...sameOriginMutationHeaders, "If-Match": `"${intervalDraft.scheduleRevision}"` },
+      headers: { "If-Match": `"${intervalDraft.scheduleRevision}"` },
       body: { syncIntervalMinutes: intervalMinutes },
       signal,
     });
@@ -494,7 +494,6 @@ export function GoogleDrivePanel({
     if (!configuration || stale) return;
     const saved = await updatePause.mutateAsync({
       path: { sourceId: source.id },
-      headers: sameOriginMutationHeaders,
       body: { expectedRevision: configuration.scheduleRevision, paused: !configuration.syncPaused },
       signal,
     });
@@ -539,7 +538,6 @@ export function GoogleDrivePanel({
     try {
       operation = await synchronize.mutateAsync({
         path: { sourceId: source.id },
-        headers: sameOriginMutationHeaders,
         signal: controller.signal,
       });
       controller.signal.throwIfAborted();
@@ -628,7 +626,6 @@ export function GoogleDrivePanel({
     try {
       // Keep client JSON outside React Query variables, data, and errors.
       const { data: response } = await startGoogleDriveAuthorization({
-        headers: sameOriginMutationHeaders,
         body: {
           name: credential.name,
           credentialId: configuration.credentialId,
@@ -636,7 +633,6 @@ export function GoogleDrivePanel({
           ...(needsClient ? { oauthClientJson: clientInput.current?.takeJson() } : {}),
         },
         signal: controller.signal,
-        throwOnError: true,
       });
       controller.signal.throwIfAborted();
       setLeaving(true);
@@ -656,7 +652,6 @@ export function GoogleDrivePanel({
     if (!configuration || stale) throw new Error("Refresh the connection before disconnecting");
     await revoke.mutateAsync({
       path: { credentialId: configuration.credentialId },
-      headers: sameOriginMutationHeaders,
       body: { expectedCredentialRevision: configuration.credentialRevision },
       signal,
     });

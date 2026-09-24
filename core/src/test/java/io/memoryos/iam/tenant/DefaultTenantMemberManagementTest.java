@@ -79,7 +79,8 @@ class DefaultTenantMemberManagementTest {
                         locks,
                         identities,
                         identities,
-                        groupProvisioner
+                        groupProvisioner,
+                        event -> { }
                 ),
                 InitialTenantBootstrapper.class,
                 jpa.transactionManager()

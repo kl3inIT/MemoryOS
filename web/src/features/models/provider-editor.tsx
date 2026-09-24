@@ -9,7 +9,6 @@ import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import { GroupAccessPicker } from "@/features/groups/group-access-picker";
 import {
   listChatGroupOptionsOptions,
@@ -32,7 +31,7 @@ import {
 } from "./model-catalog";
 import { useProviderTest } from "./provider-test";
 import { ProviderModelsField } from "./provider-models-field";
-import { useModelAction } from "./use-model-action";
+import { useModelCatalogBusy, useModelMutation } from "./model-mutation";
 
 export function ProviderEditor({
   initial,
@@ -55,7 +54,8 @@ export function ProviderEditor({
 }) {
   const client = useQueryClient();
   const ui = useAppTranslation();
-  const action = useModelAction();
+  const busy = useModelCatalogBusy();
+  const [conflict, setConflict] = useState(false);
   // Revision and Access are one snapshot, never assembled from a background refetch and an old draft.
   const [baseline, setBaseline] = useState(initial);
   const [name, setName] = useState(initial?.name ?? preferredName ?? "");
@@ -86,7 +86,7 @@ export function ProviderEditor({
   const adapter = adapters.find((entry) => entry.type === adapterType);
   const latest = baseline && providers.find((provider) => provider.id === baseline.id);
   const stale = Boolean(baseline && (!latest || latest.revision !== baseline.revision));
-  const conflicted = action.conflict || stale;
+  const conflicted = conflict || stale;
   const credentialMissing =
     adapter?.credentialRequirement === "REQUIRED" &&
     enabled &&
@@ -126,7 +126,7 @@ export function ProviderEditor({
   }
 
   async function testConnection() {
-    if (!testable || action.pending || connection.pending) return;
+    if (!testable || busy || connection.pending) return;
     await connection.run({
       adapterType,
       baseUrl: baseUrl.trim(),
@@ -158,40 +158,35 @@ export function ProviderEditor({
     };
   }, []);
 
-  async function save() {
-    if (invalid || conflicted || action.pending) return;
-    const body: ProviderBody = {
-      name: name.trim(),
-      adapterType,
-      baseUrl: baseUrl.trim(),
-      enabled,
-      isPublic,
-      groupIds: [...groupIds],
-      personaIds: baseline?.personaIds ?? [],
-      dataBoundary,
-      credential:
-        credentialAction === "REPLACE"
-          ? { action: "REPLACE", value: secret.current }
-          : { action: credentialAction },
-    };
-    clearSecret();
-    changed();
-    try {
-      await action.run(async (signal) => {
+  const saving = useModelMutation(
+    async (signal) => {
+      // The key is read when the write starts and cleared at once; it is never a mutation variable.
+      const body: ProviderBody = {
+        name: name.trim(),
+        adapterType,
+        baseUrl: baseUrl.trim(),
+        enabled,
+        isPublic,
+        groupIds: [...groupIds],
+        personaIds: baseline?.personaIds ?? [],
+        dataBoundary,
+        credential:
+          credentialAction === "REPLACE"
+            ? { action: "REPLACE", value: secret.current }
+            : { action: credentialAction },
+      };
+      clearSecret();
+      try {
         const result = baseline
           ? await updateChatProvider({
               path: { providerId: baseline.id },
               query: { revision: baseline.revision },
               body,
-              headers: sameOriginMutationHeaders,
               signal,
-              throwOnError: true,
             })
           : await createChatProvider({
               body,
-              headers: sameOriginMutationHeaders,
               signal,
-              throwOnError: true,
             });
         signal.throwIfAborted();
         setBaseline(result.data);
@@ -204,9 +199,7 @@ export function ProviderEditor({
             await createChatModel({
               path: { providerId: result.data.id },
               body: modelBody(reportedDraft(model, adapter)),
-              headers: sameOriginMutationHeaders,
               signal,
-              throwOnError: true,
             });
           } catch (cause) {
             signal.throwIfAborted();
@@ -220,11 +213,55 @@ export function ProviderEditor({
         await refreshModelCatalog(client);
         signal.throwIfAborted();
         setSaved(failed.length === 0);
-      });
+      } finally {
+        delete body.credential?.value;
+      }
+    },
+    { onConflict: () => setConflict(true) },
+  );
+
+  const reconciling = useModelMutation(async (signal) => {
+    await client.invalidateQueries({
+      queryKey: listChatProvidersOptions().queryKey,
+      refetchType: "none",
+    });
+    signal.throwIfAborted();
+    const currentProviders = await client.fetchQuery({
+      ...listChatProvidersOptions(),
+      retry: false,
+      staleTime: 0,
+    });
+    signal.throwIfAborted();
+    if (baseline) {
+      const current = currentProviders.find((provider) => provider.id === baseline.id);
+      if (!current) throw new Error("Provider unavailable");
+      setBaseline(current);
+      setAdapterType(current.adapterType);
+      setIsPublic(current.isPublic);
+      setDataBoundary(current.dataBoundary);
+      setGroupIds(new Set(current.groupIds));
+    }
+    setCredentialAction("KEEP");
+    setConflict(false);
+  });
+
+  /** One feedback line: starting an operation clears what the other reported. */
+  const actionError = saving.error ?? reconciling.error;
+
+  function cancelAll() {
+    saving.cancel();
+    reconciling.cancel();
+  }
+
+  async function save() {
+    if (invalid || conflicted || busy) return;
+    changed();
+    reconciling.cancel();
+    try {
+      await saving.run();
     } catch {
-      /* Safe action-local feedback is owned by useModelAction. */
+      /* The mutation keeps only safe action-local feedback. */
     } finally {
-      delete body.credential?.value;
       clearSecret();
     }
   }
@@ -232,32 +269,9 @@ export function ProviderEditor({
   async function reconcile() {
     clearSecret();
     setSaved(false);
-    action.cancel();
+    cancelAll();
     try {
-      await action.run(async (signal) => {
-        await client.invalidateQueries({
-          queryKey: listChatProvidersOptions().queryKey,
-          refetchType: "none",
-        });
-        signal.throwIfAborted();
-        const currentProviders = await client.fetchQuery({
-          ...listChatProvidersOptions(),
-          retry: false,
-          staleTime: 0,
-        });
-        signal.throwIfAborted();
-        if (baseline) {
-          const current = currentProviders.find((provider) => provider.id === baseline.id);
-          if (!current) throw new Error("Provider unavailable");
-          setBaseline(current);
-          setAdapterType(current.adapterType);
-          setIsPublic(current.isPublic);
-          setDataBoundary(current.dataBoundary);
-          setGroupIds(new Set(current.groupIds));
-        }
-        setCredentialAction("KEEP");
-        action.reconciled();
-      });
+      await reconciling.run();
     } catch {
       /* No secret or raw SDK error is retained. */
     }
@@ -272,7 +286,7 @@ export function ProviderEditor({
       }
       onClose={() => {
         clearSecret();
-        action.cancel();
+        cancelAll();
         onClose();
       }}
     >
@@ -283,7 +297,7 @@ export function ProviderEditor({
         }}
         className="space-y-4"
       >
-        <fieldset disabled={action.pending} className="space-y-4">
+        <fieldset disabled={saving.pending || reconciling.pending} className="space-y-4">
           <label className="block space-y-1">
             {ui("Provider name")}
             <Input
@@ -370,7 +384,7 @@ export function ProviderEditor({
               <GroupAccessPicker
                 selected={groupIds}
                 required
-                disabled={action.pending}
+                disabled={saving.pending || reconciling.pending}
                 load={(query) => listChatGroupOptionsOptions({ query })}
                 description={appText(
                   "Members of the selected Groups can use this provider in Chat.",
@@ -411,7 +425,7 @@ export function ProviderEditor({
               type="password"
               autoComplete="off"
               spellCheck={false}
-              disabled={credentialAction !== "REPLACE" || action.pending}
+              disabled={credentialAction !== "REPLACE" || saving.pending || reconciling.pending}
               onChange={(event) => {
                 secret.current = event.target.value;
                 setKeyReady(Boolean(secret.current.trim()));
@@ -432,7 +446,7 @@ export function ProviderEditor({
           configured={models}
           selected={chosenModels}
           onSelected={setChosenModels}
-          disabled={action.pending || conflicted}
+          disabled={saving.pending || reconciling.pending || conflicted}
         />
         {unsavedModels.length > 0 && (
           <p role="alert">
@@ -450,11 +464,7 @@ export function ProviderEditor({
                 "The saved catalog changed or conflicted. Reconcile the complete revision and Access baseline, review your non-secret draft, then retry manually. The key has not been retained.",
               )}
             </p>
-            <Button
-              prominence="secondary"
-              disabled={action.pending}
-              onClick={() => void reconcile()}
-            >
+            <Button prominence="secondary" disabled={busy} onClick={() => void reconcile()}>
               {ui("Reconcile saved provider")}
             </Button>
           </div>
@@ -473,7 +483,7 @@ export function ProviderEditor({
             {ui(connection.outcome.message)}
           </p>
         )}
-        {action.error && <p role="alert">{ui(action.error)}</p>}
+        {actionError && <p role="alert">{ui(actionError)}</p>}
         {saved && (
           <p role="status">
             {enabled
@@ -486,7 +496,7 @@ export function ProviderEditor({
             prominence="secondary"
             className="mr-auto"
             pending={connection.pending}
-            disabled={!testable || action.pending}
+            disabled={!testable || busy}
             onClick={() => void testConnection()}
           >
             <PlugZap aria-hidden="true" />
@@ -496,7 +506,7 @@ export function ProviderEditor({
             prominence="secondary"
             onClick={() => {
               clearSecret();
-              action.cancel();
+              cancelAll();
               onClose();
             }}
           >
@@ -504,8 +514,8 @@ export function ProviderEditor({
           </Button>
           <Button
             type="submit"
-            pending={action.pending}
-            disabled={invalid || conflicted || connection.pending}
+            pending={saving.pending}
+            disabled={invalid || conflicted || connection.pending || busy}
           >
             {ui("Save provider")}
           </Button>

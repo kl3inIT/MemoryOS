@@ -1,7 +1,6 @@
 import type { RemoteThreadListAdapter, ThreadHistoryAdapter } from "@assistant-ui/react";
 import type { QueryClient } from "@tanstack/react-query";
 import { createAssistantStream } from "assistant-stream";
-import { sameOriginMutationHeaders } from "@/lib/api";
 import {
   archiveChatSession,
   deleteChatSession,
@@ -79,14 +78,12 @@ export function createChatThreadListAdapter(
       queries.invalidateQueries({ queryKey: ["chat-project-sessions"] }),
       queries.invalidateQueries({ queryKey: ["chat-session", sessionId] }),
     ]);
-  const request = { headers: sameOriginMutationHeaders, throwOnError: true } as const;
   return {
     async list(params) {
       const offset = params?.after ? Number(params.after) : 0;
       const { data } = await listChatSessions({
         query: { offset, limit: PAGE, archived: false },
         signal: AbortSignal.timeout(30_000),
-        throwOnError: true,
       });
       return {
         threads: data.map(threadMetadata),
@@ -98,7 +95,6 @@ export function createChatThreadListAdapter(
       const { data } = await getChatSession({
         path: { sessionId: remoteId },
         signal: AbortSignal.timeout(30_000),
-        throwOnError: true,
       });
       return threadMetadata(data);
     },
@@ -110,7 +106,6 @@ export function createChatThreadListAdapter(
     },
     async rename(remoteId, title) {
       const { data } = await renameChatSession({
-        ...request,
         path: { sessionId: remoteId },
         body: { title },
         signal: AbortSignal.timeout(30_000),
@@ -120,7 +115,6 @@ export function createChatThreadListAdapter(
     },
     async archive(remoteId) {
       const { data } = await archiveChatSession({
-        ...request,
         path: { sessionId: remoteId },
         signal: AbortSignal.timeout(30_000),
       });
@@ -129,7 +123,6 @@ export function createChatThreadListAdapter(
     },
     async unarchive(remoteId) {
       const { data } = await unarchiveChatSession({
-        ...request,
         path: { sessionId: remoteId },
         signal: AbortSignal.timeout(30_000),
       });
@@ -138,7 +131,6 @@ export function createChatThreadListAdapter(
     },
     async delete(remoteId) {
       await deleteChatSession({
-        ...request,
         path: { sessionId: remoteId },
         signal: AbortSignal.timeout(30_000),
       });
@@ -153,7 +145,6 @@ export function createChatThreadListAdapter(
       let title = controller?.getState().session?.title;
       try {
         const { data } = await generateChatTitle({
-          ...request,
           path: { sessionId: remoteId },
           signal: AbortSignal.timeout(15_000),
         });
