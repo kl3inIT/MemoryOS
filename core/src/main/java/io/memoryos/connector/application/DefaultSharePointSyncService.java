@@ -28,8 +28,10 @@ import io.memoryos.objectstorage.ObjectWriteService;
 import io.memoryos.iam.tenant.TenantId;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -165,7 +167,9 @@ public class DefaultSharePointSyncService {
             // A folder root is walked breadth first, as Onyx does: its subfolders queue behind it.
             String folder = target.itemId() == null ? null
                     : resuming && run.checkpointFolderId() != null ? run.checkpointFolderId() : target.itemId();
-            var queue = new java.util.ArrayDeque<String>(resuming ? run.checkpointFolders() : List.of());
+            var queue = new ArrayDeque<String>(resuming ? run.checkpointFolders() : List.of());
+            // Mirrors the queue, so a folder already waiting is found without scanning it.
+            var queued = new HashSet<String>(queue);
             while (true) {
                 if (steps++ >= MAX_STEPS || System.nanoTime() >= deadline) {
                     String pending = link;
@@ -180,12 +184,13 @@ public class DefaultSharePointSyncService {
                 }
                 var listed = page(work, run, session, target, folder, link, excludedPaths, tenantHost);
                 for (String subfolder : listed.folders()) {
-                    if (!queue.contains(subfolder)) queue.add(subfolder);
+                    if (queued.add(subfolder)) queue.add(subfolder);
                 }
                 link = listed.nextLink();
                 if (link != null) continue;
                 if (queue.isEmpty()) break;
                 folder = queue.poll();
+                queued.remove(folder);
             }
             String next = target.driveId();
             fenced(work, () -> {
