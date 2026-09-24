@@ -19,7 +19,7 @@ The provider moves as-is into `io.memoryos.chat.catalog.openai`, next to the `Ch
 
 `api` keeps `ChatModelCatalogConfiguration` (catalog wiring and the `openAiChatProviderAdapter` bean) and the controllers. The worker scans no `io.memoryos.chat` package, so it gains no beans. Types that `api` code or its tests still use became public; everything else stays package-private. The unit tests moved with their classes. `ChatSessionApiIntegrationTest` and the live research probes stay in `api`.
 
-`core` now declares `okhttp`, which `OpenAiCancellation` uses directly; `api` no longer declares it. Core compiles against OkHttp 4.12.0 from openai-java. The API runtime still resolves 5.4.0 (through OpenTelemetry), as it did before the move.
+`core` now declares `okhttp`, which `OpenAiCancellation` uses directly; `api` no longer declares it. Before the move, `OpenAiCancellation` compiled against OkHttp 5.4.0 in `api`. It now compiles against 4.12.0 (from openai-java) in `core`, and it still runs on 5.4.0 in the API because OpenTelemetry pulls that version in. The OkHttp calls it makes behave the same in both versions.
 
 ## Out of scope
 
