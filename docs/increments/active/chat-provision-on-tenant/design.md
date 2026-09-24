@@ -1,5 +1,7 @@
 # Chat defaults provisioned with the Tenant
 
+> **2026-09-25 — split.** The catalog part is `ai`'s `ModelCatalogProvisioner` and the default agent is `chat.application.ChatTenantProvisioner`; both listen to `TenantBootstrapped` in the bootstrap transaction and need no order ([ADR 0015](../../../decisions/0015-capability-module-map.md#step-2-what-ai-and-voice-hold)).
+
 ## Requirement
 
 Owner decision 2026-09-24 (audit item 1.1, [owner-decisions.md](../audit-quality-fixes/owner-decisions.md)): Chat's per-Tenant defaults are provisioned when the Tenant is created, not lazily on every request. Before this change `ModelCatalogService` ran `INSERT INTO chat_model_default … ON CONFLICT DO NOTHING` from 19 entry points, and `provisionPersona` ran on every send, session create, agent list and model list, so no catalog read could be `readOnly`. No HTTP contract changes.
