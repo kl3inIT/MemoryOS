@@ -1,9 +1,9 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.BusinessException;
-import io.memoryos.chat.voice.Transcript;
-import io.memoryos.chat.voice.TranscriptionSession;
-import io.memoryos.chat.voice.VoiceTranscriptionService;
+import io.memoryos.voice.Transcript;
+import io.memoryos.voice.TranscriptionSession;
+import io.memoryos.voice.VoiceTranscriptionService;
 import io.memoryos.shared.ActorId;
 import java.time.Duration;
 import java.util.LinkedHashMap;

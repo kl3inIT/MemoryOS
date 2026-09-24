@@ -1,8 +1,8 @@
 package io.memoryos.meeting;
 
-import io.memoryos.chat.voice.BatchTranscriptionService;
-import io.memoryos.chat.voice.LiveTranscription;
-import io.memoryos.chat.voice.VoiceProvider;
+import io.memoryos.voice.BatchTranscriptionService;
+import io.memoryos.voice.LiveTranscription;
+import io.memoryos.voice.VoiceProvider;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.shared.ActorId;

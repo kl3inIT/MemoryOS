@@ -1,6 +1,6 @@
 package io.memoryos.chat.persistence;
 
-import io.memoryos.chat.voice.VoiceSettings;
+import io.memoryos.chat.preferences.VoiceSettings;
 import java.sql.Types;
 import java.util.Optional;
 import java.util.UUID;

@@ -1,8 +1,8 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.BusinessException;
-import io.memoryos.chat.voice.StreamingSynthesizer;
-import io.memoryos.chat.voice.VoiceSynthesisService;
+import io.memoryos.voice.StreamingSynthesizer;
+import io.memoryos.voice.VoiceSynthesisService;
 import io.memoryos.shared.ActorId;
 import java.io.IOException;
 import java.io.UncheckedIOException;
