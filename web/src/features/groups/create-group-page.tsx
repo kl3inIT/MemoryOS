@@ -1,9 +1,9 @@
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/settings-layout";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -21,13 +21,13 @@ export function CreateGroupPage() {
   const [name, setName] = useState("");
   const [error, setError] = useState<AppCopy | null>(null);
   const dirty = name.length > 0;
-
-  useEffect(() => {
-    if (!dirty) return;
-    const warnBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warnBeforeUnload);
-    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
-  }, [dirty]);
+  // Set once the page leaves on purpose (created or discarded), so that navigation is not held.
+  const leaving = useRef(false);
+  const blocker = useBlocker({
+    shouldBlockFn: () => dirty && !leaving.current,
+    enableBeforeUnload: () => dirty && !leaving.current,
+    withResolver: true,
+  });
 
   async function submit() {
     const normalizedName = name.trim();
@@ -39,6 +39,7 @@ export function CreateGroupPage() {
         body: { name: normalizedName },
       });
       await queryClient.invalidateQueries();
+      leaving.current = true;
       await navigate({
         to: "/admin/groups/$groupId",
         params: { groupId: group.id },
@@ -50,6 +51,7 @@ export function CreateGroupPage() {
   }
 
   async function cancel() {
+    leaving.current = true;
     await navigate({ to: "/admin/groups", search: { page: 0, size: 20 }, replace: true });
   }
 
@@ -138,6 +140,17 @@ export function CreateGroupPage() {
         ) : null}
         <button type="submit" className="sr-only" tabIndex={-1} aria-hidden="true" />
       </form>
+      <ConfirmDialog
+        open={blocker.status === "blocked"}
+        onOpenChange={(open) => {
+          if (!open && blocker.status === "blocked") blocker.reset();
+        }}
+        title={ui("Discard this group?")}
+        description={ui("The unsaved group name will be lost.")}
+        confirmLabel={ui("Discard")}
+        pendingLabel={ui("Discarding…")}
+        onConfirm={async () => blocker.proceed?.()}
+      />
     </section>
   );
 }

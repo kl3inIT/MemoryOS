@@ -1893,6 +1893,7 @@ export const englishUi: Record<string, string> = {
   Cancel: "Hủy",
   "Discard this group?": "Bỏ nhóm đang tạo?",
   "The unsaved group name will be lost.": "Tên nhóm chưa lưu sẽ bị mất.",
+  "Unsaved changes to this group will be lost.": "Các thay đổi chưa lưu của nhóm này sẽ bị mất.",
   Discard: "Bỏ thay đổi",
   "Creating…": "Đang tạo…",
   "Group name": "Tên nhóm",
