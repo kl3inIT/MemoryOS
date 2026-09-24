@@ -15,11 +15,14 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class DefaultExtractionArtifactService implements ExtractionArtifactPort {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultExtractionArtifactService.class);
     private final JdbcExtractionArtifactRepository repository;
     private final ObjectStorage storage;
     private final ObjectMapper mapper;
@@ -62,8 +65,12 @@ public class DefaultExtractionArtifactService implements ExtractionArtifactPort 
                 storage.delete(new ObjectKey(artifact.key()));
                 repository.remove(artifact);
                 count++;
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException exception) {
                 // The durable deletion claim becomes eligible again after its lease.
+                LOGGER.atWarn().addKeyValue("event", "extraction_artifact.cleanup.retry")
+                        .addKeyValue("artifact_id", artifact.id())
+                        .addKeyValue("error_type", exception.getClass().getName())
+                        .log("Extraction artifact cleanup failed; retry after lease expiry");
             }
         }
         return count;

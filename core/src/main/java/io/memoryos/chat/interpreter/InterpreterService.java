@@ -1,6 +1,7 @@
 package io.memoryos.chat.interpreter;
 
 import io.memoryos.chat.ChatException;
+import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.iam.group.IamAuthorization;
 import io.memoryos.iam.group.IamCapability;
 import io.memoryos.iam.identity.ActorId;

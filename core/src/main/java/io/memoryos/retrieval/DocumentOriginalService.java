@@ -17,6 +17,7 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -84,8 +85,7 @@ public class DocumentOriginalService {
     public java.util.Map<UUID, StoredObjectReference> citationOriginals(ActorId actor, java.util.Collection<UUID> ids) {
         var tenant = tenants.findActiveTenant(actor).orElse(null);
         if (tenant == null || ids.isEmpty()) return java.util.Map.of();
-        var readable = new java.util.LinkedHashSet<UUID>();
-        for (var id : ids) if (access.canRead(actor, new DocumentId(id))) readable.add(id);
+        var readable = access.readableDocuments(actor, List.copyOf(ids));
         var result = new java.util.LinkedHashMap<UUID, StoredObjectReference>();
         sources.originals(tenant, actor, readable).forEach((id, reference) -> {
             if (reference.metadata().sizeBytes() <= MAX_BYTES) result.put(id, reference);

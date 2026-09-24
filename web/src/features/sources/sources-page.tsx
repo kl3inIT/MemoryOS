@@ -43,6 +43,7 @@ import {
   type SourceProvider,
 } from "./source-provider-catalog";
 import { SourceAccessBadge, SourceStatusBadge } from "./source-status-badge";
+import { sourceAccessOptions, sourceStatusOptions } from "./source-status-presentation";
 
 /** Radix selects reject an empty option value, so "any" stands for an unset filter. */
 const anyFilterValue = "any";
@@ -245,11 +246,11 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={anyFilterValue}>{ui("All statuses")}</SelectItem>
-                <SelectItem value="NOT_STARTED">{ui("Scheduled")}</SelectItem>
-                <SelectItem value="INDEXING">{ui("Indexing")}</SelectItem>
-                <SelectItem value="ACTIVE">{ui("Active")}</SelectItem>
-                <SelectItem value="FAILED">{ui("Failed")}</SelectItem>
-                <SelectItem value="DELETING">{ui("Deleting")}</SelectItem>
+                {sourceStatusOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {ui(option.label)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </label>
@@ -264,8 +265,11 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={anyFilterValue}>{ui("All providers")}</SelectItem>
-                <SelectItem value="FILE">{ui("File")}</SelectItem>
-                <SelectItem value="GOOGLE_DRIVE">{ui("Google Drive")}</SelectItem>
+                {sourceProviders.map((provider) => (
+                  <SelectItem key={provider.type} value={provider.type}>
+                    {ui(provider.name)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </label>
@@ -280,9 +284,11 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={anyFilterValue}>{ui("All access")}</SelectItem>
-                <SelectItem value="PUBLIC">{ui("All members")}</SelectItem>
-                <SelectItem value="PRIVATE">{ui("Specific groups")}</SelectItem>
-                <SelectItem value="SYNC">{ui("Sync permissions from source")}</SelectItem>
+                {sourceAccessOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {ui(option.label)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </label>

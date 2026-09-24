@@ -122,16 +122,19 @@ export function ChatHistoryPage() {
           icon={<MessagesSquare />}
           label={ui("Conversations")}
           value={String(totals?.conversations ?? 0)}
+          loading={history.isPending}
         />
         <StatTile
           icon={<ThumbsUp />}
           label={ui("Marked good")}
           value={String(totals?.positive ?? 0)}
+          loading={history.isPending}
         />
         <StatTile
           icon={<ThumbsDown />}
           label={ui("Marked bad")}
           value={String(totals?.negative ?? 0)}
+          loading={history.isPending}
         />
       </StatStrip>
 

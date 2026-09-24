@@ -417,8 +417,10 @@ export function SourceRunHistory({
               totalPages={totalPages}
               previousLabel={ui("Previous source attempts")}
               nextLabel={ui("Next source attempts")}
-              previousDisabled={!previous.length || history.isFetching}
-              nextDisabled={!history.data.nextCursor || history.isFetching || history.isError}
+              previousDisabled={!previous.length || history.isPlaceholderData}
+              nextDisabled={
+                !history.data.nextCursor || history.isPlaceholderData || history.isError
+              }
               onPrevious={() => {
                 setCursor(previous.at(-1));
                 setPrevious((pages) => pages.slice(0, -1));
@@ -433,7 +435,7 @@ export function SourceRunHistory({
                 rowsLabel={ui("Rows")}
                 value={size}
                 sizes={[5, 10, 25, 50]}
-                disabled={history.isFetching}
+                disabled={history.isPlaceholderData}
                 onSizeChange={(next) => {
                   setSize(next);
                   firstPage();
@@ -829,7 +831,7 @@ function RunErrors({ run }: { run: SourceRun }) {
   // A live run is polled, so the refresh control follows the press rather than the poll.
   const errorsRefresh = useManualRefresh(errors.refetch);
   return (
-    <div className="space-y-3 text-sm text-content-secondary" aria-busy={errors.isFetching}>
+    <div className="space-y-3 text-sm text-content-secondary" aria-busy={errors.isPlaceholderData}>
       <div className="flex justify-end">
         <Button
           size="sm"
@@ -873,8 +875,8 @@ function RunErrors({ run }: { run: SourceRun }) {
               totalPages={undefined}
               previousLabel={ui("Previous errors")}
               nextLabel={ui("Next errors")}
-              previousDisabled={!previous.length || errors.isFetching}
-              nextDisabled={!errors.data.nextCursor || errors.isFetching || errors.isError}
+              previousDisabled={!previous.length || errors.isPlaceholderData}
+              nextDisabled={!errors.data.nextCursor || errors.isPlaceholderData || errors.isError}
               onPrevious={() => {
                 setCursor(previous.at(-1));
                 setPrevious((pages) => pages.slice(0, -1));

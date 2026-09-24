@@ -32,12 +32,15 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class DefaultConnectorSyncService implements ConnectorSyncPort {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultConnectorSyncService.class);
     private static final int MAX_STEPS = 16;
     private static final String SERVICE_ACCOUNT = "SERVICE_ACCOUNT";
     private static final long EXECUTION_NANOS = Duration.ofSeconds(45).toNanos();
@@ -157,6 +160,10 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
                     exception.getMessage(), io.memoryos.FailureEvidence.detail(exception)));
             return Result.FAILED;
         } catch (RuntimeException exception) {
+            LOGGER.atWarn().addKeyValue("event", "google_drive.sync.run.failed")
+                    .addKeyValue("source_id", work.sourceId().value())
+                    .addKeyValue("error_type", exception.getClass().getName())
+                    .log("Google Drive synchronization run failed unexpectedly; retrying");
             settle(work, () -> sync.retry(work, "SOURCE_GOOGLE_INTERNAL", exception.getMessage(), io.memoryos.FailureEvidence.detail(exception)));
             return Result.FAILED;
         }
@@ -288,6 +295,10 @@ public class DefaultConnectorSyncService implements ConnectorSyncPort {
             fenced(work, () -> { sync.failedNode(work, node, code, false, exception.getMessage(), io.memoryos.FailureEvidence.detail(exception)); return true; });
         } catch (RuntimeException exception) {
             if (generalRootNode) throw exception;
+            LOGGER.atWarn().addKeyValue("event", "google_drive.sync.node.failed")
+                    .addKeyValue("source_id", work.sourceId().value())
+                    .addKeyValue("error_type", exception.getClass().getName())
+                    .log("Google Drive item failed unexpectedly; recorded for retry");
             fenced(work, () -> { sync.failedNode(work, node, "SOURCE_ACQUISITION_INTERNAL", false,
                     exception.getMessage(), io.memoryos.FailureEvidence.detail(exception)); return true; });
         }

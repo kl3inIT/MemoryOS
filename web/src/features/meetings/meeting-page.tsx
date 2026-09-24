@@ -53,7 +53,12 @@ import type { MeetingRecorder, RecorderSnapshot } from "./meeting-recorder";
 import { ExportMinutesDialog } from "./export-minutes-dialog";
 import { MeetingDetailsDialog } from "./meeting-details-dialog";
 import { MeetingShareField, type MeetingAudience } from "./meeting-share-field";
-import { endMeeting, startRecording, useActiveMeeting } from "./meeting-session";
+import {
+  endMeeting,
+  startRecording,
+  useActiveMeeting,
+  useRecordingFailure,
+} from "./meeting-session";
 import type { MeetingTrack } from "./meeting-socket";
 import { slug } from "./meeting-file-name";
 import { EditableItem, EditableSummary, NewItem } from "./minutes-editing";
@@ -70,7 +75,7 @@ import {
   loadMeeting,
   markMinutesItem,
   meetingKey,
-  meetingsKey,
+  invalidateMeetingList,
   nameSpeaker,
   publishMinutes,
   removeMeeting,
@@ -150,20 +155,24 @@ export function MeetingPage({
   const meeting = useQuery({
     queryKey: meetingKey(meetingId),
     queryFn: ({ signal }) => loadMeeting(meetingId, signal),
-    // A recording being transcribed and minutes being written have no socket; the page asks again until they land.
+    // A recording being transcribed, minutes being written and a correction pass have no socket; the page asks
+    // again until they land.
     refetchInterval: (query) => {
       const current = query.state.data;
       if (!current) return false;
       const waiting =
         current.status === "TRANSCRIBING" ||
         current.minutes.status === "PENDING" ||
-        current.minutes.status === "RUNNING";
+        current.minutes.status === "RUNNING" ||
+        current.correcting;
       return waiting ? 3000 : false;
     },
   });
   const live = useActiveMeeting();
   const recorder = live?.meetingId === meetingId ? live.recorder : undefined;
   const snapshot = useRecorderSnapshot(recorder);
+  const failure = useRecordingFailure();
+  const stoppedBy = failure?.meetingId === meetingId ? failure.code : undefined;
   const [tabMissing, setTabMissing] = useState(!!tabAudioMissing);
   const [pane, setPane] = useState<string>();
   const [actionError, setActionError] = useState<string>();
@@ -445,7 +454,7 @@ export function MeetingPage({
             role="status"
             className="rounded-xl border border-border-default bg-surface-sunken px-4 py-3 text-sm text-content-secondary"
           >
-            {ui("Cuộc họp chưa kết thúc nhưng không còn ghi. Ghi tiếp sẽ nối đúng mốc thời gian.")}
+            {ui("Cuộc họp chưa kết thúc nhưng không còn ghi.")}
           </p>
         )}
         {recording && data.kind === "ONLINE" && (tabMissing || tab?.ended) && (
@@ -477,15 +486,15 @@ export function MeetingPage({
             role="status"
             className="rounded-xl bg-status-info-surface px-4 py-3 text-sm text-status-info-content"
           >
-            {ui("Đang kết nối lại… Âm thanh vẫn được giữ.")}
+            {ui("Đang kết nối lại…")}
           </p>
         )}
-        {recorder && snapshot.phase === "failed" && snapshot.error && (
+        {stoppedBy && !recorder && (
           <p
             role="alert"
             className="rounded-xl bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content"
           >
-            {socketMessage(snapshot.error, ui)}
+            {socketMessage(stoppedBy, ui)}
           </p>
         )}
         {actionError && (
@@ -595,7 +604,7 @@ export function MeetingPage({
                 onConfirm={async () => {
                   await removeMeeting(meetingId);
                   cache.removeQueries({ queryKey: meetingKey(meetingId) });
-                  void cache.invalidateQueries({ queryKey: meetingsKey, exact: true });
+                  void invalidateMeetingList(cache);
                   await navigate({ to: "/meetings" });
                 }}
               />
@@ -1350,9 +1359,6 @@ function SpeakerChip({
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="grid w-64 gap-2 p-2">
-        <p className="px-1 text-xs text-content-muted">
-          {ui("Áp dụng cho mọi câu của {{name}}", { name: display })}
-        </p>
         {meeting.participants.map((participant) => (
           <button
             key={participant}
@@ -1407,6 +1413,10 @@ function Notes({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
   const [state, setState] = useState<"saved" | "saving" | "dirty" | "conflict">("saved");
   const revision = useRef(meeting.revision);
   const timer = useRef<number>(undefined);
+  const latest = useRef(meeting.notes);
+  const stored = useRef(meeting.notes);
+  // Saves run one after another, so the second never reuses the revision the first is about to replace.
+  const queue = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     revision.current = meeting.revision;
@@ -1414,21 +1424,33 @@ function Notes({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   function change(next: string) {
+    latest.current = next;
     setValue(next);
     setState("dirty");
     window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => void save(next), 1_200);
+    timer.current = window.setTimeout(flush, 1_200);
   }
 
-  async function save(next: string) {
+  function flush() {
+    window.clearTimeout(timer.current);
+    queue.current = queue.current.then(save);
+  }
+
+  async function save() {
+    const next = latest.current;
+    if (next === stored.current) {
+      setState((current) => (current === "conflict" ? current : "saved"));
+      return;
+    }
     setState("saving");
     try {
       const saved = await saveMeetingNotes(meeting.id, next, revision.current);
       revision.current = saved.revision;
+      stored.current = next;
       cache.setQueryData(meetingKey(meeting.id), (current: MeetingDetail | undefined) =>
         current ? { ...current, notes: saved.notes, revision: saved.revision } : saved,
       );
-      setState("saved");
+      setState(latest.current === next ? "saved" : "dirty");
     } catch (failed) {
       setState(failed instanceof ApiError && failed.status === 409 ? "conflict" : "dirty");
     }
@@ -1440,11 +1462,11 @@ function Notes({ meeting, ui }: { meeting: MeetingDetail; ui: Translate }) {
         id={`${id}-notes`}
         value={value}
         aria-label={ui("Ghi chú của tôi")}
-        placeholder={ui("Ghi trong lúc họp; chỉ mình bạn xem được.")}
         maxLength={50_000}
         rows={12}
         onChange={(event) => change(event.target.value)}
-        onBlur={() => state === "dirty" && void save(value)}
+        // Always queued: a save still in flight may store a value this one has to replace.
+        onBlur={flush}
       />
       <p className="text-xs text-content-muted" role="status">
         {state === "saving"

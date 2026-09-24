@@ -40,7 +40,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/invitations")
@@ -107,7 +106,7 @@ final class InvitationController {
         try {
             query = new InvitationQuery(status, email, sort, page, size);
         } catch (IllegalArgumentException exception) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
+            throw new InvitationException(InvitationFailureReason.QUERY_INVALID, exception.getMessage(), exception);
         }
         return page(invitations.list(identityContext.actorId(), query));
     }

@@ -78,7 +78,7 @@ public class MeetingRecordingService {
         UUID tenant = tenant(actor);
         var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         if (meeting.status() != Meeting.Status.RECORDING) throw MeetingException.ended();
-        if (!meetings.utterances(tenant, id).isEmpty())
+        if (meetings.hasUtterances(tenant, id))
             throw MeetingException.invalid("This meeting already has a transcript.");
         var available = transcription.transcribers(actor);
         if (available.isEmpty())
@@ -116,6 +116,13 @@ public class MeetingRecordingService {
 
     /** Transcribes the oldest recording waiting for it. Returns whether one was claimed. */
     public boolean transcribeNext() {
+        var abandoned = tx.execute(ignored -> meetings.failAbandonedAudio(MAX_ATTEMPTS));
+        if (abandoned != null && !abandoned.isEmpty()) {
+            LOG.atWarn().addKeyValue("event", "meeting.recording.abandoned").addKeyValue("count", abandoned.size())
+                    .log("Meeting recordings failed after their last attempt's lease lapsed");
+            // As a failed last attempt does, the bytes are retired once the recording is given up on.
+            for (var recording : abandoned) retire(recording.tenant(), recording.id(), recording.uploadId());
+        }
         var claimed = tx.execute(ignored -> meetings.claimAudio(LEASE, MAX_ATTEMPTS).orElse(null));
         if (claimed == null) return false;
         try {

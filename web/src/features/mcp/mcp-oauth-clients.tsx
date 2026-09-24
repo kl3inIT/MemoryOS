@@ -40,7 +40,7 @@ export function McpOAuthClients({ server }: { server: McpServerView }) {
   const clients = useQuery({
     queryKey: clientsKey,
     queryFn: async () =>
-      (await listMcpServerOAuthClients({ path: { serverId: server.id } })).data ?? [],
+      (await listMcpServerOAuthClients({ path: { serverId: server.id }, throwOnError: true })).data,
   });
   const refresh = async () => {
     await Promise.all([
@@ -55,6 +55,7 @@ export function McpOAuthClients({ server }: { server: McpServerView }) {
         await discoverMcpServerOAuth({
           path: { serverId: server.id },
           headers: sameOriginMutationHeaders,
+          throwOnError: true,
         })
       ).data,
     onError: (failure) => setError(message(failure)),
@@ -74,6 +75,7 @@ export function McpOAuthClients({ server }: { server: McpServerView }) {
         path: { serverId: server.id },
         body: { issuer, label, source },
         headers: sameOriginMutationHeaders,
+        throwOnError: true,
       }),
     onSuccess: async () => {
       setError(undefined);
@@ -89,6 +91,7 @@ export function McpOAuthClients({ server }: { server: McpServerView }) {
         path: { serverId: server.id, clientId: client.id },
         query: { revision: client.revision },
         headers: sameOriginMutationHeaders,
+        throwOnError: true,
       }),
     onSuccess: refresh,
     onError: (failure) => setError(message(failure)),
@@ -100,6 +103,7 @@ export function McpOAuthClients({ server }: { server: McpServerView }) {
         path: { serverId: server.id },
         body: { oauthClientId: client.id },
         headers: sameOriginMutationHeaders,
+        throwOnError: true,
       }),
     onSuccess: (response) => {
       const url = response.data?.authorizationUrl;
@@ -113,6 +117,7 @@ export function McpOAuthClients({ server }: { server: McpServerView }) {
       await disconnectMcpServerOAuth({
         path: { serverId: server.id },
         headers: sameOriginMutationHeaders,
+        throwOnError: true,
       }),
     onSuccess: refresh,
     onError: (failure) => setError(message(failure)),
@@ -149,6 +154,11 @@ export function McpOAuthClients({ server }: { server: McpServerView }) {
       {error ? (
         <p role="alert" className="font-secondary-body text-status-danger-content">
           {error}
+        </p>
+      ) : null}
+      {clients.isError ? (
+        <p role="alert" className="font-secondary-body text-status-danger-content">
+          {problem(presentProblem(clients.error, "initialLoad").message)}
         </p>
       ) : null}
 
@@ -348,6 +358,7 @@ function McpOAuthClientEditor({
           issParameterRequired: false,
         },
         headers: sameOriginMutationHeaders,
+        throwOnError: true,
       }),
     onSuccess: onSaved,
     onError: (failure) => setError(problem(presentProblem(failure, "mutation").message)),

@@ -152,6 +152,7 @@ export const vi = {
     chatUncertain: "Chưa xác nhận được kết quả. Tải lại để kiểm tra trước khi thử lại.",
     actionFailed: "Không thể hoàn tất thao tác. Vui lòng thử lại.",
     invitationConflict: "Đã có lời mời đang chờ cho email này.",
+    invitationQueryInvalid: "Trang hoặc bộ lọc lời mời không hợp lệ.",
     identityConflict:
       "Email này thuộc tài khoản không thể sử dụng lại. Vui lòng liên hệ quản trị viên.",
     copyInvitation:

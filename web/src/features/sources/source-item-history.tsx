@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { CheckCircle2, History, RefreshCw } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,7 @@ export function SourceItemHistory({ sourceId }: { sourceId: string }) {
     ...listSourceIndexAttemptsOptions({ path: { sourceId }, query: { size, cursor } }),
     retry: false,
     staleTime: 0,
+    placeholderData: keepPreviousData,
     refetchInterval: (query) =>
       query.state.data?.items.some((operation) => !attemptFinished(operation)) ? 1_500 : false,
   });
@@ -212,8 +213,8 @@ export function SourceItemHistory({ sourceId }: { sourceId: string }) {
             totalPages={totalPages}
             previousLabel={ui("Previous indexing attempts")}
             nextLabel={ui("Next indexing attempts")}
-            previousDisabled={!previous.length || history.isFetching}
-            nextDisabled={!history.data.nextCursor || history.isFetching || history.isError}
+            previousDisabled={!previous.length || history.isPlaceholderData}
+            nextDisabled={!history.data.nextCursor || history.isPlaceholderData || history.isError}
             onPrevious={() => {
               setCursor(previous.at(-1));
               setPrevious((pages) => pages.slice(0, -1));
@@ -228,7 +229,7 @@ export function SourceItemHistory({ sourceId }: { sourceId: string }) {
               rowsLabel={ui("Rows")}
               value={size}
               sizes={[5, 10, 25, 50]}
-              disabled={history.isFetching}
+              disabled={history.isPlaceholderData}
               onSizeChange={(next) => {
                 setSize(next);
                 setCursor(undefined);

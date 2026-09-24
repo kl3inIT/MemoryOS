@@ -278,11 +278,11 @@ class ChatPersistenceIntegrationTest {
 
     @Test
     void interpreterSettingRevisesAndGeneratedFilesServeOnlyTheirOwner() {
-        var interpreter = new io.memoryos.chat.interpreter.JdbcInterpreterRepository(jdbc);
+        var interpreter = new io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository(jdbc);
         var scope = new TenantId(tenant);
         assertTrue(interpreter.setting(scope).isEmpty());
-        assertEquals(new io.memoryos.chat.interpreter.JdbcInterpreterRepository.Setting(true, 1), interpreter.save(scope, true));
-        assertEquals(new io.memoryos.chat.interpreter.JdbcInterpreterRepository.Setting(false, 2), interpreter.save(scope, false));
+        assertEquals(new io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository.Setting(true, 1), interpreter.save(scope, true));
+        assertEquals(new io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository.Setting(false, 2), interpreter.save(scope, false));
 
         var session = sessions.create(owner, "Code");
         var reply = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Make a chart");
@@ -311,7 +311,7 @@ class ChatPersistenceIntegrationTest {
     @Test
     void theFileLibraryUnionsEverySourceForItsOwnerAndHidesWhatWasDeleted() {
         var library = new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc);
-        var interpreter = new io.memoryos.chat.interpreter.JdbcInterpreterRepository(jdbc);
+        var interpreter = new io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository(jdbc);
         var images = new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc);
         var scope = new TenantId(tenant);
         var session = sessions.create(owner, "Báo cáo");
@@ -443,7 +443,7 @@ class ChatPersistenceIntegrationTest {
     @Test
     void theLibraryRenamesStarsAndListsPendingUploadsOnlyForTheirOwner() {
         var library = new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc);
-        var interpreter = new io.memoryos.chat.interpreter.JdbcInterpreterRepository(jdbc);
+        var interpreter = new io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository(jdbc);
         var scope = new TenantId(tenant);
         var session = sessions.create(owner, "Tệp");
         var reply = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Make a workbook");

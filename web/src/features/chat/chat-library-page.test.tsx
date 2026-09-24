@@ -485,6 +485,18 @@ it("renames a file, keeping its extension, and stars it", async () => {
   );
 });
 
+it("says so when starring a file fails", async () => {
+  await show();
+  const user = userEvent.setup();
+  changeChatLibraryFile.mockRejectedValue(new Error("offline"));
+
+  await user.click(screen.getByRole("button", { name: "Đánh dấu yêu thích doanh-thu.xlsx" }));
+
+  expect(
+    await screen.findByText("Chưa xác nhận được kết quả. Tải lại để kiểm tra trước khi thử lại."),
+  ).toBeInTheDocument();
+});
+
 it("searches inside files and shows the matching passages", async () => {
   await show();
   const user = userEvent.setup();

@@ -15,7 +15,6 @@ import {
   correctionsKey,
   keepWording,
   loadCorrections,
-  loadMeeting,
   meetingKey,
   proposeCorrections,
   revertAllCorrections,
@@ -39,13 +38,8 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
   const [found, setFound] = useState<number | null>(null);
   // A pass runs on the server whether or not this page is still open, so whether one is running comes from the
   // meeting itself. Leaving and coming back shows it still running, and the button stays shut until it is done.
+  // The meeting page polls the meeting while it is correcting.
   const running = meeting.correcting;
-  useQuery({
-    queryKey: meetingKey(meeting.id),
-    queryFn: ({ signal }) => loadMeeting(meeting.id, signal),
-    refetchInterval: running ? 3000 : false,
-    enabled,
-  });
   const corrections = useQuery({
     queryKey: correctionsKey(meeting.id),
     queryFn: ({ signal }) => loadCorrections(meeting.id, signal),

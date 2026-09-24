@@ -1,7 +1,7 @@
 package io.memoryos.chat;
 
 import io.memoryos.chat.application.ChatRetentionProperties;
-import io.memoryos.chat.interpreter.JdbcInterpreterRepository;
+import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
 import io.memoryos.chat.persistence.JdbcChatRepository;
 import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
 import io.memoryos.chat.persistence.JdbcUserFileRepository;

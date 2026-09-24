@@ -133,7 +133,7 @@ export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
       createdAt: message.createdAt,
       sources: sourcesSchema.parse(message.sources),
       artifacts: artifactsSchema.parse(message.artifacts),
-      images: parseGeneratedImages((message as { images?: unknown }).images),
+      images: parseGeneratedImages(message.images),
       generatedFiles: parseGeneratedFiles(message.generatedFiles),
     },
   }));

@@ -45,6 +45,9 @@ public class MeetingRepository {
     public record AudioClaim(UUID tenant, UUID id, UUID owner, int attempts, UUID uploadId, String key,
                              String filename, String mediaType, long sizeBytes, @Nullable String provider) {}
 
+    /** A recording given up on because its last attempt's lease lapsed, with the upload whose bytes it still holds. */
+    public record AbandonedAudio(UUID tenant, UUID id, @Nullable UUID uploadId) {}
+
     public void insert(UUID tenant, UUID id, UUID owner, Meeting.Draft draft) {
         jdbc.sql("""
                 INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, terms)
@@ -340,6 +343,18 @@ public class MeetingRepository {
         return true;
     }
 
+    /**
+     * Fails the minutes whose last permitted attempt ran out of lease without finishing, as a failed last attempt
+     * would; a claim never takes them again.
+     */
+    public int failAbandonedMinutes(int maxAttempts) {
+        return jdbc.sql("""
+                UPDATE meeting SET minutes_status = 'FAILED', minutes_lease_until = NULL,
+                       minutes_failure = 'MEETING_MINUTES_FAILED'
+                WHERE minutes_status = 'RUNNING' AND minutes_lease_until < now() AND minutes_attempts >= :max
+                """).param("max", maxAttempts).update();
+    }
+
     /** Records a failed run; the meeting waits for another attempt until the attempts run out. */
     public void failMinutes(UUID tenant, UUID meeting, int attempt, int maxAttempts, String failure) {
         jdbc.sql("""
@@ -513,6 +528,22 @@ public class MeetingRepository {
         return true;
     }
 
+    /**
+     * Fails the recordings whose last permitted attempt ran out of lease without finishing and ends their meetings, as
+     * a failed last attempt would. Returns them so their bytes can be retired.
+     */
+    public List<AbandonedAudio> failAbandonedAudio(int maxAttempts) {
+        return jdbc.sql("""
+                UPDATE meeting SET audio_status = 'FAILED', audio_lease_until = NULL,
+                       audio_failure = 'MEETING_RECORDING_FAILED', status = 'ENDED', ended_at = CURRENT_TIMESTAMP,
+                       updated_at = CURRENT_TIMESTAMP, revision = revision + 1
+                WHERE audio_status = 'RUNNING' AND audio_lease_until < now() AND audio_attempts >= :max
+                RETURNING tenant_id, id, audio_upload_id
+                """).param("max", maxAttempts)
+                .query((r, ignored) -> new AbandonedAudio(r.getObject("tenant_id", UUID.class),
+                        r.getObject("id", UUID.class), r.getObject("audio_upload_id", UUID.class))).list();
+    }
+
     /** Records a failed run; the recording waits for another attempt until the attempts run out. */
     public void failAudio(UUID tenant, UUID meeting, int attempt, int maxAttempts, String failure) {
         jdbc.sql("""
@@ -563,6 +594,13 @@ public class MeetingRepository {
                 DELETE FROM meeting_utterance_star
                 WHERE tenant_id = :tenant AND utterance_id = :utterance AND actor_id = :actor
                 """).param("tenant", tenant).param("utterance", utterance).param("actor", actor).update();
+    }
+
+    /** Whether anybody said anything in this meeting, without reading the transcript. */
+    public boolean hasUtterances(UUID tenant, UUID meeting) {
+        return Boolean.TRUE.equals(jdbc.sql("""
+                SELECT EXISTS (SELECT 1 FROM meeting_utterance WHERE tenant_id = :tenant AND meeting_id = :meeting)
+                """).param("tenant", tenant).param("meeting", meeting).query(Boolean.class).single());
     }
 
     /** Whether this line belongs to this meeting, which is what makes starring it meaningful. */

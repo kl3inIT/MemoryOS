@@ -182,7 +182,7 @@ public class MeetingService {
             throw MeetingException.invalid("The recording is still being transcribed.");
         meetings.end(tenant, id);
         // A meeting nobody spoke in has nothing to summarize.
-        if (meeting.status() == Meeting.Status.RECORDING && !meetings.utterances(tenant, id).isEmpty())
+        if (meeting.status() == Meeting.Status.RECORDING && meetings.hasUtterances(tenant, id))
             meetings.queueMinutes(tenant, id);
         return detail(tenant, actor, id);
     }
@@ -193,7 +193,7 @@ public class MeetingService {
         UUID tenant = tenant(actor);
         var meeting = meetings.lock(tenant, actor.value(), id).orElseThrow(MeetingException::notFound);
         if (meeting.status() != Meeting.Status.ENDED) throw MeetingException.invalid("The meeting is still recording.");
-        if (meetings.utterances(tenant, id).isEmpty()) throw MeetingException.invalid("This meeting has no transcript.");
+        if (!meetings.hasUtterances(tenant, id)) throw MeetingException.invalid("This meeting has no transcript.");
         // A rerun writes the whole minutes again, so it throws away whatever the owner corrected by hand. They have
         // to say they mean that, rather than find their work gone.
         if (meeting.minutesEdited() && !discardEdits) throw MeetingException.conflict();
@@ -303,8 +303,6 @@ public class MeetingService {
         return clean;
     }
 
-    /** Renders the minutes as a Vietnamese biên bản in Word format. Nothing is stored; the heading comes with the call. */
-    @Transactional(readOnly = true)
     /** What the transcript is downloaded as. Both say the same thing; one is for editing and one for reading. */
     public enum TranscriptFormat { DOCX, PDF }
 
@@ -321,11 +319,11 @@ public class MeetingService {
                 : MeetingTranscriptDocument.render(meeting);
     }
 
-    public byte[] exportMinutes(ActorId actor, UUID id, MeetingMinutesDocument.Heading heading) {
-        return exportMinutes(actor, id, heading, TranscriptFormat.DOCX);
-    }
-
-    /** The biên bản as Word to edit or as PDF to read and print; both say exactly the same thing. */
+    /**
+     * The biên bản as Word to edit or as PDF to read and print; both say exactly the same thing. Nothing is stored;
+     * the heading comes with the call.
+     */
+    @Transactional(readOnly = true)
     public byte[] exportMinutes(ActorId actor, UUID id, MeetingMinutesDocument.Heading heading,
             TranscriptFormat format) {
         UUID tenant = tenant(actor);
