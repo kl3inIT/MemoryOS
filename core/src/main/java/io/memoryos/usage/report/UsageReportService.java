@@ -89,7 +89,7 @@ public class UsageReportService {
                 this::build,
                 (claim, failure) -> {
                     // The report reads only the Tenant's own ledger, so its stack trace is safe to keep for diagnosis.
-                    LOG.debug("Usage report {} failed on attempt {}", claim.id(), claim.attempts(), failure);
+                    LOG.warn("Usage report {} failed on attempt {}", claim.id(), claim.attempts(), failure);
                     reports.markFailed(claim.tenant(), claim.id(), claim.attempts(), MAX_ATTEMPTS,
                             "The report could not be generated.");
                 }));

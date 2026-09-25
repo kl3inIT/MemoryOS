@@ -8,8 +8,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * Who said a line, as everything MemoryOS writes from a transcript names them: the exports, the minutes the model
  * writes and the corrections it proposes. A voice the owner named is that name; online, the unnamed microphone is the
- * owner, because it carries nobody else; any other voice is numbered by its label. The meeting page names them the
- * same way, so a line reads alike on the page, in a file and in what the model was shown.
+ * owner, because it carries nobody else; any other voice is numbered by its label. The page follows the same rule,
+ * except that it calls the owner "Bạn" to the owner reading it; a file and a prompt are read by others.
  */
 final class SpeakerNames {
     private final Map<String, String> named = new HashMap<>();

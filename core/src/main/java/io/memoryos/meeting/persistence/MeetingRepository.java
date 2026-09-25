@@ -613,8 +613,8 @@ public class MeetingRepository {
     }
 
     /**
-     * Forgets the recording once its bytes have been retired; the transcript stays. Only that upload is forgotten, so a
-     * sweep that read the row before the owner reserved another recording cannot drop the new one.
+     * Forgets the recording once its bytes have been retired; the transcript stays. Only that upload is forgotten, so
+     * the sweep can never drop an upload it did not retire, whatever changed on the row since it read it.
      */
     public void forgetAudio(UUID tenant, UUID meeting, UUID upload) {
         jdbc.sql("""

@@ -262,8 +262,8 @@ public class MeetingRecordingService {
         boolean adopted = meeting.audio().status() != Meeting.AudioStatus.NONE
                 && meeting.audio().status() != Meeting.AudioStatus.WAITING;
         // A reservation the browser never filled was not adopted; the abandoned-upload cleanup owns it.
-        if (adopted && upload != null && !retire(tenant, id, upload))
-            throw MeetingException.invalid("The recording could not be deleted. Try again.");
+        // Refused rather than half done: once the row is gone, nothing would point the sweep at the bytes.
+        if (adopted && upload != null && !retire(tenant, id, upload)) throw MeetingException.conflict();
         service.delete(actor, id);
     }
 
