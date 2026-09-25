@@ -1,5 +1,6 @@
 package io.memoryos.api.identityprovider;
 
+import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.identityprovider.contract.CreateIdentityProviderRequest;
 import io.memoryos.api.identityprovider.contract.DiscoverIdentityProviderRequest;
 import io.memoryos.api.identityprovider.contract.DiscoveredProviderResponse;
@@ -11,7 +12,6 @@ import io.memoryos.iam.IdentityProviderCommand;
 import io.memoryos.iam.IdentityProviderUpdate;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -27,7 +27,6 @@ import java.util.Objects;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,8 +41,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/identity-providers")
 @Tag(name = "Identity Providers")
 final class IdentityProviderController {
-
-    private static final String API_PROBLEM_SCHEMA = "#/components/schemas/ApiProblem";
 
     private final IdentityProviderAdministration administration;
     private final String issuerBase;
@@ -74,15 +71,11 @@ final class IdentityProviderController {
     )
     @ApiResponse(
             responseCode = "403",
-            description = "The actor lacks system administration authority",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "The actor lacks system administration authority"
     )
     @GetMapping
     List<IdentityProviderResponse> list(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext
+            @CurrentActor IdentityContext identityContext
     ) {
         return administration.list(identityContext.actorId()).stream()
                 .map(view -> IdentityProviderResponse.from(view, issuerBase))
@@ -107,15 +100,11 @@ final class IdentityProviderController {
     )
     @ApiResponse(
             responseCode = "400",
-            description = "The issuer did not return a valid discovery document",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "The issuer did not return a valid discovery document"
     )
     @PostMapping("/discovery")
     DiscoveredProviderResponse discover(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @Valid @RequestBody DiscoverIdentityProviderRequest request
     ) {
         return DiscoveredProviderResponse.from(
@@ -141,16 +130,12 @@ final class IdentityProviderController {
     )
     @ApiResponse(
             responseCode = "409",
-            description = "An identity provider with this alias already exists",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "An identity provider with this alias already exists"
     )
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
     IdentityProviderResponse create(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @Valid @RequestBody CreateIdentityProviderRequest request
     ) {
         var view = administration.create(identityContext.actorId(), new IdentityProviderCommand(
@@ -183,15 +168,11 @@ final class IdentityProviderController {
     )
     @ApiResponse(
             responseCode = "404",
-            description = "The identity provider was not found",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "The identity provider was not found"
     )
     @PutMapping("/{alias}")
     IdentityProviderResponse update(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable @Size(max = 128) String alias,
             @Valid @RequestBody UpdateIdentityProviderRequest request
     ) {
@@ -218,16 +199,12 @@ final class IdentityProviderController {
     @ApiResponse(responseCode = "204", description = "The identity provider was deleted")
     @ApiResponse(
             responseCode = "404",
-            description = "The identity provider was not found",
-            content = @Content(
-                    mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
-                    schema = @Schema(ref = API_PROBLEM_SCHEMA)
-            )
+            description = "The identity provider was not found"
     )
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/{alias}")
     void delete(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable @Size(max = 128) String alias
     ) {
         administration.delete(identityContext.actorId(), alias);

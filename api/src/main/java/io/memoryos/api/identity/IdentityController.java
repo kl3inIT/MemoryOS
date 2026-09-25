@@ -1,5 +1,6 @@
 package io.memoryos.api.identity;
 
+import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.identity.contract.CurrentIdentityResponse;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.ActorLanguageService;
@@ -13,7 +14,6 @@ import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.iam.TenantMembership;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -23,7 +23,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Set;
 
 import org.springframework.http.MediaType;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -75,7 +74,7 @@ class IdentityController {
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     @GetMapping("/me")
     CurrentIdentityResponse currentIdentity(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext
+            @CurrentActor IdentityContext identityContext
     ) {
         TenantMembership membership = tenantAccessResolver.findActiveMembership(identityContext.actorId()).orElse(null);
         if (membership == null) {
@@ -104,7 +103,7 @@ class IdentityController {
             security = {@SecurityRequirement(name = "browserSession"), @SecurityRequirement(name = "bearerAuth")})
     @PutMapping("/me/language")
     LanguagePreference setLanguage(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @Valid @RequestBody LanguagePreference request
     ) {
         return new LanguagePreference(languages.save(identityContext.actorId(), request.uiLanguage()));

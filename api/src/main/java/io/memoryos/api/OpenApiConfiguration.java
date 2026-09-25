@@ -2,13 +2,17 @@ package io.memoryos.api;
 
 import io.memoryos.api.security.BrowserMutation;
 import io.memoryos.connector.SourceRunTrigger;
+import io.memoryos.usage.AiUsageLimitScope;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.servers.Server;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.IntegerSchema;
 import io.swagger.v3.oas.models.media.ArraySchema;
 import io.swagger.v3.oas.models.media.NumberSchema;
@@ -18,8 +22,10 @@ import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.parameters.HeaderParameter;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -28,6 +34,8 @@ import org.springdoc.core.customizers.OperationCustomizer;
 import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -63,33 +71,30 @@ class OpenApiConfiguration {
                 .group("browser")
                 .pathsToMatch("/api/**")
                 .addOperationCustomizer(browserMutationHeader())
+                .addOperationCustomizer(problemResponses())
                 .addOpenApiCustomizer(openApi -> {
                     if (openApi.getComponents() == null) {
                         openApi.setComponents(new Components());
                     }
                     openApi.getComponents().addSchemas("ApiProblem", apiProblemSchema());
                     Components components = openApi.getComponents();
+                    // API-owned records declare scalar nulls inline with @Schema(types = {..., "null"}). What remains
+                    // here cannot: core-owned schemas (no OpenAPI annotations in core), and references and enums,
+                    // whose null must be a oneOf branch because a sibling type or enum would reject it.
                     for (String schema : List.of("PersonaInput", "PersonaView")) {
                         configureNullableProperty(components, schema, "modelConfigurationId", new StringSchema().format("uuid"));
                         configureNullableProperty(components, schema, "contextTokenLimit", new IntegerSchema());
                         configureNullableProperty(components, schema, "outputTokenLimit", new IntegerSchema());
                     }
-                    configureNullableProperty(components, "ProjectSelection", "projectId", new StringSchema().format("uuid"));
-                    for (String property : List.of("personaId", "projectId"))
-                        configureNullableProperty(components, "CreateChatSession", property, new StringSchema().format("uuid"));
-                    configureNullableProperty(components, "ChatSessionSettings", "projectId", new StringSchema().format("uuid"));
-                    configureNullableProperty(components, "BranchSelection", "expectedChildId", new StringSchema().format("uuid"));
                     for (String property : List.of("parentMessageId", "latestChildMessageId"))
                         configureNullableProperty(components, "ChatBranch", property, new StringSchema().format("uuid"));
-                    for (String schema : List.of("Feedback", "FeedbackInput"))
-                        configureNullableProperty(components, schema, "positive", new BooleanSchema());
+                    configureNullableProperty(components, "Feedback", "positive", new BooleanSchema());
                     configureNullableProperty(components, "ToolEvent", "source",
                             new Schema<>().$ref("#/components/schemas/ChatSource"));
                     configureNullableProperty(components, "CurrentIdentity", "tenant",
                             new Schema<>().$ref("#/components/schemas/CurrentTenant"));
                     configureNullableProperty(components, "GoogleDriveConfigurationResponse", "pendingSelectionOperation",
                             new Schema<>().$ref("#/components/schemas/SourceOperation"));
-                    configureNullableProperty(components, "SourceItemPage", "nextCursor", new StringSchema());
                     for (String summary : List.of("current", "lastCompleted", "lastSuccessful")) {
                         configureNullableProperty(components, "SourceRunPage", summary,
                                 new Schema<>().$ref("#/components/schemas/SourceRun"));
@@ -110,12 +115,6 @@ class OpenApiConfiguration {
                         configureNullableProperty(components, settings, "pricing",
                                 new Schema<>().$ref("#/components/schemas/" + (settings.equals("ModelSettingsInput") ? "PricingInput" : "Pricing")));
                     }
-                    for (String selection : List.of("Default", "PersonaModel")) {
-                        configureNullableProperty(components, selection, "modelConfigurationId", new StringSchema().format("uuid"));
-                    }
-                    configureNullableProperty(components, "ChatModelValidationResult", "failureCode", new StringSchema());
-                    configureNullableProperty(components, "ChatPersonaPage", "nextCursor", new StringSchema());
-                    configureNullableProperty(components, "Change", "value", new StringSchema());
                     configureNullableProperty(components, "SearchSettingsResponse", "future",
                             new Schema<>().$ref("#/components/schemas/SearchGenerationResponse"));
                     configureNullableProperty(components, "SearchSettingsResponse", "rebuild",
@@ -139,6 +138,32 @@ class OpenApiConfiguration {
                         .required(true)
                         .schema(new StringSchema().addEnumItem(BrowserMutation.VALUE)));
                 operation.setParameters(parameters);
+            }
+            return operation;
+        };
+    }
+
+    /**
+     * Every declared 4xx or 5xx response answers an RFC 9457 {@code ApiProblem}, so controllers declare only the
+     * status and why. A response declared with an explicit empty {@code content = @Content} is bodiless: the
+     * Spring Security 401 and the 416 of a byte range beyond the original.
+     */
+    private static OperationCustomizer problemResponses() {
+        return (operation, handlerMethod) -> {
+            if (operation.getResponses() == null) return operation;
+            Set<ApiResponse> declared = new LinkedHashSet<>();
+            declared.addAll(AnnotatedElementUtils.findMergedRepeatableAnnotations(
+                    handlerMethod.getBeanType(), ApiResponse.class, ApiResponses.class));
+            declared.addAll(AnnotatedElementUtils.findMergedRepeatableAnnotations(
+                    handlerMethod.getMethod(), ApiResponse.class, ApiResponses.class));
+            for (ApiResponse response : declared) {
+                String code = response.responseCode();
+                if (!(code.startsWith("4") || code.startsWith("5")) || response.content().length > 0) continue;
+                var documented = operation.getResponses().get(code);
+                if (documented == null) continue;
+                documented.setContent(new Content().addMediaType(MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                        new io.swagger.v3.oas.models.media.MediaType()
+                                .schema(new Schema<>().$ref("#/components/schemas/ApiProblem"))));
             }
             return operation;
         };
@@ -196,6 +221,25 @@ class OpenApiConfiguration {
         fieldError.addProperty("params", parameters);
         schema.addProperty("errors", new ArraySchema().items(fieldError)
                 .description("Field validation failures with safe allowlisted parameters; no rejected values."));
+        // AI_USAGE_LIMIT_EXCEEDED (429): which budget is spent and when it frees, mirrored by Retry-After.
+        schema.addProperty("scope", new StringSchema()
+                ._enum(Arrays.stream(AiUsageLimitScope.values()).map(Enum::name).toList())
+                .description("AI_USAGE_LIMIT_EXCEEDED only: the budget that is spent."));
+        schema.addProperty("group", new StringSchema()
+                .description("AI_USAGE_LIMIT_EXCEEDED only: the Group whose budget is spent, for a Group budget."));
+        schema.addProperty("resetsAt", new StringSchema().format("date-time")
+                .description("AI_USAGE_LIMIT_EXCEEDED only: when the spent budget frees."));
+        schema.addProperty("retryAfterSeconds", new IntegerSchema().format("int64").minimum(BigDecimal.ONE)
+                .description("AI_USAGE_LIMIT_EXCEEDED only: seconds until the budget frees; equals the Retry-After header."));
+        // CHAT_FILE_IN_USE (409): what holds the file, so the caller can name it.
+        var usage = new ObjectSchema();
+        usage.setAdditionalProperties(false);
+        usage.setRequired(List.of("kind", "id", "name"));
+        usage.addProperty("kind", new StringSchema()._enum(List.of("AGENT", "PROJECT")));
+        usage.addProperty("id", new StringSchema().format("uuid"));
+        usage.addProperty("name", new StringSchema());
+        schema.addProperty("usedBy", new ArraySchema().items(usage)
+                .description("CHAT_FILE_IN_USE only: the Projects and agents that attach the file."));
         return schema;
     }
 }

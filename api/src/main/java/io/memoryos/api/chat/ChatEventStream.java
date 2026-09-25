@@ -1,14 +1,22 @@
 package io.memoryos.api.chat;
 
-import static io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED;
+import io.memoryos.api.chat.contract.CodeEvent;
+import io.memoryos.api.chat.contract.ImageEvent;
+import io.memoryos.api.chat.contract.IntermediateReportCitationsEvent;
+import io.memoryos.api.chat.contract.IntermediateReportEvent;
+import io.memoryos.api.chat.contract.OutcomeEvent;
+import io.memoryos.api.chat.contract.ReasoningEvent;
+import io.memoryos.api.chat.contract.ResearchAgentStartEvent;
+import io.memoryos.api.chat.contract.ResearchCitation;
+import io.memoryos.api.chat.contract.ResearchPlanEvent;
+import io.memoryos.api.chat.contract.ResetEvent;
+import io.memoryos.api.chat.contract.TextDeltaEvent;
+import io.memoryos.api.chat.contract.ToolEvent;
+import io.memoryos.api.chat.contract.TopLevelBranchingEvent;
 
 import io.memoryos.chat.streaming.StreamBufferWriter;
-import io.memoryos.chat.ChatImageEvent;
 import io.memoryos.chat.ChatResearchEvent;
-import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.api.chat.contract.ChatSourceResponse;
-import io.swagger.v3.oas.annotations.media.Schema;
-import org.jspecify.annotations.Nullable;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
@@ -21,82 +29,6 @@ import reactor.core.scheduler.Scheduler;
 /** HTTP owns only a buffer reader. Canceling this publisher never cancels model execution. */
 final class ChatEventStream {
     private ChatEventStream() {}
-
-    record TextDeltaEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
-                          @Schema(requiredMode = REQUIRED) long sequence,
-                          @Schema(requiredMode = REQUIRED) String text) {}
-
-    record ReasoningEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
-                          @Schema(requiredMode = REQUIRED) long sequence,
-                          @Schema(requiredMode = REQUIRED) String text,
-                          @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String parentToolCallId) {}
-
-    record ResearchPlanEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
-                             @Schema(requiredMode = REQUIRED) long sequence,
-                             @Schema(requiredMode = REQUIRED) String text) {}
-
-    record TopLevelBranchingEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
-                                  @Schema(requiredMode = REQUIRED) long sequence,
-                                  @Schema(requiredMode = REQUIRED) int branches) {}
-
-    record ResearchAgentStartEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
-                                   @Schema(requiredMode = REQUIRED) long sequence,
-                                   @Schema(requiredMode = REQUIRED) String toolCallId,
-                                   @Schema(requiredMode = REQUIRED) int tabIndex,
-                                   @Schema(requiredMode = REQUIRED) String task) {}
-
-    record IntermediateReportEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
-                                   @Schema(requiredMode = REQUIRED) long sequence,
-                                   @Schema(requiredMode = REQUIRED) String toolCallId,
-                                   @Schema(requiredMode = REQUIRED) String text) {}
-
-    record IntermediateReportCitationsEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
-                                            @Schema(requiredMode = REQUIRED) long sequence,
-                                            @Schema(requiredMode = REQUIRED) String toolCallId,
-                                            @Schema(requiredMode = REQUIRED) List<ResearchCitation> citations) {}
-
-    /** An intermediate report citation number and the merged turn source it refers to. */
-    record ResearchCitation(@Schema(requiredMode = REQUIRED) int marker, @Schema(requiredMode = REQUIRED) int citationId) {}
-
-    record OutcomeEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
-                        @Schema(requiredMode = REQUIRED) long sequence,
-                        @Schema(requiredMode = REQUIRED, allowableValues = {"COMPLETED", "CANCELED", "FAILED"}) String status,
-                        @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String failureCode,
-                        @Schema(requiredMode = REQUIRED) boolean hasArtifacts) {}
-
-    record ResetEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
-                      @Schema(requiredMode = REQUIRED, allowableValues = {"BUFFER_MISSING", "BUFFER_GAP", "BUFFER_EXPIRED"}) String reason) {}
-
-    record ToolEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
-                     @Schema(requiredMode = REQUIRED) long sequence,
-                     @Schema(requiredMode = REQUIRED) String toolCallId,
-                     @Schema(requiredMode = REQUIRED) String toolName,
-                     @Schema(requiredMode = REQUIRED) ChatToolEvent.Stage stage,
-                     @Schema(requiredMode = REQUIRED, types = {"object", "null"}) @Nullable ChatSourceResponse source,
-                     @Schema(requiredMode = REQUIRED, types = {"object", "null"}) ChatToolEvent.@Nullable QueryPlan search,
-                     @Schema(requiredMode = REQUIRED) List<ChatToolEvent.ReadingDocument> documents,
-                     @Schema(requiredMode = REQUIRED, types = {"integer", "null"}, format = "int64") @Nullable Long durationMs,
-                     @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String parentToolCallId,
-                     @Schema(requiredMode = REQUIRED, types = {"integer", "null"}, format = "int32") @Nullable Integer tabIndex,
-                     @Schema(requiredMode = REQUIRED, types = {"string", "null"}, allowableValues = {"AUTHORIZATION_REQUIRED", "TIMEOUT", "UNAVAILABLE"},
-                             description = "Why a FAILED step failed when the person can act on it; a category only.") ChatToolEvent.@Nullable Failure failure) {}
-
-    record ImageEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
-                      @Schema(requiredMode = REQUIRED) long sequence,
-                      @Schema(requiredMode = REQUIRED) String toolCallId,
-                      @Schema(requiredMode = REQUIRED) ChatImageEvent.Stage stage,
-                      @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable UUID id,
-                      @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String mediaType,
-                      @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String revisedPrompt) {}
-
-    record CodeEvent(@Schema(requiredMode = REQUIRED) UUID assistantMessageId,
-                     @Schema(requiredMode = REQUIRED) long sequence,
-                     @Schema(requiredMode = REQUIRED) String toolCallId,
-                     @Schema(requiredMode = REQUIRED) io.memoryos.chat.ChatCodeEvent.Stage stage,
-                     @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String code,
-                     @Schema(requiredMode = REQUIRED, types = {"string", "null"}) @Nullable String output,
-                     @Schema(requiredMode = REQUIRED) List<io.memoryos.chat.ChatCodeEvent.GeneratedFile> files,
-                     @Schema(requiredMode = REQUIRED, types = {"string", "null"}, allowableValues = {"stdout", "stderr"}) @Nullable String stream) {}
 
     static Flux<ServerSentEvent<Object>> encode(Supplier<StreamBufferWriter.Reader> reader, UUID assistant,
             Scheduler scheduler, Duration timeout) {

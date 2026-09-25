@@ -1,5 +1,6 @@
 package io.memoryos.api.source;
 
+import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.source.contract.CreateSharePointSourceRequest;
 import io.memoryos.api.source.contract.ReplaceSharePointScopeRequest;
 import io.memoryos.api.source.contract.SharePointConfigurationResponse;
@@ -15,9 +16,7 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.iam.GroupId;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,11 +24,9 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
-import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,11 +47,11 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Sources")
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
-@ApiResponse(responseCode = "400", description = "Invalid SharePoint scope", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "400", description = "Invalid SharePoint scope")
 @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content)
-@ApiResponse(responseCode = "403", description = "Management authority or CSRF required", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "404", description = "Source unavailable", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "409", description = "Source or credential changed", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "403", description = "Management authority or CSRF required")
+@ApiResponse(responseCode = "404", description = "Source unavailable")
+@ApiResponse(responseCode = "409", description = "Source or credential changed")
 final class SharePointSourceController {
     private final SharePointSourceService sources;
 
@@ -68,12 +65,12 @@ final class SharePointSourceController {
     @PostMapping(value = "/sharepoint", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.ACCEPTED)
     ResponseEntity<SharePointSelectionReceiptResponse> create(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @CurrentActor IdentityContext identity,
             @Valid @RequestBody CreateSharePointSourceRequest body) {
         var receipt = sources.create(identity.actorId(), body.requestId(), body.name(),
                 new CredentialId(body.credentialId()), body.scope().toScope(), body.access(),
                 body.groupIds() == null ? List.of() : body.groupIds().stream().map(GroupId::new).toList());
-        return ResponseEntity.status(HttpStatus.ACCEPTED).cacheControl(CacheControl.noStore())
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(SharePointSelectionReceiptResponse.from(receipt));
     }
 
@@ -81,7 +78,7 @@ final class SharePointSourceController {
     @ApiResponse(responseCode = "200", description = "SharePoint configuration", useReturnTypeSchema = true)
     @GetMapping("/{sourceId}/sharepoint")
     ResponseEntity<SharePointConfigurationResponse> configuration(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sourceId) {
+            @CurrentActor IdentityContext identity, @PathVariable UUID sourceId) {
         return configuration(sources.configuration(identity.actorId(), new SourceId(sourceId)));
     }
 
@@ -89,10 +86,10 @@ final class SharePointSourceController {
     @ApiResponse(responseCode = "200", description = "SharePoint roots", useReturnTypeSchema = true)
     @GetMapping("/{sourceId}/sharepoint/roots")
     ResponseEntity<SharePointRootPageResponse> roots(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sourceId,
+            @CurrentActor IdentityContext identity, @PathVariable UUID sourceId,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(defaultValue = "50") int size) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
                 .body(SharePointRootPageResponse.from(sources.roots(identity.actorId(), new SourceId(sourceId), cursor, size)));
     }
 
@@ -100,8 +97,8 @@ final class SharePointSourceController {
     @ApiResponse(responseCode = "200", description = "SharePoint selection policy", useReturnTypeSchema = true)
     @GetMapping("/sharepoint/selection-policy")
     ResponseEntity<SharePointSelectionPolicyResponse> policy(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+            @CurrentActor IdentityContext identity) {
+        return ResponseEntity.ok()
                 .body(SharePointSelectionPolicyResponse.from(sources.selectionPolicy(identity.actorId())));
     }
 
@@ -110,8 +107,8 @@ final class SharePointSourceController {
     @ApiResponse(responseCode = "200", description = "SharePoint scope receipt", useReturnTypeSchema = true)
     @GetMapping("/sharepoint/selection-requests/{requestId}")
     ResponseEntity<SharePointSelectionReceiptResponse> receipt(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID requestId) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+            @CurrentActor IdentityContext identity, @PathVariable UUID requestId) {
+        return ResponseEntity.ok()
                 .body(SharePointSelectionReceiptResponse.from(sources.selectionRequest(identity.actorId(), requestId)));
     }
 
@@ -121,11 +118,11 @@ final class SharePointSourceController {
     @PutMapping(value = "/{sourceId}/sharepoint/scope", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.ACCEPTED)
     ResponseEntity<SharePointSelectionReceiptResponse> replaceScope(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sourceId,
+            @CurrentActor IdentityContext identity, @PathVariable UUID sourceId,
             @RequestHeader("If-Match") String ifMatch, @Valid @RequestBody ReplaceSharePointScopeRequest body) {
         var receipt = sources.replaceScope(identity.actorId(), body.requestId(), new SourceId(sourceId),
                 GoogleDriveSourceController.revision(ifMatch), body.expectedCredentialRevision(), body.scope().toScope());
-        return ResponseEntity.status(HttpStatus.ACCEPTED).cacheControl(CacheControl.noStore())
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(SharePointSelectionReceiptResponse.from(receipt));
     }
 
@@ -134,7 +131,7 @@ final class SharePointSourceController {
     @ApiResponse(responseCode = "200", description = "Updated SharePoint configuration", useReturnTypeSchema = true)
     @PutMapping(value = "/{sourceId}/sharepoint/schedule", consumes = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<SharePointConfigurationResponse> updateSchedule(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sourceId,
+            @CurrentActor IdentityContext identity, @PathVariable UUID sourceId,
             @RequestHeader("If-Match") String ifMatch, @Valid @RequestBody UpdateSharePointScheduleRequest body) {
         var value = sources.updateSchedule(identity.actorId(), new SourceId(sourceId),
                 GoogleDriveSourceController.revision(ifMatch), body.syncIntervalMinutes(), body.pruneIntervalHours());
@@ -145,7 +142,7 @@ final class SharePointSourceController {
     @ApiResponse(responseCode = "200", description = "Updated SharePoint configuration", useReturnTypeSchema = true)
     @PostMapping(value = "/{sourceId}/sharepoint/pause", consumes = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<SharePointConfigurationResponse> updatePause(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sourceId,
+            @CurrentActor IdentityContext identity, @PathVariable UUID sourceId,
             @Valid @RequestBody UpdateSharePointPauseRequest body) {
         return schedule(sources.setPaused(identity.actorId(), new SourceId(sourceId), body.expectedRevision(), body.paused()));
     }
@@ -155,17 +152,17 @@ final class SharePointSourceController {
     @PostMapping("/{sourceId}/sharepoint/sync")
     @ResponseStatus(HttpStatus.ACCEPTED)
     SourceOperationResponse synchronize(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sourceId) {
+            @CurrentActor IdentityContext identity, @PathVariable UUID sourceId) {
         return SourceOperationResponse.from(sources.synchronize(identity.actorId(), new SourceId(sourceId)));
     }
 
     private static ResponseEntity<SharePointConfigurationResponse> configuration(SharePointSourceService.Configuration value) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).eTag("\"" + value.scopeRevision() + "\"")
+        return ResponseEntity.ok().eTag("\"" + value.scopeRevision() + "\"")
                 .body(SharePointConfigurationResponse.from(value));
     }
 
     private static ResponseEntity<SharePointConfigurationResponse> schedule(SharePointSourceService.Configuration value) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).eTag("\"" + value.scheduleRevision() + "\"")
+        return ResponseEntity.ok().eTag("\"" + value.scheduleRevision() + "\"")
                 .body(SharePointConfigurationResponse.from(value));
     }
 }

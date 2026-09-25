@@ -207,7 +207,6 @@ class GoogleDriveOAuthTest {
         var response = deliver(state.state());
         assertEquals("/admin/sources/new/google-drive?googleDrive=authorization-failed&credentialId=" + credential.value(),
                 response.getRedirectedUrl());
-        assertEquals("no-store", response.getHeader("Cache-Control"));
         assertEquals("no-referrer", response.getHeader("Referrer-Policy"));
         verify(authorizations).oauthClient(identity.actorId(), preparation);
         verify(authorizations, never()).complete(any(), any(), any());

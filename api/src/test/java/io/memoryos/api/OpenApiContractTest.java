@@ -462,9 +462,8 @@ class OpenApiContractTest {
                 "Default.modelConfigurationId", "PersonaModel.modelConfigurationId", "ChatModelValidationResult.failureCode",
                 "ChatPersonaPage.nextCursor", "Change.value")) {
             var parts = field.split("\\.");
-            var variants = schemas.path(parts[0]).path("properties").path(parts[1]).path("oneOf");
-            assertEquals(2, variants.size(), field);
-            assertEquals("null", variants.path(1).path("type").asText(), field + " must accept an actual JSON null");
+            assertTrue(acceptsNull(schemas.path(parts[0]).path("properties").path(parts[1])),
+                    field + " must accept an actual JSON null");
         }
         var settingsRequired = new TreeSet<String>();
         schemas.path("ModelSettingsInput").path("required").forEach(value -> settingsRequired.add(value.asText()));
@@ -494,10 +493,16 @@ class OpenApiContractTest {
         assertEquals(4, fieldError.path("required").size());
         assertEquals(6, fieldError.path("properties").path("code").path("enum").size());
         assertFalse(fieldError.path("properties").path("params").path("additionalProperties").asBoolean());
+        // The problem is closed, so every extension member a handler writes must be declared.
+        var problem = actual.path("components").path("schemas").path("ApiProblem");
+        assertFalse(problem.path("additionalProperties").asBoolean());
+        for (String member : Set.of("code", "errors", "scope", "group", "resetsAt", "retryAfterSeconds", "usedBy")) {
+            assertTrue(problem.path("properties").has(member), "ApiProblem must declare " + member);
+        }
         for (String property : Set.of("personaId", "projectId")) {
             JsonNode schema = actual.path("components").path("schemas").path("CreateChatSession").path("properties").path(property);
-            assertEquals("uuid", schema.path("oneOf").path(0).path("format").textValue());
-            assertEquals("null", schema.path("oneOf").path(1).path("type").textValue());
+            assertEquals("uuid", schema.path("format").textValue());
+            assertEquals("[\"string\",\"null\"]", schema.path("type").toString());
         }
         if (Boolean.parseBoolean(System.getenv(WRITE_FLAG))) {
             Files.writeString(contract, Yaml.pretty(actual));
@@ -512,6 +517,16 @@ class OpenApiContractTest {
                         + "$env:MEMORYOS_OPENAPI_WRITE='true'; "
                         + ".\\gradlew.bat :api:test --tests '*OpenApiContractTest*'"
         );
+    }
+
+    /** A null branch of a oneOf (references, enums) or {@code null} in an inline type array (scalars). */
+    private static boolean acceptsNull(JsonNode property) {
+        var variants = property.path("oneOf");
+        if (variants.size() == 2) return variants.path(1).path("type").asText().equals("null");
+        for (var type : property.path("type")) {
+            if (type.asText().equals("null")) return true;
+        }
+        return false;
     }
 
     private static Path repositoryRoot() {

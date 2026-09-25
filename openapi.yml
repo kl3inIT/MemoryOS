@@ -20747,10 +20747,10 @@ components:
           type: string
           format: uuid
         projectId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
       required:
       - personaId
     ReasoningSelection:
@@ -20767,10 +20767,10 @@ components:
       type: object
       properties:
         projectId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
     PersonaSelection:
       type: object
       properties:
@@ -20783,9 +20783,9 @@ components:
       type: object
       properties:
         positive:
-          oneOf:
-          - type: boolean
-          - type: "null"
+          type:
+          - boolean
+          - "null"
         comment:
           type: string
         reason:
@@ -20811,10 +20811,10 @@ components:
           type: string
           format: uuid
         expectedChildId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
       required:
       - messageId
     ChatRetentionInput:
@@ -20849,9 +20849,9 @@ components:
           - REPLACE
           - REMOVE
         value:
-          oneOf:
-          - type: string
-          - type: "null"
+          type:
+          - string
+          - "null"
       required:
       - action
     ProviderInput:
@@ -21426,10 +21426,10 @@ components:
           type: string
           format: uuid
         modelConfigurationId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
         revision:
           type: integer
           format: int64
@@ -21670,10 +21670,10 @@ components:
       type: object
       properties:
         modelConfigurationId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
         revision:
           type: integer
           format: int64
@@ -23864,15 +23864,15 @@ components:
           maxLength: 200
           minLength: 0
         personaId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
         projectId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
         temporary:
           type: boolean
           description: "Leave no history: listed nowhere, deleted with its uploads\
@@ -24180,9 +24180,9 @@ components:
         reachable:
           type: boolean
         failureCode:
-          oneOf:
-          - type: string
-          - type: "null"
+          type:
+          - string
+          - "null"
       required:
       - failureCode
       - reachable
@@ -25178,9 +25178,9 @@ components:
           items:
             $ref: "#/components/schemas/SourceItem"
         nextCursor:
-          oneOf:
-          - type: string
-          - type: "null"
+          type:
+          - string
+          - "null"
         totalItems:
           type: integer
           format: int64
@@ -27134,9 +27134,9 @@ components:
           items:
             $ref: "#/components/schemas/ChatPersona"
         nextCursor:
-          oneOf:
-          - type: string
-          - type: "null"
+          type:
+          - string
+          - "null"
       required:
       - items
       - nextCursor
@@ -27829,6 +27829,49 @@ components:
             - field
             - message
             - params
+        scope:
+          type: string
+          description: "AI_USAGE_LIMIT_EXCEEDED only: the budget that is spent."
+          enum:
+          - TENANT
+          - GROUP
+          - PERSON
+        group:
+          type: string
+          description: "AI_USAGE_LIMIT_EXCEEDED only: the Group whose budget is spent,\
+            \ for a Group budget."
+        resetsAt:
+          type: string
+          format: date-time
+          description: "AI_USAGE_LIMIT_EXCEEDED only: when the spent budget frees."
+        retryAfterSeconds:
+          type: integer
+          format: int64
+          description: "AI_USAGE_LIMIT_EXCEEDED only: seconds until the budget frees;\
+            \ equals the Retry-After header."
+          minimum: 1
+        usedBy:
+          type: array
+          description: "CHAT_FILE_IN_USE only: the Projects and agents that attach\
+            \ the file."
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              kind:
+                type: string
+                enum:
+                - AGENT
+                - PROJECT
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+            required:
+            - id
+            - kind
+            - name
       required:
       - detail
       - instance

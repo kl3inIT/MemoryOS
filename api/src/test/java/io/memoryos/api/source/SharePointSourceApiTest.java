@@ -126,7 +126,7 @@ class SharePointSourceApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createBody()))
                 .andExpect(status().isAccepted())
-                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
                 .andExpect(jsonPath("$.sourceId").value(SOURCE.toString()))
                 .andExpect(jsonPath("$.operation.type").value("VALIDATE_SHAREPOINT_SELECTION"));
     }

@@ -208,7 +208,7 @@ class SharePointCredentialApiTest {
         when(credentials.list(any())).thenReturn(List.of(view(id, "Entra app")));
         mockMvc.perform(get("/api/credentials/sharepoint").with(authentication(owner)))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
                 .andExpect(jsonPath("$[0].id").value(id.value().toString()))
                 .andExpect(jsonPath("$[0].name").value("Entra app"))
                 .andExpect(jsonPath("$[0].clientSecret").doesNotExist())
@@ -236,7 +236,7 @@ class SharePointCredentialApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(secretBody("Entra app")))
                 .andExpect(status().isCreated())
-                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
                 .andExpect(jsonPath("$.id").value(id.value().toString()));
     }
 

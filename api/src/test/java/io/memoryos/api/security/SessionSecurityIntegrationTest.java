@@ -706,7 +706,7 @@ class SessionSecurityIntegrationTest {
             var intake = memberClient.send(request(invitationUrl), HttpResponse.BodyHandlers.ofString());
             assertEquals(303, intake.statusCode());
             assertEquals("/invitation", intake.headers().firstValue("location").orElseThrow());
-            assertEquals("no-store", intake.headers().firstValue("cache-control").orElseThrow());
+            assertEquals("no-cache, no-store, max-age=0, must-revalidate", intake.headers().firstValue("cache-control").orElseThrow());
             assertEquals("no-referrer", intake.headers().firstValue("referrer-policy").orElseThrow());
 
             var current = memberClient.send(
@@ -714,7 +714,7 @@ class SessionSecurityIntegrationTest {
                     HttpResponse.BodyHandlers.ofString()
             );
             assertEquals(200, current.statusCode());
-            assertEquals("no-store", current.headers().firstValue("cache-control").orElseThrow());
+            assertEquals("no-cache, no-store, max-age=0, must-revalidate", current.headers().firstValue("cache-control").orElseThrow());
 
             var invalidIntake = memberClient.send(
                     request("/invite/not-a-valid-secret"),
@@ -847,7 +847,7 @@ class SessionSecurityIntegrationTest {
                     "/oauth2/authorization/memoryos",
                     activation.headers().firstValue("location").orElseThrow()
             );
-            assertEquals("no-store", activation.headers().firstValue("cache-control").orElseThrow());
+            assertEquals("no-cache, no-store, max-age=0, must-revalidate", activation.headers().firstValue("cache-control").orElseThrow());
             assertEquals("no-referrer", activation.headers().firstValue("referrer-policy").orElseThrow());
 
             AUTHENTICATING_SUBJECT.set(memberSubject);
