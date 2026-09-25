@@ -103,6 +103,12 @@ class SecurityResponseHeadersTest {
                 .andExpect(status().isNotFound()));
     }
 
+    @Test
+    void oauthCallbackOnItsOwnChainIsNeitherCachedNorSniffed() throws Exception {
+        expectDefaults(mockMvc.perform(get("/login/oauth2/code/google-drive").param("state", "unknown"))
+                .andExpect(status().is3xxRedirection()));
+    }
+
     private static void expectDefaults(ResultActions response) throws Exception {
         response.andExpect(header().string("Cache-Control", NOT_CACHED))
                 .andExpect(header().string("Pragma", "no-cache"))

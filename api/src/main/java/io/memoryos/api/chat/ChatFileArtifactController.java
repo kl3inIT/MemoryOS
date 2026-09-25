@@ -88,7 +88,7 @@ class ChatFileArtifactController {
     @ApiResponse(responseCode = "200", description = "Sheets in workbook order",
             content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ChatSpreadsheetPreviewResponse.class)))
     ChatSpreadsheetPreviewResponse preview(@CurrentActor IdentityContext identity,
-            @PathVariable UUID artifactId, HttpServletResponse response) {
+            @PathVariable UUID artifactId) {
         var sheets = files.spreadsheet(identity.actorId(), artifactId).stream()
                 .map(sheet -> new ChatSpreadsheetSheetResponse(sheet.name(), sheet.csv(), sheet.truncated())).toList();
         return new ChatSpreadsheetPreviewResponse(sheets);

@@ -25,7 +25,6 @@ import io.memoryos.iam.InvitationStatus;
 import io.memoryos.iam.InvitationView;
 import io.memoryos.iam.IssuedInvitation;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.UUID;
 
@@ -240,10 +239,7 @@ final class InvitationController {
             description = "No available invitation continuation exists"
     )
     @GetMapping("/current")
-    CurrentInvitationResponse current(
-            HttpServletRequest request,
-            HttpServletResponse response
-    ) {
+    CurrentInvitationResponse current(HttpServletRequest request) {
         var state = InvitationSessionState.read(request);
         if (state == null) {
             throw new InvitationException(
