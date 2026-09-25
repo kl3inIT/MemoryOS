@@ -580,30 +580,66 @@ public class OpenSearchIndexService implements SearchIndex {
     }
 
     /** All chunks of the generation are present, regardless of whether their metadata and access are current. */
-    public boolean containsGeneration(DocumentIndexState document) { return containsGeneration(document, identity()); }
-
-    @Override
-    public boolean containsGeneration(DocumentIndexState document, String identity) {
-        if (!gateway.exists("/" + readAlias(identity))) return false;
-        var count = gateway.json("POST", "/" + readAlias(identity) + "/_count", Map.of(), Map.of("query", Map.of("bool", Map.of(
-                "filter", List.of(term("tenant_id", document.tenantId().value().toString()),
-                        term("document_id", document.documentId().value().toString()), term("generation", document.generation().toString()),
-                        term("index_identity", identity))))));
-        return document.chunkCount() > 0 && count.path("count").asInt(-1) == document.chunkCount();
+    public boolean containsGeneration(DocumentIndexState document) {
+        return inspect(List.of(document), identity()).get(document.documentId()) != Projection.INCOMPLETE;
     }
 
-    public boolean contains(DocumentIndexState document) { return contains(document, identity()); }
+    /** All chunks of the generation are present with the current metadata and access fields. */
+    public boolean contains(DocumentIndexState document) {
+        return inspect(List.of(document), identity()).get(document.documentId()) == Projection.CURRENT;
+    }
 
+    /**
+     * One read of the expected metadata and access per Tenant of the page and one aggregation over the index: chunk
+     * counts per document, generation and metadata hash. The index has one shard, so the counts are exact.
+     */
     @Override
-    public boolean contains(DocumentIndexState document, String identity) {
-        if (!gateway.exists("/" + readAlias(identity))) return false;
-        String expectedMetadata = metadataHash(sourceSearch.indexMetadata(document.tenantId(), document.documentId(), document.generation()),
-                sourceSearch.indexAccess(document.tenantId(), document.documentId()));
-        var count = gateway.json("POST", "/" + readAlias(identity) + "/_count", Map.of(), Map.of("query", Map.of("bool", Map.of(
-                "filter", List.of(term("tenant_id", document.tenantId().value().toString()),
-                        term("document_id", document.documentId().value().toString()), term("generation", document.generation().toString()),
-                        term("metadata_hash", expectedMetadata), term("index_identity", identity))))));
-        return document.chunkCount() > 0 && count.path("count").asInt(-1) == document.chunkCount();
+    public Map<DocumentId, Projection> inspect(List<DocumentIndexState> page, String identity) {
+        if (page.isEmpty()) return Map.of();
+        if (page.size() > 1000) throw new IllegalArgumentException("document batch exceeds 1000");
+        var expected = new HashMap<DocumentId, String>();
+        var byTenant = new LinkedHashMap<TenantId, Map<DocumentId, UUID>>();
+        page.forEach(document -> byTenant.computeIfAbsent(document.tenantId(), _ -> new LinkedHashMap<>())
+                .put(document.documentId(), document.generation()));
+        byTenant.forEach((tenant, generations) -> {
+            var origins = sourceSearch.indexMetadata(tenant, generations);
+            var access = sourceSearch.indexAccess(tenant, generations.keySet());
+            generations.keySet().forEach(document -> expected.put(document, metadataHash(origins.get(document), access.get(document))));
+        });
+        Map<String, Object> byHash = Map.of("terms", Map.of("field", "metadata_hash", "size", 100));
+        Map<String, Object> byGeneration = Map.of("terms", Map.of("field", "generation", "size", 100), "aggs", Map.of("hashes", byHash));
+        Map<String, Object> byTenantId = Map.of("terms", Map.of("field", "tenant_id", "size", 10), "aggs", Map.of("generations", byGeneration));
+        Map<String, Object> byDocument = Map.of("terms", Map.of("field", "document_id", "size", page.size()), "aggs", Map.of("tenants", byTenantId));
+        var response = gateway.jsonOrMissing("POST", "/" + readAlias(identity) + "/_search", Map.of(), Map.of(
+                "size", 0,
+                "query", Map.of("bool", Map.of("filter", List.of(
+                        Map.of("terms", Map.of("tenant_id", byTenant.keySet().stream().map(tenant -> tenant.value().toString()).toList())),
+                        Map.of("terms", Map.of("document_id", page.stream().map(document -> document.documentId().value().toString()).distinct().toList())),
+                        term("index_identity", identity)))),
+                "aggs", Map.of("documents", byDocument)));
+        // Chunk counts by tenant/document/generation, and by that key plus metadata hash.
+        var counts = new HashMap<String, Long>();
+        for (var document : response.path("aggregations").path("documents").path("buckets")) {
+            for (var tenant : document.path("tenants").path("buckets")) {
+                for (var generation : tenant.path("generations").path("buckets")) {
+                    String key = tenant.path("key").asString() + "/" + document.path("key").asString() + "/" + generation.path("key").asString();
+                    counts.put(key, generation.path("doc_count").asLong());
+                    for (var hash : generation.path("hashes").path("buckets")) {
+                        counts.put(key + "/" + hash.path("key").asString(), hash.path("doc_count").asLong());
+                    }
+                }
+            }
+        }
+        var result = new HashMap<DocumentId, Projection>();
+        for (var document : page) {
+            String key = document.tenantId().value() + "/" + document.documentId().value() + "/" + document.generation();
+            long chunks = document.chunkCount();
+            Projection projection = Projection.INCOMPLETE;
+            if (chunks > 0 && counts.getOrDefault(key + "/" + expected.get(document.documentId()), 0L) == chunks) projection = Projection.CURRENT;
+            else if (chunks > 0 && counts.getOrDefault(key, 0L) == chunks) projection = Projection.STALE_FIELDS;
+            result.put(document.documentId(), projection);
+        }
+        return Map.copyOf(result);
     }
 
     public void purgeStale() { purgeStale(identity()); }

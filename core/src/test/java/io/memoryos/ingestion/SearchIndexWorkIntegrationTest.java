@@ -315,14 +315,13 @@ class SearchIndexWorkIntegrationTest {
         }
         var maintenance = new io.memoryos.ingestion.application.SearchProjectionMaintenance(chunks, work, index,
                 new DataSourceTransactionManager(dataSource));
-        when(index.contains(any(), any())).thenReturn(false);
-        when(index.containsGeneration(any(), any())).thenReturn(true);
+        when(index.inspect(any(), any())).thenAnswer(call -> projections(call.getArgument(0), SearchIndex.Projection.STALE_FIELDS));
         maintenance.reconcile();
         assertTrue(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "Access-only drift must keep the document searchable");
         assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations WHERE action='ACCESS'").query(String.class).single());
         assertEquals("SUCCESS", jdbc.sql("SELECT status FROM search_index_operations WHERE action='INDEX'").query(String.class).single());
 
-        when(index.containsGeneration(any(), any())).thenReturn(false);
+        org.mockito.Mockito.doAnswer(call -> projections(call.getArgument(0), SearchIndex.Projection.INCOMPLETE)).when(index).inspect(any(), any());
         maintenance.reconcile();
         assertFalse(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "Missing chunks still require a full rewrite");
         assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations WHERE action='INDEX'").query(String.class).single());
@@ -401,6 +400,12 @@ class SearchIndexWorkIntegrationTest {
     }
     private UUID generation(DocumentId document) {
         return jdbc.sql("SELECT content_generation FROM documents WHERE id=:id").param("id", document.value()).query(UUID.class).single();
+    }
+    private static java.util.Map<DocumentId, SearchIndex.Projection> projections(List<io.memoryos.document.DocumentIndexState> page,
+            SearchIndex.Projection projection) {
+        var result = new java.util.HashMap<DocumentId, SearchIndex.Projection>();
+        page.forEach(state -> result.put(state.documentId(), projection));
+        return result;
     }
     private int count(String table) { return jdbc.sql("SELECT COUNT(*) FROM " + table).query(Integer.class).single(); }
 }

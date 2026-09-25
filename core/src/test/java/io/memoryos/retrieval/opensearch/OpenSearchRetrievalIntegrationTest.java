@@ -102,8 +102,9 @@ class OpenSearchRetrievalIntegrationTest {
             when(sourceSearch.indexMetadata(any(), any(), any())).thenAnswer(call ->
                     leave.documentId().equals(call.getArgument(1)) ? origins.get() : List.of());
             var accessOf = new java.util.concurrent.ConcurrentHashMap<DocumentId, DocumentAccess>();
-            when(sourceSearch.indexAccess(any(), any())).thenAnswer(call ->
+            when(sourceSearch.indexAccess(any(), any(DocumentId.class))).thenAnswer(call ->
                     accessOf.getOrDefault(call.<DocumentId>getArgument(1), new DocumentAccess(true, Set.of())));
+            io.memoryos.connector.SourceSearchMocks.answerPagesFromSingleDocuments(sourceSearch);
             // Before the first write the index does not exist: searches find nothing and a document window is unavailable.
             assertTrue(index.search(tenant, "vacation policy", List.of(), null, Set.of()).isEmpty());
             assertThrows(io.memoryos.retrieval.SearchDocumentUnavailableException.class,
@@ -137,6 +138,21 @@ class OpenSearchRetrievalIntegrationTest {
             accessOf.put(restricted.documentId(), new DocumentAccess(false, Set.of()));
             assertFalse(index.contains(restrictedState), "An access change must make the projection stale");
             assertTrue(index.containsGeneration(restrictedState), "Stale access alone leaves the complete generation indexed");
+            // Reconcile reads a whole page at once: one metadata and one access read per Tenant, one aggregation, no HEAD.
+            // Per document it used to cost two metadata/access reads, two HEADs and two _count requests.
+            var leaveReady = new DocumentIndexState(tenant, leave.documentId(), leave.generation(), 1, true);
+            var neverIndexed = new DocumentIndexState(tenant, new DocumentId(UUID.randomUUID()), UUID.randomUUID(), 1, true);
+            var shorter = new DocumentIndexState(tenant, unrelated.documentId(), unrelated.generation(), 2, true);
+            clearInvocations(gateway, sourceSearch);
+            assertEquals(Map.of(leave.documentId(), io.memoryos.retrieval.SearchIndex.Projection.CURRENT,
+                    restricted.documentId(), io.memoryos.retrieval.SearchIndex.Projection.STALE_FIELDS,
+                    neverIndexed.documentId(), io.memoryos.retrieval.SearchIndex.Projection.INCOMPLETE,
+                    unrelated.documentId(), io.memoryos.retrieval.SearchIndex.Projection.INCOMPLETE),
+                    index.inspect(List.of(leaveReady, restrictedState, neverIndexed, shorter), index.identity()));
+            assertEquals(1, org.mockito.Mockito.mockingDetails(gateway).getInvocations().size());
+            verify(gateway, org.mockito.Mockito.never()).exists(any());
+            verify(sourceSearch).indexMetadata(org.mockito.ArgumentMatchers.eq(tenant), org.mockito.ArgumentMatchers.anyMap());
+            verify(sourceSearch).indexAccess(org.mockito.ArgumentMatchers.eq(tenant), org.mockito.ArgumentMatchers.anyCollection());
             clearInvocations(model);
             index.updateAccess(tenant, restricted.documentId(), restricted.generation());
             verifyNoInteractions(model);

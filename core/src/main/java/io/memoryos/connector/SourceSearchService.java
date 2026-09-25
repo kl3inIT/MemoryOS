@@ -35,6 +35,14 @@ public class SourceSearchService {
         return documents.documentAccess(tenant, document.value());
     }
 
+    /** Index-time access of several documents of one Tenant in one read; every requested document has an entry. */
+    public Map<DocumentId, DocumentAccess> indexAccess(TenantId tenant, java.util.Collection<DocumentId> documents) {
+        var result = new java.util.HashMap<DocumentId, DocumentAccess>();
+        this.documents.documentAccess(tenant, documents.stream().map(DocumentId::value).distinct().toList())
+                .forEach((document, access) -> result.put(new DocumentId(document), access));
+        return Map.copyOf(result);
+    }
+
     public record SourceOption(UUID id, String name, SourceType type) {}
 
     public List<SourceOption> options(ActorId actor, int offset, int limit) {
@@ -69,5 +77,18 @@ public class SourceSearchService {
     public List<DocumentSourceMetadata> indexMetadata(TenantId tenant, DocumentId document, UUID generation) {
         return documents.sourceMetadata(tenant, List.of(document.value()), null, generation)
                 .getOrDefault(document.value(), List.of());
+    }
+
+    /**
+     * {@link #indexMetadata(TenantId, DocumentId, UUID)} of several documents of one Tenant in one read, each at its
+     * own generation; a document without eligible metadata has an empty list.
+     */
+    public Map<DocumentId, List<DocumentSourceMetadata>> indexMetadata(TenantId tenant, Map<DocumentId, UUID> generations) {
+        var byId = new java.util.HashMap<UUID, UUID>();
+        generations.forEach((document, generation) -> byId.put(document.value(), generation));
+        var found = documents.indexMetadata(tenant, byId);
+        var result = new java.util.HashMap<DocumentId, List<DocumentSourceMetadata>>();
+        generations.keySet().forEach(document -> result.put(document, found.getOrDefault(document.value(), List.of())));
+        return Map.copyOf(result);
     }
 }
