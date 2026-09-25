@@ -3,7 +3,6 @@ package io.memoryos.api.chat;
 import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.chat.contract.AvailableChatModelResponse;
 import io.memoryos.api.chat.contract.ChatAgentRefResponse;
-import io.memoryos.api.chat.contract.ChatAgentShareOptionsResponse;
 import io.memoryos.api.chat.contract.ChatPersonaLabelRequest;
 import io.memoryos.api.chat.contract.ChatPersonaPinsRequest;
 import io.memoryos.chat.AgentListFilter;
@@ -162,13 +161,6 @@ class ChatPersonaController {
     List<SourceSearchService.SourceOption> sources(@CurrentActor IdentityContext identity,
             @RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "100") int limit) {
         return sources.options(identity.actorId(), offset, limit);
-    }
-    @GetMapping("/persona-share-options")
-    @Operation(operationId = "listChatPersonaShareOptions", summary = "Search active members and ordinary Groups to share an agent with")
-    @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    ChatAgentShareOptionsResponse shareOptions(@CurrentActor IdentityContext identity,
-            @RequestParam(required = false) @Nullable String q, @RequestParam(defaultValue = "20") int limit) {
-        return ChatAgentShareOptionsResponse.from(personas.shareOptions(identity.actorId(), q, limit));
     }
     @GetMapping("/persona-labels")
     @Operation(operationId = "listChatPersonaLabels", summary = "List agent labels")

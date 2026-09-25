@@ -365,16 +365,6 @@ public class ChatPersonaService {
         return views(tenant, actor, manage, kept);
     }
 
-    @Transactional(readOnly = true)
-    public AgentShareOptions shareOptions(ActorId actor, @Nullable String query, int limit) {
-        var tenant = tenant(actor);
-        authorization.require(actor, IamCapability.CHAT_WRITE, false);
-        if (limit < 1 || limit > 50) throw ChatException.invalid("Invalid page.");
-        String normalized = query == null || query.isBlank() ? null : query.strip();
-        if (normalized != null && normalized.length() > 200) throw ChatException.invalid("Search text is too long.");
-        return agents.shareOptions(tenant.value(), normalized, limit);
-    }
-
     public record Avatar(ObjectContent content, String mediaType) {}
 
     @Transactional(readOnly = true)

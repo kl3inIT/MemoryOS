@@ -12,13 +12,8 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { listChatPersonaShareOptions } from "@/lib/hey-api/sdk.gen";
-import {
-  personLabel,
-  principalOptionsSchema,
-  type Person,
-  type NamedRef,
-} from "@/features/identity/principals";
+import { searchPrincipals } from "@/lib/hey-api/sdk.gen";
+import { personLabel, type Person, type NamedRef } from "@/features/identity/principals";
 
 export type Principal = { kind: "person"; person: Person } | { kind: "group"; group: NamedRef };
 
@@ -40,17 +35,10 @@ export function PrincipalPicker({
   const [search, setSearch] = useState("");
   const query = useDeferredValue(search.trim());
   const options = useQuery({
-    queryKey: ["chat-persona-share-options", actorId, authorizationVersion, query],
+    queryKey: ["identity-principals", actorId, authorizationVersion, query],
     enabled: query !== "",
     queryFn: async ({ signal }) =>
-      principalOptionsSchema.parse(
-        (
-          await listChatPersonaShareOptions({
-            query: { q: query, limit: 20 },
-            signal,
-          })
-        ).data,
-      ),
+      (await searchPrincipals({ query: { search: query, size: 20 }, signal })).data,
   });
   const people = options.data?.people.filter((person) => !exclude.has(person.actorId)) ?? [];
   const groupRows = groups

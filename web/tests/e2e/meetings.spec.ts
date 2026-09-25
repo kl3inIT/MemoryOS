@@ -336,7 +336,7 @@ async function mockMeetings(page: Page) {
     };
     await route.fulfill({ json: meeting!.minutes.actions.find((item) => item.id === id) });
   });
-  await page.route("**/api/chat/persona-share-options*", (route) =>
+  await page.route("**/api/identity/principals*", (route) =>
     route.fulfill({
       json: {
         people: [

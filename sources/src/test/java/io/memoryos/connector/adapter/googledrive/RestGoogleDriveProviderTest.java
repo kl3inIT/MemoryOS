@@ -87,7 +87,7 @@ class RestGoogleDriveProviderTest {
                          {"permissionType":"file","role":"commenter","inherited":false}]}]}
                     """);
         }); var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 1_000, 0, 0, 0, 0, 0), mapper);
+                fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 1_000, 0, 0, 0, 0, 0, null, null, null, null, null), mapper);
              var credential = credential(); var session = provider.open(credential)) {
             var permissions = session.permissions("shared-file");
             assertEquals(List.of(
@@ -258,7 +258,7 @@ class RestGoogleDriveProviderTest {
         String second = "{\"permissions\":[{\"id\":\"second\",\"type\":\"user\",\"role\":\"reader\"}]}";
         try (var fixture = new Fixture(exchange -> ok(decodedQuery(exchange).contains("pageToken=next") ? second : first));
              var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                     fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, bytes(first).length), mapper);
+                     fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, bytes(first).length, null, null, null, null, null), mapper);
              var credential = credential(); var session = provider.open(credential)) {
             assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(GoogleDriveProviderException.class,
                     () -> session.permissions("file1")).failure());
@@ -282,7 +282,7 @@ class RestGoogleDriveProviderTest {
         }
         try (var fixture = new Fixture(exchange -> ok("{\"permissions\":[" + entry + "]}"));
              var provider = new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                     fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, 32), mapper);
+                     fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, 0, 0, 0, 0, 32, null, null, null, null, null), mapper);
              var credential = credential(); var session = provider.open(credential)) {
             assertEquals(Failure.LIMIT_EXCEEDED, assertThrows(GoogleDriveProviderException.class,
                     () -> session.permissions("file1")).failure());
@@ -601,7 +601,7 @@ class RestGoogleDriveProviderTest {
 
     private RestGoogleDriveProvider provider(Fixture fixture, int binaryLimit, int requests) {
         return new RestGoogleDriveProvider(new GoogleDriveProviderProperties(fixture.base.resolve("/token"),
-                fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, requests, 0, 0, binaryLimit, 0), mapper);
+                fixture.base, fixture.base, fixture.base, fixture.base, null, null, null, 0, requests, 0, 0, binaryLimit, 0, null, null, null, null, null), mapper);
     }
 
     private static GoogleDriveProvider.Credential credential() {
