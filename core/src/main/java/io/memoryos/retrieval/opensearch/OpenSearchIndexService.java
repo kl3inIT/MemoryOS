@@ -60,6 +60,13 @@ public class OpenSearchIndexService implements SearchIndex {
     private final SearchTimings timings;
     private static final int ACCESS_UPDATE_BATCH = 128;
     private final Map<String, String> sweepCursors = new java.util.concurrent.ConcurrentHashMap<>();
+    /**
+     * Indexes this process has verified against their generation (identity to generation ID). Writes skip the
+     * verification afterwards; an index deleted since, by this or another process, is noticed by the write itself.
+     */
+    private final Map<String, UUID> ensured = new java.util.concurrent.ConcurrentHashMap<>();
+    /** One verification or creation at a time per index; other indexes and verified writes are not held up. */
+    private final Map<String, Object> ensuring = new java.util.concurrent.ConcurrentHashMap<>();
 
     public OpenSearchIndexService(OpenSearchGateway gateway, SearchGenerations generations,
             SearchProperties properties, ObjectMapper mapper, DocumentChunkPort documents, SourceSearchService sourceSearch, SearchTimings timings) {
@@ -120,15 +127,40 @@ public class OpenSearchIndexService implements SearchIndex {
         gateway.delete("/" + identity);
         gateway.delete("/_search/pipeline/" + pipeline(identity));
         sweepCursors.remove(identity);
+        ensured.remove(identity);
         return !gateway.exists("/" + identity);
     }
+
+    /** Verifies the index once per process and generation; later writes go straight to it. */
+    private void ensureWritable(SearchGenerations.Active active) {
+        if (active.generation().id().equals(ensured.get(active.identity()))) return;
+        ensureIndex(active, false);
+    }
+
+    /** Forgets the verification of an index a write found missing, so the next ensure checks and creates it again. */
+    private void invalidate(String identity) { ensured.remove(identity); }
 
     /**
      * Only PRESENT creates its index on first write, as a fresh deployment needs. A FUTURE index is created with its
      * generation; one missing later was cancelled. Writes go through the write alias with {@code require_alias}, so a
      * FUTURE deleted after this check still cannot be recreated as an unmapped index by a write already under way.
+     * The explicit calls (startup, settings) always verify; writes do so once per process and generation.
      */
-    private synchronized void ensureIndex(SearchGenerations.Active active, boolean create) {
+    private void ensureIndex(SearchGenerations.Active active, boolean create) {
+        synchronized (ensuring.computeIfAbsent(active.identity(), _ -> new Object())) {
+            // A write that waited for another thread's verification of the same generation needs none of its own.
+            if (!create && active.generation().id().equals(ensured.get(active.identity()))) return;
+            try {
+                verifyIndex(active, create);
+            } catch (RuntimeException failure) {
+                ensured.remove(active.identity());
+                throw failure;
+            }
+            ensured.put(active.identity(), active.generation().id());
+        }
+    }
+
+    private void verifyIndex(SearchGenerations.Active active, boolean create) {
         var generation = active.generation();
         String identity = active.identity();
         if (!gateway.exists("/" + identity)) {
@@ -232,8 +264,19 @@ public class OpenSearchIndexService implements SearchIndex {
     @Override
     public void index(DocumentChunkSet document, String identity) {
         var active = resolve(identity);
-        var embeddings = active.embeddings();
+        ensureWritable(active);
+        if (write(active, document)) return;
+        // The index was deleted after this process verified it. PRESENT is created again; a FUTURE was cancelled and
+        // its ensure refuses. One more attempt only: a second disappearance is a failure like any other.
+        invalidate(identity);
         ensureIndex(active, false);
+        if (!write(active, document)) throw new SearchUnavailableException();
+    }
+
+    /** Writes every chunk and checks the count; false when the index turned out to be missing. */
+    private boolean write(SearchGenerations.Active active, DocumentChunkSet document) {
+        String identity = active.identity();
+        var embeddings = active.embeddings();
         var origins = sourceSearch.indexMetadata(document.tenantId(), document.documentId(), document.generation());
         var sourceMetadata = metadata(origins);
         var access = sourceSearch.indexAccess(document.tenantId(), document.documentId());
@@ -241,6 +284,7 @@ public class OpenSearchIndexService implements SearchIndex {
         for (int offset = 0; offset < document.chunks().size(); offset += embeddings.batchSize()) {
             var batch = document.chunks().subList(offset, Math.min(offset + embeddings.batchSize(), document.chunks().size()));
             var found = existing(active, document, batch);
+            if (found == null) return false;
             var missing = batch.stream().filter(chunk -> !found.containsKey(chunk.contentSha256())).toList();
             if (!missing.isEmpty()) {
                 var generated = embeddings.documents(missing.stream().map(DocumentChunk::content).toList(),
@@ -273,6 +317,7 @@ public class OpenSearchIndexService implements SearchIndex {
             }
             // A cancelled FUTURE's index can be deleted while its chunks are embedded; the alias went with it.
             var response = gateway.bulkThroughAlias(writeAlias(identity), body.toString());
+            if (OpenSearchGateway.indexMissing(response)) return false;
             if (response.path("errors").asBoolean(true) || response.path("items").size() != batch.size()) throw new SearchUnavailableException();
             int acknowledged = 0;
             for (JsonNode item : response.path("items")) {
@@ -281,22 +326,26 @@ public class OpenSearchIndexService implements SearchIndex {
                         .equals(item.path("index").path("_id").asString())) throw new SearchUnavailableException();
             }
         }
-        var count = gateway.json("POST", "/" + readAlias(identity) + "/_count", Map.of(),
+        var count = gateway.jsonOrMissing("POST", "/" + readAlias(identity) + "/_count", Map.of(),
                 Map.of("query", Map.of("bool", Map.of("filter", List.of(
                         term("tenant_id", document.tenantId().value().toString()), term("document_id", document.documentId().value().toString()),
                         term("generation", document.generation().toString()), term("index_identity", identity))))));
+        if (OpenSearchGateway.indexMissing(count)) return false;
         if (count.path("count").asInt(-1) != document.chunks().size()) throw new SearchUnavailableException();
+        return true;
     }
 
-    private Map<String,float[]> existing(SearchGenerations.Active active, DocumentChunkSet document, List<DocumentChunk> chunks) {
+    /** Reusable vectors by content hash; null when the index is missing. */
+    private @Nullable Map<String,float[]> existing(SearchGenerations.Active active, DocumentChunkSet document, List<DocumentChunk> chunks) {
         String identity = active.identity();
         // Surviving vectors in this same model space also cover metadata-only changes.
-        var response = gateway.json("POST", "/" + identity + "/_search", Map.of(), Map.of(
+        var response = gateway.jsonOrMissing("POST", "/" + identity + "/_search", Map.of(), Map.of(
                 "size", chunks.size(), "_source", List.of("content_hash", "vector"),
                 "collapse", Map.of("field", "content_hash"),
                 "query", Map.of("bool", Map.of("filter", List.of(term("tenant_id", document.tenantId().value().toString()),
                         term("document_id", document.documentId().value().toString()), term("index_identity", identity),
                         Map.of("terms", Map.of("content_hash", chunks.stream().map(DocumentChunk::contentSha256).distinct().toList())))))));
+        if (OpenSearchGateway.indexMissing(response)) return null;
         var result = new HashMap<String,float[]>();
         for (var hit : response.path("hits").path("hits")) {
             var source = hit.path("_source");
@@ -484,8 +533,11 @@ public class OpenSearchIndexService implements SearchIndex {
     @Override
     public void updateAccess(TenantId tenant, DocumentId document, UUID generation, String identity) {
         var active = resolve(identity);
-        if (!gateway.exists("/" + identity)) return;
-        ensureIndex(active, false);
+        // Nothing is indexed in a missing index; only an index this process has not verified yet is checked first.
+        if (!active.generation().id().equals(ensured.get(identity))) {
+            if (!gateway.exists("/" + identity)) return;
+            ensureWritable(active);
+        }
         var origins = sourceSearch.indexMetadata(tenant, document, generation);
         var access = sourceSearch.indexAccess(tenant, document);
         var fields = new HashMap<String, Object>();
@@ -495,6 +547,7 @@ public class OpenSearchIndexService implements SearchIndex {
         fields.put("access_control_list", access.sortedTokens());
         var ids = chunkIds(identity, List.of(term("tenant_id", tenant.value().toString()), term("document_id", document.value().toString()),
                 term("generation", generation.toString()), term("index_identity", identity)));
+        if (ids == null) { invalidate(identity); return; }
         String update = mapper.writeValueAsString(Map.of("doc", fields));
         // Each partial update re-indexes the whole chunk including its vector, so batches stay bounded like writes.
         for (int offset = 0; offset < ids.size(); offset += ACCESS_UPDATE_BATCH) {
@@ -504,6 +557,7 @@ public class OpenSearchIndexService implements SearchIndex {
                 body.append(mapper.writeValueAsString(Map.of("update", Map.of("_id", id)))).append('\n').append(update).append('\n');
             }
             var response = gateway.bulkThroughAlias(writeAlias(identity), body.toString());
+            if (OpenSearchGateway.indexMissing(response)) { invalidate(identity); return; }
             // Every chunk must accept the same fields; a missing chunk means a concurrent rewrite, so the work retries.
             if (response.path("errors").asBoolean(true) || response.path("items").size() != batch.size()) throw new SearchUnavailableException();
             for (JsonNode item : response.path("items")) {
@@ -513,10 +567,12 @@ public class OpenSearchIndexService implements SearchIndex {
         }
     }
 
-    /** IDs of at most 10,000 matching chunks (the per-document chunk bound), without source or vectors. */
-    private List<String> chunkIds(String identity, List<Object> filters) {
-        var hits = gateway.json("POST", "/" + identity + "/_search", Map.of(), Map.of("size", 10000, "_source", false, "track_total_hits", true,
-                "query", Map.of("bool", Map.of("filter", filters)))).path("hits");
+    /** IDs of at most 10,000 matching chunks (the per-document chunk bound), without source or vectors; null when the index is missing. */
+    private @Nullable List<String> chunkIds(String identity, List<Object> filters) {
+        var response = gateway.jsonOrMissing("POST", "/" + identity + "/_search", Map.of(), Map.of("size", 10000, "_source", false,
+                "track_total_hits", true, "query", Map.of("bool", Map.of("filter", filters))));
+        if (OpenSearchGateway.indexMissing(response)) return null;
+        var hits = response.path("hits");
         if (hits.path("total").path("value").asInt(0) > 10000) throw new SearchUnavailableException();
         var ids = new ArrayList<String>();
         hits.path("hits").forEach(hit -> ids.add(hit.path("_id").asString()));
@@ -555,13 +611,14 @@ public class OpenSearchIndexService implements SearchIndex {
     @Override
     public synchronized void purgeStale(String identity) {
         String sweepCursor = sweepCursors.getOrDefault(identity, "");
-        if (!gateway.exists("/" + identity)) { sweepCursors.remove(identity); return; }
         var body = new HashMap<String,Object>();
         body.put("size", 500);
         body.put("sort", List.of(Map.of("chunk_key", "asc")));
         body.put("_source", List.of("tenant_id", "document_id", "generation", "chunk_key"));
         if (!sweepCursor.isEmpty()) body.put("search_after", List.of(sweepCursor));
-        var hits = gateway.json("POST", "/" + identity + "/_search", Map.of(), body).path("hits").path("hits");
+        var response = gateway.jsonOrMissing("POST", "/" + identity + "/_search", Map.of(), body);
+        if (OpenSearchGateway.indexMissing(response)) { sweepCursors.remove(identity); return; }
+        var hits = response.path("hits").path("hits");
         var byTenant = new HashMap<TenantId, List<JsonNode>>();
         for (var hit : hits) {
             var source = hit.path("_source");
@@ -594,7 +651,6 @@ public class OpenSearchIndexService implements SearchIndex {
 
     @Override
     public void delete(TenantId tenant, DocumentId document, String identity) {
-        if (!gateway.exists("/" + identity)) return;
         deleteMatching(identity, documentFilter(tenant, document));
     }
 
@@ -603,7 +659,6 @@ public class OpenSearchIndexService implements SearchIndex {
 
     @Override
     public void purgeObsolete(TenantId tenant, DocumentId document, String identity) {
-        if (!gateway.exists("/" + identity)) return;
         var retained = documents.retainedGenerations(tenant, List.of(document.value())).getOrDefault(document.value(), Set.of());
         var query = documentFilter(tenant, document);
         if (!retained.isEmpty()) {
@@ -618,11 +673,13 @@ public class OpenSearchIndexService implements SearchIndex {
         return query;
     }
 
+    /** Deletes the matching chunks by ID; a missing index holds none. */
     private void deleteMatching(String identity, Map<String, Object> bool) {
         for (int round = 0; round < 100; round++) {
-            var hits = gateway.json("POST", "/" + identity + "/_search", Map.of(), Map.of("size", 1000, "_source", false,
-                    "query", Map.of("bool", bool))).path("hits").path("hits");
-            if (hits.isEmpty()) return;
+            var found = gateway.jsonOrMissing("POST", "/" + identity + "/_search", Map.of(), Map.of("size", 1000, "_source", false,
+                    "query", Map.of("bool", bool)));
+            var hits = found.path("hits").path("hits");
+            if (OpenSearchGateway.indexMissing(found) || hits.isEmpty()) return;
             var body = new StringBuilder();
             for (var hit : hits) {
                 body.append(mapper.writeValueAsString(Map.of("delete", Map.of("_id", hit.path("_id").asString())))).append('\n');

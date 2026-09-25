@@ -112,6 +112,12 @@ class OpenSearchRetrievalIntegrationTest {
             index.index(leave);
             index.index(unrelated);
             index.index(privateFile);
+            // The index was verified by the first write; later writes send only the vector lookup, the bulk and the count.
+            clearInvocations(gateway);
+            index.index(unrelated);
+            verify(gateway, org.mockito.Mockito.never()).exists(any());
+            verify(gateway, org.mockito.Mockito.never()).json(any(), any(), any(), any());
+            assertEquals(3, org.mockito.Mockito.mockingDetails(gateway).getInvocations().size());
             assertTrue(index.contains(new DocumentIndexState(tenant,privateFile.documentId(),privateFile.generation(),1,true)));
             assertTrue(index.search(tenant,"vacation policy",List.of(), null, Set.of()).stream()
                     .noneMatch(hit -> hit.documentId().equals(privateFile.documentId().value())),
@@ -244,7 +250,11 @@ class OpenSearchRetrievalIntegrationTest {
             // A missing physical index is rebuilt using the same real write path.
             gateway.json("DELETE", "/" + index.identity(), Map.of(), null);
             assertFalse(index.contains(unrelatedState));
+            // The write finds the verified index gone, forgets the verification, creates and verifies it once, and retries.
+            clearInvocations(gateway);
             index.index(unrelated);
+            verify(gateway).json(org.mockito.ArgumentMatchers.eq("PUT"), org.mockito.ArgumentMatchers.eq("/" + index.identity()), any(), any());
+            verify(gateway).json(org.mockito.ArgumentMatchers.eq("GET"), org.mockito.ArgumentMatchers.eq("/" + index.identity() + "/_mapping"), any(), any());
             assertTrue(index.contains(unrelatedState));
             var chunks = java.util.stream.IntStream.range(0, 25).mapToObj(i -> {
                 String text = "vacation policy section " + i;
