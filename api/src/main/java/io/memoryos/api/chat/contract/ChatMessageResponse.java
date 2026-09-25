@@ -1,5 +1,8 @@
 package io.memoryos.api.chat.contract;
 
+import io.memoryos.chat.ChatActivity;
+import io.memoryos.chat.ChatArtifact;
+import io.memoryos.chat.ChatFileDescriptor;
 import io.memoryos.chat.ChatMessage;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
@@ -19,9 +22,9 @@ public record ChatMessageResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}, format = "date-time") @Nullable Instant finishedAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ChatSourceResponse> sources,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<io.memoryos.chat.ChatFileDescriptor> files,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<io.memoryos.chat.ChatArtifact> artifacts,
-        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) io.memoryos.chat.ChatActivity activity,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ChatFileDescriptor> files,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ChatArtifact> artifacts,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED) ChatActivity activity,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<ImageRef> images,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<GeneratedFileRef> generatedFiles,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Research research,
@@ -53,7 +56,7 @@ public record ChatMessageResponse(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"integer", "null"}, format = "int64") @Nullable Long durationMs,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String report,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<Citation> citations,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) io.memoryos.chat.ChatActivity activity) {}
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED) ChatActivity activity) {}
 
     @Schema(name = "ChatMessageResearchCitation")
     public record Citation(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int marker,

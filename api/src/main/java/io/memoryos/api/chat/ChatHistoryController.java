@@ -22,6 +22,8 @@ import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
@@ -91,7 +93,7 @@ class ChatHistoryController {
                 HttpServletResponse response) throws IOException {
         response.setContentType("text/csv; charset=UTF-8");
         response.setHeader("Content-Disposition", ContentDisposition.attachment()
-                .filename("chat-history_" + java.time.LocalDate.now(java.time.ZoneOffset.UTC) + ".csv",
+                .filename("chat-history_" + LocalDate.now(ZoneOffset.UTC) + ".csv",
                         StandardCharsets.UTF_8)
                 .build().toString());
         Writer writer = new OutputStreamWriter(response.getOutputStream(), StandardCharsets.UTF_8);

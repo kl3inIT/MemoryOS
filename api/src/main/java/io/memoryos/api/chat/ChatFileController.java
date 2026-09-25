@@ -10,6 +10,9 @@ import io.memoryos.api.chat.contract.ChatFileUploadResponse;
 import io.memoryos.library.UserFileService;
 import io.memoryos.library.UserFileContentService;
 import io.memoryos.api.chat.contract.ChatFileTextResponse;
+import io.memoryos.retrieval.SearchDocument;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.ContentDisposition;
 import jakarta.servlet.http.HttpServletResponse;
@@ -62,7 +65,7 @@ class ChatFileController {
     @GetMapping("/{fileId}/passages")
     @Operation(operationId="readChatFilePassages", summary="Read current owner-private indexed file passages at a cited position")
     @ApiResponse(responseCode="200",description="Authorized file passages",useReturnTypeSchema=true)
-    ResponseEntity<io.memoryos.retrieval.SearchDocument> passages(@CurrentActor IdentityContext identity,
+    ResponseEntity<SearchDocument> passages(@CurrentActor IdentityContext identity,
             @PathVariable UUID fileId, @RequestParam UUID generation, @RequestParam(defaultValue="0") int from) {
         return ResponseEntity.ok().body(search.read(identity.actorId(), fileId, generation, from));
     }
@@ -139,7 +142,7 @@ class ChatFileController {
     List<ChatFileResponse> recent(@CurrentActor IdentityContext identity,
             @RequestParam(defaultValue="0") int offset, @RequestParam(defaultValue="30") int limit) {
         var recent = files.recent(identity.actorId(), offset, limit);
-        var ready = search.ready(identity.actorId(), recent.stream().map(UserFile::id).collect(java.util.stream.Collectors.toSet()));
+        var ready = search.ready(identity.actorId(), recent.stream().map(UserFile::id).collect(Collectors.toSet()));
         return recent.stream().map(file -> ChatFileResponse.from(file, ready.contains(file.id()))).toList();
     }
 
@@ -147,7 +150,7 @@ class ChatFileController {
     @Operation(operationId="getChatFile", summary="Read file metadata and processing status")
     @ApiResponse(responseCode="200",description="File metadata",useReturnTypeSchema=true)
     ChatFileResponse get(@CurrentActor IdentityContext identity, @PathVariable UUID fileId) {
-        return ChatFileResponse.from(files.get(identity.actorId(), fileId), search.ready(identity.actorId(), java.util.Set.of(fileId)).contains(fileId));
+        return ChatFileResponse.from(files.get(identity.actorId(), fileId), search.ready(identity.actorId(), Set.of(fileId)).contains(fileId));
     }
 
     @PostMapping("/{fileId}/retry")

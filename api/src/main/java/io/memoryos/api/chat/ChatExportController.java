@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.core.io.InputStreamResource;
@@ -78,7 +79,7 @@ class ChatExportController {
         var metadata = download.content().metadata();
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
-                        .filename(download.filename(), java.nio.charset.StandardCharsets.UTF_8).build().toString())
+                        .filename(download.filename(), StandardCharsets.UTF_8).build().toString())
                 .contentType(MediaType.parseMediaType("application/zip"))
                 .contentLength(metadata.sizeBytes())
                 

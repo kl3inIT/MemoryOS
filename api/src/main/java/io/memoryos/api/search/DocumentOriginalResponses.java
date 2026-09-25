@@ -7,6 +7,7 @@ import io.memoryos.retrieval.DocumentOriginalService.RangeNotSatisfiableExceptio
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
@@ -24,8 +25,8 @@ import org.springframework.http.MediaType;
  */
 public final class DocumentOriginalResponses {
     /** Types a browser would run as script in this origin if it displayed them. */
-    private static final java.util.Set<String> SCRIPTABLE =
-            java.util.Set.of("text/html", "image/svg+xml", "application/xhtml+xml");
+    private static final Set<String> SCRIPTABLE =
+            Set.of("text/html", "image/svg+xml", "application/xhtml+xml");
 
     private static final Pattern SINGLE_RANGE = Pattern.compile("bytes=(\\d{1,18})-(\\d{0,18})", Pattern.CASE_INSENSITIVE);
 

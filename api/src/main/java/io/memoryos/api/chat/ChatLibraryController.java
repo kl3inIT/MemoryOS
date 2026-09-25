@@ -27,13 +27,18 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -171,12 +176,12 @@ class ChatLibraryController {
     @ApiResponse(responseCode = "200", description = "The ZIP bytes",
             content = @Content(mediaType = "application/zip", schema = @Schema(type = "string", format = "binary")))
     void downloadArchive(@CurrentActor IdentityContext identity,
-            @PathVariable UUID archiveId, jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
+            @PathVariable UUID archiveId, HttpServletResponse response) throws IOException {
         var download = archives.open(identity.actorId(), archiveId);
         try (var content = download.content()) {
             response.setContentType("application/zip");
-            response.setHeader("Content-Disposition", org.springframework.http.ContentDisposition.attachment()
-                    .filename(download.filename(), java.nio.charset.StandardCharsets.UTF_8).build().toString());
+            response.setHeader("Content-Disposition", ContentDisposition.attachment()
+                    .filename(download.filename(), StandardCharsets.UTF_8).build().toString());
             response.setContentLengthLong(content.metadata().sizeBytes());
             content.inputStream().transferTo(response.getOutputStream());
         }
@@ -193,7 +198,7 @@ class ChatLibraryController {
                 usage.fileCount(), usage.limitBytes(),
                 usage.byCategory().entrySet().stream()
                         .map(entry -> new ChatLibraryCategoryUsageResponse(entry.getKey().name(), entry.getValue()))
-                        .sorted(java.util.Comparator.comparing(ChatLibraryCategoryUsageResponse::category)).toList()));
+                        .sorted(Comparator.comparing(ChatLibraryCategoryUsageResponse::category)).toList()));
     }
 
     @GetMapping("/trash")

@@ -22,6 +22,7 @@ import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.parameters.HeaderParameter;
 
+import io.swagger.v3.oas.models.parameters.Parameter;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -130,7 +131,7 @@ class OpenApiConfiguration {
                     || handlerMethod.hasMethodAnnotation(PutMapping.class)
                     || handlerMethod.hasMethodAnnotation(PatchMapping.class)
                     || handlerMethod.hasMethodAnnotation(DeleteMapping.class)) {
-                List<io.swagger.v3.oas.models.parameters.Parameter> parameters =
+                List<Parameter> parameters =
                         operation.getParameters() == null ? new ArrayList<>() : operation.getParameters();
                 parameters.addFirst(new HeaderParameter()
                         .name(BrowserMutation.HEADER)

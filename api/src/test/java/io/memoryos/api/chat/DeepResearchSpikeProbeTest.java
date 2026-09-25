@@ -15,6 +15,12 @@ import com.embabel.chat.ToolCall;
 import com.embabel.chat.ToolResultMessage;
 import com.embabel.chat.UserMessage;
 import com.embabel.common.ai.model.LlmOptions;
+import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.core.JsonValue;
+import com.openai.models.responses.FunctionTool;
+import com.openai.models.responses.ResponseCreateParams;
+import com.openai.models.responses.ResponseStreamEvent;
+import com.openai.models.responses.ToolChoiceOptions;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.ai.ProviderAdapter;
 import io.memoryos.ai.ModelSettings;
@@ -30,23 +36,29 @@ import java.io.ByteArrayOutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -61,7 +73,7 @@ import tools.jackson.databind.ObjectMapper;
  * through the existing Embabel streamer and ChatModelGuard?
  * Opt-in only (MEMORYOS_DR_SPIKE=true); live probes additionally need MEMORYOS_DR_SPIKE_LIVE=true.
  */
-@org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable(named = "MEMORYOS_DR_SPIKE", matches = "true")
+@EnabledIfEnvironmentVariable(named = "MEMORYOS_DR_SPIKE", matches = "true")
 class DeepResearchSpikeProbeTest {
     private static final ObjectMapper JSON = new ObjectMapper();
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
@@ -164,7 +176,7 @@ class DeepResearchSpikeProbeTest {
             var received = new CountDownLatch(3);
             var worker = executor.submit(() -> {
                 try (var _ = scope.enter()) {
-                    return SearchTasks.run(List.of("Revenue", "Competitors", "Regulation").stream().map(task -> (java.util.concurrent.Callable<String>) () -> {
+                    return SearchTasks.run(List.of("Revenue", "Competitors", "Regulation").stream().map(task -> (Callable<String>) () -> {
                         var guard = guard(client.binding(), client.binding().service().getChatModel());
                         var streamer = new StreamingLlmService(client.binding().withModel(guard)).createMessageStreamer(new LlmOptions().withMaxTokens(1000));
                         streamer.streamInference(List.of(new UserMessage(task)), List.of()).doOnNext(ignored -> received.countDown())
@@ -178,7 +190,7 @@ class DeepResearchSpikeProbeTest {
             long started = System.nanoTime();
             scope.cancel();
             for (var eof : eofs) assertTrue(eof.get(10, TimeUnit.SECONDS) < 0, "Every provider connection closes after Stop");
-            var failure = assertThrows(java.util.concurrent.ExecutionException.class, () -> worker.get(10, TimeUnit.SECONDS));
+            var failure = assertThrows(ExecutionException.class, () -> worker.get(10, TimeUnit.SECONDS));
             scope.drained().get(10, TimeUnit.SECONDS);
             System.out.println("SPIKE P5 closedAfterMs=" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
                     + " workerFailure=" + failure.getCause());
@@ -188,7 +200,7 @@ class DeepResearchSpikeProbeTest {
 
     /** L1: real OpenAI through the product Chat Completions path, two orchestrator cycles with tool history. */
     @Test
-    @org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable(named = "MEMORYOS_DR_SPIKE_LIVE", matches = "true")
+    @EnabledIfEnvironmentVariable(named = "MEMORYOS_DR_SPIKE_LIVE", matches = "true")
     void liveOrchestratorCyclesThroughProductPath() {
         String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
         assertTrue(key != null && !key.isBlank(), "SPRING_AI_OPENAI_API_KEY is required");
@@ -239,30 +251,30 @@ class DeepResearchSpikeProbeTest {
 
     /** L2: can think_tool arguments stream incrementally? Responses SDK events, non-reasoning model as in Onyx. */
     @Test
-    @org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable(named = "MEMORYOS_DR_SPIKE_LIVE", matches = "true")
+    @EnabledIfEnvironmentVariable(named = "MEMORYOS_DR_SPIKE_LIVE", matches = "true")
     void liveThinkToolArgumentsStreamAsDeltas() {
         String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
         assertTrue(key != null && !key.isBlank(), "SPRING_AI_OPENAI_API_KEY is required");
         String model = System.getenv().getOrDefault("MEMORYOS_DR_SPIKE_THINK_MODEL", "gpt-4.1-mini");
-        var sdk = com.openai.client.okhttp.OpenAIOkHttpClient.builder().apiKey(key).maxRetries(0).timeout(Duration.ofSeconds(120)).build();
+        var sdk = OpenAIOkHttpClient.builder().apiKey(key).maxRetries(0).timeout(Duration.ofSeconds(120)).build();
         try {
-            var parameters = com.openai.models.responses.FunctionTool.Parameters.builder()
-                    .putAdditionalProperty("type", com.openai.core.JsonValue.from("object"))
-                    .putAdditionalProperty("properties", com.openai.core.JsonValue.from(Map.of("reasoning", Map.of("type", "string"))))
-                    .putAdditionalProperty("required", com.openai.core.JsonValue.from(List.of("reasoning"))).build();
-            var params = com.openai.models.responses.ResponseCreateParams.builder().model(model).store(false)
+            var parameters = FunctionTool.Parameters.builder()
+                    .putAdditionalProperty("type", JsonValue.from("object"))
+                    .putAdditionalProperty("properties", JsonValue.from(Map.of("reasoning", Map.of("type", "string"))))
+                    .putAdditionalProperty("required", JsonValue.from(List.of("reasoning"))).build();
+            var params = ResponseCreateParams.builder().model(model).store(false)
                     .instructions("You are a deep research orchestrator. Before delegating any research, call think_tool with a detailed "
                             + "chain of thought of at least 150 words in paragraph form about how to approach the question. Only call tools.")
                     .input("Research the electric motorbike market in Vietnam.")
-                    .addTool(com.openai.models.responses.FunctionTool.builder().name("think_tool")
+                    .addTool(FunctionTool.builder().name("think_tool")
                             .description("Reason between research steps.").parameters(parameters).strict(false).build())
-                    .toolChoice(com.openai.models.responses.ToolChoiceOptions.REQUIRED).maxOutputTokens(1024).build();
+                    .toolChoice(ToolChoiceOptions.REQUIRED).maxOutputTokens(1024).build();
             var deltas = new ArrayList<String>();
             var arrivals = new ArrayList<Long>();
             String done = null;
             long started = System.nanoTime();
             try (var stream = sdk.responses().createStreaming(params)) {
-                for (var event : (Iterable<com.openai.models.responses.ResponseStreamEvent>) stream.stream()::iterator) {
+                for (var event : (Iterable<ResponseStreamEvent>) stream.stream()::iterator) {
                     if (event.functionCallArgumentsDelta().isPresent()) {
                         deltas.add(event.functionCallArgumentsDelta().get().delta());
                         arrivals.add(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started));
@@ -407,7 +419,7 @@ class DeepResearchSpikeProbeTest {
         return server;
     }
 
-    private static void hold(java.net.Socket socket, CountDownLatch ready, CompletableFuture<Integer> eof) {
+    private static void hold(Socket socket, CountDownLatch ready, CompletableFuture<Integer> eof) {
         try (socket) {
             socket.setSoTimeout(30000);
             var input = socket.getInputStream();
@@ -420,7 +432,7 @@ class DeepResearchSpikeProbeTest {
                 state = value == "\r\n\r\n".charAt(state) ? state + 1 : value == '\r' ? 1 : 0;
             }
             int length = header.toString(StandardCharsets.US_ASCII).lines()
-                    .filter(line -> line.toLowerCase(java.util.Locale.ROOT).startsWith("content-length:"))
+                    .filter(line -> line.toLowerCase(Locale.ROOT).startsWith("content-length:"))
                     .mapToInt(line -> Integer.parseInt(line.substring(line.indexOf(':') + 1).trim())).findFirst().orElseThrow();
             input.readNBytes(length);
             byte[] data = content("Searching ").getBytes(StandardCharsets.UTF_8);
@@ -432,7 +444,7 @@ class DeepResearchSpikeProbeTest {
             output.flush();
             ready.countDown();
             eof.complete(input.read());
-        } catch (java.net.SocketException closed) {
+        } catch (SocketException closed) {
             eof.complete(-2);
         } catch (Throwable failure) {
             eof.completeExceptionally(failure);

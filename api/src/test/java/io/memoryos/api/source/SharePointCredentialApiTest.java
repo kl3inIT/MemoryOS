@@ -14,6 +14,7 @@ import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.SharePointCredentialService;
 import io.memoryos.connector.SharePointException;
 import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SharePointProviderException;
 import io.memoryos.connector.SourceException;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
@@ -263,7 +264,7 @@ class SharePointCredentialApiTest {
     @Test
     void rejectedCredentialReturnsValidationProblem() throws Exception {
         when(credentials.create(any(), any())).thenThrow(SharePointException.rejected(
-                io.memoryos.connector.SharePointProviderException.Reason.INVALID_CLIENT_SECRET));
+                SharePointProviderException.Reason.INVALID_CLIENT_SECRET));
         mockMvc.perform(post("/api/credentials/sharepoint")
                         .with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1")

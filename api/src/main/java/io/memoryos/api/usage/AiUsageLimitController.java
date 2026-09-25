@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -48,7 +49,7 @@ class AiUsageLimitController {
 
     @ApiResponse(responseCode = "201", description = "Created", useReturnTypeSchema = true)
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+    @ResponseStatus(HttpStatus.CREATED)
     @Operation(operationId = "createAiUsageLimit", summary = "Sets a spending limit for the Tenant, a Group or each person; requires model management")
     AiUsageLimitResponse create(@CurrentActor IdentityContext identity,
                  @RequestBody AiUsageLimitRequest request) {
@@ -65,7 +66,7 @@ class AiUsageLimitController {
 
     @ApiResponse(responseCode = "204", description = "Removed")
     @DeleteMapping("/{limitId}")
-    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(operationId = "deleteAiUsageLimit", summary = "Removes a limit; requires model management")
     void delete(@CurrentActor IdentityContext identity, @PathVariable UUID limitId) {
         limits.delete(identity.actorId(), limitId);

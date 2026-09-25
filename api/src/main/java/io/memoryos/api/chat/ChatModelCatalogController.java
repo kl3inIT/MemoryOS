@@ -35,6 +35,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -124,7 +125,7 @@ class ChatModelCatalogController {
                 request.credential() == null ? null : request.credential().toInput());
         long started = System.nanoTime();
         int count = models.verifyProvider(probe.connection());
-        return ChatProviderTestResponse.of(count, java.time.Duration.ofNanos(System.nanoTime() - started).toMillis());
+        return ChatProviderTestResponse.of(count, Duration.ofNanos(System.nanoTime() - started).toMillis());
     }
 
     /**

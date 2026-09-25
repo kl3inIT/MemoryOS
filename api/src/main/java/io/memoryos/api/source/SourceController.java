@@ -28,6 +28,7 @@ import jakarta.validation.constraints.Min;
 import java.util.List;
 import java.util.UUID;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -133,7 +134,7 @@ final class SourceController {
     SourceItemPageResponse listItems(
             @CurrentActor IdentityContext identityContext,
             @PathVariable UUID sourceId,
-            @RequestParam(required = false) @org.jspecify.annotations.Nullable String cursor,
+            @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(defaultValue = "25") @Min(1) @Max(100) int size
     ) {
         return SourceItemPageResponse.from(sources.listItems(
@@ -145,7 +146,7 @@ final class SourceController {
     SourceOperationPageResponse listIndexAttempts(
             @CurrentActor IdentityContext identityContext,
             @PathVariable UUID sourceId,
-            @RequestParam(required = false) @org.jspecify.annotations.Nullable String cursor,
+            @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(defaultValue = "50") @Min(1) @Max(100) int size
     ) {
         return SourceOperationPageResponse.from(sources.listIndexAttempts(identityContext.actorId(), new SourceId(sourceId), cursor, size));

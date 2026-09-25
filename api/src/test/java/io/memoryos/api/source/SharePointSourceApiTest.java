@@ -25,6 +25,7 @@ import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationStatus;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
+import io.memoryos.connector.sharepoint.DefaultSharePointSourceService;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
 import io.memoryos.shared.ActorId;
@@ -85,7 +86,7 @@ class SharePointSourceApiTest {
 
     // The selection processor needs the concrete service, so the mock replaces that bean rather than the port.
     @MockitoBean
-    private io.memoryos.connector.sharepoint.DefaultSharePointSourceService sources;
+    private DefaultSharePointSourceService sources;
 
     private ActorAuthenticationToken owner;
 

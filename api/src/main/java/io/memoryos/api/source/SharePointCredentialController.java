@@ -9,6 +9,7 @@ import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.SharePointCredentialService;
 import io.memoryos.connector.SharePointException;
 import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SourceException;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -128,7 +129,7 @@ final class SharePointCredentialController {
         return credentials.list(identity.actorId()).stream()
                 .filter(view -> view.id().equals(credentialId)).findFirst()
                 .map(SharePointCredentialResponse::from)
-                .orElseThrow(io.memoryos.connector.SourceException::notFound);
+                .orElseThrow(SourceException::notFound);
     }
 
     private static UUID identifier(String value) {

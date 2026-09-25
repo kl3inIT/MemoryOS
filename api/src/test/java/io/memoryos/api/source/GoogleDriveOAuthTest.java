@@ -22,6 +22,9 @@ import io.memoryos.connector.adapter.googledrive.RestGoogleDriveAccountClient;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IdentityContext;
 import io.memoryos.shared.TenantId;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -39,6 +42,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import tools.jackson.databind.ObjectMapper;
@@ -96,7 +100,7 @@ class GoogleDriveOAuthTest {
             try {
                 body = mapper.writeValueAsBytes(Map.of("access_token", "test-access-secret", "refresh_token", "test-refresh-secret",
                         "token_type", "Bearer", "expires_in", 3600, "id_token", idToken()));
-            } catch (Exception exception) { throw new java.io.IOException(exception); }
+            } catch (Exception exception) { throw new IOException(exception); }
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, body.length);
             try (var output = exchange.getResponseBody()) { output.write(body); }
@@ -130,12 +134,12 @@ class GoogleDriveOAuthTest {
         assertEquals("http://127.0.0.1:8080/login/oauth2/code/google-drive", exchangedForm.get("redirect_uri"));
         assertEquals(clientId, exchangedForm.get("client_id"));
         assertEquals("test-client-secret", exchangedForm.get("client_secret"));
-        var context = (org.springframework.security.core.context.SecurityContext) session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
+        var context = (SecurityContext) session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
         assertEquals(identity, context.getAuthentication().getPrincipal());
         for (var names = session.getAttributeNames(); names.hasMoreElements();) {
             Object attribute = session.getAttribute(names.nextElement());
-            var bytes = new java.io.ByteArrayOutputStream();
-            try (var serialized = new java.io.ObjectOutputStream(bytes)) { serialized.writeObject(attribute); }
+            var bytes = new ByteArrayOutputStream();
+            try (var serialized = new ObjectOutputStream(bytes)) { serialized.writeObject(attribute); }
             String stored = bytes.toString(StandardCharsets.ISO_8859_1);
             assertFalse(stored.contains("test-refresh-secret"));
             assertFalse(stored.contains("test-access-secret"));

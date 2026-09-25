@@ -4,6 +4,7 @@ import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.chat.contract.ChatSpreadsheetPreviewResponse;
 import io.memoryos.api.chat.contract.ChatSpreadsheetSheetResponse;
 import io.memoryos.chat.interpreter.InterpreterService;
+import io.memoryos.chat.interpreter.PresentationPreviewService;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -13,13 +14,17 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -36,14 +41,14 @@ class ChatFileArtifactController {
     /** Only raster images display inline; every other generated file downloads under nosniff. */
     private static final Set<String> INLINE = Set.of("image/png", "image/jpeg", "image/webp");
     private final InterpreterService files;
-    private final io.memoryos.chat.interpreter.PresentationPreviewService presentations;
-    ChatFileArtifactController(InterpreterService files, io.memoryos.chat.interpreter.PresentationPreviewService presentations) {
+    private final PresentationPreviewService presentations;
+    ChatFileArtifactController(InterpreterService files, PresentationPreviewService presentations) {
         this.files = files;
         this.presentations = presentations;
     }
 
-    @org.springframework.web.bind.annotation.DeleteMapping("/{artifactId}")
-    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    @DeleteMapping("/{artifactId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(operationId = "deleteChatFileArtifact",
             summary = "Delete an owner-private generated file; the answer keeps a deleted card and a sweep releases the bytes")
     @ApiResponse(responseCode = "204", description = "File deleted")
@@ -63,7 +68,7 @@ class ChatFileArtifactController {
         try (var content = served.content()) {
             response.setContentType(MediaType.APPLICATION_PDF_VALUE);
             response.setHeader("Content-Disposition", ContentDisposition.attachment()
-                    .filename(served.filename(), java.nio.charset.StandardCharsets.UTF_8).build().toString());
+                    .filename(served.filename(), StandardCharsets.UTF_8).build().toString());
             response.setContentLengthLong(content.metadata().sizeBytes());
             content.inputStream().transferTo(response.getOutputStream());
         }
@@ -76,7 +81,7 @@ class ChatFileArtifactController {
             content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(type = "object")))
     void chart(@CurrentActor IdentityContext identity,
             @PathVariable UUID artifactId, HttpServletResponse response) throws IOException {
-        byte[] body = files.chart(identity.actorId(), artifactId).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] body = files.chart(identity.actorId(), artifactId).getBytes(StandardCharsets.UTF_8);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setContentLength(body.length);
         response.getOutputStream().write(body);
@@ -105,7 +110,7 @@ class ChatFileArtifactController {
             boolean inline = INLINE.contains(served.mediaType());
             response.setContentType(served.mediaType());
             response.setHeader("Content-Disposition", (inline ? ContentDisposition.inline() : ContentDisposition.attachment())
-                    .filename(served.filename(), java.nio.charset.StandardCharsets.UTF_8).build().toString());
+                    .filename(served.filename(), StandardCharsets.UTF_8).build().toString());
             response.setContentLengthLong(content.metadata().sizeBytes());
             content.inputStream().transferTo(response.getOutputStream());
         }

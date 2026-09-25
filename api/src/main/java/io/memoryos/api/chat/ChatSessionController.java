@@ -7,10 +7,13 @@ import io.memoryos.api.chat.contract.CreateChatSessionRequest;
 import io.memoryos.api.chat.contract.ChatMessageResponse;
 import io.memoryos.api.chat.contract.ChatSessionResponse;
 import io.memoryos.api.chat.contract.ChatSessionSearchResponse;
+import io.memoryos.chat.ChatBranchService;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSessionService;
+import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.ChatWorkspaceService;
 import io.memoryos.chat.image.ImageArtifactService;
+import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -47,13 +50,13 @@ class ChatSessionController {
     private final ChatSessionService sessions;
     private final ChatWorkspaceService workspace;
     private final ImageArtifactService images;
-    private final io.memoryos.chat.interpreter.InterpreterService interpreter;
-    private final io.memoryos.chat.ChatTurnService turns;
-    private final io.memoryos.chat.ChatBranchService branches;
+    private final InterpreterService interpreter;
+    private final ChatTurnService turns;
+    private final ChatBranchService branches;
 
     ChatSessionController(ChatSessionService sessions, ChatWorkspaceService workspace, ImageArtifactService images,
-            io.memoryos.chat.interpreter.InterpreterService interpreter, io.memoryos.chat.ChatTurnService turns,
-            io.memoryos.chat.ChatBranchService branches) {
+            InterpreterService interpreter, ChatTurnService turns,
+            ChatBranchService branches) {
         this.sessions = sessions; this.workspace = workspace; this.images = images; this.interpreter = interpreter;
         this.turns = turns; this.branches = branches;
     }
