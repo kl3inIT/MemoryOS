@@ -136,6 +136,31 @@ Multi-select works at two places and belongs to the page being read: the bar abo
 
 Every surface that draws a generated image small — the library rows and cards, the library picker and the conversation file panel — requests `variant=THUMBNAIL`, while a preview and the answer's own images request the artifact. The thumbnail is a JPEG whose long side is 512 px, kept in object storage beside the artifact (`thumbnail_*` columns, V106) and written the first time one is asked for. An original at or below 64 KB, bytes this build cannot decode, and a rendering no smaller than its source produce none, and the artifact itself is served instead. A thumbnail is derived from bytes the owner is already charged for, so it does not count against their storage limit, and it is released with the artifact by the same sweep, which claims it where a generated file carries its converted PDF.
 
+### Everything a person can reach (library hub)
+
+`/library` also lists what a person may **see or use without owning it** ([library hub](../increments/active/library-hub/design.md)). These rows are read-only references. Every read authorizes them through the capability that owns them, so a revoked share, Group membership or Agent share removes the row at the next read. They are never copied and never count toward the storage limit, and nobody but their owner renames, trashes or purges them.
+
+| Kind | Owner of the rule | Who sees it |
+| --- | --- | --- |
+| `MEETING` | `meeting`, through the library's `MeetingShelf` port | The owner, a member it is shared with, members of a Group it is shared with (`MeetingAccessSql.READS`) |
+| `AGENT_FILE` | `chat`, through `FileAttachments.agentFiles` | Users of a non-deleted Agent that attaches the upload as a knowledge file (`AgentAccessSql.USES` without the manager grant). Avatars and the viewer's own uploads are excluded |
+| `DOCUMENT` | `retrieval.DocumentShelfService` over the `connector` browse | Holders of `SEARCH_READ`, under the same `DOCUMENT_READ_SCOPE` that Search rechecks (PUBLIC, PRIVATE through a granted Group, SYNC through provider grants); eligible documents of active searchable Sources only, one row per document |
+
+The GET routes are listed in the route table below. The rules that apply to them:
+
+- **Bounds.** `shared` and `meetings` read bounded sets: 200 meetings and 1000 Agent files. `documents` pages with an opaque keyset cursor bound to its filters (`NEWEST` by source update time, or `NAME`). A reused cursor with other filters answers 400.
+- **Reason.** Every row says why it is visible: `reason.kind` is `OWNER`, `MEMBER_SHARE`, `GROUP_SHARE` (the viewer's own Groups), `AGENT` (the Agents), `PUBLIC_SOURCE`, `GROUP_SOURCE` (the viewer's granted Groups) or `PROVIDER_SOURCE`. The reason projects the predicate that admitted the row; it grants nothing.
+- **Previewing documents.** A document is previewed and downloaded through the Search reader and needs the generation the live index serves. A document the index does not serve yet has no generation and cannot be previewed.
+- **Asking Chat.** Chat is not offered for a document: Chat has no per-document turn scope, and a copy would detach a PRIVATE document from its Group authority.
+
+Per-viewer marks live in `library_mark` (V131, cascading with the Tenant membership). A mark never grants access: every read resolves marked ids through the owning capability and drops those that no longer resolve.
+
+- **Stars.** A star on an owned file is that file's own `favorite_at`. A star on a reachable row is `starred_at`, at most 500 per person; a person at that bound first loses the stars they can no longer read, and otherwise gets 400.
+- **Opens.** The browser records an open (preview, download, ask) through `POST /entries/{kind}/{id}/opened`. Only the newest 200 opens per person are kept.
+- **Unreachable targets.** Starring or recording something the viewer cannot read now answers 404.
+
+An Agent's users may now download its knowledge files and read an xlsx one as sheets. `/api/chat/files/{id}/content` and `/preview` read through the same Agent grant that already served the file's text, thumbnail and turn admission; every other file route stays owner-only.
+
 ## Implemented scope
 
 MEM-11 implements private sessions, native background execution, local Stop, bounded RAM replay/SSE, grounded retrieval, browser sources/model selection, conversation editing/branches, private assistants and projects, authenticated sharing and output feedback. Chat is the application home; Search lives at `/search`. [Design and delivery scope](../increments/completed/mem-11-production-chat/design.md), [verification matrix](../tests/chat.md), [ADR 0009](../decisions/0009-chat-session-persistence-and-iam-boundary.md) and [ADR 0010](../decisions/0010-spring-data-jpa-lifecycle-repositories.md) distinguish implemented behavior from production acceptance. MEM-81 delivered attachments and assistant/project files.
@@ -233,6 +258,11 @@ Feedback belongs to the owner Actor and a specific saved ASSISTANT output with n
 | GET `/api/chat/library/trash` | The trash window this deployment keeps, in days |
 | POST `/api/chat/library/{source}/{id}/restore` · `…/purge` | Take one of the caller's files out of the trash, or end its window now |
 | POST `/api/chat/library/trash/empty` | End the window of everything the caller deleted |
+| GET `/api/chat/library/shared` | Meetings shared with the caller and files of Agents they use, not their own; `query`, `kinds`, `categories`, `sort`, `offset`, `limit` ([library hub](#everything-a-person-can-reach-library-hub)) |
+| GET `/api/chat/library/meetings` | Every meeting the caller may read; `query`, `owner` (`ALL`, `MINE`, `SHARED`), `sort`, `offset`, `limit` |
+| GET `/api/chat/library/documents` · `…/documents/sources` | Source documents under the caller's Search authority, keyset-paged by `cursor`; `query`, `sourceIds`, `categories`, `sort` (`NEWEST`, `NAME`), `limit`; and the Sources to filter by. Requires `SEARCH_READ` |
+| GET `/api/chat/library/recent` · `…/starred` | What the caller opened lately (at most 100), and owned favourites with starred reachable rows, each re-authorized on read |
+| PUT/DELETE `/api/chat/library/entries/{kind}/{id}/star` · POST `…/opened` | Star, unstar or record an open of a row the caller may read now; 204, or 404 when not reachable |
 | GET/PUT `/api/chat/retention` · GET `…/preview` | Read, set and preview the caller's own retention window (any member, their own conversations only) |
 | DELETE `/api/chat/file-artifacts/{artifactId}` | Deletes a generated file the caller owns; 204, idempotent, bytes released by the cleanup sweep |
 | DELETE `/api/chat/image-artifacts/{artifactId}` | Deletes a generated image the caller owns; 204, idempotent, bytes released by the cleanup sweep |
