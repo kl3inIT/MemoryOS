@@ -218,6 +218,8 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertLess(checked, applied, "a port the firewall would not filter stops the deployment first")
         self.assertLess(checked, serving.index("compose up"))
         self.assertLess(applied, serving.index("compose up"), "the rule is current before containers publish")
+        # Images are pinned by digest; one already present is not fetched again from its registry.
+        self.assertIn("compose pull --quiet --policy missing", serving)
 
     def test_the_embedding_service_is_pinned_private_filtered_and_keyed_from_a_file(self):
         # MEM-135: TEI serves Qwen3-Embedding-4B to the api and worker from the serving node.
