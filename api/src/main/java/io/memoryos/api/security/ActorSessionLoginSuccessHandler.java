@@ -60,7 +60,7 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
             throw exception;
         }
         switch (outcome) {
-            case SignInOutcome.Admitted admitted -> signIn(request, response, admitted, authentication);
+            case SignInOutcome.Admitted admitted -> signIn(request, response, admitted, providerSessionId(authentication));
             case SignInOutcome.NotAdmitted ignored -> reject(request, response, ACCESS_NOT_PROVISIONED_DESTINATION);
             case SignInOutcome.InvitationRefused refused ->
                     reject(request, response, INVITATION_FAILURE_DESTINATION + invitationFailurePathReason(refused.reason()));
@@ -98,21 +98,25 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
             HttpServletRequest request,
             HttpServletResponse response,
             SignInOutcome.Admitted admitted,
-            Authentication authentication
+            @Nullable String providerSessionId
     ) throws IOException {
         InvitationSessionState.clear(request);
         var securityContext = SecurityContextHolder.createEmptyContext();
         securityContext.setAuthentication(new ActorAuthenticationToken(new IdentityContext(admitted.actorId())));
         SecurityContextHolder.setContext(securityContext);
         securityContextRepository.saveContext(securityContext, request, response);
-        var oidcUser = (OidcUser) authentication.getPrincipal();
-        ProviderSessionState.remember(request, oidcUser.getIdToken().getClaimAsString("sid"));
+        ProviderSessionState.remember(request, providerSessionId);
         redirectStrategy.sendRedirect(request, response, AUTHENTICATED_DESTINATION);
     }
 
     private void reject(HttpServletRequest request, HttpServletResponse response, String destination) throws IOException {
         invalidatePartialSession(request);
         redirectStrategy.sendRedirect(request, response, destination);
+    }
+
+    /** The Keycloak user session the ID token names, kept so sign-out can end it. */
+    private static @Nullable String providerSessionId(Authentication authentication) {
+        return authentication.getPrincipal() instanceof OidcUser user ? user.getIdToken().getClaimAsString("sid") : null;
     }
 
     private static @Nullable String asserted(@Nullable String email, @Nullable String subject) {
