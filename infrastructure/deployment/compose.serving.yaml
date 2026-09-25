@@ -108,16 +108,16 @@ services:
       - /bin/sh
       - /bootstrap/download-model.sh
     environment:
-      MODEL_REPOSITORY: Qwen/Qwen3-Embedding-0.6B
-      MODEL_REVISION: 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3
-      MODEL_DIRECTORY: /models/Qwen3-Embedding-0.6B
+      MODEL_REPOSITORY: Qwen/Qwen3-Embedding-4B
+      MODEL_REVISION: 5cf2132abc99cad020ac570b19d031efec650f2b
+      MODEL_DIRECTORY: /models/Qwen3-Embedding-4B
     configs:
       - source: tei-download-model
         target: /bootstrap/download-model.sh
     volumes:
       - tei-models:/models
 
-  # Qwen3-Embedding-0.6B behind Text Embeddings Inference, the OpenAI-compatible /v1/embeddings the
+  # Qwen3-Embedding-4B behind Text Embeddings Inference, the OpenAI-compatible /v1/embeddings the
   # api and worker call; it reports the served name back as the model, which the client checks. The
   # key is a file generated on this node; it reaches TEI as its API_KEY
   # variable, never as a command-line argument that ps would show. The health check proves both
@@ -134,8 +134,8 @@ services:
         API_KEY="$$(cat /run/secrets/tei_api_key)"
         && export API_KEY
         && exec text-embeddings-router
-        --model-id /models/Qwen3-Embedding-0.6B
-        --served-model-name Qwen/Qwen3-Embedding-0.6B
+        --model-id /models/Qwen3-Embedding-4B
+        --served-model-name Qwen/Qwen3-Embedding-4B
         --hostname 0.0.0.0
         --port 8080
         --max-client-batch-size 32
@@ -154,7 +154,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${MEMORYOS_TEI_MEMORY_LIMIT:-3g}
+          memory: ${MEMORYOS_TEI_MEMORY_LIMIT:-6g}
         reservations: *gpu
     healthcheck:
       test:

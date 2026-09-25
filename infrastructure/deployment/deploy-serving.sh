@@ -60,7 +60,9 @@ systemctl enable --quiet memoryos-serving-firewall.service
 # Docker requires the unit, so restarting it would restart every container. The script is idempotent
 # and applies the current settings directly; the unit applies them at boot, before Docker starts.
 /usr/local/sbin/memoryos-serving-firewall "$allowed" "${ports[@]}"
-compose pull --quiet
+# Every image is pinned by digest, so one already on the node is exactly the one wanted. Pulling only
+# what is missing keeps a slow upstream registry from failing a rollout that needs nothing from it.
+compose pull --quiet --policy missing
 compose up -d --remove-orphans --wait --wait-timeout 900
 # The one-shot model download has exited by now; it counts only when it succeeded.
 compose ps --all --format json | jq --exit-status --slurp '
