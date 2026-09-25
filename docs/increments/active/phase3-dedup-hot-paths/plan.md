@@ -1,8 +1,6 @@
 # Plan
 
 - [x] Rename the integration bundle to `sources/` and move its packages to their owners (ADR 0016).
-- [ ] One sync engine for Google Drive and SharePoint with Onyx failure semantics, `Retry-After`, the shared error column and one selection repository.
-- [ ] SharePoint scope once per run, fewer lock queries per item, Google Drive membership from the run.
 - [x] Search: index ensured once per generation, no alias HEAD per search, row-value cursor, bulk projection maintenance, logged gateway failures.
 - [x] Chat send: persona and capabilities once, bulk file reads; bulk branch copy and persona reorder.
 - [x] Meeting: one job runner, batched writes, streamed recordings, recording-upload sweep.
@@ -11,10 +9,6 @@
   - `shared.PdfText`, `shared.Sha256`, `shared.LikePattern` in the root package (no named interface to declare). `ai.ProviderConnections` for image, Web and voice. `HttpAudioStream` cancels its own `sendAsync` exchange. Left for the passes that own those areas: SHA-256 in `document` (`DefaultExtractionArtifactService`, `DocumentChunkService`, `StructuredDocumentChunker`), `retrieval` (`OpenSearchIndexService`, `SearchGenerations`), `connector` (`DefaultGoogleDriveSourceService`, `GoogleDriveSelectionTree`, `DefaultSharePointSourceService`) and `api/source` (`GoogleDriveAccountClient`, `GoogleDriveAuthorizationSessionState`).
 - [x] One sync engine for Google Drive and SharePoint with Onyx failure semantics, `Retry-After`, the shared error column and one selection repository (V131).
 - [x] SharePoint scope once per run, fewer lock queries per item, Google Drive membership from the run.
-- [ ] Search: index ensured once per generation, no alias HEAD per search, row-value cursor, bulk projection maintenance, logged gateway failures.
-- [ ] Chat send: persona and capabilities once, bulk file reads; bulk branch copy and persona reorder.
-- [ ] Meeting: one job runner, batched writes, streamed recordings, recording-upload sweep.
-- [ ] Shared helpers: `PdfText`, SHA-256, LIKE-escape; provider-connection helper; voice synthesis on a shared client.
 
 ## Verification
 
