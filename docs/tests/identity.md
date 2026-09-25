@@ -75,6 +75,11 @@ These identity checks do not establish live model-language behavior. Full-app ca
 
 The API/browser integration uses a local OIDC issuer and JDBC-backed Spring Session; IAM lifecycle uses JPA and bounded projections/locks remain concrete SQL. It covers Authorization Code + S256 PKCE, exact identity resolution, admission, provider-state disposal and revocation isolation. The [combined MEM-55/MEM-36 verification record](../increments/completed/mem-55-users-management/verification.md) contains the passing final repository/frontend gates and isolated PostgreSQL, Keycloak, MinIO, Mailpit, API, worker and browser evidence. JetBrains inspection was unavailable; no IDE-clean claim is made.
 
+## People and Group search
+
+- `ChatSessionApiIntegrationTest.principalSearchFindsActiveMembersAndOrdinaryGroupsOfTheTenantForChatWriters`: real MVC + PostgreSQL; finds an active member by name with e-mail and an ordinary Group, excludes an inactive member and system Groups, rejects `size` above 50 with `400`, and denies a member without `CHAT_WRITE` with `403 IAM_ACCESS_DENIED`. It shares the Chat integration context rather than starting another one.
+- `principal-picker.test.tsx`: the picker sends the stripped text to `searchPrincipals`, picks a person, and hides Groups on people-only fields.
+
 ## MEM-59 browser JIT verification
 
 Targeted and repository gates passed; see [verification evidence](../increments/completed/mem-59-tasco-jit/verification.md). `DefaultTrustedIdentityAdmissionTest` covers durable admission, exact binding reuse, authority preservation, inactive denial, rollback and concurrent first login. `ActorSessionLoginSuccessHandlerTest` covers ID-token versus UserInfo trust, issuer pinning and empty opt-in. `SessionSecurityIntegrationTest.admitsTrustedBrowserIdentityWithoutEmailVerificationOrConsumingInvitationAndDeniesReactivation` and `rejectsUntrustedOrMalformedBrowserProviderClaimsAndNeverJitsBearerClaims` exercise the real Spring HTTP callback/session boundary with a signed synthetic issuer and isolated PostgreSQL. The requirements below include remaining live Keycloak mapper/broker and actual Tasco acceptance; synthetic OIDC evidence does not prove those external integrations.

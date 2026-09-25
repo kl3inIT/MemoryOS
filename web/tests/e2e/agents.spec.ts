@@ -94,7 +94,7 @@ async function mockAgents(page: Page, capabilities: string[], initial: ReturnTyp
     }
     return route.fulfill({ json: state.agents.filter((item) => item.pinned) });
   });
-  await page.route("**/api/chat/persona-share-options**", (route) =>
+  await page.route("**/api/identity/principals**", (route) =>
     route.fulfill({
       json: {
         people: [

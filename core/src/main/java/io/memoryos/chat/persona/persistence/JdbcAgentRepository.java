@@ -7,7 +7,6 @@ import io.memoryos.chat.AgentOwner;
 import io.memoryos.chat.AgentPermission;
 import io.memoryos.chat.AgentPerson;
 import io.memoryos.chat.AgentRef;
-import io.memoryos.chat.AgentShareOptions;
 import io.memoryos.chat.AgentUserShare;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -217,25 +216,6 @@ public class JdbcAgentRepository {
     public boolean memberOf(UUID tenant, UUID actor, UUID group) {
         return jdbc.sql("SELECT EXISTS (SELECT 1 FROM iam_group_memberships WHERE tenant_id = :tenant AND group_id = :group AND actor_id = :actor)")
                 .param("tenant", tenant).param("group", group).param("actor", actor).query(Boolean.class).single();
-    }
-
-    public AgentShareOptions shareOptions(UUID tenant, @Nullable String query, int limit) {
-        String pattern = query == null ? null : LikePattern.containing(query);
-        var people = jdbc.sql("""
-                        SELECT m.actor_id, profile.display_name, profile.email FROM tenant_memberships m
-                        LEFT JOIN actor_profiles profile ON profile.actor_id = m.actor_id
-                        WHERE m.tenant_id = :tenant AND m.status = 'ACTIVE'
-                          AND (CAST(:pattern AS text) IS NULL OR profile.display_name ILIKE :pattern OR profile.email ILIKE :pattern)
-                        ORDER BY lower(coalesce(profile.display_name, profile.email, '')), m.actor_id LIMIT :limit
-                        """).param("tenant", tenant).param("pattern", pattern, Types.VARCHAR).param("limit", limit)
-                .query((row, ignored) -> new AgentPerson(row.getObject("actor_id", UUID.class), row.getString("display_name"), row.getString("email"))).list();
-        var groups = jdbc.sql("""
-                        SELECT id, name FROM iam_groups WHERE tenant_id = :tenant AND system_key IS NULL
-                          AND (CAST(:pattern AS text) IS NULL OR name ILIKE :pattern)
-                        ORDER BY lower(name), id LIMIT :limit
-                        """).param("tenant", tenant).param("pattern", pattern, Types.VARCHAR).param("limit", limit)
-                .query((row, ignored) -> new AgentRef(row.getObject("id", UUID.class), row.getString("name"))).list();
-        return new AgentShareOptions(people, groups);
     }
 
     public List<AgentRef> labels(UUID tenant) {

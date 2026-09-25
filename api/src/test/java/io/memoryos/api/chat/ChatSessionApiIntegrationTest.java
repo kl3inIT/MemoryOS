@@ -47,6 +47,7 @@ import io.memoryos.retrieval.SearchHit;
 import io.memoryos.retrieval.SearchDocument;
 import io.memoryos.retrieval.SearchPage;
 import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
+import java.util.Locale;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.Set;
@@ -274,6 +275,54 @@ class ChatSessionApiIntegrationTest {
         // Existing global membership filter rejects the request before the Chat controller.
         mockMvc.perform(get("/api/chat/sessions/" + id).with(authentication(actor)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void principalSearchFindsActiveMembersAndOrdinaryGroupsOfTheTenantForChatWriters() throws Exception {
+        String marker = "Principal" + UUID.randomUUID().toString().substring(0, 8);
+        UUID person = other.getPrincipal().actorId().value();
+        jdbc.sql("INSERT INTO external_identity_bindings (issuer, subject, actor_id) VALUES ('https://issuer.example.test', :subject, :actor)")
+                .param("subject", "principal-" + person).param("actor", person).update();
+        jdbc.sql("""
+                INSERT INTO actor_profiles (actor_id, issuer, subject, display_name, email, email_verified, observed_at)
+                VALUES (:actor, 'https://issuer.example.test', :subject, :name, :email, TRUE, now())
+                """).param("actor", person).param("subject", "principal-" + person)
+                .param("name", marker + " Lan").param("email", marker.toLowerCase(Locale.ROOT) + "@tasco.vn").update();
+        UUID group = UUID.randomUUID();
+        jdbc.sql("INSERT INTO iam_groups(tenant_id,id,name) VALUES (:tenant,:id,:name)")
+                .param("tenant", TENANT).param("id", group).param("name", marker + " board").update();
+        // An inactive member with a matching name stays out of the picker.
+        var inactive = actor();
+        UUID inactiveId = inactive.getPrincipal().actorId().value();
+        jdbc.sql("INSERT INTO external_identity_bindings (issuer, subject, actor_id) VALUES ('https://issuer.example.test', :subject, :actor)")
+                .param("subject", "principal-" + inactiveId).param("actor", inactiveId).update();
+        jdbc.sql("""
+                INSERT INTO actor_profiles (actor_id, issuer, subject, display_name, email, email_verified, observed_at)
+                VALUES (:actor, 'https://issuer.example.test', :subject, :name, NULL, TRUE, now())
+                """).param("actor", inactiveId).param("subject", "principal-" + inactiveId).param("name", marker + " Former").update();
+        jdbc.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE actor_id = :actor").param("actor", inactiveId).update();
+
+        mockMvc.perform(get("/api/identity/principals").param("search", marker.toLowerCase(Locale.ROOT)).param("size", "5")
+                        .with(authentication(actor)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.people.length()").value(1))
+                .andExpect(jsonPath("$.people[0].actorId").value(person.toString()))
+                .andExpect(jsonPath("$.people[0].name").value(marker + " Lan"))
+                .andExpect(jsonPath("$.groups.length()").value(1))
+                .andExpect(jsonPath("$.groups[0].id").value(group.toString()))
+                .andExpect(jsonPath("$.groups[0].name").value(marker + " board"));
+        // System Groups are never offered.
+        mockMvc.perform(get("/api/identity/principals").param("search", "basic").with(authentication(actor)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.groups[?(@.name == 'Basic')]").isEmpty());
+        mockMvc.perform(get("/api/identity/principals").param("size", "51").with(authentication(actor)))
+                .andExpect(status().isBadRequest());
+        // The search is the one agent sharing always used: CHAT_WRITE, which the Basic Group gives every member.
+        jdbc.sql("DELETE FROM iam_group_memberships m USING iam_groups g WHERE g.tenant_id=m.tenant_id AND g.id=m.group_id AND g.system_key='BASIC' AND m.actor_id = :actor")
+                .param("actor", actor.getPrincipal().actorId().value()).update();
+        mockMvc.perform(get("/api/identity/principals").param("search", marker).with(authentication(actor)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
     }
 
     @Test

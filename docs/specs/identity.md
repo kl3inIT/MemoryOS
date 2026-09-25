@@ -109,6 +109,10 @@ A scoped manager cannot remove another manager membership, including their own, 
 
 Permission mutations serialize on the Tenant row using an exclusive lock and advance `authorization_version` in the same transaction. Protected resource writes take the corresponding shared lock, then reauthorize scope before committing. Provider IO occurs outside the lock and is followed by reauthorization. JPA lifecycle writes and concrete JDBC projections/locks share one transaction manager and DataSource; Flyway owns DDL, Hibernate validates, open-in-view and ORM caches are disabled.
 
+## People and Group search
+
+`GET /api/identity/principals?search=&size=` is the one search every sharing surface uses to name people and Groups (agent sharing and transfer, document sets, meetings). IAM's `PrincipalSearch` returns up to `size` (1–50, default 20) active members and up to `size` ordinary Groups of the searcher's own Tenant whose display name, e-mail (people) or name (Groups) contains the stripped search text case-insensitively, ordered by name; system Groups, inactive members and pending invitations never appear. The searcher needs `CHAT_WRITE`, exactly the rule the agent-sharing search it replaces applied, so every member of the Basic Group may search. It is a read over current IAM projections only: each consumer rechecks every person and Group it is finally given. It replaced Chat's `GET /api/chat/persona-share-options`, which was removed.
+
 ## Browser-session convergence
 
 One persistent authenticated frontend layout owns the current-identity query across application routes. Internal route changes do not replace the browser document or remount the session boundary. The identity query refetches whenever the browser returns to the foreground because the JDBC-session cookie can change in another tab.
