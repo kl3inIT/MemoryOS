@@ -1,11 +1,8 @@
 package io.memoryos.voice;
 
-import io.memoryos.shared.TenantId;
 
 import io.memoryos.audit.AuditAction;
-import io.memoryos.audit.AuditRecord;
-import io.memoryos.audit.AuditTrail;
-import io.memoryos.ai.ModelCatalogService;
+import io.memoryos.ai.ProviderConnections;
 import io.memoryos.ai.ProviderCredentials;
 import io.memoryos.voice.persistence.VoiceConnectionEntity;
 import io.memoryos.voice.persistence.VoiceConnectionRepository;
@@ -26,16 +23,13 @@ public class VoiceConnectionService {
     private static final int MAX_IDENTIFIER = 200;
     private static final int MAX_CREDENTIAL = 8192;
     private final VoiceConnectionRepository connections;
-    private final ProviderCredentials credentials;
+    private final ProviderConnections admin;
     private final IamAuthorization authorization;
     private final TenantAccessResolver tenants;
-    private final AuditTrail audit;
 
-    public VoiceConnectionService(VoiceConnectionRepository connections, ProviderCredentials credentials,
-                                  IamAuthorization authorization, TenantAccessResolver tenants,
-                                  AuditTrail audit) {
-        this.audit = audit;
-        this.connections = connections; this.credentials = credentials;
+    public VoiceConnectionService(VoiceConnectionRepository connections, ProviderConnections admin,
+                                  IamAuthorization authorization, TenantAccessResolver tenants) {
+        this.connections = connections; this.admin = admin;
         this.authorization = authorization; this.tenants = tenants;
     }
 
@@ -77,7 +71,7 @@ public class VoiceConnectionService {
         String key = switch (input.credential().action()) {
             case REPLACE -> input.credential().value();
             case REMOVE -> "";
-            case KEEP -> existing.map(c -> credentials.resolve(tenant, c.id(), c.credential())).orElse("");
+            case KEEP -> existing.map(c -> admin.key(tenant, c.id(), c.credential())).orElse("");
         };
         return new Probe(provider, provider.baseUrl(input.endpoint()), key);
     }
@@ -89,8 +83,8 @@ public class VoiceConnectionService {
         input = trimmed(input);
         var existing = connections.findByTenantIdAndProvider(tenant, provider);
         var entity = existing.orElseGet(() -> new VoiceConnectionEntity(tenant, provider));
-        if (entity.revision() != input.revision()) throw VoiceException.conflict();
-        String credential = credentials.update(tenant, entity.id(), entity.credential(), input.credential());
+        String credential = admin.reconfigure(tenant, entity.id(), entity.revision(), input.revision(),
+                entity.credential(), input.credential(), VoiceException::conflict);
         entity.configure(input.endpoint(), input.sttModel(), input.ttsModel(), input.ttsVoice(), credential);
         if (!serves(entity, VoiceFunction.STT)) entity.selectStt(false);
         if (!serves(entity, VoiceFunction.TTS)) entity.selectTts(false);
@@ -100,7 +94,7 @@ public class VoiceConnectionService {
                 throw VoiceException.invalid("This connection cannot serve the selected voice function.");
             activate(tenant, saved, input.activate());
         }
-        audit.record(AuditRecord.of(AuditAction.VOICE_CONNECTION_CHANGE, new TenantId(tenant)).actor(actor).resource("VOICE_CONNECTION", provider.name(), provider.name()).detail("change", "CONFIGURE").detail("credentialChange", input.credential() == null ? "KEEP" : input.credential().action().name()).build());
+        audit(tenant, actor, provider, "CONFIGURE", ProviderConnections.credentialChange(input.credential()));
         return view(saved);
     }
 
@@ -111,7 +105,7 @@ public class VoiceConnectionService {
         var entity = connections.findByTenantIdAndProvider(tenant, provider).orElseThrow(VoiceException::unavailable);
         if (entity.revision() != revision) throw VoiceException.conflict();
         connections.delete(entity);
-        audit.record(AuditRecord.of(AuditAction.VOICE_CONNECTION_CHANGE, new TenantId(tenant)).actor(actor).resource("VOICE_CONNECTION", provider.name(), provider.name()).detail("change", "DISCONNECT").detail("credentialChange", "REMOVE").build());
+        audit(tenant, actor, provider, "DISCONNECT", ProviderCredentials.Action.REMOVE.name());
     }
 
     /** A null provider turns the function off for the Tenant. A Text-to-Speech selection may choose the provider's model. */
@@ -123,7 +117,7 @@ public class VoiceConnectionService {
             throw VoiceException.invalid("Only a selected Text-to-Speech provider accepts a model.");
         if (provider == null) {
             for (var connection : connections.findByTenantIdOrderByProvider(tenant)) select(connection, function, false);
-            audit.record(AuditRecord.of(AuditAction.VOICE_CONNECTION_CHANGE, new TenantId(tenant)).actor(actor).resource("VOICE_CONNECTION", null, null).detail("change", "DISABLE_" + function.name()).build());
+            audit(tenant, actor, null, "DISABLE_" + function.name(), null);
             return;
         }
         if (function == VoiceFunction.TTS && !provider.speech())
@@ -132,7 +126,7 @@ public class VoiceConnectionService {
         if (model != null) selected.useTtsModel(model);
         if (!serves(selected, function)) throw VoiceException.providerUnavailable();
         activate(tenant, selected, function);
-        audit.record(AuditRecord.of(AuditAction.VOICE_CONNECTION_CHANGE, new TenantId(tenant)).actor(actor).resource("VOICE_CONNECTION", provider.name(), provider.name()).detail("change", "SELECT_" + function.name()).build());
+        audit(tenant, actor, provider, "SELECT_" + function.name(), null);
     }
 
     @Transactional(readOnly = true)
@@ -141,7 +135,7 @@ public class VoiceConnectionService {
         var connection = connections.findByTenantIdAndProvider(tenant, provider).orElseThrow(VoiceException::unavailable);
         if (!usable(connection)) throw VoiceException.providerUnavailable();
         return new Probe(provider, provider.baseUrl(connection.endpoint()),
-                credentials.resolve(tenant, connection.id(), connection.credential()));
+                admin.key(tenant, connection.id(), connection.credential()));
     }
 
     @Transactional(readOnly = true)
@@ -179,13 +173,18 @@ public class VoiceConnectionService {
     }
 
     public String key(Connection connection) {
-        return credentials.resolve(connection.tenantId(), connection.id(), connection.encryptedCredential());
+        return admin.key(connection.tenantId(), connection.id(), connection.encryptedCredential());
+    }
+
+    private void audit(UUID tenant, ActorId actor, @Nullable VoiceProvider provider, String change,
+            @Nullable String credential) {
+        admin.audit(AuditAction.VOICE_CONNECTION_CHANGE, "VOICE_CONNECTION", tenant, actor,
+                provider == null ? null : provider.name(), change, credential);
     }
 
     private void activate(UUID tenant, VoiceConnectionEntity selected, VoiceFunction function) {
-        for (var connection : connections.findByTenantIdOrderByProvider(tenant)) select(connection, function, false);
-        connections.flush(); // Clear the old partial-unique-index winner before selecting another.
-        select(selected, function, true);
+        ProviderConnections.selectOnly(connections.findByTenantIdOrderByProvider(tenant), selected,
+                (connection, active) -> select(connection, function, active), connections::flush);
         connections.flush(); // Return the advanced revision to the caller.
     }
 
@@ -199,7 +198,7 @@ public class VoiceConnectionService {
     }
 
     private boolean usable(VoiceConnectionEntity c) {
-        return !c.provider().requiresKey() || credentials.configured(c.credential());
+        return admin.usable(c.provider().requiresKey(), c.credential());
     }
 
     private boolean serves(VoiceConnectionEntity c, VoiceFunction function) {
@@ -218,9 +217,8 @@ public class VoiceConnectionService {
             throw VoiceException.invalid("Invalid provider credential.");
         if (!provider.speech() && (!input.ttsModel().isEmpty() || !input.ttsVoice().isEmpty()))
             throw VoiceException.invalid("This provider does not read text aloud.");
-        if (provider.requiresEndpoint() && input.endpoint().isEmpty())
-            throw VoiceException.invalid("This provider requires its own endpoint.");
-        if (!input.endpoint().isEmpty()) ModelCatalogService.validateEndpoint(input.endpoint());
+        ProviderConnections.checkEndpoint(input.endpoint(), provider.requiresEndpoint(),
+                () -> VoiceException.invalid("This provider requires its own endpoint."));
     }
 
     /**
@@ -244,7 +242,7 @@ public class VoiceConnectionService {
 
     private View view(VoiceConnectionEntity c) {
         return new View(c.provider(), c.endpoint(), c.sttModel(), c.ttsModel(), c.ttsVoice(),
-                credentials.configured(c.credential()), c.sttActive(), c.ttsActive(), c.revision());
+                admin.configured(c.credential()), c.sttActive(), c.ttsActive(), c.revision());
     }
 
     private Connection snapshot(VoiceConnectionEntity c) {
