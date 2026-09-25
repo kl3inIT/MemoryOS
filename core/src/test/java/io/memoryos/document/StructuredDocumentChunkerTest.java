@@ -114,6 +114,31 @@ class StructuredDocumentChunkerTest {
     }
 
     @Test
+    void aBlankHeaderOrValueAddsNoEmptyLabel() {
+        // PaddleOCR-VL shape: a blank corner over the item column, a two-row header, an empty provision.
+        var chunks = chunker.chunk("HUT Q1 2026", """
+                {"schema":"memoryos-extraction-v2","blocks":[
+                  {"index":0,"kind":"HEADING","headingLevel":2,"text":"BÁO CÁO TÌNH HÌNH TÀI CHÍNH"},
+                  {"index":1,"kind":"TABLE","text":"","table":{"cells":[
+                    {"text":"","row":0,"column":0},
+                    {"text":"Số cuối kỳ","columnHeader":true,"row":0,"column":1,"columnSpan":2},
+                    {"text":"","row":1,"column":0},
+                    {"text":"Giá gốc","columnHeader":true,"row":1,"column":1},
+                    {"text":"Dự phòng","columnHeader":true,"row":1,"column":2},
+                    {"text":"Tiền mặt","row":2,"column":0},
+                    {"text":"37.200.070.561","row":2,"column":1},
+                    {"text":"","row":2,"column":2}
+                  ]}}]}
+                """);
+
+        var row = chunks.stream().filter(chunk -> chunk.content().contains("Tiền mặt")).findFirst().orElseThrow();
+        assertTrue(row.content().endsWith("Section: BÁO CÁO TÌNH HÌNH TÀI CHÍNH\nColumn 1: Tiền mặt\nSố cuối kỳ / Giá gốc: 37.200.070.561"),
+                row.content());
+        assertTrue(chunks.stream().noneMatch(chunk -> chunk.content().contains(": \n") || chunk.content().endsWith(": ")
+                || chunk.content().contains("Column 1: \n")));
+    }
+
+    @Test
     void wideTableRowsRemainBoundedAndKeepEveryValue() {
         var root = mapper.createObjectNode().put("schema", ExtractedDocument.SCHEMA);
         var blocks = root.putArray("blocks");

@@ -187,6 +187,8 @@ public final class StructuredDocumentChunker {
             if (start < 0 || end <= start || end - start > 2048) throw new DocumentContentException("SEARCH_INDEX_ARTIFACT_INVALID", "invalid table span");
             expandedCells += (int) (end - start);
             if (expandedCells > 100_000) throw new DocumentContentException("SEARCH_INDEX_CONTENT_LIMIT", "expanded table exceeds cell limit");
+            // A blank header cell adds nothing to a stacked label; a column with none reads "Column N".
+            if (cell.text().isBlank()) continue;
             for (int column = start; column < end; column++) {
                 headers.computeIfAbsent(column, _ -> new ArrayList<>()).add(cell.text());
             }
@@ -209,6 +211,8 @@ public final class StructuredDocumentChunker {
             String rowPrefix = prefix + (rowHeader.isBlank() ? "" : "Row: " + rowHeader + "\n");
             var row = new StringBuilder();
             for (Cell cell : entry.getValue()) {
+                // As in addressed mode, an empty cell has no value to label.
+                if (cell.text().isBlank()) continue;
                 int column = cell.column();
                 String label = String.join(" / ", headers.getOrDefault(column, List.of("Column " + (column + 1))));
                 String value = label + ": " + cell.text();

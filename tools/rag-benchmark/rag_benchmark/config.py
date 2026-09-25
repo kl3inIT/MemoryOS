@@ -100,6 +100,9 @@ class Config:
     # The model configuration that answers, or None for the Tenant default. The turn endpoint
     # one per message, so comparing two models changes nothing for the Tenant.
     model_configuration_id: str | None = None
+    # Sent with every judge request unless None: reasoning models (OpenAI gpt-6-luna) accept
+    # only the default temperature and refuse any other value with 400.
+    judge_temperature: float | None = 0.0
 
     @staticmethod
     def from_environment() -> Config:
@@ -120,6 +123,7 @@ class Config:
             ).rstrip("/"),
             judge_api_key=os.environ.get("MEMORYOS_JUDGE_API_KEY", "").strip(),
             judge_trials=max(1, _whole("MEMORYOS_JUDGE_TRIALS", 3)),
+            judge_temperature=_temperature(os.environ.get("MEMORYOS_JUDGE_TEMPERATURE", "0")),
             model_configuration_id=os.environ.get("MEMORYOS_BENCHMARK_MODEL", "").strip() or None,
             data_dir=Path(os.environ.get("MEMORYOS_BENCHMARK_DATA", root / "datasets")),
             out_dir=Path(os.environ.get("MEMORYOS_BENCHMARK_OUT", root / "runs")),
@@ -135,3 +139,16 @@ class Config:
             ).strip(),
             login_port=_whole("MEMORYOS_BENCHMARK_LOGIN_PORT", 8765),
         )
+
+
+def _temperature(value: str) -> float | None:
+    """Empty sends no temperature, for judge models that only accept their default."""
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError as error:
+        raise ConfigError(
+            f"MEMORYOS_JUDGE_TEMPERATURE must be a number or empty, got {value!r}"
+        ) from error

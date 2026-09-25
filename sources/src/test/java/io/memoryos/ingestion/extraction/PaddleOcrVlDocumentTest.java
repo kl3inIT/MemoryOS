@@ -80,7 +80,9 @@ class PaddleOcrVlDocumentTest {
         assertCell(table.cells(), 2, 4, 1, 1, "6.977.873.620.387");
         assertCell(table.cells(), 2, 5, 1, 1, "11.030.333.521.790");
         assertCell(table.cells(), 23, 1, 1, 1, "70");
-        assertFalse(table.hasColumnHeaders(), "Paddle writes only <td>; no header is guessed");
+        // Paddle writes only <td>; the two rows above the first amount are the measured header.
+        assertEquals(List.of("0,0", "0,1", "0,2", "0,3", "0,5", "1,3", "1,4", "1,5", "1,6"), table.cells().stream()
+                .filter(Cell::columnHeader).map(cell -> cell.row() + "," + cell.column()).toList());
         assertTrue(table.cells().stream().noneMatch(Cell::rowHeader));
     }
 
@@ -110,9 +112,12 @@ class PaddleOcrVlDocumentTest {
                 A4_LONG - 1000 * A4_LONG / 1685, Objects.requireNonNull(tables.get(1).locations().getFirst().bbox()));
         assertEquals(amounts(tables.get(1)), amounts(tables.get(0)), "codes, notes and amounts agree cell for cell");
         assertEquals(23 * 4, amounts(tables.get(0)).size());
-        // figure_title and vision_footnote are not titles Paddle promises; they stay paragraphs.
-        assertTrue(blocks.stream().anyMatch(block -> block.kind() == Kind.PARAGRAPH
-                && block.text().startsWith("BÁO CÁO TÌNH HÌNH TÀI CHÍNH")));
+        // The statement title right above the table names it; on the copy it repeats and stays a
+        // paragraph, as do the address line and the unit note.
+        var titles = blocks.stream().filter(block -> block.text().startsWith("BÁO CÁO TÌNH HÌNH TÀI CHÍNH")).toList();
+        assertEquals(List.of(Kind.HEADING, Kind.PARAGRAPH), titles.stream().map(Block::kind).toList());
+        assertEquals(2, titles.getFirst().headingLevel());
+        assertTrue(blocks.stream().anyMatch(block -> block.kind() == Kind.PARAGRAPH && block.text().startsWith("Tăng 1 và Tăng 20")));
         assertTrue(blocks.stream().anyMatch(block -> block.kind() == Kind.PARAGRAPH && block.text().equals("Đơn vị tính: VND")));
         assertTrue(blocks.stream().noneMatch(block -> block.text().equals("4")), "page number");
     }
@@ -227,6 +232,67 @@ class PaddleOcrVlDocumentTest {
     }
 
     @Test
+    void aFigureTitleNamesTheTableBelowItUnlessItIsARunningTitle() throws Exception {
+        // Real block texts from the HUT Q1/2026 reports: the statement title over the balance sheet,
+        // a note title Paddle took for a caption, the company-and-address block Paddle also calls a
+        // figure title on note pages, a signature caption, and a continuation page's title.
+        var results = mapper.readTree("""
+                [{"prunedResult":{"width":1000,"height":2000,"parsing_res_list":[
+                  {"block_label":"header","block_content":"CÔNG TY CỔ PHẦN TASCO\\nTăng 1 và Tăng 20 Tòa nhà Tasco, Lô HH2-2, đường Phạm Hùng"},
+                  {"block_label":"header","block_content":"Báo cáo tài chính hợp nhất\\nTại ngày 31 tháng 3 năm 2026"},
+                  {"block_label":"figure_title","block_content":"BÁO CÁO TÌNH HÌNH TÀI CHÍNH\\nTại ngày 31 tháng 3 năm 2026"},
+                  {"block_label":"vision_footnote","block_content":"Đơn vị tính: VND"},
+                  {"block_label":"table","block_content":"<table><tr><td>TÀI SẢN</td><td>Số cuối kỳ</td></tr><tr><td>1. Tiền</td><td>2.470.482.178.999</td></tr></table>"},
+                  {"block_label":"figure_title","block_content":"Người lập biểu"},
+                  {"block_label":"chart","block_content":""}]}},
+                 {"prunedResult":{"width":1000,"height":2000,"parsing_res_list":[
+                  {"block_label":"figure_title","block_content":"BÁO CÁO TÌNH HÌNH TÀI CHÍNH (tiếp theo)\\nTại ngày 31 tháng 3 năm 2026"},
+                  {"block_label":"table","block_content":"<table><tr><td>NGUỒN VỐN</td><td>Số cuối kỳ</td></tr><tr><td>C. NỢ PHẢI TRẢ</td><td>35.074.068.599.501</td></tr></table>"},
+                  {"block_label":"figure_title","block_content":"CÔNG TY CỔ PHẦN TASCO\\nTầng 1 và Tầng 20 Tòa nhà Tasco, Lô HH2-2, đường Phạm Hùng"},
+                  {"block_label":"table","block_content":"<table><tr><td></td><td>Số cuối kỳ</td></tr><tr><td>Phải trả bên thứ ba</td><td>2.279.739.559.178</td></tr></table>"},
+                  {"block_label":"figure_title","block_content":"17. Người mua trả tiền trước\\n17.1 Người mua trả tiền trước ngắn hạn"},
+                  {"block_label":"table","block_content":"<table><tr><td></td><td>Số cuối kỳ</td></tr><tr><td>Người mua trả tiền trước là bên thứ ba</td><td>303.914.080.645</td></tr></table>"},
+                  {"block_label":"figure_title","block_content":"Công ty con trực tiếp"},
+                  {"block_label":"text","block_content":"Tại ngày 31 tháng 3 năm 2026, Công ty có 5 công ty con trực tiếp."}]}}]
+                """);
+        var blocks = PaddleOcrVlDocument.blocks(results, List.of());
+
+        var headings = blocks.stream().filter(block -> block.kind() == Kind.HEADING).toList();
+        assertEquals(List.of("BÁO CÁO TÌNH HÌNH TÀI CHÍNH\nTại ngày 31 tháng 3 năm 2026",
+                "17. Người mua trả tiền trước\n17.1 Người mua trả tiền trước ngắn hạn"),
+                headings.stream().map(Block::text).toList());
+        assertTrue(headings.stream().allMatch(block -> block.headingLevel() == 2), "a table title sits under the part");
+        for (String paragraph : List.of("Người lập biểu", "BÁO CÁO TÌNH HÌNH TÀI CHÍNH (tiếp theo)\nTại ngày 31 tháng 3 năm 2026",
+                "CÔNG TY CỔ PHẦN TASCO\nTầng 1 và Tầng 20 Tòa nhà Tasco, Lô HH2-2, đường Phạm Hùng", "Công ty con trực tiếp")) {
+            assertTrue(blocks.stream().anyMatch(block -> block.kind() == Kind.PARAGRAPH && block.text().equals(paragraph)), paragraph);
+        }
+    }
+
+    @Test
+    void aChunkOfAPaddleBalanceSheetNamesTheStatementAndEveryValuesColumn() throws Exception {
+        var results = mapper.readTree("""
+                [{"prunedResult":{"width":1000,"height":2000,"parsing_res_list":[
+                  {"block_label":"doc_title","block_content":"CÔNG BỐ THÔNG TIN ĐỊNH KỲ BÁO CÁO TÀI CHÍNH"},
+                  {"block_label":"figure_title","block_content":"BÁO CÁO TÌNH HÌNH TÀI CHÍNH\\nTại ngày 31 tháng 3 năm 2026"},
+                  {"block_label":"vision_footnote","block_content":"Đơn vị tính: VND"}]}}]
+                """);
+        ((tools.jackson.databind.node.ArrayNode) results.get(0).path("prunedResult").path("parsing_res_list")).addObject()
+                .put("block_label", "table").put("block_content", hutTable("balance-sheet"));
+        var content = DocumentAssembly.publish(mapper, PaddleOcrVlDocument.blocks(results, List.of()), List.of(), null,
+                "application/pdf", "HUT Q1 2026", java.util.Map.of(), "paddleocr_vl");
+
+        var chunks = new io.memoryos.document.application.StructuredDocumentChunker(mapper).chunk(content.title(),
+                content.structuredJson());
+
+        var cash = chunks.stream().filter(chunk -> chunk.content().contains("1. Tiền\n")).findFirst().orElseThrow();
+        assertTrue(cash.content().contains("Section: CÔNG BỐ THÔNG TIN ĐỊNH KỲ BÁO CÁO TÀI CHÍNH > BÁO CÁO TÌNH HÌNH TÀI CHÍNH"),
+                cash.content());
+        assertTrue(cash.content().contains("TÀI SẢN: 1. Tiền\nMã\\nSố: 111\nSố cuối kỳ: 2.470.482.178.999\n"
+                + "Số đầu kỳ: 2.764.761.087.606"), cash.content());
+        assertFalse(cash.content().contains("[A"), "no cell addresses once the header is known");
+    }
+
+    @Test
     void anAnswerThatDoesNotMatchThePdfIsMalformed() throws Exception {
         var twoPages = results("sideways-and-upright-page.json");
         assertFailure(ExtractionFailure.MALFORMED, () -> PaddleOcrVlDocument.blocks(twoPages, List.of(upright(A4_LONG, A4_SHORT))));
@@ -283,6 +349,13 @@ class PaddleOcrVlDocumentTest {
 
     private static void assertFailure(ExtractionFailure expected, Executable executable) {
         assertEquals(expected, assertThrows(ExtractionException.class, executable).failure());
+    }
+
+    /** A few leading rows of a real table from the public HUT reports, as PaddleOCR-VL-1.6 returned it. */
+    static String hutTable(String name) throws Exception {
+        try (var input = PaddleOcrVlDocumentTest.class.getResourceAsStream("/paddleocr-vl/hut-tables.json")) {
+            return new ObjectMapper().readTree(Objects.requireNonNull(input)).path(name).path("html").asString();
+        }
     }
 
     private JsonNode results(String fixture) throws Exception {
