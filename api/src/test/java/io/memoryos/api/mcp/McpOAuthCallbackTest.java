@@ -63,8 +63,6 @@ class McpOAuthCallbackTest {
                 anyString(), anyString())).thenAnswer(call -> new McpOAuthService.AuthorizationStart(URI.create(
                 "https://as.example/authorize?state=" + call.getArgument(3) + "&code_challenge=" + call.getArgument(4)), pending));
         var response = controller.authorize(identity, pending.serverId(), new McpOAuthAuthorizationRequest(pending.oauthClientId()), request());
-
-        assertEquals("no-store", response.getHeaders().getCacheControl());
         var stored = (McpAuthorizationSessionState) session.getAttribute(McpAuthorizationSessionState.class.getName());
         assertEquals(pending, stored.pending());
         assertEquals(identity.actorId().value(), stored.actorId());
@@ -85,7 +83,6 @@ class McpOAuthCallbackTest {
         var response = deliver("state=the-state", "code=the-code", "iss=https://as.example");
 
         assertEquals("/admin/mcp?mcp=connected&serverId=" + pending.serverId(), response.getRedirectedUrl());
-        assertEquals("no-store", response.getHeader("Cache-Control"));
         assertEquals("no-referrer", response.getHeader("Referrer-Policy"));
         verify(oauth).complete(identity.actorId(), pending, "the-code", "the-verifier", "https://as.example");
         assertEquals("/?mcp=authorization-failed", deliver("state=the-state", "code=the-code").getRedirectedUrl());

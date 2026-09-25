@@ -66,7 +66,7 @@ class ChatDocumentController {
     @ApiResponse(responseCode = "200", description = "Sheets in workbook order", useReturnTypeSchema = true)
     ResponseEntity<DocumentSpreadsheetResponse> spreadsheet(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID documentId, @RequestParam UUID generation) {
-        return ResponseEntity.ok().header("Cache-Control", "no-store")
+        return ResponseEntity.ok()
                 .body(DocumentSpreadsheetResponse.from(originals.citationWorkbook(identity.actorId(), documentId, generation)));
     }
 
@@ -75,7 +75,7 @@ class ChatDocumentController {
     @ApiResponse(responseCode = "200", description = "Authorized document passages", useReturnTypeSchema = true)
     ResponseEntity<SearchDocumentResponse> passages(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID documentId, @RequestParam UUID generation, @RequestParam(defaultValue = "0") int from) {
-        return ResponseEntity.ok().header("Cache-Control", "no-store")
+        return ResponseEntity.ok()
                 .body(SearchDocumentResponse.from(documents.citation(identity.actorId(), documentId, generation, from)));
     }
 }

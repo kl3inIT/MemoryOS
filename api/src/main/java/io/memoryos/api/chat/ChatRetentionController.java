@@ -59,7 +59,7 @@ class ChatRetentionController {
     @ApiResponse(responseCode = "200", description = "Your retention policy", useReturnTypeSchema = true)
     @Operation(operationId = "getChatRetention", summary = "Read how long you keep your own conversations")
     ResponseEntity<PolicyResponse> read(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return ResponseEntity.ok().header("Cache-Control", "no-store")
+        return ResponseEntity.ok()
                 .body(new PolicyResponse(retention.read(identity.actorId()).days()));
     }
 
@@ -68,7 +68,7 @@ class ChatRetentionController {
     @Operation(operationId = "saveChatRetention", summary = "Set or clear how long you keep your own conversations")
     ResponseEntity<PolicyResponse> save(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @Valid @RequestBody PolicyRequest request) {
-        return ResponseEntity.ok().header("Cache-Control", "no-store")
+        return ResponseEntity.ok()
                 .body(new PolicyResponse(retention.save(identity.actorId(), request.days()).days()));
     }
 
@@ -79,7 +79,7 @@ class ChatRetentionController {
     ResponseEntity<PreviewResponse> preview(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @RequestParam(required = false) @Min(1) @Max(3650) @Nullable Integer days) {
         var preview = retention.preview(identity.actorId(), days);
-        return ResponseEntity.ok().header("Cache-Control", "no-store")
+        return ResponseEntity.ok()
                 .body(new PreviewResponse(preview.days(), preview.affected()));
     }
 }

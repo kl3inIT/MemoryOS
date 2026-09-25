@@ -19,7 +19,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.Positive;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -116,7 +115,7 @@ class McpOAuthController {
         var start = oauth.startAdministratorAuthorization(identity.actorId(), serverId, request.oauthClientId(), state,
                 McpAuthorizationSessionState.challenge(verifier));
         McpAuthorizationSessionState.store(servletRequest, identity, start.pending(), state, verifier);
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
                 .body(new McpOAuthAuthorizationResponse(start.authorizationUrl().toString()));
     }
 

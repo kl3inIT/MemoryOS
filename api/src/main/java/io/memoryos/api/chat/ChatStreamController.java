@@ -72,6 +72,8 @@ class ChatStreamController {
             @RequestParam(required = false) @Nullable String after) {
         long sequence = cursor(assistantMessageId, lastEvent, after);
         var readerFactory = turns.subscribe(identity.actorId(), sessionId, assistantMessageId, sequence);
+        // Deliberate override of the security default: no-transform keeps proxies from compressing or
+        // buffering the event stream.
         return ResponseEntity.ok()
                 .header("Cache-Control", "no-store, no-transform")
                 .header("X-Accel-Buffering", "no")

@@ -91,8 +91,6 @@ class ChatHistoryController {
                 @RequestParam(required = false) @Nullable ChatHistoryFeedback feedback,
                 HttpServletResponse response) throws IOException {
         response.setContentType("text/csv; charset=UTF-8");
-        response.setHeader("Cache-Control", "no-store");
-        response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader("Content-Disposition", ContentDisposition.attachment()
                 .filename("chat-history_" + java.time.LocalDate.now(java.time.ZoneOffset.UTC) + ".csv",
                         StandardCharsets.UTF_8)

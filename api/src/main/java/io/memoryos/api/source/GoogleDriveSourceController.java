@@ -22,7 +22,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.UUID;
-import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -57,7 +56,7 @@ final class GoogleDriveSourceController {
         var receipt = sources.create(identity.actorId(), body.requestId(), body.name(), new CredentialId(body.credentialId()),
                 body.scopeMode(), body.links(), body.groupIds() == null ? List.of() : body.groupIds().stream().map(GroupId::new).toList(),
                 body.access());
-        return ResponseEntity.status(HttpStatus.ACCEPTED).cacheControl(CacheControl.noStore())
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(GoogleDriveSelectionReceiptResponse.from(receipt));
     }
 
@@ -72,7 +71,7 @@ final class GoogleDriveSourceController {
     @GetMapping("/google-drive/selection-policy")
     ResponseEntity<GoogleDriveSelectionResponse.Policy> policy(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
                 .body(GoogleDriveSelectionResponse.Policy.from(sources.selectionPolicy(identity.actorId())));
     }
 
@@ -80,7 +79,7 @@ final class GoogleDriveSourceController {
     @GetMapping("/google-drive/selection-requests/{requestId}")
     ResponseEntity<GoogleDriveSelectionReceiptResponse> receipt(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID requestId) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
                 .body(GoogleDriveSelectionReceiptResponse.from(sources.selectionRequest(identity.actorId(), requestId)));
     }
 
@@ -88,7 +87,7 @@ final class GoogleDriveSourceController {
     @GetMapping("/{sourceId}/google-drive/selection-draft")
     ResponseEntity<GoogleDriveSelectionResponse.Draft> draft(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sourceId) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
                 .body(GoogleDriveSelectionResponse.Draft.from(sources.selectionDraft(identity.actorId(), new SourceId(sourceId))));
     }
 
@@ -100,7 +99,7 @@ final class GoogleDriveSourceController {
             @RequestParam(required = false) GoogleDriveSourceService.@Nullable SelectionKind kind,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(defaultValue = "25") int size) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
                 .body(GoogleDriveSelectionResponse.from(sources.selection(identity.actorId(), new SourceId(sourceId), search, kind, cursor, size)));
     }
 
@@ -111,7 +110,7 @@ final class GoogleDriveSourceController {
             @RequestParam(required = false) @Nullable String parentId,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(defaultValue = "25") int size) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
                 .body(GoogleDriveSelectionTreeResponse.from(sources.selectionTree(identity.actorId(), new SourceId(sourceId), parentId, cursor, size)));
     }
 
@@ -122,7 +121,7 @@ final class GoogleDriveSourceController {
     ResponseEntity<GoogleDriveSelectionReceiptResponse> replaceRoots(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sourceId,
             @RequestHeader("If-Match") String ifMatch, @Valid @RequestBody ReplaceGoogleDriveRootsRequest body) {
-        return ResponseEntity.status(HttpStatus.ACCEPTED).cacheControl(CacheControl.noStore())
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(GoogleDriveSelectionReceiptResponse.from(sources.replaceRoots(identity.actorId(), body.requestId(),
                         new SourceId(sourceId), revision(ifMatch), body.discoveryRevision(), body.credentialRevision(),
                         body.scopeMode(), body.links(), body.linkedDocumentIds())));
@@ -142,7 +141,7 @@ final class GoogleDriveSourceController {
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sourceId,
             @RequestHeader("If-Match") String ifMatch, @Valid @RequestBody UpdateGoogleDriveScheduleRequest body) {
         var value = sources.updateSchedule(identity.actorId(), new SourceId(sourceId), revision(ifMatch), body.syncIntervalMinutes());
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).eTag("\"" + value.scheduleRevision() + "\"")
+        return ResponseEntity.ok().eTag("\"" + value.scheduleRevision() + "\"")
                 .body(GoogleDriveConfigurationResponse.from(value));
     }
 
@@ -152,7 +151,7 @@ final class GoogleDriveSourceController {
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sourceId,
             @Valid @RequestBody UpdateGoogleDrivePauseRequest body) {
         var value = sources.setPaused(identity.actorId(), new SourceId(sourceId), body.expectedRevision(), body.paused());
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).eTag("\"" + value.scheduleRevision() + "\"")
+        return ResponseEntity.ok().eTag("\"" + value.scheduleRevision() + "\"")
                 .body(GoogleDriveConfigurationResponse.from(value));
     }
 
@@ -166,7 +165,7 @@ final class GoogleDriveSourceController {
 
 
     private static ResponseEntity<GoogleDriveConfigurationResponse> configuration(GoogleDriveSourceService.Configuration value) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).eTag("\"" + value.revision() + "\"")
+        return ResponseEntity.ok().eTag("\"" + value.revision() + "\"")
                 .body(GoogleDriveConfigurationResponse.from(value));
     }
 

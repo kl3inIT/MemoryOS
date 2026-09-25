@@ -659,7 +659,7 @@ class SourceApiIntegrationTest {
             assertSelectedRoot(source, source.equals(first) ? "first-doc" : "second-doc");
         }
         var catalog = mockMvc.perform(get("/api/credentials/google-drive").with(authentication(owner)))
-                .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
                 .andReturn().getResponse().getContentAsString();
         var entry = io.swagger.v3.core.util.Json.mapper().readTree(catalog).findParents("id").stream()
                 .filter(node -> node.path("id").asText().equals(credential.value().toString())).findFirst().orElseThrow();
@@ -678,7 +678,7 @@ class SourceApiIntegrationTest {
         mockMvc.perform(post("/api/credentials/google-drive/{id}/revoke", credential.value())
                         .with(authentication(owner)).header("X-MemoryOS-CSRF", "1")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"expectedCredentialRevision\":1}"))
-                .andExpect(status().isNoContent()).andExpect(header().string("Cache-Control", "no-store"));
+                .andExpect(status().isNoContent()).andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"));
         for (String source : List.of(first, second)) {
             mockMvc.perform(get("/api/sources/{id}/google-drive", source).with(authentication(owner)))
                     .andExpect(status().isOk()).andExpect(jsonPath("$.credentialStatus").value("REVOKED"))
@@ -704,7 +704,7 @@ class SourceApiIntegrationTest {
                 .andExpect(status().isConflict());
         mockMvc.perform(delete("/api/credentials/google-drive/{id}", credential.value())
                         .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\""))
-                .andExpect(status().isNoContent()).andExpect(header().string("Cache-Control", "no-store"));
+                .andExpect(status().isNoContent()).andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"));
         mockMvc.perform(get("/api/credentials/google-drive").with(authentication(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.id == '" + credential.value() + "')]").isEmpty());
@@ -756,7 +756,7 @@ class SourceApiIntegrationTest {
 
         String created = mockMvc.perform(post("/api/credentials/google-drive/service-account").with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isCreated()).andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(status().isCreated()).andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
                 .andExpect(jsonPath("$.authMethod").value("SERVICE_ACCOUNT"))
                 .andExpect(jsonPath("$.accountEmail").value("admin@example.com"))
                 .andExpect(jsonPath("$.serviceAccountEmail").value("indexer@memoryos-prod.iam.gserviceaccount.com"))
@@ -793,7 +793,7 @@ class SourceApiIntegrationTest {
                         .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\"")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"syncIntervalMinutes\":17}"))
                 .andExpect(status().isOk()).andExpect(header().string("ETag", "\"2\""))
-                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
                 .andExpect(jsonPath("$.syncIntervalMinutes").value(17))
                 .andExpect(jsonPath("$.scheduleRevision").value(2))
                 .andExpect(jsonPath("$.revision").value(1))
@@ -1022,7 +1022,7 @@ class SourceApiIntegrationTest {
         mockMvc.perform(post("/api/sources/{id}/google-drive/linked-documents/discover", source)
                         .with(authentication(owner)).header("X-MemoryOS-CSRF", "1").header("If-Match", "\"1\""))
                 .andExpect(status().isOk()).andExpect(header().string("ETag", "\"1\""))
-                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
                 .andExpect(jsonPath("$.discoveryRevision").value(1)).andExpect(jsonPath("$.discoveredAt").isString())
                 .andExpect(jsonPath("$.discoveryErrors").isEmpty());
         mockMvc.perform(get("/api/sources/{id}/google-drive/selection?kind=LINKED", source).with(authentication(owner)))
@@ -1159,7 +1159,7 @@ class SourceApiIntegrationTest {
         mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source).with(authentication(member)))
                 .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
         mockMvc.perform(get("/api/sources/{id}/google-drive/selection-tree", source).with(authentication(owner)))
-                .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
                 .andExpect(jsonPath("$.items[0].id").value("tree-folder"))
                 .andExpect(jsonPath("$.items[0].expandable").value(true))
                 .andExpect(jsonPath("$.nextCursor").isEmpty());
@@ -1224,7 +1224,7 @@ class SourceApiIntegrationTest {
         String body = mockMvc.perform(post("/api/sources/google-drive").with(authentication(owner))
                         .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON)
                         .content(googleSourceBody(credential, name, root)))
-                .andExpect(status().isAccepted()).andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(status().isAccepted()).andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
                 .andReturn().getResponse().getContentAsString();
         return activateSelection(body);
     }

@@ -28,7 +28,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.util.UUID;
 
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -291,7 +290,6 @@ final class InvitationController {
             HttpServletRequest request,
             HttpServletResponse response
     ) {
-        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
         var state = InvitationSessionState.read(request);
         if (state == null) {
             throw new InvitationException(

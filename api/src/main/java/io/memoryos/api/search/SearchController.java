@@ -57,7 +57,7 @@ class SearchController {
     org.springframework.http.ResponseEntity<DocumentSpreadsheetResponse> spreadsheet(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID documentId, @RequestParam UUID generation) {
-        return org.springframework.http.ResponseEntity.ok().header("Cache-Control", "no-store")
+        return org.springframework.http.ResponseEntity.ok()
                 .body(DocumentSpreadsheetResponse.from(originals.searchWorkbook(identity.actorId(), documentId, generation)));
     }
 

@@ -145,8 +145,6 @@ class AuditLogController {
                 HttpServletResponse response) throws IOException {
         var query = new AuditLog.Query(from, to, q, eventClass, action, outcome, actor(actorId), null, null);
         response.setContentType("text/csv; charset=UTF-8");
-        response.setHeader("Cache-Control", "no-store");
-        response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader("Content-Disposition", ContentDisposition.attachment()
                 .filename("audit-log_" + java.time.LocalDate.now(java.time.ZoneOffset.UTC) + ".csv", StandardCharsets.UTF_8)
                 .build().toString());

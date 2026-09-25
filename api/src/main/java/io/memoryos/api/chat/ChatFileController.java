@@ -54,7 +54,7 @@ class ChatFileController {
     @ApiResponse(responseCode="200",description="Extracted text window",useReturnTypeSchema=true)
     ResponseEntity<ChatFileTextResponse> text(@Parameter(hidden=true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID fileId, @RequestParam(defaultValue="0") int offset, @RequestParam(defaultValue="16000") int count) {
-        return ResponseEntity.ok().header("Cache-Control", "no-store")
+        return ResponseEntity.ok()
                 .body(ChatFileTextResponse.from(files.read(identity.actorId(), fileId, offset, count)));
     }
 
@@ -63,7 +63,7 @@ class ChatFileController {
     @ApiResponse(responseCode="200",description="Authorized file passages",useReturnTypeSchema=true)
     ResponseEntity<io.memoryos.retrieval.SearchDocument> passages(@Parameter(hidden=true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID fileId, @RequestParam UUID generation, @RequestParam(defaultValue="0") int from) {
-        return ResponseEntity.ok().header("Cache-Control", "no-store").body(search.read(identity.actorId(), fileId, generation, from));
+        return ResponseEntity.ok().body(search.read(identity.actorId(), fileId, generation, from));
     }
 
     @GetMapping("/{fileId}/preview")
@@ -73,7 +73,7 @@ class ChatFileController {
             @PathVariable UUID fileId) {
         var sheets = content.spreadsheet(identity.actorId(), fileId).stream()
                 .map(sheet -> new ChatFileArtifactController.SheetResponse(sheet.name(), sheet.csv(), sheet.truncated())).toList();
-        return ResponseEntity.ok().header("Cache-Control", "no-store").body(new ChatFileArtifactController.SpreadsheetPreviewResponse(sheets));
+        return ResponseEntity.ok().body(new ChatFileArtifactController.SpreadsheetPreviewResponse(sheets));
     }
 
     @GetMapping(value="/{fileId}/content", produces=MediaType.APPLICATION_OCTET_STREAM_VALUE)
@@ -85,8 +85,6 @@ class ChatFileController {
         try (var input = content.open(identity.actorId(), fileId)) {
             response.setContentType(MediaType.APPLICATION_OCTET_STREAM_VALUE);
             response.setHeader("Content-Disposition", ContentDisposition.attachment().filename(file.filename(), StandardCharsets.UTF_8).build().toString());
-            response.setHeader("Cache-Control", "no-store");
-            response.setHeader("X-Content-Type-Options", "nosniff");
             response.setContentLengthLong(file.sizeBytes());
             input.inputStream().transferTo(response.getOutputStream());
         }
@@ -102,7 +100,6 @@ class ChatFileController {
             // An upload's bytes never change under its id, and the route authorizes every read, so the owner's
             // own browser may keep them. A shared cache must not: the response is owner-private.
             response.setHeader("Cache-Control", "private, max-age=31536000, immutable");
-            response.setHeader("X-Content-Type-Options", "nosniff");
             response.setHeader("Content-Disposition", "inline");
             response.setContentLengthLong(served.sizeBytes());
             served.inputStream().transferTo(response.getOutputStream());

@@ -25,7 +25,6 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
-import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -73,7 +72,7 @@ final class SharePointSourceController {
         var receipt = sources.create(identity.actorId(), body.requestId(), body.name(),
                 new CredentialId(body.credentialId()), body.scope().toScope(), body.access(),
                 body.groupIds() == null ? List.of() : body.groupIds().stream().map(GroupId::new).toList());
-        return ResponseEntity.status(HttpStatus.ACCEPTED).cacheControl(CacheControl.noStore())
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(SharePointSelectionReceiptResponse.from(receipt));
     }
 
@@ -92,7 +91,7 @@ final class SharePointSourceController {
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sourceId,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(defaultValue = "50") int size) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
                 .body(SharePointRootPageResponse.from(sources.roots(identity.actorId(), new SourceId(sourceId), cursor, size)));
     }
 
@@ -101,7 +100,7 @@ final class SharePointSourceController {
     @GetMapping("/sharepoint/selection-policy")
     ResponseEntity<SharePointSelectionPolicyResponse> policy(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
                 .body(SharePointSelectionPolicyResponse.from(sources.selectionPolicy(identity.actorId())));
     }
 
@@ -111,7 +110,7 @@ final class SharePointSourceController {
     @GetMapping("/sharepoint/selection-requests/{requestId}")
     ResponseEntity<SharePointSelectionReceiptResponse> receipt(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID requestId) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
                 .body(SharePointSelectionReceiptResponse.from(sources.selectionRequest(identity.actorId(), requestId)));
     }
 
@@ -125,7 +124,7 @@ final class SharePointSourceController {
             @RequestHeader("If-Match") String ifMatch, @Valid @RequestBody ReplaceSharePointScopeRequest body) {
         var receipt = sources.replaceScope(identity.actorId(), body.requestId(), new SourceId(sourceId),
                 GoogleDriveSourceController.revision(ifMatch), body.expectedCredentialRevision(), body.scope().toScope());
-        return ResponseEntity.status(HttpStatus.ACCEPTED).cacheControl(CacheControl.noStore())
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(SharePointSelectionReceiptResponse.from(receipt));
     }
 
@@ -160,12 +159,12 @@ final class SharePointSourceController {
     }
 
     private static ResponseEntity<SharePointConfigurationResponse> configuration(SharePointSourceService.Configuration value) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).eTag("\"" + value.scopeRevision() + "\"")
+        return ResponseEntity.ok().eTag("\"" + value.scopeRevision() + "\"")
                 .body(SharePointConfigurationResponse.from(value));
     }
 
     private static ResponseEntity<SharePointConfigurationResponse> schedule(SharePointSourceService.Configuration value) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).eTag("\"" + value.scheduleRevision() + "\"")
+        return ResponseEntity.ok().eTag("\"" + value.scheduleRevision() + "\"")
                 .body(SharePointConfigurationResponse.from(value));
     }
 }

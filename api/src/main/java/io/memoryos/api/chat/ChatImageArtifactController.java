@@ -60,7 +60,6 @@ class ChatImageArtifactController {
             // An artifact's bytes never change under its id, and the route authorizes every read, so the
             // owner's own browser may keep them. A shared cache must not: the response is owner-private.
             response.setHeader("Cache-Control", "private, max-age=31536000, immutable");
-            response.setHeader("X-Content-Type-Options", "nosniff");
             response.setHeader("Content-Disposition", "inline");
             response.setContentLengthLong(served.sizeBytes());
             served.inputStream().transferTo(response.getOutputStream());

@@ -146,8 +146,9 @@ class ChatPersonaController {
         var avatar = personas.avatar(identity.actorId(), personaId);
         try (var content = avatar.content()) {
             response.setContentType(avatar.mediaType());
+            // Deliberate override of the security default: an agent avatar may be kept by the viewer's browser but is
+            // revalidated on every use, because an owner can replace it under the same URL.
             response.setHeader("Cache-Control", "private, no-cache");
-            response.setHeader("X-Content-Type-Options", "nosniff");
             response.setHeader("Content-Disposition", "inline");
             response.setContentLengthLong(content.metadata().sizeBytes());
             content.inputStream().transferTo(response.getOutputStream());

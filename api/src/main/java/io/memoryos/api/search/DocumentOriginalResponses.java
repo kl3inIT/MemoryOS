@@ -96,7 +96,5 @@ public final class DocumentOriginalResponses {
 
     private static void commonHeaders(HttpServletResponse response) {
         response.setHeader(HttpHeaders.ACCEPT_RANGES, "bytes");
-        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
-        response.setHeader("X-Content-Type-Options", "nosniff");
     }
 }

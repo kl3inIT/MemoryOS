@@ -19,7 +19,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -57,7 +56,7 @@ final class GoogleDriveCredentialController {
     @GetMapping
     ResponseEntity<List<GoogleDriveCredentialResponse>> list(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(authorizations.list(identity.actorId())
+        return ResponseEntity.ok().body(authorizations.list(identity.actorId())
                 .stream().map(GoogleDriveCredentialResponse::from).toList());
     }
 
@@ -72,7 +71,7 @@ final class GoogleDriveCredentialController {
             properties.requireConfigured();
             try (var client = authorizations.oauthClient(identity.actorId(), preparation)) {
                 var state = GoogleDriveAuthorizationSessionState.start(request, identity, preparation);
-                return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                return ResponseEntity.ok()
                         .body(new GoogleDriveAuthorizationResponse(accounts.authorizationUrl(state, client.clientId())));
             }
         }
@@ -86,7 +85,7 @@ final class GoogleDriveCredentialController {
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @Valid @RequestBody GoogleDriveServiceAccountRequest body) {
         var credentialId = serviceAccounts.create(identity.actorId(), body.name(), body.serviceAccountKeyJson(), body.adminEmail());
-        return ResponseEntity.status(HttpStatus.CREATED).cacheControl(CacheControl.noStore()).body(find(identity, credentialId));
+        return ResponseEntity.status(HttpStatus.CREATED).body(find(identity, credentialId));
     }
 
     @Operation(operationId = "replaceGoogleDriveServiceAccount",
@@ -100,7 +99,7 @@ final class GoogleDriveCredentialController {
         var id = new CredentialId(credentialId);
         serviceAccounts.replace(identity.actorId(), id, GoogleDriveSourceController.revision(ifMatch), body.name(),
                 body.serviceAccountKeyJson(), body.adminEmail());
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(find(identity, id));
+        return ResponseEntity.ok().body(find(identity, id));
     }
 
     private GoogleDriveCredentialResponse find(IdentityContext identity, CredentialId credentialId) {
@@ -114,7 +113,7 @@ final class GoogleDriveCredentialController {
     ResponseEntity<Void> revoke(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID credentialId, @Valid @RequestBody RevokeGoogleDriveCredentialRequest body) {
         accounts.revoke(authorizations.disconnect(identity.actorId(), new CredentialId(credentialId), body.expectedCredentialRevision()));
-        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(operationId = "deleteGoogleDriveCredential", summary = "Delete an unused Google Drive credential with a revision precondition")
@@ -123,6 +122,6 @@ final class GoogleDriveCredentialController {
     ResponseEntity<Void> delete(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID credentialId, @RequestHeader("If-Match") String ifMatch) {
         authorizations.delete(identity.actorId(), new CredentialId(credentialId), GoogleDriveSourceController.revision(ifMatch));
-        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+        return ResponseEntity.noContent().build();
     }
 }

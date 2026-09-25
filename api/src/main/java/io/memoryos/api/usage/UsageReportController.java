@@ -65,8 +65,6 @@ class UsageReportController {
         var download = reports.open(identity.actorId(), reportId);
         try (var content = download.content()) {
             response.setContentType("application/zip");
-            response.setHeader("Cache-Control", "no-store");
-            response.setHeader("X-Content-Type-Options", "nosniff");
             response.setHeader("Content-Disposition", ContentDisposition.attachment()
                     .filename(download.filename(), StandardCharsets.UTF_8).build().toString());
             response.setContentLengthLong(content.metadata().sizeBytes());

@@ -74,7 +74,6 @@ final class InvitationIntakeController {
     }
 
     private static void noSecretCaching(HttpServletResponse response) {
-        response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
         response.setHeader(REFERRER_POLICY, "no-referrer");
     }
 

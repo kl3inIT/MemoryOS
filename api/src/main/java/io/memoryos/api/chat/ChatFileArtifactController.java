@@ -68,8 +68,6 @@ class ChatFileArtifactController {
         var served = presentations.pdf(identity.actorId(), artifactId);
         try (var content = served.content()) {
             response.setContentType(MediaType.APPLICATION_PDF_VALUE);
-            response.setHeader("Cache-Control", "no-store");
-            response.setHeader("X-Content-Type-Options", "nosniff");
             response.setHeader("Content-Disposition", ContentDisposition.attachment()
                     .filename(served.filename(), java.nio.charset.StandardCharsets.UTF_8).build().toString());
             response.setContentLengthLong(content.metadata().sizeBytes());
@@ -86,8 +84,6 @@ class ChatFileArtifactController {
             @PathVariable UUID artifactId, HttpServletResponse response) throws IOException {
         byte[] body = files.chart(identity.actorId(), artifactId).getBytes(java.nio.charset.StandardCharsets.UTF_8);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setHeader("Cache-Control", "no-store");
-        response.setHeader("X-Content-Type-Options", "nosniff");
         response.setContentLength(body.length);
         response.getOutputStream().write(body);
     }
@@ -101,7 +97,6 @@ class ChatFileArtifactController {
             @PathVariable UUID artifactId, HttpServletResponse response) {
         var sheets = files.spreadsheet(identity.actorId(), artifactId).stream()
                 .map(sheet -> new SheetResponse(sheet.name(), sheet.csv(), sheet.truncated())).toList();
-        response.setHeader("Cache-Control", "no-store");
         return new SpreadsheetPreviewResponse(sheets);
     }
 
@@ -115,8 +110,6 @@ class ChatFileArtifactController {
         try (var content = served.content()) {
             boolean inline = INLINE.contains(served.mediaType());
             response.setContentType(served.mediaType());
-            response.setHeader("Cache-Control", "no-store");
-            response.setHeader("X-Content-Type-Options", "nosniff");
             response.setHeader("Content-Disposition", (inline ? ContentDisposition.inline() : ContentDisposition.attachment())
                     .filename(served.filename(), java.nio.charset.StandardCharsets.UTF_8).build().toString());
             response.setContentLengthLong(content.metadata().sizeBytes());

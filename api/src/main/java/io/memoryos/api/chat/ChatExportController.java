@@ -83,7 +83,7 @@ class ChatExportController {
                         .filename(download.filename(), java.nio.charset.StandardCharsets.UTF_8).build().toString())
                 .contentType(MediaType.parseMediaType("application/zip"))
                 .contentLength(metadata.sizeBytes())
-                .cacheControl(org.springframework.http.CacheControl.noStore())
+                
                 .body(new InputStreamResource(download.content().inputStream()));
     }
 }

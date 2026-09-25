@@ -20,7 +20,6 @@ final class GoogleDriveOAuthCallbackController {
 
     @GetMapping("/login/oauth2/code/google-drive")
     void callback(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        response.setHeader("Cache-Control", "no-store");
         response.setHeader("Referrer-Policy", "no-referrer");
         var state = GoogleDriveAuthorizationSessionState.consume(request, single(request, "state"));
         var credentialId = state == null ? null : state.credentialId();

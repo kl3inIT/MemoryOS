@@ -95,7 +95,7 @@ class ChatLibraryController {
                 parse(sources, LibraryFile.Source.class), parse(categories, LibraryFile.Category.class),
                 sessionId, favorite, "PENDING".equals(view), "TRASH".equals(view),
                 value(sort, LibraryFile.Sort.class), offset, limit));
-        return ResponseEntity.ok().header("Cache-Control", "no-store").body(new ChatLibraryPageResponse(
+        return ResponseEntity.ok().body(new ChatLibraryPageResponse(
                 page.items().stream().map(ChatLibraryFileResponse::from).toList(),
                 page.totalCount(), page.totalBytes(), page.hasMore()));
     }
@@ -106,7 +106,7 @@ class ChatLibraryController {
     ResponseEntity<ChatLibraryFileResponse> change(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @Parameter(schema = @Schema(allowableValues = {"UPLOAD", "GENERATED", "IMAGE"})) @PathVariable String source,
             @PathVariable UUID id, @RequestBody ChatLibraryFileChangeRequest request) {
-        return ResponseEntity.ok().header("Cache-Control", "no-store").body(ChatLibraryFileResponse.from(library.update(
+        return ResponseEntity.ok().body(ChatLibraryFileResponse.from(library.update(
                 identity.actorId(), value(source, LibraryFile.Source.class), id, request.filename(), request.favorite())));
     }
 
@@ -116,7 +116,7 @@ class ChatLibraryController {
     @ApiResponse(responseCode = "200", description = "Matching files, best first", useReturnTypeSchema = true)
     ResponseEntity<List<ChatLibraryContentMatchResponse>> search(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @RequestParam String query) {
-        return ResponseEntity.ok().header("Cache-Control", "no-store").body(library.searchContent(identity.actorId(), query)
+        return ResponseEntity.ok().body(library.searchContent(identity.actorId(), query)
                 .stream().map(match -> new ChatLibraryContentMatchResponse(ChatLibraryFileResponse.from(match.file()),
                         match.passages().stream().map(passage -> new ChatLibraryPassageResponse(passage.text(), passage.ordinal())).toList()))
                 .toList());
@@ -131,7 +131,7 @@ class ChatLibraryController {
     ResponseEntity<ChatFileResponse> copy(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @Parameter(schema = @Schema(allowableValues = {"GENERATED", "IMAGE"})) @PathVariable String source,
             @PathVariable UUID id) {
-        return ResponseEntity.ok().header("Cache-Control", "no-store").body(ChatFileResponse.from(
+        return ResponseEntity.ok().body(ChatFileResponse.from(
                 library.copy(identity.actorId(), value(source, LibraryFile.Source.class), id)));
     }
 
@@ -153,7 +153,7 @@ class ChatLibraryController {
     @Operation(operationId = "listChatLibraryArchives", summary = "The caller's own archives that have not expired")
     @ApiResponse(responseCode = "200", description = "Archives, newest first", useReturnTypeSchema = true)
     ResponseEntity<List<ChatLibraryArchiveResponse>> listArchives(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return ResponseEntity.ok().header("Cache-Control", "no-store")
+        return ResponseEntity.ok()
                 .body(archives.list(identity.actorId()).stream().map(ChatLibraryArchiveResponse::from).toList());
     }
 
@@ -162,7 +162,7 @@ class ChatLibraryController {
     @ApiResponse(responseCode = "200", description = "The archive", useReturnTypeSchema = true)
     ResponseEntity<ChatLibraryArchiveResponse> getArchive(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID archiveId) {
-        return ResponseEntity.ok().header("Cache-Control", "no-store")
+        return ResponseEntity.ok()
                 .body(ChatLibraryArchiveResponse.from(archives.get(identity.actorId(), archiveId)));
     }
 
@@ -177,8 +177,6 @@ class ChatLibraryController {
             response.setContentType("application/zip");
             response.setHeader("Content-Disposition", org.springframework.http.ContentDisposition.attachment()
                     .filename(download.filename(), java.nio.charset.StandardCharsets.UTF_8).build().toString());
-            response.setHeader("Cache-Control", "no-store");
-            response.setHeader("X-Content-Type-Options", "nosniff");
             response.setContentLengthLong(content.metadata().sizeBytes());
             content.inputStream().transferTo(response.getOutputStream());
         }
@@ -191,7 +189,7 @@ class ChatLibraryController {
             useReturnTypeSchema = true)
     ResponseEntity<ChatLibraryUsageResponse> usage(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
         var usage = quotas.usage(identity.actorId());
-        return ResponseEntity.ok().header("Cache-Control", "no-store").body(new ChatLibraryUsageResponse(usage.usedBytes(),
+        return ResponseEntity.ok().body(new ChatLibraryUsageResponse(usage.usedBytes(),
                 usage.fileCount(), usage.limitBytes(),
                 usage.byCategory().entrySet().stream()
                         .map(entry -> new ChatLibraryCategoryUsageResponse(entry.getKey().name(), entry.getValue()))
@@ -203,7 +201,7 @@ class ChatLibraryController {
             summary = "How long a deleted file stays in the trash in this deployment")
     @ApiResponse(responseCode = "200", description = "The trash window", useReturnTypeSchema = true)
     ResponseEntity<ChatLibraryTrashWindowResponse> trashWindow(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return ResponseEntity.ok().header("Cache-Control", "no-store")
+        return ResponseEntity.ok()
                 .body(new ChatLibraryTrashWindowResponse(trash.window().toDays()));
     }
 
@@ -233,7 +231,7 @@ class ChatLibraryController {
     @Operation(operationId = "emptyChatLibraryTrash", summary = "End the trash window of everything the caller deleted")
     @ApiResponse(responseCode = "200", description = "How many files were queued for release", useReturnTypeSchema = true)
     ResponseEntity<ChatLibraryTrashEmptiedResponse> emptyTrash(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return ResponseEntity.ok().header("Cache-Control", "no-store")
+        return ResponseEntity.ok()
                 .body(new ChatLibraryTrashEmptiedResponse(trash.empty(identity.actorId())));
     }
 

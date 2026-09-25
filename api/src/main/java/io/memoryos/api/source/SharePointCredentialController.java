@@ -22,7 +22,6 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -61,7 +60,7 @@ final class SharePointCredentialController {
     @GetMapping
     ResponseEntity<List<SharePointCredentialResponse>> list(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
                 .body(credentials.list(identity.actorId()).stream().map(SharePointCredentialResponse::from).toList());
     }
 
@@ -74,7 +73,7 @@ final class SharePointCredentialController {
             @Valid @RequestBody SharePointCredentialRequest body) {
         try (var draft = draft(body)) {
             var credentialId = credentials.create(identity.actorId(), draft);
-            return ResponseEntity.status(HttpStatus.CREATED).cacheControl(CacheControl.noStore())
+            return ResponseEntity.status(HttpStatus.CREATED)
                     .body(find(identity, credentialId));
         }
     }
@@ -91,7 +90,7 @@ final class SharePointCredentialController {
             credentials.replaceAuthentication(identity.actorId(), new CredentialId(credentialId),
                     GoogleDriveSourceController.revision(ifMatch), draft);
         }
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
                 .body(find(identity, new CredentialId(credentialId)));
     }
 
@@ -104,7 +103,7 @@ final class SharePointCredentialController {
             @Valid @RequestBody RenameSharePointCredentialRequest body) {
         credentials.rename(identity.actorId(), new CredentialId(credentialId),
                 GoogleDriveSourceController.revision(ifMatch), body.name());
-        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(operationId = "testSharePointCredential",
@@ -113,7 +112,7 @@ final class SharePointCredentialController {
     @PostMapping("/{credentialId}/test")
     ResponseEntity<SharePointCredentialTestResponse> test(
             @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID credentialId) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
                 .body(SharePointCredentialTestResponse.from(credentials.test(identity.actorId(), new CredentialId(credentialId))));
     }
 
@@ -124,7 +123,7 @@ final class SharePointCredentialController {
     ResponseEntity<Void> delete(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID credentialId, @RequestHeader("If-Match") String ifMatch) {
         credentials.delete(identity.actorId(), new CredentialId(credentialId), GoogleDriveSourceController.revision(ifMatch));
-        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+        return ResponseEntity.noContent().build();
     }
 
     private SharePointCredentialResponse find(IdentityContext identity, CredentialId credentialId) {

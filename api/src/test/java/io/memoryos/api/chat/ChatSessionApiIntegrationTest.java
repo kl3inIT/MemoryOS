@@ -414,7 +414,7 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(get("/api/chat/files/"+id+"/text").with(authentication(actor)).param("offset","1").param("count","2"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.text").value("😀V"))
                 .andExpect(jsonPath("$.nextOffset").value(3)).andExpect(jsonPath("$.totalCharacters").value(6))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control","no-store"));
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control","no-cache, no-store, max-age=0, must-revalidate"));
         mockMvc.perform(get("/api/chat/files/"+id+"/text").with(authentication(actor)).param("count","16001"))
                 .andExpect(status().isBadRequest());
         for (var suffix : List.of("/text", "/content")) {
@@ -428,7 +428,7 @@ class ChatSessionApiIntegrationTest {
         when(fileStorage.open(any())).thenReturn(original);
         var download = mockMvc.perform(get("/api/chat/files/"+id+"/content").with(authentication(actor)))
                 .andExpect(status().isOk())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control","no-store"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Cache-Control","no-cache, no-store, max-age=0, must-revalidate"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Content-Type-Options","nosniff"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType(MediaType.APPLICATION_OCTET_STREAM))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string("test")).andReturn();
@@ -2988,7 +2988,7 @@ class ChatSessionApiIntegrationTest {
                     .andExpect(request().asyncStarted()).andReturn();
             mockMvc.perform(asyncDispatch(started)).andExpect(status().isOk())
                     .andExpect(header().string("Content-Type", "audio/mpeg"))
-                    .andExpect(header().string("Cache-Control", "no-store"))
+                    .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
                     .andExpect(header().string("X-Accel-Buffering", "no"))
                     .andExpect(content().bytes("mp3-audio".getBytes(UTF_8)));
             String providerRequest = requests.poll(10, TimeUnit.SECONDS);

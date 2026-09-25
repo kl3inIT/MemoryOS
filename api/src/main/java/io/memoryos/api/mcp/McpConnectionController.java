@@ -17,7 +17,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -74,7 +73,7 @@ class McpConnectionController {
         var start = oauth.startUserAuthorization(identity.actorId(), serverId, request.oauthClientId(), state,
                 McpAuthorizationSessionState.challenge(verifier), returnPath);
         McpAuthorizationSessionState.store(servletRequest, identity, start.pending(), state, verifier);
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
                 .body(new McpOAuthAuthorizationResponse(start.authorizationUrl().toString()));
     }
 
