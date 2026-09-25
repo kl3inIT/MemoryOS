@@ -6,11 +6,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 public interface DocumentChunkPort {
     Optional<DocumentChunkSet> prepare(TenantId tenantId, DocumentId documentId, UUID generation);
     boolean markSearchReady(TenantId tenantId, DocumentId documentId, UUID generation, String indexIdentity);
-    List<DocumentIndexState> scan(String indexIdentity, String after, int limit);
+    /** Eligible documents in (Tenant, Document) order after the cursor, or from the start when it is null. */
+    List<DocumentIndexState> scan(String indexIdentity, DocumentIndexState.@Nullable Cursor after, int limit);
     /** Served generations under the identity, or current content generations when the identity is blank. */
     Map<UUID, UUID> currentGenerations(TenantId tenant, List<UUID> documents, String readyIdentity);
     /** Generations whose chunks must survive cleanup: the served generation and the content generation being indexed. */

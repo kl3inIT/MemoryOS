@@ -4,10 +4,14 @@ import io.memoryos.connector.GoogleDriveAclChanged;
 import io.memoryos.connector.SourceAccessChanged;
 import io.memoryos.document.DocumentChanged;
 import io.memoryos.document.DocumentChunkPort;
+import io.memoryos.document.DocumentId;
+import io.memoryos.document.DocumentIndexState;
 import io.memoryos.ingestion.persistence.JdbcSearchWorkRepository;
 import io.memoryos.retrieval.SearchIndex;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
@@ -21,7 +25,8 @@ public class SearchProjectionMaintenance {
     private final JdbcSearchWorkRepository work;
     private final SearchIndex index;
     private final TransactionTemplate transactions;
-    private String cursor = "";
+    /** In memory only: a restarted process begins a new pass, which repair tolerates. */
+    private DocumentIndexState.@Nullable Cursor cursor;
     private final int rebuildWindow;
 
     public SearchProjectionMaintenance(DocumentChunkPort documents, JdbcSearchWorkRepository work, SearchIndex index,
@@ -69,11 +74,15 @@ public class SearchProjectionMaintenance {
         String identity = identities.getFirst();
         work.cancelObsolete(identities);
         var page = documents.scan(identity, cursor, 32);
+        // Only documents ready in the index are compared with it, all of them in one read.
+        var ready = page.stream().filter(DocumentIndexState::ready).toList();
+        var projections = ready.isEmpty() ? Map.<DocumentId, SearchIndex.Projection>of() : index.inspect(ready, identity);
         for (var document : page) {
-            if (!document.ready() || !index.contains(document, identity)) {
+            var projection = document.ready() ? projections.getOrDefault(document.documentId(), SearchIndex.Projection.INCOMPLETE) : null;
+            if (projection != SearchIndex.Projection.CURRENT) {
                 // A complete generation whose only drift is metadata or access keeps serving while ACCESS repairs it;
                 // hiding it for a full rewrite would drop still-authorized results for the duration of the rewrite.
-                boolean accessOnly = document.ready() && index.containsGeneration(document, identity);
+                boolean accessOnly = projection == SearchIndex.Projection.STALE_FIELDS;
                 transactions.executeWithoutResult(_ -> {
                     if (accessOnly) {
                         work.enqueueAccessRepair(document.tenantId(), document.documentId(), document.generation(), identity);
@@ -85,7 +94,7 @@ public class SearchProjectionMaintenance {
             }
             cursor = document.cursor();
         }
-        if (page.size() < 32) cursor = "";
+        if (page.size() < 32) cursor = null;
         index.purgeStale(identity);
     }
 

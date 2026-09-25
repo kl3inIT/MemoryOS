@@ -179,6 +179,12 @@ class SourceSearchMetadataMigrationTest {
                     .stream().map(io.memoryos.connector.DocumentSourceMetadata::sourceId).toList());
             assertEquals(List.of(drive), search.indexMetadata(tenant, new DocumentId(driveDoc), generation)
                     .stream().map(io.memoryos.connector.DocumentSourceMetadata::sourceId).toList());
+            // The page read gives each document what the single read gives it for its own generation.
+            var page = search.indexMetadata(tenant, java.util.Map.of(new DocumentId(mixed), generation,
+                    new DocumentId(privateDoc), generation, new DocumentId(driveDoc), UUID.randomUUID()));
+            assertEquals(search.indexMetadata(tenant, new DocumentId(mixed), generation), page.get(new DocumentId(mixed)));
+            assertEquals(search.indexMetadata(tenant, new DocumentId(privateDoc), generation), page.get(new DocumentId(privateDoc)));
+            assertEquals(List.of(), page.get(new DocumentId(driveDoc)), "Another generation has no index metadata");
             assertTrue(access.canRead(member, new DocumentId(driveDoc)));
 
             jdbc.sql("UPDATE connector_credential_pairs SET access_type='PUBLIC' WHERE id=:id").param("id", drive).update();

@@ -148,7 +148,9 @@ class SearchRebuildIntegrationTest {
                     new StructuredDocumentChunker(mapper));
             var sourceSearch = mock(SourceSearchService.class);
             when(sourceSearch.indexMetadata(any(), any(), any())).thenReturn(List.of());
-            when(sourceSearch.indexAccess(any(), any())).thenReturn(new DocumentAccess(true, Set.of()));
+            when(sourceSearch.indexAccess(any(), org.mockito.ArgumentMatchers.any(io.memoryos.document.DocumentId.class)))
+                    .thenReturn(new DocumentAccess(true, Set.of()));
+            io.memoryos.connector.SourceSearchMocks.answerPagesFromSingleDocuments(sourceSearch);
             var gateway = gateways.apply(TestSearchGateways.gateway(properties, mapper));
             index = new OpenSearchIndexService(gateway, generations, properties, mapper, chunks, sourceSearch,
                     new SearchTimings(new SimpleMeterRegistry(), ObservationRegistry.NOOP));

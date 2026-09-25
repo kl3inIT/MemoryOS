@@ -208,17 +208,23 @@ public class JdbcDocumentChunkRepository {
                 .param("identity", identity).query(Integer.class).single() == 1;
     }
 
-    public List<DocumentIndexState> scan(String identity, String after, int limit) {
-        return jdbc.sql("""
+    /**
+     * One page of eligible documents in (Tenant, Document) order. The row-value cursor walks the unique
+     * {@code (tenant_id, id)} index of {@code documents}, so a page costs the same wherever the scan is.
+     */
+    public List<DocumentIndexState> scan(String identity, DocumentIndexState.@org.jspecify.annotations.Nullable Cursor after, int limit) {
+        String resume = after == null ? "" : "AND (d.tenant_id,d.id) > (:afterTenant,:afterDocument)";
+        var statement = jdbc.sql("""
                 SELECT d.tenant_id,d.id,d.content_generation,
                     COALESCE(CASE WHEN p.generation=d.content_generation THEN p.chunk_count END,d.chunk_count,0) AS chunk_count,
                     COALESCE(p.generation=d.content_generation,FALSE) AS ready
                 FROM documents d JOIN tenants t ON t.id=d.tenant_id
                 LEFT JOIN document_search_projection p ON p.tenant_id=d.tenant_id AND p.document_id=d.id AND p.index_identity=:identity
-                WHERE d.status='ELIGIBLE' AND t.status='ACTIVE' AND d.extraction_artifact_id IS NOT NULL
-                    AND d.tenant_id::text || ':' || d.id::text > :after
-                ORDER BY d.tenant_id::text || ':' || d.id::text LIMIT :limit
-                """).param("identity", identity).param("after", after).param("limit", Math.clamp(limit, 1, 100))
+                WHERE d.status='ELIGIBLE' AND t.status='ACTIVE' AND d.extraction_artifact_id IS NOT NULL %s
+                ORDER BY d.tenant_id,d.id LIMIT :limit
+                """.formatted(resume)).param("identity", identity).param("limit", Math.clamp(limit, 1, 100));
+        if (after != null) statement = statement.param("afterTenant", after.tenantId().value()).param("afterDocument", after.documentId().value());
+        return statement
                 .query((rs, _) -> new DocumentIndexState(new TenantId(rs.getObject("tenant_id", UUID.class)),
                         new DocumentId(rs.getObject("id", UUID.class)), rs.getObject("content_generation", UUID.class),
                         rs.getInt("chunk_count"), rs.getBoolean("ready"))).list();

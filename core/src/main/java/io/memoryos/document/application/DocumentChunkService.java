@@ -62,7 +62,9 @@ public class DocumentChunkService implements DocumentChunkPort {
     }
 
     @Override
-    public List<DocumentIndexState> scan(String identity, String after, int limit) { return repository.scan(identity, after, limit); }
+    public List<DocumentIndexState> scan(String identity, DocumentIndexState.@org.jspecify.annotations.Nullable Cursor after, int limit) {
+        return repository.scan(identity, after, limit);
+    }
 
     @Override
     public Map<UUID, UUID> currentGenerations(TenantId tenant, List<UUID> documents, String readyIdentity) {
