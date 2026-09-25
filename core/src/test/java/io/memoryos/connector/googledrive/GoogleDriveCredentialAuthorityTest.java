@@ -273,16 +273,16 @@ class GoogleDriveCredentialAuthorityTest {
         assertEquals(initial.id(), drive.synchronize(scoped, source).id());
         assertThrows(SourceException.class, () -> drive.setPaused(scoped, source, 1, false));
         assertTrue(drive.updateSchedule(scoped, source, 2, 15).syncPaused());
-        transactions.executeWithoutResult(_ -> sync.cancel(tenant, source));
+        transactions.executeWithoutResult(_ -> sync.supersede(tenant, source));
         jdbc.sql("UPDATE google_drive_sources SET next_sync_at=CURRENT_TIMESTAMP-INTERVAL '1 minute' WHERE source_id=:source")
                 .param("source", source.value()).update();
-        assertTrue(sync.due(10).isEmpty());
+        assertTrue(new io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository(jdbc, sync).due(10).isEmpty());
         assertEquals(io.memoryos.connector.SourceOperationStatus.NOT_STARTED, drive.synchronize(scoped, source).status());
-        transactions.executeWithoutResult(_ -> sync.cancel(tenant, source));
+        transactions.executeWithoutResult(_ -> sync.supersede(tenant, source));
         drive.setPaused(scoped, source, 3, false);
         jdbc.sql("UPDATE google_drive_sources SET next_sync_at=CURRENT_TIMESTAMP-INTERVAL '1 minute' WHERE source_id=:source")
                 .param("source", source.value()).update();
-        assertEquals(source, sync.due(10).getFirst().sourceId());
+        assertEquals(source, new io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository(jdbc, sync).due(10).getFirst().sourceId());
     }
 
     private ActorId scopedManager(io.memoryos.iam.GroupId group) {

@@ -1,15 +1,14 @@
 package io.memoryos.ingestion.extraction;
 
 import io.memoryos.document.DocumentContent;
-import io.memoryos.ingestion.ExtractionException;
-import io.memoryos.ingestion.ExtractionFailure;
+import io.memoryos.document.ExtractionException;
+import io.memoryos.document.ExtractionFailure;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
-
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.InputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,8 +16,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import org.jspecify.annotations.Nullable;
-
 import org.apache.tika.Tika;
 import org.apache.tika.exception.EncryptedDocumentException;
 import org.apache.tika.exception.TikaException;
@@ -32,6 +29,7 @@ import org.apache.tika.parser.ParseContext;
 import org.apache.tika.parser.pdf.OcrConfig;
 import org.apache.tika.parser.pdf.PDFParserConfig;
 import org.apache.tika.sax.BodyContentHandler;
+import org.jspecify.annotations.Nullable;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 
@@ -118,7 +116,7 @@ final class TikaExtractionProcess {
                 metadata.put(readString(input), readString(input));
             }
             return new DocumentContent(mediaType, title, normalizedText, metadata,
-                    readString(input, io.memoryos.ingestion.extraction.StructuredContent.MAX_BYTES), null);
+                    readString(input, io.memoryos.document.StructuredContent.MAX_BYTES), null);
         }
     }
 

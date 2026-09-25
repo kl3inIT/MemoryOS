@@ -10,7 +10,7 @@ import ai.docling.serve.client.DoclingServeClientException;
 import ai.docling.serve.client.operations.RequestContext;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.memoryos.ingestion.ExtractionFailure;
+import io.memoryos.document.ExtractionFailure;
 import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -26,8 +26,8 @@ import tools.jackson.core.JsonParser;
 import tools.jackson.databind.DeserializationContext;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ValueDeserializer;
-import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.annotation.JsonDeserialize;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Official SDK operations with a bounded response transport; no response/body logging. */
 @org.jspecify.annotations.NullMarked

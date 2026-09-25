@@ -1,13 +1,13 @@
 package io.memoryos.ingestion.application;
 
-import io.memoryos.library.UserFileWork;
-import io.memoryos.library.UserFileWorkPort;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionArtifactPort;
-import io.memoryos.ingestion.ExtractionException;
+import io.memoryos.document.ExtractionException;
+import io.memoryos.ingestion.ChatFileExtractor;
 import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.OperationDelivery;
-import io.memoryos.ingestion.ChatFileExtractor;
+import io.memoryos.library.UserFileWork;
+import io.memoryos.library.UserFileWorkPort;
 import io.memoryos.objectstorage.ObjectStorage;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;

@@ -397,6 +397,8 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
         WorkLeases.RetryOutcome outcome = WorkLeases.retry(
                 jdbcClient,
                 "index_attempts",
+                // A reconciliation deferral hands the attempt back without spending extraction budget.
+                WorkLeases.AttemptCount.processingExcept("deferred_attempts"),
                 work.tenantId().value(),
                 work.operationId().value(),
                 work.claimToken(),

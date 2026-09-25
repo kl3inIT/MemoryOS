@@ -60,6 +60,28 @@ class RestSharePointProviderTest {
     }
 
     @Test
+    void throttledAndUnavailableResponsesCarryTheWaitMicrosoftAskedFor() throws Exception {
+        Map<Integer, java.time.Duration> expected = Map.of(429, java.time.Duration.ofSeconds(120),
+                503, java.time.Duration.ofSeconds(7));
+        for (var entry : expected.entrySet()) {
+            try (var fixture = new Fixture(exchange -> {
+                exchange.getResponseHeaders().add("Retry-After", Long.toString(entry.getValue().toSeconds()));
+                return new Response(entry.getKey(), new byte[0]);
+            }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+                var exception = assertThrows(SharePointProviderException.class, session::root);
+                assertEquals(entry.getValue(), exception.retryAfter(), "status " + entry.getKey());
+            }
+        }
+        try (var fixture = new Fixture(exchange -> {
+            exchange.getResponseHeaders().add("Retry-After", "30");
+            return new Response(404, new byte[0]);
+        }); var provider = provider(fixture, 0); var session = provider.open(credential())) {
+            assertNull(assertThrows(SharePointProviderException.class, session::root).retryAfter(),
+                    "only a throttled or unavailable response asks the caller to wait");
+        }
+    }
+
+    @Test
     void neverFollowsRedirects() throws Exception {
         try (var fixture = new Fixture(exchange -> {
             if (exchange.getRequestURI().getPath().endsWith("/elsewhere")) return ok("{\"id\":\"leaked\"}");

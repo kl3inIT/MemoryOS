@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.connector.SourceInputFormat;
+import io.memoryos.document.ExtractionException;
 import io.memoryos.document.application.StructuredDocumentChunker;
-import io.memoryos.ingestion.ExtractionException;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;

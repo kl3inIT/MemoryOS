@@ -2,6 +2,23 @@
 
 This matrix combines historical upstream and local evidence. Focused checks for the merge with main `3e4e318` are recorded in [Basic Access merge verification](../increments/completed/basic-access-capabilities/verification.md#main-refresh-to-3e4e318), not a full-suite or live-provider acceptance claim. Current schema has 48 migrations: published main V1–V42 stay unchanged, while historical local Basic/scoped-source V37–V42 map to V43–V48. Existing databases with old feature V37–V42 must not run the merged layout until deliberate data-preserving history/schema reconciliation; no automatic reset or Flyway repair is authorized.
 
+## Shared synchronization engine — 2026-09-25
+
+Phase 3 replaced the Google Drive and SharePoint sync services with one engine and Onyx failure semantics ([spec](../specs/connector.md#synchronization-engine-and-failure-semantics)). Efficiency is asserted as call and statement counts, not timings.
+
+| Boundary | Cases | What they establish |
+| --- | --- | --- |
+| `PostgresGoogleDriveSyncTest.anItemThatFailsIsAnErrorOfACompletedRunAndTheNextRunResolvesIt` | 1 | A file that fails three reads is a `FILE:` run error; the run completes `COMPLETED_WITH_ERRORS`, the other file is acquired, the Source keeps no error, and the next run acquires the file and resolves the error with its own run id |
+| `PostgresSharePointSyncTest.aStorageFailureIsAnItemErrorThatTheNextRunRetriesAndResolves` | 1 | A storage write failure for one file is a `STORAGE_WRITE` item error of a completed run; the next refresh retries that file first and resolves the error |
+| `PostgresSharePointSyncTest.failuresOfMoreThanThreeItemsAndATenthOfTheRunAbortItAndRetryTheAttempt` | 1 | The fourth failure out of four processed files aborts the run with `SOURCE_SYNC_ITEM_FAILURES_EXCEEDED`; the attempt is retried after the backoff, keeps its message, counts failures afresh and resumes the same run |
+| `PostgresGoogleDriveSyncTest.pausingOrDeletingTheSourceCancelsItsRunningSync`, `PostgresSharePointSyncTest.aPausedSourceIsNeitherScheduledNorWrittenBy` | 2 | A paused Source cancels its running attempt with `SOURCE_PAUSED` and a deleted one with `SOURCE_DELETING`, for both providers (SharePoint used to supersede it) |
+| `PostgresSharePointSyncTest.aThrottledRunWaitsAsLongAsMicrosoftAsked`, `RestSharePointProviderTest.throttledAndUnavailableResponsesCarryTheWaitMicrosoftAskedFor`, `RestGoogleDriveProviderTest.throttledResponsesCarryTheWaitGoogleAskedFor`, `RetryAfterTest` | 5 | A 429, 503 or Google rate-limit 403 carries `Retry-After` (seconds or HTTP date, capped at an hour) into the provider exception, and the engine schedules the retry no sooner |
+| `PostgresSharePointSyncTest.aSourceWhoseSyncFailedIsReportedFailedWithItsCode`, `PostgresSharePointSyncTest.aStorageFailureIsAnItemErrorThatTheNextRunRetriesAndResolves` | 2 | The Source summary reads the synchronization error from `connector_credential_pairs.sync_error_code`, and a run that completed with errors leaves none |
+| `PostgresSharePointSyncTest.aRunResolvesItsSitesAndLibrariesOnceAcrossContinuations` | 1 | A site root's libraries are listed once for a run that takes two slices (`libraries` called once; before, once per 45 second slice, and every site again for "All sites") |
+| `PostgresSharePointSyncTest.anUnchangedFileTakesOneFenceOfFourLocks` | 1 | Measured with `LockingStatementCounter`: an unchanged file takes 4 row-locking statements (one fence) and a downloaded file 10; counted from its fences, the replaced code took 8 and about 21 (two and four fences plus a nested Source lock) |
+| `PostgresGoogleDriveSyncTest.aFileBeneathAFolderThisRunListedFindsItsRootWithoutAskingDriveAgain` | 1 | A file's walk to its root answers from the membership the run recorded for its parent folder: the folder's metadata is read 3 times (its own two reads and its listing) instead of 4 |
+| `SourcesDependencyRulesTest.connectorAdaptersDoNotDependOnIngestion` | 1 | The Google Drive and SharePoint adapters write the extraction model through `document` and never reach `ingestion` |
+
 ## Publication main refresh — 2026-09-09
 
 The publication tree integrates main `287ca9c` (Chat/JIT) and `3f236d5` (Search PRs #83/#87), retaining HEAD Source behavior. Earlier evidence below remains historical rather than proof of this refreshed tree.
@@ -104,7 +121,7 @@ Evidence below separates retained regressions, measured capacity and isolated ru
 | Acquisition completion cannot take ownership of earlier indexing or double-count replayed publication | `PostgresSourceRunHistoryTest.acquisitionCompletionDoesNotStealEarlierIndexingAndDuplicateDeliveryCannotDoubleCountPublication` |
 | Errors/cancellation survive item cleanup; inactive-Tenant bulk cancellation and true supersession settle owned counters once; manual reindex cannot rewrite closed runs | `PostgresSourceRunHistoryTest.terminalItemErrorsAndBulkCancellationSurviveItemCleanupWithoutRewritingHistory`, `inactiveTenantBulkCancellationClosesOwnedChildrenOnlyOnce`, `trueSupersessionSettlesOnceAndManualReindexNeverReattributesClosedRun` |
 | Expired claims report recovery pending; reconciliation deferral does not consume retry budget | `PostgresSourceRunHistoryTest.reconciliationDeferralDoesNotConsumeRetryBudgetAndExpiredClaimsAreRecoveryPending` |
-| Failed storage acquisition records a safe storage stage without pruning prior Documents | `PostgresSourceRunHistoryTest.failedStorageAcquisitionRecordsSafeStageWithoutPruningEarlierDocuments` |
+| A storage failure of one file completes the run with errors, records a safe storage stage and prunes no prior Document | `PostgresSourceRunHistoryTest.storageFailureOfOneFileCompletesWithErrorsRecordingSafeStageWithoutPruningEarlierDocuments` |
 | Bounded stable history pages remain tenant/Source/filter scoped and legacy facts stay Unknown | `PostgresSourceRunHistoryTest.stableBoundedPagesRemainTenantSourceAndFilterScopedAndLegacyFactsStayUnknown` |
 | Retention compacts terminal details but protects current inputs and unresolved errors | `PostgresSourceRunHistoryTest.retentionCompactsTerminalDetailsButRetainsCurrentInputsAndUnresolvedErrors` |
 | Historical failures remain unchanged after current-version indexing recovers or an item starts deletion | `PostgresSourceRunHistoryTest.historicalTimeoutRemainsUnchangedWhenCurrentItemRecoversAndIsRemoved` |
@@ -445,7 +462,7 @@ Source-level pause/resume (V79) blocks new sync/index work for a `PAUSED` Source
 | Resume clears `PAUSED`, re-enqueues canceled index attempts, restores dispatch eligibility; resume without pause is a no-op; pause is idempotent | `PostgresSourceLifecycleTest.pauseIsIdempotentAndResumeWithoutPauseIsANoOp` |
 | A paused Source reports `PAUSING` only while an in-flight attempt holds a live lease, and `PAUSED` once an abandoned attempt's lease lapses | `PostgresSourceLifecycleTest.pausedSourceStopsPausingOnceAnAbandonedAttemptLosesItsLease` |
 | Paused Sources are excluded from SOURCE_SYNC and INGESTION dispatch candidates and the `due` scheduler | `JdbcOperationDispatchRepository` `pair.status NOT IN ('DELETING','PAUSED')` guards; `JdbcSourceSyncRepository.due` |
-| In-flight SOURCE_SYNC runs settle as `CANCELLED`/`SOURCE_PAUSED` at a safe boundary, not `SUPERSEDED` | `DefaultConnectorSyncService` pause-aware `settle` branch |
+| In-flight SOURCE_SYNC runs settle as `CANCELLED`/`SOURCE_PAUSED` at a safe boundary, not `SUPERSEDED` | `SourceSyncEngine` stopped-run branch (was `DefaultConnectorSyncService`); `PostgresGoogleDriveSyncTest.pausingOrDeletingTheSourceCancelsItsRunningSync` |
 | `POST /api/sources/{sourceId}/pause` and `POST /api/sources/{sourceId}/resume` require `SOURCES_MANAGE`, return updated `SourceSummary`, appear in `openapi.yml` | `SourceController.pauseSource`/`resumeSource`; `OpenApiContractTest` |
 | UI shows Pause/Resume menu items, `Pausing`/`Paused` badges and banner, disables Sync/Reindex while paused | `source-actions-menu.tsx`, `source-status-presentation.ts`, `source-detail-page.tsx`; `pnpm check` |
 | Run history labels pause cancellation distinctly from failure | `source-errors.ts` `SOURCE_PAUSED` message; `source-run-history.tsx` `RESUMED` trigger |

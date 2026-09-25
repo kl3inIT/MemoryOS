@@ -51,6 +51,7 @@ class PostgresGoogleDriveAclRepositoryTest {
     private TransactionTemplate tx;
     private JdbcSourceRepository sources;
     private JdbcSourceSyncRepository sync;
+    private JdbcGoogleDriveSyncRepository googleSync;
     private JdbcGoogleDriveSourceRepository drive;
     private JdbcGoogleDriveCredentialRepository credentials;
     private JdbcGoogleDriveAclRepository acls;
@@ -64,6 +65,7 @@ class PostgresGoogleDriveAclRepositoryTest {
         tx = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
         sources = new JdbcSourceRepository(jdbc, event -> {});
         sync = new JdbcSourceSyncRepository(jdbc);
+        googleSync = new JdbcGoogleDriveSyncRepository(jdbc, sync);
         drive = new JdbcGoogleDriveSourceRepository(jdbc);
         credentials = new JdbcGoogleDriveCredentialRepository(jdbc, sources,
                 new GoogleDriveCredentialConfiguration(Base64.getEncoder().encodeToString(new byte[32]), "test"),
@@ -271,7 +273,7 @@ class PostgresGoogleDriveAclRepositoryTest {
         Work next = nextWork(fixture);
         assertThat(read(fixture).contextStatus()).isEqualTo(ContextStatus.STALE);
         tx.executeWithoutResult(_ -> {
-            sync.observe(next, FILE, ROOT, "version-1");
+            googleSync.observe(next, FILE, ROOT, "version-1");
             acls.recordSuccess(next, FILE, List.of());
         });
         var refreshed = read(fixture);
@@ -306,7 +308,7 @@ class PostgresGoogleDriveAclRepositoryTest {
         jdbc.sql("INSERT INTO google_drive_link_approvals (tenant_id, source_id, file_id) VALUES (:tenant, :source, :file)")
                 .param("tenant", fixture.tenant().value()).param("source", fixture.source().value()).param("file", FILE).update();
         tx.executeWithoutResult(_ -> {
-            sync.observe(fixture.work(), FILE, FILE, "version-1");
+            googleSync.observe(fixture.work(), FILE, FILE, "version-1");
             acls.recordSuccess(fixture.work(), FILE, List.of());
         });
         assertThat(read(fixture).contextStatus()).isEqualTo(ContextStatus.CURRENT);
@@ -325,7 +327,7 @@ class PostgresGoogleDriveAclRepositoryTest {
         assertThat(read(fixture).currentContext().itemRemoved()).isTrue();
         assertThat(read(fixture).contextStatus()).isEqualTo(ContextStatus.INVALID);
         tx.executeWithoutResult(_ -> {
-            sync.exclude(fixture.tenant(), fixture.source(), item);
+            googleSync.exclude(fixture.tenant(), fixture.source(), item);
             jdbc.sql("DELETE FROM documents_by_connector_credential_pair WHERE tenant_id = :tenant AND connector_item_id = :item")
                     .param("tenant", fixture.tenant().value()).param("item", item.value()).update();
             jdbc.sql("DELETE FROM connector_items WHERE tenant_id = :tenant AND id = :item")
@@ -368,7 +370,7 @@ class PostgresGoogleDriveAclRepositoryTest {
         jdbc.sql("INSERT INTO google_drive_roots (tenant_id, source_id, file_id, name, mime_type) VALUES (:tenant, :source, :root, 'Folder', 'application/vnd.google-apps.folder')")
                 .param("tenant", tenant.value()).param("source", pair.sourceId().value()).param("root", ROOT).update();
         Work work = work(tenant, pair.sourceId());
-        tx.executeWithoutResult(_ -> sync.observe(work, FILE, ROOT, "version-1"));
+        tx.executeWithoutResult(_ -> googleSync.observe(work, FILE, ROOT, "version-1"));
         return new Fixture(tenant, pair.sourceId(), pair.connectorId(), credential, work);
     }
 
@@ -382,7 +384,7 @@ class PostgresGoogleDriveAclRepositoryTest {
 
     private Work work(TenantId tenant, SourceId source) {
         return Objects.requireNonNull(tx.execute(_ -> {
-            var operation = sync.enqueue(tenant, source, 1, SourceRunTrigger.MANUAL, null);
+            var operation = sync.enqueue(io.memoryos.connector.sync.persistence.SyncTarget.GOOGLE_DRIVE, tenant, source, 1, SourceRunTrigger.MANUAL, null);
             UUID delivery = UUID.randomUUID();
             jdbc.sql("UPDATE source_sync_attempts SET delivery_id = :delivery WHERE tenant_id = :tenant AND id = :operation")
                     .param("delivery", delivery).param("tenant", tenant.value()).param("operation", operation.id().value()).update();
@@ -391,7 +393,7 @@ class PostgresGoogleDriveAclRepositoryTest {
     }
 
     private Work nextWork(Fixture value) {
-        tx.executeWithoutResult(_ -> sync.cancel(value.tenant(), value.source()));
+        tx.executeWithoutResult(_ -> sync.supersede(value.tenant(), value.source()));
         return work(value.tenant(), value.source());
     }
 

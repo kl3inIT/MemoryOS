@@ -1,7 +1,7 @@
 package io.memoryos.ingestion.extraction;
 
-import io.memoryos.ingestion.ExtractionException;
-import io.memoryos.ingestion.ExtractionFailure;
+import io.memoryos.document.ExtractionException;
+import io.memoryos.document.ExtractionFailure;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;

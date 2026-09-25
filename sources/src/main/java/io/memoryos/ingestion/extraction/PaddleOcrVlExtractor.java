@@ -2,8 +2,8 @@ package io.memoryos.ingestion.extraction;
 
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractedDocument.Page;
-import io.memoryos.ingestion.ExtractionException;
-import io.memoryos.ingestion.ExtractionFailure;
+import io.memoryos.document.ExtractionException;
+import io.memoryos.document.ExtractionFailure;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;

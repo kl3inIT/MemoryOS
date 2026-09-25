@@ -1,4 +1,4 @@
-package io.memoryos.ingestion;
+package io.memoryos.document;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 

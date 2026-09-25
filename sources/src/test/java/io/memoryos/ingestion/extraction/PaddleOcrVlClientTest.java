@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import io.memoryos.ingestion.ExtractionException;
-import io.memoryos.ingestion.ExtractionFailure;
+import io.memoryos.document.ExtractionException;
+import io.memoryos.document.ExtractionFailure;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;

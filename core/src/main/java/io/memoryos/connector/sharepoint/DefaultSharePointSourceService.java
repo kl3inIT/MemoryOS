@@ -19,11 +19,11 @@ import io.memoryos.connector.sharepoint.persistence.JdbcSharePointCredentialRepo
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSelectionRepository;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSourceRepository;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSourceRepository.ResolvedRoot;
-import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSyncRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceGroupRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
+import io.memoryos.connector.sync.persistence.SyncTarget;
 import io.memoryos.iam.Authority;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
@@ -57,7 +57,6 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
     private final JdbcSourceGroupRepository sourceGroups;
     private final JdbcSourceRepository sources;
     private final JdbcSourceSyncRepository sync;
-    private final JdbcSharePointSyncRepository runs;
     private final JdbcIndexAttemptRepository indexing;
     private final JdbcSourceDocumentRepository documents;
     private final SharePointSelectionPolicy policy;
@@ -68,7 +67,7 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
             SharePointConnectionService connections,
             JdbcSharePointSourceRepository sharePoint, JdbcSharePointSelectionRepository selections,
             JdbcSharePointCredentialRepository credentials, JdbcSourceGroupRepository sourceGroups,
-            JdbcSourceRepository sources, JdbcSourceSyncRepository sync, JdbcSharePointSyncRepository runs,
+            JdbcSourceRepository sources, JdbcSourceSyncRepository sync,
             JdbcIndexAttemptRepository indexing,
             JdbcSourceDocumentRepository documents, SharePointSelectionPolicy policy,
             PlatformTransactionManager transactionManager, AuditTrail audit) {
@@ -82,7 +81,6 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
         this.sourceGroups = sourceGroups;
         this.sources = sources;
         this.sync = sync;
-        this.runs = runs;
         this.indexing = indexing;
         this.documents = documents;
         this.policy = policy;
@@ -222,7 +220,7 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
             sharePoint.lock(tenant, source);
             boolean before = sharePoint.configuration(tenant, source).syncPaused();
             sharePoint.setPaused(tenant, source, expectedScheduleRevision, paused);
-            if (paused) sync.cancel(tenant, source);
+            if (paused) sync.cancel(tenant, source, "SOURCE_PAUSED");
             if (before != paused)
                 record(tenant, actor, paused ? AuditAction.SOURCE_PAUSE : AuditAction.SOURCE_RESUME,
                         source, null, event -> event);
@@ -238,7 +236,8 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
             sharePoint.lock(tenant, source);
             var state = connections.state(tenant, source);
             sharePoint.requestSynchronization(tenant, source);
-            return runs.enqueue(tenant, source, state.credentialRevision(), SourceRunTrigger.MANUAL, actor);
+            return sync.enqueue(SyncTarget.SHAREPOINT, tenant, source, state.credentialRevision(),
+                    SourceRunTrigger.MANUAL, actor);
         }));
     }
 
@@ -272,9 +271,10 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
                     creation.authority().authority() == Authority.GLOBAL ? null : intent.actorId(), intent.name(),
                     new CredentialId(Objects.requireNonNull(intent.credentialId())), access, scope, roots, tenantHost);
             sourceGroups.replace(tenant, source, creation.groupIds());
-            runs.enqueue(tenant, source, intent.credentialRevision(), SourceRunTrigger.INITIAL, intent.actorId());
+            sync.enqueue(SyncTarget.SHAREPOINT, tenant, source, intent.credentialRevision(),
+                    SourceRunTrigger.INITIAL, intent.actorId());
         } else {
-            sync.cancel(tenant, source);
+            sync.supersede(tenant, source);
             sharePoint.replaceScope(tenant, source, intent.scopeRevision(), scope, roots, tenantHost);
             indexing.cancelForSource(tenant, source);
             documents.invalidateSource(tenant, source);

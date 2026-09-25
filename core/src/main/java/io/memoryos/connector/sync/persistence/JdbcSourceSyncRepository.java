@@ -2,7 +2,6 @@ package io.memoryos.connector.sync.persistence;
 
 import io.memoryos.connector.ConnectorSyncPort.Work;
 import io.memoryos.connector.SourceId;
-import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationTraceContext;
 import io.memoryos.connector.SourceOperationType;
@@ -21,38 +20,60 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Synchronization attempts of every connector: queueing, the claim fence, the run's file outcomes and item
+ * errors, and how an attempt ends. Provider traversal state lives in each provider's own repository; the
+ * provider Source and credential rows an attempt is fenced against are named by a {@link SyncTarget}.
+ */
 @Repository
+@SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 public class JdbcSourceSyncRepository {
-    private final JdbcClient jdbc;
-    public JdbcSourceSyncRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
+    /** The run counters, in the order {@link #ZERO_COUNTERS} fills them. */
+    public static final String COUNTERS = """
+            scanned, acquired, unchanged, already_pending, acquisition_failed, skipped, removed,
+            published, indexing_pending, indexing_failed, indexing_superseded, indexing_cancelled""";
+    private static final String ZERO_COUNTERS = "0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0";
+    /** A run is aborted once more than this many items failed, and more than a tenth of what it processed. */
+    public static final int ITEM_FAILURE_FLOOR = 3;
+    private static final String TABLE = "source_sync_attempts";
 
-    public SourceOperationView enqueue(TenantId tenant, SourceId source, long credentialRevision,
+    private final JdbcClient jdbc;
+
+    public JdbcSourceSyncRepository(JdbcClient jdbc) {
+        this.jdbc = jdbc;
+    }
+
+    /** Queues a run, or returns the one already queued or running for the Source. */
+    public SourceOperationView enqueue(SyncTarget target, TenantId tenant, SourceId source, long credentialRevision,
             SourceRunTrigger trigger, @Nullable ActorId actor) {
-        var live = jdbc.sql("""
-                SELECT * FROM source_sync_attempts WHERE tenant_id = :tenant AND source_id = :source
-                  AND status IN ('NOT_STARTED','IN_PROGRESS')
-                """).param("tenant", tenant.value()).param("source", source.value()).query(this::operation).optional();
+        var live = live(tenant, source);
         if (live.isPresent()) return live.get();
         UUID id = UUID.randomUUID();
         var trace = SourceOperationTraceContext.current();
-        jdbc.sql("""
-                UPDATE google_drive_sources SET generation = generation + 1, error_code = NULL,
+        jdbc.sql("UPDATE " + target.sourceTable() + """
+                 SET generation = generation + 1,
                     next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
                 WHERE tenant_id = :tenant AND source_id = :source
                 """).param("tenant", tenant.value()).param("source", source.value()).update();
+        clearSyncError(tenant, source);
         jdbc.sql("""
                 INSERT INTO source_sync_attempts (id, tenant_id, source_id, scope_revision, credential_revision,
                     generation, origin_trace_id, origin_span_id, history_version, trigger_kind, actor_id,
-                    scanned, acquired, unchanged, already_pending, acquisition_failed, skipped, removed,
-                    published, indexing_pending, indexing_failed, indexing_superseded, indexing_cancelled)
-                SELECT :id, s.tenant_id, s.source_id, s.revision, :credential, s.generation, :trace, :span,
-                    1, :trigger, :actor, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-                FROM google_drive_sources s WHERE s.tenant_id = :tenant AND s.source_id = :source
-                """).param("id", id).param("tenant", tenant.value()).param("source", source.value())
+                """ + COUNTERS + ")\nSELECT :id, s.tenant_id, s.source_id, s." + target.scopeRevisionColumn()
+                + ", :credential, s.generation, :trace, :span, 1, :trigger, :actor, " + ZERO_COUNTERS
+                + "\nFROM " + target.sourceTable() + " s WHERE s.tenant_id = :tenant AND s.source_id = :source")
+                .param("id", id).param("tenant", tenant.value()).param("source", source.value())
                 .param("credential", credentialRevision).param("trace", trace == null ? null : trace.traceId())
-                .param("span", trace == null ? null : trace.spanId())
-                .param("trigger", trigger.name()).param("actor", actor == null ? null : actor.value()).update();
+                .param("span", trace == null ? null : trace.spanId()).param("trigger", trigger.name())
+                .param("actor", actor == null ? null : actor.value()).update();
         return find(tenant, new SourceOperationId(id)).orElseThrow();
+    }
+
+    public Optional<SourceOperationView> live(TenantId tenant, SourceId source) {
+        return jdbc.sql("""
+                SELECT * FROM source_sync_attempts WHERE tenant_id = :tenant AND source_id = :source
+                  AND status IN ('NOT_STARTED', 'IN_PROGRESS')
+                """).param("tenant", tenant.value()).param("source", source.value()).query(this::operation).optional();
     }
 
     public Optional<SourceOperationView> find(TenantId tenant, SourceOperationId id) {
@@ -60,28 +81,23 @@ public class JdbcSourceSyncRepository {
                 .param("tenant", tenant.value()).param("id", id.value()).query(this::operation).optional();
     }
 
-    public List<DueSource> due(int limit) {
-        return jdbc.sql("""
-                SELECT s.tenant_id, s.source_id FROM google_drive_sources s
-                JOIN connector_credential_pairs p ON p.tenant_id = s.tenant_id AND p.id = s.source_id
-                JOIN tenants t ON t.id = s.tenant_id
-                WHERE t.status = 'ACTIVE' AND p.status NOT IN ('DELETING', 'PAUSED') AND s.next_sync_at <= CURRENT_TIMESTAMP
-                  AND NOT s.sync_paused
-                  AND EXISTS (SELECT 1 FROM google_drive_roots r WHERE r.tenant_id = s.tenant_id AND r.source_id = s.source_id)
-                  AND NOT EXISTS (SELECT 1 FROM source_sync_attempts a WHERE a.tenant_id = s.tenant_id AND a.source_id = s.source_id
-                    AND a.status IN ('NOT_STARTED','IN_PROGRESS'))
-                ORDER BY s.next_sync_at, s.source_id LIMIT :limit
-                """).param("limit", Math.clamp(limit, 1, 32)).query((r, _) -> new DueSource(
-                        new TenantId(r.getObject("tenant_id", UUID.class)), new SourceId(r.getObject("source_id", UUID.class)))).list();
+    public boolean automaticSyncEnabled(SyncTarget target, TenantId tenant, SourceId source) {
+        return jdbc.sql("SELECT NOT sync_paused FROM " + target.sourceTable()
+                        + " WHERE tenant_id = :tenant AND source_id = :source")
+                .param("tenant", tenant.value()).param("source", source.value())
+                .query(Boolean.class).optional().orElse(false);
     }
 
-    public void postpone(TenantId tenant, SourceId source) {
-        jdbc.sql("UPDATE google_drive_sources SET next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute' WHERE tenant_id = :tenant AND source_id = :source")
-                .param("tenant", tenant.value()).param("source", source.value()).update();
+    /** Moves the next scheduled run one interval ahead. */
+    public void postpone(SyncTarget target, TenantId tenant, SourceId source) {
+        jdbc.sql("UPDATE " + target.sourceTable() + """
+                 SET next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
+                WHERE tenant_id = :tenant AND source_id = :source
+                """).param("tenant", tenant.value()).param("source", source.value()).update();
     }
 
     public Optional<Work> claim(TenantId tenant, SourceOperationId id, UUID delivery) {
-        return WorkLeases.claim(jdbc, "source_sync_attempts", tenant.value(), id.value(), delivery, (operation, token) ->
+        return WorkLeases.claim(jdbc, TABLE, tenant.value(), id.value(), delivery, (operation, token) ->
                 jdbc.sql("SELECT * FROM source_sync_attempts WHERE id = :id AND claim_token = :token")
                         .param("id", operation).param("token", token).query((r, _) -> new Work(tenant,
                                 new SourceId(r.getObject("source_id", UUID.class)), id, token,
@@ -90,147 +106,180 @@ public class JdbcSourceSyncRepository {
     }
 
     public boolean renew(Work work) {
-        return WorkLeases.renew(jdbc, "source_sync_attempts", work.tenantId().value(), work.operationId().value(), work.claimToken());
+        return WorkLeases.renew(jdbc, TABLE, work.tenantId().value(), work.operationId().value(), work.claimToken());
     }
 
-    public boolean current(Work work) {
+    /**
+     * Whether the claim may still write: it holds a live lease, the Source still has the scope, generation and
+     * usable credential revision the attempt captured, and neither the Source nor its Tenant stopped. Locks the
+     * attempt and the provider Source row; the caller already holds the Source lock.
+     */
+    public boolean current(SyncTarget target, Work work) {
         return jdbc.sql("""
                 SELECT a.id FROM source_sync_attempts a
-                JOIN google_drive_sources s ON s.tenant_id = a.tenant_id AND s.source_id = a.source_id
                 JOIN connector_credential_pairs p ON p.tenant_id = a.tenant_id AND p.id = a.source_id
                 JOIN tenants t ON t.id = a.tenant_id
+                JOIN credentials c ON c.tenant_id = p.tenant_id AND c.id = p.credential_id
+                """ + "JOIN " + target.sourceTable() + " s ON s.tenant_id = a.tenant_id AND s.source_id = a.source_id\n"
+                + "JOIN " + target.credentialTable() + " pc ON pc.tenant_id = c.tenant_id AND pc.credential_id = c.id\n"
+                + """
                 WHERE a.tenant_id = :tenant AND a.id = :id AND a.claim_token = :token
                   AND a.status = 'IN_PROGRESS' AND a.lease_expires_at > CURRENT_TIMESTAMP
-                  AND s.revision = a.scope_revision AND s.generation = a.generation
-                  AND p.status NOT IN ('DELETING', 'PAUSED') AND t.status = 'ACTIVE'
-                FOR UPDATE OF a, s
-                """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
+                  AND s.generation = a.generation AND p.status NOT IN ('DELETING', 'PAUSED') AND t.status = 'ACTIVE'
+                  AND c.status = 'ACTIVE' AND pc.connection_status = 'ACTIVE'
+                  AND pc.credential_revision = a.credential_revision
+                """ + "  AND s." + target.scopeRevisionColumn() + " = a.scope_revision\nFOR UPDATE OF a, s")
+                .param("tenant", work.tenantId().value()).param("id", work.operationId().value())
                 .param("token", work.claimToken()).query(UUID.class).optional().isPresent();
     }
 
-    public String phase(Work work) {
-        return jdbc.sql("SELECT phase FROM source_sync_attempts WHERE tenant_id = :tenant AND id = :id")
-                .param("tenant", work.tenantId().value()).param("id", work.operationId().value()).query(String.class).single();
-    }
-
-    public void start(Work work) {
-        jdbc.sql("UPDATE source_sync_attempts SET phase = 'SCAN' WHERE tenant_id = :tenant AND id = :id")
-                .param("tenant", work.tenantId().value()).param("id", work.operationId().value()).update();
-        jdbc.sql("UPDATE google_drive_membership SET eligible = FALSE WHERE tenant_id = :tenant AND source_id = :source")
-                .param("tenant", work.tenantId().value()).param("source", work.sourceId().value()).update();
-        jdbc.sql("""
-                INSERT INTO google_drive_frontier (tenant_id, attempt_id, file_id, task_kind)
-                SELECT tenant_id, :id, file_id, 'FILE' FROM google_drive_roots
-                WHERE tenant_id = :tenant AND source_id = :source
-                UNION
-                SELECT tenant_id, :id, file_id, 'FILE' FROM google_drive_link_approvals
-                WHERE tenant_id = :tenant AND source_id = :source
-                ON CONFLICT DO NOTHING
-                """).param("id", work.operationId().value()).param("tenant", work.tenantId().value())
-                .param("source", work.sourceId().value()).update();
-    }
-
-    public Optional<Node> next(Work work) {
-        return jdbc.sql("""
-                SELECT file_id, task_kind, page_token, attempts FROM google_drive_frontier
-                WHERE tenant_id = :tenant AND attempt_id = :id AND state = 'PENDING'
-                ORDER BY attempts, created_at, file_id, task_kind LIMIT 1
+    /**
+     * Hands a run that made progress back to the dispatcher for its next slice. Progress restores the whole
+     * retry budget, as a long run otherwise spends it on unrelated transient failures.
+     */
+    public void continuation(Work work) {
+        jdbc.sql("UPDATE source_sync_attempts SET status = 'NOT_STARTED', failure_attempts = 0, error_code = NULL, "
+                        + WorkLeases.RELEASE + """
+                ,
+                    next_dispatch_at = CURRENT_TIMESTAMP + INTERVAL '1 second'
+                WHERE tenant_id = :tenant AND id = :id AND claim_token = :token
                 """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
-                .query((r, _) -> new Node(r.getString("file_id"), r.getString("task_kind"),
-                        r.getString("page_token"), r.getInt("attempts"))).optional();
+                .param("token", work.claimToken()).update();
     }
 
-    public void enqueueNode(Work work, String file, String kind) {
+    /**
+     * Schedules the attempt again after {@code backoff}, keeping its checkpoint and its error evidence, or fails
+     * it once its failures reach {@code maxAttempts}.
+     */
+    public WorkLeases.RetryOutcome retry(Work work, String code, @Nullable String message, @Nullable String detail,
+            int maxAttempts, Duration backoff) {
+        return WorkLeases.retry(jdbc, TABLE, WorkLeases.AttemptCount.failures("failure_attempts"),
+                work.tenantId().value(), work.operationId().value(), work.claimToken(), code, message, detail,
+                maxAttempts, backoff);
+    }
+
+    /** Starts counting item failures afresh, when an aborted attempt is retried. */
+    public void restartFailureWindow(Work work) {
         jdbc.sql("""
-                INSERT INTO google_drive_frontier (tenant_id, attempt_id, file_id, task_kind)
-                VALUES (:tenant, :id, :file, :kind)
-                ON CONFLICT (tenant_id, attempt_id, file_id, task_kind) DO NOTHING
+                UPDATE source_sync_attempts SET failure_window_scanned = scanned,
+                    failure_window_failed = acquisition_failed
+                WHERE tenant_id = :tenant AND id = :id AND claim_token = :token
                 """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
-                .param("file", file).param("kind", kind).update();
+                .param("token", work.claimToken()).update();
     }
 
-    public void checkpoint(Work work, Node node, @Nullable String next) {
-        jdbc.sql("""
-                UPDATE google_drive_frontier SET page_token = :page, state = :state, error_code = NULL, attempts = 0
-                WHERE tenant_id = :tenant AND attempt_id = :id AND file_id = :file AND task_kind = :kind
-                """).param("page", next).param("state", next == null ? "DONE" : "PENDING")
-                .param("tenant", work.tenantId().value()).param("id", work.operationId().value())
-                .param("file", node.fileId()).param("kind", node.kind()).update();
-        if (next == null) jdbc.sql("""
-                DELETE FROM source_run_errors WHERE tenant_id = :tenant AND run_id = :id AND error_key = :key
-                """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
-                .param("key", node.kind() + ":" + node.fileId()).update();
-    }
-
-    public void failedNode(Work work, Node node, String code, boolean unsupported,
+    /**
+     * Ends the attempt with {@code status}. A failure is recorded on the Source, whose next scheduled run then
+     * waits one interval. Returns false when the claim was already lost.
+     */
+    public boolean terminal(SyncTarget target, Work work, String status, @Nullable String code,
             @Nullable String errorMessage, @Nullable String errorDetail) {
-        jdbc.sql("""
-                UPDATE google_drive_frontier SET attempts = attempts + 1, error_code = :code,
-                    state = CASE WHEN :unsupported THEN 'UNSUPPORTED' WHEN attempts >= 2 THEN 'FAILED' ELSE 'PENDING' END
-                WHERE tenant_id = :tenant AND attempt_id = :id AND file_id = :file AND task_kind = :kind
-                """).param("code", WorkLeases.safeErrorCode(code)).param("unsupported", unsupported)
-                .param("tenant", work.tenantId().value()).param("id", work.operationId().value())
-                .param("file", node.fileId()).param("kind", node.kind()).update();
-        jdbc.sql("""
-                INSERT INTO source_run_errors (id, tenant_id, run_id, error_key, operation_id,
-                    file_id, file_name, stage, code, error_message, error_detail)
-                SELECT :errorId, f.tenant_id, f.attempt_id, :key, f.attempt_id, f.file_id, leaf.file_name,
-                    source_run_error_stage(:code), :code, :errorMessage, :errorDetail
-                FROM google_drive_frontier f LEFT JOIN source_run_files leaf
-                    ON leaf.tenant_id = f.tenant_id AND leaf.run_id = f.attempt_id AND leaf.file_id = f.file_id
-                WHERE f.tenant_id = :tenant AND f.attempt_id = :id AND f.file_id = :file AND f.task_kind = :kind
-                    AND f.state IN ('FAILED', 'UNSUPPORTED')
-                ON CONFLICT (tenant_id, run_id, error_key) DO NOTHING
-                """).param("errorId", UUID.randomUUID()).param("key", node.kind() + ":" + node.fileId())
-                .param("code", WorkLeases.safeErrorCode(code))
+        int updated = jdbc.sql("""
+                UPDATE source_sync_attempts SET status = :status, error_code = :code, completed_at = CURRENT_TIMESTAMP,
+                    error_message = :errorMessage, error_detail = :errorDetail,
+                    claim_token = NULL, lease_expires_at = NULL
+                WHERE tenant_id = :tenant AND id = :id AND claim_token = :token
+                  AND status = 'IN_PROGRESS' AND lease_expires_at > CURRENT_TIMESTAMP
+                """).param("status", status).param("code", code)
                 .param("errorMessage", WorkLeases.safeErrorMessage(errorMessage))
                 .param("errorDetail", WorkLeases.safeErrorDetail(errorDetail))
                 .param("tenant", work.tenantId().value())
-                .param("id", work.operationId().value()).param("file", node.fileId()).param("kind", node.kind()).update();
+                .param("id", work.operationId().value()).param("token", work.claimToken()).update();
+        if (updated == 1 && "FAILED".equals(status) && code != null) recordFailure(target, work, code);
+        return updated == 1;
+    }
+
+    /** Records a failed attempt on the Source it still belongs to, and waits one interval before the next run. */
+    public void recordFailure(SyncTarget target, Work work, String code) {
+        int current = jdbc.sql("UPDATE " + target.sourceTable() + """
+                 SET next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
+                WHERE tenant_id = :tenant AND source_id = :source AND generation = :generation
+                """ + "  AND " + target.scopeRevisionColumn() + " = :scope")
+                .param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
+                .param("scope", work.scopeRevision()).param("generation", work.generation()).update();
+        if (current == 1) {
+            jdbc.sql("""
+                    UPDATE connector_credential_pairs SET sync_error_code = :code
+                    WHERE tenant_id = :tenant AND id = :source
+                    """).param("code", WorkLeases.safeErrorCode(code)).param("tenant", work.tenantId().value())
+                    .param("source", work.sourceId().value()).update();
+        }
+    }
+
+    /**
+     * Completes the attempt: {@code COMPLETED_WITH_ERRORS} when any item failed or was skipped with an error,
+     * otherwise {@code SUCCEEDED}.
+     * Either way the Source synchronized, so its error clears and its next run is one interval away.
+     */
+    public Optional<String> complete(SyncTarget target, Work work) {
+        var status = jdbc.sql("""
+                UPDATE source_sync_attempts a SET
+                    status = CASE WHEN acquisition_failed > 0 OR EXISTS (
+                        SELECT 1 FROM source_run_errors e WHERE e.tenant_id = a.tenant_id AND e.run_id = a.id
+                          AND e.resolved_at IS NULL
+                          AND (e.error_key LIKE 'FILE:%' OR e.error_key LIKE 'FOLDER:%' OR e.error_key LIKE 'PAGE:%'))
+                        THEN 'COMPLETED_WITH_ERRORS' ELSE 'SUCCEEDED' END,
+                    error_code = NULL, error_message = NULL, error_detail = NULL,
+                    completed_at = CURRENT_TIMESTAMP, claim_token = NULL, lease_expires_at = NULL
+                WHERE tenant_id = :tenant AND id = :id AND claim_token = :token
+                  AND status = 'IN_PROGRESS' AND lease_expires_at > CURRENT_TIMESTAMP
+                RETURNING status
+                """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
+                .param("token", work.claimToken()).query(String.class).optional();
+        if (status.isEmpty()) return status;
+        jdbc.sql("UPDATE " + target.sourceTable() + """
+                 SET last_synced_at = CURRENT_TIMESTAMP,
+                    next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
+                WHERE tenant_id = :tenant AND source_id = :source
+                """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value()).update();
+        clearSyncError(work.tenantId(), work.sourceId());
+        return status;
+    }
+
+    public void clearSyncError(TenantId tenant, SourceId source) {
         jdbc.sql("""
-                WITH changed AS (
-                    UPDATE source_run_files leaf SET outcome = :outcome
-                    WHERE leaf.tenant_id = :tenant AND leaf.run_id = :id AND leaf.file_id = :file AND leaf.outcome IS NULL
-                        AND EXISTS (SELECT 1 FROM google_drive_frontier f WHERE f.tenant_id = leaf.tenant_id
-                            AND f.attempt_id = leaf.run_id AND f.file_id = leaf.file_id AND f.task_kind = :kind
-                            AND f.state IN ('FAILED','UNSUPPORTED'))
-                    RETURNING 1
-                )
-                UPDATE source_sync_attempts SET
-                    acquisition_failed = acquisition_failed + CASE WHEN :unsupported THEN 0 ELSE (SELECT COUNT(*) FROM changed) END,
-                    skipped = skipped + CASE WHEN :unsupported THEN (SELECT COUNT(*) FROM changed) ELSE 0 END
-                WHERE tenant_id = :tenant AND id = :id
-                """).param("outcome", unsupported ? "SKIPPED" : "FAILED").param("unsupported", unsupported)
-                .param("tenant", work.tenantId().value()).param("id", work.operationId().value())
-                .param("file", node.fileId()).param("kind", node.kind()).update();
+                UPDATE connector_credential_pairs SET sync_error_code = NULL
+                WHERE tenant_id = :tenant AND id = :source AND sync_error_code IS NOT NULL
+                """).param("tenant", tenant.value()).param("source", source.value()).update();
     }
 
-    public boolean hasFailures(Work work) {
-        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM google_drive_frontier WHERE tenant_id = :tenant AND attempt_id = :id AND state IN ('FAILED','UNSUPPORTED'))")
-                .param("tenant", work.tenantId().value()).param("id", work.operationId().value()).query(Boolean.class).single();
+    /** Ends queued and running attempts that a newer scope or credential replaced. */
+    public void supersede(TenantId tenant, SourceId source) {
+        end(tenant, source, "SUPERSEDED", null);
     }
 
-
-    public boolean excluded(Work work, String file) {
-        return jdbc.sql("""
-                SELECT EXISTS (SELECT 1 FROM google_drive_membership
-                WHERE tenant_id = :tenant AND source_id = :source AND file_id = :file AND excluded)
-                """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
-                .param("file", file).query(Boolean.class).single();
+    /**
+     * Cancels queued and running attempts because the Source stopped: {@code SOURCE_DELETING} when it is being
+     * deleted, {@code SOURCE_PAUSED} when its synchronization was paused. A running attempt notices at its next
+     * fence and writes nothing more.
+     */
+    public void cancel(TenantId tenant, SourceId source, String code) {
+        end(tenant, source, "CANCELLED", WorkLeases.safeErrorCode(code));
     }
 
-    public void observe(Work work, String file, @Nullable String root, @Nullable String version) {
-        jdbc.sql("""
-                INSERT INTO google_drive_membership (tenant_id, source_id, file_id, root_id, generation, provider_version)
-                VALUES (:tenant, :source, :file, :root, :generation, :version)
-                ON CONFLICT (tenant_id, source_id, file_id) DO UPDATE SET root_id = EXCLUDED.root_id,
-                  generation = EXCLUDED.generation, provider_version = EXCLUDED.provider_version, error_code = NULL,
-                  eligible = CASE WHEN EXCLUDED.root_id IS NULL THEN FALSE ELSE google_drive_membership.eligible END
-                """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value()).param("file", file)
-                .param("root", root).param("generation", work.generation()).param("version", version).update();
+    private void end(TenantId tenant, SourceId source, String status, @Nullable String code) {
+        jdbc.sql("UPDATE source_sync_attempts SET status = :status, error_code = :code, completed_at = CURRENT_TIMESTAMP, "
+                        + WorkLeases.RELEASE + """
+
+                WHERE tenant_id = :tenant AND source_id = :source AND status IN ('NOT_STARTED', 'IN_PROGRESS')
+                """).param("status", status).param("code", code)
+                .param("tenant", tenant.value()).param("source", source.value()).update();
     }
 
-    public void observeLeaf(Work work, String file, String name) {
+    /**
+     * Cancels queued (never-claimed) runs for a paused Source. In-flight runs are left to settle through the
+     * {@link #current} fence so they record {@code CANCELLED} at a safe boundary.
+     */
+    public void cancelQueuedForPause(TenantId tenant, SourceId source) {
+        jdbc.sql("UPDATE source_sync_attempts SET status = 'CANCELLED', error_code = 'SOURCE_PAUSED', "
+                        + "completed_at = CURRENT_TIMESTAMP, " + WorkLeases.RELEASE + """
+
+                WHERE tenant_id = :tenant AND source_id = :source AND status = 'NOT_STARTED'
+                """).param("tenant", tenant.value()).param("source", source.value()).update();
+    }
+
+    /** Counts a file the run observed, once per run however often it is listed. */
+    public void observed(Work work, String file, @Nullable String name) {
         jdbc.sql("""
                 WITH inserted AS (
                     INSERT INTO source_run_files (tenant_id, run_id, file_id, file_name)
@@ -239,22 +288,11 @@ public class JdbcSourceSyncRepository {
                 UPDATE source_sync_attempts SET scanned = scanned + (SELECT COUNT(*) FROM inserted)
                 WHERE tenant_id = :tenant AND id = :id
                 """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
-                .param("file", file).param("name", name).update();
+                .param("file", file).param("name", name == null ? null : truncate(name, 255)).update();
     }
 
-    public void acquired(Work work, String file) {
-        outcome(work, file, "ACQUIRED", false);
-    }
-
-    public void unchanged(Work work, String file, boolean alreadyPending) {
-        outcome(work, file, "UNCHANGED", alreadyPending);
-    }
-
-    public void skipped(Work work, String file) {
-        outcome(work, file, "SKIPPED", false);
-    }
-
-    private void outcome(Work work, String file, String outcome, boolean pending) {
+    /** Records how an observed file ended in this run; the first outcome is the one counted. */
+    public void outcome(Work work, String file, FileOutcome outcome, boolean alreadyPending) {
         jdbc.sql("""
                 WITH changed AS (
                     UPDATE source_run_files SET outcome = :outcome
@@ -267,217 +305,90 @@ public class JdbcSourceSyncRepository {
                     skipped = skipped + CASE WHEN :outcome = 'SKIPPED' THEN (SELECT COUNT(*) FROM changed) ELSE 0 END
                 WHERE tenant_id = :tenant AND id = :id
                 """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
-                .param("file", file).param("outcome", outcome).param("pending", pending).update();
+                .param("file", file).param("outcome", outcome.name()).param("pending", alreadyPending).update();
     }
 
     public void removed(Work work, int count) {
+        if (count == 0) return;
         jdbc.sql("UPDATE source_sync_attempts SET removed = removed + :count WHERE tenant_id = :tenant AND id = :id")
-                .param("count", count).param("tenant", work.tenantId().value()).param("id", work.operationId().value()).update();
-    }
-
-    public List<SourceItemId> pruneCandidates(Work work) {
-        return jdbc.sql("""
-                SELECT i.id FROM connector_items i
-                JOIN connector_credential_pairs p ON p.tenant_id = i.tenant_id AND p.connector_id = i.connector_id
-                LEFT JOIN google_drive_membership m ON m.tenant_id = p.tenant_id AND m.source_id = p.id AND m.file_id = i.provider_file_id
-                WHERE p.tenant_id = :tenant AND p.id = :source AND i.status <> 'DELETING'
-                  AND (m.excluded OR m.root_id IS NULL OR m.generation <> :generation)
-                ORDER BY i.id LIMIT 32
-                """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
-                .param("generation", work.generation())
-                .query((r, _) -> new SourceItemId(r.getObject("id", UUID.class))).list();
-    }
-
-    public void releaseConfirmed(Work work) {
-        jdbc.sql("""
-                UPDATE google_drive_membership m SET eligible = TRUE
-                WHERE m.tenant_id = :tenant AND m.source_id = :source AND m.generation = :generation
-                  AND NOT m.eligible AND NOT m.excluded AND m.root_id IS NOT NULL
-                  AND EXISTS (
-                    SELECT 1 FROM google_drive_frontier f
-                    WHERE f.tenant_id = m.tenant_id AND f.attempt_id = :attempt
-                      AND f.file_id = m.file_id AND f.task_kind = 'FILE' AND f.state = 'DONE')
-                  AND EXISTS (
-                    SELECT 1 FROM connector_credential_pairs p
-                    JOIN connector_items i ON i.tenant_id = p.tenant_id AND i.connector_id = p.connector_id
-                    JOIN connector_item_versions v ON v.tenant_id = i.tenant_id AND v.id = i.current_version_id
-                    WHERE p.tenant_id = m.tenant_id AND p.id = m.source_id AND i.provider_file_id = m.file_id
-                      AND i.status <> 'DELETING' AND v.provider_version = m.provider_version
-                      AND v.scope_revision = :scope AND v.credential_revision = :credential)
-                """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
-                .param("generation", work.generation()).param("attempt", work.operationId().value())
-                .param("scope", work.scopeRevision()).param("credential", work.credentialRevision()).update();
-    }
-
-    public void finish(Work work) {
-        jdbc.sql("""
-                UPDATE google_drive_membership SET eligible = NOT excluded AND root_id IS NOT NULL
-                  AND generation = :generation
-                WHERE tenant_id = :tenant AND source_id = :source
-                """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
-                .param("generation", work.generation()).update();
-        jdbc.sql("""
-                UPDATE google_drive_sources SET last_synced_at = CURRENT_TIMESTAMP,
-                  next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute', error_code = NULL
-                WHERE tenant_id = :tenant AND source_id = :source
-                """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value()).update();
-        terminal(work, "SUCCEEDED", null, null, null);
-    }
-
-    public void terminal(Work work, String status, @Nullable String code,
-            @Nullable String errorMessage, @Nullable String errorDetail) {
-        int updated = jdbc.sql("""
-                UPDATE source_sync_attempts SET status = :status, error_code = :code, completed_at = CURRENT_TIMESTAMP,
-                    error_message = :errorMessage, error_detail = :errorDetail,
-                    claim_token = NULL, lease_expires_at = NULL WHERE tenant_id = :tenant AND id = :id AND claim_token = :token
-                    AND status = 'IN_PROGRESS' AND lease_expires_at > CURRENT_TIMESTAMP
-                """).param("status", status).param("code", code)
-                .param("errorMessage", WorkLeases.safeErrorMessage(errorMessage))
-                .param("errorDetail", WorkLeases.safeErrorDetail(errorDetail))
-                .param("tenant", work.tenantId().value())
-                .param("id", work.operationId().value()).param("token", work.claimToken()).update();
-        if (updated == 1 && code != null) jdbc.sql("""
-                UPDATE google_drive_sources SET error_code = :code,
-                    next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute' WHERE tenant_id = :tenant AND source_id = :source
-                    AND revision = :scope AND generation = :generation
-                """).param("code", code).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
-                .param("scope", work.scopeRevision()).param("generation", work.generation()).update();
-    }
-
-    public void continuation(Work work, @Nullable String errorCode) {
-        jdbc.sql("""
-                UPDATE source_sync_attempts SET status = 'NOT_STARTED', claim_token = NULL, lease_expires_at = NULL,
-                  failure_attempts = 0,
-                  delivery_id = NULL, dispatch_token = NULL, dispatch_lease_expires_at = NULL, redis_message_id = NULL,
-                  dispatched_at = NULL, next_dispatch_at = CURRENT_TIMESTAMP + INTERVAL '1 second', error_code = :error
-                WHERE tenant_id = :tenant AND id = :id AND claim_token = :token
-                """).param("error", errorCode).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
-                .param("token", work.claimToken()).update();
-    }
-
-    public void retry(Work work, String error, @Nullable String errorMessage, @Nullable String errorDetail) {
-        var status = jdbc.sql("""
-                UPDATE source_sync_attempts SET failure_attempts = failure_attempts + 1,
-                  status = CASE WHEN failure_attempts >= 5 THEN 'FAILED' ELSE 'NOT_STARTED' END,
-                  completed_at = CASE WHEN failure_attempts >= 5 THEN CURRENT_TIMESTAMP ELSE NULL END,
-                  claim_token = NULL, lease_expires_at = NULL, delivery_id = NULL, dispatch_token = NULL,
-                  dispatch_lease_expires_at = NULL, redis_message_id = NULL, dispatched_at = NULL,
-                  next_dispatch_at = CURRENT_TIMESTAMP + INTERVAL '30 seconds', error_code = :error,
-                  error_message = :errorMessage, error_detail = :errorDetail
-                WHERE tenant_id = :tenant AND id = :id AND claim_token = :token AND lease_expires_at > CURRENT_TIMESTAMP
-                RETURNING status
-                """).param("error", WorkLeases.safeErrorCode(error))
-                .param("errorMessage", WorkLeases.safeErrorMessage(errorMessage))
-                .param("errorDetail", WorkLeases.safeErrorDetail(errorDetail))
-                .param("tenant", work.tenantId().value())
-                .param("id", work.operationId().value()).param("token", work.claimToken()).query(String.class).optional();
-        if (status.filter("FAILED"::equals).isPresent()) jdbc.sql("""
-                UPDATE google_drive_sources SET error_code = :error, next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
-                WHERE tenant_id = :tenant AND source_id = :source AND revision = :scope AND generation = :generation
-                """).param("error", error).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
-                .param("scope", work.scopeRevision()).param("generation", work.generation()).update();
-    }
-
-    public void cancel(TenantId tenant, SourceId source) {
-        jdbc.sql("""
-                UPDATE source_sync_attempts SET status = 'SUPERSEDED', claim_token = NULL, lease_expires_at = NULL,
-                    completed_at = CURRENT_TIMESTAMP WHERE tenant_id = :tenant AND source_id = :source
-                    AND status IN ('NOT_STARTED','IN_PROGRESS')
-                """).param("tenant", tenant.value()).param("source", source.value()).update();
+                .param("count", count).param("tenant", work.tenantId().value())
+                .param("id", work.operationId().value()).update();
     }
 
     /**
-     * Cancels queued (never-claimed) runs for a paused Source. In-flight runs are left to settle
-     * through the {@link #current(Work)} fence so they record {@code CANCELLED} at a safe boundary.
+     * Records an item failure as a run error and counts it, once per item and run. A skipped item (one the
+     * provider cannot supply in a supported form) is counted as skipped and never aborts the run. Returns true
+     * when failures since the attempt last started over exceed {@link #ITEM_FAILURE_FLOOR} and a tenth of the
+     * files processed, which aborts the run.
      */
-    public void cancelQueuedForPause(TenantId tenant, SourceId source) {
+    public boolean itemFailed(Work work, ItemFailure failure) {
         jdbc.sql("""
-                UPDATE source_sync_attempts SET status = 'CANCELLED', error_code = 'SOURCE_PAUSED',
-                    claim_token = NULL, lease_expires_at = NULL, delivery_id = NULL,
-                    dispatch_token = NULL, dispatch_lease_expires_at = NULL, redis_message_id = NULL,
-                    completed_at = CURRENT_TIMESTAMP
-                WHERE tenant_id = :tenant AND source_id = :source AND status = 'NOT_STARTED'
-                """).param("tenant", tenant.value()).param("source", source.value()).update();
-    }
-
-    /**
-     * Enqueues a resumed run after a pause. When the latest run was canceled by pause and its
-     * scope/credential revisions still match, the new attempt inherits its phase, page tokens and
-     * the full frontier so traversal continues from the retained checkpoint. Otherwise a fresh
-     * run starts. Returns empty when a live run already exists.
-     */
-    public Optional<SourceOperationView> enqueueResumed(TenantId tenant, SourceId source,
-            long credentialRevision, @Nullable ActorId actor) {
-        var live = jdbc.sql("""
-                SELECT * FROM source_sync_attempts WHERE tenant_id = :tenant AND source_id = :source
-                  AND status IN ('NOT_STARTED','IN_PROGRESS')
-                """).param("tenant", tenant.value()).param("source", source.value()).query(this::operation).optional();
-        if (live.isPresent()) return live;
-        UUID id = UUID.randomUUID();
-        var trace = SourceOperationTraceContext.current();
-        jdbc.sql("""
-                UPDATE google_drive_sources SET generation = generation + 1, error_code = NULL,
-                    next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
-                WHERE tenant_id = :tenant AND source_id = :source
-                """).param("tenant", tenant.value()).param("source", source.value()).update();
-        int created = jdbc.sql("""
-                INSERT INTO source_sync_attempts (id, tenant_id, source_id, scope_revision, credential_revision,
-                    generation, phase, history_version, trigger_kind, actor_id,
-                    scanned, acquired, unchanged, already_pending, acquisition_failed, skipped, removed,
-                    published, indexing_pending, indexing_failed, indexing_superseded, indexing_cancelled)
-                SELECT :id, s.tenant_id, s.source_id, s.revision, :credential, s.generation,
-                    donor.phase, 1, 'RESUMED', :actor,
-                    donor.scanned, donor.acquired, donor.unchanged, donor.already_pending,
-                    donor.acquisition_failed, donor.skipped, donor.removed,
-                    0, 0, 0, 0, 0
-                FROM google_drive_sources s
-                JOIN LATERAL (
-                    SELECT * FROM source_sync_attempts a
-                    WHERE a.tenant_id = s.tenant_id AND a.source_id = s.source_id
-                      AND a.status = 'CANCELLED' AND a.error_code = 'SOURCE_PAUSED'
-                      AND a.scope_revision = s.revision AND a.credential_revision = :credential
-                    ORDER BY a.created_at DESC LIMIT 1
-                ) donor ON TRUE
-                WHERE s.tenant_id = :tenant AND s.source_id = :source
-                """).param("id", id).param("tenant", tenant.value()).param("source", source.value())
-                .param("credential", credentialRevision).param("trace", trace == null ? null : trace.traceId())
-                .param("span", trace == null ? null : trace.spanId())
-                .param("actor", actor == null ? null : actor.value()).update();
-        if (created == 0) {
-            jdbc.sql("""
-                    INSERT INTO source_sync_attempts (id, tenant_id, source_id, scope_revision, credential_revision,
-                        generation, origin_trace_id, origin_span_id, history_version, trigger_kind, actor_id,
-                        scanned, acquired, unchanged, already_pending, acquisition_failed, skipped, removed,
-                        published, indexing_pending, indexing_failed, indexing_superseded, indexing_cancelled)
-                    SELECT :id, s.tenant_id, s.source_id, s.revision, :credential, s.generation, :trace, :span,
-                        1, 'RESUMED', :actor, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-                    FROM google_drive_sources s WHERE s.tenant_id = :tenant AND s.source_id = :source
-                    """).param("id", id).param("tenant", tenant.value()).param("source", source.value())
-                    .param("credential", credentialRevision).param("trace", trace == null ? null : trace.traceId())
-                    .param("span", trace == null ? null : trace.spanId())
-                    .param("actor", actor == null ? null : actor.value()).update();
-            return find(tenant, new SourceOperationId(id));
-        }
-        jdbc.sql("""
-                INSERT INTO google_drive_frontier (tenant_id, attempt_id, file_id, task_kind, page_token, state, attempts, error_code)
-                SELECT :tenant, :id, file_id, task_kind, page_token, state, attempts, error_code
-                FROM google_drive_frontier
-                WHERE tenant_id = :tenant AND attempt_id = (
-                    SELECT a.id FROM source_sync_attempts a
-                    WHERE a.tenant_id = :tenant AND a.source_id = :source
-                      AND a.status = 'CANCELLED' AND a.error_code = 'SOURCE_PAUSED'
-                    ORDER BY a.created_at DESC LIMIT 1
+                INSERT INTO source_run_errors (id, tenant_id, run_id, error_key, operation_id, file_id, file_name,
+                    stage, code, error_message, error_detail)
+                VALUES (:errorId, :tenant, :id, :key, :id, :file,
+                    COALESCE(:name, (SELECT file_name FROM source_run_files
+                        WHERE tenant_id = :tenant AND run_id = :id AND file_id = :file)),
+                    source_run_error_stage(:code), :code, :message, :detail)
+                ON CONFLICT (tenant_id, run_id, error_key) DO UPDATE SET code = EXCLUDED.code,
+                    stage = EXCLUDED.stage, error_message = EXCLUDED.error_message,
+                    error_detail = EXCLUDED.error_detail, occurred_at = CURRENT_TIMESTAMP,
+                    resolved_at = NULL, resolved_by_run_id = NULL
+                """).param("errorId", UUID.randomUUID()).param("tenant", work.tenantId().value())
+                .param("id", work.operationId().value()).param("key", failure.key())
+                .param("file", failure.fileId())
+                .param("name", failure.fileName() == null ? null : truncate(failure.fileName(), 255))
+                .param("code", WorkLeases.safeErrorCode(failure.code()))
+                .param("message", WorkLeases.safeErrorMessage(failure.message()))
+                .param("detail", WorkLeases.safeErrorDetail(failure.detail())).update();
+        return Boolean.TRUE.equals(jdbc.sql("""
+                WITH changed AS (
+                    INSERT INTO source_run_files (tenant_id, run_id, file_id, file_name, outcome)
+                    VALUES (:tenant, :id, :file, :name, :outcome)
+                    ON CONFLICT (tenant_id, run_id, file_id) DO UPDATE SET outcome = EXCLUDED.outcome
+                        WHERE source_run_files.outcome IS NULL
+                    RETURNING 1
                 )
-                """).param("id", id).param("tenant", tenant.value()).param("source", source.value()).update();
-        return find(tenant, new SourceOperationId(id));
+                UPDATE source_sync_attempts SET
+                    acquisition_failed = acquisition_failed + CASE WHEN :skipped THEN 0 ELSE (SELECT COUNT(*) FROM changed) END,
+                    skipped = skipped + CASE WHEN :skipped THEN (SELECT COUNT(*) FROM changed) ELSE 0 END
+                WHERE tenant_id = :tenant AND id = :id
+                RETURNING acquisition_failed - failure_window_failed > :floor
+                    AND (acquisition_failed - failure_window_failed) * 10 > scanned - failure_window_scanned
+                """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
+                .param("file", failure.fileId())
+                .param("name", failure.fileName() == null ? null : truncate(failure.fileName(), 255))
+                .param("outcome", failure.skipped() ? "SKIPPED" : "FAILED").param("skipped", failure.skipped())
+                .param("floor", ITEM_FAILURE_FLOOR).query(Boolean.class).optional().orElse(false));
     }
 
-    public void exclude(TenantId tenant, SourceId source, SourceItemId item) {
+    /**
+     * Provider identifiers of the Source's items whose acquisition error from an earlier run is still
+     * unresolved, which the next run retries.
+     */
+    public List<String> unresolvedItems(TenantId tenant, SourceId source, @Nullable SourceOperationId except,
+            int limit) {
+        return jdbc.sql("""
+                SELECT DISTINCT e.file_id FROM source_run_errors e
+                JOIN source_sync_attempts r ON r.tenant_id = e.tenant_id AND r.id = e.run_id
+                WHERE r.tenant_id = :tenant AND r.source_id = :source AND r.id IS DISTINCT FROM :except
+                  AND e.resolved_at IS NULL AND e.file_id IS NOT NULL
+                  AND (e.error_key LIKE 'FILE:%' OR e.error_key LIKE 'FOLDER:%' OR e.error_key LIKE 'PAGE:%')
+                ORDER BY e.file_id LIMIT :limit
+                """).param("tenant", tenant.value()).param("source", source.value())
+                .param("except", except == null ? null : except.value()).param("limit", limit)
+                .query(String.class).list();
+    }
+
+    /** Resolves the Source's unresolved acquisition errors for an item this run acquired or found unchanged. */
+    public void resolve(Work work, String file) {
         jdbc.sql("""
-                UPDATE google_drive_membership m SET excluded = TRUE, eligible = FALSE
-                FROM connector_items i WHERE m.tenant_id = :tenant AND m.source_id = :source
-                  AND i.tenant_id = m.tenant_id AND i.id = :item AND m.file_id = i.provider_file_id
-                """).param("tenant", tenant.value()).param("source", source.value()).param("item", item.value()).update();
+                UPDATE source_run_errors e SET resolved_at = CURRENT_TIMESTAMP, resolved_by_run_id = :id
+                FROM source_sync_attempts r
+                WHERE e.tenant_id = :tenant AND e.file_id = :file AND e.resolved_at IS NULL
+                  AND (e.error_key LIKE 'FILE:%' OR e.error_key LIKE 'FOLDER:%' OR e.error_key LIKE 'PAGE:%')
+                  AND r.tenant_id = e.tenant_id AND r.id = e.run_id AND r.source_id = :source
+                """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
+                .param("id", work.operationId().value()).param("file", file).update();
     }
 
     private SourceOperationView operation(ResultSet r, int ignored) throws SQLException {
@@ -486,6 +397,18 @@ public class JdbcSourceSyncRepository {
                 JdbcSourceRepository.instant(r, "completed_at"), r.getString("error_code"));
     }
 
-    public record Node(String fileId, String kind, @Nullable String pageToken, int attempts) {}
+    private static String truncate(String value, int limit) {
+        return value.length() <= limit ? value : value.substring(0, limit);
+    }
+
+    public enum FileOutcome { ACQUIRED, UNCHANGED, SKIPPED }
+
+    /**
+     * One item the run could not acquire. {@code key} identifies it within the run ({@code FILE:}, {@code FOLDER:}
+     * or {@code PAGE:} and the provider identifier); a {@code skipped} item is unsupported rather than failed.
+     */
+    public record ItemFailure(String key, String fileId, @Nullable String fileName, String code,
+                              @Nullable String message, @Nullable String detail, boolean skipped) {}
+
     public record DueSource(TenantId tenantId, SourceId sourceId) {}
 }

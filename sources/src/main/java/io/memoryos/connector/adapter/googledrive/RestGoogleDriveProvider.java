@@ -6,7 +6,7 @@ import io.memoryos.connector.GoogleDriveProvider;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.connector.SourceInputFormat;
-import io.memoryos.ingestion.ExtractionException;
+import io.memoryos.document.ExtractionException;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.URLEncoder;
@@ -375,7 +375,8 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
             HttpResponse<byte[]> response = future.get(timeout, TimeUnit.NANOSECONDS);
             budget.check();
             int status = response.statusCode();
-            if (status < 200 || status >= 300) throw httpFailure(status, response.body(), oauth, forbidden);
+            if (status < 200 || status >= 300) throw httpFailure(status, response.body(), oauth, forbidden,
+                    io.memoryos.connector.adapter.RetryAfter.of(response.headers(), java.time.Clock.systemUTC()));
             return response.body();
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
@@ -390,9 +391,12 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
         }
     }
 
-    /** {@code forbidden} is what a 403 without a scope or quota reason means for the calling request. */
+    /**
+     * {@code forbidden} is what a 403 without a scope or quota reason means for the calling request. A throttled
+     * or unavailable response carries the wait Google asked for in {@code Retry-After}.
+     */
     private GoogleDriveProviderException httpFailure(int status, byte[] body, boolean oauth,
-            GoogleDriveProviderException.Failure forbidden) {
+            GoogleDriveProviderException.Failure forbidden, java.time.@org.jspecify.annotations.Nullable Duration retryAfter) {
         String reason = "";
         boolean missingScope = false;
         try {
@@ -403,10 +407,12 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
         } catch (RuntimeException ignored) { /* Only status classification is available for invalid error bodies. */ }
         if (oauth && List.of("invalid_grant", "invalid_client", "unauthorized_client").contains(reason)) return failure(AUTHENTICATION);
         if (status == 401) return failure(AUTHENTICATION);
-        if (status == 429 || List.of("rateLimitExceeded", "userRateLimitExceeded", "dailyLimitExceeded", "quotaExceeded").contains(reason)) return failure(QUOTA);
+        if (status == 429 || List.of("rateLimitExceeded", "userRateLimitExceeded", "dailyLimitExceeded", "quotaExceeded").contains(reason))
+            return new GoogleDriveProviderException(QUOTA, retryAfter);
         if (status == 403 && (missingScope || "insufficientPermissions".equals(reason))) return failure(SCOPE_INSUFFICIENT);
         if (status == 403) return failure(forbidden);
         if (status == 404 || status == 410) return failure(NOT_FOUND);
+        if (status == 503) return new GoogleDriveProviderException(UNAVAILABLE, retryAfter);
         return failure(status >= 500 || status == 408 ? UNAVAILABLE : MALFORMED);
     }
 

@@ -210,7 +210,7 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
             URI uri = URI.create(properties.graphBaseUrl() + "/drives/"
                     + encodePath(Objects.requireNonNull(item.driveId())) + "/items/" + encodePath(item.id()) + "/content");
             var response = send(request(uri), budget, 8_192);
-            if (response.statusCode() < 300 || response.statusCode() >= 400) throw httpFailure(response.statusCode());
+            if (response.statusCode() < 300 || response.statusCode() >= 400) throw httpFailure(response);
             String location = response.headers().firstValue("Location").orElse("");
             if (location.isBlank()) throw new SharePointProviderException(MALFORMED);
             return download(URI.create(location), tenantHost, budget, limit);
@@ -221,7 +221,7 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
             // The address carries its own short-lived credential, so no bearer token is attached to it.
             var request = HttpRequest.newBuilder(uri).header("User-Agent", properties.userAgent()).GET().build();
             var response = send(request, budget, limit);
-            if (response.statusCode() < 200 || response.statusCode() >= 300) throw httpFailure(response.statusCode());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) throw httpFailure(response);
             return response.body();
         }
 
@@ -281,7 +281,7 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
     private byte[] exchange(HttpRequest request, Budget budget) {
         var response = send(request, budget, properties.maxResponseBytes());
         int status = response.statusCode();
-        if (status < 200 || status >= 300) throw httpFailure(status);
+        if (status < 200 || status >= 300) throw httpFailure(response);
         return response.body();
     }
 
@@ -307,9 +307,20 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
         }
     }
 
-    /** Graph error bodies are never echoed; only the status classifies the failure. */
-    private static SharePointProviderException httpFailure(int status) {
-        return new SharePointProviderException(switch (status) {
+    /**
+     * Graph error bodies are never echoed; only the status classifies the failure. A throttled or unavailable
+     * response carries the wait Microsoft asked for in {@code Retry-After}.
+     */
+    private static SharePointProviderException httpFailure(HttpResponse<?> response) {
+        int status = response.statusCode();
+        var retryAfter = status == 429 || status == 503
+                ? io.memoryos.connector.adapter.RetryAfter.of(response.headers(), java.time.Clock.systemUTC()) : null;
+        return new SharePointProviderException(failure(status), SharePointProviderException.Reason.UNCLASSIFIED,
+                retryAfter);
+    }
+
+    private static SharePointProviderException.Failure failure(int status) {
+        return switch (status) {
             case 401 -> AUTHENTICATION;
             case 403 -> AUTHORIZATION;
             case 404 -> NOT_FOUND;
@@ -317,7 +328,7 @@ public final class RestSharePointProvider implements SharePointProvider, AutoClo
             case 410 -> RESYNC_REQUIRED;
             case 429 -> QUOTA;
             default -> status >= 500 || status == 408 ? UNAVAILABLE : MALFORMED;
-        });
+        };
     }
 
     private JsonNode json(byte[] bytes) {

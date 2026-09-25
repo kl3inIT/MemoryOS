@@ -7,15 +7,16 @@ import io.memoryos.document.ExtractedDocument.CoordOrigin;
 import io.memoryos.document.ExtractedDocument.Kind;
 import io.memoryos.document.ExtractedDocument.Location;
 import io.memoryos.document.ExtractedDocument.Table;
-import io.memoryos.ingestion.ExtractionException;
-import io.memoryos.ingestion.ExtractionFailure;
+import io.memoryos.document.ExtractionException;
+import io.memoryos.document.ExtractionFailure;
+import io.memoryos.document.StructuredContent;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Set;
-import org.jspecify.annotations.Nullable;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
+import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
 
 /**

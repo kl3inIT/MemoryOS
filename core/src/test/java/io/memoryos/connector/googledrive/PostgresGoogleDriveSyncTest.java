@@ -5,7 +5,6 @@ import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveAclRepositor
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveCredentialRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSourceRepository;
-import io.memoryos.connector.sharepoint.DefaultSharePointSyncService;
 import io.memoryos.connector.sharepoint.SharePointConnectionService;
 import io.memoryos.connector.source.SourceAccessPolicy;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
@@ -13,7 +12,9 @@ import io.memoryos.connector.source.persistence.JdbcSourceGroupRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceItemRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
-import io.memoryos.connector.sync.DefaultConnectorSyncService;
+import io.memoryos.connector.sync.SourceSyncEngine;
+import io.memoryos.connector.sync.persistence.SyncTarget;
+import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository;
 import io.memoryos.connector.sync.ProviderAuthorityService;
 import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
@@ -93,6 +94,7 @@ class PostgresGoogleDriveSyncTest {
     private JdbcSourceDocumentRepository mappings;
     private JdbcGoogleDriveSourceRepository roots;
     private JdbcSourceSyncRepository syncRows;
+    private JdbcGoogleDriveSyncRepository googleRows;
     private JdbcGoogleDriveCredentialRepository credentials;
     private JdbcIndexAttemptRepository attempts;
     private GoogleDriveConnectionService connections;
@@ -111,6 +113,7 @@ class PostgresGoogleDriveSyncTest {
     private final Map<String, byte[]> contents = new HashMap<>();
     private final Map<ObjectKey, ObjectMetadata> metadata = new HashMap<>();
     private final Set<String> unsupported = new HashSet<>();
+    private final Set<String> failing = new HashSet<>();
     private final List<String> calls = new ArrayList<>();
     private CredentialId credentialId;
     private final GoogleDriveLinkReader linkReader = mock(GoogleDriveLinkReader.class);
@@ -147,6 +150,7 @@ class PostgresGoogleDriveSyncTest {
         mappings = new JdbcSourceDocumentRepository(jdbc);
         roots = new JdbcGoogleDriveSourceRepository(jdbc);
         syncRows = new JdbcSourceSyncRepository(jdbc);
+        googleRows = new JdbcGoogleDriveSyncRepository(jdbc, syncRows);
         credentials = new JdbcGoogleDriveCredentialRepository(jdbc, sources,
                 new GoogleDriveCredentialConfiguration(Base64.getEncoder().encodeToString(new byte[32]), "test"),
                 mappings, syncRows);
@@ -227,10 +231,78 @@ class PostgresGoogleDriveSyncTest {
         when(session.acquire(any())).thenAnswer(i -> {
             GoogleDriveProvider.FileMetadata file = i.getArgument(0);
             if (unsupported.contains(file.id())) throw new GoogleDriveProviderException(GoogleDriveProviderException.Failure.UNSUPPORTED);
+            if (failing.contains(file.id())) throw new GoogleDriveProviderException(GoogleDriveProviderException.Failure.MALFORMED);
             return new GoogleDriveProvider.AcquiredContent(file.name(), "text/plain",
                     contents.getOrDefault(file.id(), (file.id() + ":" + file.version()).getBytes(StandardCharsets.UTF_8)),
                     new SourceInputDescriptor(SourceInputFormat.BINARY, file.id(), file.version(), "https://drive.google.com/file/d/" + file.id() + "/view"));
         });
+    }
+
+    @Test
+    void anItemThatFailsIsAnErrorOfACompletedRunAndTheNextRunResolvesIt() {
+        listing(file("document", false, "1"), file("bad", false, "1"));
+        failing.add("bad");
+        var first = enqueue();
+        finish(first);
+
+        assertThat(attemptStatus(first)).isEqualTo("COMPLETED_WITH_ERRORS");
+        assertThat(scalar("SELECT COUNT(*) FROM connector_item_versions WHERE provider_file_id='document'")).isEqualTo(1);
+        assertThat(jdbc.sql("""
+                SELECT code FROM source_run_errors
+                WHERE run_id = :run AND error_key = 'FILE:bad' AND resolved_at IS NULL AND stage = 'PROVIDER'
+                """).param("run", first.value()).query(String.class).single()).isEqualTo("SOURCE_GOOGLE_MALFORMED");
+        assertThat(roots.configuration(tenant, source).errorCode()).isNull();
+
+        failing.clear();
+        var second = enqueue();
+        finish(second);
+
+        assertThat(attemptStatus(second)).isEqualTo("SUCCEEDED");
+        assertThat(jdbc.sql("""
+                SELECT resolved_by_run_id FROM source_run_errors
+                WHERE run_id = :run AND error_key = 'FILE:bad' AND resolved_at IS NOT NULL
+                """).param("run", first.value()).query(UUID.class).single()).isEqualTo(second.value());
+    }
+
+    @Test
+    void pausingOrDeletingTheSourceCancelsItsRunningSync() {
+        listing(file("document", false, "1"));
+        var paused = enqueue();
+        var work = claim(paused);
+        jdbc.sql("UPDATE connector_credential_pairs SET status = 'PAUSED' WHERE id = :id")
+                .param("id", source.value()).update();
+
+        assertThat(service().execute(work)).isEqualTo(ConnectorSyncPort.Result.CANCELLED);
+        assertThat(attemptStatus(paused)).isEqualTo("CANCELLED");
+        assertThat(jdbc.sql("SELECT error_code FROM source_sync_attempts WHERE id = :id")
+                .param("id", paused.value()).query(String.class).single()).isEqualTo("SOURCE_PAUSED");
+
+        jdbc.sql("UPDATE connector_credential_pairs SET status = 'ACTIVE' WHERE id = :id")
+                .param("id", source.value()).update();
+        var deleted = enqueue();
+        var deletion = claim(deleted);
+        jdbc.sql("UPDATE connector_credential_pairs SET status = 'DELETING' WHERE id = :id")
+                .param("id", source.value()).update();
+
+        assertThat(service().execute(deletion)).isEqualTo(ConnectorSyncPort.Result.CANCELLED);
+        assertThat(jdbc.sql("SELECT status || ':' || error_code FROM source_sync_attempts WHERE id = :id")
+                .param("id", deleted.value()).query(String.class).single()).isEqualTo("CANCELLED:SOURCE_DELETING");
+        verify(session, never()).acquire(any());
+    }
+
+    @Test
+    void aFileBeneathAFolderThisRunListedFindsItsRootWithoutAskingDriveAgain() {
+        files.put("sub", child("sub", true, "folder"));
+        files.put("deep", child("deep", false, "sub"));
+        listing(files.get("sub"));
+        pages.put("sub:first", new GoogleDriveProvider.FilePage(List.of(files.get("deep")), null));
+
+        finish(enqueue());
+
+        assertThat(scalar("SELECT COUNT(*) FROM connector_item_versions WHERE provider_file_id='deep'")).isEqualTo(1);
+        // sub is read as a file, checked for a stable version while its sharing is read, and read again as a
+        // folder; deep's walk to its root answers from the membership this run recorded for sub.
+        assertThat(calls.stream().filter("metadata:sub"::equals).count()).isEqualTo(3);
     }
 
     @Test
@@ -246,7 +318,7 @@ class PostgresGoogleDriveSyncTest {
                 VALUES (:tenant, :attempt, 'folder', 'FOLDER')
                 """).param("tenant", tenant.value()).param("attempt", paused.value()).update();
 
-        SourceOperationView resumed = syncRows.enqueueResumed(tenant, source, revision.get(), scheduleOwner).orElseThrow();
+        SourceOperationView resumed = googleRows.enqueueResumed(tenant, source, revision.get(), scheduleOwner).orElseThrow();
 
         assertThat(resumed.id()).isNotEqualTo(paused);
         assertThat(resumed.status()).isEqualTo(SourceOperationStatus.NOT_STARTED);
@@ -352,7 +424,7 @@ class PostgresGoogleDriveSyncTest {
         var acls = new JdbcGoogleDriveAclRepository(jdbc, event -> {});
         var before = acls.read(tenant, source, "one").orElseThrow();
         when(session.permissions("one")).thenAnswer(_ -> {
-            revision.incrementAndGet();
+            revokeCredentialRevision();
             return List.of(permission("reader", "reader"));
         });
 
@@ -572,7 +644,7 @@ class PostgresGoogleDriveSyncTest {
         var incomplete = enqueue();
         finish(incomplete);
 
-        assertThat(syncRows.find(tenant, incomplete).orElseThrow().status()).isEqualTo(SourceOperationStatus.FAILED);
+        assertThat(attemptStatus(incomplete)).isEqualTo("COMPLETED_WITH_ERRORS");
         assertThat(scalar("SELECT COUNT(*) FROM connector_items WHERE status='DELETING'")).isZero();
         assertThat(jdbc.sql("SELECT to_jsonb(d)::text FROM documents d").query(String.class).list()).isEqualTo(documentsBefore);
         listing();
@@ -606,7 +678,7 @@ class PostgresGoogleDriveSyncTest {
                 .when(session).listFiles("folder", "incomplete");
         var incomplete = enqueue();
         finish(incomplete);
-        assertThat(syncRows.find(tenant, incomplete).orElseThrow().status()).isEqualTo(SourceOperationStatus.FAILED);
+        assertThat(attemptStatus(incomplete)).isEqualTo("COMPLETED_WITH_ERRORS");
         assertThat(scalar("SELECT COUNT(*) FROM connector_items WHERE status='DELETING'")).isZero();
         listing(files.get("document"));
         var complete = enqueue();
@@ -670,7 +742,7 @@ class PostgresGoogleDriveSyncTest {
         var oldSync = claim(enqueue());
         tx.executeWithoutResult(_ -> {
             sources.lock(tenant, source);
-            syncRows.start(oldSync);
+            googleRows.start(oldSync);
         });
 
         replaceAndActivate(configuration, scheduleOwner, 4,
@@ -826,7 +898,7 @@ class PostgresGoogleDriveSyncTest {
         var operation = enqueue();
         finish(operation);
 
-        assertThat(syncRows.find(tenant, operation).orElseThrow().status()).isEqualTo(SourceOperationStatus.FAILED);
+        assertThat(attemptStatus(operation)).isEqualTo("COMPLETED_WITH_ERRORS");
         assertThat(scalar("SELECT COUNT(*) FROM google_drive_frontier WHERE state='UNSUPPORTED' AND error_code='SOURCE_GOOGLE_UNSUPPORTED'"))
                 .isEqualTo(2);
         verify(session, never()).listFiles(any(), any());
@@ -919,7 +991,7 @@ class PostgresGoogleDriveSyncTest {
         unsupported.add("bad");
         var operation = enqueue();
         finish(operation);
-        assertThat(syncRows.find(tenant, operation).orElseThrow().status()).isEqualTo(SourceOperationStatus.FAILED);
+        assertThat(attemptStatus(operation)).isEqualTo("COMPLETED_WITH_ERRORS");
         assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
         unsupported.clear();
         var recovery = enqueue();
@@ -936,7 +1008,7 @@ class PostgresGoogleDriveSyncTest {
         var syncWork = claim(operation);
         duringExtraction = () -> tx.executeWithoutResult(_ -> {
             sources.lock(tenant, source);
-            syncRows.start(syncWork);
+            googleRows.start(syncWork);
         });
         assertThat(index(false)).isEqualTo(IngestionCoordinator.Outcome.SKIPPED);
         duringExtraction = () -> {};
@@ -961,7 +1033,7 @@ class PostgresGoogleDriveSyncTest {
         when(session.metadata("missing")).thenThrow(new AssertionError("removed or unseen items must not be reacquired"));
         var operation = enqueue();
         finish(operation);
-        assertThat(syncRows.find(tenant, operation).orElseThrow().status()).isEqualTo(SourceOperationStatus.FAILED);
+        assertThat(attemptStatus(operation)).isEqualTo("COMPLETED_WITH_ERRORS");
         assertThat(scalar("SELECT COUNT(*) FROM connector_items WHERE status='DELETING'")).isZero();
         assertThat(scalar("SELECT COUNT(*) FROM connector_item_versions WHERE provider_file_id='keep'")).isEqualTo(2);
         assertThat(scalar("SELECT COUNT(*) FROM google_drive_frontier WHERE state='UNSUPPORTED' AND file_id='bad'")).isEqualTo(1);
@@ -1007,11 +1079,11 @@ class PostgresGoogleDriveSyncTest {
         tx.executeWithoutResult(_ -> {
             sources.lock(tenant, source);
             roots.replace(tenant, source, 2, revision.get(), GoogleDriveSourceService.ScopeMode.SPECIFIC, List.of(new GoogleDriveSourceService.Root("document", "document.txt", "text/plain")), List.of());
-            syncRows.cancel(tenant, source);
+            syncRows.supersede(tenant, source);
         });
         assertThat(service().execute(old)).isEqualTo(ConnectorSyncPort.Result.SUPERSEDED);
         var item = new SourceItemId(jdbc.sql("SELECT id FROM connector_items").query(UUID.class).single());
-        tx.executeWithoutResult(_ -> syncRows.exclude(tenant, source, item));
+        tx.executeWithoutResult(_ -> googleRows.exclude(tenant, source, item));
         var next = enqueue();
         finish(next);
         assertThat(scalar("SELECT COUNT(*) FROM connector_item_versions")).isEqualTo(1);
@@ -1023,7 +1095,7 @@ class PostgresGoogleDriveSyncTest {
         scheduleConfiguration().updateSchedule(scheduleOwner, source, 1, 17);
         var operation = enqueue();
         assertScheduledFrom(operation, "created_at", 17);
-        tx.executeWithoutResult(_ -> syncRows.cancel(tenant, source));
+        tx.executeWithoutResult(_ -> syncRows.supersede(tenant, source));
         jdbc.sql("UPDATE google_drive_sources SET next_sync_at = CURRENT_TIMESTAMP - INTERVAL '1 minute'").update();
         when(connections.current(any(), any(), anyLong())).thenReturn(false);
         tx.executeWithoutResult(_ -> {
@@ -1114,7 +1186,7 @@ class PostgresGoogleDriveSyncTest {
     }
 
     @Test
-    void terminalItemFailureReschedulesUsingTheSavedInterval() {
+    void isolatedItemFailureCompletesWithErrorsAndReschedulesUsingTheSavedInterval() {
         scheduleConfiguration().updateSchedule(scheduleOwner, source, 1, 19);
         listing(file("bad", false, "1"));
         unsupported.add("bad");
@@ -1122,8 +1194,10 @@ class PostgresGoogleDriveSyncTest {
 
         finish(operation);
 
-        assertThat(syncRows.find(tenant, operation).orElseThrow().status()).isEqualTo(SourceOperationStatus.FAILED);
-        assertThat(roots.configuration(tenant, source).errorCode()).isEqualTo("SOURCE_GOOGLE_INCOMPLETE");
+        assertThat(attemptStatus(operation)).isEqualTo("COMPLETED_WITH_ERRORS");
+        assertThat(roots.configuration(tenant, source).errorCode()).isNull();
+        assertThat(jdbc.sql("SELECT code FROM source_run_errors WHERE run_id = :run AND error_key = 'FILE:bad'")
+                .param("run", operation.value()).query(String.class).single()).isEqualTo("SOURCE_GOOGLE_UNSUPPORTED");
         assertScheduledFrom(operation, "completed_at", 19);
     }
 
@@ -1133,9 +1207,11 @@ class PostgresGoogleDriveSyncTest {
         when(connections.open(any(), any())).thenThrow(
                 new GoogleDriveProviderException(GoogleDriveProviderException.Failure.UNAVAILABLE));
         for (int attempt = 0; attempt < 6; attempt++) {
+            boolean exhausts = attempt == 5;
             tx.executeWithoutResult(_ -> {
                 assertThat(service().execute(claim(operation))).isEqualTo(ConnectorSyncPort.Result.FAILED);
-                assertThat(jdbc.sql("""
+                // The last failure exhausts the budget and dispatches nothing more.
+                if (!exhausts) assertThat(jdbc.sql("""
                         SELECT next_dispatch_at = CURRENT_TIMESTAMP + INTERVAL '30 seconds'
                         FROM source_sync_attempts WHERE id = :operation
                         """).param("operation", operation.value()).query(Boolean.class).single()).isTrue();
@@ -1275,7 +1351,7 @@ class PostgresGoogleDriveSyncTest {
         listing();
         var operation = enqueue();
         finish(operation);
-        assertThat(syncRows.find(tenant, operation).orElseThrow().status()).isEqualTo(SourceOperationStatus.FAILED);
+        assertThat(attemptStatus(operation)).isEqualTo("COMPLETED_WITH_ERRORS");
         verify(session, never()).listFiles("remote", null);
         verify(session, never()).metadata("unapproved-descendant");
         assertThat(scalar("SELECT COUNT(*) FROM connector_items WHERE status='DELETING'")).isZero();
@@ -1386,7 +1462,7 @@ class PostgresGoogleDriveSyncTest {
             try {
                 String text = new String(input.readAllBytes(), StandardCharsets.UTF_8);
                 duringExtraction.run();
-                if (revokeDuringExtraction) revision.incrementAndGet();
+                if (revokeDuringExtraction) revokeCredentialRevision();
                 return new DocumentContent("text/plain", name, text, Map.of("content", text));
             } catch (java.io.IOException exception) { throw new IllegalStateException(exception); }
         };
@@ -1404,16 +1480,28 @@ class PostgresGoogleDriveSyncTest {
         }
     }
 
-    private DefaultConnectorSyncService service() {
-        return new DefaultConnectorSyncService(syncRows, sources, roots,
-                new JdbcGoogleDriveAclRepository(jdbc, published::add), items, attempts, mappings, connections, writes,
-                org.mockito.Mockito.mock(DefaultSharePointSyncService.class), groupSynchronizer, manager);
+    private String attemptStatus(SourceOperationId operation) {
+        return jdbc.sql("SELECT status FROM source_sync_attempts WHERE id = :id")
+                .param("id", operation.value()).query(String.class).single();
+    }
+
+    /** A newer credential revision, as reconnecting the account records it. */
+    private void revokeCredentialRevision() {
+        jdbc.sql("UPDATE google_drive_credentials SET credential_revision = credential_revision + 1").update();
+        revision.incrementAndGet();
+    }
+
+    private SourceSyncEngine service() {
+        return new SourceSyncEngine(syncRows, sources, items, attempts, mappings, writes,
+                List.of(new GoogleDriveSyncTraversal(googleRows, roots,
+                        new JdbcGoogleDriveAclRepository(jdbc, published::add), connections, groupSynchronizer)),
+                manager);
     }
 
     private SourceOperationId enqueue() {
         return Objects.requireNonNull(tx.execute(_ -> {
             sources.lock(tenant, source);
-            return syncRows.enqueue(tenant, source, revision.get(), SourceRunTrigger.MANUAL, scheduleOwner).id();
+            return syncRows.enqueue(SyncTarget.GOOGLE_DRIVE, tenant, source, revision.get(), SourceRunTrigger.MANUAL, scheduleOwner).id();
         }));
     }
 

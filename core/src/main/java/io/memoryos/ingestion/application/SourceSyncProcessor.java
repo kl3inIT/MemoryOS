@@ -38,7 +38,7 @@ public final class SourceSyncProcessor {
         try {
             return switch (sync.execute(work)) {
                 case COMPLETED -> Outcome.COMPLETED;
-                case CONTINUED, SUPERSEDED -> Outcome.SKIPPED;
+                case CONTINUED, SUPERSEDED, CANCELLED -> Outcome.SKIPPED;
                 case FAILED -> Outcome.FAILED;
             };
         } finally {

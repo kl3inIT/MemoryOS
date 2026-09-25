@@ -108,7 +108,6 @@ class PostgresSharePointSelectionTest {
         var service = new DefaultSharePointSourceService(access, authorization, connections, sharePoint, selections,
                 credentials, new JdbcSourceGroupRepository(jdbc, event -> { }), sourceRows,
                 new JdbcSourceSyncRepository(jdbc),
-                new io.memoryos.connector.sharepoint.persistence.JdbcSharePointSyncRepository(jdbc, new JdbcSourceSyncRepository(jdbc)),
                 new JdbcIndexAttemptRepository(jdbc, sourceRows, documents,
                         mock(io.memoryos.connector.sync.ProviderAuthorityService.class)),
                 documents, new SharePointSelectionPolicy(1000, 3_145_728), manager, io.memoryos.TestDatabase.noAudit());

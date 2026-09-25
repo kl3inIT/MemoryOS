@@ -3,13 +3,8 @@ package io.memoryos.connector.sharepoint.persistence;
 import io.memoryos.connector.ConnectorSyncPort.Work;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
-import io.memoryos.connector.SourceOperationId;
-import io.memoryos.connector.SourceOperationTraceContext;
-import io.memoryos.connector.SourceOperationView;
-import io.memoryos.connector.SourceRunTrigger;
-import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
+import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository.DueSource;
 import io.memoryos.connector.sync.persistence.WorkLeases;
-import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.time.Instant;
 import java.util.List;
@@ -21,8 +16,9 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 /**
- * Runs of a SharePoint Source. A refresh reads the change log since the last successful window; a prune
- * lists the whole scope and removes what it no longer finds, but only when the listing completed.
+ * The SharePoint walk of a synchronization run. A refresh reads the change log since the last successful
+ * window; a prune lists the whole scope and removes what it no longer finds, but only when the listing
+ * completed. The attempt itself is {@code JdbcSourceSyncRepository}'s.
  */
 @Repository
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
@@ -31,48 +27,15 @@ public class JdbcSharePointSyncRepository {
     public static final java.time.Duration OVERLAP = java.time.Duration.ofMinutes(30);
 
     private final JdbcClient jdbc;
-    private final JdbcSourceSyncRepository attempts;
 
-    public JdbcSharePointSyncRepository(JdbcClient jdbc, JdbcSourceSyncRepository attempts) {
+    public JdbcSharePointSyncRepository(JdbcClient jdbc) {
         this.jdbc = Objects.requireNonNull(jdbc, "jdbc");
-        this.attempts = Objects.requireNonNull(attempts, "attempts");
     }
 
-    public SourceOperationView enqueue(TenantId tenant, SourceId source, long credentialRevision,
-            SourceRunTrigger trigger, @Nullable ActorId actor) {
-        var live = jdbc.sql("""
-                SELECT * FROM source_sync_attempts WHERE tenant_id = :tenant AND source_id = :source
-                  AND status IN ('NOT_STARTED', 'IN_PROGRESS')
-                """).param("tenant", tenant.value()).param("source", source.value())
-                .query((r, _) -> new SourceOperationId(r.getObject("id", UUID.class))).optional();
-        if (live.isPresent()) return attempts.find(tenant, live.get()).orElseThrow();
-        UUID id = UUID.randomUUID();
-        var trace = SourceOperationTraceContext.current();
-        jdbc.sql("""
-                UPDATE sharepoint_sources SET generation = generation + 1, error_code = NULL,
-                    next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
-                WHERE tenant_id = :tenant AND source_id = :source
-                """).param("tenant", tenant.value()).param("source", source.value()).update();
-        jdbc.sql("""
-                INSERT INTO source_sync_attempts (id, tenant_id, source_id, scope_revision, credential_revision,
-                    generation, origin_trace_id, origin_span_id, history_version, trigger_kind, actor_id,
-                    scanned, acquired, unchanged, already_pending, acquisition_failed, skipped, removed,
-                    published, indexing_pending, indexing_failed, indexing_superseded, indexing_cancelled)
-                SELECT :id, s.tenant_id, s.source_id, s.scope_revision, :credential, s.generation, :trace, :span,
-                    1, :trigger, :actor, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-                FROM sharepoint_sources s WHERE s.tenant_id = :tenant AND s.source_id = :source
-                """).param("id", id).param("tenant", tenant.value()).param("source", source.value())
-                .param("credential", credentialRevision).param("trace", trace == null ? null : trace.traceId())
-                .param("span", trace == null ? null : trace.spanId()).param("trigger", trigger.name())
-                .param("actor", actor == null ? null : actor.value()).update();
-        return attempts.find(tenant, new SourceOperationId(id)).orElseThrow();
-    }
-
-    /** Sources whose refresh or prune is due, newest schedule first, skipping those already running. */
+    /** Sources whose refresh or prune is due, oldest schedule first, skipping those already running. */
     public List<DueSource> due(int limit) {
         return jdbc.sql("""
-                SELECT s.tenant_id, s.source_id,
-                    (s.prune_interval_hours > 0 AND s.next_prune_at <= CURRENT_TIMESTAMP) AS prune
+                SELECT s.tenant_id, s.source_id
                 FROM sharepoint_sources s
                 JOIN connector_credential_pairs p ON p.tenant_id = s.tenant_id AND p.id = s.source_id
                 JOIN tenants t ON t.id = s.tenant_id
@@ -88,54 +51,17 @@ public class JdbcSharePointSyncRepository {
                 ORDER BY LEAST(s.next_sync_at, s.next_prune_at), s.source_id LIMIT :limit
                 """).param("limit", Math.clamp(limit, 1, 32))
                 .query((r, _) -> new DueSource(new TenantId(r.getObject("tenant_id", UUID.class)),
-                        new SourceId(r.getObject("source_id", UUID.class)), r.getBoolean("prune"))).list();
+                        new SourceId(r.getObject("source_id", UUID.class)))).list();
     }
 
-    /**
-     * Moves the next refresh forward when a scheduled run is queued. The prune schedule is left alone: the run
-     * decides from it whether it is a prune, and only a finished prune moves it.
-     */
-    public void scheduleNextSync(TenantId tenant, SourceId source) {
+    /** A due prune waits for the next refresh slot instead of being retried on every tick. */
+    public void postponePrune(TenantId tenant, SourceId source) {
         jdbc.sql("""
                 UPDATE sharepoint_sources
-                SET next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute'
-                WHERE tenant_id = :tenant AND source_id = :source
-                """).param("tenant", tenant.value()).param("source", source.value()).update();
-    }
-
-    /** Backs off a Source whose run could not be queued or failed, including a prune that is already due. */
-    public void postpone(TenantId tenant, SourceId source) {
-        jdbc.sql("""
-                UPDATE sharepoint_sources
-                SET next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute',
-                    -- A due prune waits for the next refresh slot instead of being retried on every tick.
-                    next_prune_at = CASE WHEN prune_interval_hours > 0 AND next_prune_at <= CURRENT_TIMESTAMP
+                SET next_prune_at = CASE WHEN prune_interval_hours > 0 AND next_prune_at <= CURRENT_TIMESTAMP
                         THEN CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute' ELSE next_prune_at END
                 WHERE tenant_id = :tenant AND source_id = :source
                 """).param("tenant", tenant.value()).param("source", source.value()).update();
-    }
-
-    public boolean automaticSyncEnabled(TenantId tenant, SourceId source) {
-        return jdbc.sql("""
-                SELECT NOT sync_paused FROM sharepoint_sources WHERE tenant_id = :tenant AND source_id = :source
-                """).param("tenant", tenant.value()).param("source", source.value())
-                .query(Boolean.class).optional().orElse(false);
-    }
-
-    /** The attempt must still match the Source it was created for, or the run stops instead of writing. */
-    public boolean current(Work work) {
-        return jdbc.sql("""
-                SELECT a.id FROM source_sync_attempts a
-                JOIN sharepoint_sources s ON s.tenant_id = a.tenant_id AND s.source_id = a.source_id
-                JOIN connector_credential_pairs p ON p.tenant_id = a.tenant_id AND p.id = a.source_id
-                JOIN tenants t ON t.id = a.tenant_id
-                WHERE a.tenant_id = :tenant AND a.id = :id AND a.claim_token = :token
-                  AND a.status = 'IN_PROGRESS' AND a.lease_expires_at > CURRENT_TIMESTAMP
-                  AND s.scope_revision = a.scope_revision AND s.generation = a.generation
-                  AND p.status NOT IN ('DELETING', 'PAUSED') AND t.status = 'ACTIVE'
-                FOR UPDATE OF a, s
-                """).param("tenant", work.tenantId().value()).param("id", work.operationId().value())
-                .param("token", work.claimToken()).query(UUID.class).optional().isPresent();
     }
 
     public SourceState state(TenantId tenant, SourceId source) {
@@ -151,14 +77,20 @@ public class JdbcSharePointSyncRepository {
                 .optional().orElseThrow(io.memoryos.connector.SourceException::notFound);
     }
 
-    /** Opens the run for this attempt, or returns the one a previous delivery left unfinished. */
-    public Run openRun(Work work, String kind, @Nullable Instant windowStart, Instant windowEnd) {
-        var existing = jdbc.sql("""
+    /** The run a previous delivery of this attempt left unfinished. */
+    public Optional<Run> openRun(Work work) {
+        return jdbc.sql("""
                 SELECT * FROM sharepoint_sync_runs
                 WHERE tenant_id = :tenant AND source_sync_attempt_id = :attempt AND status = 'IN_PROGRESS'
                 """).param("tenant", work.tenantId().value()).param("attempt", work.operationId().value())
                 .query(this::run).optional();
-        if (existing.isPresent()) return existing.get();
+    }
+
+    /**
+     * Opens the run for this attempt. The window ends at the database's clock, so the next refresh continues from
+     * a time every worker agrees on.
+     */
+    public Run startRun(Work work, String kind, @Nullable Instant previousWindowEnd) {
         // The caller holds the current attempt, so a run another attempt left open (cancelled, superseded or
         // abandoned by a worker) can no longer finish and must not block this one.
         jdbc.sql("""
@@ -171,13 +103,80 @@ public class JdbcSharePointSyncRepository {
         jdbc.sql("""
                 INSERT INTO sharepoint_sync_runs (id, tenant_id, source_id, source_sync_attempt_id, kind,
                     window_start, window_end)
-                VALUES (:id, :tenant, :source, :attempt, :kind, :start, :end)
+                VALUES (:id, :tenant, :source, :attempt, :kind,
+                    CAST(:previous AS TIMESTAMPTZ) - :overlapMinutes * INTERVAL '1 minute', CURRENT_TIMESTAMP)
                 """).param("id", id).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
                 .param("attempt", work.operationId().value()).param("kind", kind)
-                .param("start", windowStart == null ? null : java.sql.Timestamp.from(windowStart))
-                .param("end", java.sql.Timestamp.from(windowEnd)).update();
+                .param("previous", previousWindowEnd == null ? null : WorkLeases.sqlTime(previousWindowEnd))
+                .param("overlapMinutes", OVERLAP.toMinutes()).update();
         return jdbc.sql("SELECT * FROM sharepoint_sync_runs WHERE tenant_id = :tenant AND id = :id")
                 .param("tenant", work.tenantId().value()).param("id", id).query(this::run).single();
+    }
+
+    /** Records the libraries and sites the run covers, and the items an earlier run failed on. */
+    public void resolveScope(Run run, List<Target> drives, List<String> sites, List<String> retries,
+            SourceId source) {
+        int position = 0;
+        for (var drive : drives) {
+            scopeRow(run, "DRIVE", position++, drive.driveId(), drive.siteId(), drive.itemId());
+        }
+        position = 0;
+        for (var site : sites) scopeRow(run, "SITE", position++, null, site, null);
+        if (!retries.isEmpty()) {
+            jdbc.sql("""
+                    INSERT INTO sharepoint_sync_run_scope (tenant_id, run_id, kind, position, drive_id, site_id, item_id)
+                    SELECT i.tenant_id, :run, 'RETRY', CAST(row_number() OVER (ORDER BY i.provider_file_id) AS INTEGER),
+                        i.drive_id, i.site_id, i.provider_file_id
+                    FROM sharepoint_items i
+                    WHERE i.tenant_id = :tenant AND i.source_id = :source AND i.provider_file_id IN (:files)
+                    """).param("run", run.id()).param("tenant", run.tenantId().value())
+                    .param("source", source.value()).param("files", retries).update();
+        }
+        jdbc.sql("UPDATE sharepoint_sync_runs SET scope_resolved = TRUE WHERE tenant_id = :tenant AND id = :id")
+                .param("tenant", run.tenantId().value()).param("id", run.id()).update();
+    }
+
+    private void scopeRow(Run run, String kind, int position, @Nullable String drive, @Nullable String site,
+            @Nullable String item) {
+        jdbc.sql("""
+                INSERT INTO sharepoint_sync_run_scope (tenant_id, run_id, kind, position, drive_id, site_id, item_id)
+                VALUES (:tenant, :run, :kind, :position, :drive, :site, :item)
+                """).param("tenant", run.tenantId().value()).param("run", run.id()).param("kind", kind)
+                .param("position", position).param("drive", drive).param("site", site).param("item", item).update();
+    }
+
+    public List<Target> drives(Run run) {
+        return jdbc.sql("""
+                SELECT drive_id, site_id, item_id FROM sharepoint_sync_run_scope
+                WHERE tenant_id = :tenant AND run_id = :run AND kind = 'DRIVE' ORDER BY position
+                """).param("tenant", run.tenantId().value()).param("run", run.id())
+                .query((r, _) -> new Target(r.getString("drive_id"), r.getString("site_id"), r.getString("item_id")))
+                .list();
+    }
+
+    public List<String> sites(Run run) {
+        return jdbc.sql("""
+                SELECT site_id FROM sharepoint_sync_run_scope
+                WHERE tenant_id = :tenant AND run_id = :run AND kind = 'SITE' ORDER BY position
+                """).param("tenant", run.tenantId().value()).param("run", run.id()).query(String.class).list();
+    }
+
+    /** Items an earlier run failed on that this run has not retried yet. */
+    public List<Retry> retries(Run run) {
+        return jdbc.sql("""
+                SELECT position, drive_id, site_id, item_id FROM sharepoint_sync_run_scope
+                WHERE tenant_id = :tenant AND run_id = :run AND kind = 'RETRY' ORDER BY position
+                """).param("tenant", run.tenantId().value()).param("run", run.id())
+                .query((r, _) -> new Retry(r.getInt("position"), r.getString("drive_id"), r.getString("site_id"),
+                        r.getString("item_id"))).list();
+    }
+
+    public void retried(Run run, Retry retry) {
+        jdbc.sql("""
+                DELETE FROM sharepoint_sync_run_scope
+                WHERE tenant_id = :tenant AND run_id = :run AND kind = 'RETRY' AND position = :position
+                """).param("tenant", run.tenantId().value()).param("run", run.id())
+                .param("position", retry.position()).update();
     }
 
     public void checkpoint(Run run, @Nullable String driveId, @Nullable String siteId, @Nullable String link) {
@@ -197,7 +196,7 @@ public class JdbcSharePointSyncRepository {
     }
 
     /** Closes the run of an attempt that ended without completing it. */
-    private void closeRun(Work work, String status, @Nullable String code) {
+    public void closeRun(Work work, String status, @Nullable String code) {
         jdbc.sql("""
                 UPDATE sharepoint_sync_runs SET status = :status, error_code = :code,
                     completed_at = CURRENT_TIMESTAMP
@@ -214,13 +213,11 @@ public class JdbcSharePointSyncRepository {
                 """).param("tenant", run.tenantId().value()).param("id", run.id()).update();
     }
 
-    public void completeRun(Run run, String status, @Nullable String code) {
+    public void completeRun(Run run) {
         jdbc.sql("""
-                UPDATE sharepoint_sync_runs SET status = :status, error_code = :code,
-                    completed_at = CURRENT_TIMESTAMP
+                UPDATE sharepoint_sync_runs SET status = 'SUCCEEDED', completed_at = CURRENT_TIMESTAMP
                 WHERE tenant_id = :tenant AND id = :id AND status = 'IN_PROGRESS'
-                """).param("status", status).param("code", code).param("tenant", run.tenantId().value())
-                .param("id", run.id()).update();
+                """).param("tenant", run.tenantId().value()).param("id", run.id()).update();
     }
 
     /** Remembers an item the Source holds, and marks it seen when a prune run is listing the scope. */
@@ -276,90 +273,22 @@ public class JdbcSharePointSyncRepository {
                         r.getString("provider_file_id"))).list();
     }
 
-    public void counted(Work work, String column, int count) {
-        if (count == 0) return;
-        String allowed = switch (column) {
-            case "scanned", "acquired", "unchanged", "skipped", "removed", "acquisition_failed" -> column;
-            default -> throw new IllegalArgumentException("unknown SharePoint run counter " + column);
-        };
-        jdbc.sql("UPDATE source_sync_attempts SET " + allowed + " = " + allowed
-                + " + :count WHERE tenant_id = :tenant AND id = :id")
-                .param("count", count).param("tenant", work.tenantId().value())
-                .param("id", work.operationId().value()).update();
-    }
-
-    /** Ends a successful refresh, recording the window its next run continues from. */
-    public void finishRefresh(Work work, Instant windowEnd) {
+    /** A completed refresh records the window its next run continues from. */
+    public void finishRefresh(Run run) {
         jdbc.sql("""
-                UPDATE sharepoint_sources SET refresh_window_end = :end, last_synced_at = CURRENT_TIMESTAMP,
-                    next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute', error_code = NULL
+                UPDATE sharepoint_sources SET refresh_window_end = :end
                 WHERE tenant_id = :tenant AND source_id = :source
-                """).param("end", java.sql.Timestamp.from(windowEnd)).param("tenant", work.tenantId().value())
-                .param("source", work.sourceId().value()).update();
-        attempts.terminal(work, "SUCCEEDED", null, null, null);
+                """).param("end", WorkLeases.sqlTime(run.windowEnd())).param("tenant", run.tenantId().value())
+                .param("source", run.sourceId().value()).update();
     }
 
-    public void finishPrune(Work work) {
+    public void finishPrune(Run run) {
         jdbc.sql("""
                 UPDATE sharepoint_sources SET last_pruned_at = CURRENT_TIMESTAMP,
                     next_prune_at = CASE WHEN prune_interval_hours = 0 THEN next_prune_at
-                        ELSE CURRENT_TIMESTAMP + prune_interval_hours * INTERVAL '1 hour' END,
-                    error_code = NULL
+                        ELSE CURRENT_TIMESTAMP + prune_interval_hours * INTERVAL '1 hour' END
                 WHERE tenant_id = :tenant AND source_id = :source
-                """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value()).update();
-        attempts.terminal(work, "SUCCEEDED", null, null, null);
-    }
-
-    public void terminal(Work work, String status, @Nullable String code, @Nullable String errorMessage,
-            @Nullable String technicalDetail) {
-        attempts.terminal(work, status, code, errorMessage, technicalDetail);
-        closeRun(work, "FAILED".equals(status) ? "FAILED" : "CANCELLED", code);
-        if (code != null) {
-            jdbc.sql("""
-                    UPDATE sharepoint_sources SET error_code = :code,
-                        next_sync_at = CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute',
-                        next_prune_at = CASE WHEN prune_interval_hours > 0 AND next_prune_at <= CURRENT_TIMESTAMP
-                            THEN CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute' ELSE next_prune_at END
-                    WHERE tenant_id = :tenant AND source_id = :source AND scope_revision = :scope
-                      AND generation = :generation
-                    """).param("code", code).param("tenant", work.tenantId().value())
-                    .param("source", work.sourceId().value()).param("scope", work.scopeRevision())
-                    .param("generation", work.generation()).update();
-        }
-    }
-
-    public void continuation(Work work, @Nullable String errorCode) {
-        attempts.continuation(work, errorCode);
-    }
-
-    public void retry(Work work, String error) {
-        jdbc.sql("""
-                UPDATE source_sync_attempts SET failure_attempts = failure_attempts + 1,
-                  status = CASE WHEN failure_attempts >= 5 THEN 'FAILED' ELSE 'NOT_STARTED' END,
-                  completed_at = CASE WHEN failure_attempts >= 5 THEN CURRENT_TIMESTAMP ELSE NULL END,
-                  claim_token = NULL, lease_expires_at = NULL, delivery_id = NULL, dispatch_token = NULL,
-                  dispatch_lease_expires_at = NULL, redis_message_id = NULL, dispatched_at = NULL,
-                  next_dispatch_at = CURRENT_TIMESTAMP + INTERVAL '30 seconds', error_code = :error
-                WHERE tenant_id = :tenant AND id = :id AND claim_token = :token
-                  AND lease_expires_at > CURRENT_TIMESTAMP
-                """).param("error", WorkLeases.safeErrorCode(error)).param("tenant", work.tenantId().value())
-                .param("id", work.operationId().value()).param("token", work.claimToken()).update();
-        boolean exhausted = jdbc.sql("SELECT status = 'FAILED' FROM source_sync_attempts WHERE tenant_id = :tenant AND id = :id")
-                .param("tenant", work.tenantId().value()).param("id", work.operationId().value())
-                .query(Boolean.class).optional().orElse(false);
-        if (exhausted) closeRun(work, "FAILED", error);
-        jdbc.sql("""
-                UPDATE sharepoint_sources SET error_code = :code,
-                    next_sync_at = CASE WHEN :exhausted
-                        THEN CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute' ELSE next_sync_at END,
-                    next_prune_at = CASE WHEN :exhausted AND prune_interval_hours > 0
-                            AND next_prune_at <= CURRENT_TIMESTAMP
-                        THEN CURRENT_TIMESTAMP + sync_interval_minutes * INTERVAL '1 minute' ELSE next_prune_at END
-                WHERE tenant_id = :tenant AND source_id = :source AND scope_revision = :scope AND generation = :generation
-                """).param("code", WorkLeases.safeErrorCode(error)).param("exhausted", exhausted)
-                .param("tenant", work.tenantId().value())
-                .param("source", work.sourceId().value()).param("scope", work.scopeRevision())
-                .param("generation", work.generation()).update();
+                """).param("tenant", run.tenantId().value()).param("source", run.sourceId().value()).update();
     }
 
     private Run run(java.sql.ResultSet r, int ignored) throws java.sql.SQLException {
@@ -368,14 +297,13 @@ public class JdbcSharePointSyncRepository {
                 r.getTimestamp("window_start") == null ? null : r.getTimestamp("window_start").toInstant(),
                 r.getTimestamp("window_end").toInstant(), r.getString("checkpoint_drive_id"),
                 r.getString("checkpoint_site_id"), r.getString("checkpoint_link"), r.getString("checkpoint_folder_id"),
-                folders(r.getString("checkpoint_folders")), r.getBoolean("listing_complete"));
+                folders(r.getString("checkpoint_folders")), r.getBoolean("listing_complete"),
+                r.getBoolean("scope_resolved"));
     }
 
     private static List<String> folders(@Nullable String stored) {
         return stored == null || stored.isEmpty() ? List.of() : List.of(stored.split("\n"));
     }
-
-    public record DueSource(TenantId tenantId, SourceId sourceId, boolean prune) {}
 
     public record SourceState(String scopeMode, boolean includeDocuments, boolean includePages,
                               int pruneIntervalHours, @Nullable Instant refreshWindowEnd, @Nullable String tenantHost,
@@ -384,9 +312,15 @@ public class JdbcSharePointSyncRepository {
     public record Run(TenantId tenantId, UUID id, SourceId sourceId, String kind, @Nullable Instant windowStart,
                       Instant windowEnd, @Nullable String checkpointDriveId, @Nullable String checkpointSiteId,
                       @Nullable String checkpointLink, @Nullable String checkpointFolderId,
-                      List<String> checkpointFolders, boolean listingComplete) {
+                      List<String> checkpointFolders, boolean listingComplete, boolean scopeResolved) {
         public boolean prune() { return "PRUNE".equals(kind); }
     }
+
+    /** A library the run walks; {@code itemId} is set when the root is a folder inside it. */
+    public record Target(String driveId, @Nullable String siteId, @Nullable String itemId) {}
+
+    /** An item an earlier run failed on: a file in {@code driveId}, or a page of {@code siteId}. */
+    public record Retry(int position, @Nullable String driveId, @Nullable String siteId, String providerFileId) {}
 
     public record Missing(SourceItemId itemId, String providerFileId) {}
 }

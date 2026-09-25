@@ -5,7 +5,8 @@ import io.memoryos.connector.adapter.googledrive.GoogleDocsSourceContentExtracto
 import io.memoryos.connector.adapter.googledrive.GoogleSheetsSourceContentExtractor;
 import io.memoryos.connector.adapter.sharepoint.SharePointPageSourceContentExtractor;
 import io.memoryos.document.DocumentContent;
-import io.memoryos.ingestion.ExtractionException;
+import io.memoryos.document.ExtractionException;
+import io.memoryos.document.StructuredContent;
 import io.memoryos.ingestion.SourceContentExtractor;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
 import java.io.InputStream;
