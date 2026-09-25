@@ -200,6 +200,13 @@ So vector trực tiếp trên 5.257 chunk của staging, 87 câu MEM-141 chấm 
 * **Tài nguyên trên `serving`:** 4,6 GiB RAM sau khi nạp, đỉnh 5,9 GiB lúc nạp; khoảng 8,4 GB VRAM, cả GPU 18,1 GB cùng PaddleOCR-VL. MEM-193 còn khoảng 6 GB VRAM thay vì 13 GB.
 * Trọng số 4B chia hai shard, nên `tei/download-model.sh` đọc `model.safetensors.index.json` khi có.
 
+## Đưa vào chạy (2026-09-25)
+
+* **Production:** release `5769b9fa` đưa TEI với Qwen3-Embedding-4B lên `serving`; provider `serving-embedding` gọi `http://172.24.244.79:18090/v1`. Production chưa có tài liệu nào nên chuyển ngay; tìm kiếm trả 200.
+* **Staging:** gọi cùng TEI qua `https://embed.vadan.app/v1`, host Nginx Proxy Manager chỉ nhận IP staging, như `ocr.vadan.app`. Dựng lại 66 tài liệu mất khoảng 5 phút, không lỗi.
+* **Benchmark MEM-141 qua API staging** (127 lượt hỏi, chỉ truy xuất), so với `text-embedding-3-large`: recall@5 0,983 so với 0,977, nDCG@5 0,888 so với 0,842, recall@10 0,994 so với 1,0. Không rò rỉ quyền, không lỗi. Gate zero-regression báo không đạt vì một lượt hỏi (`multi_hop-009`, `exec`): tài liệu đúng thứ hai rơi từ hạng 9 xuống 11. Chủ sản phẩm chấp nhận Qwen3-Embedding-4B với sai khác này.
+* **Hoàn tác:** thế hệ OpenAI của cả hai môi trường được giữ tới 2026-10-02 và khôi phục được trên trang Search settings.
+
 ## Sai khác khi làm part 2 (2026-09-24)
 
 * **Tài liệu được dựng lại:** mọi tài liệu tìm được (eligible, đã trích xuất, Tenant đang hoạt động), không chỉ tài liệu đã sẵn sàng ở `PRESENT`. `switchable` là "không còn tài liệu chờ và mọi tài liệu `PRESENT` đang phục vụ đều sẵn sàng ở `FUTURE`", nên một tài liệu lỗi ở cả hai index không chặn việc chuyển. So số lượng thì không đủ: một tài liệu lỗi ở `FUTURE` có thể bị bù bởi một tài liệu chỉ có ở `FUTURE`, và chuyển sẽ làm mất tài liệu đầu khỏi tìm kiếm.
