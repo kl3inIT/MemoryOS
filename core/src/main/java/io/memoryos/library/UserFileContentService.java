@@ -180,10 +180,13 @@ public class UserFileContentService {
     public ObjectContent open(ActorId actor, UUID id) {
         return open(actor, tenants.findActiveTenant(actor).orElseThrow(LibraryException::unavailable), id);
     }
-    /** Onyx {@code fetch_chat_file(parsed=true)} for an attachment: an owner-private xlsx as CSV text per sheet. */
+    /**
+     * Onyx {@code fetch_chat_file(parsed=true)} for an attachment: an xlsx its owner, or someone an agent they use
+     * grants it to, reads as CSV text per sheet.
+     */
     public java.util.List<io.memoryos.document.SpreadsheetPreview.Sheet> spreadsheet(ActorId actor, UUID id) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(LibraryException::unavailable);
-        var file = files.owned(tenant, actor, id, false).orElseThrow(LibraryException::unavailable).file();
+        var file = readable(tenant, actor, id).orElseThrow(LibraryException::unavailable).file();
         if (!"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".equals(file.mediaType()))
             throw LibraryException.invalid("Only xlsx files have a spreadsheet preview");
         try (var input = open(actor, tenant, id)) {

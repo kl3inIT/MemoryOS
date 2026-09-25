@@ -20,9 +20,22 @@ public interface FileAttachments {
      */
     Set<UUID> readableThroughAgents(TenantId tenant, ActorId actor, Collection<UUID> files);
 
+    /**
+     * The knowledge files of non-deleted agents {@code actor} can use, one row per agent attaching a file, for at
+     * most {@code limit} files. The same rule as {@link #readableThroughAgents} without avatars: an avatar is the
+     * agent's icon, not its content. Managing agents grants nothing here either.
+     */
+    List<AgentFile> agentFiles(TenantId tenant, ActorId actor, int limit);
+
+    /** {@link #agentFiles(TenantId, ActorId, int)} narrowed to {@code files}, for rows the library already names. */
+    List<AgentFile> agentFiles(TenantId tenant, ActorId actor, Collection<UUID> files);
+
     /** Everything that attaches one of {@code files}, ordered by kind and name, in one query for a whole page. */
     List<Holder> holders(TenantId tenant, Collection<UUID> files);
 
     /** One agent or Project attaching one upload. */
     record Holder(UUID fileId, LibraryFile.Usage.Kind kind, UUID id, String name) {}
+
+    /** One agent the reader uses that attaches one knowledge file. */
+    record AgentFile(UUID fileId, UUID agentId, String agentName) {}
 }

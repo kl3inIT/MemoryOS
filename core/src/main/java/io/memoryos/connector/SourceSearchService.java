@@ -5,6 +5,7 @@ import io.memoryos.document.DocumentId;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -72,6 +73,20 @@ public class SourceSearchService {
     public java.util.Map<UUID, io.memoryos.objectstorage.StoredObjectReference> originals(TenantId tenant, ActorId actor,
             java.util.Set<UUID> documents) {
         return documents.isEmpty() ? java.util.Map.of() : this.documents.originals(tenant, actor, documents);
+    }
+
+    /**
+     * One keyset page of the Documents the actor may read now, under the same rule Search rechecks with, each once
+     * under its first readable mapping. {@code indexIdentity} is the served index; a generation written elsewhere
+     * is not reported.
+     */
+    public List<SourceDocumentEntry> browse(TenantId tenant, ActorId actor, String indexIdentity, SourceDocumentBrowse browse) {
+        return documents.browse(tenant, actor, indexIdentity, browse);
+    }
+
+    /** {@link #browse} entries of those Documents the actor may read now; unreadable ids are absent, any order. */
+    public List<SourceDocumentEntry> entries(TenantId tenant, ActorId actor, String indexIdentity, Collection<UUID> documents) {
+        return documents.isEmpty() ? List.of() : this.documents.entries(tenant, actor, indexIdentity, documents);
     }
 
     public List<DocumentSourceMetadata> indexMetadata(TenantId tenant, DocumentId document, UUID generation) {

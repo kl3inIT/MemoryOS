@@ -1,6 +1,9 @@
 package io.memoryos.connector.source.persistence;
 
 import io.memoryos.connector.DocumentAccess;
+import io.memoryos.connector.SourceAccess;
+import io.memoryos.connector.SourceDocumentBrowse;
+import io.memoryos.connector.SourceDocumentEntry;
 import io.memoryos.connector.IndexWork;
 import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.connector.SourceType;
@@ -8,7 +11,11 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.document.DocumentId;
 import io.memoryos.shared.ActorId;
+import io.memoryos.shared.FileCategorySql;
+import io.memoryos.shared.LikePattern;
 import io.memoryos.shared.TenantId;
+import java.time.ZoneOffset;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -17,6 +24,8 @@ import java.util.UUID;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Types;
 import tools.jackson.databind.ObjectMapper;
 import org.jspecify.annotations.Nullable;
@@ -102,6 +111,46 @@ public class JdbcSourceDocumentRepository {
             + ") sync_grant WHERE sync_grant.token='" + PUBLIC_GRANT + "' OR sync_grant.token IN (" + READER_TOKENS + "))");
     /** Source lists show SYNC Sources to active members; each of their documents is still rechecked. */
     private static final String SOURCE_READ_SCOPE = READ_SCOPE.formatted("TRUE");
+    /**
+     * Readable Source documents, each under its first readable mapping by Source then item. The Sources the actor
+     * may read are resolved once; each mapping is then rechecked with the document scope (%4$s), which also carries
+     * the provider grants of SYNC Sources. %3$s narrows the mappings, %6$s filters, orders and limits the entries.
+     */
+    private static final String BROWSE = """
+            WITH readable_pairs AS MATERIALIZED (
+                SELECT p.tenant_id, p.id, p.access_type, c.name AS source_name, c.connector_type
+                FROM connector_credential_pairs p
+                JOIN connectors c ON c.tenant_id=p.tenant_id AND c.id=p.connector_id
+                WHERE p.tenant_id=:tenant AND p.status IN ('ACTIVE','INDEXING') AND c.status='ACTIVE' AND %1$s
+                    AND (:allSources OR p.id IN (:sources)) AND %2$s
+            ), mapped AS (
+                SELECT DISTINCT ON (m.document_id) m.document_id, p.id AS source_id, p.source_name, p.connector_type,
+                    p.access_type, v.filename, d.title,
+                    COALESCE(d.media_type, o.declared_media_type, 'application/octet-stream') AS media_type, v.size_bytes,
+                    COALESCE(i.source_updated_at, i.updated_at) AS updated_at, v.source_url,
+                    CASE WHEN d.search_index_identity=:identity THEN d.searchable_generation END AS generation
+                FROM readable_pairs p
+                JOIN documents_by_connector_credential_pair m ON m.tenant_id=p.tenant_id AND m.connector_credential_pair_id=p.id
+                JOIN connector_items i ON i.tenant_id=m.tenant_id AND i.id=m.connector_item_id
+                JOIN connector_item_versions v ON v.tenant_id=i.tenant_id AND v.id=i.current_version_id
+                LEFT JOIN stored_objects o ON o.tenant_id=v.tenant_id AND o.id=v.stored_object_id
+                JOIN documents d ON d.tenant_id=m.tenant_id AND d.id=m.document_id
+                WHERE m.retrieval_eligible=TRUE AND d.status='ELIGIBLE' %3$s AND %4$s
+                ORDER BY m.document_id, p.id, i.id
+            ), categorized AS (
+                SELECT mapped.*, %5$s AS category FROM mapped
+            )
+            SELECT entry.*, ARRAY(
+                SELECT DISTINCT grp.name FROM source_group_grants grant_row
+                JOIN iam_group_memberships member ON member.tenant_id=grant_row.tenant_id
+                    AND member.group_id=grant_row.group_id AND member.actor_id=:actor
+                JOIN iam_groups grp ON grp.tenant_id=grant_row.tenant_id AND grp.id=grant_row.group_id
+                WHERE entry.access_type='PRIVATE' AND grant_row.tenant_id=:tenant
+                    AND grant_row.connector_credential_pair_id=entry.source_id
+                ORDER BY grp.name) AS group_names
+            FROM (SELECT entry.* FROM categorized entry %6$s) entry
+            ORDER BY %7$s
+            """;
 
     private final JdbcClient jdbcClient;
 
@@ -336,6 +385,65 @@ public class JdbcSourceDocumentRepository {
                     return true;
                 }).list();
         return java.util.Map.copyOf(result);
+    }
+
+    /**
+     * One keyset page of the Documents the actor may read, each under its first readable mapping. Sources are
+     * narrowed by their own read scope first, then every mapping is rechecked with {@link #DOCUMENT_READ_SCOPE}, the
+     * rule Search and {@link #readableDocuments} apply, so a browse can never list what a search would refuse.
+     */
+    public List<SourceDocumentEntry> browse(TenantId tenant, ActorId actor, String indexIdentity, SourceDocumentBrowse browse) {
+        var after = browse.after();
+        String keyset = after == null ? "" : browse.byName()
+                ? "AND (lower(entry.filename), entry.document_id) > (lower(:afterName), :afterId)"
+                : "AND (entry.updated_at, entry.document_id) < (:afterTime, :afterId)";
+        String order = browse.byName() ? "lower(entry.filename), entry.document_id" : "entry.updated_at DESC, entry.document_id DESC";
+        var statement = jdbcClient.sql(BROWSE.formatted(SEARCHABLE_SOURCE, SOURCE_READ_SCOPE, "", DOCUMENT_READ_SCOPE,
+                        FileCategorySql.caseExpression("mapped.media_type", "mapped.filename"), """
+                        WHERE (:allCategories OR entry.category IN (:categories))
+                            AND (:query = '' OR entry.filename ILIKE :pattern OR entry.title ILIKE :pattern) %s
+                        ORDER BY %s LIMIT :limit
+                        """.formatted(keyset, order), order))
+                .param("allSources", browse.sourceIds().isEmpty())
+                .param("sources", browse.sourceIds().isEmpty() ? Set.of(new UUID(0, 0)) : browse.sourceIds())
+                .param("allCategories", browse.categories().isEmpty())
+                .param("categories", browse.categories().isEmpty() ? Set.of("") : browse.categories())
+                .param("query", browse.query()).param("pattern", LikePattern.containing(browse.query()))
+                .param("limit", browse.limit());
+        if (after != null) {
+            statement = statement.param("afterTime", after.updatedAt().atOffset(ZoneOffset.UTC))
+                    .param("afterName", after.filename()).param("afterId", after.documentId());
+        }
+        return bindBrowse(statement, tenant, actor, indexIdentity).query(JdbcSourceDocumentRepository::entry).list();
+    }
+
+    /** The listed entries of those Documents the actor may read now, as {@link #browse} lists them; any order. */
+    public List<SourceDocumentEntry> entries(TenantId tenant, ActorId actor, String indexIdentity, Collection<UUID> documents) {
+        if (documents.isEmpty()) return List.of();
+        if (documents.size() > 1000) throw new IllegalArgumentException("document batch exceeds 1000");
+        var statement = jdbcClient.sql(BROWSE.formatted(SEARCHABLE_SOURCE, SOURCE_READ_SCOPE, "AND m.document_id IN (:documents)",
+                        DOCUMENT_READ_SCOPE, FileCategorySql.caseExpression("mapped.media_type", "mapped.filename"), "", "entry.document_id"))
+                .param("allSources", true).param("sources", Set.of(new UUID(0, 0)))
+                .param("documents", Set.copyOf(documents));
+        return bindBrowse(statement, tenant, actor, indexIdentity).query(JdbcSourceDocumentRepository::entry).list();
+    }
+
+    private static JdbcClient.StatementSpec bindBrowse(JdbcClient.StatementSpec statement, TenantId tenant, ActorId actor,
+                                                       String indexIdentity) {
+        return statement.param("tenant", tenant.value()).param("actor", actor.value()).param("identity", indexIdentity);
+    }
+
+    private static SourceDocumentEntry entry(ResultSet rs, int row) throws SQLException {
+        var groups = rs.getArray("group_names");
+        try {
+            return new SourceDocumentEntry(rs.getObject("document_id", UUID.class), rs.getObject("generation", UUID.class),
+                    rs.getString("filename"), rs.getString("title"), rs.getString("media_type"), rs.getLong("size_bytes"),
+                    rs.getString("category"), rs.getTimestamp("updated_at").toInstant(), rs.getObject("source_id", UUID.class),
+                    rs.getString("source_name"), SourceType.valueOf(rs.getString("connector_type")), rs.getString("source_url"),
+                    SourceAccess.valueOf(rs.getString("access_type")), List.of((String[]) groups.getArray()));
+        } finally {
+            groups.free();
+        }
     }
 
     private static List<String> authors(@Nullable String json) {

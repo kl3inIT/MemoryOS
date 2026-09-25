@@ -113,6 +113,15 @@ public class UserFileService {
     }
 
     /**
+     * The READY file the actor owns or an agent they can use grants them: what its download serves (owner decision
+     * 2 of the library hub), since the same bytes already reach those readers through the agent's turns.
+     */
+    public UserFile servable(ActorId actor, UUID id) {
+        return readable(tenant(actor), actor, id).filter(file -> file.status() == UserFile.Status.READY)
+                .orElseThrow(LibraryException::unavailable);
+    }
+
+    /**
      * Gives the uploads a temporary conversation's question carried to that conversation: the library stops listing
      * them, and {@link UserFileMaintenance#releaseTemporary} releases them when the conversation is purged. Called
      * inside the turn transaction.
