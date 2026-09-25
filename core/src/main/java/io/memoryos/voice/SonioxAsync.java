@@ -38,21 +38,26 @@ final class SonioxAsync {
     /** Transcribes a WAV recording and returns its text; the language is an ISO-639-1 hint such as {@code vi}. */
     static String transcribe(HttpClient client, String baseUrl, String key, String model, @Nullable String language,
             byte[] wav, Duration timeout) throws IOException, InterruptedException {
-        return run(client, baseUrl, key, model, language, List.of(), false, wav, "audio.wav", "audio/wav", timeout,
+        return run(client, baseUrl, key, model, language, List.of(), false,
+                HttpRequest.BodyPublishers.ofByteArray(wav), "audio.wav", "audio/wav", timeout,
                 transcript -> transcript.path("text").asString("").strip());
     }
 
-    /** Transcribes one uploaded recording into the segments a meeting stores, separating speakers when asked. */
+    /**
+     * Transcribes one uploaded recording into the segments a meeting stores, separating speakers when asked. The file
+     * is streamed from its source into the upload, so a 500 MB recording never sits in memory.
+     */
     static List<LiveTranscription.Segment> segments(HttpClient client, String baseUrl, String key, String model,
-            @Nullable String language, List<String> terms, boolean diarize, byte[] audio, String filename,
-            String mediaType, Duration timeout) throws IOException, InterruptedException {
-        return run(client, baseUrl, key, model, language, terms, diarize, audio, filename, mediaType, timeout,
-                SonioxAsync::group);
+            @Nullable String language, List<String> terms, boolean diarize, BatchTranscriptionService.Recording recording,
+            Duration timeout) throws IOException, InterruptedException {
+        return run(client, baseUrl, key, model, language, terms, diarize,
+                AudioSource.body(recording.audio(), recording.sizeBytes()), recording.filename(),
+                recording.mediaType(), timeout, SonioxAsync::group);
     }
 
     private static <T> T run(HttpClient client, String baseUrl, String key, String model, @Nullable String language,
-            List<String> terms, boolean diarize, byte[] audio, String filename, String mediaType, Duration timeout,
-            Function<JsonNode, T> read) throws IOException, InterruptedException {
+            List<String> terms, boolean diarize, HttpRequest.BodyPublisher audio, String filename, String mediaType,
+            Duration timeout, Function<JsonNode, T> read) throws IOException, InterruptedException {
         long deadline = System.nanoTime() + timeout.toNanos();
         String file = null;
         String transcription = null;
@@ -139,15 +144,15 @@ final class SonioxAsync {
         return DEFAULT_MODEL;
     }
 
-    private static JsonNode upload(HttpClient client, String baseUrl, String key, byte[] audio, String filename,
-            String mediaType, Duration timeout) throws IOException, InterruptedException {
+    private static JsonNode upload(HttpClient client, String baseUrl, String key, HttpRequest.BodyPublisher audio,
+            String filename, String mediaType, Duration timeout) throws IOException, InterruptedException {
         String boundary = "memoryos-" + UUID.randomUUID();
-        // The parts are sent one after another, so a 500 MB recording is never copied into a second buffer.
+        // The parts are sent one after another, and the file part is read from its source as it is sent.
         var body = HttpRequest.BodyPublishers.concat(
                 HttpRequest.BodyPublishers.ofByteArray(("--" + boundary
                         + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"" + safe(filename)
                         + "\"\r\nContent-Type: " + mediaType + "\r\n\r\n").getBytes(UTF_8)),
-                HttpRequest.BodyPublishers.ofByteArray(audio),
+                audio,
                 HttpRequest.BodyPublishers.ofByteArray(("\r\n--" + boundary + "--\r\n").getBytes(UTF_8)));
         return send(client, HttpRequest.newBuilder(URI.create(baseUrl + "/files")).timeout(timeout)
                 .header("Authorization", "Bearer " + key).header("Accept", "application/json")

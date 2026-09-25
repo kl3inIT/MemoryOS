@@ -1,25 +1,31 @@
 package io.memoryos.meeting;
 
+import io.memoryos.voice.AudioSource;
 import io.memoryos.voice.BatchTranscriptionService;
 import io.memoryos.voice.LiveTranscription;
 import io.memoryos.voice.VoiceProvider;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
+import io.memoryos.shared.LeasedJob;
 import io.memoryos.shared.TenantId;
 import io.memoryos.meeting.persistence.MeetingRepository;
 import io.memoryos.objectstorage.ContentSha256;
+import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectStorage;
+import io.memoryos.objectstorage.ObjectUploadException;
 import io.memoryos.objectstorage.ObjectUploadId;
 import io.memoryos.objectstorage.ObjectUploadPurpose;
 import io.memoryos.objectstorage.ObjectUploadService;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.objectstorage.UploadAuthorization;
-import java.io.IOException;
+import java.io.InputStream;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -30,8 +36,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * A meeting made from a recording the owner uploaded instead of one MemoryOS heard. The file goes to object storage
- * through the same reservation the rest of the product uses, a leased job hands it to the speech provider in the
- * container it arrived in, and the recording is retired as soon as it has been transcribed or given up on.
+ * through the same reservation the rest of the product uses, a leased job streams it to the speech provider in the
+ * container it arrived in, and the next pass retires the recording once it has been transcribed or given up on.
  */
 @Service
 public class MeetingRecordingService {
@@ -39,6 +45,10 @@ public class MeetingRecordingService {
     static final int MAX_ATTEMPTS = 3;
     /** Longer than any provider call: a five-hour recording can take many minutes to come back. */
     static final Duration LEASE = Duration.ofMinutes(60);
+    /** Recordings retired per pass; a backlog drains over the following passes. */
+    static final int RETIRE_BATCH = 20;
+    /** What retiring an upload that an earlier pass already retired answers. */
+    private static final Set<String> RETIRED = Set.of("OBJECT_UPLOAD_CONFLICT", "OBJECT_UPLOAD_NOT_FOUND");
     /** Containers every supported provider reads; the media type is what the presigned upload pins. */
     private static final Set<String> MEDIA_TYPES = Set.of("audio/mpeg", "audio/mp3", "audio/mp4", "audio/m4a",
             "audio/x-m4a", "audio/wav", "audio/x-wav", "audio/wave", "audio/webm", "audio/ogg", "audio/flac",
@@ -114,37 +124,45 @@ public class MeetingRecordingService {
         return service.get(actor, id);
     }
 
-    /** Transcribes the oldest recording waiting for it. Returns whether one was claimed. */
+    /**
+     * Retires the recordings that are done with, then transcribes the oldest one waiting. Returns whether one was
+     * claimed.
+     */
     public boolean transcribeNext() {
-        var abandoned = tx.execute(ignored -> meetings.failAbandonedAudio(MAX_ATTEMPTS));
-        if (abandoned != null && !abandoned.isEmpty()) {
-            LOG.atWarn().addKeyValue("event", "meeting.recording.abandoned").addKeyValue("count", abandoned.size())
-                    .log("Meeting recordings failed after their last attempt's lease lapsed");
-            // As a failed last attempt does, the bytes are retired once the recording is given up on.
-            for (var recording : abandoned) retire(recording.tenant(), recording.id(), recording.uploadId());
-        }
-        var claimed = tx.execute(ignored -> meetings.claimAudio(LEASE, MAX_ATTEMPTS).orElse(null));
-        if (claimed == null) return false;
-        try {
-            transcribe(claimed);
-        } catch (RuntimeException failure) {
-            LOG.warn("Meeting recording failed on attempt {} ({})", claimed.attempts(), failure.getClass().getSimpleName());
-            tx.executeWithoutResult(ignored -> meetings.failAudio(claimed.tenant(), claimed.id(), claimed.attempts(),
-                    MAX_ATTEMPTS, reason(failure)));
-            if (claimed.attempts() >= MAX_ATTEMPTS) retire(claimed.tenant(), claimed.id(), claimed.uploadId());
-        }
-        return true;
+        retireHeld();
+        return LeasedJob.runNext(LOG, "meeting.recording", new LeasedJob.Steps<>(
+                () -> Objects.requireNonNull(tx.execute(ignored -> meetings.failAbandonedAudio(MAX_ATTEMPTS))),
+                () -> Objects.requireNonNull(tx.execute(ignored -> meetings.claimAudio(LEASE, MAX_ATTEMPTS))),
+                this::transcribe,
+                (claim, failure) -> tx.executeWithoutResult(ignored -> meetings.failAudio(claim.tenant(), claim.id(),
+                        claim.attempts(), MAX_ATTEMPTS, reason(failure)))));
+    }
+
+    /**
+     * Retires the bytes of every recording that has been transcribed or given up on. This is the one path that does:
+     * a transcript, a failed last attempt and a lapsed last lease all commit first and leave the upload on the meeting
+     * row, so a process that stops before the bytes go leaves the row for the next pass rather than an adopted upload
+     * that nothing would ever retire. Returns how many were retired.
+     */
+    public int retireHeld() {
+        int retired = 0;
+        for (var held : meetings.heldRecordings(RETIRE_BATCH))
+            if (retire(held.tenant(), held.id(), held.uploadId())) retired++;
+        return retired;
     }
 
     private void transcribe(MeetingRepository.AudioClaim claim) {
         var meeting = meetings.find(claim.tenant(), claim.owner(), claim.id()).orElse(null);
-        // The owner deleted the meeting while it waited; its bytes are retired with it.
+        // The owner deleted the meeting while it waited; its bytes were retired with it.
         if (meeting == null) return;
         var owner = new ActorId(claim.owner());
         var provider = claim.provider() == null ? null : VoiceProvider.valueOf(claim.provider());
         var options = new LiveTranscription.Options(meeting.language(), meeting.terms(), true);
-        var transcribed = transcription.transcribe(owner, provider, options,
-                new BatchTranscriptionService.Recording(read(claim), claim.filename(), claim.mediaType()));
+        BatchTranscriptionService.Transcribed transcribed;
+        try (var recording = new StoredRecording(claim.key())) {
+            transcribed = transcription.transcribe(owner, provider, options, new BatchTranscriptionService.Recording(
+                    recording, claim.sizeBytes(), claim.filename(), claim.mediaType()));
+        }
         if (transcribed.segments().isEmpty()) throw MeetingException.invalid("The recording carried no speech.");
         var utterances = transcribed.segments().stream()
                 .map(segment -> new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.MIC, segment.speaker(),
@@ -159,42 +177,94 @@ public class MeetingRecordingService {
             if (written) meetings.queueMinutes(claim.tenant(), claim.id());
             return written;
         }));
-        // Another replica took the recording over after this lease lapsed; it owns the outcome and the bytes.
-        if (stored) retire(claim.tenant(), claim.id(), claim.uploadId());
-        else LOG.warn("Meeting recording lease lapsed before its transcript was stored");
+        // The bytes go with the next pass's sweep. Another replica that took the recording over after this lease
+        // lapsed owns the outcome.
+        if (!stored) LOG.warn("Meeting recording lease lapsed before its transcript was stored");
     }
 
-    /** Reads the whole recording; a provider call needs it as one body, and the reservation bounds its size. */
-    private byte[] read(MeetingRepository.AudioClaim claim) {
-        try (var content = storage.open(new ObjectKey(claim.key()))) {
-            return content.inputStream().readNBytes((int) Math.min(claim.sizeBytes(), Integer.MAX_VALUE));
-        } catch (IOException | RuntimeException unreadable) {
-            throw MeetingException.invalid("The recording could not be read.");
+    /**
+     * The recording in object storage, opened as the provider call sends it and closed when the call returns. The
+     * first opening happens here, so a missing object is reported as an unreadable recording rather than as a
+     * provider that did not answer.
+     */
+    private final class StoredRecording implements AudioSource, AutoCloseable {
+        private final ObjectKey key;
+        private final List<ObjectContent> opened = new ArrayList<>();
+        private @Nullable ObjectContent first;
+
+        private StoredRecording(String key) {
+            this.key = new ObjectKey(key);
+            ObjectContent content;
+            try {
+                content = storage.open(this.key);
+            } catch (RuntimeException unreadable) {
+                throw MeetingException.invalid("The recording could not be read.");
+            }
+            first = content;
+            opened.add(content);
+        }
+
+        @Override
+        public synchronized InputStream open() {
+            var content = first;
+            first = null;
+            if (content == null) {
+                content = storage.open(key);
+                opened.add(content);
+            }
+            return content.inputStream();
+        }
+
+        @Override
+        public synchronized void close() {
+            for (var content : opened) {
+                try {
+                    content.close();
+                } catch (RuntimeException ignored) {
+                    // The provider call has finished with it; a failed close loses nothing.
+                }
+            }
+            opened.clear();
         }
     }
 
-    /** Deletes the recording's bytes. Called once its transcript is stored, once it is given up on, and on delete. */
-    public void retire(UUID tenant, UUID meeting, @Nullable UUID uploadId) {
-        if (uploadId == null) return;
+    /**
+     * Retires one recording's bytes, then forgets them on the meeting. An upload that is already retired is only
+     * forgotten. Returns whether the meeting no longer holds it; any other failure leaves it for the next sweep.
+     */
+    private boolean retire(UUID tenant, UUID meeting, UUID uploadId) {
         try {
             uploads.retireAdopted(new TenantId(tenant), new ObjectUploadId(uploadId));
-            tx.executeWithoutResult(ignored -> meetings.forgetAudio(tenant, meeting));
+        } catch (ObjectUploadException gone) {
+            // Retired by an earlier pass that stopped before forgetting it: nothing is left to retire.
+            if (!RETIRED.contains(gone.code())) return failedToRetire("error_code", gone.code());
         } catch (RuntimeException failure) {
-            // The abandoned-upload cleanup still owns the bytes; a failure here must not lose the transcript.
-            LOG.warn("Meeting recording not retired ({})", failure.getClass().getSimpleName());
+            return failedToRetire("error_type", failure.getClass().getName());
         }
+        tx.executeWithoutResult(ignored -> meetings.forgetAudio(tenant, meeting, uploadId));
+        return true;
     }
 
-    /** Deletes a meeting and the recording it still holds; the bytes never outlive the meeting. */
+    private static boolean failedToRetire(String field, String value) {
+        LOG.atWarn().addKeyValue("event", "meeting.recording.retire_failed").addKeyValue(field, value)
+                .log("Meeting recording not retired; the next pass tries again");
+        return false;
+    }
+
+    /**
+     * Deletes a meeting and the recording it still holds; the bytes never outlive the meeting. They are retired first:
+     * once the row is gone nothing points at them, while a meeting whose delete did not happen can be deleted again.
+     */
     public void delete(ActorId actor, UUID id) {
         UUID tenant = tenant(actor);
         var meeting = service.owned(actor, id);
         UUID upload = meetings.audioUpload(tenant, id).orElse(null);
         boolean adopted = meeting.audio().status() != Meeting.AudioStatus.NONE
                 && meeting.audio().status() != Meeting.AudioStatus.WAITING;
-        service.delete(actor, id);
         // A reservation the browser never filled was not adopted; the abandoned-upload cleanup owns it.
-        if (adopted) retire(tenant, id, upload);
+        if (adopted && upload != null && !retire(tenant, id, upload))
+            throw MeetingException.invalid("The recording could not be deleted. Try again.");
+        service.delete(actor, id);
     }
 
     private static String reason(RuntimeException failure) {
