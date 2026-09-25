@@ -152,6 +152,24 @@ class RestGoogleDriveProviderTest {
     }
 
     @Test
+    void throttledResponsesCarryTheWaitGoogleAskedFor() throws Exception {
+        String rateLimit = "{\"error\":{\"code\":403,\"errors\":[{\"reason\":\"userRateLimitExceeded\"}]}}";
+        record Case(int status, String body, java.time.Duration delay, Failure failure) {}
+        for (var value : List.of(new Case(429, "{}", java.time.Duration.ofSeconds(30), Failure.QUOTA),
+                new Case(403, rateLimit, java.time.Duration.ofSeconds(45), Failure.QUOTA),
+                new Case(503, "{}", java.time.Duration.ofSeconds(5), Failure.UNAVAILABLE))) {
+            try (var fixture = new Fixture(exchange -> {
+                exchange.getResponseHeaders().add("Retry-After", Long.toString(value.delay().toSeconds()));
+                return new Response(value.status(), bytes(value.body()));
+            }); var provider = provider(fixture, 0, 0); var credential = credential(); var session = provider.open(credential)) {
+                var error = assertThrows(GoogleDriveProviderException.class, () -> session.permissions("file1"));
+                assertEquals(value.failure(), error.failure(), "status " + value.status());
+                assertEquals(value.delay(), error.retryAfter(), "status " + value.status());
+            }
+        }
+    }
+
+    @Test
     void forbiddenReasonsSeparateMissingScopeFromUnreadableSharingAndUnavailableFiles() throws Exception {
         String scope = "{\"error\":{\"code\":403,\"errors\":[{\"reason\":\"insufficientPermissions\"}]}}";
         String scopeDetail = "{\"error\":{\"code\":403,\"status\":\"PERMISSION_DENIED\",\"details\":["
