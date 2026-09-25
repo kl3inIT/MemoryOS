@@ -179,7 +179,7 @@ A listing that gave up on a node — a Drive folder that failed three times, or 
 
 ## Synchronization run history
 
-Retained run errors keep their original code, stage, identifiers and occurrence time. Their read projection additionally returns nullable `currentItemStatus`, `currentItemErrorCode` and `currentItemLastIndexedAt`, joined within the same Tenant/Source/item. The timestamp is successful indexing of the current item version, not any prior version. Missing items remain unknown; deleting items do not count as recovery. These live fields never rewrite historical outcomes or counters, and content recovery does not establish provider/ACL recovery.
+Retained run errors keep their original code, stage, identifiers and occurrence time. Their read projection additionally returns nullable `currentItemStatus`, `currentItemErrorCode` and `currentItemLastIndexedAt`, joined within the same Tenant/Source/item. The timestamp is successful indexing of the current item version, not any prior version. Missing items remain unknown; deleting items do not count as recovery. These live fields never rewrite historical outcomes or counters, and content recovery does not establish provider/ACL recovery. Each error also returns nullable `resolvedAt`, the time a later run acquired the same item or found it unchanged ([failure semantics](#synchronization-engine-and-failure-semantics)); the run dialog shows a resolved error muted with a Resolved badge.
 
 The run dialog separates the historical error from current file state and progressively discloses the exact safe code and correlation IDs. Old generic timeout codes cannot identify their underlying cause. Correlation identifiers are not an exception trace; no historical traceback is synthesized.
 
