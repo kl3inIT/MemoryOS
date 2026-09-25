@@ -1,5 +1,6 @@
 package io.memoryos.api.source;
 
+import io.memoryos.connector.GoogleDriveAccountClient;
 import io.memoryos.connector.GoogleDriveAuthorizationService;
 import io.memoryos.shared.ActorId;
 import io.swagger.v3.oas.annotations.Hidden;
@@ -27,7 +28,7 @@ final class GoogleDriveOAuthCallbackController {
         String code = single(request, "code");
         if (state != null && code != null && !code.isBlank() && code.length() <= 8192 && request.getParameter("error") == null) {
             try (var client = authorizations.oauthClient(new ActorId(state.actorId()), state.preparation());
-                    var grant = accounts.exchange(code, state, client)) {
+                    var grant = accounts.exchange(code, state.verifier(), state.nonce(), client)) {
                 credentialId = authorizations.complete(new ActorId(state.actorId()), state.preparation(), grant).value();
                 outcome = "connected";
             } catch (RuntimeException ignored) {

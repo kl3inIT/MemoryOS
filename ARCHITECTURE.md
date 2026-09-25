@@ -138,7 +138,7 @@ Arrows show allowed use of public capability contracts. Every module depends on 
 | Gradle module | Responsibility |
 | --- | --- |
 | `core` | Fourteen capability implementations, the `shared` kernel of identifier types and technical utilities, and their public contracts; no dependency on `sources` or a deployable |
-| `sources` | Shared integration bundle: the Google Drive and SharePoint adapters (`io.memoryos.connector.adapter`) and bounded content extraction (`io.memoryos.ingestion.extraction`); depends only on public `core` APIs ([ADR 0016](docs/decisions/0016-integration-bundle-named-sources.md)) |
+| `sources` | Shared integration bundle: the Google Drive and SharePoint adapters (`io.memoryos.connector.adapter`), including the Google account consent protocol the API's callback uses and bounded content extraction (`io.memoryos.ingestion.extraction`); depends only on public `core` APIs ([ADR 0016](docs/decisions/0016-integration-bundle-named-sources.md)) |
 | `api` | HTTP, security, migrations and interactive Chat composition |
 | `worker` | Redis/db-scheduler composition and durable background work |
 

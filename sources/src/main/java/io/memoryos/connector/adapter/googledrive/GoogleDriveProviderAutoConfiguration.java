@@ -1,5 +1,6 @@
 package io.memoryos.connector.adapter.googledrive;
 
+import io.memoryos.connector.GoogleDriveAccountClient;
 import io.memoryos.connector.GoogleDriveLinkReader;
 import io.memoryos.connector.GoogleDriveProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -15,6 +16,12 @@ public class GoogleDriveProviderAutoConfiguration {
     @ConditionalOnMissingBean(GoogleDriveProvider.class)
     RestGoogleDriveProvider googleDriveProvider(GoogleDriveProviderProperties properties, ObjectMapper mapper) {
         return new RestGoogleDriveProvider(properties, mapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(GoogleDriveAccountClient.class)
+    RestGoogleDriveAccountClient googleDriveAccountClient(GoogleDriveProviderProperties properties, ObjectMapper mapper) {
+        return new RestGoogleDriveAccountClient(properties, mapper);
     }
 
     @Bean

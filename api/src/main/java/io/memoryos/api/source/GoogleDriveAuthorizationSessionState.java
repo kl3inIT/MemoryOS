@@ -1,7 +1,9 @@
 package io.memoryos.api.source;
 
-import io.memoryos.connector.GoogleDriveAuthorizationService.Preparation;
 import io.memoryos.connector.CredentialId;
+import io.memoryos.connector.GoogleDriveAccountClient.Consent;
+import io.memoryos.connector.GoogleDriveAuthorizationService.Preparation;
+import io.memoryos.connector.SourceException;
 import io.memoryos.iam.IdentityContext;
 import io.memoryos.shared.Sha256;
 import io.memoryos.shared.TenantId;
@@ -28,7 +30,7 @@ public record GoogleDriveAuthorizationSessionState(UUID actorId, UUID tenantId, 
     public static GoogleDriveAuthorizationSessionState start(HttpServletRequest request, IdentityContext identity, Preparation preparation) {
         var session = request.getSession(false);
         if (session == null || !actorMatches(request, identity.actorId().value())) {
-            throw io.memoryos.connector.SourceException.invalid("Google authorization requires your existing browser session.", "OAuth requires matching Actor session");
+            throw SourceException.invalid("Google authorization requires your existing browser session.", "OAuth requires matching Actor session");
         }
         var pending = new GoogleDriveAuthorizationSessionState(identity.actorId().value(), preparation.tenantId().value(),
                 preparation.name(), preparation.credentialId() == null ? null : preparation.credentialId().value(),
@@ -52,6 +54,11 @@ public record GoogleDriveAuthorizationSessionState(UUID actorId, UUID tenantId, 
     public Preparation preparation() {
         return new Preparation(new TenantId(tenantId), name, credentialId == null ? null : new CredentialId(credentialId), expectedRevision,
                 consentId, oauthClientSnapshot);
+    }
+
+    /** What the consent URL carries: this flow's state, nonce and S256 code challenge, never the verifier. */
+    public Consent consent() {
+        return new Consent(state, nonce, challenge());
     }
 
     public String challenge() {

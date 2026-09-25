@@ -7,6 +7,7 @@ import io.memoryos.api.source.contract.GoogleDriveServiceAccountRequest;
 import io.memoryos.api.source.contract.RevokeGoogleDriveCredentialRequest;
 import io.memoryos.api.source.contract.StartGoogleDriveAuthorizationRequest;
 import io.memoryos.connector.CredentialId;
+import io.memoryos.connector.GoogleDriveAccountClient;
 import io.memoryos.connector.GoogleDriveAuthorizationService;
 import io.memoryos.connector.GoogleDriveServiceAccountService;
 import io.memoryos.connector.SourceException;
@@ -41,13 +42,11 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 final class GoogleDriveCredentialController {
     private final GoogleDriveAuthorizationService authorizations;
     private final GoogleDriveAccountClient accounts;
-    private final GoogleDriveOAuthProperties properties;
     private final GoogleDriveServiceAccountService serviceAccounts;
 
     GoogleDriveCredentialController(GoogleDriveAuthorizationService authorizations,
-            GoogleDriveAccountClient accounts, GoogleDriveOAuthProperties properties,
-            GoogleDriveServiceAccountService serviceAccounts) {
-        this.authorizations = authorizations; this.accounts = accounts; this.properties = properties;
+            GoogleDriveAccountClient accounts, GoogleDriveServiceAccountService serviceAccounts) {
+        this.authorizations = authorizations; this.accounts = accounts;
         this.serviceAccounts = serviceAccounts;
     }
 
@@ -67,11 +66,11 @@ final class GoogleDriveCredentialController {
         try (var supplied = accounts.parseClient(body.oauthClientJson())) {
             var preparation = authorizations.prepare(identity.actorId(), body.name(),
                     body.credentialId() == null ? null : new CredentialId(body.credentialId()), body.expectedCredentialRevision(), supplied);
-            properties.requireConfigured();
+            accounts.requireConfigured();
             try (var client = authorizations.oauthClient(identity.actorId(), preparation)) {
                 var state = GoogleDriveAuthorizationSessionState.start(request, identity, preparation);
                 return ResponseEntity.ok()
-                        .body(new GoogleDriveAuthorizationResponse(accounts.authorizationUrl(state, client.clientId())));
+                        .body(new GoogleDriveAuthorizationResponse(accounts.authorizationUrl(client.clientId(), state.consent())));
             }
         }
     }
