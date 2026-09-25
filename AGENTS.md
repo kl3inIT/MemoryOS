@@ -77,6 +77,7 @@ Keep each increment's design, plan, verification evidence, and Linear scope alig
 - [File library trash decision](docs/decisions/0014-file-library-trash.md)
 - [Capability module map decision](docs/decisions/0015-capability-module-map.md)
 - [Integration bundle named `sources` decision](docs/decisions/0016-integration-bundle-named-sources.md)
+- [Shared kernel holds technical utilities decision](docs/decisions/0017-shared-kernel-holds-technical-utilities.md)
 - [AI usage and costs contract](docs/specs/ai-usage.md) and [verification matrix](docs/tests/ai-usage.md)
 - [Vision](docs/vision.md)
 - [Architecture](ARCHITECTURE.md)
