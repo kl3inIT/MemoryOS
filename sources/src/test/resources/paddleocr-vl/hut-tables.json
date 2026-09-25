@@ -1,0 +1,46 @@
+{
+  "balance-sheet": {
+    "source": "HUT hợp nhất Q1/2026, page 6, block 4; first rows only",
+    "html": "<table><tr><td>TÀI SẢN</td><td>Mã\\nSố</td><td>Thuyết\\nmlnh</td><td>Số cuối kỳ</td><td>Số đầu kỳ</td></tr><tr><td>A. TÀI SẢN NGẨN HẢN</td><td>100</td><td></td><td>28.247.754.672.899</td><td>28.058.228.416.242</td></tr><tr><td>I. Tiền và các khoản tương đương tiễn</td><td>110</td><td>V.1</td><td>4.121.940.042.530</td><td>4.843.287.293.754</td></tr><tr><td>1. Tiền</td><td>111</td><td></td><td>2.470.482.178.999</td><td>2.764.761.087.606</td></tr><tr><td>2. Các khoản tương đương tiễn</td><td>112</td><td></td><td>1.651.457.863.531</td><td>2.078.526.206.148</td></tr></table>"
+  },
+  "income-statement-quarter": {
+    "source": "HUT hợp nhất Q1/2026, page 9, block 3; first rows only",
+    "html": "<table><tr><td rowspan=\"2\">CHÍ TIÊU</td><td rowspan=\"2\">Mã số</td><td rowspan=\"2\">Thuyết minh</td><td colspan=\"2\">QUỀI</td><td colspan=\"2\">LỤY KỆ TỪ ĐAU NĂM</td></tr><tr><td>Năm nay</td><td>Năm trước</td><td>Năm nay</td><td>Năm trước</td></tr><tr><td>Doanh thu bán hàng và cung cấp dịch vụ</td><td>01</td><td>VI.1</td><td>11.030.333.521.790</td><td>6.977.873.620.387</td><td>11.030.333.521.790</td><td>6.977.873.620.387</td></tr><tr><td>Các khoản giảm trừ doanh thu</td><td>02</td><td></td><td>41.004.717.070</td><td>1.894.480.459</td><td>41.004.717.070</td><td>1.894.480.459</td></tr></table>"
+  },
+  "blank-item-header": {
+    "source": "HUT hợp nhất Q1/2026, page 26, block 4; first rows only",
+    "html": "<table><tr><td></td><td>Số cuối kỹ</td><td>Số đầu kỹ</td></tr><tr><td>Tiền mặt</td><td>37.200.070.561</td><td>25.549.066.488</td></tr><tr><td>Tiền gửi ngán hàng</td><td>2.431.731.288.998</td><td>2.739.161.731.118</td></tr></table>"
+  },
+  "value-and-provision": {
+    "source": "HUT hợp nhất Q1/2026, page 27, block 3; first rows only",
+    "html": "<table><tr><td></td><td colspan=\"2\">Số cuối kỹ</td><td colspan=\"2\">Số đầu kỹ</td></tr><tr><td></td><td>Giá trị</td><td>Dự phòng</td><td>Giá trị</td><td>Dự phòng</td></tr><tr><td>Phải thu khác từ bên thứ ba</td><td>8.748.297.090.577</td><td>(30.087.053.276)</td><td>7.385.390.447.759</td><td>(30.087.053.276)</td></tr><tr><td>Phải thu của người lao động</td><td>358.424.257.320</td><td>(3.350.000.000)</td><td>318.557.664.388</td><td>(3.350.000.000)</td></tr></table>"
+  },
+  "cash-flow-section-label": {
+    "source": "HUT hợp nhất Q1/2026, page 10, block 3; first rows only",
+    "html": "<table><tr><td>CHỈ TIẾU</td><td>Mã số</td><td>Thuyết minh</td><td>Quý I năm 2026</td><td>Quý I năm 2025</td></tr><tr><td>1. Lưu chuyển tiền từ hoạt động kinh doanh</td><td></td><td></td><td></td><td></td></tr><tr><td>1. Lợi nhuận trước thuế</td><td>01</td><td></td><td>75.726.251.335</td><td>51.756.489.059</td></tr><tr><td>2. Điều chỉnh cho các khoản</td><td></td><td></td><td></td><td></td></tr></table>"
+  },
+  "misplaced-period-in-section-row": {
+    "source": "HUT hợp nhất 6T/2026, page 12, block 2; first rows only",
+    "html": "<table><tr><td></td><td>CHỈ TIÊU</td><td>Mã số</td><td>Thuyết minh</td><td>Kỳ này</td><td>Đơn vị tính: VND</td></tr><tr><td>I.</td><td>Lưu chuyển tiền từ hoạt động kinh doanh</td><td></td><td></td><td></td><td>Kỳ trước</td></tr><tr><td>1.</td><td>Lợi nhuận trước thuế</td><td>01</td><td></td><td>400.248.814.584</td><td>170.540.450.427</td></tr><tr><td>2.</td><td>Điều chỉnh cho các khoản:</td><td></td><td></td><td></td><td></td></tr></table>"
+  },
+  "caption-then-header": {
+    "source": "HUT công ty mẹ Q1/2026, page 40, block 2; first rows only",
+    "html": "<table><tr><td colspan=\"3\">Lãi cho vay</td></tr><tr><td></td><td>Quý 1 năm 2026</td><td>Quý 1 năm 2025</td></tr><tr><td>Công ty TNHH thu phí Tự động VETC</td><td>-</td><td>1.975.784.323</td></tr><tr><td>Công ty Cổ phần Tasco Auto</td><td>34.362.235.336</td><td>28.915.677.388</td></tr></table>"
+  },
+  "caption-then-mixed-row": {
+    "source": "HUT công ty mẹ Q1/2026, page 37, block 3; first rows only",
+    "html": "<table><tr><td colspan=\"2\">1. Doanh thu bán hàng</td></tr><tr><td>Doanh thu cung cấp dịch vụ</td><td>Quý 1 năm 2026</td></tr><tr><td>Doanh thu hoạt động kinh doanh BDS</td><td>36.490.020.721</td></tr><tr><td>Doanh thu hợp đồng xây dựng</td><td>5.753.801.964</td></tr></table>"
+  },
+  "header-cell-into-data": {
+    "source": "HUT hợp nhất 6T/2026, page 62, block 9; first rows only",
+    "html": "<table><tr><td rowspan=\"2\">1. Doanh thu bán hàng và cung cấp dịch vụ</td><td>Kỷ này</td><td>Kỷ trước</td></tr><tr><td>19.010.262.445.460</td><td>12.556.063.283.703</td></tr><tr><td>Doanh thu hoạt động bán hàng hóa, thành phẩm</td><td>616.638.321.075</td><td>641.698.926.846</td></tr><tr><td>Doanh thu hoạt động thu phí</td><td>2.446.616.032.289</td><td>1.887.040.171.325</td></tr></table>"
+  },
+  "continuation-without-header": {
+    "source": "HUT hợp nhất Q1/2026, page 13, block 2; first rows only",
+    "html": "<table><tr><td>28</td><td>Công ty TNHH FX Auto</td><td>Hồ Chí Minh</td><td>18,28%</td><td>57,26%</td><td>Dịch vụ thương mại</td></tr><tr><td>29</td><td>Công ty CP Sài Gòn Ngói Sao</td><td>Hồ Chí Minh</td><td>29,43%</td><td>57,35%</td><td>Dịch vụ thương mại</td></tr><tr><td>30</td><td>Công ty CP Ô tô Sài Gòn Cửu Long</td><td>Cần Thơ</td><td>47,04%</td><td>92,08%</td><td>Dịch vụ thương mại</td></tr></table>"
+  },
+  "group-label-in-header": {
+    "source": "HUT hợp nhất 6T/2026, page 50, block 2; first rows only",
+    "html": "<table><tr><td>Nguyên giá</td><td>Công ty cổ phần\\nTasco Auto $ ^{{*}} $</td><td>Công ty TNHH\\nBảo hiểm Tasco</td><td>Công ty TNHH Tasco\\nInvestment</td><td>Công ty cổ phần\\nDNP Holding</td><td>Tổng cộng</td></tr><tr><td>Số dư đầu kỳ</td><td>2.927.594.862.831</td><td>99.678.880.326</td><td>23.240.451.757</td><td>510.646.246.216</td><td>3.561.160.441.130</td></tr><tr><td>Tăng trong kỳ</td><td>12.469.890.827</td><td>-</td><td>-</td><td>-</td><td>12.469.890.827</td></tr><tr><td>Số dư cuối kỳ</td><td>2.940.064.753.658</td><td>99.678.880.326</td><td>23.240.451.757</td><td>510.646.246.216</td><td>3.573.630.331.957</td></tr><tr><td>Giá trị hao mòn lũy kế</td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>Số dư đầu kỳ</td><td>1.136.868.442.916</td><td>32.395.636.107</td><td>1.697.844.114</td><td>4.255.385.385</td><td>1.175.217.308.522</td></tr></table>"
+  }
+}

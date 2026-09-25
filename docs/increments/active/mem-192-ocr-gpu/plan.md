@@ -40,7 +40,7 @@ Mục 1–4 đã làm (commit a), cùng phần "reader native ghi v2" của mụ
 
 5. Adapter Docling ghi v2, Docling chạy với `do_ocr=false`. Các reader native ghi v2.
 6. Client PaddleOCR-VL có giới hạn thời gian và kích thước, theo cùng quy tắc với `BoundedDoclingClient`. Không có API key: ranh giới mạng thay cho key (xem [design](design.md#nhiều-adapter-một-document)).
-7. Adapter PaddleOCR-VL: `parsing_res_list` sang v2, bbox pixel sang điểm PDF, bảng HTML có `rowspan`/`colspan` sang `table.cells`, không đoán tiêu đề. Tắt nắn trang; xoay trang phải quy đổi toạ độ hoặc bỏ `bbox`. Test bằng trang thật từ spike (báo cáo công khai của HUT), gồm một trang xoay 90°.
+7. Adapter PaddleOCR-VL: `parsing_res_list` sang v2, bbox pixel sang điểm PDF, bảng HTML có `rowspan`/`colspan` sang `table.cells`, không đoán tiêu đề (Phase 3c thay bằng quy tắc đã đo). Tắt nắn trang; xoay trang phải quy đổi toạ độ hoặc bỏ `bbox`. Test bằng trang thật từ spike (báo cáo công khai của HUT), gồm một trang xoay 90°.
 8. Định tuyến theo mật độ lớp chữ: scan sang PaddleOCR-VL, có chữ sang Docling. Lỗi của PaddleOCR-VL là lỗi cuối như mọi `ExtractionException` (`FAILED`, reindex theo Source), không hạ cấp. File đính kèm Chat đi cùng định tuyến.
 9. Nâng `compose.base.yaml` lên `docling-serve-cpu:v1.34.0`, tắt OCR.
 
@@ -62,6 +62,18 @@ Theo [design](design.md#làm-cứng-sau-lần-chạy-đầu-2026-09-24).
 - [x] Bbox PaddleOCR-VL ghi `BOTTOMLEFT` trong toạ độ người dùng của PDF, cộng góc CropBox; trang có `/Rotate` khác 0 chỉ ghi `page_no`. Test: CropBox bắt đầu ở (36, 48) kiểm bằng đúng phép tính của `pdfBoxRect`, trang `/Rotate 90` không có bbox.
 - [x] `max-concurrent-requests` (mặc định 2, 1–16) giới hạn request đồng thời mỗi worker; hạn chót tính từ lúc có permit; log `queued_ms`; timeout mặc định 30 phút trong properties, `application.yaml` của worker và `compose.base.yaml`.
 - [x] Staging đọc qua `https://ocr.vadan.app` (access list chỉ nhận `72.62.193.33`); runbook ghi cả key `memoryos-ci` trên node `application` chỉ được forward tới `172.24.244.79:22`.
+
+## Phase 3c — Ngữ cảnh của bảng
+
+Theo [design](design.md#ngữ-cảnh-của-bảng-tiêu-đề-cột-và-tên-báo-cáo-2026-09-24).
+
+- [x] Đo trước: dàn 156 bảng thật của ba báo cáo HUT bằng quy tắc của adapter, gán nhãn tay hàng tiêu đề của cả 156 bảng, so ba quy tắc. Quy tắc chọn: precision 100% (173/173 hàng), recall 94,0%; 14 bảng bỏ qua.
+- [x] `PaddleOcrVlDocument` đánh dấu `columnHeader` theo quy tắc đó (tiêu đề nhiều hàng có span); không đánh dấu `rowHeader`. Bản Java khớp script trên cả 156 bảng.
+- [x] `figure_title` ngay trên bảng, không lặp tiêu đề hay header chạy trước đó, thành heading cấp 2; 21 bảng nay có `Section:` nêu đúng báo cáo hoặc thuyết minh.
+- [x] Chunker bỏ nhãn trống và ô trống ở chế độ có nhãn.
+- [x] Request gửi `useChartRecognition: false` tường minh; lý do ghi ở design.
+- [x] Test: `PaddleOcrVlTableHeaderTest` trên các hàng đầu của 11 bảng thật (`hut-tables.json`), tiêu đề thành heading và chunk bảng cân đối trong `PaddleOcrVlDocumentTest`, `PaddleOcrVlClientTest.chartRecognitionIsNeverRequested`, `StructuredDocumentChunkerTest.aBlankHeaderOrValueAddsNoEmptyLabel`.
+- [ ] `doc_title` dùng làm header chạy trong báo cáo 6 tháng (34/44 lặp) vẫn đặt lại `Section:` mỗi trang; chưa làm.
 
 ## Phase 4 — Nghiệm thu
 

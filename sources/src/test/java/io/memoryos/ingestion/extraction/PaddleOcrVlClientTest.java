@@ -70,12 +70,28 @@ class PaddleOcrVlClientTest {
         assertFalse(body.path("mergeTables").asBoolean(true));
         assertFalse(body.path("useDocOrientationClassify").asBoolean(true));
         assertFalse(body.path("useDocUnwarping").asBoolean(true));
-        assertEquals(6, body.size(), "no key, no other option");
+        assertEquals(7, body.size(), "no key, no other option");
         assertArrayEquals(document, Base64.getDecoder().decode(body.path("file").asString()));
 
         var image = mapper.readTree(requests.poll(5, TimeUnit.SECONDS).body());
         assertEquals(1, image.path("fileType").asInt());
         assertArrayEquals(new byte[] {1, 2, 3, 4}, Base64.getDecoder().decode(image.path("file").asString()));
+    }
+
+    @Test
+    void chartRecognitionIsNeverRequested() throws Exception {
+        serve(200, ANSWER);
+        try (var client = client(Duration.ofSeconds(10))) {
+            client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF);
+            client.parse(PaddleOcrVlClient.Input.of(new byte[] {2}), PaddleOcrVlClient.FileType.IMAGE);
+        }
+
+        // Explicitly false, so a server configured to recognise charts still does not for MemoryOS.
+        for (int request = 0; request < 2; request++) {
+            var body = mapper.readTree(requests.poll(5, TimeUnit.SECONDS).body());
+            assertTrue(body.path("useChartRecognition").isBoolean());
+            assertFalse(body.path("useChartRecognition").asBoolean());
+        }
     }
 
     @ParameterizedTest

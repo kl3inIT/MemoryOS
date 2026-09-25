@@ -102,8 +102,11 @@ final class PaddleOcrVlClient implements AutoCloseable {
             permitted = true;
             started = System.nanoTime();
             waited = started - queued;
+            // Chart recognition stays off whatever the server's default: on HUT's charts it dropped a
+            // series and returned an invented table with wrong numbers (MEM-192 design).
             byte[] prefix = ("{\"fileType\":" + type.code + ",\"visualize\":false,\"mergeTables\":false,"
-                    + "\"useDocOrientationClassify\":false,\"useDocUnwarping\":false,\"file\":\"")
+                    + "\"useDocOrientationClassify\":false,\"useDocUnwarping\":false,\"useChartRecognition\":false,"
+                    + "\"file\":\"")
                     .getBytes(StandardCharsets.US_ASCII);
             byte[] suffix = "\"}".getBytes(StandardCharsets.US_ASCII);
             long length = prefix.length + Base64Stream.encodedLength(input.size()) + suffix.length;
