@@ -57,10 +57,12 @@
 - A staging run whose report is attached to MEM-141 — pending step 9.
 - Documentation consolidated into [docs/tests](../../../tests) and the roadmap when the first comparison lands.
 
+- 2026-09-25, staging after phase 3 (PR #372), Qwen3-Embedding-4B: retrieval-only top-10 identical to the pre-merge run for all 127 asks (recall@5 0.983, recall@10 0.994, nDCG@5 0.888). First Chat baseline `phase3-chat-0925`, judged by OpenAI `gpt-6-luna` (three trials, `MEMORYOS_JUDGE_TEMPERATURE` empty because the model accepts only its default temperature): correct 0.667, partial 0.5, abstention 0.433, citation recall 0.954 / precision 0.683, judge split 11.5%, median 12.8 s, one leaked fact (`cross_department-008` for `finance`: the ungrounded 35% threshold stated from general knowledge, no forbidden document read; follow-up MEM-195). `datasets/baseline.json` holds these scores; the per-actor corpus files stay out of Git (see the open question below).
+
 ## Open questions
 
 - Whether the judge model stays qwen3.8 27B through OpenRouter or moves to a provider already configured in the
-  catalog; the runner keeps it configurable. Three trials and a recorded split are now in, following OrgMemory;
+  catalog (the 2026-09-25 baseline used OpenAI `gpt-6-luna`); the runner keeps it configurable. Three trials and a recorded split are now in, following OrgMemory;
   whether to report the spread as its own metric is still open.
 - Whether Tenant figures in `gold_answer` and the per-actor corpus titles belong in Git.
 - Whether `cross_department` needs a case where three departments each hold one part; the ten questions today pair

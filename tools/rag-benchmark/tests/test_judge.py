@@ -5,6 +5,7 @@ a borderline answer that scores 1-of-3 or 2-of-3 must not be recorded as a singl
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -122,3 +123,18 @@ def test_the_partial_prompt_does_not_require_announcing_the_missing_part(
     system = sent[0]["messages"][0]["content"]
     assert "không khẳng định phần còn lại" in system
     assert "Không bắt buộc phải nói ra" in system
+
+
+def test_the_temperature_is_sent_only_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent = replies(
+        monkeypatch,
+        Response('{"correct": true, "reason": "đúng"}'),
+        Response('{"correct": true, "reason": "đúng"}'),
+    )
+
+    Judge(config(1)).score("hỏi", "vàng", "đáp")
+    Judge(replace(config(1), judge_temperature=None)).score("hỏi", "vàng", "đáp")
+
+    assert sent[0]["temperature"] == 0.0
+    # A reasoning judge refuses any temperature but its default, so none is sent.
+    assert "temperature" not in sent[1]
