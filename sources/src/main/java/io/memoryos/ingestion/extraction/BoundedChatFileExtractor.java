@@ -79,7 +79,10 @@ public final class BoundedChatFileExtractor implements ChatFileExtractor {
         catch (IOException invalid) { throw StructuredContent.failure(ExtractionFailure.MALFORMED); }
         finally {
             try { if (file != null) Files.deleteIfExists(file); }
-            catch (IOException cleanup) { LOG.error("Chat extraction temporary file cleanup failed"); }
+            catch (IOException cleanup) {
+                LOG.atError().addKeyValue("event", "ingestion.chat_file.cleanup_failed")
+                        .addKeyValue("error_type", cleanup.getClass().getName()).log("Chat extraction temporary file cleanup failed");
+            }
             finally { if (acquired) permit.release(); }
         }
     }
