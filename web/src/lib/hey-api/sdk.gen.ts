@@ -4037,7 +4037,7 @@ export const getCurrentInvitation = <ThrowOnError extends boolean = true>(option
 /**
  * Search the active members and ordinary Groups of the caller's Tenant to share something with
  *
- * Requires CHAT_WRITE. Returns at most `size` people and `size` Groups whose name (or a person's e-mail) contains the search text; each consumer rechecks what it is given.
+ * Open to every active member of the Tenant. Returns at most `size` people and `size` Groups whose name (or a person's e-mail) contains the search text; each consumer rechecks what it is given.
  */
 export const searchPrincipals = <ThrowOnError extends boolean = true>(options?: Options<SearchPrincipalsData, ThrowOnError>): RequestResult<SearchPrincipalsResponses, SearchPrincipalsErrors, ThrowOnError> => (options?.client ?? client).get<SearchPrincipalsResponses, SearchPrincipalsErrors, ThrowOnError>({
     security: [{

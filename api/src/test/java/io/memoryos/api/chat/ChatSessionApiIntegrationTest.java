@@ -424,7 +424,7 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
-    void principalSearchFindsActiveMembersAndOrdinaryGroupsOfTheTenantForChatWriters() throws Exception {
+    void principalSearchFindsActiveMembersAndOrdinaryGroupsOfTheTenantForEveryActiveMember() throws Exception {
         String marker = "Principal" + UUID.randomUUID().toString().substring(0, 8);
         UUID person = other.getPrincipal().actorId().value();
         jdbc.sql("INSERT INTO external_identity_bindings (issuer, subject, actor_id) VALUES ('https://issuer.example.test', :subject, :actor)")
@@ -463,12 +463,16 @@ class ChatSessionApiIntegrationTest {
                 .andExpect(jsonPath("$.groups[?(@.name == 'Basic')]").isEmpty());
         mockMvc.perform(get("/api/identity/principals").param("size", "51").with(authentication(actor)))
                 .andExpect(status().isBadRequest());
-        // The search is the one agent sharing always used: CHAT_WRITE, which the Basic Group gives every member.
+        // Membership, not a capability: without the Basic Group (and so without CHAT_WRITE) a member still searches,
+        // because meetings share through the same picker.
         jdbc.sql("DELETE FROM iam_group_memberships m USING iam_groups g WHERE g.tenant_id=m.tenant_id AND g.id=m.group_id AND g.system_key='BASIC' AND m.actor_id = :actor")
                 .param("actor", actor.getPrincipal().actorId().value()).update();
         mockMvc.perform(get("/api/identity/principals").param("search", marker).with(authentication(actor)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("IAM_ACCESS_DENIED"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.people[0].actorId").value(person.toString()));
+        // A caller whose membership is no longer active is refused; the session boundary answers before IAM does.
+        mockMvc.perform(get("/api/identity/principals").param("search", marker).with(authentication(inactive)))
+                .andExpect(status().isForbidden());
     }
 
     @Test

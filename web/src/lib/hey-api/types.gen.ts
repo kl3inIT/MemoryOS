@@ -13660,7 +13660,7 @@ export type SearchPrincipalsErrors = {
      */
     401: unknown;
     /**
-     * The actor is not an active member holding CHAT_WRITE
+     * The actor is not an active member of the Tenant
      */
     403: ApiProblem;
 };

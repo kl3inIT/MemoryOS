@@ -14488,9 +14488,9 @@ paths:
       - Identity
       summary: Search the active members and ordinary Groups of the caller's Tenant
         to share something with
-      description: Requires CHAT_WRITE. Returns at most `size` people and `size` Groups
-        whose name (or a person's e-mail) contains the search text; each consumer
-        rechecks what it is given.
+      description: Open to every active member of the Tenant. Returns at most `size`
+        people and `size` Groups whose name (or a person's e-mail) contains the search
+        text; each consumer rechecks what it is given.
       operationId: searchPrincipals
       parameters:
       - name: search
@@ -14525,7 +14525,7 @@ paths:
         "401":
           description: No accepted authentication is present
         "403":
-          description: The actor is not an active member holding CHAT_WRITE
+          description: The actor is not an active member of the Tenant
           content:
             application/problem+json:
               schema:

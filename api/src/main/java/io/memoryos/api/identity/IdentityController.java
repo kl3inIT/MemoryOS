@@ -124,13 +124,13 @@ class IdentityController {
 
     @Operation(operationId = "searchPrincipals",
             summary = "Search the active members and ordinary Groups of the caller's Tenant to share something with",
-            description = "Requires CHAT_WRITE. Returns at most `size` people and `size` Groups whose name "
+            description = "Open to every active member of the Tenant. Returns at most `size` people and `size` Groups whose name "
                     + "(or a person's e-mail) contains the search text; each consumer rechecks what it is given.",
             security = {@SecurityRequirement(name = "browserSession"), @SecurityRequirement(name = "bearerAuth")})
     @ApiResponse(responseCode = "200", description = "Matching people and Groups", useReturnTypeSchema = true)
     @ApiResponse(responseCode = "400", description = "Invalid principal search")
     @ApiResponse(responseCode = "401", description = "No accepted authentication is present", content = @Content)
-    @ApiResponse(responseCode = "403", description = "The actor is not an active member holding CHAT_WRITE")
+    @ApiResponse(responseCode = "403", description = "The actor is not an active member of the Tenant")
     @GetMapping(value = "/principals", produces = MediaType.APPLICATION_JSON_VALUE)
     PrincipalOptionsResponse searchPrincipals(
             @CurrentActor IdentityContext identityContext,

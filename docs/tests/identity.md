@@ -77,7 +77,8 @@ The API/browser integration uses a local OIDC issuer and JDBC-backed Spring Sess
 
 ## People and Group search
 
-- `ChatSessionApiIntegrationTest.principalSearchFindsActiveMembersAndOrdinaryGroupsOfTheTenantForChatWriters`: real MVC + PostgreSQL; finds an active member by name with e-mail and an ordinary Group, excludes an inactive member and system Groups, rejects `size` above 50 with `400`, and denies a member without `CHAT_WRITE` with `403 IAM_ACCESS_DENIED`. It shares the Chat integration context rather than starting another one.
+- `ChatSessionApiIntegrationTest.principalSearchFindsActiveMembersAndOrdinaryGroupsOfTheTenantForEveryActiveMember`: real MVC + PostgreSQL; finds an active member by name with e-mail and an ordinary Group, excludes an inactive member and system Groups, rejects `size` above 50 with `400`, still answers a member removed from the Basic Group (no `CHAT_WRITE`), and refuses a caller whose membership is inactive with `403` (the session boundary answers first; `DefaultPrincipalSearch` denies with `IAM_ACCESS_DENIED` behind it). It shares the Chat integration context rather than starting another one.
+- `DefaultPrincipalSearchTest`: an active member searches their own Tenant without any capability being consulted; a caller without an active membership is denied before any read.
 - `principal-picker.test.tsx`: the picker sends the stripped text to `searchPrincipals`, picks a person, and hides Groups on people-only fields.
 
 ## MEM-59 browser JIT verification

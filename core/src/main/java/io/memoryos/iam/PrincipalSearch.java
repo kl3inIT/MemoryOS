@@ -4,9 +4,9 @@ import io.memoryos.shared.ActorId;
 
 /**
  * Finds the people and Groups a member may name when sharing something: active members and ordinary Groups of the
- * searcher's own Tenant. The searcher needs {@link IamCapability#CHAT_WRITE}, the authority agent sharing has always
- * required for this search; every member holding the Basic Group's {@code SYSTEM_BASIC} has it.
- * Each consumer rechecks the principals it is finally given.
+ * searcher's own Tenant. Any active member of that Tenant may search, whatever their capabilities, because agents,
+ * conversations and meetings all share through the same picker. Each consumer rechecks the principals it is finally
+ * given against its own authority.
  */
 public interface PrincipalSearch {
 
