@@ -1,5 +1,6 @@
 package io.memoryos.chat.research;
 
+import io.memoryos.ai.TurnFailure;
 import static io.memoryos.chat.research.ResearchPrompts.*;
 
 import io.memoryos.chat.research.ResearchTelemetry.AgentOutcome;
@@ -180,7 +181,7 @@ public final class ResearchExecutor {
                     var calls = toolCalls(infer(guard, limits.orchestratorMaxTokens(), true, turn.setup().binding().requiredTools(),
                             request, tools, ignored -> {}, turn.checkActive()));
                     if (calls.isEmpty()) {
-                        if (cycle == 0) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
+                        if (cycle == 0) throw TurnFailure.EMPTY_RESPONSE.exception();
                         break;
                     }
                     ToolCall report = null;
@@ -223,7 +224,7 @@ public final class ResearchExecutor {
             var message = infer(guard, turn.answerTokens(), true, UnaryOperator.identity(), request,
                     List.of(control(GENERATE_PLAN_TOOL_NAME, GENERATE_PLAN_TOOL_DESCRIPTION, Tool.InputSchema.empty())), question::append, turn.checkActive());
             if (!toolCalls(message).isEmpty()) return false;
-            if (question.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
+            if (question.isEmpty()) throw TurnFailure.EMPTY_RESPONSE.exception();
             turn.events().accept(ChatResearchEvent.clarification());
             turn.output().accept(question.toString());
             return true;
@@ -239,7 +240,7 @@ public final class ResearchExecutor {
                 plan.append(part);
                 chunks(part, ChatActivity.MAX_REASONING).forEach(chunk -> turn.events().accept(ChatResearchEvent.plan(chunk)));
             }, turn.checkActive());
-            if (plan.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
+            if (plan.isEmpty()) throw TurnFailure.EMPTY_RESPONSE.exception();
             return plan.toString();
         }
 
@@ -253,7 +254,7 @@ public final class ResearchExecutor {
                 report.append(part);
                 turn.output().accept(part);
             }, turn.checkActive());
-            if (report.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
+            if (report.isEmpty()) throw TurnFailure.EMPTY_RESPONSE.exception();
         }
 
         /** Runs one cycle's research agents in parallel; a failed agent yields an empty result, as Onyx returns None. */
@@ -435,7 +436,7 @@ public final class ResearchExecutor {
                 report.append(part);
                 chunks(part, ChatActivity.MAX_REASONING).forEach(chunk -> turn.events().accept(ChatResearchEvent.report(parent, chunk)));
             }, turn.checkActive());
-            if (report.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
+            if (report.isEmpty()) throw TurnFailure.EMPTY_RESPONSE.exception();
             return report.toString();
         }
 
@@ -470,7 +471,7 @@ public final class ResearchExecutor {
             }).blockLast();
             checkActive.run();
             var done = complete.get();
-            if (done == null) throw new IllegalStateException("CHAT_INCOMPLETE_RESPONSE");
+            if (done == null) throw TurnFailure.INCOMPLETE_RESPONSE.exception();
             return done.getMessage();
         }
 

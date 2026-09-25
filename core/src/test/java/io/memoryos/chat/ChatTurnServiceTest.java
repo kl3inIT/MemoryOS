@@ -1,6 +1,7 @@
 package io.memoryos.chat;
 
 import io.memoryos.ai.ModelRequestPolicy;
+import io.memoryos.ai.TurnFailure;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -33,6 +34,7 @@ import io.memoryos.mcp.McpTurnTools;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,6 +45,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -438,8 +441,8 @@ class ChatTurnServiceTest {
     }
 
     /** The failure codes a turn persists and the web shows; everything else is reported as CHAT_EXECUTION_FAILED. */
-    static java.util.stream.Stream<Arguments> turnFailures() {
-        return java.util.stream.Stream.of(
+    static Stream<Arguments> turnFailures() {
+        return Stream.of(
                 Arguments.of(turnFailure("CHAT_OUTPUT_LIMIT"), "CHAT_OUTPUT_LIMIT"),
                 Arguments.of(turnFailure("CHAT_CYCLE_LIMIT"), "CHAT_CYCLE_LIMIT"),
                 Arguments.of(turnFailure("CHAT_BUDGET_EXCEEDED"), "CHAT_BUDGET_EXCEEDED"),
@@ -459,11 +462,14 @@ class ChatTurnServiceTest {
                         "CHAT_BUDGET_EXCEEDED"),
                 // Business failures and arbitrary provider messages never become the persisted code.
                 Arguments.of(ChatException.researchUnavailable(), "CHAT_EXECUTION_FAILED"),
-                Arguments.of(new RuntimeException("provider said something private"), "CHAT_EXECUTION_FAILED"));
+                Arguments.of(new RuntimeException("provider said something private"), "CHAT_EXECUTION_FAILED"),
+                // A code carried only as a message is not a turn failure.
+                Arguments.of(new IllegalStateException("CHAT_OUTPUT_LIMIT"), "CHAT_EXECUTION_FAILED"));
     }
 
     private static RuntimeException turnFailure(String code) {
-        return new IllegalStateException(code);
+        return Arrays.stream(TurnFailure.values()).filter(failure -> failure.code().equals(code))
+                .findFirst().orElseThrow().exception();
     }
 
     private static RuntimeException withCause(RuntimeException failure, Throwable cause) {

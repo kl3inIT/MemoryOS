@@ -1,5 +1,6 @@
 package io.memoryos.chat.execution;
 
+import io.memoryos.ai.TurnFailure;
 import io.memoryos.chat.ChatExecutionProperties;
 import io.memoryos.ai.ModelBinding;
 import io.memoryos.ai.ModelTurns;
@@ -121,7 +122,7 @@ public final class ChatModelExecutor {
             var metadata = selected.service();
             var guard = new ChatModelGuard(metadata.getChatModel(), process, metadata,
                     new Budget(limits.costCap(), Integer.MAX_VALUE, Math.min(4096, limits.tokenCap())), 1,
-                    () -> { if (!Instant.now().isBefore(deadline)) throw new IllegalStateException("CHAT_DEADLINE"); },
+                    () -> { if (!Instant.now().isBefore(deadline)) throw TurnFailure.DEADLINE.exception(); },
                     selected.policy(), Math.min(3000, selected.contextWindow() - selected.outputAtMost(128)), selected.finalRequest());
             guard.outputLimit(selected.outputAtMost(128));
             admitted = guard;
@@ -138,10 +139,10 @@ public final class ChatModelExecutor {
                     new com.embabel.chat.UserMessage(text.toString()));
             var output = new StringBuilder();
             new StreamingPromptRunnerBuilder(runner).streaming().withMessages(messages).generateStream()
-                    .doOnNext(part -> { if (output.length() + part.length() > 1024) throw new IllegalStateException("CHAT_OUTPUT_LIMIT"); output.append(part); })
+                    .doOnNext(part -> { if (output.length() + part.length() > 1024) throw TurnFailure.OUTPUT_LIMIT.exception(); output.append(part); })
                     .blockLast(Duration.ofSeconds(10));
             String title = output.toString().strip().replaceAll("[\\r\\n\\t]+", " ").replaceAll("^[\"'`]+|[\"'`]+$", "");
-            if (title.isBlank()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
+            if (title.isBlank()) throw TurnFailure.EMPTY_RESPONSE.exception();
             return title.substring(0, title.offsetByCodePoints(0, Math.min(80, title.codePointCount(0, title.length()))));
         } finally {
             try { accounting.accept(admitted == null ? ModelAccounting.NONE : ModelAccounting.of(List.of(admitted), process, selected.service())); }
@@ -185,7 +186,7 @@ public final class ChatModelExecutor {
             Consumer<CompletableFuture<Void>> onDrained) {
         var selected = setup.binding();
         var metadata = selected.service();
-        if (!metadata.getName().equals(setup.model())) throw new IllegalArgumentException("CHAT_MODEL_UNAVAILABLE");
+        if (!metadata.getName().equals(setup.model())) throw TurnFailure.MODEL_UNAVAILABLE.exception();
         var context = contexts.getObject();
         var process = context.getProcessContext().getAgentProcess();
         // As Onyx llm_loop, the answer request is bounded only by the model's own output limit (the catalog setting):
@@ -220,7 +221,7 @@ public final class ChatModelExecutor {
             setup.evidence().trackCalls(activity::current);
             setup.evidence().publishTo(event -> { fileActive.run(); events.accept(event); });
             if (setup.research().enabled()) {
-                if (research == null || !selected.toolCalling()) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
+                if (research == null || !selected.toolCalling()) throw TurnFailure.MODEL_UNAVAILABLE.exception();
                 java.util.List<com.embabel.chat.Message> conversation;
                 try (var ignored = fileWork.enter()) {
                     conversation = io.memoryos.retrieval.SearchTasks.timed(() -> ChatFileInputs.materialize(setup, fileContent, fileActive), FILE_INPUT_TIMEOUT, fileActive);
@@ -245,7 +246,7 @@ public final class ChatModelExecutor {
                 messages = io.memoryos.retrieval.SearchTasks.timed(() -> ChatFileInputs.materialize(setup, fileContent, fileActive), FILE_INPUT_TIMEOUT, fileActive);
             }
             if (selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off && !nativeWeb) {
-                if (web == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
+                if (web == null) throw TurnFailure.MODEL_UNAVAILABLE.exception();
                 var webTools = new io.memoryos.chat.tools.WebTools(web, setup.webAccess(), setup.evidence(), fileActive,
                         fileWork, events::accept, guard::availableContextTokens, selected.policy().tokens(), activity);
                 runner = runner.withTools(Tool.fromInstance(webTools));
@@ -272,7 +273,7 @@ public final class ChatModelExecutor {
                 runner = runner.withTools(Tool.fromInstance(searchTool));
             }
             if (selected.toolCalling() && setup.image() != ImageMode.off && setup.imageAccess().generate() != null) {
-                if (image == null) throw new IllegalStateException("CHAT_MODEL_UNAVAILABLE");
+                if (image == null) throw TurnFailure.MODEL_UNAVAILABLE.exception();
                 var connection = setup.imageAccess().generate();
                 runner = runner.withTools(Tool.fromInstance(new GenerateImageTool(image, connection, imageArtifacts,
                         setup.actor(), setup.tenant(), setup.assistantMessageId(), fileActive, imageEvents, Integer.MAX_VALUE)));

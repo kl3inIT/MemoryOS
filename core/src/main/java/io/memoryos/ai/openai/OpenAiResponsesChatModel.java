@@ -1,5 +1,6 @@
 package io.memoryos.ai.openai;
 
+import io.memoryos.ai.TurnFailure;
 import com.openai.client.OpenAIClientAsync;
 import com.openai.core.JsonValue;
 import com.openai.core.ObjectMappers;
@@ -100,12 +101,12 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
         var active = turn != null ? turn : new Turn(Listener.NONE, false, () -> {});
         boolean web = webSearch && active.webSearch();
         if (!web && !summaries && !always) return completions.stream(prompt);
-        if (!(prompt.getOptions() instanceof OpenAiChatOptions options)) return Flux.error(new IllegalArgumentException("CHAT_UNSUPPORTED_OPTIONS"));
+        if (!(prompt.getOptions() instanceof OpenAiChatOptions options)) return Flux.error(TurnFailure.UNSUPPORTED_OPTIONS.exception());
         // The final-cycle policy removes every tool callback; hosted search is a tool as well.
         boolean tools = options.getToolCallbacks() != null && !options.getToolCallbacks().isEmpty();
         ResponseCreateParams params;
         try { params = request(prompt, options, tools, web); }
-        catch (RuntimeException invalid) { return Flux.error(new IllegalArgumentException("CHAT_UNSUPPORTED_OPTIONS")); }
+        catch (RuntimeException invalid) { return Flux.error(TurnFailure.UNSUPPORTED_OPTIONS.exception()); }
         return Flux.create(sink -> {
             var state = new StreamState(active, sink);
             AsyncStreamResponse<ResponseStreamEvent> stream = client.responses().createStreaming(params);
@@ -115,8 +116,8 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
                     try { state.accept(event); } catch (RuntimeException failure) { sink.error(failure); }
                 }
                 @Override public void onComplete(Optional<Throwable> error) {
-                    if (error.isPresent()) sink.error(new IllegalStateException("CHAT_PROVIDER_UNAVAILABLE"));
-                    else if (!state.finished) sink.error(new IllegalStateException("CHAT_INCOMPLETE_RESPONSE"));
+                    if (error.isPresent()) sink.error(TurnFailure.PROVIDER_UNAVAILABLE.exception());
+                    else if (!state.finished) sink.error(TurnFailure.INCOMPLETE_RESPONSE.exception());
                 }
             });
         }, FluxSink.OverflowStrategy.BUFFER);
@@ -257,11 +258,11 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
                 LOG.warn("OpenAI response {} ended incomplete: {}", response.id(), reason);
                 // As Onyx, an answer that produced nothing before the model's output limit reports that reason.
                 if ("max_output_tokens".equals(reason) && !streamedText && !hasCompletedCall(response))
-                    throw new IllegalStateException("CHAT_MODEL_OUTPUT_LIMIT");
+                    throw TurnFailure.MODEL_OUTPUT_LIMIT.exception();
                 finish(response, "max_output_tokens".equals(reason) ? "length" : reason);
             });
             if (event.failed().isPresent() || event.error().isPresent())
-                throw new IllegalStateException("CHAT_INCOMPLETE_RESPONSE");
+                throw TurnFailure.INCOMPLETE_RESPONSE.exception();
         }
 
         private void start(String itemId) {

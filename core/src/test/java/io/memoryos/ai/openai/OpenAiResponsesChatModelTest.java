@@ -1,5 +1,6 @@
 package io.memoryos.ai.openai;
 
+import io.memoryos.ai.TurnFailureException;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -229,10 +230,10 @@ class OpenAiResponsesChatModelTest {
                 "error", Map.of("code", "server_error", "message", "raw provider detail"))))));
         var model = turnModel(new ChatEvidence(), new ArrayList<>(), false);
 
-        var failure = assertThrows(IllegalStateException.class,
+        var failure = assertThrows(TurnFailureException.class,
                 () -> model.stream(new Prompt(List.of(new UserMessage("Hi")), options(true))).collectList().block());
 
-        assertEquals("CHAT_INCOMPLETE_RESPONSE", failure.getMessage());
+        assertEquals("CHAT_INCOMPLETE_RESPONSE", failure.code());
     }
 
     @Test
@@ -267,10 +268,10 @@ class OpenAiResponsesChatModelTest {
                 "output", List.of(cut))))));
         var model = turnModel(new ChatEvidence(), new ArrayList<>(), true);
 
-        var failure = assertThrows(IllegalStateException.class,
+        var failure = assertThrows(TurnFailureException.class,
                 () -> model.stream(new Prompt(List.of(new UserMessage("Báo cáo")), options(true))).collectList().block());
 
-        assertEquals("CHAT_MODEL_OUTPUT_LIMIT", failure.getMessage());
+        assertEquals("CHAT_MODEL_OUTPUT_LIMIT", failure.code());
     }
 
     @Test

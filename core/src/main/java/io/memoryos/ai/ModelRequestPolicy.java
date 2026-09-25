@@ -61,7 +61,7 @@ public record ModelRequestPolicy(TokenCountEstimator tokens, ToIntFunction<Promp
     public int inputTokens(Prompt prompt, int inputBudget) {
         int count = framing.applyAsInt(prompt);
         if (count > inputBudget)
-            throw new IllegalStateException("CHAT_CONTEXT_LIMIT");
+            throw TurnFailure.CONTEXT_LIMIT.exception();
         return count;
     }
 
