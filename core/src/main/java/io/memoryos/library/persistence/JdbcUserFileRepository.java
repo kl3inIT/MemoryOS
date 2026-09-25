@@ -160,6 +160,23 @@ public class JdbcUserFileRepository {
                 .query((row, ignored) -> new TextWindow(row.getString("text"), offset, row.getInt("total"))).optional();
     }
 
+    /** The opening {@code count} characters of each readable READY file among {@code ids}, in one query. */
+    public java.util.Map<UUID, TextWindow> plaintexts(TenantId tenant, ActorId actor, Collection<UUID> ids,
+                                                     Collection<UUID> viaAgents, int count) {
+        if (ids.isEmpty()) return java.util.Map.of();
+        var found = new java.util.HashMap<UUID, TextWindow>();
+        jdbc.sql("""
+                SELECT f.id, substring(plaintext FROM 1 FOR :count) AS text, length(plaintext) AS total
+                FROM chat_user_file f WHERE f.tenant_id=:tenant AND f.id IN (:ids)
+                    AND f.status='READY' AND f.plaintext IS NOT NULL AND
+                """ + READABLE).param("tenant", tenant.value()).param("actor", actor.value()).param("ids", ids)
+                .param("viaAgents", granted(viaAgents)).param("count", count)
+                .query((row, ignored) -> found.put(row.getObject("id", UUID.class),
+                        new TextWindow(row.getString("text"), 0, row.getInt("total"))))
+                .list();
+        return found;
+    }
+
     public UUID create(TenantId tenant, ActorId actor, UUID request, ObjectUploadId upload, ObjectUploadSpecification spec) {
         var id = UUID.randomUUID();
         jdbc.sql("""

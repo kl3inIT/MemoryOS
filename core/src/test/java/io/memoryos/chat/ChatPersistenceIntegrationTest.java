@@ -1187,6 +1187,23 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void contextFilesAreReadInOneStatement() {
+        var files = List.of(readyFile(owner), readyFile(owner), readyFile(owner));
+        var foreign = readyFile(other);
+        var agent = personas.create(owner, input("Files", List.of(), List.of(), false, null, null, files));
+        var session = sessions.create(owner, "Files");
+        personas.select(owner, session.id(), agent.id());
+
+        statements.reset();
+        var reserved = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Read the files");
+
+        assertEquals(1, statements.count("substring(plaintext"), statements.statements().toString());
+        assertEquals(Set.copyOf(files), java.util.Objects.requireNonNull(reserved.context()).fileTexts().keySet());
+        assertEquals("Test", reserved.context().fileTexts().get(files.getFirst()).text());
+        assertFalse(reserved.context().fileTexts().containsKey(foreign));
+    }
+
+    @Test
     void aSendReadsItsAgentOnceAndTheReservationOnlyRechecksItsRevision() {
         var session = sessions.create(owner, "Persona");
         var binding = new ModelBinding(new SpringAiLlmService("fixture", "fixture",

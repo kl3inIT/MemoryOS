@@ -7,7 +7,6 @@ import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatFileDescriptor;
 import io.memoryos.library.UserFileService;
-import io.memoryos.library.LibraryException;
 import io.memoryos.library.UserFile;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSource;
@@ -310,13 +309,10 @@ public class ChatTurnPersistence {
                                 String instructions, io.memoryos.chat.ChatPreferences own, @Nullable String language) {
         var history = chats.context(session, user, 200);
         var workspaceFiles = descriptors(files.admit(tenant, actor, settings.fileIds()));
-        var plaintext = new LinkedHashMap<UUID, UserFileService.FileText>();
-        java.util.stream.Stream.concat(history.stream().flatMap(message -> message.files().stream()), workspaceFiles.stream())
-                .map(ChatFileDescriptor::id)
-                .distinct().limit(20).forEach(id -> {
-                    try { plaintext.put(id, files.read(actor, tenant, id, 0, 16000)); }
-                    catch (LibraryException unavailable) { /* Old descriptors survive deletion, not authority. */ }
-                });
+        // Old descriptors survive deletion, not authority: a file the owner can no longer read is left out.
+        var plaintext = files.readAll(tenant, actor, java.util.stream.Stream.concat(
+                        history.stream().flatMap(message -> message.files().stream()), workspaceFiles.stream())
+                .map(ChatFileDescriptor::id).distinct().limit(20).toList(), 16000);
         // History keeps assistant replies as text; name their images so a later turn can edit one.
         var generated = new LinkedHashMap<UUID, List<UUID>>();
         imageArtifacts.byMessages(tenant, history.stream().filter(message -> message.role() == ChatMessage.Role.ASSISTANT)
