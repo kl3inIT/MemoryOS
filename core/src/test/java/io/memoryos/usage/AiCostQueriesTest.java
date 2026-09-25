@@ -8,8 +8,11 @@ import io.memoryos.usage.persistence.AiCostQueries.Scope;
 import io.memoryos.usage.persistence.AiCostQueries;
 import io.memoryos.usage.persistence.AiUsageRepository;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,7 +41,7 @@ class AiCostQueriesTest {
         jdbc.sql("INSERT INTO iam_groups(tenant_id, id, name) VALUES (:tenant, :id, 'Pháp chế')").param("tenant", tenant).param("id", legal).update();
         jdbc.sql("INSERT INTO iam_group_memberships(tenant_id, group_id, actor_id) VALUES (:tenant, :group, :actor)")
                 .param("tenant", tenant).param("group", legal).param("actor", ha).update();
-        var at = day.atTime(9, 0).toInstant(java.time.ZoneOffset.UTC);
+        var at = day.atTime(9, 0).toInstant(ZoneOffset.UTC);
         recorder.record(AiUsage.tokens(tenant, ha, AiUsageFlow.CHAT, "OpenAI", "gpt-5.1", null, null, "EXTERNAL", 1000, 200, 100, 0.03, at));
         recorder.record(AiUsage.tokens(tenant, ha, AiUsageFlow.CHAT, "vLLM nội bộ", "qwen3-8b", null, null, "INTERNAL", 4000, 500, 0, 0.0, at));
         recorder.record(AiUsage.tokens(tenant, quan, AiUsageFlow.CHAT_NAMING, "OpenAI", "gpt-5-mini", null, null, "EXTERNAL", 300, 10, 0, null, at));
@@ -93,7 +96,7 @@ class AiCostQueriesTest {
         assertTrue(providers.stream().anyMatch(row -> row.label().equals("vLLM nội bộ") && "INTERNAL".equals(row.detail())));
         // A provider relabelled mid-period keeps its External spend visible in its own row.
         recorder.record(AiUsage.tokens(tenant, ha, AiUsageFlow.CHAT, "OpenAI", "gpt-5.1", null, null, "INTERNAL", 10, 10, 0, 0.5,
-                day.atTime(10, 0).toInstant(java.time.ZoneOffset.UTC)));
+                day.atTime(10, 0).toInstant(ZoneOffset.UTC)));
         var relabelled = queries.breakdown(scope(null, false, null, null), AiCostDimension.PROVIDER, 10).stream()
                 .filter(row -> row.label().equals("OpenAI")).toList();
         assertEquals(2, relabelled.size());
@@ -120,8 +123,8 @@ class AiCostQueriesTest {
         jdbc.sql("""
                 INSERT INTO actor_profiles(actor_id, issuer, subject, display_name, email, email_verified, observed_at)
                 VALUES (:id, 'https://id.test', :subject, :name, :email, true, :at)""")
-                .param("id", id).param("subject", id.toString()).param("name", name, java.sql.Types.VARCHAR).param("email", email)
-                .param("at", java.sql.Timestamp.from(Instant.now())).update();
+                .param("id", id).param("subject", id.toString()).param("name", name, Types.VARCHAR).param("email", email)
+                .param("at", Timestamp.from(Instant.now())).update();
         jdbc.sql("INSERT INTO tenant_memberships(tenant_id, actor_id, role, status) VALUES (:tenant, :actor, 'MEMBER', 'ACTIVE')")
                 .param("tenant", tenant).param("actor", id).update();
         return id;

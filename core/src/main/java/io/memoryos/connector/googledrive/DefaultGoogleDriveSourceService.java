@@ -10,6 +10,7 @@ import io.memoryos.connector.GoogleDriveSourceService;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceOperationView;
+import io.memoryos.connector.SourceStatus;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSourceRepository;
 import io.memoryos.connector.source.SourceAccessPolicy;
 import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
@@ -21,8 +22,12 @@ import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveCredentialRe
 import io.memoryos.connector.SourceSelectionProcessor.Work;
 import io.memoryos.connector.SourceRunTrigger;
 import io.memoryos.connector.SourceType;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.io.ByteArrayOutputStream;
+import java.util.function.UnaryOperator;
 import org.jspecify.annotations.Nullable;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.Authority;
@@ -105,8 +110,8 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         return Objects.requireNonNull(transactions.execute(_ -> {
             var creation = sourceAccess.lockCreation(actor, SourceType.GOOGLE_DRIVE, access, groupIds);
             if (!tenant.equals(creation.authority().tenantId())) throw SourceException.notFound();
-            var groups = creation.groupIds().stream().sorted(java.util.Comparator.comparing(group -> group.value().toString())).toList();
-            var hashed = new java.util.ArrayList<>(groups.stream().map(group -> group.value().toString()).toList());
+            var groups = creation.groupIds().stream().sorted(Comparator.comparing(group -> group.value().toString())).toList();
+            var hashed = new ArrayList<>(groups.stream().map(group -> group.value().toString()).toList());
             hashed.add(creation.access().name());
             String hash = requestHash("CREATE", name, credentialId.toString(), scopeMode.name(), links, hashed);
             var credential = credentials.lock(tenant, credentialId).orElseThrow(SourceException::notFound);
@@ -171,7 +176,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
                 if (saved.configuration().scopeMode() != scopeMode)
                 throw SourceException.invalid("Google Drive scope mode is chosen when the Source is created and cannot be changed.",
                         "attempt to change creation-only Drive scope mode");
-            var candidates = new java.util.HashMap<String, LinkedDocument>();
+            var candidates = new HashMap<String, LinkedDocument>();
             saved.documents().forEach(document -> candidates.put(document.id(), document));
             var approvals = new ArrayList<LinkedDocument>();
             for (String id : approved) {
@@ -186,7 +191,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
             var submitted = selections.submit(tenant, actor, requestId, hash, source, saved.credentialId(), saved.credentialRevision(),
                     expectedRevision, saved.configuration().discoveryRevision(), scopeMode, null, roots, approvals, policy.value(), List.of(), null);
             record(tenant, actor, AuditAction.SOURCE_UPDATE, source, null, event -> event.detail("change", "SCOPE")
-                    .detail("after", java.util.Map.of("roots", roots.size(), "linkedDocuments", approvals.size())));
+                    .detail("after", Map.of("roots", roots.size(), "linkedDocuments", approvals.size())));
             return submitted;
         }));
     }
@@ -302,11 +307,11 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
     @Override
     public SourceOperationView synchronize(ActorId actor, SourceId source) {
         var tenant = sourceAccess.manage(actor, source).tenantId();
-        return java.util.Objects.requireNonNull(transactions.execute(_ -> {
+        return Objects.requireNonNull(transactions.execute(_ -> {
             authorization.lockAndRequire(actor, IamCapability.SOURCES_MANAGE, true);
             credentials.lockSource(tenant, source).orElseThrow(SourceException::notFound);
             if (!tenant.equals(sourceAccess.lockManage(actor, source).tenantId())) throw SourceException.notFound();
-            if (sources.lock(tenant, source).status() == io.memoryos.connector.SourceStatus.PAUSED)
+            if (sources.lock(tenant, source).status() == SourceStatus.PAUSED)
                 throw SourceException.conflict("source is paused");
             var state = connections.state(tenant, source);
             if (!connections.current(tenant, source, state.credentialRevision())) throw SourceException.conflict("Google connection is unavailable");
@@ -561,7 +566,7 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
 
     /** Records a Source change; Drive and SharePoint Sources are created and re-scoped by a request the Worker settles. */
     private void record(TenantId tenant, ActorId actor, AuditAction action, SourceId source, @Nullable String name,
-                        java.util.function.UnaryOperator<AuditRecord.Builder> details) {
+                        UnaryOperator<AuditRecord.Builder> details) {
         String label = name != null ? name : sources.auditView(tenant, source).map(JdbcSourceRepository.AuditView::name).orElse(null);
         audit.record(details.apply(AuditRecord.of(action, tenant).actor(actor)
                 .resource("SOURCE", source.value(), label)).build());

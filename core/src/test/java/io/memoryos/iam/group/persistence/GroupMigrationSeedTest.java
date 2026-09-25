@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -53,7 +54,7 @@ class GroupMigrationSeedTest {
         persistMember(jdbc, OWNER, "OWNER", "ACTIVE");
         persistMember(jdbc, INACTIVE_MEMBER, "MEMBER", "INACTIVE");
 
-        org.flywaydb.core.Flyway.configure().dataSource(dataSource)
+        Flyway.configure().dataSource(dataSource)
                 .locations("classpath:db/migration").target(baseline).load().migrate();
         assertEquals(baseline.equals("42") ? 0L : 1L, count(jdbc, """
                 SELECT COUNT(*) FROM iam_group_capability_grants
@@ -85,7 +86,7 @@ class GroupMigrationSeedTest {
                         """)
                 .param("tenantId", TENANT).query(String.class).list();
 
-        org.flywaydb.core.Flyway.configure().dataSource(dataSource)
+        Flyway.configure().dataSource(dataSource)
                 .locations("classpath:db/migration").target("43").load().migrate();
 
         long versionBeforeRename = baseline.equals("42") ? 8L : 7L;
@@ -174,7 +175,7 @@ class GroupMigrationSeedTest {
                         .replace(":BASIC_ACCESS:", ":SYSTEM_BASIC:"))
                 .toList();
 
-        org.flywaydb.core.Flyway.configure().dataSource(dataSource)
+        Flyway.configure().dataSource(dataSource)
                 .locations("classpath:db/migration").target("46").load().migrate();
 
         assertEquals(versionBeforeRename + 1,
@@ -317,7 +318,7 @@ class GroupMigrationSeedTest {
                         """)
                 .query(String.class).list();
 
-        org.flywaydb.core.Flyway.configure().dataSource(dataSource)
+        Flyway.configure().dataSource(dataSource)
                 .locations("classpath:db/migration").target("46").load().migrate();
 
         assertEquals(hasDirectRead ? 8L : 7L,
@@ -445,7 +446,7 @@ class GroupMigrationSeedTest {
                         """)
                 .query(String.class).list();
 
-        org.flywaydb.core.Flyway.configure().dataSource(dataSource)
+        Flyway.configure().dataSource(dataSource)
                 .locations("classpath:db/migration").target("46").load().migrate();
 
         assertEquals(hasRevokedGrants || hasManagementGrant ? 8L : 7L,
@@ -569,7 +570,7 @@ class GroupMigrationSeedTest {
                 entry -> jdbc.sql("SELECT (to_jsonb(record) - '" + entry.getValue()
                                 + "')::text FROM " + entry.getKey() + " record ORDER BY 1")
                         .query(String.class).list()));
-        org.flywaydb.core.Flyway.configure().dataSource(dataSource)
+        Flyway.configure().dataSource(dataSource)
                 .locations("classpath:db/migration").target("47").load().migrate();
         before.forEach((table, rows) -> assertEquals(rows, tableRows(jdbc, table), table));
         addedColumns.forEach((table, column) ->
@@ -606,7 +607,7 @@ class GroupMigrationSeedTest {
                         VALUES (:tenant, 'ordinary-source-groups', 'Ordinary Source groups', 'ACTIVE', 'test', 1)
                         """).param("tenant", TENANT).update();
         persistMember(jdbc, OWNER, "OWNER", "ACTIVE");
-        org.flywaydb.core.Flyway.configure().dataSource(dataSource)
+        Flyway.configure().dataSource(dataSource)
                 .locations("classpath:db/migration").target("47").load().migrate();
         jdbc.sql("INSERT INTO iam_groups (tenant_id,id,name) VALUES (:tenant,:group,'Ordinary group')")
                 .param("tenant", TENANT).param("group", ORDINARY_GROUP).update();
@@ -627,7 +628,7 @@ class GroupMigrationSeedTest {
         var authorization = new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc));
         var adminCapabilities = authorization.effectiveCapabilities(new ActorId(OWNER));
 
-        org.flywaydb.core.Flyway.configure().dataSource(dataSource)
+        Flyway.configure().dataSource(dataSource)
                 .locations("classpath:db/migration").target("48").load().migrate();
 
         before.forEach((table, rows) -> assertEquals(rows, tableRows(jdbc, table), table));
@@ -635,7 +636,7 @@ class GroupMigrationSeedTest {
         assertEquals(version + 1, jdbc.sql("SELECT authorization_version FROM tenants WHERE id=:tenant")
                 .param("tenant", TENANT).query(Long.class).single());
         assertEquals(adminCapabilities, authorization.effectiveCapabilities(new ActorId(OWNER)));
-        assertEquals(io.memoryos.iam.Authority.GLOBAL,
+        assertEquals(Authority.GLOBAL,
                 authorization.require(new ActorId(OWNER), IamCapability.SOURCES_MANAGE, false).authority());
         UUID source = uuid("a0000000-0000-0000-0000-000000000058");
         for (UUID systemGroup : systemGroups) {

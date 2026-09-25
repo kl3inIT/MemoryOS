@@ -1,6 +1,7 @@
 package io.memoryos.retrieval.settings;
 
 import java.net.URI;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -36,7 +37,7 @@ public record EmbeddingProvider(UUID id, UUID tenantId, String name, String endp
         catch (Exception invalid) { throw new IllegalArgumentException("invalid embedding endpoint"); }
         if (endpoint.length() > 2048 || uri.getHost() == null || uri.getRawUserInfo() != null
                 || uri.getRawQuery() != null || uri.getRawFragment() != null
-                || uri.getScheme() == null || !Set.of("http", "https").contains(uri.getScheme().toLowerCase(java.util.Locale.ROOT))) {
+                || uri.getScheme() == null || !Set.of("http", "https").contains(uri.getScheme().toLowerCase(Locale.ROOT))) {
             throw new IllegalArgumentException("invalid embedding endpoint");
         }
     }

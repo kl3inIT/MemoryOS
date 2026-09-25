@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -158,7 +159,7 @@ public class JdbcGoogleDriveSyncRepository {
                   AND file_id IN (:files)
                 """).param("tenant", work.tenantId().value()).param("source", work.sourceId().value())
                 .param("generation", work.generation()).param("files", List.copyOf(folders))
-                .query((org.springframework.jdbc.core.RowCallbackHandler) r ->
+                .query((RowCallbackHandler) r ->
                         placed.put(r.getString("file_id"), Optional.ofNullable(r.getString("root_id"))));
         return placed;
     }

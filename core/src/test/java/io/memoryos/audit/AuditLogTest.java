@@ -10,6 +10,7 @@ import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -112,7 +113,7 @@ class AuditLogTest {
                     INSERT INTO audit_event(id, tenant_id, occurred_at, action, event_class, outcome, resource_label)
                     VALUES (:id, :tenant, :at, 'user_group.create', 'GROUP_MANAGEMENT', 'SUCCESS', 'Cũ')
                     """).param("id", UUID.randomUUID()).param("tenant", tenant.value())
-                    .param("at", java.sql.Timestamp.from(Instant.now().minus(Duration.ofDays(400)))).update();
+                    .param("at", Timestamp.from(Instant.now().minus(Duration.ofDays(400)))).update();
         });
         var retention = TestDatabase.transactionalProxy(new AuditRetention(new JdbcAuditEventRepository(jdbc), Duration.ofDays(365)), AuditRetention.class,
                 new DataSourceTransactionManager(dataSource));

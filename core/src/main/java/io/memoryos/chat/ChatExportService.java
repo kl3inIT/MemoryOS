@@ -18,6 +18,7 @@ import io.memoryos.objectstorage.StoredObjectRegistry;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -25,6 +26,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -260,9 +262,9 @@ public class ChatExportService {
      * The conversation's id follows the slug, so two conversations never collide on a name.
      */
     static String slug(String title) {
-        var plain = java.text.Normalizer.normalize(title, java.text.Normalizer.Form.NFD)
+        var plain = Normalizer.normalize(title, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "").replace("đ", "d").replace("Đ", "D");
-        var slug = plain.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "-")
+        var slug = plain.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-")
                 .replaceAll("(^-+)|(-+$)", "");
         if (slug.isEmpty()) slug = "conversation";
         return slug.length() > 60 ? slug.substring(0, 60) : slug;

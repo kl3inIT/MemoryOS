@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -91,7 +92,7 @@ class OpenAiReasoningFallbackTest {
     }
 
     private static Prompt prompt(String effort) {
-        return new Prompt(List.of(new org.springframework.ai.chat.messages.UserMessage("Question")),
+        return new Prompt(List.of(new UserMessage("Question")),
                 OpenAiChatOptions.builder().model("gpt-5.6-luna").reasoningEffort(effort).build());
     }
 

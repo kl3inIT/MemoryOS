@@ -5,8 +5,15 @@ import io.memoryos.chat.interpreter.InterpreterArtifact;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectKey;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -23,9 +30,9 @@ public class JdbcInterpreterRepository {
      * Generated files of an already-authorized page of messages, keyed by message id. A file deleted from the
      * library is still returned, marked deleted, so the answer keeps its card instead of losing it silently.
      */
-    public java.util.Map<UUID, java.util.List<GeneratedFile>> byMessages(TenantId tenant, java.util.Collection<UUID> messageIds) {
-        if (messageIds.isEmpty()) return java.util.Map.of();
-        var result = new java.util.LinkedHashMap<UUID, java.util.List<GeneratedFile>>();
+    public Map<UUID, List<GeneratedFile>> byMessages(TenantId tenant, Collection<UUID> messageIds) {
+        if (messageIds.isEmpty()) return Map.of();
+        var result = new LinkedHashMap<UUID, List<GeneratedFile>>();
         jdbc.sql("""
                 SELECT message_id, id, filename, media_type, size_bytes, chart IS NOT NULL AS has_chart,
                        deleted_at IS NOT NULL AS deleted
@@ -34,7 +41,7 @@ public class JdbcInterpreterRepository {
                 """).param("tenant", tenant.value()).param("messages", messageIds)
                 .query((row, ignored) -> {
                     boolean deleted = row.getBoolean("deleted");
-                    result.computeIfAbsent(row.getObject("message_id", UUID.class), key -> new java.util.ArrayList<>())
+                    result.computeIfAbsent(row.getObject("message_id", UUID.class), key -> new ArrayList<>())
                             .add(new GeneratedFile(row.getObject("id", UUID.class), row.getString("filename"),
                                     row.getString("media_type"), deleted ? 0 : row.getLong("size_bytes"),
                                     !deleted && row.getBoolean("has_chart"), deleted));
@@ -65,7 +72,7 @@ public class JdbcInterpreterRepository {
      * library reads them without joining and a caller cannot record a foreign owner.
      */
     /** Who owns the conversation an answer belongs to; their library holds whatever that answer generates. */
-    public java.util.Optional<UUID> owner(TenantId tenant, UUID messageId) {
+    public Optional<UUID> owner(TenantId tenant, UUID messageId) {
         return jdbc.sql("""
                 SELECT s.owner_actor_id FROM chat_message m JOIN chat_session s ON s.id = m.session_id
                 WHERE m.id = :message AND s.tenant_id = :tenant
@@ -74,7 +81,7 @@ public class JdbcInterpreterRepository {
     }
 
     public void insertArtifact(TenantId tenant, UUID messageId, UUID id, UUID storedObjectId, ObjectKey key,
-                               String filename, String mediaType, long sizeBytes, @org.jspecify.annotations.Nullable String chart) {
+                               String filename, String mediaType, long sizeBytes, @Nullable String chart) {
         int inserted = jdbc.sql("""
                 INSERT INTO chat_file_artifact(id, tenant_id, message_id, stored_object_id, object_key, filename, media_type,
                                                size_bytes, chart, owner_actor_id, session_id)
@@ -92,7 +99,7 @@ public class JdbcInterpreterRepository {
      * Hides the file from the library and every serving route; a worker sweep releases its bytes. Deleting a
      * file the sweep has already removed still succeeds: an absent row is the outcome the caller asked for.
      */
-    public boolean markArtifactDeleted(TenantId tenant, ActorId actor, UUID id, java.time.Duration trashFor) {
+    public boolean markArtifactDeleted(TenantId tenant, ActorId actor, UUID id, Duration trashFor) {
         boolean hidden = jdbc.sql("""
                 UPDATE chat_file_artifact SET deleted_at = COALESCE(deleted_at, CURRENT_TIMESTAMP),
                     purge_after = COALESCE(purge_after, CURRENT_TIMESTAMP + make_interval(secs => :trash))

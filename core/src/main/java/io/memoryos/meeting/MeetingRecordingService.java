@@ -1,5 +1,6 @@
 package io.memoryos.meeting;
 
+import io.memoryos.BusinessException;
 import io.memoryos.voice.AudioSource;
 import io.memoryos.voice.BatchTranscriptionService;
 import io.memoryos.voice.LiveTranscription;
@@ -29,6 +30,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,7 +56,7 @@ public class MeetingRecordingService {
     private static final Set<String> MEDIA_TYPES = Set.of("audio/mpeg", "audio/mp3", "audio/mp4", "audio/m4a",
             "audio/x-m4a", "audio/wav", "audio/x-wav", "audio/wave", "audio/webm", "audio/ogg", "audio/flac",
             "video/mp4", "video/webm");
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(MeetingRecordingService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(MeetingRecordingService.class);
 
     private final IamAuthorization authorization;
     private final MeetingRepository meetings;
@@ -268,7 +271,7 @@ public class MeetingRecordingService {
     }
 
     private static String reason(RuntimeException failure) {
-        if (failure instanceof io.memoryos.BusinessException business) return business.code();
+        if (failure instanceof BusinessException business) return business.code();
         return "MEETING_RECORDING_FAILED";
     }
 

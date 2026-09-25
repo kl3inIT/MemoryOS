@@ -3,6 +3,7 @@ package io.memoryos.chat.export.persistence;
 import io.memoryos.chat.ChatExport;
 import io.memoryos.chat.ChatExportStatus;
 import io.memoryos.shared.ActorId;
+import io.memoryos.shared.LeasedJob;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.StoredObjectId;
@@ -31,7 +32,7 @@ public class JdbcChatExportRepository {
 
     public JdbcChatExportRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
-    public record Claim(UUID id, UUID tenant, UUID owner, int attempts) implements io.memoryos.shared.LeasedJob.Claim {}
+    public record Claim(UUID id, UUID tenant, UUID owner, int attempts) implements LeasedJob.Claim {}
 
     public record Expired(TenantId tenant, UUID id, StoredObjectId object, ObjectKey key, UUID token) {}
 

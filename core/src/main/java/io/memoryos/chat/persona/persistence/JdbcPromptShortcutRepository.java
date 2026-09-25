@@ -1,10 +1,13 @@
 package io.memoryos.chat.persona.persistence;
 
+import io.memoryos.chat.ChatException;
 import io.memoryos.chat.PromptShortcut;
+import java.sql.Types;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -46,7 +49,7 @@ public class JdbcPromptShortcutRepository {
         return jdbc.sql("""
                         SELECT id, name, content, active, owner_actor_id IS NULL AS is_public, revision FROM prompt_shortcut
                         WHERE tenant_id = :tenant AND id = :id AND owner_actor_id IS NOT DISTINCT FROM :owner FOR UPDATE
-                        """).param("tenant", tenant).param("id", id).param("owner", owner, java.sql.Types.OTHER)
+                        """).param("tenant", tenant).param("id", id).param("owner", owner, Types.OTHER)
                 .query((row, ignored) -> new PromptShortcut(row.getObject("id", UUID.class), row.getString("name"), row.getString("content"),
                         row.getBoolean("active"), row.getBoolean("is_public"), false, row.getLong("revision"))).optional();
     }
@@ -60,8 +63,8 @@ public class JdbcPromptShortcutRepository {
         return jdbc.sql("""
                         SELECT EXISTS (SELECT 1 FROM prompt_shortcut WHERE tenant_id = :tenant
                           AND owner_actor_id IS NOT DISTINCT FROM :owner AND lower(name) = lower(:name) AND id IS DISTINCT FROM :except)
-                        """).param("tenant", tenant).param("owner", owner, java.sql.Types.OTHER).param("name", name)
-                .param("except", except, java.sql.Types.OTHER).query(Boolean.class).single();
+                        """).param("tenant", tenant).param("owner", owner, Types.OTHER).param("name", name)
+                .param("except", except, Types.OTHER).query(Boolean.class).single();
     }
 
     public int countOwned(UUID tenant, UUID owner) {
@@ -75,15 +78,15 @@ public class JdbcPromptShortcutRepository {
                         INSERT INTO prompt_shortcut (tenant_id, id, owner_actor_id, name, content, active)
                         VALUES (:tenant, :id, :owner, :name, :content, :active)
                         ON CONFLICT DO NOTHING
-                        """).param("tenant", tenant).param("id", id).param("owner", owner, java.sql.Types.OTHER)
+                        """).param("tenant", tenant).param("id", id).param("owner", owner, Types.OTHER)
                 .param("name", name).param("content", content).param("active", active).update() == 1;
     }
 
     public void update(UUID tenant, UUID id, String name, String content, boolean active) {
         try {
             updateRow(tenant, id, name, content, active);
-        } catch (org.springframework.dao.DuplicateKeyException taken) {
-            throw io.memoryos.chat.ChatException.conflict();
+        } catch (DuplicateKeyException taken) {
+            throw ChatException.conflict();
         }
     }
 

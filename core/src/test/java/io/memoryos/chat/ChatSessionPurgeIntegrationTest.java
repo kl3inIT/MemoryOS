@@ -6,8 +6,20 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.chat.session.ChatRetentionProperties;
 import io.memoryos.chat.session.persistence.JdbcChatSessionPurgeRepository;
+import io.memoryos.objectstorage.ContentSha256;
+import io.memoryos.objectstorage.ObjectKey;
+import io.memoryos.objectstorage.ObjectUploadId;
+import io.memoryos.objectstorage.ObjectUploadPurpose;
+import io.memoryos.objectstorage.ObjectUploadSpecification;
+import io.memoryos.objectstorage.StoredObjectId;
+import io.memoryos.objectstorage.persistence.JdbcObjectUploadRepository;
+import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -102,17 +114,17 @@ class ChatSessionPurgeIntegrationTest {
         jdbc.sql("UPDATE chat_session SET temporary = TRUE WHERE id = :id").param("id", temporary.session()).update();
 
         // A conversation deleted today is inside a thirty-day window; a temporary one waits for nothing.
-        assertEquals(1, purge(true, java.time.Duration.ofDays(30)));
+        assertEquals(1, purge(true, Duration.ofDays(30)));
         assertEquals(0, count("chat_session WHERE id='" + temporary.session() + "'"));
         assertEquals(1, count("chat_session WHERE id='" + deleted.session() + "'"));
-        assertEquals(1, repository.awaiting(java.time.Duration.ofDays(30)));
+        assertEquals(1, repository.awaiting(Duration.ofDays(30)));
 
         // Once it is older than the window, the next run takes it.
         jdbc.sql("UPDATE chat_session SET deleted_at = CURRENT_TIMESTAMP - INTERVAL '31 days' WHERE id = :id")
                 .param("id", deleted.session()).update();
-        assertEquals(1, purge(true, java.time.Duration.ofDays(30)));
+        assertEquals(1, purge(true, Duration.ofDays(30)));
         assertEquals(0, count("chat_session WHERE id='" + deleted.session() + "'"));
-        assertEquals(0, repository.awaiting(java.time.Duration.ofDays(30)));
+        assertEquals(0, repository.awaiting(Duration.ofDays(30)));
     }
 
     @Test
@@ -127,14 +139,14 @@ class ChatSessionPurgeIntegrationTest {
         jdbc.sql("UPDATE chat_user_file SET status = 'READY' WHERE id = :id").param("id", kept).update();
 
         // Nothing has gone quiet yet.
-        assertEquals(0, service(true, java.time.Duration.ZERO).expireTemporary());
+        assertEquals(0, service(true, Duration.ZERO).expireTemporary());
         jdbc.sql("UPDATE chat_session SET updated_at = CURRENT_TIMESTAMP - INTERVAL '25 hours'").update();
-        assertEquals(1, service(true, java.time.Duration.ZERO).expireTemporary(), "only the temporary one");
+        assertEquals(1, service(true, Duration.ZERO).expireTemporary(), "only the temporary one");
         assertEquals(1, count("chat_session WHERE id='" + temporary.session() + "' AND deleted_at IS NOT NULL"));
         assertEquals(1, count("chat_session WHERE id='" + ordinary.session() + "' AND deleted_at IS NULL"));
 
         // The purge then removes it whatever the window says, and hands its upload to the file work.
-        assertEquals(1, purge(true, java.time.Duration.ofDays(30)));
+        assertEquals(1, purge(true, Duration.ofDays(30)));
         assertEquals(0, count("chat_session WHERE id='" + temporary.session() + "'"));
         assertEquals(1, count("chat_user_file WHERE id='" + sent + "' AND status='DELETING'"));
         assertEquals(1, count("chat_file_work WHERE file_id='" + sent + "' AND action='DELETE'"));
@@ -153,15 +165,15 @@ class ChatSessionPurgeIntegrationTest {
                 .param("id", recent.session()).update();
 
         // Without a policy recorded, nothing happens at all.
-        assertEquals(0, service(true, java.time.Duration.ZERO).applyRetentionPolicies());
+        assertEquals(0, service(true, Duration.ZERO).applyRetentionPolicies());
         assertEquals(1, repository.affectedByRetention(tenant.value(), owner.value(), 90),
                 "what a 90-day policy would delete for this owner");
 
         recordRetention(owner, 90);
-        assertEquals(1, service(true, java.time.Duration.ZERO).applyRetentionPolicies());
+        assertEquals(1, service(true, Duration.ZERO).applyRetentionPolicies());
         assertEquals(1, count("chat_session WHERE id='" + old.session() + "' AND deleted_at IS NOT NULL"));
         assertEquals(1, count("chat_session WHERE id='" + recent.session() + "' AND deleted_at IS NULL"));
-        assertEquals(0, service(true, java.time.Duration.ZERO).applyRetentionPolicies(), "nothing is left");
+        assertEquals(0, service(true, Duration.ZERO).applyRetentionPolicies(), "nothing is left");
     }
 
     @Test
@@ -178,7 +190,7 @@ class ChatSessionPurgeIntegrationTest {
 
         // My number bounds my history and nobody else's, even in the same Tenant.
         recordRetention(owner, 30);
-        assertEquals(1, service(true, java.time.Duration.ZERO).applyRetentionPolicies());
+        assertEquals(1, service(true, Duration.ZERO).applyRetentionPolicies());
         assertEquals(1, count("chat_session WHERE id='" + mine.session() + "' AND deleted_at IS NOT NULL"));
         assertEquals(1, count("chat_session WHERE id='" + theirs.session() + "' AND deleted_at IS NULL"));
         assertEquals(0, repository.affectedByRetention(tenant.value(), owner.value(), 30), "mine is already gone");
@@ -195,17 +207,17 @@ class ChatSessionPurgeIntegrationTest {
 
     private int purge(boolean hardDelete) {
         // These cases are about the switch, so the waiting window is zero: a deletion is purgeable at once.
-        return purge(hardDelete, java.time.Duration.ZERO);
+        return purge(hardDelete, Duration.ZERO);
     }
 
-    private int purge(boolean hardDelete, java.time.Duration deletedAfter) {
+    private int purge(boolean hardDelete, Duration deletedAfter) {
         return service(hardDelete, deletedAfter).purge();
     }
 
-    private ChatSessionPurgeService service(boolean hardDelete, java.time.Duration deletedAfter) {
+    private ChatSessionPurgeService service(boolean hardDelete, Duration deletedAfter) {
         return new ChatSessionPurgeService(repository,
                 new UserFileMaintenance(new JdbcUserFileWorkRepository(jdbc), new JdbcUserFileRepository(jdbc)),
-                new ChatRetentionProperties(hardDelete, deletedAfter, java.time.Duration.ofHours(24)),
+                new ChatRetentionProperties(hardDelete, deletedAfter, Duration.ofHours(24)),
                 jpa.transactionManager());
     }
 
@@ -234,7 +246,7 @@ class ChatSessionPurgeIntegrationTest {
                     VALUES(:id,:tenant,:actor,:persona,:root,:title,:deleted)
                     """).param("id", session).param("tenant", tenant.value()).param("actor", owner.value())
                     .param("persona", persona).param("root", root).param("title", title)
-                    .param("deleted", deleted ? java.sql.Timestamp.from(java.time.Instant.now()) : null).update();
+                    .param("deleted", deleted ? Timestamp.from(Instant.now()) : null).update();
             jdbc.sql("""
                     INSERT INTO chat_message(id,session_id,role,status,finished_at)
                     VALUES(:id,:session,'ROOT','COMPLETED',CURRENT_TIMESTAMP)
@@ -250,7 +262,7 @@ class ChatSessionPurgeIntegrationTest {
                     VALUES(:id,:session,:parent,'ASSISTANT',:status,'Trả lời',:finished,CURRENT_TIMESTAMP)
                     """).param("id", answer).param("session", session).param("parent", user)
                     .param("status", running ? "RUNNING" : "COMPLETED")
-                    .param("finished", running ? null : java.sql.Timestamp.from(java.time.Instant.now())).update();
+                    .param("finished", running ? null : Timestamp.from(Instant.now())).update();
         });
         jdbc.sql("""
                 INSERT INTO chat_file_artifact(id,tenant_id,message_id,stored_object_id,object_key,filename,media_type,
@@ -281,17 +293,17 @@ class ChatSessionPurgeIntegrationTest {
     private UUID upload() {
         var objectId = UUID.randomUUID();
         var uploadId = UUID.randomUUID();
-        var spec = new io.memoryos.objectstorage.ObjectUploadSpecification("ghi chú.txt", "text/plain", 4,
-                new io.memoryos.objectstorage.ContentSha256("a".repeat(64)), io.memoryos.objectstorage.ObjectUploadPurpose.CHAT_FILE);
-        return java.util.Objects.requireNonNull(new TransactionTemplate(jpa.transactionManager()).execute(ignored -> {
-            new io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository(jdbc).create(tenant,
-                    new io.memoryos.objectstorage.StoredObjectId(objectId),
-                    new io.memoryos.objectstorage.ObjectKey("raw/" + objectId), spec, java.time.Instant.now().plusSeconds(600));
-            new io.memoryos.objectstorage.persistence.JdbcObjectUploadRepository(jdbc).create(tenant,
-                    new io.memoryos.objectstorage.ObjectUploadId(uploadId),
-                    new io.memoryos.objectstorage.StoredObjectId(objectId), spec.purpose());
+        var spec = new ObjectUploadSpecification("ghi chú.txt", "text/plain", 4,
+                new ContentSha256("a".repeat(64)), ObjectUploadPurpose.CHAT_FILE);
+        return Objects.requireNonNull(new TransactionTemplate(jpa.transactionManager()).execute(ignored -> {
+            new JdbcStoredObjectRepository(jdbc).create(tenant,
+                    new StoredObjectId(objectId),
+                    new ObjectKey("raw/" + objectId), spec, Instant.now().plusSeconds(600));
+            new JdbcObjectUploadRepository(jdbc).create(tenant,
+                    new ObjectUploadId(uploadId),
+                    new StoredObjectId(objectId), spec.purpose());
             return new JdbcUserFileRepository(jdbc).create(tenant, owner, UUID.randomUUID(),
-                    new io.memoryos.objectstorage.ObjectUploadId(uploadId), spec);
+                    new ObjectUploadId(uploadId), spec);
         }));
     }
 }

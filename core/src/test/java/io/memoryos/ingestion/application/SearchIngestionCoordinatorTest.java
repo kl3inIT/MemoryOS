@@ -14,6 +14,7 @@ import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentContentException;
 import io.memoryos.document.DocumentId;
+import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.shared.TenantId;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.persistence.JdbcSearchWorkRepository;
@@ -66,7 +67,7 @@ class SearchIngestionCoordinatorTest {
                 .when(index).index(any(), any());
         when(work.finish(any(), eq("FAILED"), eq("SEARCH_INDEX_CONTENT_LIMIT"))).thenReturn(true);
 
-        assertEquals(io.memoryos.ingestion.IngestionCoordinator.Outcome.FAILED,
+        assertEquals(IngestionCoordinator.Outcome.FAILED,
                 coordinator.process(mock(OperationDelivery.class)));
 
         verify(work).finish(any(), eq("FAILED"), eq("SEARCH_INDEX_CONTENT_LIMIT"));
@@ -78,7 +79,7 @@ class SearchIngestionCoordinatorTest {
         doThrow(new SearchUnavailableException()).when(index).index(any(), any());
         when(work.finish(any(), eq("NOT_STARTED"), eq("SEARCH_INDEX_FAILED"))).thenReturn(true);
 
-        assertEquals(io.memoryos.ingestion.IngestionCoordinator.Outcome.FAILED,
+        assertEquals(IngestionCoordinator.Outcome.FAILED,
                 coordinator.process(mock(OperationDelivery.class)));
 
         verify(work).finish(any(), eq("NOT_STARTED"), eq("SEARCH_INDEX_FAILED"));

@@ -8,9 +8,11 @@ import java.time.Duration;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -115,7 +117,7 @@ public class MeetingRepository {
 
     /** Everyone this meeting is shared with, by name, for the owner's "shared with" list. */
     public List<Meeting.Reader> readers(UUID tenant, UUID meeting) {
-        var readers = new java.util.ArrayList<Meeting.Reader>();
+        var readers = new ArrayList<Meeting.Reader>();
         readers.addAll(jdbc.sql("""
                 SELECT s.actor_id AS id, COALESCE(NULLIF(p.display_name, ''), p.email, '') AS name
                 FROM meeting_user_share s
@@ -900,7 +902,7 @@ public class MeetingRepository {
      * One column of a batch as a text array, which PostgreSQL casts to the column's own array type; an absent value
      * stays null. Chat's bulk copies pass their columns the same way.
      */
-    private static <T> String[] texts(List<T> rows, java.util.function.Function<T, @Nullable String> column) {
+    private static <T> String[] texts(List<T> rows, Function<T, @Nullable String> column) {
         var values = new String[rows.size()];
         for (int i = 0; i < values.length; i++) values[i] = column.apply(rows.get(i));
         return values;

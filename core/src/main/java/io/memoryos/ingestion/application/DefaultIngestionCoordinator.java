@@ -1,9 +1,11 @@
 package io.memoryos.ingestion.application;
 
+import io.memoryos.FailureEvidence;
 import io.memoryos.connector.CleanupWork;
 import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.ConnectorIndexingPort;
 import io.memoryos.connector.IndexWork;
+import io.memoryos.connector.SourceStorageFailure;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionArtifactPort;
@@ -13,6 +15,7 @@ import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.SourceContentExtractor;
 import io.memoryos.objectstorage.ObjectStorage;
+import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.objectstorage.StoredObjectRegistry;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
@@ -170,14 +173,14 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
                     .log("Extraction failed");
             if (!indexingPort.fail(work, "SOURCE_EXTRACTION_" + exception.failure().name(),
-                    exception.getMessage(), io.memoryos.FailureEvidence.detail(exception))) {
+                    exception.getMessage(), FailureEvidence.detail(exception))) {
                 LOGGER.atDebug().addKeyValue("event", "ingestion.extraction.failure.stale")
                     .log("Ignored stale typed extraction failure");
             }
             return Outcome.FAILED;
         } catch (RuntimeException exception) {
-            String errorCode = failureStage + "_" + (exception instanceof io.memoryos.objectstorage.ObjectStorageException storageFailure
-                    ? io.memoryos.connector.SourceStorageFailure.code(storageFailure) : "INTERNAL");
+            String errorCode = failureStage + "_" + (exception instanceof ObjectStorageException storageFailure
+                    ? SourceStorageFailure.code(storageFailure) : "INTERNAL");
             LOGGER.atWarn().addKeyValue("event", "ingestion.retry.requested")
                     .addKeyValue("error_type", exception.getClass().getName())
                     .addKeyValue("stage", failureStage).addKeyValue("error_code", errorCode)
@@ -187,7 +190,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     work,
                     errorCode,
                     exception.getMessage(),
-                    io.memoryos.FailureEvidence.detail(exception),
+                    FailureEvidence.detail(exception),
                     MAX_PROCESSING_ATTEMPTS,
                     RETRY_BACKOFF
             )) {
@@ -244,7 +247,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     work,
                     "SOURCE_CLEANUP_INTERNAL",
                     exception.getMessage(),
-                    io.memoryos.FailureEvidence.detail(exception),
+                    FailureEvidence.detail(exception),
                     MAX_PROCESSING_ATTEMPTS,
                     RETRY_BACKOFF
             )) {

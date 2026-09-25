@@ -1,5 +1,6 @@
 package io.memoryos.ai.openai;
 
+import com.openai.models.responses.Response;
 import io.memoryos.ai.TurnFailure;
 import com.openai.client.OpenAIClientAsync;
 import com.openai.core.JsonValue;
@@ -21,10 +22,14 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -38,8 +43,10 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.tool.ToolCallback;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * OpenAI Responses API for Chat turns. As Onyx, every streamed turn of a model served by OpenAI itself uses it
@@ -48,11 +55,11 @@ import reactor.core.publisher.FluxSink;
  * streams keep the Chat Completions delegate. Synchronous helpers always do. Requests are stateless ({@code store=false}); output items
  * needed by the next tool cycle ride in assistant message properties.
  */
-@org.jspecify.annotations.NullMarked
+@NullMarked
 final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(OpenAiResponsesChatModel.class);
+    private static final Logger LOG = LoggerFactory.getLogger(OpenAiResponsesChatModel.class);
     static final String OUTPUT_ITEMS = "memoryos.openai.responses.output";
-    private static final tools.jackson.databind.ObjectMapper JSON = new tools.jackson.databind.ObjectMapper();
+    private static final ObjectMapper JSON = new ObjectMapper();
     private final ChatModel completions;
     private final OpenAIClientAsync client;
     private final boolean reasoning;
@@ -145,7 +152,7 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
         if (reasoning) builder.include(List.of(ResponseIncludable.REASONING_ENCRYPTED_CONTENT));
         if (tools) {
             var declared = new ArrayList<Tool>();
-            for (var callback : java.util.Objects.requireNonNullElse(options.getToolCallbacks(), List.<org.springframework.ai.tool.ToolCallback>of())) {
+            for (var callback : Objects.requireNonNullElse(options.getToolCallbacks(), List.<ToolCallback>of())) {
                 var definition = callback.getToolDefinition();
                 var function = new LinkedHashMap<String, Object>();
                 function.put("type", "function");
@@ -323,17 +330,17 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
             }
         }
 
-        private static boolean hasCompletedCall(com.openai.models.responses.Response response) {
+        private static boolean hasCompletedCall(Response response) {
             return response.output().stream().anyMatch(item -> item.functionCall()
                     .flatMap(call -> call.status()).map(status -> status.asString()).filter("completed"::equals).isPresent());
         }
 
-        private void complete(com.openai.models.responses.Response response) {
+        private void complete(Response response) {
             finish(response, null);
         }
 
         /** {@code incompleteReason} is null for a completed response; an incomplete one never runs a cut-off tool call. */
-        private void finish(com.openai.models.responses.Response response, @Nullable String incompleteReason) {
+        private void finish(Response response, @Nullable String incompleteReason) {
             var mapper = ObjectMappers.jsonMapper();
             var calls = new ArrayList<AssistantMessage.ToolCall>();
             var echoed = new ArrayList<>();

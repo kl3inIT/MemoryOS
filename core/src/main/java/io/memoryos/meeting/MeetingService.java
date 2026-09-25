@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -247,10 +248,10 @@ public class MeetingService {
         var changes = new ArrayList<Change>(3);
         if (!cleanText.equals(item.text()))
             changes.add(new Change(Meeting.MinutesField.TEXT, item.text(), cleanText));
-        if (!java.util.Objects.equals(cleanOwner, item.owner()))
+        if (!Objects.equals(cleanOwner, item.owner()))
             changes.add(new Change(Meeting.MinutesField.OWNER, item.owner() == null ? "" : item.owner(),
                     cleanOwner == null ? "" : cleanOwner));
-        if (!java.util.Objects.equals(cleanDue, item.due()))
+        if (!Objects.equals(cleanDue, item.due()))
             changes.add(new Change(Meeting.MinutesField.DUE, item.due() == null ? "" : item.due(),
                     cleanDue == null ? "" : cleanDue));
         if (changes.isEmpty()) return item;

@@ -163,7 +163,7 @@ public class UsageReportService {
         return "usage-report_" + from + "_" + to + ".zip";
     }
 
-    private java.util.UUID manager(ActorId reader) {
+    private UUID manager(ActorId reader) {
         return authorization.require(reader, IamCapability.MODELS_MANAGE, false).tenantId().value();
     }
 

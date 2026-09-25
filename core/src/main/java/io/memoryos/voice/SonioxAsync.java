@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -72,7 +73,7 @@ final class SonioxAsync {
                 body.put("language_hints", List.of(language));
                 body.put("language_hints_strict", true);
             }
-            if (!terms.isEmpty()) body.put("context", java.util.Map.of("terms", terms));
+            if (!terms.isEmpty()) body.put("context", Map.of("terms", terms));
             transcription = send(client, post(baseUrl + "/transcriptions", key, JSON.writeValueAsString(body), timeout))
                     .path("id").asString("");
             if (transcription.isEmpty()) throw VoiceException.providerUnavailable();

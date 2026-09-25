@@ -1,6 +1,7 @@
 package io.memoryos.ai;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.UUID;
@@ -26,7 +27,7 @@ public final class ProviderCredentials {
             catch (IllegalArgumentException invalid) { throw new IllegalArgumentException("Invalid catalog encryption key"); }
             if (key.length != 32) throw new IllegalArgumentException("Catalog encryption key must encode 32 bytes");
             this.encryptor = AesGcmBytesEncryptor.withSecretKey(new SecretKeySpec(key, "AES")).build();
-            java.util.Arrays.fill(key, (byte) 0);
+            Arrays.fill(key, (byte) 0);
         }
         this.deploymentKey = deploymentKey;
     }
@@ -48,7 +49,7 @@ public final class ProviderCredentials {
                     throw AiException.invalid("Invalid provider credential.");
                 byte[] plain = (tenant + "/" + provider + "/" + change.value()).getBytes(StandardCharsets.UTF_8);
                 byte[] encrypted = requireEncryptor().encrypt(plain);
-                java.util.Arrays.fill(plain, (byte) 0);
+                Arrays.fill(plain, (byte) 0);
                 yield "v1:" + HexFormat.of().formatHex(encrypted);
             }
         };

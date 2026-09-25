@@ -22,6 +22,7 @@ import java.time.ZoneOffset;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.data.repository.core.support.RepositoryComposition.RepositoryFragments;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -77,7 +78,7 @@ class JpaActorProfileRecorderTest {
         var actors = actorRepository();
         assertEquals("vi", transaction.execute(_ -> actors.findById(actorId.value()).orElseThrow().getUiLanguage()));
         transaction.executeWithoutResult(_ -> actors.refreshForUpdate(actorId.value()).setUiLanguage("en"));
-        assertThrows(org.springframework.dao.DataIntegrityViolationException.class, () ->
+        assertThrows(DataIntegrityViolationException.class, () ->
                 jdbcClient.sql("UPDATE actors SET ui_language = 'fr' WHERE id = :id").param("id", actorId.value()).update());
         transaction.executeWithoutResult(_ -> {
             ActorEntity actor = jpa.entityManager().find(ActorEntity.class, actorId.value());

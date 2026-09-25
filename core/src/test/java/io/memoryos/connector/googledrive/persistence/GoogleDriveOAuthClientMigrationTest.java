@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -158,7 +159,7 @@ class GoogleDriveOAuthClientMigrationTest {
                 jdbc.sql("INSERT INTO credentials (id, tenant_id, name, credential_kind, status) VALUES (:id, :t, 'Another account', 'GOOGLE_OAUTH', 'ACTIVE')")
                         .param("id", UUID.randomUUID()).param("t", tenant).update();
                 var savepoint = connection.setSavepoint();
-                assertThrows(org.springframework.dao.DataIntegrityViolationException.class, () ->
+                assertThrows(DataIntegrityViolationException.class, () ->
                         jdbc.sql("INSERT INTO credentials (id, tenant_id, name, credential_kind, status) VALUES (:id, :t, 'Duplicate no auth', 'NO_AUTH', 'ACTIVE')")
                                 .param("id", UUID.randomUUID()).param("t", tenant).update());
                 connection.rollback(savepoint);
@@ -201,7 +202,7 @@ class GoogleDriveOAuthClientMigrationTest {
                         "sync_interval_minutes = NULL", "sync_interval_minutes = 2147483648",
                         "schedule_revision = 0", "schedule_revision = NULL")) {
                     var savepoint = connection.setSavepoint();
-                    assertThrows(org.springframework.dao.DataIntegrityViolationException.class,
+                    assertThrows(DataIntegrityViolationException.class,
                             () -> jdbc.sql("UPDATE google_drive_sources SET " + assignment).update());
                     connection.rollback(savepoint);
                 }
@@ -277,7 +278,7 @@ class GoogleDriveOAuthClientMigrationTest {
                 assertEquals("SPECIFIC", jdbc.sql("SELECT scope_mode FROM google_drive_sources").query(String.class).single());
                 for (String assignment : List.of("scope_mode = NULL", "scope_mode = 'UNKNOWN'", "scope_mode = 'general'")) {
                     var savepoint = connection.setSavepoint();
-                    assertThrows(org.springframework.dao.DataIntegrityViolationException.class,
+                    assertThrows(DataIntegrityViolationException.class,
                             () -> jdbc.sql("UPDATE google_drive_sources SET " + assignment).update());
                     connection.rollback(savepoint);
                 }

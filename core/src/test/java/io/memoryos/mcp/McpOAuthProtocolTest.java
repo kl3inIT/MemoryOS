@@ -18,6 +18,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -121,7 +123,7 @@ class McpOAuthProtocolTest {
 
         routes.put("GET /.well-known/oauth-protected-resource/mcp", exchange -> respond(exchange, 200, Map.of(
                 "resource", origin + "/mcp", "authorization_servers", List.of(origin))));
-        var withoutPkce = new java.util.HashMap<>(metadata(origin));
+        var withoutPkce = new HashMap<>(metadata(origin));
         withoutPkce.remove("code_challenge_methods_supported");
         routes.put("GET /.well-known/oauth-authorization-server", exchange -> respond(exchange, 200, withoutPkce));
         assertCode("MCP_OAUTH_DISCOVERY_FAILED", () -> protocol.discover(origin + "/mcp"));
@@ -258,7 +260,7 @@ class McpOAuthProtocolTest {
     }
 
     private static Map<String, String> query(String raw) {
-        var result = new java.util.LinkedHashMap<String, String>();
+        var result = new LinkedHashMap<String, String>();
         for (String pair : raw.split("&")) {
             int separator = pair.indexOf('=');
             result.putIfAbsent(URLDecoder.decode(pair.substring(0, separator), StandardCharsets.UTF_8),

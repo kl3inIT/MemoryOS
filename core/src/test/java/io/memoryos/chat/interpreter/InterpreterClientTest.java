@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.AfterEach;
@@ -115,7 +116,7 @@ class InterpreterClientTest {
         assertEquals(1, healthCalls.get());
 
         healthStatus = 503;
-        now.addAndGet(java.util.concurrent.TimeUnit.SECONDS.toNanos(31));
+        now.addAndGet(TimeUnit.SECONDS.toNanos(31));
         assertFalse(client.healthy());
         var health = client.health();
         assertTrue(health.connected());

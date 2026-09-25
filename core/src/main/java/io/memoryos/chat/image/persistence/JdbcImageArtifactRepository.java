@@ -4,6 +4,7 @@ import io.memoryos.chat.image.GeneratedImage;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectKey;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -90,7 +91,7 @@ public class JdbcImageArtifactRepository {
      * Hides the image from the library and every serving route; a worker sweep releases its bytes. Deleting an
      * image the sweep has already removed still succeeds: an absent row is the outcome the caller asked for.
      */
-    public boolean markDeleted(TenantId tenant, ActorId actor, UUID id, java.time.Duration trashFor) {
+    public boolean markDeleted(TenantId tenant, ActorId actor, UUID id, Duration trashFor) {
         boolean hidden = jdbc.sql("""
                 UPDATE chat_image_artifact SET deleted_at = COALESCE(deleted_at, CURRENT_TIMESTAMP),
                     purge_after = COALESCE(purge_after, CURRENT_TIMESTAMP + make_interval(secs => :trash))

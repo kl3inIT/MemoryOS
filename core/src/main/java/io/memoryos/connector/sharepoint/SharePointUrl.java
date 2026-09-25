@@ -3,6 +3,7 @@ package io.memoryos.connector.sharepoint;
 import io.memoryos.connector.SharePointException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -83,7 +84,7 @@ public record SharePointUrl(Kind kind, String host, String sitePath, @Nullable S
             String decoded;
             try {
                 // URLDecoder follows form encoding, where "+" means a space; in a path it is a literal plus.
-                decoded = java.net.URLDecoder.decode(raw.replace("+", "%2B"), StandardCharsets.UTF_8);
+                decoded = URLDecoder.decode(raw.replace("+", "%2B"), StandardCharsets.UTF_8);
             } catch (IllegalArgumentException exception) {
                 throw SharePointException.invalidRootUrl("That address contains an unusable path segment.");
             }

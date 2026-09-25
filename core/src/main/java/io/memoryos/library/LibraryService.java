@@ -14,9 +14,12 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -117,20 +120,20 @@ public class LibraryService {
             throw LibraryException.invalid("Use a file name without control characters or slashes.");
         int dot = current.lastIndexOf('.');
         String extension = dot > 0 ? current.substring(dot) : "";
-        if (!extension.isEmpty() && !name.toLowerCase(java.util.Locale.ROOT).endsWith(extension.toLowerCase(java.util.Locale.ROOT)))
+        if (!extension.isEmpty() && !name.toLowerCase(Locale.ROOT).endsWith(extension.toLowerCase(Locale.ROOT)))
             name = name + extension;
         if (name.length() > limit || name.equals(extension)) throw LibraryException.invalid("Use a file name of 1 to " + limit + " characters.");
         return name;
     }
 
-    private java.util.Optional<LibraryFile> one(TenantId tenant, ActorId actor, LibraryFile.Source source, UUID id) {
+    private Optional<LibraryFile> one(TenantId tenant, ActorId actor, LibraryFile.Source source, UUID id) {
         // An upload is renamed while pending too, so both the READY and the pending lists are consulted.
         for (boolean pending : new boolean[] {false, true}) {
             var page = library.page(tenant, actor, new JdbcLibraryRepository.Filter("", Set.of(source.name()), Set.of(),
                     null, false, pending, Set.of(id)), LibraryFile.Sort.NEWEST, 0, 1);
-            if (!page.items().isEmpty()) return java.util.Optional.of(withUsage(tenant, page.items()).getFirst());
+            if (!page.items().isEmpty()) return Optional.of(withUsage(tenant, page.items()).getFirst());
         }
-        return java.util.Optional.empty();
+        return Optional.empty();
     }
 
     public record ContentMatch(LibraryFile file, List<Passage> passages) {
@@ -151,7 +154,7 @@ public class LibraryService {
         String text = query.strip();
         if (text.isEmpty() || text.length() > 500 || text.indexOf('\0') >= 0) throw LibraryException.invalid("Invalid search text.");
         var tenant = tenants.findActiveTenant(actor).orElseThrow(LibraryException::unavailable);
-        var scope = new java.util.LinkedHashSet<>(files.searchable(tenant, actor, CONTENT_SEARCH_SCOPE));
+        var scope = new LinkedHashSet<>(files.searchable(tenant, actor, CONTENT_SEARCH_SCOPE));
         if (scope.isEmpty()) return List.of();
         var passages = new LinkedHashMap<UUID, List<Passage>>();
         for (var hit : fileSearch.search(actor, tenant, scope, text)) {
@@ -188,7 +191,7 @@ public class LibraryService {
     }
 
     /** The file this artifact was already taken into, if the caller still has it. */
-    public java.util.Optional<UserFile> published(ActorId actor, LibraryFile.Source source, UUID artifact) {
+    public Optional<UserFile> published(ActorId actor, LibraryFile.Source source, UUID artifact) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(LibraryException::unavailable);
         return files.copy(tenant, actor, source.name(), artifact).map(row -> row.file());
     }

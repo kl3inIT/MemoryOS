@@ -1,5 +1,9 @@
 package io.memoryos.ingestion;
 
+import io.memoryos.connector.GoogleDriveAclChanged;
+import io.memoryos.connector.GoogleDriveAclSnapshot;
+import io.memoryos.document.DocumentIndexState;
+import io.memoryos.ingestion.application.SearchProjectionMaintenance;
 import io.memoryos.shared.Sha256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -41,14 +45,18 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -127,7 +135,7 @@ class SearchIndexWorkIntegrationTest {
         // MEM-135: readiness is recorded per index, so the document is not ready in another generation's index.
         assertEquals(generation(document), jdbc.sql("""
                 SELECT generation FROM document_search_projection WHERE document_id=:document AND index_identity=:identity
-                """).param("document", document.value()).param("identity", IDENTITY).query(java.util.UUID.class).single());
+                """).param("document", document.value()).param("identity", IDENTITY).query(UUID.class).single());
         assertFalse(chunks.isCurrent(tenant, document, generation(document), IDENTITY + "-future"));
         assertTrue(chunks.currentGenerations(tenant, List.of(document.value()), IDENTITY + "-future").isEmpty());
         verify(index, times(1)).index(any(), any());
@@ -165,7 +173,7 @@ class SearchIndexWorkIntegrationTest {
             var replacement = generation(document);
             assertTrue(chunks.isCurrent(tenant, document, served, IDENTITY), "Publishing a replacement must not hide the served generation");
             assertEquals(Map.of(document.value(), served), chunks.currentGenerations(tenant, List.of(document.value()), IDENTITY));
-            assertEquals(Map.of(document.value(), java.util.Set.of(served, replacement)), chunks.retainedGenerations(tenant, List.of(document.value())));
+            assertEquals(Map.of(document.value(), Set.of(served, replacement)), chunks.retainedGenerations(tenant, List.of(document.value())));
 
             var source = mapToFileSource(document);
             tx.executeWithoutResult(_ -> work.enqueueSourceAccess(tenant, source, IDENTITY));
@@ -173,7 +181,7 @@ class SearchIndexWorkIntegrationTest {
                     "Access changes during a rewrite refresh the generation still being served");
             jdbc.sql("UPDATE search_index_operations SET next_dispatch_at=CURRENT_TIMESTAMP + INTERVAL '1' HOUR WHERE action='ACCESS'").update();
 
-            var attempts = new java.util.concurrent.atomic.AtomicInteger();
+            var attempts = new AtomicInteger();
             doAnswer(_ -> {
                 assertTrue(chunks.isCurrent(tenant, document, served, IDENTITY), "A claimed rewrite must keep serving the previous generation");
                 if (attempts.getAndIncrement() == 0) throw new SearchUnavailableException();
@@ -188,7 +196,7 @@ class SearchIndexWorkIntegrationTest {
             assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
             assertTrue(chunks.isCurrent(tenant, document, replacement, IDENTITY));
             assertFalse(chunks.isCurrent(tenant, document, served, IDENTITY));
-            assertEquals(Map.of(document.value(), java.util.Set.of(replacement)), chunks.retainedGenerations(tenant, List.of(document.value())));
+            assertEquals(Map.of(document.value(), Set.of(replacement)), chunks.retainedGenerations(tenant, List.of(document.value())));
         }
         verify(index, times(2)).purgeObsolete(tenant, document, IDENTITY);
     }
@@ -290,9 +298,9 @@ class SearchIndexWorkIntegrationTest {
         // PostgreSQL's uuid order, not Java's signed UUID comparison, is the order the cursor follows.
         var expected = jdbc.sql("SELECT tenant_id,id FROM documents ORDER BY tenant_id,id")
                 .query((rs, _) -> rs.getObject("tenant_id", UUID.class) + "/" + rs.getObject("id", UUID.class)).list();
-        var seen = new java.util.ArrayList<String>();
+        var seen = new ArrayList<String>();
         boolean crossedTenants = false;
-        io.memoryos.document.DocumentIndexState.Cursor cursor = null;
+        DocumentIndexState.Cursor cursor = null;
         for (int page = 0; page < 10; page++) {
             var states = chunks.scan(IDENTITY, cursor, 2);
             if (states.isEmpty()) break;
@@ -314,7 +322,7 @@ class SearchIndexWorkIntegrationTest {
             var coordinator = new SearchIngestionCoordinator(work, chunks, index, tx, scheduler, new SimpleMeterRegistry());
             assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
         }
-        var maintenance = new io.memoryos.ingestion.application.SearchProjectionMaintenance(chunks, work, index,
+        var maintenance = new SearchProjectionMaintenance(chunks, work, index,
                 new DataSourceTransactionManager(dataSource));
         when(index.inspect(any(), any())).thenAnswer(call -> projections(call.getArgument(0), SearchIndex.Projection.STALE_FIELDS));
         maintenance.reconcile();
@@ -322,7 +330,7 @@ class SearchIndexWorkIntegrationTest {
         assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations WHERE action='ACCESS'").query(String.class).single());
         assertEquals("SUCCESS", jdbc.sql("SELECT status FROM search_index_operations WHERE action='INDEX'").query(String.class).single());
 
-        org.mockito.Mockito.doAnswer(call -> projections(call.getArgument(0), SearchIndex.Projection.INCOMPLETE)).when(index).inspect(any(), any());
+        Mockito.doAnswer(call -> projections(call.getArgument(0), SearchIndex.Projection.INCOMPLETE)).when(index).inspect(any(), any());
         maintenance.reconcile();
         assertFalse(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "Missing chunks still require a full rewrite");
         assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations WHERE action='INDEX'").query(String.class).single());
@@ -335,10 +343,10 @@ class SearchIndexWorkIntegrationTest {
             var coordinator = new SearchIngestionCoordinator(work, chunks, index, tx, scheduler, new SimpleMeterRegistry());
             assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
             var source = mapToFileSource(document);
-            var maintenance = new io.memoryos.ingestion.application.SearchProjectionMaintenance(chunks, work, index,
+            var maintenance = new SearchProjectionMaintenance(chunks, work, index,
                     new DataSourceTransactionManager(dataSource));
-            var changed = new io.memoryos.connector.GoogleDriveAclChanged(tenant, source, "file", List.of(document), 2,
-                    io.memoryos.connector.GoogleDriveAclSnapshot.Status.SUCCEEDED, null);
+            var changed = new GoogleDriveAclChanged(tenant, source, "file", List.of(document), 2,
+                    GoogleDriveAclSnapshot.Status.SUCCEEDED, null);
             tx.executeWithoutResult(_ -> maintenance.aclChanged(changed));
             assertEquals(0, count("search_index_operations WHERE action='ACCESS'"), "A Private Source ignores provider permissions");
 
@@ -346,8 +354,8 @@ class SearchIndexWorkIntegrationTest {
             jdbc.sql("UPDATE connector_credential_pairs SET access_type='SYNC' WHERE id=:id").param("id", source.value()).update();
             tx.executeWithoutResult(_ -> maintenance.aclChanged(changed));
             tx.executeWithoutResult(_ -> maintenance.aclChanged(changed));
-            tx.executeWithoutResult(_ -> maintenance.aclChanged(new io.memoryos.connector.GoogleDriveAclChanged(tenant, source,
-                    "unmapped", List.of(), 1, io.memoryos.connector.GoogleDriveAclSnapshot.Status.SUCCEEDED, null)));
+            tx.executeWithoutResult(_ -> maintenance.aclChanged(new GoogleDriveAclChanged(tenant, source,
+                    "unmapped", List.of(), 1, GoogleDriveAclSnapshot.Status.SUCCEEDED, null)));
             assertEquals(1, count("search_index_operations WHERE action='ACCESS' AND status='NOT_STARTED'"),
                     "Repeated permission changes collapse into one pending refresh");
             assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
@@ -402,9 +410,9 @@ class SearchIndexWorkIntegrationTest {
     private UUID generation(DocumentId document) {
         return jdbc.sql("SELECT content_generation FROM documents WHERE id=:id").param("id", document.value()).query(UUID.class).single();
     }
-    private static java.util.Map<DocumentId, SearchIndex.Projection> projections(List<io.memoryos.document.DocumentIndexState> page,
+    private static Map<DocumentId, SearchIndex.Projection> projections(List<DocumentIndexState> page,
             SearchIndex.Projection projection) {
-        var result = new java.util.HashMap<DocumentId, SearchIndex.Projection>();
+        var result = new HashMap<DocumentId, SearchIndex.Projection>();
         page.forEach(state -> result.put(state.documentId(), projection));
         return result;
     }

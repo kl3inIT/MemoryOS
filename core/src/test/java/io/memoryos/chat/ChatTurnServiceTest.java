@@ -1,5 +1,6 @@
 package io.memoryos.chat;
 
+import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.ai.ModelRequestPolicy;
 import io.memoryos.ai.TurnFailure;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,6 +25,10 @@ import io.memoryos.ai.ModelBinding;
 import io.memoryos.ai.ModelResolver;
 import io.memoryos.ai.ModelClients;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.chat.streaming.TestRedis;
+import java.util.Set;
+import org.mockito.Mockito;
 import org.springframework.ai.chat.model.ChatModel;
 import io.memoryos.chat.streaming.ChatStreamProperties;
 import io.memoryos.chat.streaming.StreamBufferWriter;
@@ -51,6 +56,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
@@ -64,7 +70,7 @@ class ChatTurnServiceTest {
     private final ChatExecutionProperties limits = new ChatExecutionProperties(1, Duration.ofMinutes(30), Duration.ofSeconds(60), Duration.ofSeconds(60), 6, 1024, 32000, 10000,
             null, null, 10, Duration.ofSeconds(60));
     private final ActorId actor = new ActorId(UUID.randomUUID());
-    private final StreamBufferWriter streams = new StreamBufferWriter(io.memoryos.chat.streaming.TestRedis.template(),
+    private final StreamBufferWriter streams = new StreamBufferWriter(TestRedis.template(),
             new ChatStreamProperties(4096, Duration.ofMinutes(60), Duration.ofMinutes(10), 512, Duration.ofMillis(25), 4, 8, 2048,
                     Duration.ofMillis(5), Duration.ofMillis(5), Duration.ofMinutes(1)));
     private final UUID session = UUID.randomUUID();
@@ -73,17 +79,17 @@ class ChatTurnServiceTest {
     private final ChatTurnPersistence.Reservation pair = new ChatTurnPersistence.Reservation(UUID.randomUUID(), UUID.randomUUID(), true);
 
     private void prepare() {
-        var binding = new ModelBinding(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p, ModelRequestPolicy.hosted(new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(
-                com.knuddels.jtokkit.api.EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
+        var binding = new ModelBinding(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p, ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(
+                EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
         when(lease.binding()).thenReturn(binding);
         when(models.resolve(any(), any(), any(), any())).thenReturn(new ModelResolver.Resolved(UUID.randomUUID(), null, lease));
         when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(call -> new ChatTurnPersistence.TerminalOutcome(call.getArgument(2), call.getArgument(4)));
         when(persistence.existing(any(), any(), any(ChatCommand.class))).thenReturn(Optional.empty());
         // The builtin agent allows every tool and every MCP server the actor can use.
-        when(persistence.agent(any(), any())).thenReturn(new ChatTurnPersistence.SessionAgent(new io.memoryos.chat.session.persistence.JdbcChatRepository.Persona(
+        when(persistence.agent(any(), any())).thenReturn(new ChatTurnPersistence.SessionAgent(new JdbcChatRepository.Persona(
                 "", "gpt-5-mini", ChatTurnOptions.DEFAULT, "0", null, List.of(),
-                java.util.Set.of("search", "web_search", "image_generation"), null, true), false, false, false));
+                Set.of("search", "web_search", "image_generation"), null, true), false, false, false));
         when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(pair);
         var question = new ChatMessage(pair.userMessageId(), session, parent, pair.assistantMessageId(), ChatMessage.Role.USER,
                 "Question", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now());
@@ -171,7 +177,7 @@ class ChatTurnServiceTest {
             return null;
         }).when(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
         when(persistence.renewLeases(any(), any())).thenThrow(new IllegalStateException("database unavailable"))
-                .thenReturn(java.util.Set.of());
+                .thenReturn(Set.of());
         try (var tasks = Executors.newVirtualThreadPerTaskExecutor();
                 var service = new ChatTurnService(persistence, model, renewing, tasks::execute, streams, models)) {
             service.send(actor, session, parent, request, "Question", null);
@@ -182,7 +188,7 @@ class ChatTurnServiceTest {
             verify(persistence, never()).finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any());
             // The row was reconciled elsewhere: the next renewal does not return it, so the local run stops.
             service.maintain();
-            verify(persistence, org.mockito.Mockito.timeout(5000)).finishAndRead(eq(session), eq(pair.assistantMessageId()),
+            verify(persistence, Mockito.timeout(5000)).finishAndRead(eq(session), eq(pair.assistantMessageId()),
                     eq(ChatMessage.Status.FAILED), eq("Partial"), eq("CHAT_INTERRUPTED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(),
                     eq(List.of()), any(), eq(ChatResearch.EMPTY), any());
         }

@@ -5,6 +5,8 @@ import io.memoryos.connector.IndexWork;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceIndexAttemptView;
+import io.memoryos.connector.SourceInputDescriptor;
+import io.memoryos.connector.SourceInputFormat;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationTraceContext;
@@ -548,8 +550,8 @@ public class JdbcIndexAttemptRepository implements ConnectorIndexingPort {
                                         new ContentSha256(resultSet.getString("content_sha256"))
                                 )
                         ),
-                        new io.memoryos.connector.SourceInputDescriptor(
-                                io.memoryos.connector.SourceInputFormat.valueOf(resultSet.getString("input_format")),
+                        new SourceInputDescriptor(
+                                SourceInputFormat.valueOf(resultSet.getString("input_format")),
                                 resultSet.getString("provider_file_id"), resultSet.getString("provider_version"),
                                 resultSet.getString("source_url")),
                         WorkLeases.initialQueueWait(resultSet)

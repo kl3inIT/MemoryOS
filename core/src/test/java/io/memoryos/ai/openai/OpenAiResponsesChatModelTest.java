@@ -1,5 +1,6 @@
 package io.memoryos.ai.openai;
 
+import com.openai.client.OpenAIClientAsync;
 import io.memoryos.ai.TurnFailureException;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -17,6 +18,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -42,7 +44,7 @@ class OpenAiResponsesChatModelTest {
     private final List<String> bodies = new CopyOnWriteArrayList<>();
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private HttpServer server;
-    private com.openai.client.OpenAIClientAsync client;
+    private OpenAIClientAsync client;
 
     @BeforeEach
     void start() throws Exception {
@@ -315,7 +317,7 @@ class OpenAiResponsesChatModelTest {
     }
 
     private static String event(String type, Map<String, Object> fields) {
-        var payload = new java.util.LinkedHashMap<String, Object>(fields);
+        var payload = new LinkedHashMap<String, Object>(fields);
         payload.put("type", type);
         return "event: " + type + "\ndata: " + JSON.writeValueAsString(payload) + "\n\n";
     }

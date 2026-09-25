@@ -20,6 +20,7 @@ import java.nio.file.Files;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import org.apache.catalina.startup.Tomcat;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -156,7 +157,7 @@ class McpClientsIntegrationTest {
     }
 
     private static McpServerFeatures.SyncToolSpecification tool(
-            String name, boolean readOnly, java.util.function.Function<Map<String, Object>, McpSchema.CallToolResult> handler) {
+            String name, boolean readOnly, Function<Map<String, Object>, McpSchema.CallToolResult> handler) {
         var schema = Map.<String, Object>of("type", "object",
                 "properties", Map.of("text", Map.of("type", "string")));
         var tool = McpSchema.Tool.builder().name(name).description(name + " tool").inputSchema(schema)

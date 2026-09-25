@@ -31,6 +31,7 @@ import io.memoryos.iam.group.persistence.GroupProjectionRepository.GroupRecord;
 import io.memoryos.iam.group.persistence.GroupProjectionRepository.GroupRecordPage;
 import io.memoryos.iam.group.persistence.GroupRepository;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
@@ -367,7 +368,7 @@ public class DefaultGroupService implements GroupService {
                 requiredGroupId,
                 requiredMembers
         );
-        var added = new java.util.ArrayList<String>();
+        var added = new ArrayList<String>();
         for (ActorId memberActorId : requiredMembers) {
             if (!existingMembers.contains(memberActorId)) {
                 memberships.add(

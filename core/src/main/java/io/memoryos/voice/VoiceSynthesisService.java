@@ -5,12 +5,16 @@ import com.openai.client.okhttp.OpenAIOkHttpClient;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
+import io.memoryos.usage.AiUsage;
+import io.memoryos.usage.AiUsageFlow;
+import io.memoryos.usage.AiUsageRecorder;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -21,16 +25,20 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.audio.tts.TextToSpeechPrompt;
 import org.springframework.ai.openai.OpenAiAudioSpeechModel;
 import org.springframework.ai.openai.OpenAiAudioSpeechOptions;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 /** Text-to-speech for reading answers aloud. Audio is streamed to the caller as the provider produces it and never stored. */
 @Service
 public class VoiceSynthesisService {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(VoiceSynthesisService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(VoiceSynthesisService.class);
     /** Longest text one request or streaming speech reads aloud; Onyx has no limit. */
     public static final int MAX_TEXT_LENGTH = 32_000;
     public static final double MIN_SPEED = 0.5;
@@ -52,11 +60,11 @@ public class VoiceSynthesisService {
     private final MeterRegistry meters;
     private final Semaphore streams = new Semaphore(MAX_STREAMS);
 
-    private io.memoryos.usage.@Nullable AiUsageRecorder usage;
+    private @Nullable AiUsageRecorder usage;
 
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     public VoiceSynthesisService(VoiceConnectionService connections, IamAuthorization authorization, MeterRegistry meters,
-                                 org.springframework.beans.factory.ObjectProvider<io.memoryos.usage.AiUsageRecorder> usage) {
+                                 ObjectProvider<AiUsageRecorder> usage) {
         this(connections, authorization, meters);
         this.usage = usage.getIfAvailable();
     }
@@ -100,7 +108,7 @@ public class VoiceSynthesisService {
         var connection = acquire(actor, speed);
         Runnable release = releaseOnce();
         try {
-            var counted = new java.util.concurrent.atomic.AtomicBoolean();
+            var counted = new AtomicBoolean();
             return streaming(connection, connections.key(connection), speed, audio, release,
                     () -> { if (counted.compareAndSet(false, true)) record(connection, actor); });
         } catch (RuntimeException failed) {
@@ -113,9 +121,9 @@ public class VoiceSynthesisService {
     private void record(VoiceConnectionService.Connection connection, ActorId actor) {
         if (usage == null) return;
         try {
-            usage.record(new io.memoryos.usage.AiUsage(connection.tenantId(), actor.value(), io.memoryos.usage.AiUsageFlow.TEXT_TO_SPEECH,
+            usage.record(new AiUsage(connection.tenantId(), actor.value(), AiUsageFlow.TEXT_TO_SPEECH,
                     connection.provider().name(), connection.ttsModel(), connection.id(), null, null, 1, 0, 0, 0, 0, 0, null,
-                    java.time.Instant.now()));
+                    Instant.now()));
         } catch (RuntimeException failure) {
             LOG.warn("Voice usage not recorded ({})", failure.getClass().getSimpleName());
         }
@@ -123,7 +131,7 @@ public class VoiceSynthesisService {
 
     /** Returns the stream slot at most once, whichever of the failure path and the stream's own close runs first. */
     private Runnable releaseOnce() {
-        var released = new java.util.concurrent.atomic.AtomicBoolean();
+        var released = new AtomicBoolean();
         return () -> {
             if (released.compareAndSet(false, true)) streams.release();
         };

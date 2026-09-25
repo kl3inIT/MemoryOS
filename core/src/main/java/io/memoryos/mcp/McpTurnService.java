@@ -2,6 +2,7 @@ package io.memoryos.mcp;
 
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
+import io.memoryos.mcp.persistence.McpCredentialEntity;
 import io.memoryos.shared.ActorId;
 import io.memoryos.mcp.persistence.JpaMcpCredentialRepository;
 import io.memoryos.mcp.persistence.JpaMcpServerRepository;
@@ -148,7 +149,7 @@ public class McpTurnService {
                 Objects.requireNonNull(server.headerTemplate()));
     }
 
-    private @Nullable String apiKey(UUID tenant, io.memoryos.mcp.persistence.@Nullable McpCredentialEntity credential) {
+    private @Nullable String apiKey(UUID tenant, @Nullable McpCredentialEntity credential) {
         if (credential == null) return null;
         return McpServerRules.stringMap(secrets.open(tenant, credential.getId(), McpSecrets.Purpose.CREDENTIAL,
                 credential.payload())).get(McpServerRules.API_KEY);

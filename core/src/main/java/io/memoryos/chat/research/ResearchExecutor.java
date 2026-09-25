@@ -35,6 +35,7 @@ import io.memoryos.chat.execution.StreamingLlmService;
 import io.memoryos.retrieval.SearchTasks;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -334,7 +335,7 @@ public final class ResearchExecutor {
             turn.drains().accept(toolset.drained());
             try {
                 var byName = new LinkedHashMap<String, Tool>();
-                toolset.tools().stream().sorted(java.util.Comparator.comparingInt(tool -> order(tool.getDefinition().getName())))
+                toolset.tools().stream().sorted(Comparator.comparingInt(tool -> order(tool.getDefinition().getName())))
                         .forEach(tool -> byName.put(tool.getDefinition().getName(), tool));
                 var names = List.copyOf(byName.keySet());
                 var offered = new ArrayList<Tool>(byName.values());

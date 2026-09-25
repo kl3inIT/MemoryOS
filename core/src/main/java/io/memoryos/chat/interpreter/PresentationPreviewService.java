@@ -1,5 +1,6 @@
 package io.memoryos.chat.interpreter;
 
+import java.nio.charset.StandardCharsets;
 import org.springframework.modulith.NamedInterface;
 import io.memoryos.chat.ChatException;
 import io.memoryos.shared.ActorId;
@@ -65,7 +66,7 @@ public class PresentationPreviewService {
                 throw ChatException.invalid("The presentation could not be previewed");
             }
             byte[] pdf = client.download(output);
-            if (pdf.length < 5 || !new String(pdf, 0, 5, java.nio.charset.StandardCharsets.US_ASCII).equals("%PDF-"))
+            if (pdf.length < 5 || !new String(pdf, 0, 5, StandardCharsets.US_ASCII).equals("%PDF-"))
                 throw ChatException.invalid("The presentation could not be previewed");
             return pdf;
         } catch (InterpreterClient.BusyException busy) {

@@ -1,5 +1,6 @@
 package io.memoryos.usage.persistence;
 
+import io.memoryos.shared.LeasedJob;
 import io.memoryos.usage.report.UsageReport;
 import io.memoryos.usage.report.UsageReportStatus;
 import java.math.BigDecimal;
@@ -26,7 +27,7 @@ public class UsageReportRepository {
     public UsageReportRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
     public record Claim(UUID id, UUID tenant, LocalDate from, LocalDate to, int attempts)
-            implements io.memoryos.shared.LeasedJob.Claim {}
+            implements LeasedJob.Claim {}
 
     /** One rollup row as exported: a person (or system work), a UTC day, a task, a provider and model, a boundary. */
     public record ExportRow(LocalDate day, @Nullable UUID actor, @Nullable String email, @Nullable String name,

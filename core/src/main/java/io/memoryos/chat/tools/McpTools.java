@@ -13,7 +13,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.IntSupplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.tokenizer.TokenCountEstimator;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -23,7 +26,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 public final class McpTools {
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(McpTools.class);
+    private static final Logger LOG = LoggerFactory.getLogger(McpTools.class);
     /** A single result may take at most this share of the remaining context, leaving room for the answer. */
     private static final int MAX_RESULT_TOKENS = 6000;
 
@@ -101,7 +104,7 @@ public final class McpTools {
             Map<String, Object> arguments;
             try {
                 arguments = argumentJson == null || argumentJson.isBlank() ? Map.of()
-                        : JSON.readValue(argumentJson, new tools.jackson.core.type.TypeReference<Map<String, Object>>() {});
+                        : JSON.readValue(argumentJson, new TypeReference<Map<String, Object>>() {});
             } catch (RuntimeException invalid) {
                 activity.fail();
                 return refused(binding, "invalid_arguments",

@@ -8,9 +8,11 @@ import java.io.ByteArrayInputStream;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeSet;
 import java.util.UUID;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.junit.jupiter.api.Test;
 
@@ -83,7 +85,7 @@ class MeetingMinutesDocumentTest {
     void theDecreeSFontAndSizesAreUsedThroughout() throws Exception {
         try (var document = new XWPFDocument(new ByteArrayInputStream(
                 MeetingMinutesDocument.render(meeting(), HEADING)))) {
-            var runs = new ArrayList<org.apache.poi.xwpf.usermodel.XWPFRun>();
+            var runs = new ArrayList<XWPFRun>();
             document.getParagraphs().forEach(paragraph -> runs.addAll(paragraph.getRuns()));
             assertFalse(runs.isEmpty());
             runs.forEach(run -> {
@@ -111,7 +113,7 @@ class MeetingMinutesDocumentTest {
 
     private static List<String> faces(byte[] bytes) throws Exception {
         try (var document = new XWPFDocument(new ByteArrayInputStream(bytes))) {
-            var faces = new java.util.TreeSet<String>();
+            var faces = new TreeSet<String>();
             document.getParagraphs().forEach(p -> p.getRuns().forEach(run -> faces.add(run.getFontFamily())));
             for (var table : document.getTables())
                 for (var row : table.getRows())

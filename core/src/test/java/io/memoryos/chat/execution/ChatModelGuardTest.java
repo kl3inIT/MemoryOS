@@ -1,5 +1,6 @@
 package io.memoryos.chat.execution;
 
+import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.ai.TurnFailureException;
 import io.memoryos.ai.ModelRequestPolicy;
 import io.memoryos.ai.ModelAdmissionLedger;
@@ -22,10 +23,20 @@ import com.embabel.agent.core.Budget;
 import com.embabel.agent.core.EarlyTermination;
 import com.embabel.common.ai.model.LlmMetadata;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.mockito.Mockito;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.content.Media;
 import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
@@ -35,6 +46,8 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.util.MimeTypeUtils;
 import reactor.core.publisher.Flux;
 
 class ChatModelGuardTest {
@@ -59,24 +72,24 @@ class ChatModelGuardTest {
         when(budget.getTokens()).thenReturn(300);
         guard.outputLimit(200);
         guard.synchronousLimit(2);
-        var entered = new java.util.concurrent.CountDownLatch(1);
-        var release = new java.util.concurrent.CountDownLatch(1);
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
         when(provider.call(any(Prompt.class))).thenAnswer(_ -> {
-            entered.countDown(); assertTrue(release.await(3, java.util.concurrent.TimeUnit.SECONDS));
+            entered.countDown(); assertTrue(release.await(3, TimeUnit.SECONDS));
             return response("{}", "stop", 7);
         });
-        try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             var first = executor.submit(() -> guard.call(prompt));
             try {
-                assertTrue(entered.await(3, java.util.concurrent.TimeUnit.SECONDS));
+                assertTrue(entered.await(3, TimeUnit.SECONDS));
                 assertEquals("CHAT_BUDGET_EXCEEDED", assertThrows(TurnFailureException.class, () -> guard.call(prompt)).code());
                 verify(provider).call(any(Prompt.class));
             } finally { release.countDown(); }
-            first.get(3, java.util.concurrent.TimeUnit.SECONDS);
+            first.get(3, TimeUnit.SECONDS);
         }
         // The rejected call spent neither a model invocation nor its allowance.
         guard.call(prompt);
-        verify(provider, org.mockito.Mockito.times(2)).call(any(Prompt.class));
+        verify(provider, Mockito.times(2)).call(any(Prompt.class));
         verify(process, never()).recordLlmInvocation(any());
     }
 
@@ -104,10 +117,10 @@ class ChatModelGuardTest {
 
     @Test
     void citationReminderTracksAvailableEvidenceWithoutMutatingConversationMessages() {
-        var evidence = new java.util.concurrent.atomic.AtomicBoolean();
+        var evidence = new AtomicBoolean();
         var twoCycles = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {}, policy, 32000, request -> request);
         twoCycles.evidenceAvailable(evidence::get);
-        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var calls = new AtomicInteger();
         when(provider.stream(any(Prompt.class))).thenAnswer(call -> {
             Prompt sent = call.getArgument(0);
             assertEquals(calls.incrementAndGet() > 1, sent.getContents().contains("cite relevant statements INLINE"));
@@ -176,9 +189,9 @@ class ChatModelGuardTest {
 
     @Test
     void imageInputsCannotReachProviderUsingOnlyTheirTextBudget() {
-        var media = new org.springframework.ai.content.Media(org.springframework.util.MimeTypeUtils.IMAGE_PNG,
-                new org.springframework.core.io.ByteArrayResource(new byte[]{1, 2, 3}));
-        var message = org.springframework.ai.chat.messages.UserMessage.builder().text("Inspect").media(List.of(media)).build();
+        var media = new Media(MimeTypeUtils.IMAGE_PNG,
+                new ByteArrayResource(new byte[]{1, 2, 3}));
+        var message = UserMessage.builder().text("Inspect").media(List.of(media)).build();
         var guarded = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {},
                 policy, ChatTurnSetup.IMAGE_INPUT_TOKENS - 1, p -> p);
         var request = new Prompt(List.of(message), prompt.getOptions());
@@ -190,7 +203,7 @@ class ChatModelGuardTest {
 
     @Test
     void budgetPolicyRejectsExpandedContinuationBeforeAnotherProviderCall() {
-        var tokens = new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(com.knuddels.jtokkit.api.EncodingType.O200K_BASE);
+        var tokens = new JTokkitTokenCountEstimator(EncodingType.O200K_BASE);
         var policy = ModelRequestPolicy.hosted(tokens, p -> p);
         var guarded = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {},
                 policy, 64, p -> p);
@@ -210,7 +223,7 @@ class ChatModelGuardTest {
         research.evidenceAvailable(() -> true);
         research.toolChoice(request -> new Prompt(request.getInstructions(),
                 assertInstanceOf(OpenAiChatOptions.class, request.getOptions()).mutate().toolChoice("required").build()));
-        var sent = new java.util.concurrent.CopyOnWriteArrayList<Prompt>();
+        var sent = new CopyOnWriteArrayList<Prompt>();
         when(provider.stream(any(Prompt.class))).thenAnswer(call -> {
             sent.add(call.getArgument(0));
             var report = AssistantMessage.builder().content("")
@@ -224,7 +237,7 @@ class ChatModelGuardTest {
         assertEquals("CHAT_CYCLE_LIMIT", assertThrows(TurnFailureException.class, () -> research.stream(prompt).blockLast()).code());
         assertEquals(2, sent.size());
         for (var request : sent) {
-            assertEquals(List.of("Question"), request.getInstructions().stream().map(org.springframework.ai.chat.messages.Message::getText).toList(),
+            assertEquals(List.of("Question"), request.getInstructions().stream().map(Message::getText).toList(),
                     "No Chat tool guidance, citation or last-cycle reminder");
             assertEquals("required", assertInstanceOf(OpenAiChatOptions.class, request.getOptions()).getToolChoice());
         }

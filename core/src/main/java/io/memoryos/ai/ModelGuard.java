@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.UnaryOperator;
 import org.jspecify.annotations.NullMarked;
@@ -39,7 +40,7 @@ public class ModelGuard implements ChatModel {
     private final AtomicInteger accounted = new AtomicInteger();
     private final AtomicInteger synchronousCalls = new AtomicInteger();
     private final AtomicInteger synchronousAccounted = new AtomicInteger();
-    private final java.util.concurrent.atomic.AtomicLong cacheRead = new java.util.concurrent.atomic.AtomicLong();
+    private final AtomicLong cacheRead = new AtomicLong();
     private final int inputLimit;
     private volatile int lastStreamInput;
     private @Nullable Scheduler scheduler;

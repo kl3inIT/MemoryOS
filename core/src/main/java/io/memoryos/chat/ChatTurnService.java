@@ -1,15 +1,27 @@
 package io.memoryos.chat;
 
+import com.embabel.common.ai.prompt.CurrentDate;
+import com.embabel.common.ai.prompt.PromptContributor;
 import io.memoryos.ai.TurnFailure;
 import io.memoryos.ai.TurnFailureException;
 import io.memoryos.ai.ModelTurns;
 import io.memoryos.ai.ModelAccounting;
+import io.memoryos.chat.image.ImageConnectionService;
+import io.memoryos.chat.research.ResearchProperties;
 import io.memoryos.chat.session.ChatTurnPersistence;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.ai.ModelResolver;
 import io.memoryos.ai.ModelFlow;
+import io.memoryos.chat.web.WebConnectionService;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.mcp.McpTurnService;
 import io.memoryos.usage.AiUsageFlow;
+import io.memoryos.usage.AiUsageLimitException;
+import io.memoryos.usage.AiUsageLimitService;
+import java.util.LinkedHashMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import io.memoryos.shared.ActorId;
 import io.memoryos.chat.streaming.StreamBufferWriter;
@@ -40,12 +52,12 @@ public final class ChatTurnService implements AutoCloseable {
     private final ChatTurnPersistence persistence;
     private final ChatModelExecutor model;
     private final ChatModelSelector models;
-    private final io.memoryos.chat.web.@Nullable WebConnectionService web;
-    private final io.memoryos.chat.image.@Nullable ImageConnectionService images;
-    private final io.memoryos.usage.@Nullable AiUsageLimitService spending;
+    private final @Nullable WebConnectionService web;
+    private final @Nullable ImageConnectionService images;
+    private final @Nullable AiUsageLimitService spending;
     private final @Nullable ChatSettingsService settings;
-    private final io.memoryos.chat.research.@Nullable ResearchProperties research;
-    private final io.memoryos.mcp.@Nullable McpTurnService mcp;
+    private final @Nullable ResearchProperties research;
+    private final @Nullable McpTurnService mcp;
     private final ChatExecutionProperties limits;
     private final TaskExecutor executor;
     private final StreamBufferWriter streams;
@@ -61,42 +73,42 @@ public final class ChatTurnService implements AutoCloseable {
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
             TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
-            io.memoryos.chat.web.@Nullable WebConnectionService web,
-            io.memoryos.chat.image.@Nullable ImageConnectionService images) {
+            @Nullable WebConnectionService web,
+            @Nullable ImageConnectionService images) {
         this(persistence, model, limits, executor, streams, models, web, images, null);
     }
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
             TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
-            io.memoryos.chat.web.@Nullable WebConnectionService web,
-            io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings) {
+            @Nullable WebConnectionService web,
+            @Nullable ImageConnectionService images, @Nullable ChatSettingsService settings) {
         this(persistence, model, limits, executor, streams, models, web, images, settings, null);
     }
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
             TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
-            io.memoryos.chat.web.@Nullable WebConnectionService web,
-            io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
-            io.memoryos.chat.research.@Nullable ResearchProperties research) {
+            @Nullable WebConnectionService web,
+            @Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
+            @Nullable ResearchProperties research) {
         this(persistence, model, limits, executor, streams, models, web, images, settings, research, null);
     }
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
             TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
-            io.memoryos.chat.web.@Nullable WebConnectionService web,
-            io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
-            io.memoryos.chat.research.@Nullable ResearchProperties research,
-            io.memoryos.mcp.@Nullable McpTurnService mcp) {
+            @Nullable WebConnectionService web,
+            @Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
+            @Nullable ResearchProperties research,
+            @Nullable McpTurnService mcp) {
         this(persistence, model, limits, executor, streams, models, web, images, settings, research, mcp, null);
     }
 
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
             TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
-            io.memoryos.chat.web.@Nullable WebConnectionService web,
-            io.memoryos.chat.image.@Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
-            io.memoryos.chat.research.@Nullable ResearchProperties research,
-            io.memoryos.mcp.@Nullable McpTurnService mcp,
-            io.memoryos.usage.@Nullable AiUsageLimitService spending) {
+            @Nullable WebConnectionService web,
+            @Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
+            @Nullable ResearchProperties research,
+            @Nullable McpTurnService mcp,
+            @Nullable AiUsageLimitService spending) {
         this.spending = spending;
         this.research = research;
         this.persistence = persistence;
@@ -125,7 +137,7 @@ public final class ChatTurnService implements AutoCloseable {
             // A spent budget leaves the session's short title rather than failing it, as Onyx does.
             if (spending != null) {
                 try { spending.enforce(actor); }
-                catch (io.memoryos.usage.AiUsageLimitException refused) { return; }
+                catch (AiUsageLimitException refused) { return; }
             }
             try (var selected = models.resolveFlow(actor, session, ModelFlow.CHAT_NAMING)) {
                 // The callback records usage even when naming fails.
@@ -152,8 +164,8 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Accepted command(ActorId actor, UUID session, ChatCommand command) {
-        persistence.require(actor, io.memoryos.iam.IamCapability.CHAT_WRITE);
-        if (command.image() != ImageMode.off) persistence.require(actor, io.memoryos.iam.IamCapability.IMAGE_GENERATE);
+        persistence.require(actor, IamCapability.CHAT_WRITE);
+        if (command.image() != ImageMode.off) persistence.require(actor, IamCapability.IMAGE_GENERATE);
         var lock = commandLock(session);
         Admission admission;
         lock.lock();
@@ -221,11 +233,11 @@ public final class ChatTurnService implements AutoCloseable {
                 if (agent.inProject()) throw ChatException.researchUnavailable();
                 if (!binding.toolCalling() || binding.contextWindow() < minimum) throw ChatException.researchModelUnsupported();
             }
-            String contribution = java.util.stream.Stream.concat(
-                    java.util.stream.Stream.of(new com.embabel.common.ai.prompt.CurrentDate().contribution()),
-                    binding.service().getPromptContributors().stream().map(com.embabel.common.ai.prompt.PromptContributor::contribution))
-                    .filter(value -> !value.isBlank()).collect(java.util.stream.Collectors.joining("\n----\n"));
-            var webAccess = new io.memoryos.chat.web.WebConnectionService.Access(null, null);
+            String contribution = Stream.concat(
+                    Stream.of(new CurrentDate().contribution()),
+                    binding.service().getPromptContributors().stream().map(PromptContributor::contribution))
+                    .filter(value -> !value.isBlank()).collect(Collectors.joining("\n----\n"));
+            var webAccess = new WebConnectionService.Access(null, null);
             if (command.webSearch() != WebSearchMode.off) {
                 // Provider-hosted search needs no external connection; external search needs one.
                 boolean nativeSearch = binding.service().getChatModel() instanceof ModelTurns turns && turns.nativeWebSearch();
@@ -245,7 +257,7 @@ public final class ChatTurnService implements AutoCloseable {
                     }
                 }
             }
-            var imageAccess = new io.memoryos.chat.image.ImageConnectionService.Access(null);
+            var imageAccess = new ImageConnectionService.Access(null);
             if (command.image() != ImageMode.off) {
                 if (!binding.toolCalling() || images == null) throw ChatException.providerUnavailable();
                 imageAccess = images.resolve(actor);
@@ -284,7 +296,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Cancellation cancel(ActorId actor, UUID session, UUID assistant) {
-        persistence.require(actor, io.memoryos.iam.IamCapability.CHAT_WRITE);
+        persistence.require(actor, IamCapability.CHAT_WRITE);
         var lock = commandLock(session);
         lock.lock();
         try {
@@ -296,7 +308,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     public Supplier<StreamBufferWriter.Reader> subscribe(ActorId actor, UUID session, UUID assistant, long after) {
-        persistence.require(actor, io.memoryos.iam.IamCapability.CHAT_READ);
+        persistence.require(actor, IamCapability.CHAT_READ);
         var lock = commandLock(session);
         lock.lock();
         try {
@@ -309,7 +321,7 @@ public final class ChatTurnService implements AutoCloseable {
                     persistence.authorizeReply(actor, session, assistant);
                     // The reader re-authorizes on every liveness check, so a revoked membership ends a long stream.
                     return streams.subscribe(assistant, after, () -> {
-                        persistence.require(actor, io.memoryos.iam.IamCapability.CHAT_READ);
+                        persistence.require(actor, IamCapability.CHAT_READ);
                         return persistence.authorizeReply(actor, session, assistant) == ChatMessage.Status.RUNNING;
                     });
                 }
@@ -354,8 +366,8 @@ public final class ChatTurnService implements AutoCloseable {
         // Onyx skips clarification when the previous assistant message was a clarification question.
         boolean skip = context.newestFirst().stream().filter(message -> message.role() == ChatMessage.Role.ASSISTANT).findFirst()
                 .map(message -> message.research().clarification()).orElse(false);
-        var files = new java.util.LinkedHashMap<UUID, ChatFileDescriptor>();
-        java.util.stream.Stream.concat(context.workspaceFiles().stream(), context.newestFirst().stream().flatMap(message -> message.files().stream()))
+        var files = new LinkedHashMap<UUID, ChatFileDescriptor>();
+        Stream.concat(context.workspaceFiles().stream(), context.newestFirst().stream().flatMap(message -> message.files().stream()))
                 .filter(file -> setup.fileIds().contains(file.id())).forEach(file -> files.putIfAbsent(file.id(), file));
         return new ChatTurnSetup.Research(true, skip, context.uiLanguage(), List.copyOf(files.values()));
     }

@@ -3,9 +3,17 @@ package io.memoryos.chat.session;
 import io.memoryos.ai.ModelResolver;
 import io.memoryos.ai.ModelSampling;
 import io.memoryos.ai.ModelAccounting;
+import io.memoryos.chat.ChatActivity;
+import io.memoryos.chat.ChatBranch;
 import io.memoryos.chat.ChatCommand;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatFileDescriptor;
+import io.memoryos.chat.ChatPreferences;
+import io.memoryos.chat.ChatResearch;
+import io.memoryos.chat.ChatSession;
+import io.memoryos.chat.preferences.persistence.JdbcChatPreferencesRepository;
+import io.memoryos.chat.prompts.ChatPrompts;
+import io.memoryos.iam.ActorProfileReader;
 import io.memoryos.library.UserFileService;
 import io.memoryos.library.UserFile;
 import io.memoryos.chat.ChatMessage;
@@ -22,15 +30,22 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.iam.ActorLanguageService;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
+import io.memoryos.usage.AiUsage;
+import io.memoryos.usage.AiUsageFlow;
+import io.memoryos.usage.AiUsageRecorder;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,9 +60,9 @@ public class ChatTurnPersistence {
     private final UserFileService files;
     private final ActorLanguageService languages;
     private final JdbcImageArtifactRepository imageArtifacts;
-    private final io.memoryos.usage.@Nullable AiUsageRecorder usage;
-    private final io.memoryos.chat.preferences.persistence.@Nullable JdbcChatPreferencesRepository preferences;
-    private final io.memoryos.iam.@Nullable ActorProfileReader profiles;
+    private final @Nullable AiUsageRecorder usage;
+    private final @Nullable JdbcChatPreferencesRepository preferences;
+    private final @Nullable ActorProfileReader profiles;
 
     public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
                                UserFileService files, ActorLanguageService languages,
@@ -55,12 +70,12 @@ public class ChatTurnPersistence {
         this(tenants, authorization, chats, files, languages, imageArtifacts, null, null, null);
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     public ChatTurnPersistence(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
                                UserFileService files, ActorLanguageService languages,
-                               JdbcImageArtifactRepository imageArtifacts, io.memoryos.usage.@Nullable AiUsageRecorder usage,
-                               io.memoryos.chat.preferences.persistence.@Nullable JdbcChatPreferencesRepository preferences,
-                               io.memoryos.iam.@Nullable ActorProfileReader profiles) {
+                               JdbcImageArtifactRepository imageArtifacts, @Nullable AiUsageRecorder usage,
+                               @Nullable JdbcChatPreferencesRepository preferences,
+                               @Nullable ActorProfileReader profiles) {
         this.usage = usage;
         this.preferences = preferences;
         this.profiles = profiles;
@@ -73,16 +88,16 @@ public class ChatTurnPersistence {
     }
 
     /** The member's own Chat preferences, read once per turn. */
-    private io.memoryos.chat.ChatPreferences preferences(TenantId tenant, ActorId actor) {
-        return preferences == null ? io.memoryos.chat.ChatPreferences.DEFAULT
-                : preferences.find(tenant.value(), actor.value()).orElse(io.memoryos.chat.ChatPreferences.DEFAULT);
+    private ChatPreferences preferences(TenantId tenant, ActorId actor) {
+        return preferences == null ? ChatPreferences.DEFAULT
+                : preferences.find(tenant.value(), actor.value()).orElse(ChatPreferences.DEFAULT);
     }
 
     /** Onyx's user information section: login name and email, the member's role and preferences (MEM-145). */
-    private String userInformation(ActorId actor, String instructions, io.memoryos.chat.ChatPreferences own) {
+    private String userInformation(ActorId actor, String instructions, ChatPreferences own) {
         if (preferences == null || profiles == null) return instructions;
         var profile = profiles.read(actor);
-        return io.memoryos.chat.prompts.ChatPrompts.withUserInformation(instructions, profile.displayName(),
+        return ChatPrompts.withUserInformation(instructions, profile.displayName(),
                 profile.email(), own.workRole(), own.personalPreferences());
     }
 
@@ -90,7 +105,7 @@ public class ChatTurnPersistence {
      * The creativity and reasoning level for one turn, in Onyx's order: the level pinned on this conversation, then
      * the model configuration (which the adapter keeps when nothing outranks it), then the member's own defaults.
      */
-    private static ModelSampling sampling(JdbcChatRepository.Persona settings, io.memoryos.chat.ChatPreferences own) {
+    private static ModelSampling sampling(JdbcChatRepository.Persona settings, ChatPreferences own) {
         var pinned = settings.reasoningEffort();
         var effort = pinned != null ? pinned : own.reasoningEffortDefault();
         if (own.temperatureDefault() == null && effort == null) return ModelSampling.NONE;
@@ -126,7 +141,7 @@ public class ChatTurnPersistence {
         authorization.require(actor, capability, false);
     }
 
-    public record TitleInput(io.memoryos.chat.ChatSession session, List<ChatMessage> messages) {}
+    public record TitleInput(ChatSession session, List<ChatMessage> messages) {}
 
     @Transactional
     public Optional<TitleInput> claimTitle(ActorId actor, UUID sessionId) {
@@ -223,7 +238,7 @@ public class ChatTurnPersistence {
         if (selection == null) ChatTurnSetup.validateQuestion(instructions, text, effectiveContext);
         else {
             var binding = selection.binding().forOptions(settings.options().sampling(), settings.options().outputTokenLimit());
-            instructions = io.memoryos.chat.prompts.ChatPrompts.resolve(instructions,
+            instructions = ChatPrompts.resolve(instructions,
                     binding.toolCalling() && settings.options().searchEnabled(), Instant.now(), language, settings.datetimeAware());
             instructions = userInformation(actor, instructions, own);
             ChatTurnSetup.validateQuestion(instructions, text, effectiveContext, binding, selection.promptContribution());
@@ -306,11 +321,11 @@ public class ChatTurnPersistence {
     }
 
     private TurnContext context(ActorId actor, TenantId tenant, UUID session, UUID user, JdbcChatRepository.Persona settings,
-                                String instructions, io.memoryos.chat.ChatPreferences own, @Nullable String language) {
+                                String instructions, ChatPreferences own, @Nullable String language) {
         var history = chats.context(session, user, 200);
         var workspaceFiles = descriptors(files.admit(tenant, actor, settings.fileIds()));
         // Old descriptors survive deletion, not authority: a file the owner can no longer read is left out.
-        var plaintext = files.readAll(tenant, actor, java.util.stream.Stream.concat(
+        var plaintext = files.readAll(tenant, actor, Stream.concat(
                         history.stream().flatMap(message -> message.files().stream()), workspaceFiles.stream())
                 .map(ChatFileDescriptor::id).distinct().limit(20).toList(), 16000);
         // History keeps assistant replies as text; name their images so a later turn can edit one.
@@ -351,7 +366,7 @@ public class ChatTurnPersistence {
 
     /** Renews rows still RUNNING and returns their IDs; a missing ID means the run no longer owns its row. */
     @Transactional
-    public java.util.Set<UUID> renewLeases(java.util.Collection<UUID> assistants, Duration lease) {
+    public Set<UUID> renewLeases(Collection<UUID> assistants, Duration lease) {
         return chats.renewLeases(assistants, lease);
     }
 
@@ -386,23 +401,23 @@ public class ChatTurnPersistence {
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
                           @Nullable Double cost, List<ChatSource> sources) {
         return finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources,
-                io.memoryos.chat.ChatActivity.EMPTY);
+                ChatActivity.EMPTY);
     }
 
     @Transactional
     public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
-                          @Nullable Double cost, List<ChatSource> sources, io.memoryos.chat.ChatActivity activity) {
+                          @Nullable Double cost, List<ChatSource> sources, ChatActivity activity) {
         return finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources, activity,
-                io.memoryos.chat.ChatResearch.EMPTY);
+                ChatResearch.EMPTY);
     }
 
     /** Writes the terminal outcome and reads the winner from the same statement; a late write reads the earlier one. */
     @Transactional
     public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
-                          @Nullable Double cost, List<ChatSource> sources, io.memoryos.chat.ChatActivity activity,
-                          io.memoryos.chat.ChatResearch research) {
+                          @Nullable Double cost, List<ChatSource> sources, ChatActivity activity,
+                          ChatResearch research) {
         if (status == null || status == ChatMessage.Status.RUNNING || partial == null || partial.length() > 1000000)
             throw ChatException.invalid("Invalid terminal outcome.");
         var saved = chats.finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources,
@@ -414,15 +429,15 @@ public class ChatTurnPersistence {
      * One turn's or naming call's AI usage. Nothing is recorded when no model call ran; unknown totals are counted as
      * calls with unknown cost, never as zero.
      */
-    public record Usage(@Nullable TenantId tenant, ActorId actor, io.memoryos.usage.AiUsageFlow flow, @Nullable UUID modelConfigurationId,
+    public record Usage(@Nullable TenantId tenant, ActorId actor, AiUsageFlow flow, @Nullable UUID modelConfigurationId,
                         ModelResolver.Provenance provider, String modelName,
                         ModelAccounting accounting) {
-        io.memoryos.usage.@Nullable AiUsage call(TenantId tenant, Instant at) {
+        @Nullable AiUsage call(TenantId tenant, Instant at) {
             if (!accounting.used()) return null;
             if (accounting.input() == null || accounting.output() == null)
-                return io.memoryos.usage.AiUsage.unknown(tenant.value(), actor.value(), flow, provider.providerName(), modelName,
+                return AiUsage.unknown(tenant.value(), actor.value(), flow, provider.providerName(), modelName,
                         provider.providerId(), modelConfigurationId, provider.dataBoundary(), at);
-            return io.memoryos.usage.AiUsage.tokens(tenant.value(), actor.value(), flow, provider.providerName(), modelName,
+            return AiUsage.tokens(tenant.value(), actor.value(), flow, provider.providerName(), modelName,
                     provider.providerId(), modelConfigurationId, provider.dataBoundary(), accounting.input(), accounting.output(),
                     Math.min(accounting.cacheRead(), accounting.input()), accounting.cost(), at);
         }
@@ -432,8 +447,8 @@ public class ChatTurnPersistence {
     @Transactional
     public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
-                          @Nullable Double cost, List<ChatSource> sources, io.memoryos.chat.ChatActivity activity,
-                          io.memoryos.chat.ChatResearch research, Usage turnUsage) {
+                          @Nullable Double cost, List<ChatSource> sources, ChatActivity activity,
+                          ChatResearch research, Usage turnUsage) {
         var outcome = finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources, activity, research);
         record(turnUsage);
         return outcome;
@@ -474,6 +489,6 @@ public class ChatTurnPersistence {
         chats.lockOwner(tenant, actor);
         chats.findOwned(tenant, actor, session, true).orElseThrow(ChatException::unavailable);
         chats.delete(session);
-        return chats.branches(session).stream().map(io.memoryos.chat.ChatBranch::id).toList();
+        return chats.branches(session).stream().map(ChatBranch::id).toList();
     }
 }

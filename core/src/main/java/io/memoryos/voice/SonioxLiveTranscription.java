@@ -16,6 +16,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -27,7 +29,7 @@ import tools.jackson.databind.ObjectMapper;
  * stream's times so the recording clock stays continuous. Audio and text are never logged.
  */
 final class SonioxLiveTranscription implements LiveTranscription {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(SonioxLiveTranscription.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SonioxLiveTranscription.class);
     static final Duration REPLAY = Duration.ofSeconds(5);
     static final List<Duration> BACKOFF = List.of(Duration.ofSeconds(2), Duration.ofSeconds(5), Duration.ofSeconds(10),
             Duration.ofSeconds(20), Duration.ofSeconds(30));

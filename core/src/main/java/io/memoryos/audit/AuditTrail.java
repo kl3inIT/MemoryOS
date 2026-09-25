@@ -5,13 +5,22 @@ import io.memoryos.shared.ActorId;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -32,22 +41,22 @@ public class AuditTrail {
     private final JdbcAuditEventRepository events;
     private final AuditRequestContext requestContext;
     private final MeterRegistry meters;
-    private final org.springframework.transaction.support.TransactionTemplate separate;
+    private final TransactionTemplate separate;
 
     /** The API supplies the request it is serving; the Worker has none, and records the trace alone. */
-    @org.springframework.beans.factory.annotation.Autowired
-    public AuditTrail(JdbcAuditEventRepository events, org.springframework.beans.factory.ObjectProvider<AuditRequestContext> requestContext,
-                      MeterRegistry meters, org.springframework.transaction.PlatformTransactionManager transactions) {
+    @Autowired
+    public AuditTrail(JdbcAuditEventRepository events, ObjectProvider<AuditRequestContext> requestContext,
+                      MeterRegistry meters, PlatformTransactionManager transactions) {
         this(events, requestContext.getIfAvailable(() -> AuditRequestContext.TRACE_ONLY), meters, transactions);
     }
 
     public AuditTrail(JdbcAuditEventRepository events, AuditRequestContext requestContext, MeterRegistry meters,
-                      org.springframework.transaction.PlatformTransactionManager transactions) {
+                      PlatformTransactionManager transactions) {
         this.events = events;
         this.requestContext = requestContext;
         this.meters = meters;
-        this.separate = new org.springframework.transaction.support.TransactionTemplate(transactions);
-        this.separate.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.separate = new TransactionTemplate(transactions);
+        this.separate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /**
@@ -58,9 +67,9 @@ public class AuditTrail {
     public void recordSeparately(AuditRecord event) {
         // A refusal is usually raised while its transaction holds the Tenant lock, which the event's own insert
         // would wait on for its foreign key: write it once that transaction has ended, whichever way it ended.
-        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
-            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
-                    new org.springframework.transaction.support.TransactionSynchronization() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
                         @Override
                         public void afterCompletion(int status) { writeSeparately(event); }
                     });
@@ -115,7 +124,7 @@ public class AuditTrail {
     }
 
     /** A person as the record names them: display name and e-mail as they are now, so the row keeps them later. */
-    public record Person(String label, @org.jspecify.annotations.Nullable String email) {}
+    public record Person(String label, @Nullable String email) {}
 
     /**
      * Who {@code actor} is, for a record that names them. Read in the caller's transaction, so it sees a person the
@@ -127,7 +136,7 @@ public class AuditTrail {
     }
 
     /** One JSON line per event, on a logger named for its class, as Onyx emits for a SIEM. */
-    private void emit(UUID id, Instant at, AuditRecord event, @org.jspecify.annotations.Nullable String actorLabel,
+    private void emit(UUID id, Instant at, AuditRecord event, @Nullable String actorLabel,
                       String details) {
         try {
             var line = new LinkedHashMap<String, Object>();
@@ -136,7 +145,7 @@ public class AuditTrail {
             line.put("ts", at.toString());
             line.put("action", event.action().value());
             line.put("ocsf_class", event.action().eventClass().ocsfClassId());
-            line.put("outcome", event.outcome().name().toLowerCase(java.util.Locale.ROOT));
+            line.put("outcome", event.outcome().name().toLowerCase(Locale.ROOT));
             line.put("tenant_id", event.tenant().value().toString());
             line.put("actor_id", event.actor() == null ? null : event.actor().value().toString());
             line.put("actor", actorLabel);

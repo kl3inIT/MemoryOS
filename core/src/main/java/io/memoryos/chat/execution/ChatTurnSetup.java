@@ -7,18 +7,25 @@ import com.embabel.chat.Message;
 import com.embabel.chat.SystemMessage;
 import com.embabel.chat.UserMessage;
 import com.knuddels.jtokkit.api.EncodingType;
+import io.memoryos.chat.ImageMode;
+import io.memoryos.chat.WebSearchMode;
+import io.memoryos.chat.image.ImageConnectionService;
 import io.memoryos.chat.session.ChatTurnPersistence.TurnContext;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.ChatFileDescriptor;
 import io.memoryos.chat.ChatEvidence;
+import io.memoryos.chat.web.WebConnectionService;
+import io.memoryos.mcp.McpTurnTools;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.Set;
@@ -26,7 +33,11 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.IdentityHashMap;
 
+import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Resolved once, held only for the lifetime of this execution.
@@ -34,22 +45,22 @@ import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
                             String model, List<Message> messages, ModelBinding binding, ChatTurnOptions options,
                             Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence,
-                            io.memoryos.chat.WebSearchMode webSearch, io.memoryos.chat.web.WebConnectionService.Access webAccess,
-                            io.memoryos.chat.ImageMode image, io.memoryos.chat.image.ImageConnectionService.Access imageAccess,
-                            Research research, io.memoryos.mcp.@org.jspecify.annotations.Nullable McpTurnTools mcp) {
+                            WebSearchMode webSearch, WebConnectionService.Access webAccess,
+                            ImageMode image, ImageConnectionService.Access imageAccess,
+                            Research research, @Nullable McpTurnTools mcp) {
     /**
      * Deep research state of the turn: whether it runs, whether the previous answer was a clarification question (Onyx
      * skips clarification then), the account language for user-facing research prompts and the turn's attached files.
      */
-    public record Research(boolean enabled, boolean skipClarification, @org.jspecify.annotations.Nullable String uiLanguage, List<ChatFileDescriptor> files) {
+    public record Research(boolean enabled, boolean skipClarification, @Nullable String uiLanguage, List<ChatFileDescriptor> files) {
         public static final Research OFF = new Research(false, false, null, List.of());
         public Research { files = List.copyOf(files); }
     }
     public ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId actor, TenantId tenant,
                          String model, List<Message> messages, ModelBinding binding, ChatTurnOptions options,
                          Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence,
-                         io.memoryos.chat.WebSearchMode webSearch, io.memoryos.chat.web.WebConnectionService.Access webAccess,
-                         io.memoryos.chat.ImageMode image, io.memoryos.chat.image.ImageConnectionService.Access imageAccess) {
+                         WebSearchMode webSearch, WebConnectionService.Access webAccess,
+                         ImageMode image, ImageConnectionService.Access imageAccess) {
         this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence,
                 webSearch, webAccess, image, imageAccess, Research.OFF, null);
     }
@@ -57,20 +68,20 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
                          String model, List<Message> messages, ModelBinding binding, ChatTurnOptions options,
                          Set<UUID> fileIds, Map<Integer, List<ChatFileDescriptor>> images, ChatEvidence evidence) {
         this(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence,
-                io.memoryos.chat.WebSearchMode.off, new io.memoryos.chat.web.WebConnectionService.Access(null, null),
-                io.memoryos.chat.ImageMode.off, new io.memoryos.chat.image.ImageConnectionService.Access(null), Research.OFF, null);
+                WebSearchMode.off, new WebConnectionService.Access(null, null),
+                ImageMode.off, new ImageConnectionService.Access(null), Research.OFF, null);
     }
-    public ChatTurnSetup withWeb(io.memoryos.chat.WebSearchMode intent, io.memoryos.chat.web.WebConnectionService.Access access) {
+    public ChatTurnSetup withWeb(WebSearchMode intent, WebConnectionService.Access access) {
         return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, intent, access, image, imageAccess, research, mcp);
     }
-    public ChatTurnSetup withImage(io.memoryos.chat.ImageMode intent, io.memoryos.chat.image.ImageConnectionService.Access access) {
+    public ChatTurnSetup withImage(ImageMode intent, ImageConnectionService.Access access) {
         return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, intent, access, research, mcp);
     }
     public ChatTurnSetup withResearch(Research value) {
         return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, value, mcp);
     }
     /** The turn owns the opened MCP sessions and closes them when it ends. */
-    public ChatTurnSetup withMcp(io.memoryos.mcp.McpTurnTools tools) {
+    public ChatTurnSetup withMcp(McpTurnTools tools) {
         return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, research, tools);
     }
     /** Admission estimate, not reported provider usage. The native response remains the usage ledger. */
@@ -102,7 +113,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         private static final ModelRequestPolicy POLICY = ModelRequestPolicy.hosted(
                 new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), prompt -> prompt);
     }
-    private static final tools.jackson.databind.ObjectMapper JSON = new tools.jackson.databind.ObjectMapper();
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     public static void validateQuestion(String instructions, String text, int contextTokenLimit) {
         Hosted.POLICY.validateQuestion(instructions, text, contextTokenLimit);
@@ -140,7 +151,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         var workspaceImages = binding.vision()
                 ? context.workspaceFiles().stream().filter(ChatTurnSetup::image).toList() : List.<ChatFileDescriptor>of();
         String imageMarkers = binding.vision() ? "" : context.workspaceFiles().stream().filter(ChatTurnSetup::image)
-                .map(ChatTurnSetup::nonVisionMarker).collect(java.util.stream.Collectors.joining());
+                .map(ChatTurnSetup::nonVisionMarker).collect(Collectors.joining());
         String workspaceText = workspaceMetadata + imageMarkers + "\nUse read_file to inspect text content.";
         if (!workspaceMetadata.isEmpty()) nativeMessages.add(new org.springframework.ai.chat.messages.UserMessage(workspaceText));
         int insertion = nativeMessages.size();
@@ -229,7 +240,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
                 if (!image(file)) citationAllowance = Math.addExact(citationAllowance,
                         policy.tokens().estimate("\nCitation [" + CITATION_ESTIMATE + "] identifies file " + file.id()) + 32);
             }
-            int fullTokens = policy.framing().applyAsInt(new org.springframework.ai.chat.prompt.Prompt(List.of(candidate)));
+            int fullTokens = policy.framing().applyAsInt(new Prompt(List.of(candidate)));
             boolean include = complete && fullTokens < historyLimit * 0.6
                     && (long) count(policy, nativeMessages, imageTokens) + citationAllowance <= historyLimit;
             if (!include && context.workspaceFiles().stream().anyMatch(file -> !image(file))) requireTools(binding);
@@ -248,13 +259,13 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
         if (count(policy, nativeMessages, imageTokens) > historyLimit)
             throw ChatException.invalid("The current prompt exceeds the configured context limit.");
         selected.addFirst(new SystemMessage(instructions));
-        var images = new java.util.LinkedHashMap<Integer, List<ChatFileDescriptor>>();
+        var images = new LinkedHashMap<Integer, List<ChatFileDescriptor>>();
         for (int i = 0; i < selected.size(); i++) if (media.containsKey(selected.get(i))) images.put(i, media.get(selected.get(i)));
         return new ChatTurnSetup(session, assistant, context.actor(), context.tenant(), binding.service().getName(), selected, binding, context.options(), allowedFiles, images, evidence);
     }
 
     private static int count(ModelRequestPolicy policy, List<org.springframework.ai.chat.messages.Message> messages, int imageTokens) {
-        return Math.addExact(policy.framing().applyAsInt(new org.springframework.ai.chat.prompt.Prompt(messages)), imageTokens);
+        return Math.addExact(policy.framing().applyAsInt(new Prompt(messages)), imageTokens);
     }
 
     private static int imageTokens(List<ChatFileDescriptor> files, ModelRequestPolicy policy) {
@@ -273,7 +284,7 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
     }
     private static boolean table(ChatFileDescriptor file) {
         return Set.of("text/csv", "text/tab-separated-values", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                "application/vnd.ms-excel.sheet.macroenabled.12").contains(file.mediaType().toLowerCase(java.util.Locale.ROOT));
+                "application/vnd.ms-excel.sheet.macroenabled.12").contains(file.mediaType().toLowerCase(Locale.ROOT));
     }
     private static void requireTools(ModelBinding binding) {
         if (!binding.toolCalling()) throw ChatException.invalid("Choose a tool-capable model to read files outside the direct-context budget or tables.");

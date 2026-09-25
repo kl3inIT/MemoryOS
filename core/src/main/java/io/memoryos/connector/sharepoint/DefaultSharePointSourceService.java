@@ -31,9 +31,12 @@ import io.memoryos.iam.GroupId;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.Sha256;
 import io.memoryos.shared.TenantId;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.UnaryOperator;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -97,7 +100,7 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
             var creation = sourceAccess.lockCreation(actor, SourceType.SHAREPOINT, access, groupIds);
             if (!tenant.equals(creation.authority().tenantId())) throw SourceException.notFound();
             var groups = creation.groupIds().stream()
-                    .sorted(java.util.Comparator.comparing(group -> group.value().toString())).toList();
+                    .sorted(Comparator.comparing(group -> group.value().toString())).toList();
             var credential = credentials.lock(tenant, credentialId).orElseThrow(SourceException::notFound);
             if (!credential.usable()) throw SourceException.conflict("SharePoint credential is unavailable");
             String hash = hash("CREATE", sourceName, credentialId.value().toString(), scope,
@@ -203,8 +206,8 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
             // A request that leaves the schedule as it was is not a change, as on Google Drive.
             if (before.syncIntervalMinutes() != syncIntervalMinutes || before.pruneIntervalHours() != pruneIntervalHours)
                 record(tenant, actor, AuditAction.SOURCE_UPDATE, source, null, event -> event.detail("change", "SCHEDULE")
-                        .detail("before", java.util.Map.of("syncMinutes", before.syncIntervalMinutes(), "pruneHours", before.pruneIntervalHours()))
-                        .detail("after", java.util.Map.of("syncMinutes", syncIntervalMinutes, "pruneHours", pruneIntervalHours)));
+                        .detail("before", Map.of("syncMinutes", before.syncIntervalMinutes(), "pruneHours", before.pruneIntervalHours()))
+                        .detail("after", Map.of("syncMinutes", syncIntervalMinutes, "pruneHours", pruneIntervalHours)));
             return configuration(tenant, source);
         }));
     }
@@ -320,7 +323,7 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
 
     /** Records a Source change; Drive and SharePoint Sources are created and re-scoped by a request the Worker settles. */
     private void record(TenantId tenant, ActorId actor, AuditAction action, SourceId source, @Nullable String name,
-                        java.util.function.UnaryOperator<AuditRecord.Builder> details) {
+                        UnaryOperator<AuditRecord.Builder> details) {
         String label = name != null ? name : sources.auditView(tenant, source).map(JdbcSourceRepository.AuditView::name).orElse(null);
         audit.record(details.apply(AuditRecord.of(action, tenant).actor(actor)
                 .resource("SOURCE", source.value(), label)).build());

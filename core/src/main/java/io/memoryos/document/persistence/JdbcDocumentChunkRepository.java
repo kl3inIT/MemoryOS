@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Isolation;
@@ -212,7 +213,7 @@ public class JdbcDocumentChunkRepository {
      * One page of eligible documents in (Tenant, Document) order. The row-value cursor walks the unique
      * {@code (tenant_id, id)} index of {@code documents}, so a page costs the same wherever the scan is.
      */
-    public List<DocumentIndexState> scan(String identity, DocumentIndexState.@org.jspecify.annotations.Nullable Cursor after, int limit) {
+    public List<DocumentIndexState> scan(String identity, DocumentIndexState.@Nullable Cursor after, int limit) {
         String resume = after == null ? "" : "AND (d.tenant_id,d.id) > (:afterTenant,:afterDocument)";
         var statement = jdbc.sql("""
                 SELECT d.tenant_id,d.id,d.content_generation,
@@ -261,5 +262,5 @@ public class JdbcDocumentChunkRepository {
 
     public record ArtifactReader(TenantId tenantId, DocumentId documentId, UUID generation, UUID readerId,
             UUID artifactId, String objectKey, String hash, long size, String title, String mediaType, Instant updatedAt) { }
-    private record Header(String title, String mediaType, Instant updatedAt, int count, @org.jspecify.annotations.Nullable String userFileId) { }
+    private record Header(String title, String mediaType, Instant updatedAt, int count, @Nullable String userFileId) { }
 }

@@ -16,6 +16,7 @@ import io.memoryos.usage.persistence.AiUsageLimitRepository;
 import io.memoryos.usage.persistence.AiUsageRepository;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.UUID;
@@ -23,6 +24,7 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /** What a Tenant, a Group and a person may spend, weighed against the settled ledger (MEM-123). */
@@ -99,9 +101,9 @@ class AiUsageLimitServiceTest {
 
     @Test void spendOlderThanThePeriodNoLongerCounts() {
         limit(AiUsageLimitScope.PERSON, null, 1_000L, null, 3);
-        spend(actor, 1_500, 0, 0.1, NOW.minus(java.time.Duration.ofDays(5)));
+        spend(actor, 1_500, 0, 0.1, NOW.minus(Duration.ofDays(5)));
         assertTrue(limits.check(new ActorId(actor)).isEmpty());
-        spend(actor, 1_500, 0, 0.1, NOW.minus(java.time.Duration.ofDays(1)));
+        spend(actor, 1_500, 0, 0.1, NOW.minus(Duration.ofDays(1)));
         var breach = limits.check(new ActorId(actor)).orElseThrow();
         // The window keeps three days, so yesterday's spend leaves it two days from now.
         assertEquals(Instant.parse("2026-09-23T00:00:00Z"), breach.resetsAt());
@@ -145,7 +147,7 @@ class AiUsageLimitServiceTest {
 
     private IamAuthorization authorization() {
         var authorization = mock(IamAuthorization.class);
-        when(authorization.require(any(), any(), org.mockito.ArgumentMatchers.anyBoolean()))
+        when(authorization.require(any(), any(), ArgumentMatchers.anyBoolean()))
                 .thenReturn(new IamAccess(new TenantId(tenant), Authority.GLOBAL));
         return authorization;
     }

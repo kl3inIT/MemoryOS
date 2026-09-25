@@ -34,6 +34,8 @@ import java.util.concurrent.Executors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -158,10 +160,10 @@ class DefaultInitialTenantBootstrapperTest {
 
     @Test
     void rollsBackMixedJpaWritesWhenGroupProvisioningFails() {
-        GroupProvisioner failingProvisioner = org.mockito.Mockito.mock(GroupProvisioner.class);
-        org.mockito.Mockito.doThrow(new IllegalStateException("group bootstrap failed"))
-                .when(failingProvisioner).bootstrap(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
-        org.mockito.Mockito.doThrow(new UnsupportedOperationException()).when(failingProvisioner).addToBasicGroup(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        GroupProvisioner failingProvisioner = Mockito.mock(GroupProvisioner.class);
+        Mockito.doThrow(new IllegalStateException("group bootstrap failed"))
+                .when(failingProvisioner).bootstrap(ArgumentMatchers.any(), ArgumentMatchers.any());
+        Mockito.doThrow(new UnsupportedOperationException()).when(failingProvisioner).addToBasicGroup(ArgumentMatchers.any(), ArgumentMatchers.any());
         InitialTenantBootstrapper bootstrapper = bootstrapper(failingProvisioner);
 
         assertThrows(IllegalStateException.class, () -> bootstrapper.bootstrap(request()));

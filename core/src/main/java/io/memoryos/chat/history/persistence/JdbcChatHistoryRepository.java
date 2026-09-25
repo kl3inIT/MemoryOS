@@ -1,5 +1,7 @@
 package io.memoryos.chat.history.persistence;
 
+import com.fasterxml.jackson.core.JacksonException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.memoryos.shared.LikePattern;
 import io.memoryos.chat.ChatHistoryFeedback;
 import io.memoryos.chat.ChatHistoryMessage;
@@ -7,9 +9,12 @@ import io.memoryos.chat.ChatHistoryQuery;
 import io.memoryos.chat.ChatHistoryTotals;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -76,7 +81,7 @@ public class JdbcChatHistoryRepository {
 
     public List<Entry> page(UUID tenant, ChatHistoryQuery query, @Nullable Cursor after, int limit) {
         return bind(jdbc.sql(PAGE), tenant, query)
-                .param("cursorAt", after == null ? null : java.sql.Timestamp.from(after.updatedAt()), Types.TIMESTAMP)
+                .param("cursorAt", after == null ? null : Timestamp.from(after.updatedAt()), Types.TIMESTAMP)
                 .param("cursorId", after == null ? null : after.id(), Types.OTHER)
                 .param("limit", limit)
                 .query(JdbcChatHistoryRepository::entry).list();
@@ -95,7 +100,7 @@ public class JdbcChatHistoryRepository {
     }
 
     /** One conversation, whether or not its owner deleted it, so the detail view can say which it is. */
-    public java.util.Optional<Entry> conversation(UUID tenant, UUID session) {
+    public Optional<Entry> conversation(UUID tenant, UUID session) {
         return bind(jdbc.sql(PAGE.replace("ORDER BY s.updated_at DESC, s.id DESC", "AND s.id = :session ORDER BY s.updated_at DESC, s.id DESC")
                         .replace("LIMIT :limit", "")), tenant, new ChatHistoryQuery(null, null, null, null, null))
                 .param("cursorAt", null, Types.TIMESTAMP).param("cursorId", null, Types.OTHER)
@@ -130,8 +135,8 @@ public class JdbcChatHistoryRepository {
 
     private JdbcClient.StatementSpec bind(JdbcClient.StatementSpec statement, UUID tenant, ChatHistoryQuery query) {
         return statement.param("tenant", tenant)
-                .param("from", query.from() == null ? null : java.sql.Timestamp.from(query.from()), Types.TIMESTAMP)
-                .param("to", query.to() == null ? null : java.sql.Timestamp.from(query.to()), Types.TIMESTAMP)
+                .param("from", query.from() == null ? null : Timestamp.from(query.from()), Types.TIMESTAMP)
+                .param("to", query.to() == null ? null : Timestamp.from(query.to()), Types.TIMESTAMP)
                 .param("actor", query.actorId(), Types.OTHER)
                 .param("text", query.text() == null ? null : LikePattern.containing(query.text()), Types.VARCHAR)
                 .param("feedback", query.feedback() == null ? null : query.feedback().name(), Types.VARCHAR);
@@ -153,20 +158,20 @@ public class JdbcChatHistoryRepository {
                 citations(row.getString("sources")));
     }
 
-    private static final com.fasterxml.jackson.databind.ObjectMapper JSON =
-            new com.fasterxml.jackson.databind.ObjectMapper();
+    private static final ObjectMapper JSON =
+            new ObjectMapper();
 
     /** Only the titles: what was cited is evidence, its content is not this screen's to hand over. */
     private static List<String> citations(@Nullable String sources) {
         if (sources == null || sources.isBlank()) return List.of();
         try {
-            var titles = new java.util.ArrayList<String>();
+            var titles = new ArrayList<String>();
             for (var node : JSON.readTree(sources)) {
                 var title = node.path("title").asText("");
                 if (!title.isBlank()) titles.add(title);
             }
             return List.copyOf(titles);
-        } catch (com.fasterxml.jackson.core.JacksonException malformed) {
+        } catch (JacksonException malformed) {
             return List.of();
         }
     }

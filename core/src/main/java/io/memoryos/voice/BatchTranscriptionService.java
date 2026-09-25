@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
@@ -205,7 +206,7 @@ public class BatchTranscriptionService {
                     connection.provider().name(), connection.sttModel(), connection.id(), null, null, 1, 0, 0, 0, 0,
                     seconds, null, Instant.now()));
         } catch (RuntimeException failure) {
-            org.slf4j.LoggerFactory.getLogger(BatchTranscriptionService.class)
+            LoggerFactory.getLogger(BatchTranscriptionService.class)
                     .warn("Recording usage not recorded ({})", failure.getClass().getSimpleName());
         }
     }

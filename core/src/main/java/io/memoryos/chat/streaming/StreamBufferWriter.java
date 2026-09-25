@@ -1,10 +1,15 @@
 package io.memoryos.chat.streaming;
 
+import io.memoryos.chat.ChatCodeEvent;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatImageEvent;
 import io.memoryos.chat.ChatResearchEvent;
 import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.chat.ChatMessage.Status;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Objects;
+import org.springframework.dao.DataAccessException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
@@ -58,7 +63,7 @@ public final class StreamBufferWriter {
     private final ChatStreamProperties limits;
     private final LongSupplier millis;
     private final ConcurrentHashMap<UUID, Stream> streams = new ConcurrentHashMap<>();
-    private final Map<UUID, Integer> readersPerRun = new java.util.HashMap<>();
+    private final Map<UUID, Integer> readersPerRun = new HashMap<>();
     private int readers;
 
     public StreamBufferWriter(StringRedisTemplate redis, ChatStreamProperties limits) {
@@ -74,7 +79,7 @@ public final class StreamBufferWriter {
     public record Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                         @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
                         @Nullable ChatImageEvent image, boolean hasArtifacts, @Nullable ChatResearchEvent research,
-                        @Nullable String parentToolCallId, io.memoryos.chat.@Nullable ChatCodeEvent code) {
+                        @Nullable String parentToolCallId, @Nullable ChatCodeEvent code) {
         public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                      @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
                      @Nullable ChatImageEvent image, boolean hasArtifacts, @Nullable ChatResearchEvent research,
@@ -158,7 +163,7 @@ public final class StreamBufferWriter {
         var stream = require(id);
         synchronized (stream) {
             if (stream.done) return;
-            if (!stream.pendingType.equals(type) || !java.util.Objects.equals(stream.pendingKey, key)) {
+            if (!stream.pendingType.equals(type) || !Objects.equals(stream.pendingKey, key)) {
                 chunk(stream);
                 stream.pendingType = type;
                 stream.pendingKey = key;
@@ -211,7 +216,7 @@ public final class StreamBufferWriter {
         }
     }
 
-    public void code(UUID id, io.memoryos.chat.ChatCodeEvent event) {
+    public void code(UUID id, ChatCodeEvent event) {
         var stream = require(id);
         synchronized (stream) {
             if (stream.done) return;
@@ -239,7 +244,7 @@ public final class StreamBufferWriter {
         long last;
         // Unreadable replay is reported by the reader as a reset, so the browser falls back to history.
         try { last = lastSequence(id); }
-        catch (org.springframework.dao.DataAccessException unavailable) { last = after; }
+        catch (DataAccessException unavailable) { last = after; }
         if (after > last) throw ChatException.invalid("Stream cursor is ahead of this reply.");
         synchronized (readersPerRun) {
             if (readers >= limits.maxReaders() || readersPerRun.getOrDefault(id, 0) >= limits.readersPerRun())
@@ -268,7 +273,7 @@ public final class StreamBufferWriter {
     }
 
     /** Session deletion; a Redis failure leaves the keys to their TTL. */
-    public void discard(java.util.Collection<UUID> ids) {
+    public void discard(Collection<UUID> ids) {
         for (var id : ids) {
             var stream = streams.remove(id);
             if (stream != null) synchronized (stream) { stream.done = true; stream.queue.clear(); }
@@ -306,7 +311,7 @@ public final class StreamBufferWriter {
             case "research-plan" -> new Event(stream.id, sequence, stream.pendingType, null, null, null, null, null, false,
                     ChatResearchEvent.plan(text), null);
             case "intermediate-report" -> new Event(stream.id, sequence, stream.pendingType, null, null, null, null, null, false,
-                    ChatResearchEvent.report(java.util.Objects.requireNonNull(stream.pendingKey), text), null);
+                    ChatResearchEvent.report(Objects.requireNonNull(stream.pendingKey), text), null);
             default -> new Event(stream.id, sequence, stream.pendingType, text, null, null, null, null, false, null, stream.pendingKey);
         });
     }
@@ -431,7 +436,7 @@ public final class StreamBufferWriter {
                 synchronized (written) { seen = writes; }
                 Batch batch;
                 try { batch = next(); }
-                catch (org.springframework.dao.DataAccessException unavailable) {
+                catch (DataAccessException unavailable) {
                     // As Onyx's resume endpoint without a buffer: the browser reads history and polls while RUNNING.
                     LOG.warn("Chat stream replay unavailable for reply {} ({})", id, unavailable.getClass().getSimpleName());
                     return end("BUFFER_MISSING");
@@ -481,7 +486,7 @@ public final class StreamBufferWriter {
 
         private boolean exists() {
             try { return Boolean.TRUE.equals(redis.hasKey(key(id))); }
-            catch (org.springframework.dao.DataAccessException unavailable) { return false; }
+            catch (DataAccessException unavailable) { return false; }
         }
 
         private Batch end(String reason) {

@@ -6,7 +6,11 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.jspecify.annotations.Nullable;
 
 @Entity
@@ -20,9 +24,9 @@ public class ProjectEntity {
     @Column(nullable = false, columnDefinition = "text") private String instructions;
     @Column(name = "icon_name", length = 40) private @Nullable String iconName;
     @Version private @Nullable Long revision;
-    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "file_ids", nullable = false, columnDefinition = "jsonb")
-    private java.util.List<UUID> fileIds = new java.util.ArrayList<>();
+    private List<UUID> fileIds = new ArrayList<>();
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
 
@@ -37,8 +41,8 @@ public class ProjectEntity {
         this.iconName = iconName; updatedAt = Instant.now();
     }
     public UUID id() { return id; }
-    public java.util.List<UUID> fileIds() { return java.util.List.copyOf(fileIds); }
-    public void files(java.util.List<UUID> ids) { fileIds = new java.util.ArrayList<>(ids); }
+    public List<UUID> fileIds() { return List.copyOf(fileIds); }
+    public void files(List<UUID> ids) { fileIds = new ArrayList<>(ids); }
     public UUID tenantId() { return tenantId; }
     public String name() { return name; }
     public String description() { return description; }

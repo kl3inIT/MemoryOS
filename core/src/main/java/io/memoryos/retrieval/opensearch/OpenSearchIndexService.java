@@ -26,6 +26,7 @@ import io.memoryos.retrieval.SearchTimings;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
 import io.memoryos.retrieval.settings.SearchGeneration;
 import io.memoryos.retrieval.settings.SearchGenerations;
+import io.memoryos.usage.AiUsageFlow;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -36,6 +37,7 @@ import java.util.concurrent.Callable;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,14 +58,14 @@ public class OpenSearchIndexService implements SearchIndex {
     private final SourceSearchService sourceSearch;
     private final SearchTimings timings;
     private static final int ACCESS_UPDATE_BATCH = 128;
-    private final Map<String, String> sweepCursors = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, String> sweepCursors = new ConcurrentHashMap<>();
     /**
      * Indexes this process has verified against their generation (identity to generation ID). Writes skip the
      * verification afterwards; an index deleted since, by this or another process, is noticed by the write itself.
      */
-    private final Map<String, UUID> ensured = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, UUID> ensured = new ConcurrentHashMap<>();
     /** One verification or creation at a time per index; other indexes and verified writes are not held up. */
-    private final Map<String, Object> ensuring = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, Object> ensuring = new ConcurrentHashMap<>();
 
     public OpenSearchIndexService(OpenSearchGateway gateway, SearchGenerations generations,
             SearchProperties properties, ObjectMapper mapper, DocumentChunkPort documents, SourceSearchService sourceSearch, SearchTimings timings) {
@@ -285,7 +287,7 @@ public class OpenSearchIndexService implements SearchIndex {
             var missing = batch.stream().filter(chunk -> !found.containsKey(chunk.contentSha256())).toList();
             if (!missing.isEmpty()) {
                 var generated = embeddings.documents(missing.stream().map(DocumentChunk::content).toList(),
-                        new ValidatedEmbeddingService.Caller(document.tenantId().value(), null, io.memoryos.usage.AiUsageFlow.EMBEDDING_INDEXING));
+                        new ValidatedEmbeddingService.Caller(document.tenantId().value(), null, AiUsageFlow.EMBEDDING_INDEXING));
                 for (int index = 0; index < missing.size(); index++) found.put(missing.get(index).contentSha256(), generated.get(index));
             }
             var body = new StringBuilder();
@@ -410,7 +412,7 @@ public class OpenSearchIndexService implements SearchIndex {
     }
 
     private static ValidatedEmbeddingService.@Nullable Caller queryCaller(TenantId tenant, @Nullable ActorId actor) {
-        return actor == null ? null : new ValidatedEmbeddingService.Caller(tenant.value(), actor.value(), io.memoryos.usage.AiUsageFlow.EMBEDDING_QUERY);
+        return actor == null ? null : new ValidatedEmbeddingService.Caller(tenant.value(), actor.value(), AiUsageFlow.EMBEDDING_QUERY);
     }
 
     public List<SearchHit> searchFiles(TenantId tenant, String query, Map<UUID, UUID> generations, Map<UUID, UUID> files) {

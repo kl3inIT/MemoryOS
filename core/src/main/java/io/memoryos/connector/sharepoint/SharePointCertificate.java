@@ -1,12 +1,16 @@
 package io.memoryos.connector.sharepoint;
 
 import io.memoryos.connector.SharePointException;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyStore;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPrivateKey;
 import java.time.Instant;
@@ -46,8 +50,8 @@ public record SharePointCertificate(byte[] privateKey, byte[] certificate, Strin
         KeyStore store;
         try {
             store = KeyStore.getInstance("PKCS12");
-            store.load(new java.io.ByteArrayInputStream(pkcs12), password);
-        } catch (GeneralSecurityException | java.io.IOException exception) {
+            store.load(new ByteArrayInputStream(pkcs12), password);
+        } catch (GeneralSecurityException | IOException exception) {
             throw SharePointException.invalidCertificate(
                     "The file is not a PKCS#12 keystore, or the password is wrong.",
                     "SharePoint certificate upload could not be opened");
@@ -98,7 +102,7 @@ public record SharePointCertificate(byte[] privateKey, byte[] certificate, Strin
                         "The certificate is too large.", "SharePoint certificate DER size is out of range");
             }
             return new SharePointCertificate(encoded, der, thumbprint(der), leaf.getNotAfter().toInstant());
-        } catch (java.security.cert.CertificateEncodingException exception) {
+        } catch (CertificateEncodingException exception) {
             throw SharePointException.invalidCertificate(
                     "The certificate could not be read.", "SharePoint certificate could not be encoded");
         } finally {
@@ -109,7 +113,7 @@ public record SharePointCertificate(byte[] privateKey, byte[] certificate, Strin
     private static String thumbprint(byte[] der) {
         try {
             return HexFormat.of().withUpperCase().formatHex(MessageDigest.getInstance("SHA-1").digest(der));
-        } catch (java.security.NoSuchAlgorithmException exception) {
+        } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-1 is required to compute a certificate thumbprint", exception);
         }
     }

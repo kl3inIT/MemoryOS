@@ -4,6 +4,7 @@ import io.memoryos.connector.ConnectorSyncPort;
 import io.memoryos.ingestion.IngestionCoordinator.Outcome;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationWorkload;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.LoggerFactory;
@@ -14,7 +15,7 @@ public final class SourceSyncProcessor {
     private final IngestionMetrics metrics;
 
     public SourceSyncProcessor(ConnectorSyncPort sync, ScheduledExecutorService scheduler,
-            io.micrometer.core.instrument.MeterRegistry registry) {
+            MeterRegistry registry) {
         this.sync = sync;
         this.scheduler = scheduler;
         this.metrics = new IngestionMetrics(registry);

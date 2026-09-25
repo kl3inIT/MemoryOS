@@ -10,9 +10,11 @@ import io.memoryos.objectstorage.ObjectUploadPurpose;
 import io.memoryos.objectstorage.ObjectUploadService;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.objectstorage.UploadAuthorization;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.SequencedMap;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -141,11 +143,11 @@ public class UserFileService {
      * for, in one query; a file that is missing, not READY or no longer readable is absent. Called inside the
      * caller's transaction, which already resolved {@code tenant} for the actor.
      */
-    public java.util.SequencedMap<UUID, FileText> readAll(TenantId tenant, ActorId actor, List<UUID> ids, int count) {
+    public SequencedMap<UUID, FileText> readAll(TenantId tenant, ActorId actor, List<UUID> ids, int count) {
         if (ids.size() > 20 || ids.stream().anyMatch(Objects::isNull) || count < 1 || count > 16000)
             throw LibraryException.invalid("Invalid file range.");
         var windows = files.plaintexts(tenant, actor, ids, attachments.readableThroughAgents(tenant, actor, ids), count);
-        var texts = new java.util.LinkedHashMap<UUID, FileText>();
+        var texts = new LinkedHashMap<UUID, FileText>();
         for (UUID id : ids) {
             var window = windows.get(id);
             if (window != null) texts.put(id, new FileText(window.text(), window.offset(), window.totalCharacters()));

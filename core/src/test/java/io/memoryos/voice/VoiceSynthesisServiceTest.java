@@ -18,11 +18,13 @@ import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 class VoiceSynthesisServiceTest {
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
@@ -59,8 +61,8 @@ class VoiceSynthesisServiceTest {
         var reader = new VoiceSynthesisService(connections, mock(IamAuthorization.class), meters);
         var actor = new ActorId(UUID.randomUUID());
         var tts = connection();
-        org.mockito.Mockito.when(connections.resolve(actor)).thenReturn(new VoiceConnectionService.Access(null, tts));
-        org.mockito.Mockito.when(connections.key(tts)).thenThrow(VoiceException.providerUnavailable());
+        Mockito.when(connections.resolve(actor)).thenReturn(new VoiceConnectionService.Access(null, tts));
+        Mockito.when(connections.key(tts)).thenThrow(VoiceException.providerUnavailable());
 
         // Twice the slot count: a leaked slot would turn the later calls into "busy".
         for (int attempt = 0; attempt < 16; attempt++) {
@@ -127,7 +129,7 @@ class VoiceSynthesisServiceTest {
         try (var speech = service.streaming(connection(), "voice-secret", 1.5, audio::writeBytes, released::incrementAndGet)) {
             speech.append("Một.");
             speech.append("Hai.");
-            speech.finish().get(10, java.util.concurrent.TimeUnit.SECONDS);
+            speech.finish().get(10, TimeUnit.SECONDS);
         }
         assertEquals("mp3-1;mp3-2;", audio.toString(UTF_8));
         assertTrue(bodies.get(0).contains("\"input\":\"Một.\""));
@@ -140,7 +142,7 @@ class VoiceSynthesisServiceTest {
 
     @Test
     void streamingSpeechReportsProviderCallsOnlyOnceTextIsSent() throws Exception {
-        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var calls = new AtomicInteger();
         try (var unused = service.streaming(connection(), "voice-secret", 1.0, ignored -> {}, released::incrementAndGet,
                 calls::incrementAndGet)) {
             // Closed before any answer text: the provider was never called.
@@ -149,7 +151,7 @@ class VoiceSynthesisServiceTest {
         try (var speech = service.streaming(connection(), "voice-secret", 1.0, ignored -> {}, released::incrementAndGet,
                 calls::incrementAndGet)) {
             speech.append("Một.");
-            speech.finish().get(10, java.util.concurrent.TimeUnit.SECONDS);
+            speech.finish().get(10, TimeUnit.SECONDS);
         }
         assertEquals(1, calls.get());
     }

@@ -7,6 +7,7 @@ import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationType;
+import io.memoryos.connector.source.persistence.JdbcSourceItemRepository;
 import io.memoryos.connector.sync.persistence.JdbcCleanupAttemptRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
@@ -14,6 +15,7 @@ import io.memoryos.connector.source.persistence.JdbcSourceUploadRepository;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.DocumentId;
 import io.memoryos.objectstorage.ObjectUploadService;
+import io.memoryos.objectstorage.ObjectWriteService;
 import io.memoryos.objectstorage.StoredObjectRegistry;
 import io.memoryos.shared.TenantId;
 
@@ -36,8 +38,8 @@ public class DefaultConnectorCleanupService implements ConnectorCleanupPort {
     private final DocumentCommandPort documents;
     private final ObjectUploadService objectUploads;
     private final StoredObjectRegistry storedObjects;
-    private final io.memoryos.connector.source.persistence.JdbcSourceItemRepository items;
-    private final io.memoryos.objectstorage.ObjectWriteService writes;
+    private final JdbcSourceItemRepository items;
+    private final ObjectWriteService writes;
 
     public DefaultConnectorCleanupService(
             JdbcCleanupAttemptRepository attempts,
@@ -47,8 +49,8 @@ public class DefaultConnectorCleanupService implements ConnectorCleanupPort {
             DocumentCommandPort documents,
             ObjectUploadService objectUploads,
             StoredObjectRegistry storedObjects,
-            io.memoryos.connector.source.persistence.JdbcSourceItemRepository items,
-            io.memoryos.objectstorage.ObjectWriteService writes
+            JdbcSourceItemRepository items,
+            ObjectWriteService writes
     ) {
         this.attempts = Objects.requireNonNull(attempts, "attempts must not be null");
         this.sources = Objects.requireNonNull(sources, "sources must not be null");

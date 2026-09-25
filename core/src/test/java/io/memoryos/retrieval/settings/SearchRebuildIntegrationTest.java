@@ -1,5 +1,6 @@
 package io.memoryos.retrieval.settings;
 
+import io.memoryos.connector.SourceSearchMocks;
 import io.memoryos.shared.Sha256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -62,10 +63,12 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -76,6 +79,7 @@ import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.support.JdbcTransactionManager;
@@ -149,9 +153,9 @@ class SearchRebuildIntegrationTest {
                     new StructuredDocumentChunker(mapper));
             var sourceSearch = mock(SourceSearchService.class);
             when(sourceSearch.indexMetadata(any(), any(), any())).thenReturn(List.of());
-            when(sourceSearch.indexAccess(any(), org.mockito.ArgumentMatchers.any(io.memoryos.document.DocumentId.class)))
+            when(sourceSearch.indexAccess(any(), ArgumentMatchers.any(DocumentId.class)))
                     .thenReturn(new DocumentAccess(true, Set.of()));
-            io.memoryos.connector.SourceSearchMocks.answerPagesFromSingleDocuments(sourceSearch);
+            SourceSearchMocks.answerPagesFromSingleDocuments(sourceSearch);
             var gateway = gateways.apply(TestSearchGateways.gateway(properties, mapper));
             index = new OpenSearchIndexService(gateway, generations, properties, mapper, chunks, sourceSearch,
                     new SearchTimings(new SimpleMeterRegistry(), ObservationRegistry.NOOP));
@@ -205,7 +209,7 @@ class SearchRebuildIntegrationTest {
                 .70, Duration.ofSeconds(30), "memoryos-t" + Long.toHexString(System.nanoTime()), 0, "", "");
         jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,'ops','Ops','ACTIVE','TEST')")
                 .param("id", tenant).update();
-        when(tenants.operatingTenant()).thenReturn(java.util.Optional.of(new TenantId(tenant)));
+        when(tenants.operatingTenant()).thenReturn(Optional.of(new TenantId(tenant)));
         var access = new IamAccess(new TenantId(tenant), Authority.GLOBAL);
         when(authorization.require(any(), any(), anyBoolean())).thenReturn(access);
         when(authorization.lockAndRequireExclusive(any(), any())).thenReturn(access);
@@ -655,7 +659,7 @@ class SearchRebuildIntegrationTest {
     private Clock clock() {
         return new Clock() {
             @Override public ZoneOffset getZone() { return ZoneOffset.UTC; }
-            @Override public Clock withZone(java.time.ZoneId zone) { return this; }
+            @Override public Clock withZone(ZoneId zone) { return this; }
             @Override public Instant instant() { return now.get(); }
         };
     }

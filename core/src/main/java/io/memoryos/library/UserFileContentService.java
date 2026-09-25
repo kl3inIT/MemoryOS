@@ -1,5 +1,6 @@
 package io.memoryos.library;
 
+import io.memoryos.document.SpreadsheetPreview;
 import io.memoryos.library.persistence.JdbcUserFileRepository;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
@@ -8,7 +9,10 @@ import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectWriteService;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -52,8 +56,8 @@ public class UserFileContentService {
             return new Served(rendered.mediaType(), rendered.bytes().length, null, rendered.bytes());
         }
 
-        public java.io.InputStream inputStream() {
-            return content != null ? content.inputStream() : new java.io.ByteArrayInputStream(requireBytes());
+        public InputStream inputStream() {
+            return content != null ? content.inputStream() : new ByteArrayInputStream(requireBytes());
         }
 
         private byte[] requireBytes() {
@@ -172,23 +176,23 @@ public class UserFileContentService {
     }
 
     /** READY attachments among {@code ids} that the owner can read now; unknown or unreadable ids are skipped. */
-    public java.util.List<UserFile> readable(ActorId actor, TenantId tenant, java.util.Collection<UUID> ids) {
+    public List<UserFile> readable(ActorId actor, TenantId tenant, Collection<UUID> ids) {
         if (tenants.findActiveTenant(actor).filter(tenant::equals).isEmpty()) throw LibraryException.unavailable();
-        return files.owned(tenant, actor, java.util.Set.copyOf(ids)).stream()
+        return files.owned(tenant, actor, Set.copyOf(ids)).stream()
                 .map(JdbcUserFileRepository.Row::file).toList();
     }
     public ObjectContent open(ActorId actor, UUID id) {
         return open(actor, tenants.findActiveTenant(actor).orElseThrow(LibraryException::unavailable), id);
     }
     /** Onyx {@code fetch_chat_file(parsed=true)} for an attachment: an owner-private xlsx as CSV text per sheet. */
-    public java.util.List<io.memoryos.document.SpreadsheetPreview.Sheet> spreadsheet(ActorId actor, UUID id) {
+    public List<SpreadsheetPreview.Sheet> spreadsheet(ActorId actor, UUID id) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(LibraryException::unavailable);
         var file = files.owned(tenant, actor, id, false).orElseThrow(LibraryException::unavailable).file();
         if (!"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".equals(file.mediaType()))
             throw LibraryException.invalid("Only xlsx files have a spreadsheet preview");
         try (var input = open(actor, tenant, id)) {
-            return io.memoryos.document.SpreadsheetPreview.parse(input.inputStream());
-        } catch (java.io.IOException failed) {
+            return SpreadsheetPreview.parse(input.inputStream());
+        } catch (IOException failed) {
             throw LibraryException.invalid("The workbook cannot be previewed");
         }
     }
@@ -204,6 +208,6 @@ public class UserFileContentService {
                     || readable(tenant, actor, id).filter(row -> row.file().status() == UserFile.Status.READY).isEmpty())
                 throw LibraryException.unavailable();
             return bytes;
-        } catch (java.io.IOException failed) { throw LibraryException.unavailable(); }
+        } catch (IOException failed) { throw LibraryException.unavailable(); }
     }
 }

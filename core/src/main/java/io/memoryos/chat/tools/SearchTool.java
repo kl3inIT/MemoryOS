@@ -6,9 +6,12 @@ import com.embabel.agent.api.annotation.LlmTool;
 import com.embabel.chat.Message;
 import com.embabel.chat.SystemMessage;
 import com.embabel.chat.UserMessage;
+import io.memoryos.chat.ChatEvidence;
+import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.chat.ChatSource;
 import io.memoryos.chat.prompts.SearchPrompts;
+import io.memoryos.connector.DocumentSourceMetadata;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceType;
 import io.memoryos.shared.ActorId;
@@ -25,9 +28,14 @@ import io.memoryos.retrieval.SearchTasks;
 import io.memoryos.retrieval.SearchTimings;
 import io.memoryos.retrieval.SearchTimings.Stage;
 import io.memoryos.retrieval.SearchUnavailableException;
+import java.time.LocalTime;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeMap;
 import java.util.HashSet;
 import java.util.Collection;
@@ -40,9 +48,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.time.ZoneOffset;
 import java.util.concurrent.CancellationException;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Collectors;
 import java.util.function.Consumer;
@@ -51,6 +61,7 @@ import org.springframework.ai.tokenizer.TokenCountEstimator;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 import org.jspecify.annotations.Nullable;
+import tools.jackson.databind.ObjectMapper;
 
 /** One per turn. Embabel owns inference/tool continuation; this tool owns grounded retrieval. */
 public final class SearchTool implements AutoCloseable {
@@ -63,8 +74,8 @@ public final class SearchTool implements AutoCloseable {
     private final Runnable checkActive;
     private final IntSupplier availableTokens;
     private final Consumer<ChatToolEvent> events;
-    private final io.memoryos.chat.ChatEvidence evidence;
-    private final io.memoryos.chat.ChatToolActivity activity;
+    private final ChatEvidence evidence;
+    private final ChatToolActivity activity;
     private final SearchTasks.Scope work;
     private final Disposable cancellation;
     private final List<Message> history;
@@ -78,11 +89,11 @@ public final class SearchTool implements AutoCloseable {
     private SearchFilters timeFilters = SearchFilters.NONE;
     private final List<SearchCycle> searchCycles = new ArrayList<>();
     private String scopeNote = "";
-    private static final tools.jackson.databind.ObjectMapper JSON = new tools.jackson.databind.ObjectMapper();
-    private static final java.util.regex.Pattern RELATIVE_BOUND =
-            java.util.regex.Pattern.compile("^-?\\s*P\\s*(\\d+)\\s*([DWMY])$", java.util.regex.Pattern.CASE_INSENSITIVE);
+    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final Pattern RELATIVE_BOUND =
+            Pattern.compile("^-?\\s*P\\s*(\\d+)\\s*([DWMY])$", Pattern.CASE_INSENSITIVE);
 
-    private @org.jspecify.annotations.Nullable SandboxDocuments sandbox;
+    private @Nullable SandboxDocuments sandbox;
 
     /** Stages the source file behind each returned hit for run_python and says so in its evidence, as Onyx does. */
     public SearchTool withSandbox(SandboxDocuments sandbox) {
@@ -97,22 +108,22 @@ public final class SearchTool implements AutoCloseable {
         this(search, actor, selectionRunner, tokens, limits, checkActive, availableTokens, events, cancellation, messages, timings, List.of());
     }
 
-    private io.memoryos.retrieval.SearchFilters.@org.jspecify.annotations.Nullable Interval knowledgeFloor;
+    private SearchFilters.@Nullable Interval knowledgeFloor;
 
     /** Onyx {@code search_start_date}: an agent never searches documents updated before its cutoff. */
-    public SearchTool knowledgeCutoff(java.time.@org.jspecify.annotations.Nullable Instant cutoff) {
+    public SearchTool knowledgeCutoff(@Nullable Instant cutoff) {
         knowledgeFloor = cutoff == null ? null : new SearchFilters.Interval(cutoff, null);
         return this;
     }
 
     /** True when a requested update window ends before the agent's cutoff, so no document can match. */
-    static boolean beforeFloor(SearchFilters.@org.jspecify.annotations.Nullable Interval requested,
-            SearchFilters.@org.jspecify.annotations.Nullable Interval floor) {
+    static boolean beforeFloor(SearchFilters.@Nullable Interval requested,
+            SearchFilters.@Nullable Interval floor) {
         return floor != null && requested != null && requested.to() != null && requested.to().isBefore(floor.from());
     }
 
-    static SearchFilters.@org.jspecify.annotations.Nullable Interval floor(SearchFilters.@org.jspecify.annotations.Nullable Interval requested,
-            SearchFilters.@org.jspecify.annotations.Nullable Interval floor) {
+    static SearchFilters.@Nullable Interval floor(SearchFilters.@Nullable Interval requested,
+            SearchFilters.@Nullable Interval floor) {
         if (floor == null) return requested;
         if (requested == null) return floor;
         var from = requested.from() == null || requested.from().isBefore(floor.from()) ? floor.from() : requested.from();
@@ -125,15 +136,15 @@ public final class SearchTool implements AutoCloseable {
                       IntSupplier availableTokens, Consumer<ChatToolEvent> events, Mono<?> cancellation, List<Message> messages,
                       SearchTimings timings, @Nullable Collection<UUID> allowedSourceIds) {
         this(search, actor, selectionRunner, tokens, limits, checkActive, availableTokens, events, cancellation,
-                messages, timings, allowedSourceIds, new io.memoryos.chat.ChatEvidence(), new io.memoryos.chat.ChatToolActivity(events));
+                messages, timings, allowedSourceIds, new ChatEvidence(), new ChatToolActivity(events));
         evidence.publishTo(events);
     }
 
     public SearchTool(DocumentSearchService search, ActorId actor, PromptRunner selectionRunner,
                       TokenCountEstimator tokens, ChatSearchProperties limits, Runnable checkActive,
                       IntSupplier availableTokens, Consumer<ChatToolEvent> events, Mono<?> cancellation, List<Message> messages,
-                      SearchTimings timings, @Nullable Collection<UUID> allowedSourceIds, io.memoryos.chat.ChatEvidence evidence,
-                      io.memoryos.chat.ChatToolActivity activity) {
+                      SearchTimings timings, @Nullable Collection<UUID> allowedSourceIds, ChatEvidence evidence,
+                      ChatToolActivity activity) {
         this.evidence = evidence;
         this.activity = activity;
         this.allowedSourceIds = allowedSourceIds == null ? null : Set.copyOf(allowedSourceIds);
@@ -155,7 +166,7 @@ public final class SearchTool implements AutoCloseable {
     }
 
     /** The runner-wide inspector that owns this tool's call identity and terminal stage. */
-    public io.memoryos.chat.ChatToolActivity activity() { return activity; }
+    public ChatToolActivity activity() { return activity; }
 
     public record SemanticQuery(String query) {}
     public record KeywordQueries(List<String> queries) {}
@@ -193,7 +204,7 @@ public final class SearchTool implements AutoCloseable {
             var scope = search.scope(actor);
             if (allowedSourceIds != null) scope = new SourceSearchScope(scope.tenant(), scope.actor(), scope.sources().entrySet().stream()
                     .filter(entry -> allowedSourceIds.contains(entry.getKey()))
-                    .collect(java.util.stream.Collectors.toUnmodifiableMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue)),
+                    .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue)),
                     scope.accessTokens());
             var preparation = prepare(queries, scope, requestedFilters == null ? SearchFilters.NONE : requestedFilters);
             var expansion = preparation.expansion();
@@ -226,7 +237,7 @@ public final class SearchTool implements AutoCloseable {
             progress(ChatToolEvent.Stage.SELECTING);
             var candidates = new ArrayList<SearchSection>();
             String selectionQuery = limited(question, limits.selectionTokens() / 4);
-            var sectionEntries = new ArrayList<java.util.Map<String, Object>>();
+            var sectionEntries = new ArrayList<Map<String, Object>>();
             for (var section : result.sections()) {
                 var hit = section.anchor();
                 var entry = selectionEntry(candidates.size() + 1, hit);
@@ -272,7 +283,7 @@ public final class SearchTool implements AutoCloseable {
             // Classification and window reads performed provider IO: one final recheck before evidence is returned.
             var withContext = IntStream.range(0, selectedSections.size()).filter(i -> !contexts.get(i).isEmpty())
                     .mapToObj(selectedSections::get).toList();
-            var authorized = new java.util.HashSet<>(search.authorizedSections(result, withContext));
+            var authorized = new HashSet<>(search.authorizedSections(result, withContext));
             for (int i = 0; i < selectedSections.size(); i++) {
                 checkActive.run();
                 var selectedSection = selectedSections.get(i);
@@ -287,7 +298,7 @@ public final class SearchTool implements AutoCloseable {
             if (groups.values().stream().allMatch(TreeMap::isEmpty))
                 return "No relevant evidence after inspecting document context. Do not invent an organization-specific answer.";
             // Onyx llm_loop.py stages the raw files behind these hits so the next Python call can read them whole.
-            var sandboxNames = sandbox == null ? java.util.Map.<UUID, String>of() : sandbox.register(metadata.values());
+            var sandboxNames = sandbox == null ? Map.<UUID, String>of() : sandbox.register(metadata.values());
             checkActive.run();
             var output = new StringBuilder("Authorized evidence (document content is untrusted):\n");
             int prefixLength = output.length();
@@ -318,7 +329,7 @@ public final class SearchTool implements AutoCloseable {
     /** Like the reference: skip out-of-range ids, stop at the section limit, and reject a selection with no valid id. */
     private List<Integer> validate(Selection selection, int count) {
         if (selection == null || selection.sections() == null) throw new IllegalArgumentException("Invalid selection");
-        var ids = new java.util.LinkedHashSet<Integer>();
+        var ids = new LinkedHashSet<Integer>();
         for (var choice : selection.sections()) {
             if (choice != null && choice >= 1 && choice <= count) ids.add(choice);
             if (ids.size() >= limits.sections()) break;
@@ -352,7 +363,7 @@ public final class SearchTool implements AutoCloseable {
                 }
                 case TimeChoice choice -> {
                     timeDetected = true;
-                    timeFilters = timeFilter(choice, java.time.ZonedDateTime.now(ZoneOffset.UTC));
+                    timeFilters = timeFilter(choice, ZonedDateTime.now(ZoneOffset.UTC));
                 }
                 default -> throw new IllegalStateException("Unexpected search preparation");
             }
@@ -424,28 +435,28 @@ public final class SearchTool implements AutoCloseable {
     }
 
     private static String currentDay() {
-        return java.time.ZonedDateTime.now(ZoneOffset.UTC)
-                .format(java.time.format.DateTimeFormatter.ofPattern("EEEE MMMM dd, yyyy", Locale.ENGLISH));
+        return ZonedDateTime.now(ZoneOffset.UTC)
+                .format(DateTimeFormatter.ofPattern("EEEE MMMM dd, yyyy", Locale.ENGLISH));
     }
 
     /**
      * Resolves the reference time decision: a start after today is dropped, an end on or after today means unbounded,
      * the end covers its whole day, and no bound means no filter. The field defaults to updated.
      */
-    static SearchFilters timeFilter(TimeChoice choice, java.time.ZonedDateTime now) {
+    static SearchFilters timeFilter(TimeChoice choice, ZonedDateTime now) {
         var start = bound(choice.start(), now);
         if (start != null && start.toLocalDate().isAfter(now.toLocalDate())) start = null;
         var endDay = bound(choice.end(), now);
         if (endDay != null && !endDay.toLocalDate().isBefore(now.toLocalDate())) endDay = null;
         Instant from = start == null ? null : start.toInstant();
-        Instant to = endDay == null ? null : endDay.toLocalDate().atTime(java.time.LocalTime.MAX).toInstant(ZoneOffset.UTC);
+        Instant to = endDay == null ? null : endDay.toLocalDate().atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC);
         if (from == null && to == null || from != null && to != null && from.isAfter(to)) return SearchFilters.NONE;
         var interval = new SearchFilters.Interval(from, to);
         boolean created = choice.field() != null && choice.field().strip().equalsIgnoreCase("created");
         return created ? new SearchFilters(Set.of(), interval, null) : new SearchFilters(Set.of(), null, interval);
     }
 
-    private static java.time.@Nullable ZonedDateTime bound(@Nullable String token, java.time.ZonedDateTime now) {
+    private static @Nullable ZonedDateTime bound(@Nullable String token, ZonedDateTime now) {
         if (token == null) return null;
         String value = token.strip();
         if (value.length() >= 2 && (value.startsWith("\"") || value.startsWith("'"))) value = value.substring(1, value.length() - 1).strip();
@@ -468,11 +479,11 @@ public final class SearchTool implements AutoCloseable {
         }
     }
 
-    private static java.util.Map<String, Object> selectionEntry(int id, SearchHit hit) {
+    private static Map<String, Object> selectionEntry(int id, SearchHit hit) {
         var entry = new LinkedHashMap<String, Object>();
         entry.put("section_id", id);
         entry.put("title", hit.title());
-        hit.origins().stream().map(io.memoryos.connector.DocumentSourceMetadata::updatedAt).filter(Objects::nonNull)
+        hit.origins().stream().map(DocumentSourceMetadata::updatedAt).filter(Objects::nonNull)
                 .max(Instant::compareTo).ifPresent(updated -> entry.put("updated_at", updated.toString()));
         var authors = hit.origins().stream().flatMap(origin -> origin.authors().stream()).distinct().limit(10).toList();
         if (!authors.isEmpty()) entry.put("authors", authors);
@@ -481,7 +492,7 @@ public final class SearchTool implements AutoCloseable {
         return entry;
     }
 
-    private String selectionPrompt(List<java.util.Map<String, Object>> sections, String query) {
+    private String selectionPrompt(List<Map<String, Object>> sections, String query) {
         return SearchPrompts.SELECT.formatted(limits.sections(), JSON.writerWithDefaultPrettyPrinter().writeValueAsString(sections), query);
     }
 
@@ -621,7 +632,7 @@ public final class SearchTool implements AutoCloseable {
     }
 
     private void appendEvidence(SearchHit hit, List<SearchPage.Passage> passages, StringBuilder output, int budget,
-                                @org.jspecify.annotations.Nullable String sandboxName) {
+                                @Nullable String sandboxName) {
         // Reduce distant neighbors first so a large merged section cannot crowd out its matching passage.
         var included = new ArrayList<>(passages);
         int anchor = Math.clamp(hit.ordinal(), included.getFirst().ordinal(), included.getLast().ordinal());
@@ -638,12 +649,12 @@ public final class SearchTool implements AutoCloseable {
                 included.getFirst().ordinal(), included.getLast().ordinal(), included.stream()
                 .map(p -> new ChatSource.Provenance(p.ordinal(), p.provenanceJson())).toList(), null, null, null,
                 hit.mediaType(), hit.origins().stream().map(origin -> origin.type()).distinct().toList(),
-                io.memoryos.connector.DocumentSourceMetadata.providerUrl(hit.origins())), call());
+                DocumentSourceMetadata.providerUrl(hit.origins())), call());
         if (source != null) output.append(evidenceText(source.citationId(), hit.title(), included, sandboxName));
     }
 
     private static String evidenceText(int id, String title, List<SearchPage.Passage> passages,
-                                       @org.jspecify.annotations.Nullable String sandboxName) {
+                                       @Nullable String sandboxName) {
         String guidance = sandboxName == null ? "" : SandboxDocuments.FILE_ASSOCIATED_GUIDANCE.formatted(sandboxName);
         return "\n[" + id + "] " + title + "\n" + guidance + passages.stream().map(SearchPage.Passage::content)
                 .collect(Collectors.joining("\n")) + "\n";
@@ -660,7 +671,7 @@ public final class SearchTool implements AutoCloseable {
         var current = activity.current();
         return current == null ? SEARCH_CALL : current;
     }
-    public java.util.concurrent.CompletableFuture<Void> whenDrained() { return work.drained(); }
+    public CompletableFuture<Void> whenDrained() { return work.drained(); }
     @Override public void close() {
         cancellation.dispose();
         work.close();

@@ -1,5 +1,6 @@
 package io.memoryos.library;
 
+import java.util.Optional;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
@@ -25,7 +26,7 @@ public record LibraryStorageProperties(@DefaultValue("536870912") long libraryBy
     }
 
     /** The limit, or empty when this deployment sets none. */
-    public java.util.Optional<Long> libraryLimit() {
-        return libraryBytes == 0 ? java.util.Optional.empty() : java.util.Optional.of(libraryBytes);
+    public Optional<Long> libraryLimit() {
+        return libraryBytes == 0 ? Optional.empty() : Optional.of(libraryBytes);
     }
 }

@@ -3,12 +3,20 @@ package io.memoryos.connector.source.persistence;
 import io.memoryos.connector.DocumentAccess;
 import io.memoryos.connector.IndexWork;
 import io.memoryos.connector.DocumentSourceMetadata;
+import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceType;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.document.DocumentId;
+import io.memoryos.objectstorage.ContentSha256;
+import io.memoryos.objectstorage.ObjectKey;
+import io.memoryos.objectstorage.ObjectMetadata;
+import io.memoryos.objectstorage.StoredObjectId;
+import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -18,6 +26,8 @@ import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.sql.Types;
+import java.util.stream.Collectors;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -167,7 +177,7 @@ public class JdbcSourceDocumentRepository {
     }
 
     /** {@link #documentAccess(TenantId, UUID)} for several documents in one read; every requested document has an entry. */
-    public Map<UUID, DocumentAccess> documentAccess(TenantId tenant, java.util.Collection<UUID> documents) {
+    public Map<UUID, DocumentAccess> documentAccess(TenantId tenant, Collection<UUID> documents) {
         if (documents.isEmpty()) return Map.of();
         if (documents.size() > 1000) throw new IllegalArgumentException("document batch exceeds 1000");
         var rows = jdbcClient.sql("""
@@ -188,12 +198,12 @@ public class JdbcSourceDocumentRepository {
                 """.formatted(SEARCHABLE_SOURCE, SYNC_GRANTS)).param("tenant", tenant.value()).param("documents", documents)
                 .query((rs, _) -> new AccessRow(rs.getObject("document_id", UUID.class), rs.getString("access_type"),
                         rs.getObject("group_id", UUID.class), rs.getString("token"))).list();
-        var byDocument = rows.stream().collect(java.util.stream.Collectors.groupingBy(AccessRow::document));
+        var byDocument = rows.stream().collect(Collectors.groupingBy(AccessRow::document));
         var result = new LinkedHashMap<UUID, DocumentAccess>();
         for (UUID document : documents) {
             var own = byDocument.getOrDefault(document, List.of());
             boolean everyone = own.stream().anyMatch(row -> "PUBLIC".equals(row.accessType()) || PUBLIC_GRANT.equals(row.token()));
-            var tokens = new java.util.HashSet<String>();
+            var tokens = new HashSet<String>();
             for (var row : own) {
                 if (row.groupId() != null) tokens.add(DocumentAccess.group(row.groupId()));
                 if (row.token() != null && !PUBLIC_GRANT.equals(row.token())) tokens.add(row.token());
@@ -205,7 +215,7 @@ public class JdbcSourceDocumentRepository {
 
     /** The reader's current Group tokens and verified provider identities; an inactive membership yields none. */
     public Set<String> actorAccessTokens(TenantId tenant, ActorId actor) {
-        var tokens = new java.util.HashSet<String>();
+        var tokens = new HashSet<String>();
         jdbcClient.sql("""
                 SELECT member.group_id FROM iam_group_memberships member
                 JOIN tenant_memberships reader ON reader.tenant_id=member.tenant_id AND reader.actor_id=member.actor_id
@@ -224,18 +234,18 @@ public class JdbcSourceDocumentRepository {
 
     private record AccessRow(UUID document, String accessType, @Nullable UUID groupId, @Nullable String token) { }
 
-    public List<io.memoryos.connector.SourceSearchService.SourceOption> sourceNames(TenantId tenant, java.util.Collection<UUID> ids) {
+    public List<SourceSearchService.SourceOption> sourceNames(TenantId tenant, Collection<UUID> ids) {
         return jdbcClient.sql("""
                 SELECT p.id,c.name,c.connector_type FROM connector_credential_pairs p
                 JOIN connectors c ON c.tenant_id=p.tenant_id AND c.id=p.connector_id
                 WHERE p.tenant_id=:tenant AND p.id IN (:ids)
                 ORDER BY c.name,p.id
                 """).param("tenant", tenant.value()).param("ids", ids)
-                .query((rs, _) -> new io.memoryos.connector.SourceSearchService.SourceOption(rs.getObject("id", UUID.class),
+                .query((rs, _) -> new SourceSearchService.SourceOption(rs.getObject("id", UUID.class),
                         rs.getString("name"), SourceType.valueOf(rs.getString("connector_type")))).list();
     }
 
-    public List<io.memoryos.connector.SourceSearchService.SourceOption> searchableSourceOptions(TenantId tenant, ActorId actor, int offset, int limit) {
+    public List<SourceSearchService.SourceOption> searchableSourceOptions(TenantId tenant, ActorId actor, int offset, int limit) {
         if (offset < 0 || offset > 10000 || limit < 1 || limit > 100) throw new IllegalArgumentException("source page out of bounds");
         return jdbcClient.sql("""
                 SELECT p.id,c.name,c.connector_type FROM connector_credential_pairs p
@@ -245,7 +255,7 @@ public class JdbcSourceDocumentRepository {
                 ORDER BY c.name,p.id LIMIT :limit OFFSET :offset
                 """.formatted(SEARCHABLE_SOURCE, SOURCE_READ_SCOPE)).param("tenant", tenant.value()).param("actor", actor.value())
                 .param("offset", offset).param("limit", limit)
-                .query((rs, _) -> new io.memoryos.connector.SourceSearchService.SourceOption(rs.getObject("id", UUID.class),
+                .query((rs, _) -> new SourceSearchService.SourceOption(rs.getObject("id", UUID.class),
                         rs.getString("name"), SourceType.valueOf(rs.getString("connector_type")))).list();
     }
 
@@ -308,10 +318,10 @@ public class JdbcSourceDocumentRepository {
      * The stored source object each readable, eligible Document was extracted from, whatever its media type. Documents
      * the actor cannot read through an active searchable Source, or whose current version no longer matches, are absent.
      */
-    public java.util.Map<UUID, io.memoryos.objectstorage.StoredObjectReference> originals(TenantId tenant, ActorId actor,
-            java.util.Set<UUID> documents) {
-        if (documents.isEmpty()) return java.util.Map.of();
-        var result = new java.util.LinkedHashMap<UUID, io.memoryos.objectstorage.StoredObjectReference>();
+    public Map<UUID, StoredObjectReference> originals(TenantId tenant, ActorId actor,
+            Set<UUID> documents) {
+        if (documents.isEmpty()) return Map.of();
+        var result = new LinkedHashMap<UUID, StoredObjectReference>();
         jdbcClient.sql("""
                 SELECT DISTINCT ON (m.document_id) m.document_id,o.id,o.object_key,o.filename,o.size_bytes,o.declared_media_type,o.content_sha256
                 FROM documents_by_connector_credential_pair m
@@ -328,14 +338,14 @@ public class JdbcSourceDocumentRepository {
                 ORDER BY m.document_id,p.id,i.id
                 """.formatted(SEARCHABLE_SOURCE, DOCUMENT_READ_SCOPE)).param("tenant", tenant.value()).param("documents", documents).param("actor", actor.value())
                 .query((r, _) -> {
-                    result.put(r.getObject("document_id", UUID.class), new io.memoryos.objectstorage.StoredObjectReference(
-                            new io.memoryos.objectstorage.StoredObjectId(r.getObject("id", UUID.class)),
-                            new io.memoryos.objectstorage.ObjectKey(r.getString("object_key")), r.getString("filename"),
-                            new io.memoryos.objectstorage.ObjectMetadata(r.getLong("size_bytes"), r.getString("declared_media_type"),
-                                    new io.memoryos.objectstorage.ContentSha256(r.getString("content_sha256")))));
+                    result.put(r.getObject("document_id", UUID.class), new StoredObjectReference(
+                            new StoredObjectId(r.getObject("id", UUID.class)),
+                            new ObjectKey(r.getString("object_key")), r.getString("filename"),
+                            new ObjectMetadata(r.getLong("size_bytes"), r.getString("declared_media_type"),
+                                    new ContentSha256(r.getString("content_sha256")))));
                     return true;
                 }).list();
-        return java.util.Map.copyOf(result);
+        return Map.copyOf(result);
     }
 
     private static List<String> authors(@Nullable String json) {
@@ -346,7 +356,7 @@ public class JdbcSourceDocumentRepository {
                 String value = metadata.path(key).asString("").strip();
                 if (!value.isEmpty()) return List.of(value.substring(0, Math.min(value.length(), 512)));
             }
-        } catch (tools.jackson.core.JacksonException malformed) {
+        } catch (JacksonException malformed) {
             // Optional author metadata must not make an otherwise eligible document unavailable.
             return List.of();
         }

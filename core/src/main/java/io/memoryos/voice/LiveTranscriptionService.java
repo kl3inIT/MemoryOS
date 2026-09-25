@@ -13,6 +13,8 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
@@ -23,7 +25,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class LiveTranscriptionService {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(LiveTranscriptionService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(LiveTranscriptionService.class);
     static final int MAX_STREAMS = 32;
     /** An online meeting streams the microphone and the shared tab at once. */
     static final int MAX_STREAMS_PER_ACTOR = 2;

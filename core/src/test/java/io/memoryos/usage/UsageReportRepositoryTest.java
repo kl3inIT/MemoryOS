@@ -6,6 +6,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.usage.persistence.UsageReportRepository;
 import io.memoryos.usage.report.UsageReportStatus;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -94,7 +95,7 @@ class UsageReportRepositoryTest {
                     expires_at)
                 VALUES (:tenant, :id, :key, 'usage.zip', 'application/zip', 10, :sha, 'ACTIVE', :expires)
                 """).param("tenant", tenant).param("id", id).param("key", "raw/" + tenant + "/" + id)
-                .param("sha", "0".repeat(64)).param("expires", java.sql.Timestamp.from(Instant.now().plusSeconds(3600))).update();
+                .param("sha", "0".repeat(64)).param("expires", Timestamp.from(Instant.now().plusSeconds(3600))).update();
         return id;
     }
 
@@ -114,7 +115,7 @@ class UsageReportRepositoryTest {
                 INSERT INTO actor_profiles(actor_id, issuer, subject, display_name, email, email_verified, observed_at)
                 VALUES (:id, 'https://id.test', :subject, :name, :email, true, :at)""")
                 .param("id", id).param("subject", id.toString()).param("name", name).param("email", email)
-                .param("at", java.sql.Timestamp.from(Instant.now())).update();
+                .param("at", Timestamp.from(Instant.now())).update();
         return id;
     }
 }

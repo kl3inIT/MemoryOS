@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -209,7 +210,7 @@ public class LibraryArchiveService {
         return released;
     }
 
-    private List<LibraryFile> listed(TenantId tenant, ActorId owner, java.util.Collection<LibraryArchiveItem> requested) {
+    private List<LibraryFile> listed(TenantId tenant, ActorId owner, Collection<LibraryArchiveItem> requested) {
         return contents.listed(tenant, owner, requested, MAX_FILES);
     }
 
