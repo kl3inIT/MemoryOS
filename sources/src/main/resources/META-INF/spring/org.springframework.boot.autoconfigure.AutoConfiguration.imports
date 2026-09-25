@@ -1,4 +1,4 @@
-io.memoryos.provider.file.FileProviderAutoConfiguration
-io.memoryos.provider.SourceContentExtractorAutoConfiguration
-io.memoryos.provider.google.GoogleDriveProviderAutoConfiguration
-io.memoryos.provider.sharepoint.SharePointProviderAutoConfiguration
+io.memoryos.ingestion.extraction.FileProviderAutoConfiguration
+io.memoryos.ingestion.extraction.SourceContentExtractorAutoConfiguration
+io.memoryos.connector.adapter.googledrive.GoogleDriveProviderAutoConfiguration
+io.memoryos.connector.adapter.sharepoint.SharePointProviderAutoConfiguration
