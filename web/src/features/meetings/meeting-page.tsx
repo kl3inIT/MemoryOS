@@ -60,7 +60,7 @@ import {
   useRecordingFailure,
 } from "./meeting-session";
 import type { MeetingTrack } from "./meeting-socket";
-import { slug } from "./meeting-file-name";
+import { slug } from "@/lib/meeting-file-name";
 import { EditableItem, EditableSummary, NewItem } from "./minutes-editing";
 import { SpeakerSuggestions } from "./speaker-suggestions";
 import { TranscriptCorrections } from "./transcript-corrections";

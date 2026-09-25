@@ -3111,6 +3111,134 @@ export type ChatLibraryTrashWindow = {
     days: number;
 };
 
+/**
+ * One row of a library view: an owned file, or a read-only reference to something the viewer may read now through a share, an assistant or a Source
+ */
+export type ChatLibraryEntry = {
+    kind: 'UPLOAD' | 'GENERATED' | 'IMAGE' | 'MEETING' | 'AGENT_FILE' | 'DOCUMENT';
+    id: string;
+    name: string;
+    /**
+     * Null for a meeting
+     */
+    mediaType: string | null;
+    /**
+     * Null for a meeting
+     */
+    sizeBytes: number | null;
+    /**
+     * Null for a meeting
+     */
+    category: 'DOCUMENT' | 'SPREADSHEET' | 'IMAGE' | 'PRESENTATION' | 'OTHER';
+    /**
+     * When the file or meeting was created, or when a Source document last changed
+     */
+    at: string;
+    /**
+     * The viewer owns it; only owned rows are renamed, trashed or counted toward storage
+     */
+    owned: boolean;
+    /**
+     * Starred by the viewer
+     */
+    starred: boolean;
+    /**
+     * When the viewer last opened it
+     */
+    openedAt: string | null;
+    /**
+     * Who owns a meeting shared with the viewer or uploaded an assistant's file
+     */
+    ownerName: string | null;
+    reason: ChatLibraryEntryReason;
+    /**
+     * The conversation that produced a generated file or image
+     */
+    sessionId: string | null;
+    sessionTitle: string | null;
+    /**
+     * The answer that produced a generated file or image
+     */
+    messageId: string | null;
+    /**
+     * Set for a meeting
+     */
+    meeting: ChatLibraryEntryMeeting | null;
+    /**
+     * The assistants granting an assistant's file; empty for every other kind
+     */
+    agents: Array<ChatLibraryEntryAgent>;
+    /**
+     * Set for a Source document
+     */
+    document: ChatLibraryEntryDocument | null;
+};
+
+/**
+ * An assistant the viewer uses that grants them this file
+ */
+export type ChatLibraryEntryAgent = {
+    id: string;
+    name: string;
+};
+
+/**
+ * Where a Source document comes from and what Search serves of it
+ */
+export type ChatLibraryEntryDocument = {
+    /**
+     * The generation Search serves, to preview it; null while it is being indexed
+     */
+    generation: string | null;
+    title: string | null;
+    sourceId: string;
+    sourceName: string;
+    sourceType: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
+    /**
+     * The document in its provider, when it has one
+     */
+    providerUrl: string | null;
+};
+
+/**
+ * What a meeting row offers: its biên bản and its transcript
+ */
+export type ChatLibraryEntryMeeting = {
+    status: 'RECORDING' | 'TRANSCRIBING' | 'ENDED';
+    /**
+     * The minutes are written
+     */
+    minutesReady: boolean;
+    /**
+     * Somebody spoke, so a transcript exists
+     */
+    hasTranscript: boolean;
+    /**
+     * Milliseconds covered by the transcript
+     */
+    durationMs: number;
+};
+
+export type ChatLibraryEntryPage = {
+    items: Array<ChatLibraryEntry>;
+    /**
+     * Rows matching the filter, not only this page
+     */
+    totalCount: number;
+    hasMore: boolean;
+};
+
+/**
+ * Why the row is visible: the rule that admitted it
+ */
+export type ChatLibraryEntryReason = {
+    kind: 'OWNER' | 'MEMBER_SHARE' | 'GROUP_SHARE' | 'AGENT' | 'PUBLIC_SOURCE' | 'GROUP_SOURCE' | 'PROVIDER_SOURCE';
+    /**
+     * The viewer's Groups for GROUP_SHARE and GROUP_SOURCE, the assistants for AGENT; empty otherwise, where the owner or the Source is named on the row itself
+     */
+    names: Array<string>;
+};
+
 export type ChatLibraryContentMatch = {
     file: ChatLibraryFile;
     /**
@@ -3122,6 +3250,23 @@ export type ChatLibraryContentMatch = {
 export type ChatLibraryPassage = {
     text: string;
     ordinal: number;
+};
+
+export type ChatLibraryDocumentPage = {
+    items: Array<ChatLibraryEntry>;
+    /**
+     * Pass as cursor, with the same filters and sort, for the next page; null on the last
+     */
+    nextCursor: string | null;
+};
+
+/**
+ * A Source the viewer may narrow the documents view to
+ */
+export type ChatLibrarySourceOption = {
+    id: string;
+    name: string;
+    type: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
 };
 
 export type InterpreterHealthResponse = {
@@ -7072,6 +7217,94 @@ export type SetChatModelDefaultResponses = {
 };
 
 export type SetChatModelDefaultResponse = SetChatModelDefaultResponses[keyof SetChatModelDefaultResponses];
+
+export type UnstarChatLibraryEntryData = {
+    body?: never;
+    path: {
+        kind: 'UPLOAD' | 'GENERATED' | 'IMAGE' | 'MEETING' | 'AGENT_FILE' | 'DOCUMENT';
+        id: string;
+    };
+    query?: never;
+    url: '/api/chat/library/entries/{kind}/{id}/star';
+};
+
+export type UnstarChatLibraryEntryErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type UnstarChatLibraryEntryError = UnstarChatLibraryEntryErrors[keyof UnstarChatLibraryEntryErrors];
+
+export type UnstarChatLibraryEntryResponses = {
+    /**
+     * Not starred
+     */
+    204: void;
+};
+
+export type UnstarChatLibraryEntryResponse = UnstarChatLibraryEntryResponses[keyof UnstarChatLibraryEntryResponses];
+
+export type StarChatLibraryEntryData = {
+    body?: never;
+    path: {
+        kind: 'UPLOAD' | 'GENERATED' | 'IMAGE' | 'MEETING' | 'AGENT_FILE' | 'DOCUMENT';
+        id: string;
+    };
+    query?: never;
+    url: '/api/chat/library/entries/{kind}/{id}/star';
+};
+
+export type StarChatLibraryEntryErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type StarChatLibraryEntryError = StarChatLibraryEntryErrors[keyof StarChatLibraryEntryErrors];
+
+export type StarChatLibraryEntryResponses = {
+    /**
+     * Starred
+     */
+    204: void;
+};
+
+export type StarChatLibraryEntryResponse = StarChatLibraryEntryResponses[keyof StarChatLibraryEntryResponses];
 
 export type GetChatInterpreterSettingsData = {
     body?: never;
@@ -12011,6 +12244,50 @@ export type EmptyChatLibraryTrashResponses = {
 
 export type EmptyChatLibraryTrashResponse = EmptyChatLibraryTrashResponses[keyof EmptyChatLibraryTrashResponses];
 
+export type RecordChatLibraryEntryOpenedData = {
+    body?: never;
+    path: {
+        kind: 'UPLOAD' | 'GENERATED' | 'IMAGE' | 'MEETING' | 'AGENT_FILE' | 'DOCUMENT';
+        id: string;
+    };
+    query?: never;
+    url: '/api/chat/library/entries/{kind}/{id}/opened';
+};
+
+export type RecordChatLibraryEntryOpenedErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type RecordChatLibraryEntryOpenedError = RecordChatLibraryEntryOpenedErrors[keyof RecordChatLibraryEntryOpenedErrors];
+
+export type RecordChatLibraryEntryOpenedResponses = {
+    /**
+     * Recorded
+     */
+    204: void;
+};
+
+export type RecordChatLibraryEntryOpenedResponse = RecordChatLibraryEntryOpenedResponses[keyof RecordChatLibraryEntryOpenedResponses];
+
 export type ListChatLibraryArchivesData = {
     body?: never;
     path?: never;
@@ -14888,6 +15165,109 @@ export type GetChatLibraryTrashWindowResponses = {
 
 export type GetChatLibraryTrashWindowResponse = GetChatLibraryTrashWindowResponses[keyof GetChatLibraryTrashWindowResponses];
 
+export type ListChatLibraryStarredData = {
+    body?: never;
+    path?: never;
+    query?: {
+        query?: string;
+        /**
+         * Empty means every kind
+         */
+        kinds?: Array<string>;
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/library/starred';
+};
+
+export type ListChatLibraryStarredErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatLibraryStarredError = ListChatLibraryStarredErrors[keyof ListChatLibraryStarredErrors];
+
+export type ListChatLibraryStarredResponses = {
+    /**
+     * A page of starred entries
+     */
+    200: ChatLibraryEntryPage;
+};
+
+export type ListChatLibraryStarredResponse = ListChatLibraryStarredResponses[keyof ListChatLibraryStarredResponses];
+
+export type ListChatLibrarySharedData = {
+    body?: never;
+    path?: never;
+    query?: {
+        query?: string;
+        /**
+         * MEETING or AGENT_FILE; empty means both
+         */
+        kinds?: Array<string>;
+        /**
+         * Empty means every category; a meeting has none
+         */
+        categories?: Array<string>;
+        sort?: 'NEWEST' | 'OLDEST' | 'NAME';
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/library/shared';
+};
+
+export type ListChatLibrarySharedErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatLibrarySharedError = ListChatLibrarySharedErrors[keyof ListChatLibrarySharedErrors];
+
+export type ListChatLibrarySharedResponses = {
+    /**
+     * A page of what others share with the caller
+     */
+    200: ChatLibraryEntryPage;
+};
+
+export type ListChatLibrarySharedResponse = ListChatLibrarySharedResponses[keyof ListChatLibrarySharedResponses];
+
 export type SearchChatLibraryContentData = {
     body?: never;
     path?: never;
@@ -14930,6 +15310,197 @@ export type SearchChatLibraryContentResponses = {
 };
 
 export type SearchChatLibraryContentResponse = SearchChatLibraryContentResponses[keyof SearchChatLibraryContentResponses];
+
+export type ListChatLibraryRecentData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+    };
+    url: '/api/chat/library/recent';
+};
+
+export type ListChatLibraryRecentErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatLibraryRecentError = ListChatLibraryRecentErrors[keyof ListChatLibraryRecentErrors];
+
+export type ListChatLibraryRecentResponses = {
+    /**
+     * Up to 100 entries
+     */
+    200: Array<ChatLibraryEntry>;
+};
+
+export type ListChatLibraryRecentResponse = ListChatLibraryRecentResponses[keyof ListChatLibraryRecentResponses];
+
+export type ListChatLibraryMeetingsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        query?: string;
+        owner?: 'ALL' | 'MINE' | 'SHARED';
+        sort?: 'NEWEST' | 'OLDEST' | 'NAME';
+        offset?: number;
+        limit?: number;
+    };
+    url: '/api/chat/library/meetings';
+};
+
+export type ListChatLibraryMeetingsErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatLibraryMeetingsError = ListChatLibraryMeetingsErrors[keyof ListChatLibraryMeetingsErrors];
+
+export type ListChatLibraryMeetingsResponses = {
+    /**
+     * A page of meetings
+     */
+    200: ChatLibraryEntryPage;
+};
+
+export type ListChatLibraryMeetingsResponse = ListChatLibraryMeetingsResponses[keyof ListChatLibraryMeetingsResponses];
+
+export type ListChatLibraryDocumentsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Matches the file name or the title
+         */
+        query?: string;
+        /**
+         * Empty means every Source the caller may search
+         */
+        sourceIds?: Array<string>;
+        /**
+         * Empty means every category
+         */
+        categories?: Array<string>;
+        sort?: 'NEWEST' | 'NAME';
+        /**
+         * The nextCursor of the previous page, with the same filters and sort
+         */
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/api/chat/library/documents';
+};
+
+export type ListChatLibraryDocumentsErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatLibraryDocumentsError = ListChatLibraryDocumentsErrors[keyof ListChatLibraryDocumentsErrors];
+
+export type ListChatLibraryDocumentsResponses = {
+    /**
+     * A page of documents and the cursor of the next one
+     */
+    200: ChatLibraryDocumentPage;
+};
+
+export type ListChatLibraryDocumentsResponse = ListChatLibraryDocumentsResponses[keyof ListChatLibraryDocumentsResponses];
+
+export type ListChatLibraryDocumentSourcesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/library/documents/sources';
+};
+
+export type ListChatLibraryDocumentSourcesErrors = {
+    /**
+     * Invalid library request
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Tenant membership or CSRF requirement not met
+     */
+    403: ApiProblem;
+    /**
+     * Chat is unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Storage unavailable
+     */
+    503: ApiProblem;
+};
+
+export type ListChatLibraryDocumentSourcesError = ListChatLibraryDocumentSourcesErrors[keyof ListChatLibraryDocumentSourcesErrors];
+
+export type ListChatLibraryDocumentSourcesResponses = {
+    /**
+     * Sources, as Search offers them
+     */
+    200: Array<ChatLibrarySourceOption>;
+};
+
+export type ListChatLibraryDocumentSourcesResponse = ListChatLibraryDocumentSourcesResponses[keyof ListChatLibraryDocumentSourcesResponses];
 
 export type GetChatLibraryArchiveData = {
     body?: never;

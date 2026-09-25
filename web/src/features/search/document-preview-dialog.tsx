@@ -223,7 +223,8 @@ export function DocumentPreviewDialog({
                 />
               )}
             </div>
-            {reader ? (
+            {/* A document opened from the library carries no citation, so it shows the original alone. */}
+            {reader && selection.matches.length > 0 ? (
               <CitationRail
                 entries={selection.matches.map((match, index) => ({
                   text: reading.citations[index] ?? "",

@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearch } from "@tanstack/react-router";
-import { Download, Trash2, X } from "lucide-react";
+import { Download, FolderOpen, Trash2, X } from "lucide-react";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -11,7 +11,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
-import { Skeleton } from "@/components/ui/skeleton";
 import { PageSizeSelect } from "@/components/ui/page-size-select";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { useApplicationSession } from "@/features/identity/application-session-context";
@@ -23,7 +22,7 @@ import { LibraryContentMatches } from "./library-content";
 import { LibraryDropZone, LibraryUploadButton, LibraryUploadTray } from "./library-uploads";
 import { LibraryRail, type LibraryView } from "./library-rail";
 import { LibrarySettingsButton } from "./library-settings";
-import { FileActions, LibraryEmpty, LibraryList } from "./library-rows";
+import { FileActions, LibraryEmpty, LibraryList, LibraryListSkeleton } from "./library-rows";
 import {
   LibraryFilterPills,
   LibrarySelectionBar,
@@ -36,9 +35,11 @@ import { useLibraryUploads } from "./use-library-uploads";
 import { ChatFilePreviewModal } from "./file-preview-modal";
 import { type AskExtras } from "./file-ask-composer";
 import type { LibraryChat } from "./library-chat";
-import { uploadChatFile } from "./files";
+import { LibraryEntryViews } from "./library-entry-views";
+import { isEntryView, recordEntryOpened } from "./library-entries";
 import { type PreviewTarget } from "./file-preview";
 import {
+  askLibraryQuestion,
   changeLibraryFile,
   chatLibraryKey,
   deleteLibraryFile,
@@ -62,8 +63,10 @@ import {
 } from "./library";
 
 /**
- * The file library: uploads, files run_python generated and generated images in one owner-private list. What it
- * offers of Chat — asking about a file, Projects, conversation retention — comes in through `chat`.
+ * The library: everything the person can see or use, on one page. Their own files — uploads, files run_python
+ * generated and generated images — keep every command; what reaches them through a share, an assistant or a
+ * Source is listed read-only in views of its own. What it offers of Chat — asking about a file, Projects,
+ * conversation retention — comes in through `chat`.
  */
 export function LibraryPage({ chat }: { chat?: LibraryChat }) {
   const ui = useAppTranslation();
@@ -77,9 +80,11 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
   const linked = useSearch({ strict: false }).category as LibraryCategory | undefined;
   const [categories, setCategories] = useState<LibraryCategory[]>(linked ? [linked] : []);
   const [sort, setSort] = useState<LibrarySort>("NEWEST");
+  /** Only the starred files of Tệp của tôi, where the selection commands still apply to them. */
+  const [starredOnly, setStarredOnly] = useState(false);
   /** Name search reads the listing; content search asks the file search what a file contains. */
   const [mode, setMode] = useState<LibrarySearchMode>("name");
-  /** Which slice of the library is on screen: the usable files, the favourites, what is arriving, the trash. */
+  /** Which slice of the library is on screen; the person's own files come first, as they always have. */
   const [view, setView] = useState<LibraryView>("ready");
   const [renaming, setRenaming] = useState<LibraryFile>();
   const [layout, setLayout] = useState<LibraryLayout>("list");
@@ -116,7 +121,7 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
       categories,
       // The trash reads by when a file was deleted, not by when it was made.
       sort: view === "trash" ? ("DELETED" as const) : sort,
-      favorite: view === "favorite" || undefined,
+      favorite: (view === "ready" && starredOnly) || undefined,
       status:
         view === "pending"
           ? ("PENDING" as const)
@@ -124,11 +129,14 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
             ? ("TRASH" as const)
             : undefined,
     }),
-    [mode, query, sources, categories, sort, view],
+    [mode, query, sources, categories, sort, view, starredOnly],
   );
+  const owned = !isEntryView(view);
   const page = useQuery({
     queryKey: [...chatLibraryKey, actorId, authorizationVersion, filter, offset, size],
     queryFn: ({ signal }) => loadLibrary(filter, offset, signal, size),
+    // The other views read their own routes.
+    enabled: owned,
     // Paging keeps the page being read on screen until the next one arrives, instead of emptying the list.
     placeholderData: keepPreviousData,
     // An upload being processed becomes usable on its own; the view follows without a manual refresh.
@@ -137,13 +145,14 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
   });
   // The next page is fetched while this one is read, so *Tiếp* shows it without a wait.
   useEffect(() => {
-    if (!page.data?.hasMore || page.isPlaceholderData) return;
+    if (!owned || !page.data?.hasMore || page.isPlaceholderData) return;
     void cache.prefetchQuery({
       queryKey: [...chatLibraryKey, actorId, authorizationVersion, filter, offset + size, size],
       queryFn: ({ signal }) => loadLibrary(filter, offset + size, signal, size),
       staleTime: 30_000,
     });
   }, [
+    owned,
     cache,
     actorId,
     authorizationVersion,
@@ -169,7 +178,11 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
   });
   const files = page.data?.items ?? [];
   const chosen = files.filter((file) => selected.includes(file.id));
-  const filtered = query.length > 0 || sources.length > 0 || categories.length > 0;
+  const filtered =
+    query.length > 0 ||
+    sources.length > 0 ||
+    categories.length > 0 ||
+    (view === "ready" && starredOnly);
   const searchingContent = mode === "content";
 
   /**
@@ -260,12 +273,7 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
     }
   };
 
-  /**
-   * A question asked where the file is read (MEM-152): the file becomes an upload, a conversation is created
-   * for it, and Chat attaches it and sends the question once the conversation is open. An empty question
-   * opens that conversation with the files attached and nothing sent. A crop applied in the preview is asked
-   * about as itself, so the question is about what was on screen rather than the untouched original.
-   */
+  /** A question asked where the file is read; the file becomes an upload and Chat opens a conversation about it. */
   const askAboutFile = async (
     target: PreviewTarget,
     question: string,
@@ -275,22 +283,22 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
     const file =
       files.find((item) => item.id === target.id) ??
       (preview?.id === target.id ? preview : undefined);
-    const signal = AbortSignal.timeout(120_000);
-    const subject = extras.edited
-      ? await uploadChatFile(extras.edited, crypto.randomUUID(), signal, () => {})
-      : file && (await libraryUpload(file, signal));
-    if (!subject) return;
-    const attach = [subject.id];
-    for (const chosen of extras.library) attach.push((await libraryUpload(chosen, signal)).id);
-    for (const chosen of extras.uploads)
-      attach.push((await uploadChatFile(chosen, crypto.randomUUID(), signal, () => {})).id);
-    // The copies made for the question are library files too.
-    await cache.invalidateQueries({ queryKey: chatLibraryKey });
-    await chat.ask({ question, title: question || subject.filename, attach }, signal);
+    if (file) recordEntryOpened(file.source, file.id);
+    await askLibraryQuestion(
+      chat,
+      async (signal) => file && (await libraryUpload(file, signal)),
+      question,
+      extras,
+      () => cache.invalidateQueries({ queryKey: chatLibraryKey }),
+    );
   };
 
   const rowActions = {
-    onPreview: setPreview,
+    onPreview: (file: LibraryFile) => {
+      // Gần đây lists what the person opened, their own files included.
+      recordEntryOpened(file.source, file.id);
+      setPreview(file);
+    },
     onDelete: (file: LibraryFile) => setConfirming([file]),
     onAddToProject: chat && ((file: LibraryFile) => setProjectFiles([file])),
     onRename: (file: LibraryFile) => setRenaming(file),
@@ -320,15 +328,31 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
   const clearFilters = () => {
     fromTheFirstPage(setSources)([]);
     setCategories([]);
+    setStarredOnly(false);
     setSearch("");
   };
+  const toolbarState = { search, mode, sources, categories, sort, layout, starredOnly };
+  const toolbarHandlers = {
+    onSearch: fromTheFirstPage(setSearch),
+    onMode: fromTheFirstPage(setMode),
+    onSources: fromTheFirstPage(setSources),
+    onCategories: fromTheFirstPage(setCategories),
+    onSort: fromTheFirstPage(setSort),
+    onLayout: setLayout,
+    onStarredOnly: fromTheFirstPage(setStarredOnly),
+  };
+  const notices = (
+    <LibraryNotices archive={archive} refusals={refusals} onDismiss={() => setRefusals([])} />
+  );
 
   return (
     <AppShell pageTitle={ui("Thư viện")}>
       <SettingsLayout wide>
         <LibraryDropZone onFiles={uploads.start}>
           <PageHeader
+            icon={<FolderOpen />}
             title={ui("Thư viện")}
+            description={ui("Mọi tệp, cuộc họp và tài liệu bạn xem và dùng được, ở cùng một chỗ.")}
             actions={
               <>
                 <LibraryUploadButton onFiles={uploads.start} />
@@ -349,7 +373,7 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
           <div className="mt-6 flex flex-col gap-6 lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">
             <LibraryRail
               view={view}
-              counts={{ [view]: page.data?.totalCount }}
+              counts={owned ? { [view]: page.data?.totalCount } : {}}
               usage={usage.data}
               onView={(next) => {
                 fromTheFirstPage(setView)(next);
@@ -361,187 +385,189 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
               }}
             />
 
-            <div className="flex min-w-0 flex-col gap-4">
-              <LibraryToolbar
-                sortable={view === "ready" || view === "favorite"}
-                state={{ search, mode, sources, categories, sort, layout }}
-                handlers={{
-                  onSearch: fromTheFirstPage(setSearch),
-                  onMode: fromTheFirstPage(setMode),
-                  onSources: fromTheFirstPage(setSources),
-                  onCategories: fromTheFirstPage(setCategories),
-                  onSort: fromTheFirstPage(setSort),
-                  onLayout: setLayout,
-                }}
-              />
-              <LibraryFilterPills
-                state={{ search, mode, sources, categories, sort, layout }}
-                handlers={{
-                  onSearch: fromTheFirstPage(setSearch),
-                  onMode: fromTheFirstPage(setMode),
-                  onSources: fromTheFirstPage(setSources),
-                  onCategories: fromTheFirstPage(setCategories),
-                  onSort: fromTheFirstPage(setSort),
-                  onLayout: setLayout,
-                }}
-              />
+            {isEntryView(view) ? (
+              <div className="flex min-w-0 flex-col gap-4">
+                {notices}
+                <LibraryEntryViews
+                  key={view}
+                  view={view}
+                  layout={layout}
+                  onLayout={setLayout}
+                  chat={chat}
+                  onSaveImage={(file) => uploads.start([file])}
+                />
+              </div>
+            ) : (
+              <div className="flex min-w-0 flex-col gap-4">
+                <LibraryToolbar
+                  sortable={view === "ready"}
+                  starrable={view === "ready"}
+                  state={toolbarState}
+                  handlers={toolbarHandlers}
+                />
+                <LibraryFilterPills
+                  starrable={view === "ready"}
+                  state={toolbarState}
+                  handlers={toolbarHandlers}
+                />
 
-              {/* Always rendered: an empty selection is the bar leaving, which it animates itself. */}
-              <LibrarySelectionBar
-                count={selected.length}
-                packing={archive.state.phase === "packing"}
-                trash={view === "trash"}
-                onDownload={() => void archive.start(chosen)}
-                onAddToProject={chat && (() => setProjectFiles(chosen))}
-                onDelete={() => setConfirming(chosen)}
-                onRestore={() =>
-                  void eachChosen(
-                    chosen,
-                    (file) => restoreLibraryFile(file, AbortSignal.timeout(30000)),
-                    (count) => ui("Đã khôi phục {{count}} tệp.", { count }),
-                  )
-                }
-                onPurge={() => setPurging(chosen)}
-                onClear={() => setSelected([])}
-              />
-
-              <LibraryNotices
-                archive={archive}
-                refusals={refusals}
-                onDismiss={() => setRefusals([])}
-              />
-
-              {view === "trash" && (
-                <TrashBanner
-                  days={trashWindow.data}
-                  onEmpty={() =>
-                    act(async () => {
-                      const purged = await emptyLibraryTrash(AbortSignal.timeout(30000));
-                      return ui("Đã xoá vĩnh viễn {{count}} tệp.", { count: purged });
-                    }, ui("Đã dọn sạch thùng rác."))
+                {/* Always rendered: an empty selection is the bar leaving, which it animates itself. */}
+                <LibrarySelectionBar
+                  count={selected.length}
+                  packing={archive.state.phase === "packing"}
+                  trash={view === "trash"}
+                  onDownload={() => void archive.start(chosen)}
+                  onAddToProject={chat && (() => setProjectFiles(chosen))}
+                  onDelete={() => setConfirming(chosen)}
+                  onRestore={() =>
+                    void eachChosen(
+                      chosen,
+                      (file) => restoreLibraryFile(file, AbortSignal.timeout(30000)),
+                      (count) => ui("Đã khôi phục {{count}} tệp.", { count }),
+                    )
                   }
+                  onPurge={() => setPurging(chosen)}
+                  onClear={() => setSelected([])}
                 />
-              )}
 
-              {searchingContent ? (
-                <ContentResults
-                  query={query}
-                  matches={matches}
-                  onOpen={setPreview}
-                  actions={rowActions}
-                />
-              ) : (
-                <>
-                  {page.isPending && <ListSkeleton />}
-                  {page.isError && (
-                    <Alert variant="destructive">
-                      <AlertTitle>{ui("Không tải được thư viện.")}</AlertTitle>
-                      <AlertDescription>
-                        <Button prominence="internal" size="sm" onClick={() => void page.refetch()}>
-                          {ui("Thử lại")}
-                        </Button>
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  {page.isSuccess && files.length === 0 && (
-                    <LibraryEmpty
-                      view={view}
-                      filtered={filtered}
-                      action={<LibraryUploadButton onFiles={uploads.start} />}
-                      onClearFilters={clearFilters}
-                    />
-                  )}
-                  {files.length > 0 && (
-                    // While the next page is on its way the one being read stays, dimmed rather than gone.
-                    <div
-                      aria-busy={page.isPlaceholderData}
-                      className={cn(
-                        "flex flex-col gap-4 transition-opacity",
-                        page.isPlaceholderData && "opacity-60",
-                      )}
-                    >
-                      {/* A list header, aligned to the rows' own checkbox column so the three checkbox
-                          gutters (page, day, file) read as one line down the page. */}
-                      <div className="flex items-center border-b border-border-subtle px-[13px] pb-2">
-                        <label className="flex cursor-pointer items-center gap-2 font-secondary-body text-content-muted">
-                          <Checkbox
-                            aria-label={ui("Chọn tất cả trên trang này")}
-                            checked={
-                              selected.length === 0
-                                ? false
-                                : selected.length === files.length
-                                  ? true
-                                  : "indeterminate"
-                            }
-                            onCheckedChange={(checked) =>
-                              setSelected(checked === true ? files.map((file) => file.id) : [])
-                            }
-                          />
-                          {/* The scope is on the label, because a selection never leaves its page. */}
-                          {ui("Chọn tất cả trên trang này")}
-                        </label>
-                      </div>
-                      <LibraryList
-                        files={files}
+                {notices}
+
+                {view === "trash" && (
+                  <TrashBanner
+                    days={trashWindow.data}
+                    onEmpty={() =>
+                      act(async () => {
+                        const purged = await emptyLibraryTrash(AbortSignal.timeout(30000));
+                        return ui("Đã xoá vĩnh viễn {{count}} tệp.", { count: purged });
+                      }, ui("Đã dọn sạch thùng rác."))
+                    }
+                  />
+                )}
+
+                {searchingContent ? (
+                  <ContentResults
+                    query={query}
+                    matches={matches}
+                    onOpen={rowActions.onPreview}
+                    actions={rowActions}
+                  />
+                ) : (
+                  <>
+                    {page.isPending && <LibraryListSkeleton />}
+                    {page.isError && (
+                      <Alert variant="destructive">
+                        <AlertTitle>{ui("Không tải được thư viện.")}</AlertTitle>
+                        <AlertDescription>
+                          <Button
+                            prominence="internal"
+                            size="sm"
+                            onClick={() => void page.refetch()}
+                          >
+                            {ui("Thử lại")}
+                          </Button>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    {page.isSuccess && files.length === 0 && (
+                      <LibraryEmpty
                         view={view}
-                        layout={layout}
-                        selected={selected}
-                        grouped={sort === "NEWEST" && view !== "trash"}
-                        actions={rowActions}
-                        onSelect={(file) =>
-                          setSelected(
-                            selected.includes(file.id)
-                              ? selected.filter((id) => id !== file.id)
-                              : [...selected, file.id],
-                          )
-                        }
-                        onSelectDay={(day, pick) => {
-                          const ids = day.map((file) => file.id);
-                          setSelected(
-                            pick
-                              ? [...selected, ...ids.filter((id) => !selected.includes(id))]
-                              : selected.filter((id) => !ids.includes(id)),
-                          );
-                        }}
+                        filtered={filtered}
+                        action={<LibraryUploadButton onFiles={uploads.start} />}
+                        onClearFilters={clearFilters}
                       />
-                    </div>
-                  )}
-                  {/* The bar stays while there are files, because it also carries the page size. */}
-                  {page.data && page.data.totalCount > 0 && (
-                    <TablePagination
-                      label={ui("Phân trang thư viện")}
-                      className="px-0"
-                      page={Math.floor(offset / size)}
-                      totalPages={Math.ceil(page.data.totalCount / size)}
-                      summary={ui("Hiển thị {{first}}–{{last}} trên {{total}} tệp", {
-                        first: offset + 1,
-                        last: Math.min(offset + size, page.data.totalCount),
-                        total: page.data.totalCount,
-                      })}
-                      previousDisabled={offset === 0}
-                      nextDisabled={!page.data.hasMore}
-                      previousLabel={ui("Trang trước")}
-                      nextLabel={ui("Trang sau")}
-                      onPrevious={() => showPage(Math.max(0, offset - size))}
-                      onNext={() => showPage(offset + size)}
-                    >
-                      <PageSizeSelect
-                        label={ui("Số tệp mỗi trang")}
-                        rowsLabel={ui("Số tệp")}
-                        value={size}
-                        sizes={LIBRARY_PAGE_SIZES}
-                        disabled={page.isPlaceholderData}
-                        // A page size change re-cuts the list, so it restarts at its first page.
-                        onSizeChange={(next) => {
-                          setSize(next);
-                          showFirstPage();
-                        }}
-                      />
-                    </TablePagination>
-                  )}
-                </>
-              )}
-            </div>
+                    )}
+                    {files.length > 0 && (
+                      // While the next page is on its way the one being read stays, dimmed rather than gone.
+                      <div
+                        aria-busy={page.isPlaceholderData}
+                        className={cn(
+                          "flex flex-col gap-4 transition-opacity",
+                          page.isPlaceholderData && "opacity-60",
+                        )}
+                      >
+                        {/* A list header, aligned to the rows' own checkbox column so the three checkbox
+                            gutters (page, day, file) read as one line down the page. */}
+                        <div className="flex items-center border-b border-border-subtle px-[13px] pb-2">
+                          <label className="flex cursor-pointer items-center gap-2 font-secondary-body text-content-muted">
+                            <Checkbox
+                              aria-label={ui("Chọn tất cả trên trang này")}
+                              checked={
+                                selected.length === 0
+                                  ? false
+                                  : selected.length === files.length
+                                    ? true
+                                    : "indeterminate"
+                              }
+                              onCheckedChange={(checked) =>
+                                setSelected(checked === true ? files.map((file) => file.id) : [])
+                              }
+                            />
+                            {/* The scope is on the label, because a selection never leaves its page. */}
+                            {ui("Chọn tất cả trên trang này")}
+                          </label>
+                        </div>
+                        <LibraryList
+                          files={files}
+                          view={view}
+                          layout={layout}
+                          selected={selected}
+                          grouped={sort === "NEWEST" && view !== "trash"}
+                          actions={rowActions}
+                          onSelect={(file) =>
+                            setSelected(
+                              selected.includes(file.id)
+                                ? selected.filter((id) => id !== file.id)
+                                : [...selected, file.id],
+                            )
+                          }
+                          onSelectDay={(day, pick) => {
+                            const ids = day.map((file) => file.id);
+                            setSelected(
+                              pick
+                                ? [...selected, ...ids.filter((id) => !selected.includes(id))]
+                                : selected.filter((id) => !ids.includes(id)),
+                            );
+                          }}
+                        />
+                      </div>
+                    )}
+                    {/* The bar stays while there are files, because it also carries the page size. */}
+                    {page.data && page.data.totalCount > 0 && (
+                      <TablePagination
+                        label={ui("Phân trang thư viện")}
+                        className="px-0"
+                        page={Math.floor(offset / size)}
+                        totalPages={Math.ceil(page.data.totalCount / size)}
+                        summary={ui("Hiển thị {{first}}–{{last}} trên {{total}} tệp", {
+                          first: offset + 1,
+                          last: Math.min(offset + size, page.data.totalCount),
+                          total: page.data.totalCount,
+                        })}
+                        previousDisabled={offset === 0}
+                        nextDisabled={!page.data.hasMore}
+                        previousLabel={ui("Trang trước")}
+                        nextLabel={ui("Trang sau")}
+                        onPrevious={() => showPage(Math.max(0, offset - size))}
+                        onNext={() => showPage(offset + size)}
+                      >
+                        <PageSizeSelect
+                          label={ui("Số tệp mỗi trang")}
+                          rowsLabel={ui("Số tệp")}
+                          value={size}
+                          sizes={LIBRARY_PAGE_SIZES}
+                          disabled={page.isPlaceholderData}
+                          // A page size change re-cuts the list, so it restarts at its first page.
+                          onSizeChange={(next) => {
+                            setSize(next);
+                            showFirstPage();
+                          }}
+                        />
+                      </TablePagination>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </LibraryDropZone>
       </SettingsLayout>
@@ -753,7 +779,7 @@ function ContentResults({
           {ui("Nhập điều bạn nhớ về nội dung tệp.")}
         </p>
       )}
-      {matches.isFetching && <ListSkeleton />}
+      {matches.isFetching && <LibraryListSkeleton />}
       {matches.isError && (
         <Alert variant="destructive">
           <AlertTitle>{ui("Không tìm được trong nội dung tệp.")}</AlertTitle>
@@ -780,16 +806,6 @@ function ContentResults({
           actions={(match) => <FileActions file={match.file} actions={actions} />}
         />
       )}
-    </div>
-  );
-}
-
-function ListSkeleton() {
-  return (
-    <div className="flex flex-col gap-2" aria-hidden="true">
-      {[0, 1, 2, 3, 4].map((row) => (
-        <Skeleton key={row} className="h-14 w-full rounded-lg" />
-      ))}
     </div>
   );
 }

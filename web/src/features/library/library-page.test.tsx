@@ -71,6 +71,7 @@ vi.mock("@/lib/hey-api/sdk.gen", () => ({
   previewChatFileSpreadsheet: vi.fn(),
   getChatSession: vi.fn(),
   getChatHistory: vi.fn(),
+  recordChatLibraryEntryOpened: vi.fn(() => Promise.resolve({ data: undefined })),
 }));
 
 vi.mock("./files", async (importOriginal) => ({
@@ -80,6 +81,7 @@ vi.mock("./files", async (importOriginal) => ({
 
 vi.mock("@/features/identity/application-session-context", () => ({
   useApplicationSession: () => ({ actorId: "actor", authorizationVersion: 1, capabilities: [] }),
+  useGlobalCapability: () => false,
 }));
 
 vi.mock("@/components/app-shell/app-shell", () => ({
@@ -393,7 +395,7 @@ it("renames a file, keeping its extension, and stars it", async () => {
     data: { ...file(), filename: "Doanh thu quý 3.xlsx" },
   });
 
-  await user.click(screen.getByRole("button", { name: "Đánh dấu yêu thích doanh-thu.xlsx" }));
+  await user.click(screen.getByRole("button", { name: "Gắn sao doanh-thu.xlsx" }));
   await waitFor(() =>
     expect(changeChatLibraryFile).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -423,7 +425,7 @@ it("says so when starring a file fails", async () => {
   const user = userEvent.setup();
   changeChatLibraryFile.mockRejectedValue(new Error("offline"));
 
-  await user.click(screen.getByRole("button", { name: "Đánh dấu yêu thích doanh-thu.xlsx" }));
+  await user.click(screen.getByRole("button", { name: "Gắn sao doanh-thu.xlsx" }));
 
   expect(
     await screen.findByText("Chưa xác nhận được kết quả. Tải lại để kiểm tra trước khi thử lại."),
@@ -593,22 +595,27 @@ it("says a deleted file goes to the trash, and restores or ends it from there", 
   expect(await screen.findByText("Đã xoá vĩnh viễn 3 tệp.")).toBeInTheDocument();
 });
 
-it("asks for the favourites when the rail switches to them", async () => {
+it("narrows Tệp của tôi to its starred files, and takes that filter off like any other", async () => {
   await show();
   const user = userEvent.setup();
 
-  await user.click(screen.getByRole("button", { name: "Yêu thích" }));
+  await user.click(screen.getByRole("button", { name: "Bộ lọc" }));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", { name: "Chỉ tệp gắn sao" }),
+  );
 
   await waitFor(() =>
     expect(listChatLibrary).toHaveBeenLastCalledWith(
       expect.objectContaining({ query: expect.objectContaining({ favorite: true, offset: 0 }) }),
     ),
   );
-  // Favourites are a view, so the same thing is not also offered as a filter.
-  await user.click(screen.getByRole("button", { name: "Bộ lọc" }));
-  expect(
-    within(await screen.findByRole("dialog")).queryByText("Chỉ tệp yêu thích"),
-  ).not.toBeInTheDocument();
+  await user.keyboard("{Escape}");
+  await user.click(screen.getByRole("button", { name: "Bỏ lọc Chỉ tệp gắn sao" }));
+  await waitFor(() =>
+    expect(listChatLibrary).toHaveBeenLastCalledWith(
+      expect.objectContaining({ query: expect.objectContaining({ favorite: undefined }) }),
+    ),
+  );
 });
 
 it("says what an empty view means and offers the way out of a filter", async () => {

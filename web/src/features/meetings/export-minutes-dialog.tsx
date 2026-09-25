@@ -28,7 +28,7 @@ import {
   type MeetingDetail,
   type MeetingHeadingRequest,
 } from "./meetings-api";
-import { slug } from "./meeting-file-name";
+import { slug } from "@/lib/meeting-file-name";
 
 /**
  * Nghị định 30 asks for Times New Roman and a company follows it by convention, so it leads. Word only names the face;

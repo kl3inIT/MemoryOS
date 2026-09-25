@@ -72,6 +72,7 @@ vi.mock("@/lib/hey-api/sdk.gen", () => ({
   previewChatFileSpreadsheet: vi.fn(),
   getChatSession: vi.fn(),
   getChatHistory: vi.fn(),
+  recordChatLibraryEntryOpened: vi.fn(() => Promise.resolve({ data: undefined })),
 }));
 
 vi.mock("@/features/library/files", async (importOriginal) => ({
@@ -81,6 +82,7 @@ vi.mock("@/features/library/files", async (importOriginal) => ({
 
 vi.mock("@/features/identity/application-session-context", () => ({
   useApplicationSession: () => ({ actorId: "actor", authorizationVersion: 1, capabilities: [] }),
+  useGlobalCapability: () => false,
 }));
 
 vi.mock("@/components/app-shell/app-shell", () => ({
