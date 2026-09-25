@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import io.memoryos.shared.LeasedJob;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -116,21 +117,12 @@ public class LibraryArchiveService {
 
     /** Packs the oldest waiting archive, if any; the Worker calls this on a fixed delay. */
     public boolean buildNext() {
-        int abandoned = archives.failAbandoned(MAX_ATTEMPTS);
-        if (abandoned > 0) LOG.warn("Library archives failed after {} attempts: {}", MAX_ATTEMPTS, abandoned);
-        var claimed = archives.claim(LEASE, MAX_ATTEMPTS);
-        if (claimed.isEmpty()) return false;
-        var claim = claimed.get();
-        try {
-            pack(claim);
-        } catch (RuntimeException failure) {
-            LOG.atError().addKeyValue("event", "chat.library.archive.failed")
-                    .addKeyValue("attempt", claim.attempts()).addKeyValue("error_type", failure.getClass().getName())
-                    .log("Library archive could not be packed");
-            archives.markFailed(claim.tenant(), claim.id(), claim.attempts(), MAX_ATTEMPTS,
-                    "The archive could not be packed.");
-        }
-        return true;
+        return LeasedJob.runNext(LOG, "chat.library.archive", new LeasedJob.Steps<>(
+                () -> archives.failAbandoned(MAX_ATTEMPTS),
+                () -> archives.claim(LEASE, MAX_ATTEMPTS),
+                this::pack,
+                (claim, failure) -> archives.markFailed(claim.tenant(), claim.id(), claim.attempts(), MAX_ATTEMPTS,
+                        "The archive could not be packed.")));
     }
 
     private void pack(Claim claim) {

@@ -3,6 +3,7 @@ package io.memoryos.usage.report;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
+import io.memoryos.shared.LeasedJob;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectKey;
@@ -82,18 +83,16 @@ public class UsageReportService {
      * claimed, so a caller may drain a queue.
      */
     public boolean buildNext() {
-        int abandoned = reports.failAbandoned(MAX_ATTEMPTS);
-        if (abandoned > 0) LOG.warn("Usage reports failed after {} attempts: {}", MAX_ATTEMPTS, abandoned);
-        var claimed = reports.claim(LEASE, MAX_ATTEMPTS);
-        if (claimed.isEmpty()) return false;
-        var claim = claimed.get();
-        try {
-            build(claim);
-        } catch (RuntimeException e) {
-            LOG.error("Usage report {} failed on attempt {}", claim.id(), claim.attempts(), e);
-            reports.markFailed(claim.tenant(), claim.id(), claim.attempts(), MAX_ATTEMPTS, "The report could not be generated.");
-        }
-        return true;
+        return LeasedJob.runNext(LOG, "usage.report", new LeasedJob.Steps<>(
+                () -> reports.failAbandoned(MAX_ATTEMPTS),
+                () -> reports.claim(LEASE, MAX_ATTEMPTS),
+                this::build,
+                (claim, failure) -> {
+                    // The report reads only the Tenant's own ledger, so its stack trace is safe to keep for diagnosis.
+                    LOG.debug("Usage report {} failed on attempt {}", claim.id(), claim.attempts(), failure);
+                    reports.markFailed(claim.tenant(), claim.id(), claim.attempts(), MAX_ATTEMPTS,
+                            "The report could not be generated.");
+                }));
     }
 
     private void build(Claim claim) {

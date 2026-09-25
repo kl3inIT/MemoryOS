@@ -30,7 +30,8 @@ public class JdbcLibraryArchiveRepository {
 
     public JdbcLibraryArchiveRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
-    public record Claim(UUID id, UUID tenant, UUID owner, List<LibraryArchiveItem> requested, int attempts) {}
+    public record Claim(UUID id, UUID tenant, UUID owner, List<LibraryArchiveItem> requested, int attempts)
+            implements io.memoryos.shared.LeasedJob.Claim {}
 
     public record Expired(TenantId tenant, UUID id, StoredObjectId object, ObjectKey key, UUID token) {}
 
