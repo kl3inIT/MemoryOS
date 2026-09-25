@@ -378,44 +378,36 @@ public class ChatTurnPersistence {
         return chats.finish(session, assistant, status, partial, failure, model, input, output, cost);
     }
 
-    public record TerminalOutcome(ChatMessage.Status status, @Nullable String failureCode, boolean hasArtifacts) {
-        public TerminalOutcome(ChatMessage.Status status, @Nullable String failureCode) { this(status, failureCode, false); }
-    }
+    /** The terminal winner of a reply: the outcome just written, or the one that won before it. */
+    public record TerminalOutcome(ChatMessage.Status status, @Nullable String failureCode) {}
 
     @Transactional
     public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
                           @Nullable Double cost, List<ChatSource> sources) {
-        return finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources, List.of());
+        return finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources,
+                io.memoryos.chat.ChatActivity.EMPTY);
     }
 
     @Transactional
     public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
-                          @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts) {
-        return finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources, artifacts, io.memoryos.chat.ChatActivity.EMPTY);
-    }
-
-    @Transactional
-    public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
-                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
-                          @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts,
-                          io.memoryos.chat.ChatActivity activity) {
-        return finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources, artifacts, activity,
+                          @Nullable Double cost, List<ChatSource> sources, io.memoryos.chat.ChatActivity activity) {
+        return finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources, activity,
                 io.memoryos.chat.ChatResearch.EMPTY);
     }
 
+    /** Writes the terminal outcome and reads the winner from the same statement; a late write reads the earlier one. */
     @Transactional
     public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
-                          @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts,
-                          io.memoryos.chat.ChatActivity activity, io.memoryos.chat.ChatResearch research) {
+                          @Nullable Double cost, List<ChatSource> sources, io.memoryos.chat.ChatActivity activity,
+                          io.memoryos.chat.ChatResearch research) {
         if (status == null || status == ChatMessage.Status.RUNNING || partial == null || partial.length() > 1000000)
             throw ChatException.invalid("Invalid terminal outcome.");
-        if (artifacts.size() > 3) throw ChatException.invalid("Invalid artifact count.");
-        chats.finish(session, assistant, status, partial, failure, model, input, output, cost, sources, artifacts, activity, research);
-        var saved = chats.control(assistant);
-        return new TerminalOutcome(saved.status(), saved.failureCode(), chats.message(session, assistant).map(message -> !message.artifacts().isEmpty()).orElse(false));
+        var saved = chats.finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources,
+                activity, research);
+        return new TerminalOutcome(saved.status(), saved.failureCode());
     }
 
     /**
@@ -440,9 +432,9 @@ public class ChatTurnPersistence {
     @Transactional
     public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
-                          @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts,
-                          io.memoryos.chat.ChatActivity activity, io.memoryos.chat.ChatResearch research, Usage turnUsage) {
-        var outcome = finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources, artifacts, activity, research);
+                          @Nullable Double cost, List<ChatSource> sources, io.memoryos.chat.ChatActivity activity,
+                          io.memoryos.chat.ChatResearch research, Usage turnUsage) {
+        var outcome = finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources, activity, research);
         record(turnUsage);
         return outcome;
     }

@@ -650,8 +650,12 @@ class ChatPersistenceIntegrationTest {
         var activity = new ChatActivity(List.of(new ChatActivity.ActivityStep(1, "call_1", "search_knowledge", ChatActivity.StepStatus.COMPLETED,
                 java.time.Instant.parse("2026-09-14T00:00:00Z"), 120L, 0, List.of("leave policy"), null, List.of(), List.of(1))),
                 List.of(new ChatActivity.ReasoningSegment(0, 0, "Checking the HR policy.")));
+        // No turn writes read-only UI artifacts any more (render_gui was removed); a stored one still reads back.
+        jdbc.sql("UPDATE chat_message SET artifacts = CAST(:artifacts AS jsonb) WHERE id = :id")
+                .param("artifacts", new tools.jackson.databind.ObjectMapper().writeValueAsString(List.of(artifact)))
+                .param("id", pair.assistantMessageId()).update();
         turns.finishAndRead(session.id(), pair.assistantMessageId(), ChatMessage.Status.CANCELED,
-                "Twelve days [1]", null, "model", 10L, 4L, null, List.of(source), List.of(artifact), activity);
+                "Twelve days [1]", null, "model", 10L, 4L, null, List.of(source), activity);
         turns.finishAndRead(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED,
                 "Late answer", null, "model", 20L, 5L, null, List.of());
         var saved = sessions.history(owner, session.id(), null, 100).getLast();
@@ -754,7 +758,7 @@ class ChatPersistenceIntegrationTest {
                 List.of("revenue"), null, List.of(), List.of())), List.of()));
         var state = new ChatResearch(true, "1. Revenue", List.of(agent));
         assertTrue(new JdbcChatRepository(jdbc).finish(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED,
-                "Which fiscal year?", null, null, null, null, null, List.of(), List.of(), ChatActivity.EMPTY, state));
+                "Which fiscal year?", null, null, null, null, null, List.of(), ChatActivity.EMPTY, state));
         var history = sessions.history(owner, session.id(), null, 20);
         assertEquals(state, history.getLast().research());
         assertThrows(org.springframework.dao.DataAccessException.class, () -> jdbc.sql(
@@ -1226,6 +1230,25 @@ class ChatPersistenceIntegrationTest {
         assertEquals(Set.copyOf(files), java.util.Objects.requireNonNull(reserved.context()).fileTexts().keySet());
         assertEquals("Test", reserved.context().fileTexts().get(files.getFirst()).text());
         assertFalse(reserved.context().fileTexts().containsKey(foreign));
+    }
+
+    @Test
+    void finishingATurnWritesAndReadsItsOutcomeWithoutReloadingTheMessage() {
+        var session = sessions.create(owner, "Finish");
+        var pair = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Question");
+
+        statements.reset();
+        var outcome = turns.finishAndRead(session.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED,
+                "Answer", null, "model", 1L, 2L, null, List.of());
+
+        assertEquals(new ChatTurnPersistence.TerminalOutcome(ChatMessage.Status.COMPLETED, null), outcome);
+        // Session lock, the terminal UPDATE returning its outcome, and the session's activity time.
+        assertEquals(3, statements.statements().size(), statements.statements().toString());
+        statements.reset();
+        var late = turns.finishAndRead(session.id(), pair.assistantMessageId(), ChatMessage.Status.FAILED,
+                "Late", "CHAT_EXECUTION_FAILED", "model", 1L, 2L, null, List.of());
+        assertEquals(new ChatTurnPersistence.TerminalOutcome(ChatMessage.Status.COMPLETED, null), late,
+                "the terminal winner is reported, not the late write");
     }
 
     @Test

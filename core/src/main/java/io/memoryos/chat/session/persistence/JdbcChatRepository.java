@@ -569,49 +569,59 @@ public class JdbcChatRepository {
     public boolean finish(UUID session, UUID assistant, Status status, String content,
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
                           @Nullable Double cost, List<ChatSource> sources) {
-        return finish(session, assistant, status, content, failure, model, input, output, cost, sources, List.of());
+        return finish(session, assistant, status, content, failure, model, input, output, cost, sources,
+                io.memoryos.chat.ChatActivity.EMPTY, io.memoryos.chat.ChatResearch.EMPTY);
     }
 
     public boolean finish(UUID session, UUID assistant, Status status, String content,
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
-                          @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts) {
-        return finish(session, assistant, status, content, failure, model, input, output, cost, sources, artifacts, io.memoryos.chat.ChatActivity.EMPTY);
+                          @Nullable Double cost, List<ChatSource> sources, io.memoryos.chat.ChatActivity activity,
+                          io.memoryos.chat.ChatResearch research) {
+        return terminal(session, assistant, status, content, failure, model, input, output, cost, sources, activity, research)
+                .isPresent();
     }
 
-    public boolean finish(UUID session, UUID assistant, Status status, String content,
-                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
-                          @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts,
-                          io.memoryos.chat.ChatActivity activity) {
-        return finish(session, assistant, status, content, failure, model, input, output, cost, sources, artifacts, activity,
-                io.memoryos.chat.ChatResearch.EMPTY);
+    /**
+     * Writes the terminal outcome and returns the reply's terminal winner: the outcome written here, or, when the
+     * reply had already ended, the one that ended it.
+     */
+    public Control finishAndRead(UUID session, UUID assistant, Status status, String content,
+                                 @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
+                                 @Nullable Double cost, List<ChatSource> sources, io.memoryos.chat.ChatActivity activity,
+                                 io.memoryos.chat.ChatResearch research) {
+        return terminal(session, assistant, status, content, failure, model, input, output, cost, sources, activity, research)
+                .orElseGet(() -> control(assistant));
     }
 
-    public boolean finish(UUID session, UUID assistant, Status status, String content,
-                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
-                          @Nullable Double cost, List<ChatSource> sources, List<io.memoryos.chat.ChatArtifact> artifacts,
-                          io.memoryos.chat.ChatActivity activity, io.memoryos.chat.ChatResearch research) {
+    private Optional<Control> terminal(UUID session, UUID assistant, Status status, String content,
+                                       @Nullable String failure, @Nullable String model, @Nullable Long input,
+                                       @Nullable Long output, @Nullable Double cost, List<ChatSource> sources,
+                                       io.memoryos.chat.ChatActivity activity, io.memoryos.chat.ChatResearch research) {
         // Same lock order as reserve/Stop: session, then message. Reversing it can deadlock terminal races.
         if (jdbc.sql("SELECT id FROM chat_session WHERE id = :session FOR UPDATE").param("session", session)
-                .query(UUID.class).optional().isEmpty()) return false;
+                .query(UUID.class).optional().isEmpty()) return Optional.empty();
         // A lapsed but unreconciled lease is not a failure: a live process finishing proves it was alive.
         // Once reconciliation has failed the row, the RUNNING predicate rejects this late write.
-        int changed = jdbc.sql("""
+        var written = jdbc.sql("""
                         UPDATE chat_message SET status = :status, failure_code = :failure,
                             content = :content, model_name = :model, input_tokens = :input, output_tokens = :output,
-                            cost_usd = :cost, sources = CAST(:sources AS jsonb), artifacts = CAST(:artifacts AS jsonb),
+                            cost_usd = :cost, sources = CAST(:sources AS jsonb),
                             activity = CAST(:activity AS jsonb), is_clarification = :clarification, research_plan = :plan,
                             research_agents = CAST(:agents AS jsonb),
                             finished_at = clock_timestamp()
                         WHERE session_id = :session AND id = :id AND role = 'ASSISTANT' AND status = 'RUNNING'
+                        RETURNING status, failure_code
                         """).param("session", session).param("id", assistant).param("status", status.name())
                 .param("content", content).param("failure", failure, Types.VARCHAR)
                 .param("model", model, Types.VARCHAR).param("input", input, Types.BIGINT)
                 .param("output", output, Types.BIGINT).param("cost", cost, Types.DOUBLE)
-                .param("sources", JSON.writeValueAsString(sources)).param("artifacts", JSON.writeValueAsString(artifacts))
+                .param("sources", JSON.writeValueAsString(sources))
                 .param("activity", JSON.writeValueAsString(activity)).param("clarification", research.clarification())
-                .param("plan", research.plan(), Types.VARCHAR).param("agents", JSON.writeValueAsString(research.agents())).update();
-        if (changed == 1) touch(session);
-        return changed == 1;
+                .param("plan", research.plan(), Types.VARCHAR).param("agents", JSON.writeValueAsString(research.agents()))
+                .query((row, ignored) -> new Control(Status.valueOf(row.getString("status")), row.getString("failure_code")))
+                .optional();
+        if (written.isPresent()) touch(session);
+        return written;
     }
 
     /** One bounded batch of every RUNNING row, regardless of lease; only valid when no process can own one. */
