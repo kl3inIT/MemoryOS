@@ -3,7 +3,7 @@
 - [x] `git mv` the eleven provider classes, their ten unit tests and `known-models.json` into `core` under `chat.catalog.openai`; change only package, import and visibility lines, and drop the unused Swagger import in `ChatModelValidation`.
 - [x] Add the `@NamedInterface("openai")` package-info; move the `okhttp` declaration from `api` to `core`; point `scripts/sync-chat-known-models.mjs` at the new resource path.
 - [x] Update `ARCHITECTURE.md`, the MEM-77 plan link, `AGENTS.md` and the audit owner decisions.
-- [ ] Full `clean check` in GitHub CI after push.
+- [x] Full `clean check` in GitHub CI after push (merged in PR #366, 2026-09-24).
 
 ## Verification — 2026-09-24
 

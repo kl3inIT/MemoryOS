@@ -2,7 +2,7 @@
 
 ## Requirement
 
-Owner decisions 2026-09-25 (group 3 of [owner-decisions.md](../audit-quality-fixes/owner-decisions.md)); best practice even where logic, schema or contracts change; one pull request.
+Owner decisions 2026-09-25 (group 3 of [owner-decisions.md](../../active/audit-quality-fixes/owner-decisions.md)); best practice even where logic, schema or contracts change; one pull request.
 
 ## Decisions
 

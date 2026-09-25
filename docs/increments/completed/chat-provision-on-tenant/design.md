@@ -4,7 +4,7 @@
 
 ## Requirement
 
-Owner decision 2026-09-24 (audit item 1.1, [owner-decisions.md](../audit-quality-fixes/owner-decisions.md)): Chat's per-Tenant defaults are provisioned when the Tenant is created, not lazily on every request. Before this change `ModelCatalogService` ran `INSERT INTO chat_model_default … ON CONFLICT DO NOTHING` from 19 entry points, and `provisionPersona` ran on every send, session create, agent list and model list, so no catalog read could be `readOnly`. No HTTP contract changes.
+Owner decision 2026-09-24 (audit item 1.1, [owner-decisions.md](../../active/audit-quality-fixes/owner-decisions.md)): Chat's per-Tenant defaults are provisioned when the Tenant is created, not lazily on every request. Before this change `ModelCatalogService` ran `INSERT INTO chat_model_default … ON CONFLICT DO NOTHING` from 19 entry points, and `provisionPersona` ran on every send, session create, agent list and model list, so no catalog read could be `readOnly`. No HTTP contract changes.
 
 ## Design
 

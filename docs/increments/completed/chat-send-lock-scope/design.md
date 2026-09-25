@@ -2,7 +2,7 @@
 
 ## Requirement
 
-Owner decision 2026-09-24 (audit item 1.7, [owner decisions](../audit-quality-fixes/owner-decisions.md)): the Chat send path must not hold its in-process session lock across network I/O. `ChatTurnService` keeps 128 striped `ReentrantLock`s keyed by session. Send held its stripe through `mcp.open`, which may refresh OAuth tokens against an authorization server, so a slow MCP or OAuth server blocked send, Stop, subscribe and delete for every session on the same stripe.
+Owner decision 2026-09-24 (audit item 1.7, [owner decisions](../../active/audit-quality-fixes/owner-decisions.md)): the Chat send path must not hold its in-process session lock across network I/O. `ChatTurnService` keeps 128 striped `ReentrantLock`s keyed by session. Send held its stripe through `mcp.open`, which may refresh OAuth tokens against an authorization server, so a slow MCP or OAuth server blocked send, Stop, subscribe and delete for every session on the same stripe.
 
 ## What the lock protects
 
