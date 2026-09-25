@@ -1725,6 +1725,7 @@ export const englishUi: Record<string, string> = {
     "Đồng bộ và lập chỉ mục tự động đã tạm dừng. Dữ liệu và quyền đã lập chỉ mục có thể bị lỗi thời cho đến khi Nguồn được tiếp tục.",
   "Canceled by pause. Resume the Source to continue synchronization and indexing.":
     "Đã hủy do tạm dừng. Tiếp tục Nguồn để tiếp tục đồng bộ và lập chỉ mục.",
+  "Canceled because the Source is being deleted.": "Đã hủy vì Source đang được xóa.",
   "Private · associated group members": "Riêng tư · thành viên các nhóm liên kết",
   "Save name": "Lưu tên",
   "Save visibility": "Lưu chế độ hiển thị",
@@ -3031,6 +3032,8 @@ Object.assign(englishUi, {
     "Tệp đã thay đổi trong khi thu thập. Đồng bộ lại.",
   "Some files could not be acquired. Review the file errors and synchronize again.":
     "Không thu thập được một số tệp. Xem lỗi từng tệp rồi đồng bộ lại.",
+  "Synchronization stopped because too many files failed. Review the file errors in the run details.":
+    "Đồng bộ đã dừng vì quá nhiều tệp bị lỗi. Xem lỗi từng tệp trong chi tiết lần chạy.",
   "Selection verification failed. The active selection is unchanged. Review your links and Google access before submitting a new proposal.":
     "Xác thực lựa chọn thất bại. Lựa chọn đang dùng không thay đổi. Kiểm tra liên kết và quyền Google trước khi gửi đề xuất mới.",
   "The Google credential changed during verification. The proposal was not activated. Reload the saved selection before submitting again.":

@@ -824,11 +824,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                       <span className="min-w-0">{item.filename ?? ui("Uploaded file")}</span>
                     </span>
                     {item.errorCode ? (
-                      // Work stopped by the operator's own pause is expected, so it reads as a note.
+                      // Work stopped by the operator's own pause or delete is expected, so it reads as a note.
                       <p
                         className={cn(
                           "mt-1 text-xs",
-                          item.errorCode === "SOURCE_PAUSED"
+                          item.errorCode === "SOURCE_PAUSED" || item.errorCode === "SOURCE_DELETING"
                             ? "text-content-muted"
                             : "text-status-danger-content",
                         )}

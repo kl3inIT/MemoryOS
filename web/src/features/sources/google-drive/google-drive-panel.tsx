@@ -1175,6 +1175,7 @@ function isSystemSynchronizationFailure(errorCode: string) {
     errorCode.startsWith("SOURCE_STORAGE_") ||
     errorCode === "SOURCE_ACQUISITION_INTERNAL" ||
     errorCode === "SOURCE_GOOGLE_INTERNAL" ||
-    errorCode === "SOURCE_GOOGLE_INCOMPLETE"
+    errorCode === "SOURCE_GOOGLE_INCOMPLETE" ||
+    errorCode === "SOURCE_SYNC_ITEM_FAILURES_EXCEEDED"
   );
 }
