@@ -1187,6 +1187,31 @@ class ChatPersistenceIntegrationTest {
     }
 
     @Test
+    void reorderLocksEveryAgentInOneStatement() {
+        var ids = new java.util.ArrayList<UUID>();
+        for (int index = 0; index < 5; index++)
+            ids.add(personas.create(owner, input("Agent " + index, List.of(), List.of(), false, null, null, List.of())).id());
+        var ordered = new java.util.ArrayList<>(ids);
+        java.util.Collections.reverse(ordered);
+
+        statements.reset();
+        personas.reorder(owner, ordered);
+
+        assertEquals(1, statements.count(sql -> {
+            var lower = sql.toLowerCase(java.util.Locale.ROOT);
+            return lower.startsWith("select") && lower.contains(" from persona ") && lower.contains(" for ") && lower.contains("update");
+        }), statements.statements().toString());
+        for (int index = 0; index < ordered.size(); index++)
+            assertEquals(index, personas.get(owner, ordered.get(index)).displayPriority());
+        var missing = new java.util.ArrayList<>(ordered);
+        missing.add(UUID.randomUUID());
+        assertThrows(ChatException.class, () -> personas.reorder(owner, missing));
+        var builtin = new java.util.ArrayList<>(ordered);
+        builtin.add(sessions.create(owner, "Builtin").personaId());
+        assertThrows(ChatException.class, () -> personas.reorder(owner, builtin));
+    }
+
+    @Test
     void contextFilesAreReadInOneStatement() {
         var files = List.of(readyFile(owner), readyFile(owner), readyFile(owner));
         var foreign = readyFile(other);

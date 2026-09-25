@@ -366,6 +366,7 @@ Receipts: [MEM-112 verification](../increments/active/mem-112-chat-mcp-client/ve
 | --- | --- |
 | Use, edit, public, Group manager and transfer authority; vacancy; Source intersection | `ChatPersistenceIntegrationTest.agentSharingFollowsOnyxUseEditPublicManagerAndTransferRules` (PostgreSQL) |
 | Featured public agents seed pins once; labels managed with `AGENTS_MANAGE`; transactional display order; `code_interpreter` in the turn options | `ChatPersistenceIntegrationTest.featuredPublicAgentsSeedPinsOnceAndLabelsAreManaged` |
+| Reordering agents write-locks every row in one id-ordered statement; an unknown id or the builtin agent is refused | `ChatPersistenceIntegrationTest.reorderLocksEveryAgentInOneStatement` (statement counter) |
 | A Group-owned agent shared directly appears under Shared | `ChatPersistenceIntegrationTest.agentSharingFollowsOnyxUseEditPublicManagerAndTransferRules` |
 | `run_python` needs an agent that allows the code interpreter | `ChatModelExecutorToolPolicyTest` |
 | A requested window ending before the knowledge cutoff searches nothing | `SearchToolTest.knowledgeCutoffIsALowerBoundThatRequestsCannotWiden` |
