@@ -156,8 +156,9 @@ public class ChatBranchService {
     /** Reads the bytes of every artifact along the path and writes them as the branch's own objects. */
     private void stage(TenantId tenant, List<ChatMessage> path, Map<UUID, UUID> copies, List<Staged> staged) {
         long bytes = 0;
+        var artifacts = library.messageArtifacts(tenant, path.stream().map(ChatMessage::id).toList());
         for (var message : path) {
-            for (var artifact : library.messageArtifacts(tenant, message.id())) {
+            for (var artifact : artifacts.getOrDefault(message.id(), List.of())) {
                 if (staged.size() >= MAX_ARTIFACTS)
                     throw ChatException.invalid("This conversation holds too many generated files to branch.");
                 if (artifact.sizeBytes() > MAX_ONE_ARTIFACT_BYTES || bytes + artifact.sizeBytes() > MAX_ARTIFACT_BYTES)

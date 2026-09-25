@@ -202,9 +202,10 @@ public final class ChatTurnService implements AutoCloseable {
             throw ChatException.researchUnavailable();
         // Onyx attaches tools to the agent: a command may only use tools the session agent allows.
         var agent = persistence.agent(actor, session);
-        if (command.webSearch() != WebSearchMode.off && !agent.tools().contains("web_search")) throw ChatException.webUnavailable();
-        if (command.image() != ImageMode.off && !agent.tools().contains("image_generation")) throw ChatException.providerUnavailable();
-        if (agent.mcpServerIds() != null && !agent.mcpServerIds().containsAll(command.mcpServerIds()))
+        var tools = agent.persona();
+        if (command.webSearch() != WebSearchMode.off && !tools.tools().contains("web_search")) throw ChatException.webUnavailable();
+        if (command.image() != ImageMode.off && !tools.tools().contains("image_generation")) throw ChatException.providerUnavailable();
+        if (tools.mcpServerIds() != null && !tools.mcpServerIds().containsAll(command.mcpServerIds()))
             throw ChatException.providerUnavailable();
         // MEM-123: what the Tenant, the Group and the person may spend, weighed before a provider is chosen.
         if (spending != null) spending.enforce(actor);
@@ -213,13 +214,13 @@ public final class ChatTurnService implements AutoCloseable {
         ModelResolver.Resolved resolved = null;
         boolean transferred = false;
         try {
-            resolved = models.resolve(actor, session, command.modelConfigurationId());
+            resolved = models.resolve(actor, session, command.modelConfigurationId(), agent);
             var binding = resolved.binding();
             if (command.deepResearch()) {
                 // As Onyx: not in Project chats and at least 50,000 input tokens; research agents need tool calling.
                 int minimum = research == null ? 50_000 : research.minimumContextTokens();
                 // MEM-130: a model that cannot research is not the organization's setting, so it has its own code.
-                if (persistence.inProject(actor, session)) throw ChatException.researchUnavailable();
+                if (agent.inProject()) throw ChatException.researchUnavailable();
                 if (!binding.toolCalling() || binding.contextWindow() < minimum) throw ChatException.researchModelUnsupported();
             }
             String contribution = java.util.stream.Stream.concat(
@@ -255,9 +256,9 @@ public final class ChatTurnService implements AutoCloseable {
             int contextLimit = Math.min(limits.contextCap(), binding.inputLimit(limits.maxOutputTokens()));
             reserved = persistence.reserve(actor, session, command, limits.leaseTtl(), contextLimit,
                     new ChatTurnPersistence.ModelSelection(command.modelConfigurationId(), resolved.modelConfigurationId(),
-                            resolved.fallbackReason(), binding, resolved.contextRevision(), contribution));
+                            resolved.fallbackReason(), binding, resolved.contextRevision(), contribution, agent));
             if (!reserved.created()) return new Admission(accepted(reserved), null, false);
-            var context = persistence.loadContext(actor, session, reserved);
+            var context = reserved.context() != null ? reserved.context() : persistence.loadContext(actor, session, reserved);
             var setup = ChatTurnSetup.resolve(session, reserved.assistantMessageId(), context, contextLimit, binding, contribution)
                     .withWeb(command.webSearch(), webAccess).withImage(command.image(), imageAccess);
             // Deep research runs its own agents and tool set, so selected MCP servers apply only to ordinary turns.
@@ -474,11 +475,11 @@ public final class ChatTurnService implements AutoCloseable {
                 if (!run.persisted) {
                     var saved = persistence.finishAndRead(run.setup.sessionId(), run.setup.assistantMessageId(), outcome.status(),
                             outcome.content(), outcome.failure(), run.setup.model(), run.accounting.input(),
-                            run.accounting.output(), run.accounting.cost(), outcome.sources(), outcome.artifacts(), outcome.activity(), outcome.research(),
+                            run.accounting.output(), run.accounting.cost(), outcome.sources(), outcome.activity(), outcome.research(),
                             new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(),
                                     run.setup.research().enabled() ? AiUsageFlow.DEEP_RESEARCH : AiUsageFlow.CHAT,
                                     run.resolved.modelConfigurationId(), run.resolved.provenance(), run.setup.model(), run.accounting));
-                    if (!run.deleted) streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode(), saved.hasArtifacts());
+                    if (!run.deleted) streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode());
                     run.persisted = true;
                 }
                 releaseIfFinished(run);
@@ -510,7 +511,7 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     private enum StopReason { USER, INTERRUPTED }
-    private record Outcome(ChatMessage.Status status, String content, String failure, List<ChatSource> sources, List<ChatArtifact> artifacts,
+    private record Outcome(ChatMessage.Status status, String content, String failure, List<ChatSource> sources,
                            ChatActivity activity, ChatResearch research) {}
 
     private static final class Active {
@@ -564,13 +565,12 @@ public final class ChatTurnService implements AutoCloseable {
         synchronized void finish(ChatMessage.Status status, String failure) {
             if (outcome == null) {
                 // render_gui was removed: no turn creates read-only UI artifacts; stored ones still render from history.
-                List<ChatArtifact> artifacts = List.of();
                 var activity = recorder.seal();
                 var research = new ChatResearch(clarification, plan.isEmpty() ? null : plan.toString(), agents.seal());
-                if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources), artifacts, activity, research);
+                if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources), activity, research);
                 else if (stopReason.get() == StopReason.INTERRUPTED) outcome = new Outcome(ChatMessage.Status.FAILED,
-                        content.toString(), "CHAT_INTERRUPTED", List.copyOf(sources), artifacts, activity, research);
-                else outcome = new Outcome(status, content.toString(), failure, List.copyOf(sources), artifacts, activity, research);
+                        content.toString(), "CHAT_INTERRUPTED", List.copyOf(sources), activity, research);
+                else outcome = new Outcome(status, content.toString(), failure, List.copyOf(sources), activity, research);
             }
         }
         void check() {
