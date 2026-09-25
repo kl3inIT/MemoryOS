@@ -1,4 +1,4 @@
-package io.memoryos.ingestion;
+package io.memoryos.document;
 
 import java.util.Objects;
 

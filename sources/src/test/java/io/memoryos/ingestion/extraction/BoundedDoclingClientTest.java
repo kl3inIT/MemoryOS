@@ -3,11 +3,11 @@ package io.memoryos.ingestion.extraction;
 import static org.junit.jupiter.api.Assertions.*;
 
 import ai.docling.serve.client.DoclingServeClientException;
-import io.memoryos.connector.SourceInputDescriptor;
-import io.memoryos.ingestion.ExtractionException;
-import io.memoryos.ingestion.ExtractionFailure;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import io.memoryos.connector.SourceInputDescriptor;
+import io.memoryos.document.ExtractionException;
+import io.memoryos.document.ExtractionFailure;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;

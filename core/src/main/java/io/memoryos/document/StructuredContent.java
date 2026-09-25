@@ -1,12 +1,7 @@
-package io.memoryos.ingestion.extraction;
+package io.memoryos.document;
 
-import io.memoryos.connector.SourceInputDescriptor;
-import io.memoryos.document.DocumentContent;
-import io.memoryos.document.ExtractedDocument;
 import io.memoryos.document.ExtractedDocument.Block;
 import io.memoryos.document.ExtractedDocument.Kind;
-import io.memoryos.ingestion.ExtractionException;
-import io.memoryos.ingestion.ExtractionFailure;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -15,7 +10,11 @@ import java.util.Map;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-/** Canonical output and resource bounds shared by the offline structural readers. */
+/**
+ * Builds a {@code memoryos-extraction-v2} {@link ExtractedDocument} within the bounds every offline structural
+ * reader shares. It belongs to the document capability, which owns that model, so provider adapters and
+ * extractors write it without depending on ingestion.
+ */
 public final class StructuredContent {
     public static final int MAX_TEXT = 2_000_000;
     public static final int MAX_BYTES = 33_554_432;
@@ -29,7 +28,8 @@ public final class StructuredContent {
     private final long deadline = System.nanoTime() + java.time.Duration.ofSeconds(120).toNanos();
     private int cells;
 
-    public StructuredContent(ObjectMapper mapper, SourceInputDescriptor input) {
+    /** {@code input} describes where the content came from, and is recorded as the document's source. */
+    public StructuredContent(ObjectMapper mapper, Object input) {
         this.mapper = mapper;
         source = mapper.valueToTree(input);
     }

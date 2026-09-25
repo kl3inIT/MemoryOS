@@ -4,10 +4,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import ai.docling.serve.api.convert.response.ResponseType;
-import io.memoryos.ingestion.ExtractionException;
 import ai.docling.serve.client.DoclingServeClientException;
-import io.memoryos.ingestion.ExtractionFailure;
 import io.memoryos.connector.SourceInputDescriptor;
+import io.memoryos.document.ExtractionException;
+import io.memoryos.document.ExtractionFailure;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;

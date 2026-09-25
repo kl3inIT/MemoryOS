@@ -1,11 +1,10 @@
 package io.memoryos.ingestion.extraction;
 
-import io.memoryos.document.DocumentContent;
 import io.memoryos.connector.SourceInputDescriptor;
-import io.memoryos.ingestion.ExtractionException;
-import io.memoryos.ingestion.ExtractionFailure;
+import io.memoryos.document.DocumentContent;
+import io.memoryos.document.ExtractionException;
+import io.memoryos.document.ExtractionFailure;
 import io.memoryos.ingestion.SourceContentExtractor;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;

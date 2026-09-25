@@ -1,13 +1,13 @@
 package io.memoryos.ingestion.extraction;
 
 import io.memoryos.document.DocumentContent;
-import io.memoryos.document.ExtractedDocument;
 import io.memoryos.document.ExtractedDocument.Block;
 import io.memoryos.document.ExtractedDocument.Cell;
 import io.memoryos.document.ExtractedDocument.Kind;
 import io.memoryos.document.ExtractedDocument.Page;
-import io.memoryos.ingestion.ExtractionException;
-import io.memoryos.ingestion.ExtractionFailure;
+import io.memoryos.document.ExtractedDocument;
+import io.memoryos.document.ExtractionException;
+import io.memoryos.document.ExtractionFailure;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;

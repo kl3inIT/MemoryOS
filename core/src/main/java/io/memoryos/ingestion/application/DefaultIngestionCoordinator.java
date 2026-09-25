@@ -7,7 +7,7 @@ import io.memoryos.connector.IndexWork;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionArtifactPort;
-import io.memoryos.ingestion.ExtractionException;
+import io.memoryos.document.ExtractionException;
 import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationWorkload;

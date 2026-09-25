@@ -2,9 +2,9 @@ package io.memoryos.connector.adapter.googledrive;
 
 import io.memoryos.connector.GoogleDriveProvider.FileMetadata;
 import io.memoryos.connector.SourceInputDescriptor;
-import io.memoryos.ingestion.ExtractionException;
-import io.memoryos.ingestion.ExtractionFailure;
-import io.memoryos.ingestion.extraction.StructuredContent;
+import io.memoryos.document.ExtractionException;
+import io.memoryos.document.ExtractionFailure;
+import io.memoryos.document.StructuredContent;
 import java.io.InputStream;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
