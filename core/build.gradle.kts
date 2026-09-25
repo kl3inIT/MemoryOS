@@ -17,6 +17,9 @@ tasks.withType<Test>().configureEach {
     maxHeapSize = "1536m"
     // Core is the longest test task; two JVMs each own a PostgreSQL container and template (TestDatabase).
     maxParallelForks = 2
+    // When a test JVM runs out of heap, record what filled it next to the test results CI uploads.
+    val histogram = layout.buildDirectory.file("test-results/test/oom-histogram-%p.txt").get().asFile
+    jvmArgs("-XX:OnOutOfMemoryError=jcmd %p GC.class_histogram > ${histogram.invariantSeparatorsPath}")
     // Opt-in measurement must rerun when enabled instead of reusing a skipped result.
     inputs.property("memoryosSearchAuthzMeasure", providers.environmentVariable("MEMORYOS_SEARCH_AUTHZ_MEASURE").orElse("false"))
 }

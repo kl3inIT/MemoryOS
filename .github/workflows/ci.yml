@@ -198,6 +198,7 @@ jobs:
           name: backend-tests
           path: |
             core/build/test-results/test/*.xml
+            core/build/test-results/test/oom-histogram-*.txt
             sources/build/test-results/test/*.xml
             api/build/test-results/test/*.xml
             worker/build/test-results/test/*.xml
