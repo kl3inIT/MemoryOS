@@ -1,5 +1,6 @@
 package io.memoryos.document;
 
+import io.memoryos.shared.Sha256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -65,7 +66,7 @@ class ExtractionArtifactLifecycleTest {
         byte[] bytes = json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
         UUID artifact = UUID.randomUUID(), file = UUID.randomUUID();
         artifacts.stage(tenant, artifact, "extracted/" + tenant.value() + "/" + artifact,
-                io.memoryos.document.application.StructuredDocumentChunker.sha256(json), bytes.length);
+                Sha256.hex(json), bytes.length);
         artifacts.finishWrite(tenant, artifact);
         var id = transaction.execute(_ -> documents.publish(tenant, null, new DocumentContent("text/csv", "private.csv", "Private value",
                 Map.of("origin", "USER_FILE", "user_file_id", file.toString()), json, artifact), "a".repeat(64)));

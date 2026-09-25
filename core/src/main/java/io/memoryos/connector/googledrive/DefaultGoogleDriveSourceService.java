@@ -22,15 +22,14 @@ import io.memoryos.connector.SourceSelectionProcessor.Work;
 import io.memoryos.connector.SourceRunTrigger;
 import io.memoryos.connector.SourceType;
 import java.util.UUID;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
+import java.io.ByteArrayOutputStream;
 import org.jspecify.annotations.Nullable;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.Authority;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.connector.source.persistence.JdbcSourceGroupRepository;
+import io.memoryos.shared.Sha256;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.GroupId;
 import io.memoryos.connector.SourceAccess;
@@ -540,25 +539,24 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
         selections.finish(work, "SUCCEEDED", null);
     }
 
-    private static String requestHash(String action, String target, String authority, String mode, List<String> roots, List<String> approvals) {
-        try {
-            var digest = MessageDigest.getInstance("SHA-256");
-            for (String value : List.of(action, target, authority, mode)) hashPart(digest, value);
-            hashPart(digest, Integer.toString(roots.size()));
-            roots.forEach(value -> hashPart(digest, value));
-            hashPart(digest, Integer.toString(approvals.size()));
-            approvals.forEach(value -> hashPart(digest, value));
-            return HexFormat.of().formatHex(digest.digest());
-        } catch (NoSuchAlgorithmException exception) { throw new IllegalStateException(exception); }
+    /** Identifies a request by its length-prefixed parts, so a retry of the same content recovers its receipt. */
+    static String requestHash(String action, String target, String authority, String mode, List<String> roots, List<String> approvals) {
+        var parts = new ByteArrayOutputStream();
+        for (String value : List.of(action, target, authority, mode)) hashPart(parts, value);
+        hashPart(parts, Integer.toString(roots.size()));
+        roots.forEach(value -> hashPart(parts, value));
+        hashPart(parts, Integer.toString(approvals.size()));
+        approvals.forEach(value -> hashPart(parts, value));
+        return Sha256.hex(parts.toByteArray());
     }
 
-    private static void hashPart(MessageDigest digest, String value) {
+    private static void hashPart(ByteArrayOutputStream parts, String value) {
         byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-        digest.update((byte)(bytes.length >>> 24));
-        digest.update((byte)(bytes.length >>> 16));
-        digest.update((byte)(bytes.length >>> 8));
-        digest.update((byte)bytes.length);
-        digest.update(bytes);
+        parts.write(bytes.length >>> 24);
+        parts.write(bytes.length >>> 16);
+        parts.write(bytes.length >>> 8);
+        parts.write(bytes.length);
+        parts.writeBytes(bytes);
     }
 
     /** Records a Source change; Drive and SharePoint Sources are created and re-scoped by a request the Worker settles. */

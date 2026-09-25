@@ -1,5 +1,6 @@
 package io.memoryos.ingestion;
 
+import io.memoryos.shared.Sha256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -222,7 +223,7 @@ class SearchIndexWorkIntegrationTest {
         var expected = IntStream.range(0, 259).mapToObj(ordinal -> {
             String text = "Dòng " + ordinal + ": 'nghỉ phép'; \"nội dung\" ? :value";
             return new DocumentChunk(ordinal, text, List.of("Quy định", "Mục " + ordinal), ordinal, 0,
-                    "[{\"page_no\":1}]", StructuredDocumentChunker.sha256(text), 30);
+                    "[{\"page_no\":1}]", Sha256.hex(text), 30);
         }).toList();
         try {
             assertEquals(Boolean.TRUE, tx.execute(_ -> chunkRepository.publish(reader, expected)));
@@ -386,7 +387,7 @@ class SearchIndexWorkIntegrationTest {
 
     private DocumentId publish(TenantId tenant, DocumentId existing) {
         UUID artifact = UUID.randomUUID();
-        artifacts.stage(tenant, artifact, "extracted/" + artifact, StructuredDocumentChunker.sha256(JSON), JSON.getBytes(StandardCharsets.UTF_8).length);
+        artifacts.stage(tenant, artifact, "extracted/" + artifact, Sha256.hex(JSON), JSON.getBytes(StandardCharsets.UTF_8).length);
         artifacts.finishWrite(tenant, artifact);
         return tx.execute(_ -> documents.publish(tenant, existing,
                 new DocumentContent("text/plain", "HR-2026", "Nghỉ phép", Map.of(), JSON, artifact), "a".repeat(64)));

@@ -1,5 +1,6 @@
 package io.memoryos.retrieval.opensearch;
 
+import io.memoryos.shared.Sha256;
 import io.memoryos.shared.ActorId;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -18,7 +19,6 @@ import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
-import io.memoryos.document.application.StructuredDocumentChunker;
 import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
 import io.memoryos.retrieval.settings.SearchGenerations;
@@ -275,7 +275,7 @@ class OpenSearchRetrievalIntegrationTest {
             var chunks = java.util.stream.IntStream.range(0, 25).mapToObj(i -> {
                 String text = "vacation policy section " + i;
                 return new DocumentChunk(i, text, List.of(), i, 0, "[{\"page\":" + i + "}]",
-                        StructuredDocumentChunker.sha256(text), 10);
+                        Sha256.hex(text), 10);
             }).toList();
             var paged = new DocumentChunkSet(tenant, new DocumentId(UUID.randomUUID()), UUID.randomUUID(),
                     "Paged HR", "text/plain", Instant.now(), chunks);
@@ -307,7 +307,7 @@ class OpenSearchRetrievalIntegrationTest {
             // *_by_query requests, whose continuation needs scroll permissions the service role lacks.
             var largeChunks = java.util.stream.IntStream.range(0, 1100).mapToObj(i -> {
                 String text = "large vacation section " + i;
-                return new DocumentChunk(i, text, List.of(), i, 0, "[]", StructuredDocumentChunker.sha256(text), 10);
+                return new DocumentChunk(i, text, List.of(), i, 0, "[]", Sha256.hex(text), 10);
             }).toList();
             var large = new DocumentChunkSet(tenant, new DocumentId(UUID.randomUUID()), UUID.randomUUID(), "Large HR", "text/plain", Instant.now(), largeChunks);
             index.index(large);
@@ -416,6 +416,6 @@ class OpenSearchRetrievalIntegrationTest {
     private DocumentChunkSet document(TenantId tenant, String title, String text) {
         return new DocumentChunkSet(tenant, new DocumentId(UUID.randomUUID()), UUID.randomUUID(), title, "text/plain", Instant.now(),
                 List.of(new DocumentChunk(0, text, List.of(), 0, 0, "[]",
-                        StructuredDocumentChunker.sha256(text), 30)));
+                        Sha256.hex(text), 30)));
     }
 }

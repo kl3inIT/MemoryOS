@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.memoryos.connector.SourceException;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -38,5 +40,14 @@ class GoogleDriveLinkTest {
     void rejectsUntrustedAmbiguousAndAccountWideLinks(String link) {
         assertThatThrownBy(() -> DefaultGoogleDriveSourceService.fileId(link))
                 .isInstanceOf(SourceException.class);
+    }
+
+    @Test
+    void theRequestHashIsTheOneAlreadyStoredOnSelectionOperations() {
+        // Computed by the pre-phase-3 incremental MessageDigest; a retry must still match a stored request_hash.
+        assertThat(DefaultGoogleDriveSourceService.requestHash("CREATE", "Tài liệu",
+                "3f1c2b1e-0000-4000-8000-000000000001", "ACTIVE", List.of("1AbCdEf", "folder-ñ"),
+                List.of("doc-1")))
+                .isEqualTo("a30d18411b85af7294c19ce80c7f76238604c0c445503b4654c23db44f4f3733");
     }
 }

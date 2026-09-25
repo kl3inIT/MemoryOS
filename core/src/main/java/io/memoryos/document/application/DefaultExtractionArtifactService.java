@@ -8,11 +8,9 @@ import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.document.persistence.JdbcExtractionArtifactRepository;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectStorage;
+import io.memoryos.shared.Sha256;
 import io.memoryos.shared.TenantId;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -42,9 +40,7 @@ public class DefaultExtractionArtifactService implements ExtractionArtifactPort 
                 : content.structuredJson();
         byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
         if (bytes.length == 0 || bytes.length > 33_554_432) throw new IllegalArgumentException("artifact exceeds limit");
-        String hash;
-        try { hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)); }
-        catch (NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
+        String hash = Sha256.hex(bytes);
         UUID id = UUID.randomUUID();
         ObjectKey key = new ObjectKey("extracted/" + tenantId.value() + "/" + id + "/document.json");
         repository.stage(tenantId, id, key.value(), hash, bytes.length);

@@ -29,11 +29,8 @@ import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.GroupId;
 import io.memoryos.shared.ActorId;
+import io.memoryos.shared.Sha256;
 import io.memoryos.shared.TenantId;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -314,12 +311,7 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
         builder.append('\u0002');
         for (String pattern : scope.excludedPaths()) builder.append('\u0000').append(pattern);
         for (String value : extra) builder.append('\u0003').append(value);
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(builder.toString().getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is required to identify a selection request", exception);
-        }
+        return Sha256.hex(builder.toString());
     }
 
     SourceOperationView operation(TenantId tenant, SourceOperationId operation) {

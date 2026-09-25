@@ -9,17 +9,16 @@ import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSourceRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSourceRepository.TreeEntry;
+import io.memoryos.shared.Sha256;
 import io.memoryos.shared.TenantId;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.io.ByteArrayOutputStream;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -258,15 +257,13 @@ final class GoogleDriveSelectionTree {
     private static boolean folder(String mimeType) { return "application/vnd.google-apps.folder".equals(mimeType); }
     private static boolean supported(String mimeType) { return GoogleDriveLinkedDiscovery.supported(mimeType); }
     private static String fingerprint(GoogleDriveProvider.FilePage page) {
-        try {
-            var digest = MessageDigest.getInstance("SHA-256");
-            for (var file : page.files()) {
-                digest.update(file.id().getBytes(StandardCharsets.UTF_8));
-                digest.update((byte) 0);
-            }
-            if (page.nextPageToken() != null) digest.update(page.nextPageToken().getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest.digest());
-        } catch (NoSuchAlgorithmException exception) { throw new IllegalStateException(exception); }
+        var ids = new ByteArrayOutputStream();
+        for (var file : page.files()) {
+            ids.writeBytes(file.id().getBytes(StandardCharsets.UTF_8));
+            ids.write(0);
+        }
+        if (page.nextPageToken() != null) ids.writeBytes(page.nextPageToken().getBytes(StandardCharsets.UTF_8));
+        return Sha256.hex(ids.toByteArray());
     }
     private static String encode(String value) { return Base64.getUrlEncoder().withoutPadding().encodeToString(value.getBytes(StandardCharsets.UTF_8)); }
     private static String decode(String value) { return new String(Base64.getUrlDecoder().decode(value), StandardCharsets.UTF_8); }

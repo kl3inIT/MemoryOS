@@ -1,5 +1,6 @@
 package io.memoryos.retrieval.settings;
 
+import io.memoryos.shared.Sha256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -634,7 +635,7 @@ class SearchRebuildIntegrationTest {
         UUID artifact = UUID.randomUUID();
         String key = "extracted/" + artifact;
         objects.put(key, bytes);
-        String sha = StructuredDocumentChunker.sha256(json);
+        String sha = Sha256.hex(json);
         artifacts.stage(new TenantId(tenant), artifact, key, sha, bytes.length);
         artifacts.finishWrite(new TenantId(tenant), artifact);
         return tx.execute(_ -> documents.publish(new TenantId(tenant), existing,

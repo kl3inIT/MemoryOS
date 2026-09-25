@@ -5,14 +5,12 @@ import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
 import io.memoryos.document.persistence.JdbcDocumentChunkRepository;
+import io.memoryos.shared.Sha256;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectStorage;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,13 +41,13 @@ public class DocumentChunkService implements DocumentChunkPort {
             try (var object = storage.open(new ObjectKey(reader.objectKey()))) {
                 bytes = object.inputStream().readNBytes(Math.toIntExact(reader.size()) + 1);
             }
-            String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+            String hash = Sha256.hex(bytes);
             if (bytes.length != reader.size() || !hash.equals(reader.hash())) throw new IllegalStateException("artifact integrity mismatch");
             var chunks = chunker.chunk(reader.title(), new String(bytes, StandardCharsets.UTF_8));
             return repository.publish(reader, chunks)
                     ? repository.load(tenant, document, generation)
                     : Optional.empty();
-        } catch (IOException | NoSuchAlgorithmException failure) {
+        } catch (IOException failure) {
             throw new IllegalStateException("cannot read extraction artifact", failure);
         } finally {
             repository.closeReader(reader.readerId());

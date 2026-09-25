@@ -7,17 +7,14 @@ import io.memoryos.retrieval.embedding.OpenAiCompatibleEmbeddings;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
 import io.memoryos.retrieval.opensearch.SearchProperties;
 import io.memoryos.retrieval.settings.persistence.JdbcSearchSettingsRepository;
+import io.memoryos.shared.Sha256;
 import io.memoryos.usage.AiUsageRecorder;
 import io.micrometer.observation.ObservationRegistry;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -271,12 +268,9 @@ public class SearchGenerations {
      * convention. Only the seeded generation carries it; later generations are named by their own ID.
      */
     public static String legacyIdentity(SearchProperties properties) {
-        try {
-            String profile = properties.embeddingEndpoint() + ":" + properties.model() + ":" + properties.dimensions()
-                    + ":" + DocumentChunk.CONVENTION;
-            return properties.indexPrefix() + "-" + HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(profile.getBytes(StandardCharsets.UTF_8))).substring(0, 16);
-        } catch (NoSuchAlgorithmException failure) { throw new IllegalStateException(failure); }
+        String profile = properties.embeddingEndpoint() + ":" + properties.model() + ":" + properties.dimensions()
+                + ":" + DocumentChunk.CONVENTION;
+        return properties.indexPrefix() + "-" + Sha256.hex(profile).substring(0, 16);
     }
 
     private ValidatedEmbeddingService embeddings(SearchGeneration generation, UUID provider, String endpoint, String key) {

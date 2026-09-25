@@ -10,6 +10,7 @@ import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
+import io.memoryos.shared.Sha256;
 import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.SearchHit;
 import io.memoryos.retrieval.SearchDocument;
@@ -25,14 +26,10 @@ import io.memoryos.retrieval.SearchTimings;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
 import io.memoryos.retrieval.settings.SearchGeneration;
 import io.memoryos.retrieval.settings.SearchGenerations;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.concurrent.Callable;
@@ -774,10 +771,7 @@ public class OpenSearchIndexService implements SearchIndex {
     }
 
     private String metadataHash(List<DocumentSourceMetadata> origins, DocumentAccess access) {
-        try {
-            String value = "v2:" + mapper.writeValueAsString(metadata(origins)) + ":"
-                    + mapper.writeValueAsString(Map.of("everyone", access.everyone(), "tokens", access.sortedTokens()));
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException failure) { throw new IllegalStateException(failure); }
+        return Sha256.hex("v2:" + mapper.writeValueAsString(metadata(origins)) + ":"
+                + mapper.writeValueAsString(Map.of("everyone", access.everyone(), "tokens", access.sortedTokens())));
     }
 }
