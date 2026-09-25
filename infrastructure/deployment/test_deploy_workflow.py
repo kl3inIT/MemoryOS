@@ -220,7 +220,7 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertLess(applied, serving.index("compose up"), "the rule is current before containers publish")
 
     def test_the_embedding_service_is_pinned_private_filtered_and_keyed_from_a_file(self):
-        # MEM-135: TEI serves Qwen3-Embedding-0.6B to the api and worker from the serving node.
+        # MEM-135: TEI serves Qwen3-Embedding-4B to the api and worker from the serving node.
         deployment = ROOT / "infrastructure/deployment"
         compose = (deployment / "compose.serving.yaml").read_text(encoding="utf-8")
         environment = (deployment / "serving.env.example").read_text(encoding="utf-8")
@@ -237,15 +237,15 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertIn("text-embeddings-inference:89-1.9.4@sha256:"
                       "1a284d9ca1adcc20b78c261d4d052c06057f0a3cb49a15c5d2c00930f710fce2", tei)
         # The model is one pinned revision downloaded once; TEI itself never reaches Hugging Face.
-        self.assertIn("MODEL_REVISION: 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3", download)
+        self.assertIn("MODEL_REVISION: 5cf2132abc99cad020ac570b19d031efec650f2b", download)
         self.assertIn('restart: "no"', download)
         self.assertRegex(tei, r"tei-model-download:\n\s+condition: service_completed_successfully")
         self.assertIn('HF_HUB_OFFLINE: "1"', tei)
         self.assertIn("tei-models:/models:ro", tei)
         # The served name is what /v1/embeddings reports, which the embedding client checks against its generation.
-        for flag in ("--max-client-batch-size 32", "--auto-truncate", "--port 8080", "--served-model-name Qwen/Qwen3-Embedding-0.6B"):
+        for flag in ("--max-client-batch-size 32", "--auto-truncate", "--port 8080", "--served-model-name Qwen/Qwen3-Embedding-4B"):
             self.assertIn(flag, tei)
-        self.assertIn("memory: ${MEMORYOS_TEI_MEMORY_LIMIT:-3g}", tei)
+        self.assertIn("memory: ${MEMORYOS_TEI_MEMORY_LIMIT:-6g}", tei)
         # Published on the private address only, on a port the firewall filters.
         published = re.findall(r"- (\$\{[^}]+\}):\$\{MEMORYOS_TEI_PORT:-(\d+)\}:8080", tei)
         self.assertEqual([("${MEMORYOS_SERVING_PRIVATE_ADDRESS:?the serving node private address}", "18090")], published)

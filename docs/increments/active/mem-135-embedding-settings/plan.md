@@ -101,13 +101,13 @@ Làm song song với Phase B, vì hai phase không phụ thuộc nhau.
 * [x] Lỗi xoá được đếm (V126 `cleanup_attempts`); từ lần thứ ba thế hệ bị đánh dấu chặn (`cleanup_blocked_at`), log ERROR `search.generation.cleanup_blocked`, trang quản trị hiện cảnh báo, và vẫn được thử lại.
 * [x] Test: hoàn tác trong thời hạn; hết hạn thì index bị xoá và đếm bằng 0; ba lần lỗi thì bị chặn rồi vẫn dọn được.
 
-## Phase F — Đưa production sang Qwen3-0.6B
+## Phase F — Đưa production sang Qwen3-4B
 
 1. Deploy các phase B–D lên staging. Kiểm tra staging giữ nguyên index OpenAI (`PRESENT` được gieo, không dựng lại).
 2. Deploy production.
 3. Trên trang quản trị production:
    * thêm provider `serving-embedding` (endpoint HTTP nội bộ, key, nhãn **Nội bộ**);
-   * chọn `Qwen/Qwen3-Embedding-0.6B`, 1024 chiều;
+   * chọn `Qwen/Qwen3-Embedding-4B`, 2560 chiều, để trống tiền tố câu hỏi;
    * bắt đầu dựng. Production chưa có tài liệu thật, nên dựng xong gần như ngay.
 4. Chuyển đổi. Nạp một tài liệu tiếng Việt thử nghiệm, tìm kiếm và kiểm tra kết quả.
 5. Xoá secret `model_api_key` khỏi luồng embedding nếu không còn dùng.
