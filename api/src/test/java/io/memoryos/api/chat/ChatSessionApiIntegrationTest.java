@@ -48,6 +48,12 @@ import io.memoryos.retrieval.SearchDocument;
 import io.memoryos.retrieval.SearchPage;
 import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
 import java.util.Locale;
+import java.util.HexFormat;
+import java.util.concurrent.ConcurrentHashMap;
+import java.security.MessageDigest;
+import io.memoryos.objectstorage.ContentSha256;
+import io.memoryos.objectstorage.ObjectKey;
+import io.memoryos.objectstorage.ObjectMetadata;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.Set;
@@ -275,6 +281,89 @@ class ChatSessionApiIntegrationTest {
         // Existing global membership filter rejects the request before the Chat controller.
         mockMvc.perform(get("/api/chat/sessions/" + id).with(authentication(actor)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void branchingCopiesTheOwnedPathIntoANewConversationAndRefusesAnotherActor() throws Exception {
+        when(model.stream(any(Prompt.class))).thenReturn(Flux.just(response("Answer", "stop", 12)));
+        var session = create();
+        String id = session.path("id").asText();
+        var turn = send(session, UUID.randomUUID().toString());
+        String assistant = turn.path("assistantMessageId").asText();
+        awaitOutcome(assistant, "COMPLETED");
+
+        var branch = Json.mapper().readTree(mockMvc.perform(post("/api/chat/sessions/" + id + "/messages/" + assistant + "/branch")
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"Nhánh ngân sách\"}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.title").value("Nhánh ngân sách"))
+                .andReturn().getResponse().getContentAsString());
+        assertNotEquals(id, branch.path("id").asText());
+        var copied = history(branch);
+        assertEquals(2, copied.size(), "the question and the answer it ends on");
+        assertEquals("Question", copied.get(0).path("content").asText());
+        assertEquals("Answer", copied.get(1).path("content").asText());
+        assertNotEquals(assistant, copied.get(1).path("id").asText(), "the branch owns copies, not the originals");
+        assertEquals(2, history(session).size(), "the original conversation is untouched");
+
+        mockMvc.perform(post("/api/chat/sessions/" + id + "/messages/" + assistant + "/branch")
+                        .with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("CHAT_UNAVAILABLE"));
+    }
+
+    @Test
+    void publishingWrittenMinutesPutsOneFileInTheOwnersLibraryAndRefusesOthersAndUnwrittenMinutes() throws Exception {
+        // Object storage is a mock in this suite: keep what is written, and describe it back truthfully.
+        var stored = new ConcurrentHashMap<String, byte[]>();
+        var types = new ConcurrentHashMap<String, String>();
+        doAnswer(call -> {
+            String key = call.<ObjectKey>getArgument(0).value();
+            stored.put(key, call.getArgument(1));
+            types.put(key, call.getArgument(2));
+            return null;
+        }).when(fileStorage).write(any(), any(), any());
+        when(fileStorage.inspect(any())).thenAnswer(call -> {
+            String key = call.<ObjectKey>getArgument(0).value();
+            byte[] bytes = stored.get(key);
+            return new ObjectMetadata(bytes.length, types.get(key), new ContentSha256(
+                    HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))));
+        });
+        UUID meeting = UUID.randomUUID();
+        UUID unwritten = UUID.randomUUID();
+        try {
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status,
+                                        ended_at, minutes_status, minutes_summary, minutes_kind, minutes_generated_at)
+                    VALUES (:tenant, :id, :owner, 'Giao ban tuần', 'IN_PERSON', 'vi', '[]'::jsonb, 'ENDED',
+                            CURRENT_TIMESTAMP, 'READY', 'Cuộc họp chốt ngân sách.', 'Giao ban tuần', CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", meeting)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+            jdbc.sql("""
+                    INSERT INTO meeting(tenant_id, id, owner_actor_id, title, kind, language, participants, status, ended_at)
+                    VALUES (:tenant, :id, :owner, 'Chưa có biên bản', 'IN_PERSON', 'vi', '[]'::jsonb, 'ENDED', CURRENT_TIMESTAMP)
+                    """).param("tenant", TENANT).param("id", unwritten)
+                    .param("owner", actor.getPrincipal().actorId().value()).update();
+
+            var published = Json.mapper().readTree(mockMvc.perform(post("/api/meetings/" + meeting + "/library")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+            String fileId = published.path("fileId").asText();
+            assertTrue(published.path("filename").asText().endsWith(".md"), published.toString());
+            assertEquals("text/markdown", jdbc.sql("SELECT media_type FROM chat_user_file WHERE id = :id")
+                    .param("id", UUID.fromString(fileId)).query(String.class).single());
+            // Asking again returns the file already made rather than a second copy.
+            mockMvc.perform(post("/api/meetings/" + meeting + "/library")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.fileId").value(fileId));
+
+            mockMvc.perform(post("/api/meetings/" + meeting + "/library")
+                            .with(authentication(other)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isNotFound());
+            mockMvc.perform(post("/api/meetings/" + unwritten + "/library")
+                            .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                    .andExpect(status().isBadRequest());
+        } finally {
+            jdbc.sql("DELETE FROM meeting WHERE tenant_id=:tenant").param("tenant", TENANT).update();
+        }
     }
 
     @Test
