@@ -127,26 +127,40 @@ public class JdbcChatRepository {
      * is refused before this, and a copied answer is the text the origin already has.
      */
     public void copyMessages(UUID origin, UUID branch, List<MessageCopy> copies) {
-        for (var copy : copies) {
-            int inserted = jdbc.sql("""
-                    INSERT INTO chat_message(id, session_id, parent_message_id, latest_child_message_id, role, content,
-                                             status, client_request_id, original_assistant_message_id, created_at,
-                                             finished_at, deadline_at, sources, files, artifacts, activity, model_name,
-                                             input_tokens, output_tokens, requested_model_configuration_id,
-                                             selected_model_configuration_id, model_selection_fallback,
-                                             is_clarification, research_plan, research_agents, failure_code)
-                    SELECT :copy, :branch, :parent, :child, m.role, m.content, m.status, :request, :reply,
-                           m.created_at, m.finished_at, m.deadline_at, m.sources, m.files, m.artifacts, m.activity,
-                           m.model_name,
-                           m.input_tokens, m.output_tokens, m.requested_model_configuration_id,
-                           m.selected_model_configuration_id, m.model_selection_fallback, m.is_clarification,
-                           m.research_plan, m.research_agents, m.failure_code
-                    FROM chat_message m WHERE m.session_id = :origin AND m.id = :original AND m.status <> 'RUNNING'
-                    """).param("copy", copy.copyId()).param("branch", branch).param("parent", copy.parentId())
-                    .param("child", copy.childId()).param("request", copy.requestId()).param("reply", copy.replyId())
-                    .param("origin", origin).param("original", copy.originalId()).update();
-            if (inserted != 1) throw ChatException.unavailable();
-        }
+        if (copies.isEmpty()) return;
+        // One statement for the whole path; parent links between the copies are checked when it completes.
+        int inserted = jdbc.sql("""
+                INSERT INTO chat_message(id, session_id, parent_message_id, latest_child_message_id, role, content,
+                                         status, client_request_id, original_assistant_message_id, created_at,
+                                         finished_at, deadline_at, sources, files, artifacts, activity, model_name,
+                                         input_tokens, output_tokens, requested_model_configuration_id,
+                                         selected_model_configuration_id, model_selection_fallback,
+                                         is_clarification, research_plan, research_agents, failure_code)
+                SELECT c.copy_id, :branch, c.parent_id, c.child_id, m.role, m.content, m.status, c.request_id, c.reply_id,
+                       m.created_at, m.finished_at, m.deadline_at, m.sources, m.files, m.artifacts, m.activity,
+                       m.model_name,
+                       m.input_tokens, m.output_tokens, m.requested_model_configuration_id,
+                       m.selected_model_configuration_id, m.model_selection_fallback, m.is_clarification,
+                       m.research_plan, m.research_agents, m.failure_code
+                FROM unnest(CAST(:originals AS uuid[]), CAST(:copies AS uuid[]), CAST(:parents AS uuid[]),
+                            CAST(:children AS uuid[]), CAST(:requests AS uuid[]), CAST(:replies AS uuid[]))
+                         WITH ORDINALITY AS c(original_id, copy_id, parent_id, child_id, request_id, reply_id, position)
+                JOIN chat_message m ON m.id = c.original_id AND m.session_id = :origin AND m.status <> 'RUNNING'
+                ORDER BY c.position
+                """).param("branch", branch).param("origin", origin)
+                .param("originals", uuids(copies, MessageCopy::originalId))
+                .param("copies", uuids(copies, MessageCopy::copyId))
+                .param("parents", uuids(copies, MessageCopy::parentId))
+                .param("children", uuids(copies, MessageCopy::childId))
+                .param("requests", uuids(copies, MessageCopy::requestId))
+                .param("replies", uuids(copies, MessageCopy::replyId))
+                .update();
+        if (inserted != copies.size()) throw ChatException.unavailable();
+    }
+
+    /** A column of {@code copies} as a text array PostgreSQL casts to {@code uuid[]}; absent values stay null. */
+    private static String[] uuids(List<MessageCopy> copies, java.util.function.Function<MessageCopy, @Nullable UUID> column) {
+        return copies.stream().map(column).map(id -> id == null ? null : id.toString()).toArray(String[]::new);
     }
 
     public Optional<ChatSession> findOwned(TenantId tenant, ActorId actor, UUID id, boolean lock) {
