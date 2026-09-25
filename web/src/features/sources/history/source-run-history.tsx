@@ -896,23 +896,38 @@ function RunErrors({ run }: { run: SourceRun }) {
 function RunErrorRow({ error }: { error: SourceRunError }) {
   const ui = useAppTranslation();
   const name = error.fileName ?? error.fileId ?? ui("Source execution");
+  // A later run acquired the file again, so the error no longer needs attention (Onyx resolves it the same way).
+  const resolved = error.resolvedAt !== null;
+  const text = resolved ? "text-content-muted" : "text-content-primary";
   return (
     <ExpandableRow
       label={ui("Error details for {{v1}}", { v1: name })}
       summary={
         <span className="min-w-0">
           <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="min-w-0 break-words font-medium whitespace-pre-wrap [overflow-wrap:anywhere] text-content-primary">
+            <span
+              className={cn(
+                "min-w-0 break-words font-medium whitespace-pre-wrap [overflow-wrap:anywhere]",
+                text,
+              )}
+            >
               {name}
             </span>
-            <CurrentFileStateBadge error={error} />
+            {resolved ? (
+              <StatusBadge tone="success" className={statusPill("success")}>
+                <CircleCheck aria-hidden="true" className="size-3.5 shrink-0" />
+                {ui("Resolved")}
+              </StatusBadge>
+            ) : (
+              <CurrentFileStateBadge error={error} />
+            )}
           </span>
           <span className="mt-0.5 block text-xs text-content-muted">
             {ui(runErrorStages[error.stage])}
             {" · "}
             <HistoryTime value={error.occurredAt} />
           </span>
-          <span className="mt-1 block text-sm leading-relaxed [overflow-wrap:anywhere] text-content-primary">
+          <span className={cn("mt-1 block text-sm leading-relaxed [overflow-wrap:anywhere]", text)}>
             {error.errorMessage ?? runErrorMessage(ui, error.code)}
           </span>
         </span>
@@ -929,6 +944,14 @@ function RunErrorRow({ error }: { error: SourceRunError }) {
             <HistoryTime value={error.occurredAt} />
           </dd>
         </div>
+        {error.resolvedAt ? (
+          <div>
+            <dt className="text-content-muted">{ui("Resolved at")}</dt>
+            <dd className="mt-1">
+              <HistoryTime value={error.resolvedAt} />
+            </dd>
+          </div>
+        ) : null}
         <div>
           <dt className="text-content-muted">{ui("Error code")}</dt>
           <dd className="mt-1 select-text [overflow-wrap:anywhere]">

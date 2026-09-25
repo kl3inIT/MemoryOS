@@ -1631,6 +1631,8 @@ export const englishUi: Record<string, string> = {
   Error: "Lỗi",
   "Current state": "Trạng thái hiện tại",
   "Occurred at": "Thời điểm",
+  Resolved: "Đã khắc phục",
+  "Resolved at": "Thời điểm khắc phục",
   "Refresh file states": "Cập nhật trạng thái tệp",
   "Historical run error": "Lỗi lần chạy trong lịch sử",
   "No current file is linked to this error.": "Không có tệp hiện tại liên kết với lỗi này.",

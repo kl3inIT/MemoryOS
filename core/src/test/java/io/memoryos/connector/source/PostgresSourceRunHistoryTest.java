@@ -350,7 +350,12 @@ class PostgresSourceRunHistoryTest {
             assertThat(error.currentItemStatus()).isNull();
             assertThat(error.currentItemErrorCode()).isNull();
             assertThat(error.currentItemLastIndexedAt()).isNull();
+            assertThat(error.resolvedAt()).isNull();
         });
+        jdbc.sql("UPDATE source_run_errors SET resolved_at = TIMESTAMPTZ '2026-09-25 08:00:00+00' WHERE run_id = :run")
+                .param("run", indexedRun.id()).update();
+        assertThat(history.errors(owner, source, indexedRun.id(), null, 1).items()).singleElement()
+                .satisfies(error -> assertThat(error.resolvedAt()).isEqualTo(java.time.Instant.parse("2026-09-25T08:00:00Z")));
     }
 
     @Test

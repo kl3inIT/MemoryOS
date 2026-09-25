@@ -158,6 +158,7 @@ public class JdbcSourceRunHistoryRepository {
                     r.getObject("operation_id", UUID.class), r.getObject("item_id", UUID.class),
                     r.getString("file_id"), r.getString("file_name"), SourceRunErrorStage.valueOf(r.getString("stage")),
                     r.getString("code"), r.getTimestamp("occurred_at").toInstant(),
+                    JdbcSourceRepository.instant(r, "resolved_at"),
                     r.getString("error_message"), r.getString("error_detail"),
                     currentStatus == null ? null : SourceItemStatus.valueOf(currentStatus),
                     r.getString("current_item_error_code"), JdbcSourceRepository.instant(r, "current_item_last_indexed_at"));

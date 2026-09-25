@@ -2377,6 +2377,10 @@ export type SourceRunError = {
     stage: 'PROVIDER' | 'STORAGE_READ' | 'STORAGE_WRITE' | 'EXTRACTION' | 'PUBLICATION' | 'SYSTEM';
     code: string;
     occurredAt: string;
+    /**
+     * When a later run acquired the same file again; null while the error stands
+     */
+    resolvedAt: string | null;
     errorMessage: string | null;
     errorDetail: string | null;
     currentItemStatus: 'PENDING' | 'INDEXED' | 'FAILED' | 'DELETING';
