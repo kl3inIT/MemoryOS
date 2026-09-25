@@ -1725,7 +1725,7 @@ export const englishUi: Record<string, string> = {
     "Đồng bộ và lập chỉ mục tự động đã tạm dừng. Dữ liệu và quyền đã lập chỉ mục có thể bị lỗi thời cho đến khi Nguồn được tiếp tục.",
   "Canceled by pause. Resume the Source to continue synchronization and indexing.":
     "Đã hủy do tạm dừng. Tiếp tục Nguồn để tiếp tục đồng bộ và lập chỉ mục.",
-  "Canceled because the Source is being deleted.": "Đã hủy vì Source đang được xóa.",
+  "Canceled because the Source is being deleted.": "Đã hủy vì Nguồn đang được xóa.",
   "Private · associated group members": "Riêng tư · thành viên các nhóm liên kết",
   "Save name": "Lưu tên",
   "Save visibility": "Lưu chế độ hiển thị",
