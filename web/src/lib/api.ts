@@ -1,4 +1,5 @@
 import { client } from "./hey-api/client.gen";
+import type { ApiProblem } from "./hey-api/types.gen";
 
 /** The same-origin guard the API requires on every unsafe browser-session request. */
 export const sameOriginMutationHeaders = { "X-MemoryOS-CSRF": "1" as const };
@@ -40,9 +41,19 @@ export function isNotFound(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 404;
 }
 
-export function problemCode(error: ApiError) {
+/**
+ * The RFC 9457 body of a failed call, typed by the published `ApiProblem` contract. Partial because a
+ * response outside the API's error handling (a proxy, a Spring Security 401) may carry no or another body.
+ */
+export function problemOf(error: unknown): Partial<ApiProblem> | undefined {
+  if (!(error instanceof ApiError)) return undefined;
   const cause = error.cause;
-  if (!cause || typeof cause !== "object" || !("code" in cause)) return undefined;
-  const code = cause.code;
+  if (!cause || typeof cause !== "object" || Array.isArray(cause) || cause instanceof Error)
+    return undefined;
+  return cause as Partial<ApiProblem>;
+}
+
+export function problemCode(error: ApiError) {
+  const code = problemOf(error)?.code;
   return typeof code === "string" ? code : undefined;
 }

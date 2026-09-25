@@ -27829,6 +27829,49 @@ components:
             - field
             - message
             - params
+        scope:
+          type: string
+          description: "AI_USAGE_LIMIT_EXCEEDED only: the budget that is spent."
+          enum:
+          - TENANT
+          - GROUP
+          - PERSON
+        group:
+          type: string
+          description: "AI_USAGE_LIMIT_EXCEEDED only: the Group whose budget is spent,\
+            \ for a Group budget."
+        resetsAt:
+          type: string
+          format: date-time
+          description: "AI_USAGE_LIMIT_EXCEEDED only: when the spent budget frees."
+        retryAfterSeconds:
+          type: integer
+          format: int64
+          description: "AI_USAGE_LIMIT_EXCEEDED only: seconds until the budget frees;\
+            \ equals the Retry-After header."
+          minimum: 1
+        usedBy:
+          type: array
+          description: "CHAT_FILE_IN_USE only: the Projects and agents that attach\
+            \ the file."
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              kind:
+                type: string
+                enum:
+                - AGENT
+                - PROJECT
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+            required:
+            - id
+            - kind
+            - name
       required:
       - detail
       - instance

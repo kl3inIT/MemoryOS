@@ -494,6 +494,12 @@ class OpenApiContractTest {
         assertEquals(4, fieldError.path("required").size());
         assertEquals(6, fieldError.path("properties").path("code").path("enum").size());
         assertFalse(fieldError.path("properties").path("params").path("additionalProperties").asBoolean());
+        // The problem is closed, so every extension member a handler writes must be declared.
+        var problem = actual.path("components").path("schemas").path("ApiProblem");
+        assertFalse(problem.path("additionalProperties").asBoolean());
+        for (String member : Set.of("code", "errors", "scope", "group", "resetsAt", "retryAfterSeconds", "usedBy")) {
+            assertTrue(problem.path("properties").has(member), "ApiProblem must declare " + member);
+        }
         for (String property : Set.of("personaId", "projectId")) {
             JsonNode schema = actual.path("components").path("schemas").path("CreateChatSession").path("properties").path(property);
             assertEquals("uuid", schema.path("oneOf").path(0).path("format").textValue());

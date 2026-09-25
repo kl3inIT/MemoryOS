@@ -2,6 +2,7 @@ package io.memoryos.api;
 
 import io.memoryos.api.security.BrowserMutation;
 import io.memoryos.connector.SourceRunTrigger;
+import io.memoryos.usage.AiUsageLimitScope;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
@@ -18,6 +19,7 @@ import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.parameters.HeaderParameter;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -196,6 +198,25 @@ class OpenApiConfiguration {
         fieldError.addProperty("params", parameters);
         schema.addProperty("errors", new ArraySchema().items(fieldError)
                 .description("Field validation failures with safe allowlisted parameters; no rejected values."));
+        // AI_USAGE_LIMIT_EXCEEDED (429): which budget is spent and when it frees, mirrored by Retry-After.
+        schema.addProperty("scope", new StringSchema()
+                ._enum(Arrays.stream(AiUsageLimitScope.values()).map(Enum::name).toList())
+                .description("AI_USAGE_LIMIT_EXCEEDED only: the budget that is spent."));
+        schema.addProperty("group", new StringSchema()
+                .description("AI_USAGE_LIMIT_EXCEEDED only: the Group whose budget is spent, for a Group budget."));
+        schema.addProperty("resetsAt", new StringSchema().format("date-time")
+                .description("AI_USAGE_LIMIT_EXCEEDED only: when the spent budget frees."));
+        schema.addProperty("retryAfterSeconds", new IntegerSchema().format("int64").minimum(BigDecimal.ONE)
+                .description("AI_USAGE_LIMIT_EXCEEDED only: seconds until the budget frees; equals the Retry-After header."));
+        // CHAT_FILE_IN_USE (409): what holds the file, so the caller can name it.
+        var usage = new ObjectSchema();
+        usage.setAdditionalProperties(false);
+        usage.setRequired(List.of("kind", "id", "name"));
+        usage.addProperty("kind", new StringSchema()._enum(List.of("AGENT", "PROJECT")));
+        usage.addProperty("id", new StringSchema().format("uuid"));
+        usage.addProperty("name", new StringSchema());
+        schema.addProperty("usedBy", new ArraySchema().items(usage)
+                .description("CHAT_FILE_IN_USE only: the Projects and agents that attach the file."));
         return schema;
     }
 }

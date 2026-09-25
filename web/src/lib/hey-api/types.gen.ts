@@ -3375,6 +3375,30 @@ export type ApiProblem = {
             max?: number;
         };
     }>;
+    /**
+     * AI_USAGE_LIMIT_EXCEEDED only: the budget that is spent.
+     */
+    scope?: 'TENANT' | 'GROUP' | 'PERSON';
+    /**
+     * AI_USAGE_LIMIT_EXCEEDED only: the Group whose budget is spent, for a Group budget.
+     */
+    group?: string;
+    /**
+     * AI_USAGE_LIMIT_EXCEEDED only: when the spent budget frees.
+     */
+    resetsAt?: string;
+    /**
+     * AI_USAGE_LIMIT_EXCEEDED only: seconds until the budget frees; equals the Retry-After header.
+     */
+    retryAfterSeconds?: number;
+    /**
+     * CHAT_FILE_IN_USE only: the Projects and agents that attach the file.
+     */
+    usedBy?: Array<{
+        kind: 'AGENT' | 'PROJECT';
+        id: string;
+        name: string;
+    }>;
 };
 
 export type ReplaceSharePointScopeData = {
