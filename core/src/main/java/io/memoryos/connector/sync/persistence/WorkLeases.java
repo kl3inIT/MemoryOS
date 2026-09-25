@@ -126,33 +126,6 @@ public final class WorkLeases {
                 .update() == 1;
     }
 
-    /**
-     * Hands a claimed row back to the dispatcher without spending retry budget, for work that continues in a
-     * later slice. Returns false when the claim was already lost.
-     */
-    public static boolean handBack(
-            JdbcClient jdbcClient,
-            String table,
-            UUID tenantId,
-            UUID operationId,
-            UUID claimToken,
-            Duration delay
-    ) {
-        return jdbcClient.sql("UPDATE " + identifier(table) + " SET status = 'NOT_STARTED', " + RELEASE + """
-                        ,
-                            next_dispatch_at = CURRENT_TIMESTAMP + :delayMillis * INTERVAL '1 millisecond'
-                        WHERE tenant_id = :tenantId
-                          AND id = :operationId
-                          AND claim_token = :claimToken
-                          AND status = 'IN_PROGRESS'
-                        """)
-                .param("delayMillis", delay.toMillis())
-                .param("tenantId", tenantId)
-                .param("operationId", operationId)
-                .param("claimToken", claimToken)
-                .update() == 1;
-    }
-
     public static RetryOutcome retry(
             JdbcClient jdbcClient,
             String table,
