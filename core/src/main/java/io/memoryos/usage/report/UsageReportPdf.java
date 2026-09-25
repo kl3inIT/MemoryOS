@@ -5,21 +5,19 @@ import io.memoryos.usage.report.UsageReportData.NamedSpend;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
-import java.text.Normalizer;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.ToDoubleFunction;
+import io.memoryos.shared.PdfText;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDDocumentInformation;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -327,22 +325,16 @@ public final class UsageReportPdf {
         final PDType0Font regular;
         final PDType0Font bold;
         final List<PDPage> pages = new ArrayList<>();
-        private final Map<PDType0Font, Map<Integer, Boolean>> glyphs = new HashMap<>();
+        private final PdfText text;
         PDPageContentStream cs;
         float y;
 
         Canvas(PDDocument doc) throws IOException {
             this.doc = doc;
-            this.regular = font(doc, "HankenGrotesk-Regular.ttf");
-            this.bold = font(doc, "HankenGrotesk-Bold.ttf");
+            this.text = new PdfText(doc);
+            this.regular = text.font("HankenGrotesk-Regular.ttf");
+            this.bold = text.font("HankenGrotesk-Bold.ttf");
             newPage();
-        }
-
-        private static PDType0Font font(PDDocument doc, String file) throws IOException {
-            try (InputStream in = UsageReportPdf.class.getResourceAsStream("/fonts/" + file)) {
-                if (in == null) throw new IOException("Missing font " + file);
-                return PDType0Font.load(doc, in, true);
-            }
         }
 
         void newPage() throws IOException {
@@ -467,8 +459,8 @@ public final class UsageReportPdf {
             text(left, y - 14, font, size, color, shown);
         }
 
-        float width(String value, PDType0Font font, float size) throws IOException {
-            return font.getStringWidth(safe(value, font)) / 1000 * size;
+        float width(String value, PDType0Font font, float size) {
+            return PdfText.width(safe(value, font), font, size);
         }
 
         /** Cuts a value that would overflow its column, with an ellipsis, rather than overprinting the next one. */
@@ -479,42 +471,15 @@ public final class UsageReportPdf {
             return cut.stripTrailing() + "…";
         }
 
-        List<String> wrap(String value, PDType0Font font, float size, float max) throws IOException {
-            var lines = new ArrayList<String>();
-            var current = new StringBuilder();
-            for (String word : value.split(" ")) {
-                String next = current.isEmpty() ? word : current + " " + word;
-                if (!current.isEmpty() && width(next, font, size) > max) {
-                    lines.add(current.toString());
-                    current = new StringBuilder(word);
-                } else {
-                    current = new StringBuilder(next);
-                }
-            }
-            if (!current.isEmpty()) lines.add(current.toString());
-            return lines;
+        /** Wrapped to the width; a word longer than a line, such as a long model id, is cut rather than overprinted. */
+        List<String> wrap(String value, PDType0Font font, float size, float max) {
+            if (value.isBlank()) return List.of();
+            return PdfText.lines(safe(value, font), font, size, max, max);
         }
 
-        /**
-         * Names and models are data: composed to NFC so Vietnamese marks use the font's precomposed glyphs, and any
-         * character the typeface lacks (an emoji, a CJK name) becomes "?" instead of failing the whole report.
-         */
+        /** Names and models are data; see {@link PdfText#safe}. */
         String safe(String value, PDType0Font font) {
-            String normalized = Normalizer.normalize(value, Normalizer.Form.NFC);
-            var known = glyphs.computeIfAbsent(font, ignored -> new HashMap<>());
-            var out = new StringBuilder(normalized.length());
-            normalized.codePoints().forEach(point -> {
-                boolean drawable = known.computeIfAbsent(point, code -> {
-                    try {
-                        font.encode(new String(Character.toChars(code)));
-                        return true;
-                    } catch (IllegalArgumentException | IOException e) {
-                        return false;
-                    }
-                });
-                out.append(drawable ? new String(Character.toChars(point)) : "?");
-            });
-            return out.toString();
+            return text.safe(value, font);
         }
     }
 }
