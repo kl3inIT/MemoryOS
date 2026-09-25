@@ -1,5 +1,6 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.chat.contract.ChatProjectConversationRequest;
 import io.memoryos.api.chat.contract.ChatSessionResponse;
 import io.memoryos.chat.ChatProjectService;
 import io.memoryos.chat.ChatProjectService.ProjectInput;
@@ -13,8 +14,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -84,8 +83,7 @@ class ChatProjectController {
     @Operation(operationId = "createProjectChatSession", summary = "Create a conversation inside an owned project")
     @ApiResponse(responseCode = "201", description = "Successful chat operation", useReturnTypeSchema = true)
     ChatSessionResponse conversation(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-            @PathVariable UUID projectId, @Valid @RequestBody ProjectConversation request) {
+            @PathVariable UUID projectId, @Valid @RequestBody ChatProjectConversationRequest request) {
         return ChatSessionResponse.from(projects.createConversation(identity.actorId(), projectId, request.title()));
     }
-    record ProjectConversation(@NotBlank @Size(max = 200) String title) {}
 }

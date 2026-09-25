@@ -1,5 +1,6 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.chat.contract.ChatHistoryVisibilityRequest;
 import io.memoryos.api.chat.contract.ChatSettingsRequest;
 import io.memoryos.api.chat.contract.ChatSettingsResponse;
 import io.memoryos.chat.ChatSettingsService;
@@ -50,15 +51,11 @@ class ChatSettingsController {
         return ChatSettingsResponse.from(settings.save(identity.actorId(), request.deepResearchEnabled(), request.revision()));
     }
 
-    @Schema(name = "ChatHistoryVisibilityRequest")
-    record VisibilityRequest(@jakarta.validation.constraints.NotNull io.memoryos.chat.ChatHistoryVisibility visibility,
-                             @jakarta.validation.constraints.Min(0) long revision) {}
-
     @PutMapping("/history-visibility")
     @ApiResponse(responseCode = "200", description = "Saved Tenant Chat settings", useReturnTypeSchema = true)
     @Operation(operationId = "saveChatHistoryVisibility", summary = "Choose who may read other people's conversations; requires model management")
     ChatSettingsResponse saveHistoryVisibility(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-            @Valid @RequestBody VisibilityRequest request) {
+            @Valid @RequestBody ChatHistoryVisibilityRequest request) {
         return ChatSettingsResponse.from(
                 settings.saveHistoryVisibility(identity.actorId(), request.visibility(), request.revision()));
     }

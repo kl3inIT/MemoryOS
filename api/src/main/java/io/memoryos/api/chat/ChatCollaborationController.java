@@ -1,5 +1,6 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.chat.contract.ChatFeedbackRequest;
 import io.memoryos.api.chat.contract.ChatMessageResponse;
 import io.memoryos.chat.ChatCollaborationService;
 import io.memoryos.chat.ChatCollaborationService.Feedback;
@@ -72,7 +73,7 @@ class ChatCollaborationController {
     @Operation(operationId = "setChatFeedback", summary = "Add or change a rating on an owned assistant output")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
     Feedback feedback(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId,
-            @PathVariable UUID assistantMessageId, @RequestBody FeedbackInput request) {
+            @PathVariable UUID assistantMessageId, @RequestBody ChatFeedbackRequest request) {
         return collaboration.feedback(identity.actorId(), sessionId, assistantMessageId, request.positive(), request.comment(), request.reason());
     }
     @DeleteMapping("/sessions/{sessionId}/messages/{assistantMessageId}/feedback")
@@ -80,5 +81,4 @@ class ChatCollaborationController {
     @Operation(operationId = "removeChatFeedback", summary = "Remove the actor's rating from an owned assistant output")
     void remove(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId,
             @PathVariable UUID assistantMessageId) { collaboration.removeFeedback(identity.actorId(), sessionId, assistantMessageId); }
-    record FeedbackInput(@Nullable Boolean positive, String comment, String reason) {}
 }

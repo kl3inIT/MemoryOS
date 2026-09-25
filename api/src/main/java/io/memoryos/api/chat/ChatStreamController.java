@@ -1,5 +1,17 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.chat.contract.CodeEvent;
+import io.memoryos.api.chat.contract.ImageEvent;
+import io.memoryos.api.chat.contract.IntermediateReportCitationsEvent;
+import io.memoryos.api.chat.contract.IntermediateReportEvent;
+import io.memoryos.api.chat.contract.OutcomeEvent;
+import io.memoryos.api.chat.contract.ReasoningEvent;
+import io.memoryos.api.chat.contract.ResearchAgentStartEvent;
+import io.memoryos.api.chat.contract.ResearchPlanEvent;
+import io.memoryos.api.chat.contract.ResetEvent;
+import io.memoryos.api.chat.contract.TextDeltaEvent;
+import io.memoryos.api.chat.contract.ToolEvent;
+import io.memoryos.api.chat.contract.TopLevelBranchingEvent;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.streaming.ChatStreamProperties;
@@ -60,12 +72,12 @@ class ChatStreamController {
                     + "Only outcome confirms a committed terminal state. Heartbeats are comments. A reset has no event id.")
     @ApiResponse(responseCode = "200", description = "SSE frames; the schema describes each data payload",
             content = @Content(mediaType = MediaType.TEXT_EVENT_STREAM_VALUE,
-                    schema = @Schema(oneOf = {ChatEventStream.TextDeltaEvent.class, ChatEventStream.OutcomeEvent.class,
-                            ChatEventStream.ResetEvent.class, ChatEventStream.ToolEvent.class, ChatEventStream.ReasoningEvent.class,
-                            ChatEventStream.ImageEvent.class, ChatEventStream.CodeEvent.class,
-                            ChatEventStream.ResearchPlanEvent.class,
-                            ChatEventStream.TopLevelBranchingEvent.class, ChatEventStream.ResearchAgentStartEvent.class,
-                            ChatEventStream.IntermediateReportEvent.class, ChatEventStream.IntermediateReportCitationsEvent.class})))
+                    schema = @Schema(oneOf = {TextDeltaEvent.class, OutcomeEvent.class,
+                            ResetEvent.class, ToolEvent.class, ReasoningEvent.class,
+                            ImageEvent.class, CodeEvent.class,
+                            ResearchPlanEvent.class,
+                            TopLevelBranchingEvent.class, ResearchAgentStartEvent.class,
+                            IntermediateReportEvent.class, IntermediateReportCitationsEvent.class})))
     ResponseEntity<Flux<ServerSentEvent<Object>>> events(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID sessionId, @PathVariable UUID assistantMessageId,
             @RequestHeader(value = "Last-Event-ID", required = false) @Nullable String lastEvent,

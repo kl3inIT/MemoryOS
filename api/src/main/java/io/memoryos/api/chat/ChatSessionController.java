@@ -1,5 +1,8 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.chat.contract.BranchChatSessionRequest;
+import io.memoryos.api.chat.contract.ChatSessionsArchivedResponse;
+import io.memoryos.api.chat.contract.CreateChatSessionRequest;
 import io.memoryos.api.chat.contract.ChatMessageResponse;
 import io.memoryos.api.chat.contract.ChatSessionResponse;
 import io.memoryos.api.chat.contract.ChatSessionSearchResponse;
@@ -16,8 +19,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -74,7 +75,7 @@ class ChatSessionController {
     @Operation(operationId = "createChatSession", summary = "Create a private chat session")
     @ApiResponse(responseCode = "201", description = "Created private session", useReturnTypeSchema = true)
     ChatSessionResponse create(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-            @Valid @RequestBody CreateChatSession request) {
+            @Valid @RequestBody CreateChatSessionRequest request) {
         return ChatSessionResponse.from(workspace.create(identity.actorId(), request.title(), request.personaId(),
                 request.projectId(), Boolean.TRUE.equals(request.temporary())));
     }
@@ -106,14 +107,11 @@ class ChatSessionController {
         return ChatSessionResponse.from(sessions.archive(identity.actorId(), sessionId, false));
     }
 
-    @Schema(name = "ChatSessionsArchived")
-    record ArchivedResponse(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) int archived) {}
-
     @PostMapping("/archive-all")
     @Operation(operationId = "archiveAllChatSessions", summary = "Archive the caller's conversations in one command")
     @ApiResponse(responseCode = "200", description = "How many conversations were archived", useReturnTypeSchema = true)
-    ArchivedResponse archiveAll(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return new ArchivedResponse(sessions.archiveAll(identity.actorId()));
+    ChatSessionsArchivedResponse archiveAll(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+        return new ChatSessionsArchivedResponse(sessions.archiveAll(identity.actorId()));
     }
 
     @PostMapping("/{sessionId}/messages/{messageId}/branch")
@@ -123,15 +121,10 @@ class ChatSessionController {
     @ApiResponse(responseCode = "201", description = "The new conversation", useReturnTypeSchema = true)
     ChatSessionResponse branch(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID sessionId, @PathVariable UUID messageId,
-            @RequestBody(required = false) BranchChatSession request) {
+            @RequestBody(required = false) BranchChatSessionRequest request) {
         return ChatSessionResponse.from(branches.branch(identity.actorId(), sessionId, messageId,
                 request == null ? null : request.title()));
     }
-
-    @Schema(name = "BranchChatSessionRequest")
-    record BranchChatSession(
-            @Schema(description = "What to call the branch; the server names it after its origin when absent")
-            @Size(max = 200) @Nullable String title) {}
 
     @GetMapping("/{sessionId}")
     @Operation(operationId = "getChatSession", summary = "Read an owned chat session")
@@ -171,8 +164,4 @@ class ChatSessionController {
                                 file.sizeBytes(), file.chart(), file.deleted())).toList())).toList();
     }
 
-    record CreateChatSession(@NotBlank @Size(max = 200) String title, @Nullable UUID personaId,
-            @Nullable UUID projectId,
-            @Schema(description = "Leave no history: listed nowhere, deleted with its uploads after its window")
-            @Nullable Boolean temporary) {}
 }

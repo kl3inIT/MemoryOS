@@ -1,5 +1,7 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.chat.contract.ChatSpreadsheetPreviewResponse;
+import io.memoryos.api.chat.contract.ChatSpreadsheetSheetResponse;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,7 +13,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.ContentDisposition;
@@ -41,12 +42,6 @@ class ChatFileArtifactController {
         this.files = files;
         this.presentations = presentations;
     }
-
-    @Schema(name = "ChatSpreadsheetPreview")
-    record SpreadsheetPreviewResponse(List<SheetResponse> sheets) {}
-
-    @Schema(name = "ChatSpreadsheetSheet")
-    record SheetResponse(String name, String csv, boolean truncated) {}
 
     @org.springframework.web.bind.annotation.DeleteMapping("/{artifactId}")
     @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
@@ -92,12 +87,12 @@ class ChatFileArtifactController {
     @Operation(operationId = "previewChatFileArtifactSpreadsheet",
             summary = "Read an owner-private generated xlsx as CSV text per sheet, each cut at a row boundary")
     @ApiResponse(responseCode = "200", description = "Sheets in workbook order",
-            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = SpreadsheetPreviewResponse.class)))
-    SpreadsheetPreviewResponse preview(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, schema = @Schema(implementation = ChatSpreadsheetPreviewResponse.class)))
+    ChatSpreadsheetPreviewResponse preview(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID artifactId, HttpServletResponse response) {
         var sheets = files.spreadsheet(identity.actorId(), artifactId).stream()
-                .map(sheet -> new SheetResponse(sheet.name(), sheet.csv(), sheet.truncated())).toList();
-        return new SpreadsheetPreviewResponse(sheets);
+                .map(sheet -> new ChatSpreadsheetSheetResponse(sheet.name(), sheet.csv(), sheet.truncated())).toList();
+        return new ChatSpreadsheetPreviewResponse(sheets);
     }
 
     @GetMapping(value = "/{artifactId}/content", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)

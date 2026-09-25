@@ -1,5 +1,7 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.chat.contract.ChatSpreadsheetPreviewResponse;
+import io.memoryos.api.chat.contract.ChatSpreadsheetSheetResponse;
 import io.memoryos.api.chat.contract.ChatFilePolicyResponse;
 import io.memoryos.api.chat.contract.ChatFileResponse;
 import io.memoryos.api.chat.contract.ChatFileUploadRequest;
@@ -68,12 +70,12 @@ class ChatFileController {
 
     @GetMapping("/{fileId}/preview")
     @Operation(operationId="previewChatFileSpreadsheet", summary="Read an owner-private xlsx attachment as CSV text per sheet, each cut at a row boundary")
-    @ApiResponse(responseCode="200",description="Sheets in workbook order",content=@Content(mediaType=MediaType.APPLICATION_JSON_VALUE, schema=@Schema(implementation=ChatFileArtifactController.SpreadsheetPreviewResponse.class)))
-    ResponseEntity<ChatFileArtifactController.SpreadsheetPreviewResponse> preview(@Parameter(hidden=true) @AuthenticationPrincipal IdentityContext identity,
+    @ApiResponse(responseCode="200",description="Sheets in workbook order",content=@Content(mediaType=MediaType.APPLICATION_JSON_VALUE, schema=@Schema(implementation=ChatSpreadsheetPreviewResponse.class)))
+    ResponseEntity<ChatSpreadsheetPreviewResponse> preview(@Parameter(hidden=true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID fileId) {
         var sheets = content.spreadsheet(identity.actorId(), fileId).stream()
-                .map(sheet -> new ChatFileArtifactController.SheetResponse(sheet.name(), sheet.csv(), sheet.truncated())).toList();
-        return ResponseEntity.ok().body(new ChatFileArtifactController.SpreadsheetPreviewResponse(sheets));
+                .map(sheet -> new ChatSpreadsheetSheetResponse(sheet.name(), sheet.csv(), sheet.truncated())).toList();
+        return ResponseEntity.ok().body(new ChatSpreadsheetPreviewResponse(sheets));
     }
 
     @GetMapping(value="/{fileId}/content", produces=MediaType.APPLICATION_OCTET_STREAM_VALUE)

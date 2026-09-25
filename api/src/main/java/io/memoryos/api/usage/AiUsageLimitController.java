@@ -1,8 +1,9 @@
 package io.memoryos.api.usage;
 
+import io.memoryos.api.usage.contract.AiUsageLimitRequest;
+import io.memoryos.api.usage.contract.AiUsageLimitResponse;
+import io.memoryos.api.usage.contract.AiUsageStandingResponse;
 import io.memoryos.iam.IdentityContext;
-import io.memoryos.usage.AiUsageLimit;
-import io.memoryos.usage.AiUsageLimitScope;
 import io.memoryos.usage.AiUsageLimitService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -11,8 +12,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -42,73 +41,28 @@ class AiUsageLimitController {
 
     AiUsageLimitController(AiUsageLimitService limits) { this.limits = limits; }
 
-    @Schema(name = "AiUsageLimit", description = "A cap on AI spending. A model without a price adds tokens but no cost, so only a token budget binds it")
-    record Limit(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
-                 @Schema(requiredMode = Schema.RequiredMode.REQUIRED) AiUsageLimitScope scope,
-                 @Nullable UUID groupId, @Nullable String groupName,
-                 @Nullable Long tokenBudget, @Nullable BigDecimal costBudgetUsd,
-                 @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int periodDays,
-                 @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean enabled,
-                 @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Spent against this limit in its own window; for a per-person limit, the busiest person's spend")
-                 long tokensUsed,
-                 @Schema(requiredMode = Schema.RequiredMode.REQUIRED) BigDecimal costUsed) {
-        static Limit from(AiUsageLimit value) {
-            return from(new AiUsageLimitService.Configured(value, 0, BigDecimal.ZERO));
-        }
-
-        static Limit from(AiUsageLimitService.Configured value) {
-            AiUsageLimit limit = value.limit();
-            return new Limit(limit.id(), limit.scope(), limit.groupId(), limit.groupName(), limit.tokenBudget(),
-                    limit.costBudgetUsd(), limit.periodDays(), limit.enabled(), value.tokensUsed(), value.costUsed());
-        }
-    }
-
-    @Schema(name = "AiUsageLimitRequest")
-    record Request(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) AiUsageLimitScope scope,
-                   @Nullable UUID groupId, @Nullable Long tokenBudget, @Nullable BigDecimal costBudgetUsd,
-                   @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int periodDays,
-                   @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean enabled) {
-        AiUsageLimit toLimit(UUID id) {
-            return new AiUsageLimit(id, scope, groupId, null, tokenBudget, costBudgetUsd, periodDays, enabled);
-        }
-    }
-
-    @Schema(name = "AiUsageStanding", description = "The budget that binds the caller, and what they have spent against it")
-    record Standing(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) AiUsageLimitScope scope,
-                    @Nullable String groupName, @Nullable Long tokenBudget,
-                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long tokensUsed,
-                    @Nullable BigDecimal costBudgetUsd,
-                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) BigDecimal costUsed,
-                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) int periodDays,
-                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant resetsAt) {
-        static Standing from(AiUsageLimitService.Standing value) {
-            return new Standing(value.scope(), value.groupName(), value.tokenBudget(), value.tokensUsed(),
-                    value.costBudgetUsd(), value.costUsed(), value.periodDays(), value.resetsAt());
-        }
-    }
-
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping
     @Operation(operationId = "listAiUsageLimits", summary = "The Tenant's AI spending limits; requires model management")
-    List<Limit> list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return limits.list(identity.actorId()).stream().map(Limit::from).toList();
+    List<AiUsageLimitResponse> list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+        return limits.list(identity.actorId()).stream().map(AiUsageLimitResponse::from).toList();
     }
 
     @ApiResponse(responseCode = "201", description = "Created", useReturnTypeSchema = true)
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
     @Operation(operationId = "createAiUsageLimit", summary = "Sets a spending limit for the Tenant, a Group or each person; requires model management")
-    Limit create(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-                 @RequestBody Request request) {
-        return Limit.from(limits.create(identity.actorId(), request.toLimit(UUID.randomUUID())));
+    AiUsageLimitResponse create(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                 @RequestBody AiUsageLimitRequest request) {
+        return AiUsageLimitResponse.from(limits.create(identity.actorId(), request.toLimit(UUID.randomUUID())));
     }
 
     @ApiResponse(responseCode = "200", description = "Updated", useReturnTypeSchema = true)
     @PutMapping(value = "/{limitId}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(operationId = "updateAiUsageLimit", summary = "Changes a limit's budgets, period or switch; who it applies to is fixed. Requires model management")
-    Limit update(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-                 @PathVariable UUID limitId, @RequestBody Request request) {
-        return Limit.from(limits.update(identity.actorId(), limitId, request.toLimit(limitId)));
+    AiUsageLimitResponse update(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                 @PathVariable UUID limitId, @RequestBody AiUsageLimitRequest request) {
+        return AiUsageLimitResponse.from(limits.update(identity.actorId(), limitId, request.toLimit(limitId)));
     }
 
     @ApiResponse(responseCode = "204", description = "Removed")
@@ -122,7 +76,7 @@ class AiUsageLimitController {
     @ApiResponse(responseCode = "200", description = "The binding budget, or nothing when the Tenant sets no limit", useReturnTypeSchema = true)
     @GetMapping("/mine")
     @Operation(operationId = "getMyAiUsageStanding", summary = "The budget that binds the caller and what they have spent against it; any member")
-    @Nullable Standing mine(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return limits.standing(identity.actorId()).map(Standing::from).orElse(null);
+    @Nullable AiUsageStandingResponse mine(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+        return limits.standing(identity.actorId()).map(AiUsageStandingResponse::from).orElse(null);
     }
 }

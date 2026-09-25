@@ -1,9 +1,12 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.chat.contract.ChatEditTurnRequest;
+import io.memoryos.api.chat.contract.ChatRegenerateTurnRequest;
+import io.memoryos.api.chat.contract.ChatSendTurnRequest;
+import io.memoryos.api.chat.contract.ChatTurnAcceptedResponse;
+import io.memoryos.api.chat.contract.ChatTurnCancellationResponse;
 import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.ChatCommand;
-import io.memoryos.chat.ImageMode;
-import io.memoryos.chat.WebSearchMode;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,8 +16,6 @@ import org.springframework.http.MediaType;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import jakarta.validation.Valid;
 import org.jspecify.annotations.Nullable;
 
@@ -57,73 +58,50 @@ class ChatTurnController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Operation(operationId = "sendChatMessage", summary = "Reserve and execute a chat reply in the background")
     @ApiResponse(responseCode = "202", description = "Reserved reply", useReturnTypeSchema = true)
-    Accepted send(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-                  @PathVariable UUID sessionId, @Valid @RequestBody Send request) {
+    ChatTurnAcceptedResponse send(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+                  @PathVariable UUID sessionId, @Valid @RequestBody ChatSendTurnRequest request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.SEND,
                 request.parentMessageId(), request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds(), request.webSearch(), request.image(),
                 Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds())));
-        return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
+        return new ChatTurnAcceptedResponse(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 
     @PostMapping("/{assistantMessageId}/cancel")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Operation(operationId = "cancelChatMessage", summary = "Request Stop; read history for the committed terminal outcome")
     @ApiResponse(responseCode = "202", description = "Stop requested; history contains the committed outcome", useReturnTypeSchema = true)
-    Cancellation cancel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ChatTurnCancellationResponse cancel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
                         @PathVariable UUID sessionId, @PathVariable UUID assistantMessageId) {
         var result = turns.cancel(identity.actorId(), sessionId, assistantMessageId);
-        return new Cancellation(result.assistantMessageId(), result.status().name());
+        return new ChatTurnCancellationResponse(result.assistantMessageId(), result.status().name());
     }
 
     @PostMapping("/{userMessageId}/edit")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Operation(operationId = "editChatMessage", summary = "Create a new question branch and execute its reply")
     @ApiResponse(responseCode = "202", description = "Reserved edited branch", useReturnTypeSchema = true)
-    Accepted edit(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId,
-            @PathVariable UUID userMessageId, @Valid @RequestBody Edit request) {
+    ChatTurnAcceptedResponse edit(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId,
+            @PathVariable UUID userMessageId, @Valid @RequestBody ChatEditTurnRequest request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.EDIT,
                 userMessageId, request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds(), request.webSearch(), request.image(),
                 Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds())));
-        return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
+        return new ChatTurnAcceptedResponse(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
 
     @PostMapping("/{userMessageId}/regenerate")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Operation(operationId = "regenerateChatMessage", summary = "Generate a new answer under the existing question")
     @ApiResponse(responseCode = "202", description = "Reserved regenerated reply", useReturnTypeSchema = true)
-    Accepted regenerate(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId,
-            @PathVariable UUID userMessageId, @Valid @RequestBody Regenerate request) {
+    ChatTurnAcceptedResponse regenerate(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId,
+            @PathVariable UUID userMessageId, @Valid @RequestBody ChatRegenerateTurnRequest request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.REGENERATE,
                 userMessageId, request.clientRequestId(), "", request.modelConfigurationId(), List.of(), request.webSearch(), request.image(),
                 Boolean.TRUE.equals(request.deepResearch()), servers(request.mcpServerIds())));
-        return new Accepted(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
+        return new ChatTurnAcceptedResponse(accepted.userMessageId(), accepted.assistantMessageId(), accepted.modelConfigurationId(), accepted.fallbackReason());
     }
-
-    record Edit(@NotNull UUID clientRequestId, @NotNull @Size(max = 32000) String text, @Nullable UUID modelConfigurationId,
-                @Size(max = 20) @Nullable List<@NotNull UUID> fileIds, @Nullable WebSearchMode webSearch, @Nullable ImageMode image,
-                @Schema(description = "Run Deep research; absent means false. Part of request identity.") @Nullable Boolean deepResearch,
-                @Size(max = 8) @Nullable List<@NotNull UUID> mcpServerIds) {}
-    record Regenerate(@NotNull UUID clientRequestId, @Nullable UUID modelConfigurationId, @Nullable WebSearchMode webSearch, @Nullable ImageMode image,
-                      @Schema(description = "Run Deep research; absent means false. Part of request identity.") @Nullable Boolean deepResearch,
-                @Size(max = 8) @Nullable List<@NotNull UUID> mcpServerIds) {}
 
     private static List<UUID> servers(@Nullable List<UUID> selected) {
         return selected == null ? List.of() : selected;
     }
 
-    record Send(@NotNull UUID parentMessageId, @NotNull UUID clientRequestId,
-                @NotNull @Size(max = 32000) String text, @Nullable UUID modelConfigurationId,
-                @Size(max = 20) @Nullable List<@NotNull UUID> fileIds, @Nullable WebSearchMode webSearch, @Nullable ImageMode image,
-                @Schema(description = "Run Deep research; absent means false. Part of request identity.") @Nullable Boolean deepResearch,
-                @Size(max = 8) @Nullable List<@NotNull UUID> mcpServerIds) {
-    }
-
-    record Accepted(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID userMessageId,
-                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID assistantMessageId,
-                    @Nullable UUID modelConfigurationId, @Nullable String fallbackReason) {
-    }
-
-    record Cancellation(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID assistantMessageId,
-                        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"RUNNING", "COMPLETED", "CANCELED", "FAILED"}) String status) {
-    }
 }
