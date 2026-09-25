@@ -123,10 +123,10 @@ Schema:
 
 ## Model và nơi chạy
 
-* **Model:** `Qwen/Qwen3-Embedding-0.6B`, 1024 chiều, giấy phép Apache-2.0. Tiền tố câu hỏi: `Instruct: Given a question, retrieve passages that answer it\nQuery: `. Tài liệu không có tiền tố.
+* **Model:** `Qwen/Qwen3-Embedding-4B` revision `5cf2132abc99cad020ac570b19d031efec650f2b`, 2560 chiều, giấy phép Apache-2.0, đổi từ 0.6B ngày 2026-09-25 (xem [Chọn model](#chọn-model-2026-09-25)). Generation của MemoryOS để trống tiền tố câu hỏi và tài liệu; preset vẫn điền tiền tố `Instruct: …` như Qwen khuyến nghị.
 * **Dịch vụ:** Hugging Face Text Embeddings Inference (TEI) v1.9.4, image cho Ada Lovelace `ghcr.io/huggingface/text-embeddings-inference:89-1.9.4`, ghim theo digest. TEI nhẹ và không giữ trước toàn bộ VRAM như vLLM. Nó có API OpenAI-compatible `/v1/embeddings` và hỗ trợ `--api-key`; key là secret file sinh tại chỗ trên `serving`, cùng cách với các secret khác.
 * **Model không nằm trong image.** Một bước bootstrap chạy một lần trong `compose.serving.yaml` tải đúng revision đã ghim vào volume, rồi TEI chạy `HF_HUB_OFFLINE=1` với `depends_on: service_completed_successfully`, theo mẫu `minio-bootstrap`.
-* **RAM.** Hai service PaddleOCR-VL giới hạn 7 GiB và 4 GiB trên node 15 GiB, nên TEI chỉ còn khoảng 2–3 GiB. Giới hạn đặt theo số đo khi PaddleOCR-VL đang chạy.
+* **RAM.** Hai service PaddleOCR-VL giới hạn 7 GiB và 4 GiB trên node 15 GiB nhưng lúc chạy dùng khoảng 7 GiB cộng lại; TEI giới hạn 6 GiB theo số đo của 4B (4,6 GiB sau khi nạp, đỉnh 5,9 GiB lúc nạp).
 * **Spike 2026-09-23** trên `serving`, image `89-1.9.4@sha256:1a284d9ca1adcc20b78c261d4d052c06057f0a3cb49a15c5d2c00930f710fce2`, model `Qwen/Qwen3-Embedding-0.6B` revision `97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3` (Apache-2.0), chạy FlashQwen3 trên CUDA:
   * `--api-key`: thiếu key và sai key đều nhận 401.
   * `/v1/embeddings` trả `model` đúng tên đã gửi và 1024 chiều; `dimensions: 512` trả 512 chiều.
@@ -177,7 +177,28 @@ Schema:
   * tài liệu sửa trong lúc dựng có mặt ở index mới;
   * sau khi chuyển, truy vấn dùng model mới và tiền tố mới.
 * **Hoàn tác:** làm được trong thời hạn giữ; hết hạn thì index cũ bị xoá và đếm bằng 0.
-* **Production:** dùng Qwen3-Embedding-0.6B qua TEI trên `serving`. Tìm kiếm một tài liệu tiếng Việt thử nghiệm trả đúng tài liệu. Nhãn hiện Nội bộ.
+* **Production:** dùng Qwen3-Embedding-4B qua TEI trên `serving`. Tìm kiếm một tài liệu tiếng Việt thử nghiệm trả đúng tài liệu. Nhãn hiện Nội bộ.
+
+## Chọn model (2026-09-25)
+
+So vector trực tiếp trên 5.257 chunk của staging, 87 câu MEM-141 chấm theo tài liệu và 10 câu probe chấm theo đoạn văn:
+
+| Model / tiền tố câu hỏi | recall@5 tài liệu | nDCG@5 | recall@5 đoạn văn | MRR đoạn văn |
+| --- | --- | --- | --- | --- |
+| Qwen3-Embedding-4B, không tiền tố | 0,966 | 0,826 | 1,0 | 0,737 |
+| BGE-M3 | 0,994 | 0,841 | 0,6 | 0,483 |
+| multilingual-e5-large-instruct | 0,966 | 0,851 | 0,6 | 0,414 |
+| Qwen3-Embedding-0.6B, không tiền tố | 0,960 | 0,827 | 0,5 | 0,410 |
+| OpenAI `text-embedding-3-large` | 0,902 | 0,742 | 0,6 | 0,481 |
+| AITeamVN/Vietnamese_Embedding | 0,931 | 0,715 | 0,4 | 0,333 |
+| Qwen3 0.6B/4B có tiền tố `Instruct: …` | 0,84–0,94 | 0,74–0,79 | 0,3–0,4 | 0,12–0,30 |
+
+* Với 11 tài liệu, chấm theo tài liệu gần chạm trần; chấm theo đoạn văn phân biệt được model nhưng mới có 10 câu. Benchmark qua API sau khi chuyển staging là bằng chứng quyết định.
+* Tiền tố câu hỏi của Qwen, tiếng Anh hay tiếng Việt, làm kết quả kém hơn trên kho này, nên generation của MemoryOS để trống.
+* multilingual-e5 chỉ nhận 512 token, ngắn hơn chunk 768 token, nên bị loại.
+* Ngưỡng 0,70 (cosine ≥ 0,4) không cắt kết quả của Qwen3-4B: trung vị cosine top-1 là 0,698 và cả top-20 đều trên 0,4.
+* **Tài nguyên trên `serving`:** 4,6 GiB RAM sau khi nạp, đỉnh 5,9 GiB lúc nạp; khoảng 8,4 GB VRAM, cả GPU 18,1 GB cùng PaddleOCR-VL. MEM-193 còn khoảng 6 GB VRAM thay vì 13 GB.
+* Trọng số 4B chia hai shard, nên `tei/download-model.sh` đọc `model.safetensors.index.json` khi có.
 
 ## Sai khác khi làm part 2 (2026-09-24)
 
@@ -196,4 +217,4 @@ Chủ sản phẩm chọn làm toàn bộ MEM-135 trong một PR riêng, xếp s
 
 * **Ai được sửa:** `MODELS_MANAGE` của Tenant vận hành (Tenant đầu tiên); cấu hình tìm kiếm thuộc về deployment.
 * **Thời hạn giữ index cũ:** 7 ngày.
-* **Ngưỡng ngữ nghĩa cho Qwen3-0.6B:** 0.70 tạm thời, chỉnh sau benchmark MEM-141.
+* **Ngưỡng ngữ nghĩa cho Qwen3:** 0.70 tạm thời, chỉnh sau benchmark MEM-141.

@@ -146,7 +146,7 @@ PDF là "scan" khi mật độ chữ của lớp chữ dưới ngưỡng 100 ký
 
 | Dịch vụ | VRAM | RAM | Nguồn |
 | --- | --- | --- | --- |
-| TEI + Qwen3-Embedding-0.6B | dự kiến < 3 GB | chưa đo | MEM-135 |
+| TEI + Qwen3-Embedding-4B | khoảng 8,4 GB (cả GPU 18,1 GB cùng PaddleOCR-VL) | 4,6 GiB, đỉnh 5,9 GiB lúc nạp | MEM-135 |
 | PaddleOCR-VL-1.6: vLLM + layout API | 9,6–9,7 GB cả GPU lúc chạy (vLLM đặt 0,35) | vLLM 2,7 GB anon + 1,4 GB shm sau khi sửa cache; layout API 2,9 GiB | spike |
 | vLLM chat | phần còn lại | phần còn lại | MEM-193 |
 | OS và Docker | 0 | khoảng 1 GiB | đo lúc trống: 670 MiB |
