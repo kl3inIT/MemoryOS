@@ -70,14 +70,14 @@ class ChatTurnServiceTest {
         var binding = new ModelBinding(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p, ModelRequestPolicy.hosted(new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(
                 com.knuddels.jtokkit.api.EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
         when(lease.binding()).thenReturn(binding);
-        when(models.resolve(any(), any(), any())).thenReturn(new ModelResolver.Resolved(UUID.randomUUID(), null, lease));
+        when(models.resolve(any(), any(), any(), any())).thenReturn(new ModelResolver.Resolved(UUID.randomUUID(), null, lease));
         when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(call -> new ChatTurnPersistence.TerminalOutcome(call.getArgument(2), call.getArgument(4)));
         when(persistence.existing(any(), any(), any(ChatCommand.class))).thenReturn(Optional.empty());
         // The builtin agent allows every tool and every MCP server the actor can use.
-        when(persistence.agent(any(), any())).thenReturn(new io.memoryos.chat.session.persistence.JdbcChatRepository.Persona(
+        when(persistence.agent(any(), any())).thenReturn(new ChatTurnPersistence.SessionAgent(new io.memoryos.chat.session.persistence.JdbcChatRepository.Persona(
                 "", "gpt-5-mini", ChatTurnOptions.DEFAULT, "0", null, List.of(),
-                java.util.Set.of("search", "web_search", "image_generation"), null, true));
+                java.util.Set.of("search", "web_search", "image_generation"), null, true), false, false, false));
         when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(pair);
         var question = new ChatMessage(pair.userMessageId(), session, parent, pair.assistantMessageId(), ChatMessage.Role.USER,
                 "Question", ChatMessage.Status.COMPLETED, Instant.now(), Instant.now());
@@ -124,7 +124,7 @@ class ChatTurnServiceTest {
     @SuppressWarnings("resource") // This Mockito stubbing does not acquire a real lease.
     void unavailableProviderRejectsBeforeReservation() {
         prepare();
-        doThrow(ChatException.providerUnavailable()).when(models).resolve(any(), any(), any());
+        doThrow(ChatException.providerUnavailable()).when(models).resolve(any(), any(), any(), any());
         try (var service = new ChatTurnService(persistence, model, limits, Runnable::run, streams, models)) {
             assertEquals("CHAT_PROVIDER_UNAVAILABLE", assertThrows(ChatException.class,
                     () -> service.send(actor, session, parent, request, "Question", null)).code());

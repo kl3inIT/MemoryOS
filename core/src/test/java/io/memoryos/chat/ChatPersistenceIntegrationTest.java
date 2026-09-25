@@ -91,12 +91,14 @@ class ChatPersistenceIntegrationTest {
     private ChatPromptShortcutService shortcuts;
     private DocumentSetService documentSets;
     private SourceSearchService sourceScope;
+    private io.memoryos.StatementCounter statements;
 
     @BeforeEach
     void setup() throws Exception {
         dataSource = TestDatabase.freshPostgres();
-        jdbc = JdbcClient.create(dataSource);
-        jpa = TestDatabase.jpa(dataSource);
+        statements = new io.memoryos.StatementCounter(dataSource);
+        jdbc = JdbcClient.create(statements);
+        jpa = TestDatabase.jpa(statements);
         tx = new TransactionTemplate(jpa.transactionManager());
         var tenants = TestDatabase.transactionalProxy(new JpaTenantAccessResolver(
                         new JpaTenantRepository(jpa.entityManager()), new IamLockRepository(jdbc)),
@@ -1182,6 +1184,38 @@ class ChatPersistenceIntegrationTest {
         assertFalse(settings.options().codeInterpreter(), "run_python follows the agent tool policy");
         assertEquals(List.of(), settings.mcpServerIds());
         assertFalse(settings.datetimeAware());
+    }
+
+    @Test
+    void aSendReadsItsAgentOnceAndTheReservationOnlyRechecksItsRevision() {
+        var session = sessions.create(owner, "Persona");
+        var binding = new ModelBinding(new SpringAiLlmService("fixture", "fixture",
+                org.mockito.Mockito.mock(ChatModel.class)), p -> p, ModelRequestPolicy.hosted(
+                new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, false, false);
+
+        clearInvocations(authorization);
+        statements.reset();
+        var agent = turns.agent(owner, session.id());
+        var selection = new ChatTurnPersistence.ModelSelection(null, UUID.randomUUID(), null, binding,
+                agent.persona().revision(), "", agent);
+        var reserved = turns.reserve(owner, session.id(), session.rootMessageId(), UUID.randomUUID(), "Question",
+                Duration.ofMinutes(2), 32000, selection);
+        var context = turns.loadContext(owner, session.id(), reserved);
+
+        assertEquals(1, statements.count("task_prompt"), "one agent read: " + statements.statements());
+        assertEquals(0, statements.count("SELECT tool_key FROM persona_tool"), "tools, servers and Sources come with it");
+        assertEquals(1, statements.count(sql -> sql.contains("FOR SHARE OF p") && !sql.contains("task_prompt")),
+                "the reservation share-locks the agent's revision");
+        verify(authorization, times(1)).effectiveCapabilities(owner);
+        assertSame(reserved.context(), context);
+
+        // An agent edited after it was read no longer admits the send that read it.
+        jdbc.sql("UPDATE persona SET revision = revision + 1 WHERE id = :id").param("id", session.personaId()).update();
+        var stale = new ChatTurnPersistence.ModelSelection(null, UUID.randomUUID(), null, binding,
+                agent.persona().revision(), "", agent);
+        turns.finish(session.id(), reserved.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer");
+        assertEquals("CHAT_CONFLICT", assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(),
+                reserved.assistantMessageId(), UUID.randomUUID(), "Again", Duration.ofMinutes(2), 32000, stale)).code());
     }
 
     @Test

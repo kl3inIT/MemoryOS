@@ -2,6 +2,7 @@ package io.memoryos.chat;
 
 import io.memoryos.ai.ModelResolver;
 import io.memoryos.ai.ModelFlow;
+import io.memoryos.chat.session.ChatTurnPersistence;
 import io.memoryos.shared.ActorId;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -21,8 +22,10 @@ public class ChatModelSelector {
         this.resolver = resolver;
     }
 
-    public ModelResolver.Resolved resolve(ActorId actor, UUID session, @Nullable UUID requested) {
-        return resolver.acquire(access.select(actor, session, requested));
+    /** The model a send runs on, selected with the session agent the send already read. */
+    public ModelResolver.Resolved resolve(ActorId actor, UUID session, @Nullable UUID requested,
+                                          ChatTurnPersistence.SessionAgent agent) {
+        return resolver.acquire(access.select(actor, session, requested, agent.persona(), agent.modelsManage()));
     }
 
     /** The Tenant model for this flow, or the conversation model when the flow has none that is usable. */

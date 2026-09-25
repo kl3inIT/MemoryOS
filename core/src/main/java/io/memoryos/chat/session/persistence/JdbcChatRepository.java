@@ -368,76 +368,79 @@ public class JdbcChatRepository {
                 .query(Boolean.class).single();
     }
 
+    /** The session, its agent and its Project, as {@link #persona} and {@link #personaRevision} read them. */
+    private static final String SESSION_AGENT = """
+            FROM chat_session s JOIN persona p ON s.persona_id=p.id AND s.tenant_id=p.tenant_id
+            LEFT JOIN chat_project pr ON pr.id=s.project_id AND pr.tenant_id=s.tenant_id AND pr.owner_actor_id=s.owner_actor_id
+            WHERE s.id=:session AND s.deleted_at IS NULL AND p.deleted_at IS NULL AND
+            """ + AgentAccessSql.USES.replace(":actor", "s.owner_actor_id");
+
+    private static final String REVISION = "concat_ws(':',p.id,p.revision,p.model_revision,pr.id,pr.revision)";
+
+    /**
+     * Everything a turn takes from its agent, in one statement: tools, MCP servers and the Sources it searches are
+     * aggregated in place. Agent and Project edits advance {@code revision}, which {@link #personaRevision} rechecks.
+     */
     public Persona persona(UUID session, boolean lock, boolean agentsManage) {
         return jdbc.sql("""
-                        SELECT p.id, s.owner_actor_id, p.builtin_key, p.model, p.model_configuration_id, p.context_token_limit, p.output_token_limit,
+                        SELECT p.builtin_key, p.model, p.model_configuration_id, p.context_token_limit, p.output_token_limit,
                             s.reasoning_effort,
                             p.task_prompt, p.datetime_aware, p.knowledge_cutoff,
                             CASE WHEN p.builtin_key IS NULL THEN p.file_ids ELSE COALESCE(pr.file_ids,'[]'::jsonb) END AS file_ids,
-                            concat_ws(':',p.id,p.revision,p.model_revision,pr.id,pr.revision) AS revision,
+                            %s AS revision,
                             CASE WHEN p.builtin_key IS NULL AND p.replace_base_system_prompt AND p.datetime_aware
                                       AND position('{{CURRENT_DATETIME}}' IN p.instructions) = 0
                                      THEN concat_ws(chr(10), p.instructions, 'The current date is {{CURRENT_DATETIME}}.')
                                  WHEN p.builtin_key IS NULL AND p.replace_base_system_prompt THEN p.instructions
                                  WHEN p.builtin_key IS NULL THEN concat_ws(chr(10), :base, p.instructions)
                                  WHEN pr.id IS NOT NULL THEN concat_ws(chr(10), p.instructions, pr.instructions)
-                                 ELSE p.instructions END AS instructions
-                        FROM chat_session s JOIN persona p ON s.persona_id=p.id AND s.tenant_id=p.tenant_id
-                        LEFT JOIN chat_project pr ON pr.id=s.project_id AND pr.tenant_id=s.tenant_id AND pr.owner_actor_id=s.owner_actor_id
-                        WHERE s.id=:session AND s.deleted_at IS NULL AND p.deleted_at IS NULL AND
-                        """ + AgentAccessSql.USES.replace(":actor", "s.owner_actor_id") + (lock ? " FOR SHARE OF p" : ""))
+                                 ELSE p.instructions END AS instructions,
+                            ARRAY(SELECT tool.tool_key FROM persona_tool tool WHERE tool.persona_id = p.id) AS tools,
+                            ARRAY(SELECT server.server_id FROM persona_mcp_server server WHERE server.persona_id = p.id
+                                  ORDER BY server.server_id) AS mcp_servers,
+                            EXISTS (SELECT 1 FROM persona_source direct WHERE direct.persona_id = p.id)
+                                OR EXISTS (SELECT 1 FROM persona_document_set attachment
+                                           JOIN document_set d ON d.tenant_id = attachment.tenant_id AND d.id = attachment.document_set_id
+                                           WHERE attachment.persona_id = p.id AND d.deleted_at IS NULL) AS restricts_sources,
+                            ARRAY(SELECT direct.source_id FROM persona_source direct WHERE direct.persona_id = p.id
+                                  UNION
+                                  SELECT source.source_id FROM persona_document_set attachment
+                                  JOIN document_set d ON d.tenant_id = attachment.tenant_id AND d.id = attachment.document_set_id
+                                  JOIN document_set_source source ON source.tenant_id = d.tenant_id AND source.document_set_id = d.id
+                                  WHERE attachment.persona_id = p.id AND d.deleted_at IS NULL AND %s
+                                  ORDER BY 1) AS sources
+                        """.formatted(REVISION, DocumentSetAccessSql.USES.replace(":actor", "s.owner_actor_id"))
+                        + SESSION_AGENT + (lock ? " FOR SHARE OF p" : ""))
                 .param("session", session).param("base", io.memoryos.chat.prompts.ChatPrompts.DEFAULT_SYSTEM)
                 .param("agentsManage", agentsManage)
                 .query((row, ignored) -> {
-                    UUID id = row.getObject("id", UUID.class);
                     boolean builtin = row.getString("builtin_key") != null;
                     var cutoff = row.getTimestamp("knowledge_cutoff");
-                    var tools = personaTools(id);
+                    var tools = Set.copyOf(List.of((String[]) row.getArray("tools").getArray()));
                     String pinned = row.getString("reasoning_effort");
                     return new Persona(row.getString("instructions"), row.getString("model"),
-                            new ChatTurnOptions(tools.contains("search"), personaSources(id, row.getObject("owner_actor_id", UUID.class), agentsManage),
-                                    personaRestrictsSources(id),
+                            new ChatTurnOptions(tools.contains("search"), List.of((UUID[]) row.getArray("sources").getArray()),
+                                    row.getBoolean("restricts_sources"),
                                     row.getObject("context_token_limit", Integer.class), row.getObject("output_token_limit", Integer.class),
                                     cutoff == null ? null : cutoff.toInstant(), row.getString("task_prompt"),
                                     tools.contains("code_interpreter")),
                             row.getString("revision"), row.getObject("model_configuration_id", UUID.class),
                             List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), tools,
-                            builtin ? null : personaMcpServers(id), row.getBoolean("datetime_aware"),
+                            builtin ? null : List.of((UUID[]) row.getArray("mcp_servers").getArray()),
+                            row.getBoolean("datetime_aware"),
                             pinned == null ? null : ReasoningEffort.valueOf(pinned));
                 })
                 .optional().orElseThrow(ChatException::unavailable);
     }
 
-    private Set<String> personaTools(UUID persona) {
-        return Set.copyOf(jdbc.sql("SELECT tool_key FROM persona_tool WHERE persona_id=:persona").param("persona", persona).query(String.class).list());
-    }
-
-    private List<UUID> personaMcpServers(UUID persona) {
-        return jdbc.sql("SELECT server_id FROM persona_mcp_server WHERE persona_id=:persona ORDER BY server_id")
-                .param("persona", persona).query(UUID.class).list();
-    }
-
-    /** True when the agent attaches Sources or Document Sets, even if none of them resolve for this actor. */
-    private boolean personaRestrictsSources(UUID persona) {
-        return Boolean.TRUE.equals(jdbc.sql("""
-                        SELECT EXISTS (SELECT 1 FROM persona_source WHERE persona_id = :persona)
-                            OR EXISTS (SELECT 1 FROM persona_document_set attachment
-                                       JOIN document_set d ON d.tenant_id = attachment.tenant_id AND d.id = attachment.document_set_id
-                                       WHERE attachment.persona_id = :persona AND d.deleted_at IS NULL)
-                        """).param("persona", persona).query(Boolean.class).single());
-    }
-
-    private List<UUID> personaSources(UUID persona, UUID actor, boolean agentsManage) {
-        return jdbc.sql("""
-                        SELECT source_id FROM persona_source WHERE persona_id = :persona
-                        UNION
-                        SELECT source.source_id FROM persona_document_set attachment
-                        JOIN document_set d ON d.tenant_id = attachment.tenant_id AND d.id = attachment.document_set_id
-                        JOIN document_set_source source ON source.tenant_id = d.tenant_id AND source.document_set_id = d.id
-                        WHERE attachment.persona_id = :persona AND d.deleted_at IS NULL AND %s
-                        ORDER BY source_id
-                        """.formatted(DocumentSetAccessSql.USES))
-                .param("persona", persona).param("actor", actor).param("agentsManage", agentsManage).query(UUID.class).list();
+    /**
+     * The revision of the agent a turn was prepared with, share-locked for the reserving transaction; the owner must
+     * still be allowed to use it. A turn that carries its agent compares this instead of reading the agent again.
+     */
+    public String personaRevision(UUID session, boolean agentsManage) {
+        return jdbc.sql("SELECT " + REVISION + " AS revision " + SESSION_AGENT + " FOR SHARE OF p")
+                .param("session", session).param("agentsManage", agentsManage)
+                .query(String.class).optional().orElseThrow(ChatException::unavailable);
     }
 
     public List<ChatBranch> branches(UUID session) {

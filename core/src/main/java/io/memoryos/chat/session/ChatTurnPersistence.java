@@ -73,10 +73,15 @@ public class ChatTurnPersistence {
         this.imageArtifacts = imageArtifacts;
     }
 
+    /** The member's own Chat preferences, read once per turn. */
+    private io.memoryos.chat.ChatPreferences preferences(TenantId tenant, ActorId actor) {
+        return preferences == null ? io.memoryos.chat.ChatPreferences.DEFAULT
+                : preferences.find(tenant.value(), actor.value()).orElse(io.memoryos.chat.ChatPreferences.DEFAULT);
+    }
+
     /** Onyx's user information section: login name and email, the member's role and preferences (MEM-145). */
-    private String userInformation(UUID tenant, ActorId actor, String instructions) {
+    private String userInformation(ActorId actor, String instructions, io.memoryos.chat.ChatPreferences own) {
         if (preferences == null || profiles == null) return instructions;
-        var own = preferences.find(tenant, actor.value()).orElse(io.memoryos.chat.ChatPreferences.DEFAULT);
         var profile = profiles.read(actor);
         return io.memoryos.chat.prompts.ChatPrompts.withUserInformation(instructions, profile.displayName(),
                 profile.email(), own.workRole(), own.personalPreferences());
@@ -86,22 +91,30 @@ public class ChatTurnPersistence {
      * The creativity and reasoning level for one turn, in Onyx's order: the level pinned on this conversation, then
      * the model configuration (which the adapter keeps when nothing outranks it), then the member's own defaults.
      */
-    private ModelSampling sampling(TenantId tenant, ActorId actor, JdbcChatRepository.Persona settings) {
-        var own = preferences == null ? io.memoryos.chat.ChatPreferences.DEFAULT
-                : preferences.find(tenant.value(), actor.value())
-                        .orElse(io.memoryos.chat.ChatPreferences.DEFAULT);
+    private static ModelSampling sampling(JdbcChatRepository.Persona settings, io.memoryos.chat.ChatPreferences own) {
         var pinned = settings.reasoningEffort();
         var effort = pinned != null ? pinned : own.reasoningEffortDefault();
         if (own.temperatureDefault() == null && effort == null) return ModelSampling.NONE;
         return new ModelSampling(own.temperatureDefault(), effort, pinned != null);
     }
 
+    /**
+     * The session agent as one turn uses it, with the capabilities that decide which agents and models the owner may
+     * use. Read once, before a command is admitted, and carried through model selection into the reservation, which
+     * rechecks its revision under a share lock instead of reading it again.
+     */
+    public record SessionAgent(JdbcChatRepository.Persona persona, boolean agentsManage, boolean modelsManage,
+                               boolean inProject) {}
+
     /** The session agent's tool policy, read under the owner's agent use authority before a command is admitted. */
     @Transactional(readOnly = true)
-    public JdbcChatRepository.Persona agent(ActorId actor, UUID session) {
+    public SessionAgent agent(ActorId actor, UUID session) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
-        chats.findOwned(tenant, actor, session, false).orElseThrow(ChatException::unavailable);
-        return chats.persona(session, false, agentsManage(actor));
+        var owned = chats.findOwned(tenant, actor, session, false).orElseThrow(ChatException::unavailable);
+        var capabilities = authorization.effectiveCapabilities(actor);
+        boolean agentsManage = capabilities.contains(IamCapability.AGENTS_MANAGE);
+        return new SessionAgent(chats.persona(session, false, agentsManage), agentsManage,
+                capabilities.contains(IamCapability.MODELS_MANAGE), owned.projectId() != null);
     }
 
     private boolean agentsManage(ActorId actor) {
@@ -141,8 +154,15 @@ public class ChatTurnPersistence {
         return reserve(actor, sessionId, parentId, requestId, text, timeout, contextTokenLimit, null);
     }
 
+    /** {@code agent} is the session agent the selection was made with; null reads the agent in the reservation. */
     public record ModelSelection(@Nullable UUID requestedId, UUID selectedId, @Nullable String fallbackReason,
-                                 ModelBinding binding, @Nullable String contextRevision, String promptContribution) {}
+                                 ModelBinding binding, @Nullable String contextRevision, String promptContribution,
+                                 @Nullable SessionAgent agent) {
+        public ModelSelection(@Nullable UUID requestedId, UUID selectedId, @Nullable String fallbackReason,
+                              ModelBinding binding, @Nullable String contextRevision, String promptContribution) {
+            this(requestedId, selectedId, fallbackReason, binding, contextRevision, promptContribution, null);
+        }
+    }
 
     @Transactional
     public Reservation reserve(ActorId actor, UUID sessionId, UUID parentId, UUID requestId,
@@ -183,9 +203,21 @@ public class ChatTurnPersistence {
             text = command.operation() == ChatCommand.Operation.REGENERATE ? Objects.requireNonNull(target.content()) : command.text();
         }
         if (chats.messageCount(sessionId) > 9998) throw ChatException.invalid("Chat session message limit reached.");
-        var settings = chats.persona(sessionId, true, agentsManage(actor));
-        if (selection != null && selection.contextRevision() != null && !selection.contextRevision().equals(settings.revision()))
-            throw ChatException.conflict();
+        var carried = selection == null ? null : selection.agent();
+        JdbcChatRepository.Persona settings;
+        if (carried != null) {
+            // The agent was read before selection; its revision, share-locked here, proves it is still the one used.
+            settings = carried.persona();
+            if (!settings.revision().equals(chats.personaRevision(sessionId, carried.agentsManage()))
+                    || selection.contextRevision() != null && !selection.contextRevision().equals(settings.revision()))
+                throw ChatException.conflict();
+        } else {
+            settings = chats.persona(sessionId, true, agentsManage(actor));
+            if (selection != null && selection.contextRevision() != null && !selection.contextRevision().equals(settings.revision()))
+                throw ChatException.conflict();
+        }
+        var own = preferences(tenant, actor);
+        String language = languages.read(actor);
         int effectiveContext = settings.options().contextTokenLimit() == null ? contextTokenLimit
                 : Math.min(contextTokenLimit, settings.options().contextTokenLimit());
         String instructions = settings.instructions();
@@ -193,8 +225,8 @@ public class ChatTurnPersistence {
         else {
             var binding = selection.binding().forOptions(settings.options().sampling(), settings.options().outputTokenLimit());
             instructions = io.memoryos.chat.prompts.ChatPrompts.resolve(instructions,
-                    binding.toolCalling() && settings.options().searchEnabled(), Instant.now(), languages.read(actor), settings.datetimeAware());
-            instructions = userInformation(tenant.value(), actor, instructions);
+                    binding.toolCalling() && settings.options().searchEnabled(), Instant.now(), language, settings.datetimeAware());
+            instructions = userInformation(actor, instructions, own);
             ChatTurnSetup.validateQuestion(instructions, text, effectiveContext, binding, selection.promptContribution());
         }
         UUID user = command.operation() == ChatCommand.Operation.REGENERATE ? target.id() : UUID.randomUUID();
@@ -213,7 +245,7 @@ public class ChatTurnPersistence {
                 assistant, selection.requestedId(), selection.selectedId(), selection.fallbackReason());
         chats.saveCommand(sessionId, command, user, assistant, selection == null ? null : selection.selectedId(),
                 selection == null ? null : selection.fallbackReason());
-        var context = context(actor, tenant, sessionId, user, settings, instructions);
+        var context = context(actor, tenant, sessionId, user, settings, instructions, own, language);
         return new Reservation(user, assistant, true, selection == null ? null : selection.selectedId(), selection == null ? null : selection.fallbackReason(), context);
     }
 
@@ -255,13 +287,6 @@ public class ChatTurnPersistence {
         });
     }
 
-    /** Deep research is rejected for Project chats, as Onyx; the session's Project is read before reserving. */
-    @Transactional(readOnly = true)
-    public boolean inProject(ActorId actor, UUID session) {
-        var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
-        return chats.findOwned(tenant, actor, session, false).orElseThrow(ChatException::unavailable).projectId() != null;
-    }
-
     private static void match(JdbcChatRepository.ReservedRequest previous, ChatCommand command) {
         if (previous.operation() != command.operation() || !previous.parentMessageId().equals(command.targetMessageId())
                 || !previous.content().equals(command.text()) || !previous.fileIds().equals(command.fileIds())
@@ -270,16 +295,19 @@ public class ChatTurnPersistence {
             throw ChatException.conflict();
     }
 
+    /** The context a new reservation already carries, or the context of a replayed one, read again. */
     @Transactional
     public TurnContext loadContext(ActorId actor, UUID sessionId, Reservation reservation) {
+        if (reservation.context() != null) return reservation.context();
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable);
         chats.findOwned(tenant, actor, sessionId, false).orElseThrow(ChatException::unavailable);
-        if (reservation.context() != null) return reservation.context();
         var persona = chats.persona(sessionId, false, agentsManage(actor));
-        return context(actor, tenant, sessionId, reservation.userMessageId(), persona, persona.instructions());
+        return context(actor, tenant, sessionId, reservation.userMessageId(), persona, persona.instructions(),
+                preferences(tenant, actor), languages.read(actor));
     }
 
-    private TurnContext context(ActorId actor, TenantId tenant, UUID session, UUID user, JdbcChatRepository.Persona settings, String instructions) {
+    private TurnContext context(ActorId actor, TenantId tenant, UUID session, UUID user, JdbcChatRepository.Persona settings,
+                                String instructions, io.memoryos.chat.ChatPreferences own, @Nullable String language) {
         var history = chats.context(session, user, 200);
         var workspaceFiles = descriptors(files.admit(tenant, actor, settings.fileIds()));
         var plaintext = new LinkedHashMap<UUID, UserFileService.FileText>();
@@ -295,8 +323,8 @@ public class ChatTurnPersistence {
                 .map(ChatMessage::id).toList(), false).forEach((message, images) ->
                 generated.put(message, images.stream().map(GeneratedImage::id).toList()));
         return new TurnContext(actor, tenant, settings.model(), instructions, history,
-                settings.options().withSampling(sampling(tenant, actor, settings)), plaintext, workspaceFiles,
-                languages.read(actor), generated);
+                settings.options().withSampling(sampling(settings, own)), plaintext, workspaceFiles,
+                language, generated);
     }
 
     /** A message's attachments as Chat records them, from the library files it admitted. */
