@@ -71,9 +71,22 @@ class MeetingTranscriptExportTest {
 
     @Test
     void theClockGrowsAnHourOnlyWhenTheMeetingDoes() {
-        assertEquals("00:00", MeetingTranscript.clock(0));
-        assertEquals("00:02", MeetingTranscript.clock(2_400));
-        assertEquals("59:59", MeetingTranscript.clock(3_599_999));
-        assertEquals("1:00:00", MeetingTranscript.clock(3_600_000));
+        assertEquals("00:00", SpeakerNames.clock(0));
+        assertEquals("00:02", SpeakerNames.clock(2_400));
+        assertEquals("59:59", SpeakerNames.clock(3_599_999));
+        assertEquals("1:00:00", SpeakerNames.clock(3_600_000));
+    }
+
+    @Test
+    void everyVoiceIsNamedTheOneWayThePageNamesIt() {
+        var speakers = List.of(new Meeting.Speaker(Meeting.Track.MIC, "1", null),
+                new Meeting.Speaker(Meeting.Track.TAB, "2", " Chị Lan "));
+        var online = SpeakerNames.of(speakers, Meeting.Kind.ONLINE, "vi");
+        assertEquals("Chủ cuộc họp", online.of(Meeting.Track.MIC, "1"), "online, the microphone carries the owner");
+        assertEquals("Chị Lan", online.of(Meeting.Track.TAB, "2"));
+        assertEquals("Người nói 3", online.of(Meeting.Track.TAB, "3"));
+        var inPerson = SpeakerNames.of(speakers, Meeting.Kind.IN_PERSON, "en");
+        assertEquals("Speaker 1", inPerson.of(Meeting.Track.MIC, "1"), "in a room the microphone hears everyone");
+        assertEquals("Speaker 2", inPerson.of(Meeting.Track.MIC, "2"), "a name belongs to one track's voice");
     }
 }

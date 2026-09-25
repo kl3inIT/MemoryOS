@@ -1631,6 +1631,8 @@ export const englishUi: Record<string, string> = {
   Error: "Lỗi",
   "Current state": "Trạng thái hiện tại",
   "Occurred at": "Thời điểm",
+  Resolved: "Đã khắc phục",
+  "Resolved at": "Thời điểm khắc phục",
   "Refresh file states": "Cập nhật trạng thái tệp",
   "Historical run error": "Lỗi lần chạy trong lịch sử",
   "No current file is linked to this error.": "Không có tệp hiện tại liên kết với lỗi này.",
@@ -1723,6 +1725,7 @@ export const englishUi: Record<string, string> = {
     "Đồng bộ và lập chỉ mục tự động đã tạm dừng. Dữ liệu và quyền đã lập chỉ mục có thể bị lỗi thời cho đến khi Nguồn được tiếp tục.",
   "Canceled by pause. Resume the Source to continue synchronization and indexing.":
     "Đã hủy do tạm dừng. Tiếp tục Nguồn để tiếp tục đồng bộ và lập chỉ mục.",
+  "Canceled because the Source is being deleted.": "Đã hủy vì Nguồn đang được xóa.",
   "Private · associated group members": "Riêng tư · thành viên các nhóm liên kết",
   "Save name": "Lưu tên",
   "Save visibility": "Lưu chế độ hiển thị",
@@ -3029,6 +3032,8 @@ Object.assign(englishUi, {
     "Tệp đã thay đổi trong khi thu thập. Đồng bộ lại.",
   "Some files could not be acquired. Review the file errors and synchronize again.":
     "Không thu thập được một số tệp. Xem lỗi từng tệp rồi đồng bộ lại.",
+  "Synchronization stopped because too many files failed. Review the file errors in the run details.":
+    "Đồng bộ đã dừng vì quá nhiều tệp bị lỗi. Xem lỗi từng tệp trong chi tiết lần chạy.",
   "Selection verification failed. The active selection is unchanged. Review your links and Google access before submitting a new proposal.":
     "Xác thực lựa chọn thất bại. Lựa chọn đang dùng không thay đổi. Kiểm tra liên kết và quyền Google trước khi gửi đề xuất mới.",
   "The Google credential changed during verification. The proposal was not activated. Reload the saved selection before submitting again.":
@@ -3449,6 +3454,7 @@ Object.assign(englishUi, {
   "Synchronization requested": "Đã yêu cầu đồng bộ",
   "Synchronization complete": "Đã đồng bộ xong",
   "Synchronization superseded": "Yêu cầu đồng bộ đã bị thay thế",
+  "Synchronization cancelled": "Đã hủy đồng bộ",
   "Synchronization failed": "Đồng bộ thất bại",
   "Synchronization status unavailable": "Chưa có trạng thái đồng bộ",
   "Google credential disconnected": "Đã ngắt kết nối tài khoản Google",
@@ -3494,6 +3500,7 @@ Object.assign(englishUi, {
   "Reindex requested": "Đã yêu cầu lập chỉ mục lại",
   "Reindex complete": "Đã lập chỉ mục lại xong",
   "Reindex superseded": "Yêu cầu lập chỉ mục lại đã bị thay thế",
+  "Reindex cancelled": "Đã hủy lập chỉ mục lại",
   "Reindex failed": "Lập chỉ mục lại thất bại",
   "Reindex status unavailable": "Chưa có trạng thái lập chỉ mục lại",
   "Reindex could not start": "Không bắt đầu được lập chỉ mục lại",
@@ -3501,12 +3508,14 @@ Object.assign(englishUi, {
   "Removal could not start": "Không bắt đầu được xóa",
   "File removed": "Đã xóa tệp",
   "Removal superseded": "Yêu cầu xóa đã bị thay thế",
+  "Removal cancelled": "Đã hủy xóa tệp",
   "Removal failed": "Xóa thất bại",
   "Removal status unavailable": "Chưa có trạng thái xóa",
   "Source deletion requested": "Đã yêu cầu xóa nguồn",
   "Deletion could not start": "Không bắt đầu được xóa",
   "Source deleted": "Đã xóa nguồn",
   "Source deletion superseded": "Yêu cầu xóa nguồn đã bị thay thế",
+  "Source deletion cancelled": "Đã hủy xóa nguồn",
   "Source deletion failed": "Xóa nguồn thất bại",
   "Deletion status unavailable": "Chưa có trạng thái xóa",
   "Finalization cancelled. The unfinished object will expire automatically.":

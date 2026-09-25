@@ -1,0 +1,4 @@
+io.memoryos.ingestion.extraction.FileProviderAutoConfiguration
+io.memoryos.ingestion.extraction.SourceContentExtractorAutoConfiguration
+io.memoryos.connector.adapter.googledrive.GoogleDriveProviderAutoConfiguration
+io.memoryos.connector.adapter.sharepoint.SharePointProviderAutoConfiguration

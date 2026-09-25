@@ -3842,8 +3842,9 @@ class ChatSessionApiIntegrationTest {
 
             String prompt = prompts.poll(5, TimeUnit.SECONDS);
             assertNotNull(prompt);
-            assertTrue(prompt.contains("[1] 00:00:00 Speaker 1: Chốt ngân sách quý 4 trước thứ Năm."));
-            assertTrue(prompt.contains("[2] 00:00:05 Chị Lan: Em gửi bảng KPI tháng 9 chiều nay."),
+            assertTrue(prompt.contains("[1] 00:00 Người nói 1: Chốt ngân sách quý 4 trước thứ Năm."),
+                    "the model reads the names and times the transcript shows");
+            assertTrue(prompt.contains("[2] 00:05 Chị Lan: Em gửi bảng KPI tháng 9 chiều nay."),
                     "a named speaker reaches the model under that name");
             assertTrue(prompt.contains("Never invent a decision"));
 
@@ -4003,8 +4004,8 @@ class ChatSessionApiIntegrationTest {
                     "a transcribed recording queues its minutes like a live meeting");
             assertTrue(sent.get().contains("verbose_json"), "the recording asks for timed segments");
             assertTrue(sent.get().contains("giao-ban.mp3"), "and is sent under its own name");
-            // The bytes are retired in their own transaction right after the transcript commits, so the meeting can
-            // already read ENDED for a moment while they are still referenced.
+            // The bytes are retired by the recording job's next pass, which sweeps every finished recording that still
+            // holds its upload, so the meeting reads ENDED for a moment while they are still referenced.
             await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertEquals(0, jdbc.sql("""
                     SELECT count(*) FROM meeting
                     WHERE tenant_id = :tenant AND id = CAST(:id AS uuid)

@@ -109,6 +109,12 @@ class SourceSyncAccessTest {
         cases.put("failed only", new Case(failed, Set.of(), false, Set.of()));
 
         var ids = cases.values().stream().map(Case::document).toList();
+        // The page read gives every document exactly what the single-document read gives it.
+        var page = repository.documentAccess(tenant, ids);
+        assertEquals(Set.copyOf(ids), page.keySet());
+        for (var entry : cases.entrySet()) {
+            assertEquals(repository.documentAccess(tenant, entry.getValue().document()), page.get(entry.getValue().document()), entry.getKey());
+        }
         for (var reader : readers) {
             var expected = cases.values().stream().filter(c -> c.readers().contains(reader)).map(Case::document)
                     .collect(Collectors.toSet());

@@ -255,7 +255,8 @@ export function GoogleDriveSelectionPanel({
       );
       if (
         operation.errorCode === "SOURCE_GOOGLE_REVISION_CONFLICT" ||
-        operation.status === "SUPERSEDED"
+        operation.status === "SUPERSEDED" ||
+        operation.status === "CANCELLED"
       )
         setRevisionConflict(true);
     }

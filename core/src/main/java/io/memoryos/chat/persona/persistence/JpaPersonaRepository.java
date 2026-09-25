@@ -18,4 +18,9 @@ public interface JpaPersonaRepository extends JpaRepository<PersonaEntity, UUID>
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from PersonaEntity p where p.tenantId=:tenant and p.id=:id")
     Optional<PersonaEntity> locked(UUID tenant, UUID id);
+
+    /** Write-locks the given rows in one statement, in id order, so concurrent callers cannot deadlock. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from PersonaEntity p where p.tenantId=:tenant and p.id in :ids order by p.id")
+    List<PersonaEntity> lockedAll(UUID tenant, Collection<UUID> ids);
 }

@@ -222,8 +222,8 @@ flowchart TD
 | `core/objectstorage` | Object IO và lifecycle trước adoption của raw input | Không quyết định Source/Document permissions |
 | `core/ingestion/application` | SOURCE_SYNC và INGESTION orchestration qua public contracts; leases và transaction coordination | Không sở hữu SQL hoặc Google SDK |
 | `core/document` | Current Document, canonical artifact tracking/adoption/cleanup | Không thêm document-read endpoint hoặc source permission model |
-| `connector/.../provider/google` | OAuth/Drive/Sheets/Docs protocol, paging và snapshot acquisition | Không tự publish Document hoặc quyết định quyền Actor |
-| `connector/.../provider/file` và adapters đọc bảng thực sự cần thiết | Đọc bounded binary/native snapshot thành canonical blocks | Không remote reread trong INGESTION; không registry/plugin framework |
+| `sources/.../connector/adapter/googledrive` | OAuth/Drive/Sheets/Docs protocol, paging và snapshot acquisition | Không tự publish Document hoặc quyết định quyền Actor |
+| `sources/.../ingestion/extraction` và adapters đọc bảng thực sự cần thiết | Đọc bounded binary/native snapshot thành canonical blocks | Không remote reread trong INGESTION; không registry/plugin framework |
 | `worker` | Composition, recurring scans/relays, Redis consumer groups | Không là authority store |
 
 Các điểm baseline đã được mở rộng trong implementation:
@@ -236,7 +236,7 @@ Các điểm baseline đã được mở rộng trong implementation:
 - `DefaultIngestionCoordinator.processIndex`: mở object, extract, stage artifact; publish Document và complete operation trong một transaction, rollback khi claim cũ.
 - `DefaultSourceDocumentAccessResolver` / `JdbcSourceDocumentRepository`: hiện chỉ grant FILE PUBLIC cho membership đang hoạt động; chưa có Google principal matching.
 
-Giữ bốn Gradle modules. API nhận integration bundle `:connector` theo ADR 0006 nhưng không compose parser; worker compose extractor. Google callback dùng controller/security chain riêng, giữ nguyên Keycloak login và Actor-only session thay vì port toàn bộ Spring OAuth success-handler chain của donor. `document` phụ thuộc public `tenant` và `objectstorage`; architecture/README đã được hợp nhất với current Document/V12.
+Giữ bốn Gradle modules. API nhận integration bundle `:sources` (tên cũ `:connector`, ADR 0016) theo ADR 0006 nhưng không compose parser; worker compose extractor. Google callback dùng controller/security chain riêng, giữ nguyên Keycloak login và Actor-only session thay vì port toàn bộ Spring OAuth success-handler chain của donor. `document` phụ thuộc public `tenant` và `objectstorage`; architecture/README đã được hợp nhất với current Document/V12.
 
 ## 4. Acquisition và transaction boundaries
 
@@ -268,7 +268,7 @@ Binary input giữ giới hạn **10 MiB**, kể cả FILE và Drive. Native sna
 - Scope shrink vô hiệu hóa input/mapping bị loại và ngăn công việc cũ publish. Nếu không chứng minh được một Item vẫn thuộc selected roots thì không tiếp nhận/publish cho tới khi reconcile.
 - Không crawl hoặc reconcile ACL. Khi provider từ chối đọc/mất credential, ghi outcome an toàn và xử lý source/input lifecycle; không tuyên bố đã phát hiện mọi remote permission change. Lỗi từng item không làm mất tiến độ items khác, nhưng enumeration chưa đầy đủ không được prune như complete generation.
 - SOURCE_SYNC là workload mới của dispatcher/consumer hiện có. Thêm stream/group, relay và due-source scan theo conventions; không tạo Google-specific queue service hoặc executor polling song song.
-- Enumeration lỗi một phần chỉ giải phóng input đã adopt và được xác nhận trong generation hiện tại; không prune unseen items, để lần reconcile sau vẫn tìm lại phần lỗi. Index trên đúng input/scope/credential được defer cho đến khi membership xác nhận, không mất attempt hoặc tiêu extraction retry budget.
+- Enumeration lỗi một phần chỉ giải phóng input đã adopt và được xác nhận trong generation hiện tại; không prune unseen items, để lần reconcile sau vẫn tìm lại phần lỗi. Từ phase 3 (25/09/2026), lượt như vậy kết thúc `COMPLETED_WITH_ERRORS` thay vì `FAILED` với `SOURCE_GOOGLE_INCOMPLETE`: node lỗi là lỗi item của lượt, lượt sau đọc lại và đánh dấu lỗi đã giải quyết; `DefaultConnectorSyncService` được thay bằng `GoogleDriveSyncTraversal` trong engine chung `SourceSyncEngine` ([spec](../../../specs/connector.md#synchronization-engine-and-failure-semantics)). 429/503 của Drive làm cả attempt retry theo `Retry-After`, không còn retry từng node. Index trên đúng input/scope/credential được defer cho đến khi membership xác nhận, không mất attempt hoặc tiêu extraction retry budget.
 - Refresh-token rotation bình thường chỉ đổi `payload_revision`; reauthorization/revoke đổi `credential_revision`. CAS thất bại của refresh cũ không được ghi đè grant hoặc vô hiệu hóa rotation đã thắng.
 
 ### Input descriptor

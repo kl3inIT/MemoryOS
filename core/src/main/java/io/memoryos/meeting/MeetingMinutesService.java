@@ -3,14 +3,14 @@ package io.memoryos.meeting;
 import io.memoryos.ai.TranscriptSummarizer;
 import io.memoryos.ai.TranscriptSummary;
 import io.memoryos.shared.ActorId;
+import io.memoryos.shared.LeasedJob;
 import io.memoryos.meeting.persistence.MeetingRepository;
 import java.time.Duration;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -42,38 +42,27 @@ public class MeetingMinutesService {
 
     /** Writes the minutes of the oldest meeting waiting for them. Returns whether one was claimed. */
     public boolean writeNext() {
-        Integer abandoned = tx.execute(ignored -> meetings.failAbandonedMinutes(MAX_ATTEMPTS));
-        if (abandoned != null && abandoned > 0)
-            LOG.atWarn().addKeyValue("event", "meeting.minutes.abandoned").addKeyValue("count", abandoned)
-                    .log("Meeting minutes failed after their last attempt's lease lapsed");
-        var claimed = tx.execute(ignored -> meetings.claimMinutes(LEASE, MAX_ATTEMPTS).orElse(null));
-        if (claimed == null) return false;
-        try {
-            write(claimed);
-        } catch (RuntimeException failure) {
-            LOG.warn("Meeting minutes failed on attempt {} ({})", claimed.attempts(), failure.getClass().getSimpleName());
-            tx.executeWithoutResult(ignored -> meetings.failMinutes(claimed.tenant(), claimed.id(), claimed.attempts(),
-                    MAX_ATTEMPTS, reason(failure)));
-        }
-        return true;
+        return LeasedJob.runNext(LOG, "meeting.minutes", new LeasedJob.Steps<>(
+                () -> Objects.requireNonNull(tx.execute(ignored -> meetings.failAbandonedMinutes(MAX_ATTEMPTS))),
+                () -> Objects.requireNonNull(tx.execute(ignored -> meetings.claimMinutes(LEASE, MAX_ATTEMPTS))),
+                this::write,
+                (claim, failure) -> tx.executeWithoutResult(ignored -> meetings.failMinutes(claim.tenant(), claim.id(),
+                        claim.attempts(), MAX_ATTEMPTS, reason(failure)))));
     }
 
     private void write(MeetingRepository.MinutesClaim claim) {
         var meeting = meetings.find(claim.tenant(), claim.owner(), claim.id()).orElse(null);
         // The owner deleted the meeting while it waited; there is nothing to write.
         if (meeting == null) return;
-        var speakers = meetings.speakers(claim.tenant(), claim.id());
         var utterances = meetings.utterances(claim.tenant(), claim.id());
         if (utterances.isEmpty()) throw new IllegalStateException("MEETING_EMPTY");
-        var names = new HashMap<String, String>();
-        for (var speaker : speakers)
-            names.put(speaker.track().name() + ':' + speaker.label(), displayName(meeting, speaker));
+        // The names the owner sees in the transcript, so the minutes and the transcript agree.
+        var names = SpeakerNames.of(meetings.speakers(claim.tenant(), claim.id()), meeting.kind(), meeting.language());
         var lines = new ArrayList<TranscriptSummarizer.Line>(utterances.size());
         for (int i = 0; i < utterances.size(); i++) {
             var utterance = utterances.get(i);
-            lines.add(new TranscriptSummarizer.Line(i + 1,
-                    names.getOrDefault(utterance.track().name() + ':' + utterance.speaker(), utterance.speaker()),
-                    clock(utterance.startMs()), utterance.text()));
+            lines.add(new TranscriptSummarizer.Line(i + 1, names.of(utterance), SpeakerNames.clock(utterance.startMs()),
+                    utterance.text()));
         }
         var subject = new TranscriptSummarizer.Subject(meeting.title(), meeting.participants(),
                 WHEN.format(meeting.createdAt()), meeting.notes(), meeting.language());
@@ -103,18 +92,6 @@ public class MeetingMinutesService {
 
     private static @org.jspecify.annotations.Nullable UUID source(int line, List<Meeting.Utterance> utterances) {
         return line >= 1 && line <= utterances.size() ? utterances.get(line - 1).id() : null;
-    }
-
-    /** The name the owner sees in the transcript, so the minutes and the transcript agree. */
-    private static String displayName(MeetingRepository.Row meeting, Meeting.Speaker speaker) {
-        if (speaker.name() != null) return speaker.name();
-        if (meeting.kind() == Meeting.Kind.ONLINE && speaker.track() == Meeting.Track.MIC) return "Owner";
-        return "Speaker " + speaker.label();
-    }
-
-    private static String clock(long ms) {
-        long total = Math.max(0, ms / 1000);
-        return "%02d:%02d:%02d".formatted(total / 3600, total % 3600 / 60, total % 60);
     }
 
     private static String bounded(@org.jspecify.annotations.Nullable String value) {

@@ -28,6 +28,9 @@ public record SourceRunErrorResponse(
         String code,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         Instant occurredAt,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true,
+                description = "When a later run acquired the same file again; null while the error stands")
+        @Nullable Instant resolvedAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
         @Nullable String errorMessage,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
@@ -50,6 +53,7 @@ public record SourceRunErrorResponse(
                 value.stage(),
                 value.code(),
                 value.occurredAt(),
+                value.resolvedAt(),
                 value.errorMessage(),
                 value.errorDetail(),
                 value.currentItemStatus(),

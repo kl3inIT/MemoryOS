@@ -323,10 +323,17 @@ public class ModelCatalogService {
     @Transactional
     public Selection select(ActorId actor, TenantId tenantId, UUID personaId, @Nullable UUID preferred,
                             @Nullable UUID personalDefault, @Nullable String contextRevision) {
+        return select(actor, tenantId, personaId, preferred, personalDefault, contextRevision,
+                authorization.effectiveCapabilities(actor).contains(IamCapability.MODELS_MANAGE));
+    }
+
+    /** As {@link #select(ActorId, TenantId, UUID, UUID, UUID, String)}, for a caller that already read the capability. */
+    @Transactional
+    public Selection select(ActorId actor, TenantId tenantId, UUID personaId, @Nullable UUID preferred,
+                            @Nullable UUID personalDefault, @Nullable String contextRevision, boolean manager) {
         UUID tenant = tenantId.value();
         UUID defaultId = catalog.defaultModel(tenant).modelConfigurationId();
         var groups = catalog.actorGroups(tenant, actor.value());
-        boolean manager = authorization.effectiveCapabilities(actor).contains(IamCapability.MODELS_MANAGE);
         // Persona model, then the member's personal default when still usable, then the Tenant default (MEM-145).
         if (preferred == null) preferred = personalDefault(tenant, personalDefault, personaId, manager, groups);
         if (preferred == null) preferred = defaultId;

@@ -113,8 +113,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @AutoConfigureMockMvc
 @Import({
         SourceApiIntegrationTest.StorageTestConfiguration.class,
-        io.memoryos.provider.file.FileProviderAutoConfiguration.class,
-        io.memoryos.provider.SourceContentExtractorAutoConfiguration.class
+        io.memoryos.ingestion.extraction.FileProviderAutoConfiguration.class,
+        io.memoryos.ingestion.extraction.SourceContentExtractorAutoConfiguration.class
 })
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class SourceApiIntegrationTest {
@@ -365,6 +365,65 @@ class SourceApiIntegrationTest {
                 .andExpect(jsonPath("$.totalItems").value(3));
         mockMvc.perform(get("/api/sources/{id}/runs", source.id().value()).with(authentication(member)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @Transactional
+    void aSyncCancelledByAPauseIsACancelledOperation() throws Exception {
+        var source = sourceManagement.createFileSource(owner.getPrincipal().actorId(), "API cancelled sync", List.of(), null);
+        UUID run = UUID.randomUUID();
+        jdbcClient.sql("""
+                INSERT INTO source_sync_attempts (id, tenant_id, source_id, scope_revision, credential_revision,
+                    generation, status, error_code, created_at, completed_at)
+                SELECT :run, tenant_id, id, 1, 1, 1, 'CANCELLED', 'SOURCE_PAUSED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                FROM connector_credential_pairs WHERE id = :source
+                """).param("run", run).param("source", source.id().value()).update();
+        mockMvc.perform(get("/api/source-operations/{id}", run).with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.type").value("SYNC_SOURCE"))
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.errorCode").value("SOURCE_PAUSED"));
+    }
+
+    @Test
+    @Transactional
+    void aRunCompletedWithErrorsListsEachFileErrorWithItsResolution() throws Exception {
+        var actor = owner.getPrincipal().actorId();
+        var source = sourceManagement.createFileSource(actor, "API run errors", List.of(), null);
+        UUID run = UUID.randomUUID();
+        jdbcClient.sql("""
+                INSERT INTO source_sync_attempts (
+                    id, tenant_id, source_id, scope_revision, credential_revision, generation,
+                    history_version, trigger_kind, status, created_at, completed_at, run_completed_at,
+                    acquired, unchanged, published, indexing_pending, indexing_failed, indexing_cancelled, indexing_superseded)
+                SELECT :run, tenant_id, id, 1, 1, 1, 1, 'MANUAL', 'COMPLETED_WITH_ERRORS',
+                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 0, 1, 0, 0, 0, 0
+                FROM connector_credential_pairs WHERE id = :source
+                """).param("run", run).param("source", source.id().value()).update();
+        jdbcClient.sql("""
+                INSERT INTO source_run_errors (id, tenant_id, run_id, error_key, file_id, file_name, stage, code,
+                    occurred_at, resolved_at)
+                SELECT gen_random_uuid(), pair.tenant_id, :run, 'FILE:' || file.id, file.id, file.id || '.pdf', 'PROVIDER',
+                    'SOURCE_GOOGLE_UNAVAILABLE', file.occurred, file.resolved
+                FROM connector_credential_pairs pair
+                CROSS JOIN (VALUES ('standing', TIMESTAMPTZ '2026-09-25 08:00:00+00', NULL::timestamptz),
+                    ('resolved', TIMESTAMPTZ '2026-09-25 07:00:00+00', TIMESTAMPTZ '2026-09-25 09:00:00+00'))
+                    file(id, occurred, resolved)
+                WHERE pair.id = :source
+                """).param("run", run).param("source", source.id().value()).update();
+        mockMvc.perform(get("/api/sources/{id}/runs", source.id().value()).with(authentication(owner))
+                        .param("status", "COMPLETED_WITH_ERRORS"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].status").value("COMPLETED_WITH_ERRORS"))
+                .andExpect(jsonPath("$.items[0].acquisitionStatus").value("COMPLETED_WITH_ERRORS"));
+        mockMvc.perform(get("/api/sources/{id}/runs/{run}/errors", source.id().value(), run).with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].fileId").value("standing"))
+                .andExpect(jsonPath("$.items[0].resolvedAt").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.items[1].fileId").value("resolved"))
+                .andExpect(jsonPath("$.items[1].resolvedAt").value("2026-09-25T09:00:00Z"));
     }
 
     @Test

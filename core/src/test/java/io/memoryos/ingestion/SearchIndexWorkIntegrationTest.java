@@ -1,5 +1,6 @@
 package io.memoryos.ingestion;
 
+import io.memoryos.shared.Sha256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -222,7 +223,7 @@ class SearchIndexWorkIntegrationTest {
         var expected = IntStream.range(0, 259).mapToObj(ordinal -> {
             String text = "Dòng " + ordinal + ": 'nghỉ phép'; \"nội dung\" ? :value";
             return new DocumentChunk(ordinal, text, List.of("Quy định", "Mục " + ordinal), ordinal, 0,
-                    "[{\"page_no\":1}]", StructuredDocumentChunker.sha256(text), 30);
+                    "[{\"page_no\":1}]", Sha256.hex(text), 30);
         }).toList();
         try {
             assertEquals(Boolean.TRUE, tx.execute(_ -> chunkRepository.publish(reader, expected)));
@@ -279,6 +280,34 @@ class SearchIndexWorkIntegrationTest {
     }
 
     @Test
+    void reconcileScanPagesEveryDocumentOnceInTenantAndDocumentOrderAcrossTenants() {
+        var other = new TenantId(UUID.randomUUID());
+        // A deployment holds one Tenant; the scan must not rely on it.
+        jdbc.sql("ALTER TABLE tenants DROP CONSTRAINT IF EXISTS uq_tenants_deployment_slot").update();
+        jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,'search-other','Other','ACTIVE','MEM-46')")
+                .param("id", other.value()).update();
+        for (int i = 0; i < 3; i++) { publish(null); publish(other, null); }
+        // PostgreSQL's uuid order, not Java's signed UUID comparison, is the order the cursor follows.
+        var expected = jdbc.sql("SELECT tenant_id,id FROM documents ORDER BY tenant_id,id")
+                .query((rs, _) -> rs.getObject("tenant_id", UUID.class) + "/" + rs.getObject("id", UUID.class)).list();
+        var seen = new java.util.ArrayList<String>();
+        boolean crossedTenants = false;
+        io.memoryos.document.DocumentIndexState.Cursor cursor = null;
+        for (int page = 0; page < 10; page++) {
+            var states = chunks.scan(IDENTITY, cursor, 2);
+            if (states.isEmpty()) break;
+            crossedTenants |= states.stream().map(state -> state.tenantId()).distinct().count() > 1;
+            states.forEach(state -> seen.add(state.tenantId().value() + "/" + state.documentId().value()));
+            cursor = states.getLast().cursor();
+        }
+        assertEquals(6, expected.size());
+        assertEquals(expected, seen, "Every document exactly once, in (Tenant, Document) order");
+        assertTrue(crossedTenants, "A page that ends inside one Tenant continues into the next");
+        assertEquals(expected.subList(0, 2), chunks.scan(IDENTITY, null, 2).stream()
+                .map(state -> state.tenantId().value() + "/" + state.documentId().value()).toList(), "A null cursor starts a new pass");
+    }
+
+    @Test
     void reconcileRepairsAccessDriftOfACompleteGenerationWithoutHidingIt() {
         var document = publish(null);
         try (var scheduler = Executors.newSingleThreadScheduledExecutor()) {
@@ -287,14 +316,13 @@ class SearchIndexWorkIntegrationTest {
         }
         var maintenance = new io.memoryos.ingestion.application.SearchProjectionMaintenance(chunks, work, index,
                 new DataSourceTransactionManager(dataSource));
-        when(index.contains(any(), any())).thenReturn(false);
-        when(index.containsGeneration(any(), any())).thenReturn(true);
+        when(index.inspect(any(), any())).thenAnswer(call -> projections(call.getArgument(0), SearchIndex.Projection.STALE_FIELDS));
         maintenance.reconcile();
         assertTrue(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "Access-only drift must keep the document searchable");
         assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations WHERE action='ACCESS'").query(String.class).single());
         assertEquals("SUCCESS", jdbc.sql("SELECT status FROM search_index_operations WHERE action='INDEX'").query(String.class).single());
 
-        when(index.containsGeneration(any(), any())).thenReturn(false);
+        org.mockito.Mockito.doAnswer(call -> projections(call.getArgument(0), SearchIndex.Projection.INCOMPLETE)).when(index).inspect(any(), any());
         maintenance.reconcile();
         assertFalse(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "Missing chunks still require a full rewrite");
         assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM search_index_operations WHERE action='INDEX'").query(String.class).single());
@@ -355,9 +383,11 @@ class SearchIndexWorkIntegrationTest {
         assertEquals(1, jdbc.sql("SELECT COUNT(*) FROM search_index_operations WHERE action='DELETE'").query(Integer.class).single());
     }
 
-    private DocumentId publish(DocumentId existing) {
+    private DocumentId publish(DocumentId existing) { return publish(tenant, existing); }
+
+    private DocumentId publish(TenantId tenant, DocumentId existing) {
         UUID artifact = UUID.randomUUID();
-        artifacts.stage(tenant, artifact, "extracted/" + artifact, StructuredDocumentChunker.sha256(JSON), JSON.getBytes(StandardCharsets.UTF_8).length);
+        artifacts.stage(tenant, artifact, "extracted/" + artifact, Sha256.hex(JSON), JSON.getBytes(StandardCharsets.UTF_8).length);
         artifacts.finishWrite(tenant, artifact);
         return tx.execute(_ -> documents.publish(tenant, existing,
                 new DocumentContent("text/plain", "HR-2026", "Nghỉ phép", Map.of(), JSON, artifact), "a".repeat(64)));
@@ -371,6 +401,12 @@ class SearchIndexWorkIntegrationTest {
     }
     private UUID generation(DocumentId document) {
         return jdbc.sql("SELECT content_generation FROM documents WHERE id=:id").param("id", document.value()).query(UUID.class).single();
+    }
+    private static java.util.Map<DocumentId, SearchIndex.Projection> projections(List<io.memoryos.document.DocumentIndexState> page,
+            SearchIndex.Projection projection) {
+        var result = new java.util.HashMap<DocumentId, SearchIndex.Projection>();
+        page.forEach(state -> result.put(state.documentId(), projection));
+        return result;
     }
     private int count(String table) { return jdbc.sql("SELECT COUNT(*) FROM " + table).query(Integer.class).single(); }
 }

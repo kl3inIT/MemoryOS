@@ -239,6 +239,7 @@ describe("Source execution and current-file history", () => {
       stage: "EXTRACTION",
       code: "SOURCE_EXTRACTION_TIMEOUT",
       occurredAt: "2026-09-09T09:01:20Z",
+      resolvedAt: null,
       errorMessage: "Extraction timed out after 30s",
       errorDetail: "io.memoryos.ingestion.ExtractionException: timeout\n\tat worker",
       currentItemStatus: "FAILED",
@@ -280,6 +281,47 @@ describe("Source execution and current-file history", () => {
     expect(
       await screen.findByText("Google Drive is temporarily unavailable. Try again later."),
     ).toBeInTheDocument();
+  });
+
+  it("marks a file error a later run resolved and shows when", async () => {
+    const failedRun: SourceRun = {
+      ...run,
+      status: "COMPLETED_WITH_ERRORS",
+      acquisitionStatus: "COMPLETED_WITH_ERRORS",
+      indexingStatus: "SUCCEEDED",
+      counts: { ...run.counts, acquisitionFailed: 2 },
+    };
+    const error = (id: string, fileName: string, resolvedAt: string | null): SourceRunError => ({
+      id,
+      runId: failedRun.id,
+      operationId: null,
+      itemId: null,
+      fileId: id,
+      fileName,
+      stage: "PROVIDER",
+      code: "SOURCE_GOOGLE_UNAVAILABLE",
+      occurredAt: "2026-09-09T09:01:20Z",
+      resolvedAt,
+      errorMessage: null,
+      errorDetail: null,
+      currentItemStatus: resolvedAt ? "INDEXED" : "FAILED",
+      currentItemErrorCode: null,
+      currentItemLastIndexedAt: null,
+    });
+    showHistory(
+      [failedRun],
+      [error("file-a", "standing.pdf", null), error("file-b", "fixed.pdf", "2026-09-10T08:00:00Z")],
+    );
+    fireEvent.click(screen.getByRole("button", { name: /View details/ }));
+    const errors = within(await screen.findByRole("list", { name: "Run errors" }));
+    const [standing, fixed] = errors.getAllByRole("listitem");
+    expect(within(standing).queryByText("Resolved")).not.toBeInTheDocument();
+    expect(within(fixed).getByText("Resolved")).toBeInTheDocument();
+    expect(within(fixed).getByText("fixed.pdf")).toHaveClass("text-content-muted");
+    fireEvent.click(within(fixed).getByRole("button", { name: /Error details for fixed\.pdf/ }));
+    expect(
+      within(fixed).getByText("Resolved at").nextElementSibling?.querySelector("time"),
+    ).toHaveAttribute("dateTime", "2026-09-10T08:00:00Z");
   });
 });
 
@@ -399,7 +441,7 @@ describe("Current file processing status", () => {
     const item = {
       status: "UNKNOWN",
       searchStatus: "WAITING",
-      latestAttempt: { ...attempt, status: "UNKNOWN" },
+      latestAttempt: { ...attempt, status: "UNKNOWN" } as unknown as SourceIndexAttempt,
     } as const;
     render(<ItemStatus item={item} />);
     expect(screen.getByText("Unknown", { exact: true })).toBeInTheDocument();

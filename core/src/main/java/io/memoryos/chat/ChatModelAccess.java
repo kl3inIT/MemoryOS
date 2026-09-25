@@ -115,6 +115,21 @@ public class ChatModelAccess {
         return catalog.select(actor, tenant, session.personaId(), preferred, personal, context.revision());
     }
 
+    /**
+     * The model a turn runs on when its agent was already read for this send: the agent's model and revision are
+     * taken from {@code agent}, and the reservation rechecks that revision under a share lock.
+     */
+    @Transactional
+    public Selection select(ActorId actor, UUID sessionId, @Nullable UUID requested, JdbcChatRepository.Persona agent,
+                            boolean modelsManage) {
+        var tenant = tenants.lockActiveMembership(actor).orElseThrow(ChatException::unavailable).tenantId();
+        chats.lockOwner(tenant, actor);
+        var session = chats.findOwned(tenant, actor, sessionId, false).orElseThrow(ChatException::unavailable);
+        UUID preferred = requested != null ? requested : agent.modelConfigurationId();
+        UUID personal = preferred == null ? agents.personalDefault(tenant.value(), actor.value()) : null;
+        return catalog.select(actor, tenant, session.personaId(), preferred, personal, agent.revision(), modelsManage);
+    }
+
     /** The flow model when it is set and still eligible; otherwise exactly the conversation model {@link #select} picks. */
     @Transactional
     public Selection selectFlow(ActorId actor, UUID sessionId, ModelFlow flow) {

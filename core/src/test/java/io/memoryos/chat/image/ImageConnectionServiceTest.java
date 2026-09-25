@@ -37,7 +37,8 @@ class ImageConnectionServiceTest {
     private final ActorId actor = new ActorId(UUID.randomUUID());
     private final TenantId tenant = new TenantId(UUID.randomUUID());
     private final ImageConnectionService service =
-            new ImageConnectionService(connections, credentials, authorization, tenants, io.memoryos.TestDatabase.noAudit());
+            new ImageConnectionService(connections,
+                    new io.memoryos.ai.ProviderConnections(credentials, io.memoryos.TestDatabase.noAudit()), authorization, tenants);
 
     @Test
     void providersRequireModelManagement() {

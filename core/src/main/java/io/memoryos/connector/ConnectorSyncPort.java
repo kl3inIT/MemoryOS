@@ -15,5 +15,6 @@ public interface ConnectorSyncPort {
     record Work(TenantId tenantId, SourceId sourceId, SourceOperationId operationId, UUID claimToken,
                 long scopeRevision, long credentialRevision, long generation,
                 @Nullable Duration initialQueueWait) {}
-    enum Result { CONTINUED, COMPLETED, FAILED, SUPERSEDED }
+    /** {@code CANCELLED} when the Source was paused or deleted, {@code SUPERSEDED} when newer work replaced the run. */
+    enum Result { CONTINUED, COMPLETED, FAILED, SUPERSEDED, CANCELLED }
 }

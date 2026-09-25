@@ -5,6 +5,9 @@ import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -60,34 +63,38 @@ public class JdbcChatArtifactRepository {
                                   String mediaType, long sizeBytes, @Nullable String chart,
                                   @Nullable String revisedPrompt) {}
 
-    /** Every artifact of one answer, generated files first, each in the order it was recorded. */
-    public List<MessageArtifact> messageArtifacts(TenantId tenant, UUID messageId) {
-        var files = jdbc.sql("""
-                SELECT a.id, a.object_key, a.filename, a.media_type, a.size_bytes, a.chart::text AS chart
+    /**
+     * Every artifact of the given answers, in two queries: per answer, generated files first, each in the order it
+     * was recorded. An answer without artifacts is absent.
+     */
+    public Map<UUID, List<MessageArtifact>> messageArtifacts(TenantId tenant, Collection<UUID> messageIds) {
+        if (messageIds.isEmpty()) return Map.of();
+        var byMessage = new HashMap<UUID, List<MessageArtifact>>();
+        jdbc.sql("""
+                SELECT a.message_id, a.id, a.object_key, a.filename, a.media_type, a.size_bytes, a.chart::text AS chart
                 FROM chat_file_artifact a
-                WHERE a.tenant_id = :tenant AND a.message_id = :message AND a.deleted_at IS NULL
+                WHERE a.tenant_id = :tenant AND a.message_id IN (:messages) AND a.deleted_at IS NULL
                 ORDER BY a.created_at, a.id
-                """).param("tenant", tenant.value()).param("message", messageId)
-                .query((row, ignored) -> new MessageArtifact(LibraryFile.Source.GENERATED,
+                """).param("tenant", tenant.value()).param("messages", messageIds)
+                .query((row, ignored) -> byMessage.computeIfAbsent(row.getObject("message_id", UUID.class),
+                        key -> new ArrayList<>()).add(new MessageArtifact(LibraryFile.Source.GENERATED,
                         row.getObject("id", UUID.class), new ObjectKey(row.getString("object_key")),
                         row.getString("filename"), row.getString("media_type"), row.getLong("size_bytes"),
-                        row.getString("chart"), null))
+                        row.getString("chart"), null)))
                 .list();
-        var images = jdbc.sql("""
-                SELECT a.id, a.object_key, a.filename, a.media_type, a.size_bytes, a.revised_prompt
+        jdbc.sql("""
+                SELECT a.message_id, a.id, a.object_key, a.filename, a.media_type, a.size_bytes, a.revised_prompt
                 FROM chat_image_artifact a
-                WHERE a.tenant_id = :tenant AND a.message_id = :message AND a.deleted_at IS NULL
+                WHERE a.tenant_id = :tenant AND a.message_id IN (:messages) AND a.deleted_at IS NULL
                 ORDER BY a.created_at, a.id
-                """).param("tenant", tenant.value()).param("message", messageId)
-                .query((row, ignored) -> new MessageArtifact(LibraryFile.Source.IMAGE,
+                """).param("tenant", tenant.value()).param("messages", messageIds)
+                .query((row, ignored) -> byMessage.computeIfAbsent(row.getObject("message_id", UUID.class),
+                        key -> new ArrayList<>()).add(new MessageArtifact(LibraryFile.Source.IMAGE,
                         row.getObject("id", UUID.class), new ObjectKey(row.getString("object_key")),
                         row.getString("filename"), row.getString("media_type"), row.getLong("size_bytes"),
-                        null, row.getString("revised_prompt")))
+                        null, row.getString("revised_prompt"))))
                 .list();
-        var all = new ArrayList<MessageArtifact>(files.size() + images.size());
-        all.addAll(files);
-        all.addAll(images);
-        return all;
+        return byMessage;
     }
 
     /**

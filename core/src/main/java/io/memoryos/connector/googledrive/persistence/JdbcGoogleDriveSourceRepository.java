@@ -277,7 +277,9 @@ public class JdbcGoogleDriveSourceRepository {
 
     public ConfigurationRow configuration(TenantId tenant, SourceId source) {
         return jdbc.sql("""
-                SELECT s.*, EXISTS (SELECT 1 FROM source_sync_attempts a
+                SELECT s.*, (SELECT p.sync_error_code FROM connector_credential_pairs p
+                  WHERE p.tenant_id = s.tenant_id AND p.id = s.source_id) AS error_code,
+                  EXISTS (SELECT 1 FROM source_sync_attempts a
                   WHERE a.tenant_id = s.tenant_id AND a.source_id = s.source_id
                   AND a.status IN ('NOT_STARTED','IN_PROGRESS')) OR EXISTS (
                   SELECT 1 FROM index_attempts a
@@ -433,11 +435,12 @@ public class JdbcGoogleDriveSourceRepository {
         var approvedIds = approvals.stream().map(LinkedDocument::id).toList();
         boolean rootsChanged = !Set.copyOf(roots(tenant, source).stream().map(Root::id).toList()).equals(Set.copyOf(rootIds));
         if (jdbc.sql("""
-                UPDATE google_drive_sources SET revision = revision + 1,
-                  error_code = NULL, next_sync_at = CURRENT_TIMESTAMP
+                UPDATE google_drive_sources SET revision = revision + 1, next_sync_at = CURRENT_TIMESTAMP
                 WHERE tenant_id = :tenant AND source_id = :source AND revision = :revision AND scope_mode = :scopeMode
                 """).param("tenant", tenant.value()).param("source", source.value())
                 .param("scopeMode", scopeMode.name()).param("revision", expected).update() != 1) throw SourceException.staleConfiguration();
+        jdbc.sql("UPDATE connector_credential_pairs SET sync_error_code = NULL WHERE tenant_id = :tenant AND id = :source")
+                .param("tenant", tenant.value()).param("source", source.value()).update();
         retainSelectionMembership(tenant, source, expected, credentialRevision, rootIds, approvedIds, rootsChanged);
         carryForwardIndexedVersions(tenant, source, expected, credentialRevision);
         jdbc.sql("DELETE FROM google_drive_roots WHERE tenant_id = :tenant AND source_id = :source")

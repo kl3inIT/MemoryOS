@@ -1,5 +1,6 @@
 package io.memoryos.retrieval.settings;
 
+import io.memoryos.shared.Sha256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -148,7 +149,9 @@ class SearchRebuildIntegrationTest {
                     new StructuredDocumentChunker(mapper));
             var sourceSearch = mock(SourceSearchService.class);
             when(sourceSearch.indexMetadata(any(), any(), any())).thenReturn(List.of());
-            when(sourceSearch.indexAccess(any(), any())).thenReturn(new DocumentAccess(true, Set.of()));
+            when(sourceSearch.indexAccess(any(), org.mockito.ArgumentMatchers.any(io.memoryos.document.DocumentId.class)))
+                    .thenReturn(new DocumentAccess(true, Set.of()));
+            io.memoryos.connector.SourceSearchMocks.answerPagesFromSingleDocuments(sourceSearch);
             var gateway = gateways.apply(TestSearchGateways.gateway(properties, mapper));
             index = new OpenSearchIndexService(gateway, generations, properties, mapper, chunks, sourceSearch,
                     new SearchTimings(new SimpleMeterRegistry(), ObservationRegistry.NOOP));
@@ -632,7 +635,7 @@ class SearchRebuildIntegrationTest {
         UUID artifact = UUID.randomUUID();
         String key = "extracted/" + artifact;
         objects.put(key, bytes);
-        String sha = StructuredDocumentChunker.sha256(json);
+        String sha = Sha256.hex(json);
         artifacts.stage(new TenantId(tenant), artifact, key, sha, bytes.length);
         artifacts.finishWrite(new TenantId(tenant), artifact);
         return tx.execute(_ -> documents.publish(new TenantId(tenant), existing,

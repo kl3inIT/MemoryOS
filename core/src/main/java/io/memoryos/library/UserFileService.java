@@ -136,6 +136,23 @@ public class UserFileService {
         return new FileText(window.text(), window.offset(), window.totalCharacters());
     }
 
+    /**
+     * The opening {@code count} characters of each file among {@code ids} the actor may read, in the order asked
+     * for, in one query; a file that is missing, not READY or no longer readable is absent. Called inside the
+     * caller's transaction, which already resolved {@code tenant} for the actor.
+     */
+    public java.util.SequencedMap<UUID, FileText> readAll(TenantId tenant, ActorId actor, List<UUID> ids, int count) {
+        if (ids.size() > 20 || ids.stream().anyMatch(Objects::isNull) || count < 1 || count > 16000)
+            throw LibraryException.invalid("Invalid file range.");
+        var windows = files.plaintexts(tenant, actor, ids, attachments.readableThroughAgents(tenant, actor, ids), count);
+        var texts = new java.util.LinkedHashMap<UUID, FileText>();
+        for (UUID id : ids) {
+            var window = windows.get(id);
+            if (window != null) texts.put(id, new FileText(window.text(), window.offset(), window.totalCharacters()));
+        }
+        return texts;
+    }
+
     public UserFile retry(ActorId actor, UUID id) {
         return Objects.requireNonNull(tx.execute(ignored -> {
             var tenant = write(actor);

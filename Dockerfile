@@ -9,7 +9,7 @@ ENV GRADLE_USER_HOME=/workspace/.gradle-home
 COPY gradlew gradlew.bat settings.gradle.kts build.gradle.kts ./
 COPY gradle ./gradle
 COPY core/build.gradle.kts ./core/
-COPY connector/build.gradle.kts ./connector/
+COPY sources/build.gradle.kts ./sources/
 COPY api/build.gradle.kts ./api/
 COPY worker/build.gradle.kts ./worker/
 RUN sed -i 's/\r$//' gradlew \
@@ -17,7 +17,7 @@ RUN sed -i 's/\r$//' gradlew \
     && ./gradlew --no-daemon --no-configuration-cache --stacktrace resolveDependencies
 
 COPY core ./core
-COPY connector ./connector
+COPY sources ./sources
 COPY api ./api
 COPY worker ./worker
 

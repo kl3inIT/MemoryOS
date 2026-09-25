@@ -79,8 +79,11 @@ const statusMessages: Record<string, string> = {
   SOURCE_GOOGLE_LIMIT_EXCEEDED:
     "This item exceeds the supported acquisition limits and was not imported.",
   SOURCE_GOOGLE_INCONSISTENT: "This file changed while it was being acquired. Synchronize again.",
+  // Runs before the shared sync engine failed as a whole with this code; kept for their history.
   SOURCE_GOOGLE_INCOMPLETE:
     "Some files could not be acquired. Review the file errors and synchronize again.",
+  SOURCE_SYNC_ITEM_FAILURES_EXCEEDED:
+    "Synchronization stopped because too many files failed. Review the file errors in the run details.",
   SOURCE_GOOGLE_SELECTION_FAILED:
     "Selection verification failed. The active selection is unchanged. Review your links and Google access before submitting a new proposal.",
   SOURCE_GOOGLE_CREDENTIAL_CHANGED:
@@ -183,6 +186,7 @@ const statusMessages: Record<string, string> = {
   SOURCE_MANAGER_NOT_ELIGIBLE:
     "This member cannot manage the Source because they do not manage any group. Assign them as a group manager first.",
   SOURCE_PAUSED: "Canceled by pause. Resume the Source to continue synchronization and indexing.",
+  SOURCE_DELETING: "Canceled because the Source is being deleted.",
 };
 
 function sourceStatusMessage(code: string) {

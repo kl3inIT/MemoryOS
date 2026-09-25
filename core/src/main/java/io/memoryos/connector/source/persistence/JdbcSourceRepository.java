@@ -438,9 +438,11 @@ public class JdbcSourceRepository {
         return switch (value) {
             case "NOT_STARTED" -> SourceOperationStatus.NOT_STARTED;
             case "IN_PROGRESS" -> SourceOperationStatus.IN_PROGRESS;
-            case "SUCCEEDED" -> SourceOperationStatus.SUCCEEDED;
+            // A run whose failures stayed isolated to single items still completed; its errors are in run history.
+            case "SUCCEEDED", "COMPLETED_WITH_ERRORS" -> SourceOperationStatus.SUCCEEDED;
             case "FAILED" -> SourceOperationStatus.FAILED;
-            case "SUPERSEDED", "CANCELLED" -> SourceOperationStatus.SUPERSEDED;
+            case "SUPERSEDED" -> SourceOperationStatus.SUPERSEDED;
+            case "CANCELLED" -> SourceOperationStatus.CANCELLED;
             default -> throw new IllegalStateException("unsupported source operation status: " + value);
         };
     }

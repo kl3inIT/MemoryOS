@@ -57,13 +57,8 @@ public class JdbcSourceQueryRepository {
                    )) THEN 'PAUSING' WHEN pair.status <> 'DELETING' AND EXISTS (
                        SELECT 1 FROM source_sync_attempts sync WHERE sync.tenant_id = pair.tenant_id
                          AND sync.source_id = pair.id AND sync.status IN ('NOT_STARTED', 'IN_PROGRESS')
-                   ) THEN 'INDEXING' WHEN pair.status <> 'DELETING' AND pair.status <> 'PAUSED' AND (EXISTS (
-                       SELECT 1 FROM google_drive_sources s WHERE s.tenant_id = pair.tenant_id
-                         AND s.source_id = pair.id AND s.error_code IS NOT NULL
-                   ) OR EXISTS (
-                       SELECT 1 FROM sharepoint_sources s WHERE s.tenant_id = pair.tenant_id
-                         AND s.source_id = pair.id AND s.error_code IS NOT NULL
-                   )) THEN 'FAILED' ELSE pair.status END AS status,
+                   ) THEN 'INDEXING' WHEN pair.status <> 'DELETING' AND pair.status <> 'PAUSED'
+                     AND pair.sync_error_code IS NOT NULL THEN 'FAILED' ELSE pair.status END AS status,
                    EXISTS (
                        SELECT 1 FROM connector_cleanup_attempts cleanup
                        WHERE cleanup.tenant_id = pair.tenant_id AND cleanup.target_pair_id = pair.id
@@ -71,10 +66,8 @@ public class JdbcSourceQueryRepository {
                    ) AS cleanup_pending,
                    pair.document_count,
                    pair.last_succeeded_at,
-                   COALESCE((SELECT s.error_code FROM google_drive_sources s
-                       WHERE s.tenant_id = pair.tenant_id AND s.source_id = pair.id),
-                       (SELECT s.error_code FROM sharepoint_sources s
-                       WHERE s.tenant_id = pair.tenant_id AND s.source_id = pair.id), pair.error_code) AS error_code,
+                   -- A synchronization failure explains the Source before an indexing failure does.
+                   COALESCE(pair.sync_error_code, pair.error_code) AS error_code,
                    pair.manager_actor_id,
                    manager_profile.display_name AS manager_name,
                    CASE WHEN :globalManage THEN FALSE ELSE %s END AS managed_scope,

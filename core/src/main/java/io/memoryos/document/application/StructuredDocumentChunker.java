@@ -7,12 +7,9 @@ import io.memoryos.document.ExtractedDocument.Block;
 import io.memoryos.document.ExtractedDocument.Cell;
 import io.memoryos.document.ExtractedDocument.Kind;
 import io.memoryos.document.ExtractedDocument.Table;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import io.memoryos.shared.Sha256;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.TreeMap;
 import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
@@ -258,7 +255,7 @@ public final class StructuredDocumentChunker {
             String passage = prefix + window.substring(0, end).strip();
             if (result.size() >= MAX_CHUNKS) throw new DocumentContentException("SEARCH_INDEX_CONTENT_LIMIT", "document exceeds chunk limit");
             result.add(new DocumentChunk(result.size(), passage, headings, blockIndex, part++, provenance,
-                    sha256(passage), tokens.estimate(passage)));
+                    Sha256.hex(passage), tokens.estimate(passage)));
             offset += end;
         }
         return part;
@@ -279,13 +276,5 @@ public final class StructuredDocumentChunker {
         if (boundary > end / 2) end = boundary;
         if (tokens.estimate(prefix + text.substring(0, end)) > MAX_TOKENS) throw new DocumentContentException("SEARCH_INDEX_ARTIFACT_INVALID", "unbounded chunk");
         return end;
-    }
-
-    public static String sha256(String text) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
     }
 }

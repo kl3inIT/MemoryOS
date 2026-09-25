@@ -19018,6 +19018,13 @@ components:
           type: string
         status:
           type: string
+          enum:
+          - NOT_STARTED
+          - IN_PROGRESS
+          - SUCCEEDED
+          - FAILED
+          - SUPERSEDED
+          - CANCELLED
         createdAt:
           type: string
           format: date-time
@@ -21996,6 +22003,13 @@ components:
           - "null"
         status:
           type: string
+          enum:
+          - NOT_STARTED
+          - IN_PROGRESS
+          - SUCCEEDED
+          - FAILED
+          - SUPERSEDED
+          - CANCELLED
         createdAt:
           type: string
           format: date-time
@@ -25091,6 +25105,13 @@ components:
         occurredAt:
           type: string
           format: date-time
+        resolvedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: When a later run acquired the same file again; null while the
+            error stands
         errorMessage:
           type:
           - string
@@ -25130,6 +25151,7 @@ components:
       - itemId
       - occurredAt
       - operationId
+      - resolvedAt
       - runId
       - stage
     SourceRunErrorPage:

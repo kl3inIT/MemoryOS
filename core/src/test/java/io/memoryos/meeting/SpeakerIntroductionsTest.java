@@ -21,8 +21,8 @@ class SpeakerIntroductionsTest {
         var second = said("2", "Em tên là Lan ạ.");
         var found = SpeakerIntroductions.suggest(List.of(first, second), List.of("Anh Minh"), ASKING);
 
-        var one = found.get(SpeakerIntroductions.key(Meeting.Track.MIC, "1"));
-        var two = found.get(SpeakerIntroductions.key(Meeting.Track.MIC, "2"));
+        var one = found.get(SpeakerNames.key(Meeting.Track.MIC, "1"));
+        var two = found.get(SpeakerNames.key(Meeting.Track.MIC, "2"));
         assertEquals("Minh", one.name());
         assertEquals(first.id(), one.utteranceId(), "the offer carries the line it was read from");
         assertEquals(0.9, one.confidence(), 1e-9, "nobody by that exact name was expected at the meeting");
@@ -30,7 +30,7 @@ class SpeakerIntroductionsTest {
         assertEquals(0.9, two.confidence(), 1e-9);
 
         var expected = SpeakerIntroductions.suggest(List.of(first), List.of("Minh"), ASKING);
-        assertEquals(0.97, expected.get(SpeakerIntroductions.key(Meeting.Track.MIC, "1")).confidence(), 1e-9,
+        assertEquals(0.97, expected.get(SpeakerNames.key(Meeting.Track.MIC, "1")).confidence(), 1e-9,
                 "a name on the participant list is all but certain");
     }
 
@@ -41,7 +41,7 @@ class SpeakerIntroductionsTest {
         var found = SpeakerIntroductions.suggest(List.of(early, later, other), List.of(), ASKING);
 
         assertEquals(1, found.size(), "a named or dismissed voice is left alone");
-        assertEquals(early.id(), found.get(SpeakerIntroductions.key(Meeting.Track.MIC, "1")).utteranceId());
+        assertEquals(early.id(), found.get(SpeakerNames.key(Meeting.Track.MIC, "1")).utteranceId());
     }
 
     @Test void readsNamesWrittenTheOtherWaysAndInEnglish() {
@@ -61,7 +61,7 @@ class SpeakerIntroductionsTest {
 
     private static @org.jspecify.annotations.Nullable String name(String text) {
         var found = SpeakerIntroductions.suggest(List.of(said("1", text)), List.of(), ASKING);
-        var suggestion = found.get(SpeakerIntroductions.key(Meeting.Track.MIC, "1"));
+        var suggestion = found.get(SpeakerNames.key(Meeting.Track.MIC, "1"));
         return suggestion == null ? null : suggestion.name();
     }
 }

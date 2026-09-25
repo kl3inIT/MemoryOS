@@ -69,14 +69,11 @@ public class MeetingCorrectionService {
         var meeting = details.get(actor, meetingId);
         UUID run = UUID.randomUUID();
         try {
-            var names = new HashMap<String, String>();
-            for (var speaker : meeting.speakers())
-                if (speaker.name() != null) names.put(speaker.track().name() + speaker.label(), speaker.name());
+            var names = SpeakerNames.of(meeting);
             var lines = new ArrayList<TranscriptCorrector.Line>(meeting.utterances().size());
             var stretches = new ArrayList<TranscriptCorrector.Stretch>();
             for (var utterance : meeting.utterances()) {
-                String speaker = names.getOrDefault(utterance.track().name() + utterance.speaker(), utterance.speaker());
-                lines.add(new TranscriptCorrector.Line(utterance.id().toString(), speaker, utterance.text()));
+                lines.add(new TranscriptCorrector.Line(utterance.id().toString(), names.of(utterance), utterance.text()));
                 if (utterance.editSource() == Meeting.EditSource.HUMAN) continue;
                 for (var range : merged(utterance)) {
                     if (range.end() - range.start() < MIN_STRETCH) continue;

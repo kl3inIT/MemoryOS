@@ -1,5 +1,6 @@
 package io.memoryos.library.persistence;
 
+import io.memoryos.shared.LikePattern;
 import io.memoryos.library.LibraryFile;
 import io.memoryos.library.UserFile;
 import io.memoryos.shared.ActorId;
@@ -186,7 +187,7 @@ public class JdbcLibraryRepository {
         var ids = filter.ids();
         return statement.param("tenant", tenant.value()).param("actor", actor.value())
                 .param("allSessions", filter.session() == null).param("session", filter.session())
-                .param("query", filter.query()).param("pattern", "%" + escape(filter.query()) + "%")
+                .param("query", filter.query()).param("pattern", LikePattern.containing(filter.query()))
                 .param("allSources", filter.sources().isEmpty())
                 .param("sources", filter.sources().isEmpty() ? Set.of("") : filter.sources())
                 .param("allCategories", filter.categories().isEmpty())
@@ -264,11 +265,6 @@ public class JdbcLibraryRepository {
                 .query((row, ignored) -> new Artifact(new ObjectKey(row.getString("object_key")), row.getString("filename"),
                         row.getString("media_type"), row.getLong("size_bytes")))
                 .optional();
-    }
-
-    /** ILIKE treats these as wildcards; a name search must match them literally. */
-    private static String escape(String query) {
-        return query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
 }

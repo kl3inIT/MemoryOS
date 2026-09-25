@@ -82,7 +82,7 @@ jobs:
                     backend=true
                     landing=true
                     ;;
-                  core/*|connector/*|api/*|worker/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat|Dockerfile|infrastructure/*)
+                  core/*|sources/*|api/*|worker/*|gradle/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat|Dockerfile|infrastructure/*)
                     backend=true
                     ;;
                   interpreter/*)
@@ -198,7 +198,7 @@ jobs:
           name: backend-tests
           path: |
             core/build/test-results/test/*.xml
-            connector/build/test-results/test/*.xml
+            sources/build/test-results/test/*.xml
             api/build/test-results/test/*.xml
             worker/build/test-results/test/*.xml
           if-no-files-found: warn

@@ -4,6 +4,7 @@ import type { SourceOperation } from "@/lib/hey-api/types.gen";
 export const terminalOperationStatuses = {
   SUCCEEDED: true,
   SUPERSEDED: true,
+  CANCELLED: true,
   FAILED: true,
 } as const;
 

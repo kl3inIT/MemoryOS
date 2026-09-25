@@ -3,6 +3,7 @@ package io.memoryos.api.source;
 import io.memoryos.connector.GoogleDriveAuthorizationService.Preparation;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.iam.IdentityContext;
+import io.memoryos.shared.Sha256;
 import io.memoryos.shared.TenantId;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.Serial;
@@ -54,8 +55,7 @@ public record GoogleDriveAuthorizationSessionState(UUID actorId, UUID tenantId, 
     }
 
     public String challenge() {
-        try { return Base64.getUrlEncoder().withoutPadding().encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.getBytes(StandardCharsets.US_ASCII))); }
-        catch (java.security.NoSuchAlgorithmException exception) { throw new IllegalStateException("SHA-256 unavailable", exception); }
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(Sha256.digest(verifier.getBytes(StandardCharsets.US_ASCII)));
     }
 
     static boolean equal(String expected, String supplied) {

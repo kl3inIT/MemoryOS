@@ -273,16 +273,16 @@ class GoogleDriveCredentialAuthorityTest {
         assertEquals(initial.id(), drive.synchronize(scoped, source).id());
         assertThrows(SourceException.class, () -> drive.setPaused(scoped, source, 1, false));
         assertTrue(drive.updateSchedule(scoped, source, 2, 15).syncPaused());
-        transactions.executeWithoutResult(_ -> sync.cancel(tenant, source));
+        transactions.executeWithoutResult(_ -> sync.supersede(tenant, source));
         jdbc.sql("UPDATE google_drive_sources SET next_sync_at=CURRENT_TIMESTAMP-INTERVAL '1 minute' WHERE source_id=:source")
                 .param("source", source.value()).update();
-        assertTrue(sync.due(10).isEmpty());
+        assertTrue(new io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository(jdbc, sync).due(10).isEmpty());
         assertEquals(io.memoryos.connector.SourceOperationStatus.NOT_STARTED, drive.synchronize(scoped, source).status());
-        transactions.executeWithoutResult(_ -> sync.cancel(tenant, source));
+        transactions.executeWithoutResult(_ -> sync.supersede(tenant, source));
         drive.setPaused(scoped, source, 3, false);
         jdbc.sql("UPDATE google_drive_sources SET next_sync_at=CURRENT_TIMESTAMP-INTERVAL '1 minute' WHERE source_id=:source")
                 .param("source", source.value()).update();
-        assertEquals(source, sync.due(10).getFirst().sourceId());
+        assertEquals(source, new io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository(jdbc, sync).due(10).getFirst().sourceId());
     }
 
     private ActorId scopedManager(io.memoryos.iam.GroupId group) {
@@ -666,7 +666,9 @@ class GoogleDriveCredentialAuthorityTest {
         }).when(session).metadata("root");
 
         var rejected = drive.create(owner,UUID.randomUUID(),"Racing General",id,ScopeMode.GENERAL,List.of(),List.of(),null);
-        assertEquals(SourceOperationStatus.SUPERSEDED, process(rejected).status());
+        var cancelledCreation = process(rejected);
+        assertEquals(SourceOperationStatus.CANCELLED, cancelledCreation.status());
+        assertEquals("SOURCE_GOOGLE_CREDENTIAL_CHANGED", cancelledCreation.errorCode());
 
         assertEquals(0, jdbc.sql("SELECT COUNT(*) FROM connector_credential_pairs").query(Integer.class).single());
         assertEquals(0, jdbc.sql("SELECT COUNT(*) FROM source_sync_attempts").query(Integer.class).single());
@@ -688,7 +690,7 @@ class GoogleDriveCredentialAuthorityTest {
             authorizations.disconnect(owner, id, 1);
             return metadata("racing");
         });
-        assertEquals(SourceOperationStatus.SUPERSEDED, process(drive.create(owner,UUID.randomUUID(),"Racing",id,ScopeMode.SPECIFIC,List.of(link("racing")),List.of(),null)).status());
+        assertEquals(SourceOperationStatus.CANCELLED, process(drive.create(owner,UUID.randomUUID(),"Racing",id,ScopeMode.SPECIFIC,List.of(link("racing")),List.of(),null)).status());
         for (String table : List.of("connectors", "connector_credential_pairs", "google_drive_sources", "google_drive_roots", "source_sync_attempts")) {
             assertEquals(0, jdbc.sql("SELECT COUNT(*) FROM " + table).query(Integer.class).single());
         }
@@ -940,7 +942,9 @@ class GoogleDriveCredentialAuthorityTest {
         var proposed = drive.replaceRoots(owner, UUID.randomUUID(), source, 1,
                 proposedDraft.discoveryRevision(), proposedDraft.credentialRevision(),
                 ScopeMode.SPECIFIC, List.of(link("selected")), List.of("remote"));
-        assertEquals(SourceOperationStatus.SUPERSEDED, process(proposed).status());
+        var cancelled = process(proposed);
+        assertEquals(SourceOperationStatus.CANCELLED, cancelled.status());
+        assertEquals("SOURCE_GOOGLE_CREDENTIAL_CHANGED", cancelled.errorCode());
         assertTrue(roots.approvedIds(tenant, source).isEmpty());
         assertEquals(1, roots.configuration(tenant, source).revision());
         assertThrows(SourceException.class,

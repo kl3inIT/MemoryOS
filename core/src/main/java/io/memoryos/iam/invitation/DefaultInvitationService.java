@@ -1,14 +1,11 @@
 package io.memoryos.iam.invitation;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import io.memoryos.shared.Sha256;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -456,13 +453,7 @@ public class DefaultInvitationService implements InvitationService {
     }
 
     private static String digest(String plaintextSecret) {
-        try {
-            byte[] value = MessageDigest.getInstance("SHA-256")
-                    .digest(plaintextSecret.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(value);
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
+        return Sha256.hex(plaintextSecret);
     }
 
     private void requireAvailable(InvitationEntity invitation) {

@@ -250,7 +250,7 @@ function setup(
           operation = {
             id: crypto.randomUUID(),
             type: "VALIDATE_GOOGLE_DRIVE_SELECTION",
-            status: "PENDING",
+            status: "NOT_STARTED",
             createdAt: "2026-09-08T10:00:00Z",
             completedAt: null,
             errorCode: null,
@@ -369,7 +369,7 @@ function setup(
         );
       });
     },
-    async finish(status = "SUCCEEDED", errorCode: string | null = null) {
+    async finish(status: SourceOperation["status"] = "SUCCEEDED", errorCode: string | null = null) {
       if (!operation) throw new Error("No accepted operation");
       operation = { ...operation, status, errorCode, completedAt: "2026-09-08T10:01:00Z" };
       if (status === "SUCCEEDED" && proposed) {

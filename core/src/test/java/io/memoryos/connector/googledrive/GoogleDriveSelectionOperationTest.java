@@ -227,7 +227,8 @@ public class GoogleDriveSelectionOperationTest {
         UUID request=UUID.randomUUID();
         var revoked=fixture.create(request,List.of(Fixture.link("root1")));
         fixture.transactions.executeWithoutResult(_ -> fixture.credentials.delete(fixture.tenant,fixture.credential,1));
-        assertEquals(SourceOperationStatus.SUPERSEDED, fixture.operation(revoked).status());
+        assertEquals(SourceOperationStatus.CANCELLED, fixture.operation(revoked).status());
+        assertEquals("SOURCE_GOOGLE_CREDENTIAL_CHANGED", fixture.operation(revoked).errorCode());
         assertEquals(revoked.sourceId(),fixture.service.selectionRequest(fixture.owner,request).sourceId());
         assertThrows(SourceException.class,() -> fixture.service.configuration(fixture.owner,revoked.sourceId()));
     }

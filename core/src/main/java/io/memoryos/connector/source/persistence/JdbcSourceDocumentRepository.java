@@ -163,31 +163,44 @@ public class JdbcSourceDocumentRepository {
      * everyone, PRIVATE its Group tokens and SYNC the provider grants of the mapped file.
      */
     public DocumentAccess documentAccess(TenantId tenant, UUID document) {
+        return documentAccess(tenant, List.of(document)).get(document);
+    }
+
+    /** {@link #documentAccess(TenantId, UUID)} for several documents in one read; every requested document has an entry. */
+    public Map<UUID, DocumentAccess> documentAccess(TenantId tenant, java.util.Collection<UUID> documents) {
+        if (documents.isEmpty()) return Map.of();
+        if (documents.size() > 1000) throw new IllegalArgumentException("document batch exceeds 1000");
         var rows = jdbcClient.sql("""
-                SELECT p.access_type,grant_row.group_id,CAST(NULL AS TEXT) AS token FROM documents_by_connector_credential_pair m
+                SELECT m.document_id,p.access_type,grant_row.group_id,CAST(NULL AS TEXT) AS token FROM documents_by_connector_credential_pair m
                 JOIN connector_credential_pairs p ON p.tenant_id=m.tenant_id AND p.id=m.connector_credential_pair_id
                 JOIN connectors c ON c.tenant_id=m.tenant_id AND c.id=m.connector_id
                 LEFT JOIN source_group_grants grant_row ON grant_row.tenant_id=p.tenant_id
                     AND grant_row.connector_credential_pair_id=p.id AND p.access_type='PRIVATE'
-                WHERE m.tenant_id=:tenant AND m.document_id=:document AND m.retrieval_eligible=TRUE
+                WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
                     AND c.status='ACTIVE' AND %1$s AND p.status<>'DELETING' AND p.access_type<>'SYNC'
                 UNION ALL
-                SELECT p.access_type,CAST(NULL AS UUID),sync_grant.token FROM documents_by_connector_credential_pair m
+                SELECT m.document_id,p.access_type,CAST(NULL AS UUID),sync_grant.token FROM documents_by_connector_credential_pair m
                 JOIN connector_credential_pairs p ON p.tenant_id=m.tenant_id AND p.id=m.connector_credential_pair_id
                 JOIN connectors c ON c.tenant_id=m.tenant_id AND c.id=m.connector_id
                 CROSS JOIN LATERAL (%2$s) sync_grant
-                WHERE m.tenant_id=:tenant AND m.document_id=:document AND m.retrieval_eligible=TRUE
+                WHERE m.tenant_id=:tenant AND m.document_id IN (:documents) AND m.retrieval_eligible=TRUE
                     AND c.status='ACTIVE' AND %1$s AND p.status<>'DELETING' AND p.access_type='SYNC'
-                """.formatted(SEARCHABLE_SOURCE, SYNC_GRANTS)).param("tenant", tenant.value()).param("document", document)
-                .query((rs, _) -> new AccessRow(rs.getString("access_type"), rs.getObject("group_id", UUID.class),
-                        rs.getString("token"))).list();
-        boolean everyone = rows.stream().anyMatch(row -> "PUBLIC".equals(row.accessType()) || PUBLIC_GRANT.equals(row.token()));
-        var tokens = new java.util.HashSet<String>();
-        for (var row : rows) {
-            if (row.groupId() != null) tokens.add(DocumentAccess.group(row.groupId()));
-            if (row.token() != null && !PUBLIC_GRANT.equals(row.token())) tokens.add(row.token());
+                """.formatted(SEARCHABLE_SOURCE, SYNC_GRANTS)).param("tenant", tenant.value()).param("documents", documents)
+                .query((rs, _) -> new AccessRow(rs.getObject("document_id", UUID.class), rs.getString("access_type"),
+                        rs.getObject("group_id", UUID.class), rs.getString("token"))).list();
+        var byDocument = rows.stream().collect(java.util.stream.Collectors.groupingBy(AccessRow::document));
+        var result = new LinkedHashMap<UUID, DocumentAccess>();
+        for (UUID document : documents) {
+            var own = byDocument.getOrDefault(document, List.of());
+            boolean everyone = own.stream().anyMatch(row -> "PUBLIC".equals(row.accessType()) || PUBLIC_GRANT.equals(row.token()));
+            var tokens = new java.util.HashSet<String>();
+            for (var row : own) {
+                if (row.groupId() != null) tokens.add(DocumentAccess.group(row.groupId()));
+                if (row.token() != null && !PUBLIC_GRANT.equals(row.token())) tokens.add(row.token());
+            }
+            result.put(document, new DocumentAccess(everyone, tokens));
         }
-        return new DocumentAccess(everyone, tokens);
+        return Map.copyOf(result);
     }
 
     /** The reader's current Group tokens and verified provider identities; an inactive membership yields none. */
@@ -209,7 +222,7 @@ public class JdbcSourceDocumentRepository {
         return Set.copyOf(tokens);
     }
 
-    private record AccessRow(String accessType, @Nullable UUID groupId, @Nullable String token) { }
+    private record AccessRow(UUID document, String accessType, @Nullable UUID groupId, @Nullable String token) { }
 
     public List<io.memoryos.connector.SourceSearchService.SourceOption> sourceNames(TenantId tenant, java.util.Collection<UUID> ids) {
         return jdbcClient.sql("""
@@ -238,13 +251,27 @@ public class JdbcSourceDocumentRepository {
 
     public Map<UUID, List<DocumentSourceMetadata>> sourceMetadata(TenantId tenant, List<UUID> ids,
             @Nullable ActorId actor, @Nullable UUID generation) {
+        return sourceMetadata(tenant, ids, actor, generation, null);
+    }
+
+    /**
+     * Index metadata of several documents in one read, each for its own generation (the content or the served one),
+     * exactly as {@link #sourceMetadata} gives it for one document and generation.
+     */
+    public Map<UUID, List<DocumentSourceMetadata>> indexMetadata(TenantId tenant, Map<UUID, UUID> generations) {
+        return sourceMetadata(tenant, List.copyOf(generations.keySet()), null, null, generations);
+    }
+
+    private Map<UUID, List<DocumentSourceMetadata>> sourceMetadata(TenantId tenant, List<UUID> ids,
+            @Nullable ActorId actor, @Nullable UUID generation, @Nullable Map<UUID, UUID> generations) {
         if (ids.isEmpty()) return Map.of();
         if (ids.size() > 1000) throw new IllegalArgumentException("document batch exceeds 1000");
         var result = new LinkedHashMap<UUID, List<DocumentSourceMetadata>>();
         // Keep each source/item/date tuple together, including when a document has multiple mappings.
         jdbcClient.sql("""
                 SELECT m.document_id,p.id AS source_id,i.id AS item_id,c.connector_type,
-                    i.source_created_at,i.source_updated_at,i.provider_file_id,d.metadata_json
+                    i.source_created_at,i.source_updated_at,i.provider_file_id,d.metadata_json,
+                    d.content_generation,d.searchable_generation
                 FROM documents_by_connector_credential_pair m
                 JOIN connector_credential_pairs p ON p.tenant_id=m.tenant_id AND p.id=m.connector_credential_pair_id
                 JOIN connectors c ON c.tenant_id=m.tenant_id AND c.id=m.connector_id
@@ -259,13 +286,19 @@ public class JdbcSourceDocumentRepository {
                 .param("actor", actor == null ? null : actor.value(), Types.OTHER)
                 .param("anyGeneration", generation == null).param("generation", generation, Types.OTHER)
                 .query((rs, _) -> {
+                    var document = rs.getObject("document_id", UUID.class);
+                    if (generations != null) {
+                        var wanted = generations.get(document);
+                        if (!wanted.equals(rs.getObject("content_generation", UUID.class))
+                                && !wanted.equals(rs.getObject("searchable_generation", UUID.class))) return false;
+                    }
                     var created = rs.getTimestamp("source_created_at");
                     var updated = rs.getTimestamp("source_updated_at");
                     var metadata = new DocumentSourceMetadata(rs.getObject("source_id", UUID.class),
                             rs.getObject("item_id", UUID.class), SourceType.valueOf(rs.getString("connector_type")),
                             created == null ? null : created.toInstant(), updated == null ? null : updated.toInstant(),
                             authors(rs.getString("metadata_json")), rs.getString("provider_file_id"));
-                    result.computeIfAbsent(rs.getObject("document_id", UUID.class), _ -> new ArrayList<>()).add(metadata);
+                    result.computeIfAbsent(document, _ -> new ArrayList<>()).add(metadata);
                     return true;
                 }).list();
         return Map.copyOf(result);

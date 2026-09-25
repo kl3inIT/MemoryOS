@@ -2,15 +2,10 @@ package io.memoryos.meeting;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.text.Normalizer;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import io.memoryos.shared.PdfText;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -57,24 +52,18 @@ public final class MeetingTranscriptPdf {
     /** One document's worth of pages, written top to bottom. */
     private static final class Page {
         private final PDDocument document;
+        private final PdfText text;
         private final PDType0Font regular;
         private final PDType0Font bold;
-        private final Map<PDType0Font, Map<Integer, Boolean>> known = new HashMap<>();
         private PDPageContentStream stream;
         private float y;
 
         private Page(PDDocument document) throws IOException {
             this.document = document;
-            this.regular = font(document, "HankenGrotesk-Regular.ttf");
-            this.bold = font(document, "HankenGrotesk-Bold.ttf");
+            this.text = new PdfText(document);
+            this.regular = text.font("HankenGrotesk-Regular.ttf");
+            this.bold = text.font("HankenGrotesk-Bold.ttf");
             start();
-        }
-
-        private static PDType0Font font(PDDocument document, String file) throws IOException {
-            try (InputStream in = MeetingTranscriptPdf.class.getResourceAsStream("/fonts/" + file)) {
-                if (in == null) throw new IOException("Missing font " + file);
-                return PDType0Font.load(document, in, true);
-            }
         }
 
         private void start() throws IOException {
@@ -100,54 +89,25 @@ public final class MeetingTranscriptPdf {
         void centred(String text, PDType0Font font, float size) throws IOException {
             String safe = safe(text, font);
             room(size + LEADING);
-            float at = MARGIN + (width() - font.getStringWidth(safe) / 1000 * size) / 2;
+            float at = MARGIN + (width() - PdfText.width(safe, font, size)) / 2;
             draw(safe, font, size, Math.max(MARGIN, at));
             y -= size + 4;
         }
 
         /** One line of the transcript: its time and speaker in bold, then what was said, wrapped to the page. */
-        void line(String prefix, String text) throws IOException {
+        void line(String prefix, String said) throws IOException {
             String head = safe(prefix, bold);
             room(LEADING);
             float x = MARGIN;
             draw(head, bold, BODY, x);
-            x += bold.getStringWidth(head) / 1000 * BODY;
-            for (String piece : wrap(safe(text, regular), width() - (x - MARGIN))) {
+            x += PdfText.width(head, bold, BODY);
+            for (String piece : PdfText.lines(safe(said, regular), regular, BODY, width() - (x - MARGIN), width())) {
                 draw(piece, regular, BODY, x);
                 y -= LEADING;
                 room(LEADING);
                 x = MARGIN;
             }
-            if (text.isBlank()) y -= LEADING;
-        }
-
-        /** Greedy wrapping on spaces; a single word longer than the line is cut rather than run off the page. */
-        private List<String> wrap(String text, float first) throws IOException {
-            var lines = new ArrayList<String>();
-            var current = new StringBuilder();
-            float limit = first;
-            for (String word : text.split(" ")) {
-                String candidate = current.isEmpty() ? word : current + " " + word;
-                if (regular.getStringWidth(candidate) / 1000 * BODY <= limit) {
-                    current.setLength(0);
-                    current.append(candidate);
-                    continue;
-                }
-                if (!current.isEmpty()) {
-                    lines.add(current.toString());
-                    current.setLength(0);
-                    limit = width();
-                }
-                while (regular.getStringWidth(word) / 1000 * BODY > limit && word.length() > 1) {
-                    int cut = word.length();
-                    while (cut > 1 && regular.getStringWidth(word.substring(0, cut)) / 1000 * BODY > limit) cut--;
-                    lines.add(word.substring(0, cut));
-                    word = word.substring(cut);
-                }
-                current.append(word);
-            }
-            lines.add(current.toString());
-            return lines;
+            if (said.isBlank()) y -= LEADING;
         }
 
         private void draw(String text, PDType0Font font, float size, float x) throws IOException {
@@ -158,26 +118,8 @@ public final class MeetingTranscriptPdf {
             stream.endText();
         }
 
-        /**
-         * What was said is data: composed to NFC so Vietnamese marks use the font's own glyphs, and a character the
-         * typeface lacks becomes a question mark instead of failing the download.
-         */
         private String safe(String value, PDType0Font font) {
-            String normalized = Normalizer.normalize(value, Normalizer.Form.NFC);
-            var glyphs = known.computeIfAbsent(font, ignored -> new HashMap<>());
-            var out = new StringBuilder(normalized.length());
-            normalized.codePoints().forEach(point -> {
-                boolean drawable = glyphs.computeIfAbsent(point, code -> {
-                    try {
-                        font.encode(new String(Character.toChars(code)));
-                        return true;
-                    } catch (IllegalArgumentException | IOException missing) {
-                        return false;
-                    }
-                });
-                out.append(drawable ? new String(Character.toChars(point)) : "?");
-            });
-            return out.toString();
+            return text.safe(value, font);
         }
 
         void close() throws IOException {

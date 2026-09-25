@@ -414,6 +414,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             v1: filename,
           }),
         });
+      } else if (operation.status === "CANCELLED") {
+        notify({ tone: "info", title: "Reindex cancelled", description: filename });
       } else {
         const failureKind = operation.errorCode ?? "SOURCE_INDEX_FAILED";
         if (isSystemIndexFailure(failureKind))
@@ -514,6 +516,8 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             v1: filename,
           }),
         });
+      } else if (completed.status === "CANCELLED") {
+        notify({ tone: "info", title: "Removal cancelled", description: filename });
       } else {
         notify({
           tone: "error",
@@ -636,6 +640,9 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
             { v1: sourceName },
           ),
         });
+        void refresh(selectedId);
+      } else if (completed.status === "CANCELLED") {
+        notify({ tone: "info", title: "Source deletion cancelled", description: sourceName });
         void refresh(selectedId);
       } else {
         notify({
@@ -824,11 +831,11 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
                       <span className="min-w-0">{item.filename ?? ui("Uploaded file")}</span>
                     </span>
                     {item.errorCode ? (
-                      // Work stopped by the operator's own pause is expected, so it reads as a note.
+                      // Work stopped by the operator's own pause or delete is expected, so it reads as a note.
                       <p
                         className={cn(
                           "mt-1 text-xs",
-                          item.errorCode === "SOURCE_PAUSED"
+                          item.errorCode === "SOURCE_PAUSED" || item.errorCode === "SOURCE_DELETING"
                             ? "text-content-muted"
                             : "text-status-danger-content",
                         )}

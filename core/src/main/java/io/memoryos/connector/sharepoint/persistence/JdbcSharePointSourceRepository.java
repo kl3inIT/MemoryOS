@@ -76,7 +76,7 @@ public class JdbcSharePointSourceRepository {
                 UPDATE sharepoint_sources SET scope_mode = :mode, include_documents = :documents,
                     include_pages = :pages, sync_interval_minutes = :sync, prune_interval_hours = :prune,
                     tenant_host = COALESCE(:host, tenant_host), scope_revision = scope_revision + 1,
-                    error_code = NULL, next_sync_at = CURRENT_TIMESTAMP,
+                    next_sync_at = CURRENT_TIMESTAMP,
                     -- Activation hides every document of the old scope, so the next refresh reads the whole new
                     -- scope instead of continuing the previous change window.
                     refresh_window_end = NULL
@@ -87,6 +87,8 @@ public class JdbcSharePointSourceRepository {
                 .param("tenant", tenant.value()).param("source", source.value())
                 .param("expected", expectedScopeRevision).update();
         if (changed != 1) throw SourceException.conflict("SharePoint scope revision is stale");
+        jdbc.sql("UPDATE connector_credential_pairs SET sync_error_code = NULL WHERE tenant_id = :tenant AND id = :source")
+                .param("tenant", tenant.value()).param("source", source.value()).update();
         writeScope(tenant, source, scope, roots);
     }
 
@@ -126,7 +128,7 @@ public class JdbcSharePointSourceRepository {
 
     public ConfigurationRow configuration(TenantId tenant, SourceId source) {
         return jdbc.sql("""
-                SELECT s.*, pair.access_type,
+                SELECT s.*, pair.access_type, pair.sync_error_code AS error_code,
                   (SELECT COUNT(*) FROM sharepoint_roots r
                     WHERE r.tenant_id = s.tenant_id AND r.source_id = s.source_id) AS root_count,
                   EXISTS (SELECT 1 FROM index_attempts a WHERE a.tenant_id = s.tenant_id

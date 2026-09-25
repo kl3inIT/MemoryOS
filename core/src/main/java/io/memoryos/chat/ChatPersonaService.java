@@ -286,11 +286,13 @@ public class ChatPersonaService {
         if (ordered == null || ordered.size() > 1000 || ordered.stream().anyMatch(Objects::isNull)
                 || new HashSet<>(ordered).size() != ordered.size())
             throw ChatException.invalid("Order at most 1000 distinct agents.");
+        if (ordered.isEmpty()) return;
         var entities = new HashMap<UUID, PersonaEntity>();
-        for (var id : ordered.stream().sorted().toList()) {
-            var entity = locked(tenant, id);
+        var rows = settings.lockedAll(tenant.value(), ordered);
+        if (rows.size() != ordered.size()) throw ChatException.unavailable();
+        for (var entity : rows) {
             if (entity.builtin() || entity.deleted()) throw ChatException.unavailable();
-            entities.put(id, entity);
+            entities.put(entity.id(), entity);
         }
         for (int index = 0; index < ordered.size(); index++) {
             var entity = entities.get(ordered.get(index));

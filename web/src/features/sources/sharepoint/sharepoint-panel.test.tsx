@@ -50,7 +50,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function setup(initial: Partial<SharePointConfigurationResponse> = {}) {
+function setup(
+  initial: Partial<SharePointConfigurationResponse> = {},
+  syncOutcome: Pick<SourceOperation, "status" | "errorCode"> = {
+    status: "SUCCEEDED",
+    errorCode: null,
+  },
+) {
   let configuration: SharePointConfigurationResponse = {
     sourceId: source.id,
     credentialId: "81c51573-31a9-4e67-91c5-f276960c94af",
@@ -136,10 +142,9 @@ function setup(initial: Partial<SharePointConfigurationResponse> = {}) {
         syncOperation = {
           id: "sync-1",
           type: "SYNC_SOURCE",
-          status: "SUCCEEDED",
           createdAt: "2026-09-08T10:00:00Z",
           completedAt: "2026-09-08T10:00:01Z",
-          errorCode: null,
+          ...syncOutcome,
         };
         return Response.json(syncOperation, { status: 202 });
       }
@@ -188,5 +193,15 @@ describe("SharePoint panel", () => {
     await screen.findByText("30 minutes");
     await user.click(screen.getByRole("button", { name: "Synchronize now" }));
     expect(await screen.findByText("Synchronization complete")).toBeInTheDocument();
+  });
+
+  it("reports a synchronization stopped by a pause as cancelled, not failed or superseded", async () => {
+    setup({}, { status: "CANCELLED", errorCode: "SOURCE_PAUSED" });
+    const user = userEvent.setup();
+    await screen.findByText("30 minutes");
+    await user.click(screen.getByRole("button", { name: "Synchronize now" }));
+    expect(await screen.findByText("Synchronization cancelled")).toBeInTheDocument();
+    expect(screen.queryByText("Synchronization failed")).not.toBeInTheDocument();
+    expect(screen.queryByText("Synchronization superseded")).not.toBeInTheDocument();
   });
 });

@@ -1,5 +1,6 @@
 package io.memoryos.chat.history.persistence;
 
+import io.memoryos.shared.LikePattern;
 import io.memoryos.chat.ChatHistoryFeedback;
 import io.memoryos.chat.ChatHistoryMessage;
 import io.memoryos.chat.ChatHistoryQuery;
@@ -132,13 +133,8 @@ public class JdbcChatHistoryRepository {
                 .param("from", query.from() == null ? null : java.sql.Timestamp.from(query.from()), Types.TIMESTAMP)
                 .param("to", query.to() == null ? null : java.sql.Timestamp.from(query.to()), Types.TIMESTAMP)
                 .param("actor", query.actorId(), Types.OTHER)
-                .param("text", query.text() == null ? null : "%" + escaped(query.text()) + "%", Types.VARCHAR)
+                .param("text", query.text() == null ? null : LikePattern.containing(query.text()), Types.VARCHAR)
                 .param("feedback", query.feedback() == null ? null : query.feedback().name(), Types.VARCHAR);
-    }
-
-    /** A search for "100%" is a search for that text, not for every conversation. */
-    private static String escaped(String text) {
-        return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     private static Entry entry(ResultSet row, int ignored) throws SQLException {

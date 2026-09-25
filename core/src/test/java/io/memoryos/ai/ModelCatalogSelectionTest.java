@@ -80,6 +80,20 @@ class ModelCatalogSelectionTest {
         assertNull(selected.fallbackReason());
     }
 
+    @Test void aSendSelectsWithTheAgentItAlreadyReadWithoutReadingItOrTheCapabilitiesAgain() {
+        var fixture = new Fixture();
+        var agent = new JdbcChatRepository.Persona("", "other", io.memoryos.chat.ChatTurnOptions.DEFAULT, "9",
+                fixture.otherId, List.of(), Set.of(), null, false);
+        clearInvocations(fixture.authorization);
+
+        var selected = fixture.access.select(fixture.actor, fixture.session, null, agent, false);
+
+        assertEquals(fixture.otherId, selected.model().id());
+        assertEquals("9", selected.contextRevision());
+        verify(fixture.chats, never()).persona(any(), anyBoolean(), anyBoolean());
+        verify(fixture.authorization, never()).effectiveCapabilities(any());
+    }
+
     @Test void flowModelMustBeTenantWideAndCanBeCleared() {
         var fixture = new Fixture();
         fixture.manage();
@@ -121,9 +135,9 @@ class ModelCatalogSelectionTest {
         final JdbcAgentModelRepository agents = mock(JdbcAgentModelRepository.class);
         final ModelCatalogService service;
         final ChatModelAccess access;
+        final JdbcChatRepository chats = mock(JdbcChatRepository.class);
 
         Fixture() {
-            var chats = mock(JdbcChatRepository.class);
             var tenants = mock(TenantAccessResolver.class);
             var membership = mock(TenantMembership.class);
             when(membership.tenantId()).thenReturn(new TenantId(tenant));

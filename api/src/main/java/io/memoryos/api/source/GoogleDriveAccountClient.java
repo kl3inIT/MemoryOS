@@ -4,6 +4,7 @@ import io.memoryos.connector.GoogleDriveAuthorizationService.Grant;
 import io.memoryos.connector.GoogleDriveAuthorizationService;
 import io.memoryos.connector.GoogleDriveException;
 import io.memoryos.connector.GoogleDriveOAuthClient;
+import io.memoryos.shared.Sha256;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
@@ -185,10 +186,8 @@ public final class GoogleDriveAccountClient {
     }
 
     private static String accessTokenHash(String token) {
-        try {
-            byte[] hash = java.security.MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.US_ASCII));
-            return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(Arrays.copyOf(hash, hash.length / 2));
-        } catch (java.security.NoSuchAlgorithmException exception) { throw new IllegalStateException("SHA-256 unavailable", exception); }
+        byte[] hash = Sha256.digest(token.getBytes(StandardCharsets.US_ASCII));
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(Arrays.copyOf(hash, hash.length / 2));
     }
 
     private static String text(JsonNode node, String field) {

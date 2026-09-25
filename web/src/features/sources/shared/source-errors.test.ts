@@ -17,4 +17,17 @@ describe("source error presentation", () => {
     ).not.toContain(secret);
     expect(sourceMutationError(new Error(secret), "delete-source")).not.toContain(secret);
   });
+
+  it("words the shared sync engine's cancel and abort codes and keeps the legacy one", () => {
+    expect(sourceStatusMessage("SOURCE_PAUSED")).toMatch(/^Canceled by pause/);
+    expect(sourceStatusMessage("SOURCE_DELETING")).toBe(
+      "Canceled because the Source is being deleted.",
+    );
+    expect(sourceStatusMessage("SOURCE_SYNC_ITEM_FAILURES_EXCEEDED")).toMatch(
+      /too many files failed/,
+    );
+    expect(sourceStatusMessage("SOURCE_GOOGLE_INCOMPLETE")).toMatch(
+      /^Some files could not be acquired/,
+    );
+  });
 });

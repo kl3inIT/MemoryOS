@@ -1,47 +1,36 @@
 package io.memoryos.connector.googledrive;
 
-import io.memoryos.BusinessException;
-import io.memoryos.FailureCategory;
 import io.memoryos.connector.*;
 import io.memoryos.connector.GoogleDriveSourceService.*;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository;
+import io.memoryos.connector.sync.SelectionBatchProcessor;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository.Entry;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository.Intent;
-import io.memoryos.shared.TenantId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
-public class DefaultGoogleDriveSelectionProcessor implements GoogleDriveSelectionProcessor {
+public class DefaultGoogleDriveSelectionProcessor extends SelectionBatchProcessor implements GoogleDriveSelectionProcessor {
+    /** Drive metadata requests one batch makes before handing the work back. */
+    private static final int BATCH_REQUESTS = 32;
+
     private final JdbcGoogleDriveSelectionRepository selections;
     private final DefaultGoogleDriveSourceService sources;
     private final GoogleDriveConnectionService connections;
-    private final TransactionTemplate transactions;
 
     public DefaultGoogleDriveSelectionProcessor(JdbcGoogleDriveSelectionRepository selections,
             DefaultGoogleDriveSourceService sources, GoogleDriveConnectionService connections,
             PlatformTransactionManager transactionManager) {
+        super(selections.operations(), transactionManager);
         this.selections=selections; this.sources=sources; this.connections=connections;
-        transactions=new TransactionTemplate(transactionManager);
     }
 
-    @Override public Optional<Work> claim(TenantId tenant,SourceOperationId operation,UUID delivery) {
-        return Objects.requireNonNull(transactions.execute(_ -> selections.claim(tenant,operation,delivery)));
-    }
-    @Override public boolean renew(Work work) {
-        return Boolean.TRUE.equals(transactions.execute(_ -> selections.renew(work)));
-    }
-
-    @Override public Result execute(Work work) {
-        long started=System.nanoTime();
+    @Override protected Result verify(Work work, long started) {
         var intent=selections.intent(work);
         try {
             transactions.executeWithoutResult(_ -> sources.requireIntent(work,intent));
@@ -65,9 +54,6 @@ public class DefaultGoogleDriveSelectionProcessor implements GoogleDriveSelectio
             }
             transactions.executeWithoutResult(_ -> sources.activate(work,intent,roots,approvals));
             return Result.COMPLETED;
-        } catch (ContinueBatch exception) {
-            transactions.executeWithoutResult(_ -> selections.continueLater(work,elapsed(started),null));
-            return Result.CONTINUED;
         } catch (GoogleDriveProviderException exception) {
             String code="SOURCE_GOOGLE_"+exception.failure().name();
             if (exception.requiresReconnect() && intent.credentialId()!=null)
@@ -75,19 +61,11 @@ public class DefaultGoogleDriveSelectionProcessor implements GoogleDriveSelectio
             if (exception.failure()==GoogleDriveProviderException.Failure.QUOTA
                     || exception.failure()==GoogleDriveProviderException.Failure.UNAVAILABLE
                     || exception.failure()==GoogleDriveProviderException.Failure.INCONSISTENT) {
-                transactions.executeWithoutResult(_ -> selections.continueLater(work,elapsed(started),code));
-                return Result.CONTINUED;
+                return continueLater(work,started,code);
             }
-            transactions.executeWithoutResult(_ -> selections.finish(work,"FAILED",code));
-            return Result.FAILED;
-        } catch (BusinessException exception) {
-            boolean stale=exception.category()!=FailureCategory.VALIDATION;
-            transactions.executeWithoutResult(_ -> selections.finish(work,stale?"SUPERSEDED":"FAILED",exception.code()));
-            return stale?Result.SUPERSEDED:Result.FAILED;
+            return finish(work,Result.FAILED,code);
         }
     }
-
-    private static long elapsed(long started) { return (System.nanoTime()-started)/1_000_000; }
 
     private final class Batch {
         private final Work work;
@@ -108,7 +86,7 @@ public class DefaultGoogleDriveSelectionProcessor implements GoogleDriveSelectio
         void verify() {
             for (var entry:entries) {
                 if (entry.verified()) continue;
-                if (elapsed(started)>=30000) throw new ContinueBatch();
+                requireBatchTime(started);
                 transactions.executeWithoutResult(_ -> sources.requireIntent(work,intent));
                 try {
                     var file=metadata(entry.id());
@@ -159,7 +137,7 @@ public class DefaultGoogleDriveSelectionProcessor implements GoogleDriveSelectio
                 selections.enqueueAncestors(work,entry,file.parents());
             });
             while (true) {
-                if (elapsed(started)>=30000) throw new ContinueBatch();
+                requireBatchTime(started);
                 var next=selections.nextAncestor(work,entry);
                 if (next.isEmpty()) {
                     transactions.executeWithoutResult(_ -> {
@@ -193,7 +171,8 @@ public class DefaultGoogleDriveSelectionProcessor implements GoogleDriveSelectio
             transactions.executeWithoutResult(_ -> sources.requireIntent(work,intent));
             var cached=selections.metadata(work,id);
             if (cached.isPresent()) return cached.get();
-            if (calls>=32 || elapsed(started)>=30000) throw new ContinueBatch();
+            if (calls>=BATCH_REQUESTS) throw new ContinueBatch();
+            requireBatchTime(started);
             transactions.executeWithoutResult(_ -> {
                 sources.requireIntent(work,intent);
                 selections.reserveRequest(work);
@@ -221,8 +200,5 @@ public class DefaultGoogleDriveSelectionProcessor implements GoogleDriveSelectio
     private static void requireSupported(GoogleDriveProvider.FileMetadata file) {
         if (file.trashed() || file.shortcutTargetId()!=null || "application/vnd.google-apps.shortcut".equals(file.mimeType()))
             throw SourceException.unsupportedRoot();
-    }
-    private static final class ContinueBatch extends RuntimeException {
-        ContinueBatch() { super(null,null,false,false); }
     }
 }

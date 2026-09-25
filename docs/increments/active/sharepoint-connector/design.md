@@ -312,6 +312,7 @@ Item, Document, Source và Pair giữ nghĩa trong [connector spec](../../../spe
 - 429/503: đọc `Retry-After`, ghi `next_dispatch_at = now + Retry-After` (có trần), trả claim thay vì sleep trong worker.
 - 5xx/lỗi mạng: backoff 1 s rồi 30 s như sync Drive; thất bại vượt ngân sách thì ghi lỗi của lượt.
 - Header `User-Agent: ISV|MemoryOS|SharePointConnector/<version>` theo hướng dẫn chống throttling của Microsoft [MemoryOS].
+- **Phase 3 (25/09/2026):** `DefaultSharePointSyncService` được thay bằng `SharePointSyncTraversal` chạy trong engine chung `SourceSyncEngine` với Google Drive ([spec](../../../specs/connector.md#synchronization-engine-and-failure-semantics)). `Retry-After` của 429/503 đi vào `SharePointProviderException.retryAfter()` và engine lùi lịch attempt theo đó (trần 1 giờ). Lỗi của một file hoặc trang (kể cả lỗi ghi storage) là lỗi của item: lượt vẫn chạy tiếp và kết thúc `COMPLETED_WITH_ERRORS`, lượt refresh sau thử lại item đó trước và đánh dấu lỗi đã giải quyết; lỗi storage không còn làm cả attempt retry. Pause hoặc xóa Source hủy lượt (`CANCELLED`) thay vì `SUPERSEDED`. Site và thư viện của một lượt được tính một lần khi lượt bắt đầu và lưu vào `sharepoint_sync_run_scope` (V130), không tính lại mỗi slice 45 giây. Mỗi file không đổi tốn một fence thay vì hai.
 
 **Lịch sử lượt chạy:**
 
@@ -460,11 +461,11 @@ Tên dưới đây là dự kiến; SQL nằm trong repository `JdbcSharePoint*`
 - **Workload mới** `SHAREPOINT_SELECTION_VALIDATION`: stream `…:v1`, routing và cấu hình exhaustive theo [ingestion spec](../../../specs/ingestion.md).
 - **`SOURCE_SYNC`** giữ nguyên. `SourceSyncProcessor` phân nhánh theo `SourceType` sang `DefaultSharePointSyncService`: tối đa 16 bước mỗi lần giao, có deadline, claim fence bằng scope và credential revision; checkpoint theo drive/site trong `sharepoint_sync_runs`.
 - **`SourceInputDescriptor`** thêm format `SHAREPOINT_PAGE`; router có reader tương ứng.
-- **Provider bundle** `connector/src/main/java/io/memoryos/provider/sharepoint/`:
+- **Provider bundle** `sources/src/main/java/io/memoryos/connector/adapter/sharepoint/`:
   - `RestSharePointProvider`, `MsalSharePointTokenSource`;
   - `SharePointPageSourceContentExtractor`;
   - `SharePointProviderProperties`, auto-configuration.
-  - Port `SharePointProvider` nằm trong `core/connector`. `ProviderDependencyRulesTest` giữ hướng phụ thuộc.
+  - Port `SharePointProvider` nằm trong `core/connector`. `SourcesDependencyRulesTest` giữ hướng phụ thuộc.
 
 ### 5.11 Giao diện
 

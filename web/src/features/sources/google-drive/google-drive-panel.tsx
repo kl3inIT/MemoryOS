@@ -573,6 +573,8 @@ export function GoogleDrivePanel({
             v1: source.name,
           }),
         });
+      } else if (completed.status === "CANCELLED") {
+        notify({ tone: "info", title: "Synchronization cancelled", description: source.name });
       } else {
         const failureKind = completed.errorCode ?? "SOURCE_SYNC_FAILED";
         if (isSystemSynchronizationFailure(failureKind))
@@ -1175,6 +1177,7 @@ function isSystemSynchronizationFailure(errorCode: string) {
     errorCode.startsWith("SOURCE_STORAGE_") ||
     errorCode === "SOURCE_ACQUISITION_INTERNAL" ||
     errorCode === "SOURCE_GOOGLE_INTERNAL" ||
-    errorCode === "SOURCE_GOOGLE_INCOMPLETE"
+    errorCode === "SOURCE_GOOGLE_INCOMPLETE" ||
+    errorCode === "SOURCE_SYNC_ITEM_FAILURES_EXCEEDED"
   );
 }

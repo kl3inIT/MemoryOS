@@ -41,6 +41,12 @@ public class VoiceSynthesisService {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(15);
     /** Shared by request streams and streaming speeches. */
     private static final int MAX_STREAMS = 8;
+    /**
+     * One client for every REST speech request, without redirects so a credential never follows one elsewhere. A
+     * speech that is stopped cancels its own request; nothing closes the client.
+     */
+    private static final HttpClient HTTP =
+            HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).connectTimeout(CONNECT_TIMEOUT).build();
     private final VoiceConnectionService connections;
     private final IamAuthorization authorization;
     private final MeterRegistry meters;
@@ -220,10 +226,11 @@ public class VoiceSynthesisService {
         };
     }
 
-    /** REST providers use the JDK client without redirects, so a credential never follows a redirect elsewhere. */
+    /**
+     * REST providers on the shared client. Stopping a speech closes its chunk stream, which cancels the request in
+     * flight, so there is no client of its own to shut down.
+     */
     private static final class HttpSpeech implements ProviderSpeech {
-        private final HttpClient client =
-                HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).connectTimeout(CONNECT_TIMEOUT).build();
         private final Function<String, HttpRequest> request;
 
         private HttpSpeech(Function<String, HttpRequest> request) {
@@ -232,12 +239,12 @@ public class VoiceSynthesisService {
 
         @Override
         public Stream<byte[]> chunks(List<String> segments) {
-            return HttpAudioStream.of(client, segments, request);
+            return HttpAudioStream.of(HTTP, segments, request);
         }
 
         @Override
         public void close() {
-            client.shutdownNow();
+            // Each chunk stream cancels its own request when it is closed.
         }
     }
 

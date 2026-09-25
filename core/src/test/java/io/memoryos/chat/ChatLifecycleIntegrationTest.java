@@ -90,12 +90,14 @@ class ChatLifecycleIntegrationTest {
     private TenantId tenant;
     private ActorId owner;
     private ActorId other;
+    private io.memoryos.StatementCounter statements;
 
     @BeforeEach
     void setup() throws Exception {
         database = TestDatabase.freshPostgres();
-        jdbc = JdbcClient.create(database);
-        jpa = TestDatabase.jpa(database);
+        statements = new io.memoryos.StatementCounter(database);
+        jdbc = JdbcClient.create(statements);
+        jpa = TestDatabase.jpa(statements);
         var storage = mock(ObjectStorage.class);
         doAnswer(call -> {
             stored.put(call.<ObjectKey>getArgument(0).value(), call.getArgument(1));
@@ -234,6 +236,35 @@ class ChatLifecycleIntegrationTest {
         var next = reserve(branch, history.getLast().id(), "Only in the branch");
         turns.finish(branch.id(), next.assistantMessageId(), ChatMessage.Status.COMPLETED, "Branch answer");
         assertEquals(4, sessions.history(owner, branch.id(), null, 100).size());
+    }
+
+    @Test
+    void branchingCopiesEveryMessageInOneStatementAndLooksUpArtifactsOnce() {
+        var origin = sessions.create(owner, "Long conversation");
+        UUID parent = origin.rootMessageId();
+        for (int turn = 0; turn < 6; turn++) {
+            var pair = reserve(origin, parent, "Question " + turn);
+            turns.finish(origin.id(), pair.assistantMessageId(), ChatMessage.Status.COMPLETED, "Answer " + turn);
+            if (turn % 2 == 0) interpreter.store(tenant, pair.assistantMessageId(), "turn-" + turn + ".csv", "text/csv",
+                    ("turn " + turn).getBytes());
+            parent = pair.assistantMessageId();
+        }
+
+        statements.reset();
+        var branch = branches.branch(owner, origin.id(), parent);
+
+        // Twelve messages and three generated files: one copy statement and one lookup per artifact table.
+        assertEquals(1, statements.count("original_assistant_message_id, created_at"), statements.statements().toString());
+        assertEquals(1, statements.count("FROM chat_file_artifact a"), statements.statements().toString());
+        assertEquals(1, statements.count("FROM chat_image_artifact a"), statements.statements().toString());
+        var history = sessions.history(owner, branch.id(), null, 100);
+        assertEquals(12, history.size());
+        assertEquals("Question 0", history.getFirst().content());
+        assertEquals("Answer 5", history.getLast().content());
+        assertEquals(List.of("Answer 0:turn-0.csv", "Answer 2:turn-2.csv", "Answer 4:turn-4.csv"), jdbc.sql("""
+                SELECT m.content || ':' || a.filename FROM chat_file_artifact a JOIN chat_message m ON m.id = a.message_id
+                WHERE a.session_id = :session ORDER BY a.filename
+                """).param("session", branch.id()).query(String.class).list());
     }
 
     @Test
