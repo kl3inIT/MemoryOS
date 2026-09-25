@@ -8,4 +8,4 @@
 
 ## Verification
 
-Pending.
+- API contract hygiene: `OpenApiContractTest` (with and without `MEMORYOS_OPENAPI_WRITE`), `SecurityResponseHeadersTest`, `SessionSecurityIntegrationTest`, `SourceApiIntegrationTest`, `SharePointSourceApiTest`, `SharePointCredentialApiTest`, `GoogleDriveOAuthTest`, `McpOAuthCallbackTest`, `DocumentOriginalResponsesTest`, `ChatEventStreamTest` and the library, meeting, feedback and file cases of `ChatSessionApiIntegrationTest`; web `check:api`, `typecheck`, `lint`, `format:check`, `test:unit` (714 tests).
