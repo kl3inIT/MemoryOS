@@ -104,6 +104,11 @@ class OpenSearchRetrievalIntegrationTest {
             var accessOf = new java.util.concurrent.ConcurrentHashMap<DocumentId, DocumentAccess>();
             when(sourceSearch.indexAccess(any(), any())).thenAnswer(call ->
                     accessOf.getOrDefault(call.<DocumentId>getArgument(1), new DocumentAccess(true, Set.of())));
+            // Before the first write the index does not exist: searches find nothing and a document window is unavailable.
+            assertTrue(index.search(tenant, "vacation policy", List.of(), null, Set.of()).isEmpty());
+            assertThrows(io.memoryos.retrieval.SearchDocumentUnavailableException.class,
+                    () -> index.document(tenant, leave.documentId().value(), leave.generation(), 0, 5));
+            verify(gateway, org.mockito.Mockito.never()).exists(any());
             index.index(leave);
             index.index(unrelated);
             index.index(privateFile);
@@ -164,7 +169,10 @@ class OpenSearchRetrievalIntegrationTest {
             var embedded = org.mockito.ArgumentCaptor.forClass(EmbeddingRequest.class);
             verify(model).call(embedded.capture());
             assertEquals(List.of("HR-2026", "nghỉ"), embedded.getValue().getInstructions());
-            verify(gateway).exists("/" + index.identity() + "-read");
+            verify(gateway, org.mockito.Mockito.never()).exists(any());
+            // One hybrid request per distinct text and no existence check before it.
+            verify(gateway, org.mockito.Mockito.times(2)).jsonOrMissing(org.mockito.ArgumentMatchers.eq("POST"),
+                    org.mockito.ArgumentMatchers.eq("/" + index.identity() + "-read/_search"), any(), any());
             var wrongSourceDate = new SearchFilters(java.util.Set.of(SourceType.FILE), null,
                     new SearchFilters.Interval(Instant.parse("2026-09-09T00:00:00Z"), Instant.parse("2026-09-11T00:00:00Z")));
             assertTrue(index.batch(scope, queries, wrongSourceDate, () -> {}).stream().allMatch(List::isEmpty),
