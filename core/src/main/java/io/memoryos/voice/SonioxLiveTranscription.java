@@ -241,10 +241,12 @@ final class SonioxLiveTranscription implements LiveTranscription {
             if (finishing) {
                 finished.complete(null);
             } else if (attempt >= backoff.size()) {
-                LOG.warn("Soniox stream gave up after {} attempts ({})", attempt, reason);
+                LOG.atWarn().addKeyValue("event", "voice.soniox.stream_abandoned").addKeyValue("attempts", attempt)
+                        .addKeyValue("reason", reason).log("Soniox stream gave up");
                 listener.failed();
             } else {
-                LOG.warn("Soniox stream failed ({}); reconnecting, attempt {}", reason, attempt + 1);
+                LOG.atWarn().addKeyValue("event", "voice.soniox.stream_reconnecting").addKeyValue("attempt", attempt + 1)
+                        .addKeyValue("reason", reason).log("Soniox stream failed; reconnecting");
                 int reconnectGeneration = generation;
                 TIMERS.schedule(() -> reconnect(reconnectGeneration), backoff.get(attempt++).toMillis(),
                         TimeUnit.MILLISECONDS);

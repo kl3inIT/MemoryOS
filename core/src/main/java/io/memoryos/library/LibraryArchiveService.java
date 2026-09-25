@@ -178,7 +178,7 @@ public class LibraryArchiveService {
                 throw new LeaseLost();
             }));
         } catch (LeaseLost lost) {
-            LOG.warn("Library archive lease lapsed before it was stored");
+            LOG.atWarn().addKeyValue("event", "chat.library.archive.lease_lost").log("Library archive lease lapsed before it was stored");
         } finally {
             if (!adopted) writes.discard(tenant, staged);
         }

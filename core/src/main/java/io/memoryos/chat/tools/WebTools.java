@@ -109,9 +109,9 @@ public final class WebTools {
                 catch (IOException | IllegalArgumentException failed) {
                     active.run();
                     // Diagnose the connection without the credential, the endpoint or the query text.
-                    LOG.warn("Web {} failed via {} ({})", kind,
-                            access.search() == null ? "BUILT_IN" : access.search().provider().name(),
-                            failed.getClass().getSimpleName());
+                    LOG.atWarn().addKeyValue("event", "chat.web.request_failed").addKeyValue("kind", kind)
+                            .addKeyValue("provider", access.search() == null ? "BUILT_IN" : access.search().provider().name())
+                            .addKeyValue("error_type", failed.getClass().getName()).log("Web request failed");
                     return new Item(List.of(), true); // Keep other successful pages; never expose raw provider errors.
                 }
             }).toList();

@@ -3,6 +3,7 @@ package io.memoryos.audit;
 import io.memoryos.audit.persistence.JdbcAuditEventRepository;
 import io.memoryos.shared.ActorId;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -83,7 +84,9 @@ public class AuditTrail {
             separate.executeWithoutResult(ignored -> record(event));
         } catch (RuntimeException failure) {
             meters.counter("memoryos.audit.write.failures", "action", event.action().value()).increment();
-            LOG.error("Audit event {} could not be stored", event.action().value(), failure);
+            LOG.atError().addKeyValue("event", "audit.event.store_failed").addKeyValue("action", event.action().value())
+                    .addKeyValue("error_type", failure.getClass().getName()).addKeyValue("error_code", sqlState(failure))
+                    .log("Audit event could not be stored");
         }
     }
 
@@ -112,12 +115,15 @@ public class AuditTrail {
         } catch (RuntimeException failure) {
             // The stream is evidence of what was recorded, not proof that nothing else happened: a gap shows up here.
             meters.counter("memoryos.audit.write.failures", "action", event.action().value()).increment();
-            LOG.error("Audit event {} could not be stored; the change it records still committed", event.action().value(),
-                    failure);
+            LOG.atError().addKeyValue("event", "audit.event.store_failed").addKeyValue("action", event.action().value())
+                    .addKeyValue("error_type", failure.getClass().getName()).addKeyValue("error_code", sqlState(failure))
+                    .log("Audit event could not be stored; the change it records still committed");
             try {
                 events.rollbackToSavepoint();
             } catch (RuntimeException lost) {
-                LOG.error("Audit savepoint could not be released; the caller's transaction may fail", lost);
+                LOG.atError().addKeyValue("event", "audit.savepoint.rollback_failed")
+                        .addKeyValue("error_type", lost.getClass().getName()).addKeyValue("error_code", sqlState(lost))
+                        .log("Audit savepoint could not be released; the caller's transaction may fail");
             }
         }
         emit(id, at, event, actorLabel, details);
@@ -167,5 +173,12 @@ public class AuditTrail {
             if (value != null) declared.put(field, value);
         });
         return JSON.writeValueAsString(declared);
+    }
+
+    /** The SQLState of the failure, a bounded code; the driver's message may quote the values it refused. */
+    private static @Nullable String sqlState(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause())
+            if (cause instanceof SQLException sql) return sql.getSQLState();
+        return null;
     }
 }

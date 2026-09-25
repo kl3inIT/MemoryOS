@@ -167,7 +167,8 @@ public class TranscriptSummarizer {
                     accounting.output() == null ? 0 : accounting.output(), accounting.cacheRead(),
                     accounting.cost(), Instant.now()));
         } catch (RuntimeException failure) {
-            LOG.warn("Minutes usage not recorded ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "meeting.minutes.usage_not_recorded")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Minutes usage not recorded");
         }
     }
 }

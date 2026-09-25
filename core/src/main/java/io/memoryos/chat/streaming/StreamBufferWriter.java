@@ -280,7 +280,10 @@ public final class StreamBufferWriter {
         }
         if (ids.isEmpty()) return;
         try { redis.delete(ids.stream().map(StreamBufferWriter::key).toList()); }
-        catch (RuntimeException failure) { LOG.warn("Chat stream deletion unavailable ({})", failure.getClass().getSimpleName()); }
+        catch (RuntimeException failure) {
+            LOG.atWarn().addKeyValue("event", "chat.stream.delete_failed")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat stream deletion unavailable");
+        }
     }
 
     static String key(UUID id) {
@@ -325,7 +328,8 @@ public final class StreamBufferWriter {
         if (stream.bytes + bytes > limits.runBytes()) {
             stream.truncated = true;
             stream.queue.addLast(new Entry(event.sequence(), TRUNCATED, null));
-            LOG.warn("Chat stream for reply {} exceeded {} bytes; replay is truncated", stream.id, limits.runBytes());
+            LOG.atWarn().addKeyValue("event", "chat.stream.truncated").addKeyValue("message_id", stream.id)
+                    .addKeyValue("limit_bytes", limits.runBytes()).log("Chat stream exceeded its bound; replay is truncated");
             return;
         }
         stream.bytes += bytes;
@@ -352,12 +356,13 @@ public final class StreamBufferWriter {
                     writes++;
                     written.notifyAll();
                 }
-                if (stream.failing) LOG.info("Chat stream writes to Redis resumed for reply {}", stream.id);
+                if (stream.failing) LOG.atInfo().addKeyValue("event", "chat.stream.write_resumed").addKeyValue("message_id", stream.id)
+                        .log("Chat stream writes to Redis resumed");
                 stream.failing = false;
             } catch (RuntimeException failure) {
                 // A timed-out pipeline may have been applied: entries Redis already holds are dropped, the rest retried.
-                if (!stream.failing) LOG.warn("Chat stream write to Redis failed for reply {} ({}); retrying",
-                        stream.id, failure.getClass().getSimpleName());
+                if (!stream.failing) LOG.atWarn().addKeyValue("event", "chat.stream.write_failed").addKeyValue("message_id", stream.id)
+                        .addKeyValue("error_type", failure.getClass().getName()).log("Chat stream write to Redis failed; retrying");
                 stream.failing = true;
                 try {
                     var last = redis.opsForStream().reverseRange(key, Range.unbounded(), Limit.limit().count(1));
@@ -438,7 +443,8 @@ public final class StreamBufferWriter {
                 try { batch = next(); }
                 catch (DataAccessException unavailable) {
                     // As Onyx's resume endpoint without a buffer: the browser reads history and polls while RUNNING.
-                    LOG.warn("Chat stream replay unavailable for reply {} ({})", id, unavailable.getClass().getSimpleName());
+                    LOG.atWarn().addKeyValue("event", "chat.stream.replay_unavailable").addKeyValue("message_id", id)
+                            .addKeyValue("error_type", unavailable.getClass().getName()).log("Chat stream replay unavailable");
                     return end("BUFFER_MISSING");
                 }
                 if (batch != null) return batch;

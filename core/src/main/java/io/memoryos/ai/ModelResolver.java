@@ -80,7 +80,8 @@ public final class ModelResolver {
                     .toList();
         } catch (AiException expected) { throw expected; }
         catch (RuntimeException failure) {
-            LOG.warn("Provider model listing failed ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "ai.provider.model_listing_failed")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Provider model listing failed");
             throw AiException.providerUnavailable();
         }
     }
@@ -97,7 +98,8 @@ public final class ModelResolver {
                     providerReadTimeout).size();
         } catch (AiException expected) { throw expected; }
         catch (RuntimeException failure) {
-            LOG.warn("Provider connection check failed ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "ai.provider.connection_check_failed")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Provider connection check failed");
             throw AiException.providerUnreachable();
         }
     }
@@ -166,7 +168,9 @@ public final class ModelResolver {
                 return adapter.create(new ProviderAdapter.Connection(provider.baseUrl(), key), model.modelName(), model.settings(), providerReadTimeout);
             } catch (AiException expected) { throw expected; }
             catch (RuntimeException failure) {
-                LOG.warn("Chat model {} client initialization failed ({})", model.id(), failure.getClass().getSimpleName());
+                LOG.atWarn().addKeyValue("event", "ai.model.client_initialization_failed")
+                        .addKeyValue("model_configuration_id", model.id())
+                        .addKeyValue("error_type", failure.getClass().getName()).log("Chat model client initialization failed");
                 throw AiException.providerUnavailable();
             }
         });

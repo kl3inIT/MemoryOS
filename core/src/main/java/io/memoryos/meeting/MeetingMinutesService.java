@@ -76,7 +76,7 @@ public class MeetingMinutesService {
         boolean stored = Boolean.TRUE.equals(tx.execute(ignored -> meetings.writeMinutes(claim.tenant(), claim.id(),
                 claim.attempts(), summary.summary(), summary.kind(), items)));
         // Another replica took the meeting over after this lease lapsed; it owns the outcome.
-        if (!stored) LOG.warn("Meeting minutes lease lapsed before they were stored");
+        if (!stored) LOG.atWarn().addKeyValue("event", "meeting.minutes.lease_lost").log("Meeting minutes lease lapsed before they were stored");
     }
 
     /** Turns the model's line numbers back into utterance ids, so every item can be traced to what was said. */

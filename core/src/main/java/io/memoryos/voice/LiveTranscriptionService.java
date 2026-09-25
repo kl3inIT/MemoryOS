@@ -117,7 +117,8 @@ public class LiveTranscriptionService {
                     connection.provider().name(), connection.sttModel(), connection.id(), null, null, 1, 0, 0, 0, 0,
                     bytes / (double) Pcm16.BYTES_PER_SECOND, null, Instant.now()));
         } catch (RuntimeException failure) {
-            LOG.warn("Live transcription usage not recorded ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "voice.live_transcription.usage_not_recorded")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Live transcription usage not recorded");
         }
     }
 }

@@ -145,7 +145,8 @@ public final class ChatTurnService implements AutoCloseable {
                 persistence.completeTitle(actor, input.orElseThrow(), title);
             } catch (RuntimeException failure) {
                 // Preserve the initial short title. Never log conversation/provider payloads.
-                LOG.warn("Chat naming unavailable for session {} ({})", session, failure.getClass().getSimpleName());
+                LOG.atWarn().addKeyValue("event", "chat.naming.failed").addKeyValue("session_id", session)
+                        .addKeyValue("error_type", failure.getClass().getName()).log("Chat naming unavailable");
             }
         } finally { permits.release(); }
     }
@@ -155,7 +156,8 @@ public final class ChatTurnService implements AutoCloseable {
             persistence.recordUsage(new ChatTurnPersistence.Usage(null, actor, AiUsageFlow.CHAT_NAMING, selected.modelConfigurationId(),
                     selected.provenance(), selected.binding().service().getName(), accounting));
         } catch (RuntimeException failure) {
-            LOG.warn("Chat naming usage not recorded ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "chat.naming.usage_not_recorded")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat naming usage not recorded");
         }
     }
 
@@ -244,15 +246,20 @@ public final class ChatTurnService implements AutoCloseable {
                 // Research agents always search through the Web tools, as Onyx does, even when the model hosts search.
                 boolean externalSearch = !nativeSearch || command.deepResearch();
                 if (!binding.toolCalling() || (externalSearch && web == null)) {
-                    LOG.warn("Web search rejected for model {}: toolCalling={} native={} connections={}",
-                            resolved.modelConfigurationId(), binding.toolCalling(), nativeSearch, web != null);
+                    LOG.atWarn().addKeyValue("event", "chat.web_search.rejected")
+                            .addKeyValue("model_configuration_id", resolved.modelConfigurationId())
+                            .addKeyValue("tool_calling", binding.toolCalling()).addKeyValue("native_search", nativeSearch)
+                            .addKeyValue("web_connections", web != null).addKeyValue("error_code", "CHAT_WEB_UNAVAILABLE")
+                            .log("Web search rejected for the model");
                     throw ChatException.webUnavailable();
                 }
                 if (externalSearch) {
                     webAccess = web.resolve(actor);
                     if (webAccess.search() == null) {
-                        LOG.warn("Web search rejected for model {}: no active usable search connection",
-                                resolved.modelConfigurationId());
+                        LOG.atWarn().addKeyValue("event", "chat.web_search.rejected")
+                                .addKeyValue("model_configuration_id", resolved.modelConfigurationId())
+                                .addKeyValue("reason", "no_search_connection").addKeyValue("error_code", "CHAT_WEB_UNAVAILABLE")
+                                .log("Web search rejected: no active usable search connection");
                         throw ChatException.webUnavailable();
                     }
                 }
@@ -402,7 +409,8 @@ public final class ChatTurnService implements AutoCloseable {
             run.finish(userStop ? ChatMessage.Status.CANCELED : ChatMessage.Status.FAILED,
                     userStop ? null : code);
             // Provider exceptions may contain prompts/credentials. Never log their payload or stack here.
-            if (!userStop) LOG.warn("Chat run {} failed: {} ({})", run.setup.assistantMessageId(), code, failure.getClass().getSimpleName());
+            if (!userStop) LOG.atWarn().addKeyValue("event", "chat.run.failed").addKeyValue("message_id", run.setup.assistantMessageId())
+                    .addKeyValue("error_code", code).addKeyValue("error_type", failure.getClass().getName()).log("Chat run failed");
         } finally {
             // Also close the product lifecycle if framework linkage or another Error escapes the task.
             run.finish(ChatMessage.Status.FAILED, "CHAT_EXECUTION_FAILED");
@@ -413,8 +421,9 @@ public final class ChatTurnService implements AutoCloseable {
 
     private void retireWhenDrained(Active run) {
         run.draining.whenComplete((_, failure) -> {
-            if (failure != null) LOG.warn("Chat native cleanup failed for run {} ({})",
-                    run.setup.assistantMessageId(), failure.getClass().getSimpleName());
+            if (failure != null) LOG.atWarn().addKeyValue("event", "chat.run.native_cleanup_failed")
+                    .addKeyValue("message_id", run.setup.assistantMessageId())
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat native cleanup failed");
             try { run.resolved.close(); }
             finally {
                 if (run.setup.mcp() != null) run.setup.mcp().close();
@@ -451,11 +460,15 @@ public final class ChatTurnService implements AutoCloseable {
                 }
             } catch (RuntimeException failure) {
                 // Never stop a live run over a failed renewal; the next tick retries well inside the lease.
-                LOG.warn("Chat lease renewal unavailable ({})", failure.getClass().getSimpleName());
+                LOG.atWarn().addKeyValue("event", "chat.lease.renewal_failed")
+                        .addKeyValue("error_type", failure.getClass().getName()).log("Chat lease renewal unavailable");
             }
         }
         try { persistence.expireRuns(); }
-        catch (RuntimeException failure) { LOG.warn("Chat lease reconciliation unavailable ({})", failure.getClass().getSimpleName()); }
+        catch (RuntimeException failure) {
+            LOG.atWarn().addKeyValue("event", "chat.lease.reconciliation_failed")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat lease reconciliation unavailable");
+        }
     }
 
     /**
@@ -468,10 +481,12 @@ public final class ChatTurnService implements AutoCloseable {
         try {
             int failed = 0;
             for (int batch; (batch = persistence.failOrphanedRuns()) > 0; ) failed += batch;
-            if (failed > 0) LOG.warn("Chat startup failed {} runs left RUNNING by a previous process", failed);
+            if (failed > 0) LOG.atWarn().addKeyValue("event", "chat.startup.orphaned_runs_failed").addKeyValue("count", failed)
+                    .log("Chat startup failed runs left RUNNING by a previous process");
         } catch (RuntimeException failure) {
-            LOG.warn("Chat startup orphan reconciliation unavailable ({}); lease reconciliation remains responsible",
-                    failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "chat.startup.orphan_reconciliation_failed")
+                    .addKeyValue("error_type", failure.getClass().getName())
+                    .log("Chat startup orphan reconciliation unavailable; lease reconciliation remains responsible");
         }
     }
 
@@ -493,7 +508,11 @@ public final class ChatTurnService implements AutoCloseable {
                     run.persisted = true;
                 }
                 releaseIfFinished(run);
-            } catch (RuntimeException failure) { LOG.warn("Chat terminal persistence pending for run {}", run.setup.assistantMessageId()); }
+            } catch (RuntimeException failure) {
+                LOG.atWarn().addKeyValue("event", "chat.run.terminal_persistence_pending")
+                        .addKeyValue("message_id", run.setup.assistantMessageId())
+                        .addKeyValue("error_type", failure.getClass().getName()).log("Chat terminal persistence pending");
+            }
         } finally { run.finalizing.unlock(); }
     }
 
@@ -508,7 +527,8 @@ public final class ChatTurnService implements AutoCloseable {
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         } catch (ExecutionException | TimeoutException incomplete) {
-            LOG.warn("Chat shutdown drain incomplete; durable lease reconciliation remains responsible");
+            LOG.atWarn().addKeyValue("event", "chat.shutdown.drain_incomplete")
+                    .log("Chat shutdown drain incomplete; durable lease reconciliation remains responsible");
         }
     }
 

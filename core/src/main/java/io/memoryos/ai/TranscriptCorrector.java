@@ -272,7 +272,8 @@ public class TranscriptCorrector {
                     accounting.cost(), Instant.now()));
         } catch (RuntimeException failure) {
             // The correction is the owner's answer; a ledger that refuses it must not take the answer with it.
-            LOG.warn("Recording meeting correction usage failed ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "meeting.correction.usage_not_recorded")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Meeting correction usage not recorded");
         }
     }
 }

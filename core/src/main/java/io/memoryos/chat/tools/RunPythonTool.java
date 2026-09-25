@@ -124,7 +124,8 @@ public final class RunPythonTool {
                 try {
                     staged.add(new InterpreterClient.StagedFile(candidate.name(), upload(candidate)));
                 } catch (IOException | RuntimeException failure) {
-                    LOG.warn("Code Interpreter could not stage an attachment ({})", failure.getClass().getSimpleName());
+                    LOG.atWarn().addKeyValue("event", "chat.interpreter.attachment_stage_failed")
+                            .addKeyValue("error_type", failure.getClass().getName()).log("Code Interpreter could not stage an attachment");
                     failed.add(candidate.name());
                 }
             }
@@ -176,7 +177,8 @@ public final class RunPythonTool {
                     noRoom.add(name);
                 } catch (IOException | RuntimeException failure) {
                     active.run();
-                    LOG.warn("Code Interpreter could not store a generated file ({})", failure.getClass().getSimpleName());
+                    LOG.atWarn().addKeyValue("event", "chat.interpreter.file_store_failed")
+                            .addKeyValue("error_type", failure.getClass().getName()).log("Code Interpreter could not store a generated file");
                 } finally {
                     delete(file.fileId());
                 }
@@ -204,7 +206,8 @@ public final class RunPythonTool {
                         produced.add(new ChatCodeEvent.GeneratedFile(id, name, "image/png", bytes.length, data != null));
                 } catch (IOException | RuntimeException failure) {
                     active.run();
-                    LOG.warn("Code Interpreter could not store a captured chart ({})", failure.getClass().getSimpleName());
+                    LOG.atWarn().addKeyValue("event", "chat.interpreter.chart_store_failed")
+                            .addKeyValue("error_type", failure.getClass().getName()).log("Code Interpreter could not store a captured chart");
                 } finally {
                     if (png != null) delete(png);
                     if (json != null) delete(json);
@@ -236,7 +239,8 @@ public final class RunPythonTool {
                     ? error : error.substring(0, ChatCodeEvent.MAX_OUTPUT_CHARACTERS);
             publish(id -> ChatCodeEvent.output(id, ChatCodeEvent.STDERR, shown));
             publish(ChatCodeEvent::failed);
-            LOG.warn("Code Interpreter execution failed ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "chat.interpreter.execution_failed")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Code Interpreter execution failed");
             return json("", error, -1, false, List.of(), error, notice, List.of());
         }
     }
@@ -304,7 +308,8 @@ public final class RunPythonTool {
     private void delete(String fileId) {
         try { client.delete(fileId); }
         catch (IOException | RuntimeException failure) {
-            LOG.warn("Code Interpreter could not delete a generated file ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "chat.interpreter.file_delete_failed")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Code Interpreter could not delete a generated file");
         }
     }
 

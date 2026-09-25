@@ -182,7 +182,8 @@ public class MeetingRecordingService {
         }));
         // The bytes go with the next pass's sweep. Another replica that took the recording over after this lease
         // lapsed owns the outcome.
-        if (!stored) LOG.warn("Meeting recording lease lapsed before its transcript was stored");
+        if (!stored) LOG.atWarn().addKeyValue("event", "meeting.recording.lease_lost")
+                .log("Meeting recording lease lapsed before its transcript was stored");
     }
 
     /**

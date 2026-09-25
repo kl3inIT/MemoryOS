@@ -138,7 +138,9 @@ public final class McpTools {
                     case UNAVAILABLE -> "unavailable";
                 };
                 // The reason is a code from the MCP capability, not matched text, and carries no upstream body.
-                LOG.warn("MCP tool {} failed on server {}: {}", binding.modelName(), binding.serverId(), rejected.reason());
+                LOG.atWarn().addKeyValue("event", "chat.mcp_tool.failed").addKeyValue("tool", binding.modelName())
+                        .addKeyValue("mcp_server_id", binding.serverId()).addKeyValue("error_code", rejected.reason().name())
+                        .log("MCP tool call failed");
                 return Tool.Result.error(message(binding, rejected.reason()));
             } finally {
                 measure(binding, outcome, System.nanoTime() - upstream);

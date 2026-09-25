@@ -137,7 +137,8 @@ public class VoiceTranscriptionService {
                                     AiUsageFlow.SPEECH_TO_TEXT, connection.provider().name(), connection.sttModel(),
                                     connection.id(), null, null, 1, 0, 0, 0, 0, bytes.get() / 48_000.0, null, Instant.now()));
                         } catch (RuntimeException failure) {
-                            LOG.warn("Voice usage not recorded ({})", failure.getClass().getSimpleName());
+                            LOG.atWarn().addKeyValue("event", "voice.transcription.usage_not_recorded")
+                                    .addKeyValue("error_type", failure.getClass().getName()).log("Voice usage not recorded");
                         }
                     }
                 }

@@ -193,7 +193,7 @@ public class ChatExportService {
                 throw new LeaseLost();
             }));
         } catch (LeaseLost lost) {
-            LOG.warn("Export lease lapsed before it was stored");
+            LOG.atWarn().addKeyValue("event", "chat.export.lease_lost").log("Export lease lapsed before it was stored");
         } finally {
             if (!adopted) writes.discard(tenant, staged);
         }

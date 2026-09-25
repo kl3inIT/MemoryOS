@@ -262,7 +262,8 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
                 var response = incomplete.response();
                 String reason = response.incompleteDetails().flatMap(details -> details.reason())
                         .map(value -> value.asString()).orElse("unknown");
-                LOG.warn("OpenAI response {} ended incomplete: {}", response.id(), reason);
+                LOG.atWarn().addKeyValue("event", "ai.openai.response_incomplete").addKeyValue("response_id", response.id())
+                        .addKeyValue("reason", reason).log("OpenAI response ended incomplete");
                 // As Onyx, an answer that produced nothing before the model's output limit reports that reason.
                 if ("max_output_tokens".equals(reason) && !streamedText && !hasCompletedCall(response))
                     throw TurnFailure.MODEL_OUTPUT_LIMIT.exception();

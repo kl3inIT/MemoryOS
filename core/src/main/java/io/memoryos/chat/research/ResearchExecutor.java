@@ -279,7 +279,8 @@ public final class ResearchExecutor {
                                 limits.agentTimeout(), turn.checkActive());
                         telemetry.agent(AgentOutcome.COMPLETED);
                     } catch (SearchTasks.HelperTimeoutException timeout) {
-                        LOG.warn("Research agent timed out after {}", limits.agentTimeout());
+                        LOG.atWarn().addKeyValue("event", "chat.research.agent_timed_out")
+                                .addKeyValue("timeout_ms", limits.agentTimeout().toMillis()).log("Research agent timed out");
                         telemetry.agent(AgentOutcome.TIMEOUT);
                         result = new AgentResult(RESEARCH_AGENT_TIMEOUT_MESSAGE, null);
                     } catch (CancellationException stopped) {
@@ -287,7 +288,8 @@ public final class ResearchExecutor {
                     } catch (RuntimeException failure) {
                         turn.checkActive().run();
                         // Provider and tool failures can carry private content; log the type only.
-                        LOG.warn("Research agent failed ({})", failure.getClass().getSimpleName());
+                        LOG.atWarn().addKeyValue("event", "chat.research.agent_failed")
+                                .addKeyValue("error_type", failure.getClass().getName()).log("Research agent failed");
                         telemetry.agent(AgentOutcome.FAILED);
                         result = null;
                     }
