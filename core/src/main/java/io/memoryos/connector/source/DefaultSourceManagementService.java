@@ -73,6 +73,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
     private final SourceAccessPolicy sourceAccess;
     private final TransactionTemplate transactions;
     private final io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository sync;
+    private final io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository googleSync;
     private final io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository selections;
     private final AuditTrail audit;
     private final io.memoryos.connector.googledrive.GoogleDriveConnectionService connections;
@@ -91,6 +92,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
             GroupScopeService groupScopes,
             PlatformTransactionManager transactionManager,
             io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository sync,
+            io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository googleSync,
             io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository selections,
             io.memoryos.connector.googledrive.GoogleDriveConnectionService connections,
             SourceAccessPolicy sourceAccess
@@ -109,6 +111,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         this.authorization = Objects.requireNonNull(authorization, "authorization must not be null");
         this.groupScopes = Objects.requireNonNull(groupScopes, "groupScopes must not be null");
         this.sync = Objects.requireNonNull(sync);
+        this.googleSync = Objects.requireNonNull(googleSync);
         this.selections = Objects.requireNonNull(selections);
         this.connections = Objects.requireNonNull(connections);
         this.sourceAccess = Objects.requireNonNull(sourceAccess);
@@ -573,7 +576,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 try {
                     var state = connections.state(access.tenantId(), requiredSourceId);
                     if (connections.current(access.tenantId(), requiredSourceId, state.credentialRevision())) {
-                        sync.enqueueResumed(access.tenantId(), requiredSourceId, state.credentialRevision(), requiredActorId);
+                        googleSync.enqueueResumed(access.tenantId(), requiredSourceId, state.credentialRevision(), requiredActorId);
                     }
                 } catch (SourceException exception) {
                     if (!"SOURCE_NOT_FOUND".equals(exception.code())) throw exception;
@@ -621,7 +624,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
         }
         var mutablePair = requireMutable(pair);
         items.lockCurrentVersion(access.tenantId(), mutablePair, requiredItemId);
-        sync.exclude(access.tenantId(), requiredSourceId, requiredItemId);
+        googleSync.exclude(access.tenantId(), requiredSourceId, requiredItemId);
         items.markDeleting(access.tenantId(), mutablePair, requiredItemId);
         sourceDocuments.invalidateItem(access.tenantId(), requiredSourceId, requiredItemId);
         attempts.cancelForItem(access.tenantId(), requiredSourceId, requiredItemId);
@@ -680,7 +683,7 @@ public class DefaultSourceManagementService implements SourceManagementService {
                 .detail("provider", deleted.map(JdbcSourceRepository.AuditView::provider).orElse(null)).build());
         sourceDocuments.invalidateSource(access.tenantId(), requiredSourceId);
         attempts.cancelForSource(access.tenantId(), requiredSourceId);
-        sync.cancel(access.tenantId(), requiredSourceId);
+        sync.cancel(access.tenantId(), requiredSourceId, "SOURCE_DELETING");
         selections.cancelForSource(access.tenantId(), requiredSourceId);
         sources.supersedeItemCleanups(access.tenantId(), requiredSourceId);
         return sources.createCleanup(

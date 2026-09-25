@@ -3,6 +3,7 @@ package io.memoryos.connector.sharepoint;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 import com.zaxxer.hikari.HikariDataSource;
@@ -30,6 +31,8 @@ import io.memoryos.connector.source.persistence.JdbcSourceItemRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
+import io.memoryos.connector.sync.persistence.SyncTarget;
+import io.memoryos.connector.sync.SourceSyncEngine;
 import io.memoryos.connector.sharepoint.persistence.SharePointCredentialConfiguration;
 import io.memoryos.document.DocumentId;
 import io.memoryos.ingestion.OperationDispatchPort;
@@ -66,6 +69,7 @@ class PostgresSharePointSyncTest {
     private static final String SITE = "site-1";
 
     private HikariDataSource dataSource;
+    private io.memoryos.connector.sync.LockingStatementCounter locks;
     private JdbcClient jdbc;
     private DataSourceTransactionManager manager;
     private TenantId tenant;
@@ -79,7 +83,7 @@ class PostgresSharePointSyncTest {
     private JdbcIndexAttemptRepository indexing;
     private ProviderAuthorityService authority;
     private OperationDispatchPort dispatch;
-    private DefaultSharePointSyncService service;
+    private SourceSyncEngine service;
     private org.springframework.transaction.support.TransactionTemplate tx;
     private ObjectStorage storage;
     private Answer<Void> storeObject;
@@ -92,8 +96,9 @@ class PostgresSharePointSyncTest {
     @BeforeEach
     void setup() throws Exception {
         dataSource = TestDatabase.freshPostgres();
-        jdbc = JdbcClient.create(dataSource);
-        manager = new DataSourceTransactionManager(dataSource);
+        locks = new io.memoryos.connector.sync.LockingStatementCounter(dataSource);
+        jdbc = JdbcClient.create(locks.dataSource());
+        manager = new DataSourceTransactionManager(locks.dataSource());
         tx = new org.springframework.transaction.support.TransactionTemplate(manager);
         tenant = new TenantId(UUID.randomUUID());
         owner = new ActorId(UUID.randomUUID());
@@ -105,7 +110,7 @@ class PostgresSharePointSyncTest {
         var documents = new JdbcSourceDocumentRepository(jdbc);
         var items = new JdbcSourceItemRepository(jdbc);
         attempts = new JdbcSourceSyncRepository(jdbc);
-        runs = new JdbcSharePointSyncRepository(jdbc, attempts);
+        runs = new JdbcSharePointSyncRepository(jdbc);
         sharePoint = new JdbcSharePointSourceRepository(jdbc, sources);
         var credentialRows = new JdbcSharePointCredentialRepository(jdbc, sources,
                 new SharePointCredentialConfiguration(Base64.getEncoder().encodeToString(new byte[32]), "test"));
@@ -123,6 +128,7 @@ class PostgresSharePointSyncTest {
         var connections = mock(SharePointConnectionService.class);
         when(connections.state(any(), any())).thenReturn(new SharePointConnectionService.State(credential,
                 "Entra app", "ACTIVE", 1L, "contoso.sharepoint.com"));
+        when(connections.current(any(), any(), anyLong())).thenReturn(true);
         when(connections.open(any(), any())).thenAnswer(_ ->
                 new SharePointConnectionService.Connection(session, 1L, "contoso.sharepoint.com"));
 
@@ -146,8 +152,8 @@ class PostgresSharePointSyncTest {
                 new io.memoryos.objectstorage.application.ObjectUploadProperties(java.time.Duration.ofMinutes(15),
                         java.time.Duration.ofSeconds(30), java.time.Duration.ofMinutes(5),
                         java.time.Duration.ofMinutes(1), 16), manager);
-        service = new DefaultSharePointSyncService(runs, sharePoint, sources, items, indexing, documents,
-                connections, writes, manager);
+        service = new SourceSyncEngine(attempts, sources, items, indexing, documents, writes,
+                List.of(new SharePointSyncTraversal(runs, sharePoint, attempts, connections)), manager);
         seedSource();
     }
 
@@ -344,7 +350,7 @@ class PostgresSharePointSyncTest {
         when(session.delta(eq(DRIVE), any(), any()))
                 .thenReturn(new SharePointProvider.DeltaPage(List.of(), "next-page", null));
         assertEquals(ConnectorSyncPort.Result.CONTINUED, service.execute(claim(enqueue())));
-        tx.executeWithoutResult(_ -> attempts.cancel(tenant, source));
+        tx.executeWithoutResult(_ -> attempts.supersede(tenant, source));
 
         reset(session);
         when(session.root()).thenReturn(new SharePointProvider.RootSite(SITE, "https://contoso.sharepoint.com",
@@ -377,7 +383,7 @@ class PostgresSharePointSyncTest {
     }
 
     @Test
-    void aStorageFailureRetriesTheAttemptWithoutClosingItsRun() {
+    void aStorageFailureIsAnItemErrorThatTheNextRunRetriesAndResolves() {
         var file = file("file-stored", "Stored.pdf", Instant.now());
         when(session.delta(eq(DRIVE), any(), any()))
                 .thenReturn(new SharePointProvider.DeltaPage(List.of(file), null, "delta-link"));
@@ -386,16 +392,130 @@ class PostgresSharePointSyncTest {
                 .thenReturn(new SharePointProvider.Content("Stored.pdf", "application/pdf", "stored".getBytes()));
         doThrow(new ObjectStorageException(ObjectStorageFailureCode.UNAVAILABLE, true, null))
                 .doAnswer(storeObject).when(storage).write(any(), any(), any());
+        var first = enqueue();
+
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(first)),
+                "a failure isolated to one item does not fail the run");
+        assertEquals("COMPLETED_WITH_ERRORS", attemptStatus(first));
+        assertEquals(List.of("SUCCEEDED"), runStatuses());
+        assertEquals(1, counter("acquisition_failed"));
+        assertEquals("ABSENT", status("file-stored"));
+        assertEquals("SOURCE_STORAGE_WRITE_UNAVAILABLE", jdbc.sql("""
+                SELECT code FROM source_run_errors WHERE run_id = :run AND error_key = 'FILE:file-stored'
+                  AND resolved_at IS NULL AND stage = 'STORAGE_WRITE'
+                """).param("run", first.value()).query(String.class).single());
+        var summary = new JdbcSourceQueryRepository(jdbc).summary(tenant, owner, source, true, true, true);
+        assertNull(summary.errorCode(), "a run that completed with errors leaves no synchronization error");
+
+        var second = enqueue();
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(second)));
+
+        assertEquals("SUCCEEDED", attemptStatus(second));
+        assertEquals("PENDING", status("file-stored"));
+        assertEquals(second.value(), jdbc.sql("""
+                SELECT resolved_by_run_id FROM source_run_errors
+                WHERE run_id = :run AND error_key = 'FILE:file-stored' AND resolved_at IS NOT NULL
+                """).param("run", first.value()).query(UUID.class).single(),
+                "the next run retried the item and resolved its error");
+    }
+
+    @Test
+    void failuresOfMoreThanThreeItemsAndATenthOfTheRunAbortItAndRetryTheAttempt() {
+        var files = new java.util.ArrayList<SharePointProvider.DriveItem>();
+        for (int index = 0; index < 5; index++) files.add(file("file-" + index, "Report " + index + ".pdf", Instant.now()));
+        when(session.delta(eq(DRIVE), any(), any()))
+                .thenReturn(new SharePointProvider.DeltaPage(files, null, "delta-link"));
+        when(session.item(eq(DRIVE), any())).thenThrow(new SharePointProviderException(
+                SharePointProviderException.Failure.MALFORMED));
         var operation = enqueue();
 
         assertEquals(ConnectorSyncPort.Result.FAILED, service.execute(claim(operation)));
-        assertEquals(List.of("IN_PROGRESS"), runStatuses(), "the run a retry resumes stays open");
-        assertEquals("NOT_STARTED", jdbc.sql("SELECT status FROM source_sync_attempts WHERE id = :id")
-                .param("id", operation.value()).query(String.class).single());
 
+        assertEquals("NOT_STARTED", attemptStatus(operation), "the aborted attempt is retried");
+        assertEquals("SOURCE_SYNC_ITEM_FAILURES_EXCEEDED", jdbc.sql("""
+                SELECT error_code FROM source_sync_attempts WHERE id = :id
+                """).param("id", operation.value()).query(String.class).single());
+        assertTrue(jdbc.sql("""
+                SELECT next_dispatch_at >= CURRENT_TIMESTAMP + INTERVAL '25 seconds'
+                  AND error_message IS NOT NULL AND failure_attempts = 1
+                  AND failure_window_failed = acquisition_failed AND acquisition_failed = 4
+                FROM source_sync_attempts WHERE id = :id
+                """).param("id", operation.value()).query(Boolean.class).single(),
+                "the fourth failure aborts; failures are counted afresh by the retry");
+        assertEquals(List.of("IN_PROGRESS"), runStatuses(), "the retry resumes the same run");
+        assertEquals(4, jdbc.sql("SELECT COUNT(*) FROM source_run_errors WHERE run_id = :id AND stage = 'PROVIDER'")
+                .param("id", operation.value()).query(Integer.class).single());
+    }
+
+    @Test
+    void aThrottledRunWaitsAsLongAsMicrosoftAsked() {
+        when(session.delta(eq(DRIVE), any(), any())).thenThrow(new SharePointProviderException(
+                SharePointProviderException.Failure.QUOTA, SharePointProviderException.Reason.UNCLASSIFIED,
+                java.time.Duration.ofMinutes(5)));
+        var operation = enqueue();
+
+        assertEquals(ConnectorSyncPort.Result.FAILED, service.execute(claim(operation)));
+
+        assertTrue(jdbc.sql("""
+                SELECT status = 'NOT_STARTED' AND error_code = 'SOURCE_SHAREPOINT_QUOTA'
+                  AND next_dispatch_at BETWEEN CURRENT_TIMESTAMP + INTERVAL '4 minutes'
+                                           AND CURRENT_TIMESTAMP + INTERVAL '5 minutes 5 seconds'
+                FROM source_sync_attempts WHERE id = :id
+                """).param("id", operation.value()).query(Boolean.class).single(),
+                "Retry-After replaces the 30 second backoff");
+    }
+
+    @Test
+    void aRunResolvesItsSitesAndLibrariesOnceAcrossContinuations() {
+        jdbc.sql("""
+                UPDATE sharepoint_roots SET kind = 'SITE', drive_id = NULL
+                WHERE tenant_id = :tenant AND source_id = :source
+                """).param("tenant", tenant.value()).param("source", source.value()).update();
+        when(session.libraries(SITE)).thenReturn(List.of(new SharePointProvider.Library(DRIVE, "Documents",
+                "/sites/Finance/Shared Documents")));
+        var pages = new java.util.concurrent.atomic.AtomicInteger();
+        when(session.delta(eq(DRIVE), any(), any())).thenAnswer(_ -> pages.incrementAndGet() < 20
+                ? new SharePointProvider.DeltaPage(List.of(), "next-page", null)
+                : new SharePointProvider.DeltaPage(List.of(), null, "delta-link"));
+        var operation = enqueue();
+
+        assertEquals(ConnectorSyncPort.Result.CONTINUED, service.execute(claim(operation)));
         assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(operation)));
-        assertEquals(List.of("SUCCEEDED"), runStatuses(), "the retry finished the same run");
-        assertEquals(1, counter("acquired"));
+
+        verify(session, times(1)).libraries(SITE);
+        verify(session, never()).sites(any());
+    }
+
+    @Test
+    void anUnchangedFileTakesOneFenceOfFourLocks() {
+        var files = new java.util.ArrayList<SharePointProvider.DriveItem>();
+        for (int index = 0; index < 10; index++) {
+            var file = file("file-" + index, "Report " + index + ".pdf", Instant.now());
+            files.add(file);
+            when(session.item(DRIVE, file.id())).thenReturn(file);
+        }
+        when(session.content(any(), eq("contoso.sharepoint.com"), anyInt())).thenAnswer(call ->
+                new SharePointProvider.Content(((SharePointProvider.DriveItem) call.getArgument(0)).name(),
+                        "application/pdf", ((SharePointProvider.DriveItem) call.getArgument(0)).id().getBytes()));
+        when(session.delta(eq(DRIVE), any(), any())).thenReturn(new SharePointProvider.DeltaPage(List.of(), null, "l"));
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        locks.reset();
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        int empty = locks.count();
+
+        when(session.delta(eq(DRIVE), any(), any())).thenReturn(new SharePointProvider.DeltaPage(files, null, "l"));
+        locks.reset();
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        int acquiring = locks.count() - empty;
+        locks.reset();
+        assertEquals(ConnectorSyncPort.Result.COMPLETED, service.execute(claim(enqueue())));
+        int unchanged = locks.count() - empty;
+
+        assertEquals(10, counter("unchanged"));
+        // Before the shared engine an unchanged file took two fences (8 locks) and an acquired one four fences
+        // plus a nested Source lock (19 locks).
+        assertTrue(unchanged <= 10 * 4, "unchanged files took " + unchanged + " locking statements");
+        assertTrue(acquiring <= 10 * 12, "acquired files took " + acquiring + " locking statements");
     }
 
     @Test
@@ -418,7 +538,10 @@ class PostgresSharePointSyncTest {
     @Test
     void aPruneThatCannotStartWaitsForTheNextRefreshSlot() {
         pruneDue();
-        tx.executeWithoutResult(_ -> runs.postpone(tenant, source));
+        tx.executeWithoutResult(_ -> {
+            attempts.postpone(SyncTarget.SHAREPOINT, tenant, source);
+            runs.postponePrune(tenant, source);
+        });
 
         assertTrue(jdbc.sql("""
                 SELECT next_prune_at > CURRENT_TIMESTAMP
@@ -510,7 +633,11 @@ class PostgresSharePointSyncTest {
         jdbc.sql("UPDATE connector_credential_pairs SET status = 'PAUSED' WHERE tenant_id = :tenant AND id = :source")
                 .param("tenant", tenant.value()).param("source", source.value()).update();
 
-        assertEquals(ConnectorSyncPort.Result.SUPERSEDED, service.execute(work), "Source pause fences a claimed run");
+        assertEquals(ConnectorSyncPort.Result.CANCELLED, service.execute(work), "Source pause fences a claimed run");
+        assertEquals("CANCELLED", jdbc.sql("SELECT status FROM source_sync_attempts WHERE id = :id")
+                .param("id", work.operationId().value()).query(String.class).single());
+        assertEquals("SOURCE_PAUSED", jdbc.sql("SELECT error_code FROM source_sync_attempts WHERE id = :id")
+                .param("id", work.operationId().value()).query(String.class).single());
         assertEquals(0, ledger("file-late"));
         pruneDue();
         assertEquals(0, service.enqueueDue(10), "the scheduler leaves a paused Source alone");
@@ -528,6 +655,11 @@ class PostgresSharePointSyncTest {
                 Instant.now(), "root-1", "/Reports", null, null, DRIVE);
     }
 
+    private String attemptStatus(SourceOperationId operation) {
+        return jdbc.sql("SELECT status FROM source_sync_attempts WHERE id = :id")
+                .param("id", operation.value()).query(String.class).single();
+    }
+
     private List<String> runStatuses() {
         return jdbc.sql("SELECT status FROM sharepoint_sync_runs WHERE tenant_id = :tenant ORDER BY created_at")
                 .param("tenant", tenant.value()).query(String.class).list();
@@ -543,7 +675,7 @@ class PostgresSharePointSyncTest {
     }
 
     private SourceOperationId enqueue() {
-        return Objects.requireNonNull(tx.execute(_ -> runs.enqueue(tenant, source, 1L, SourceRunTrigger.MANUAL, owner).id()));
+        return Objects.requireNonNull(tx.execute(_ -> attempts.enqueue(SyncTarget.SHAREPOINT, tenant, source, 1L, SourceRunTrigger.MANUAL, owner).id()));
     }
 
     /** Stands in for the relay, which stamps the delivery a worker then claims. */

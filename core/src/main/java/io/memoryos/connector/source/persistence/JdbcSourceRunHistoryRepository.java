@@ -30,8 +30,7 @@ public class JdbcSourceRunHistoryRepository {
                 CASE WHEN status IN ('NOT_STARTED', 'IN_PROGRESS') THEN acquisition_state
                     WHEN history_version IS NULL AND status = 'SUCCEEDED' THEN 'UNKNOWN'
                     WHEN indexing_pending > 0 THEN 'INDEXING'
-                    WHEN status IN ('CANCELLED','SUPERSEDED') THEN status
-                    WHEN status = 'FAILED' THEN CASE WHEN acquired > 0 OR unchanged > 0 THEN 'COMPLETED_WITH_ERRORS' ELSE 'FAILED' END
+                    WHEN status IN ('CANCELLED','SUPERSEDED','FAILED') THEN status
                     WHEN indexing_failed + indexing_cancelled + indexing_superseded > 0 THEN 'COMPLETED_WITH_ERRORS'
                     ELSE status END AS run_state,
                 CASE WHEN indexing_pending IS NULL THEN 'UNKNOWN'

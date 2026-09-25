@@ -1,6 +1,8 @@
 package io.memoryos.connector;
 
+import java.time.Duration;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 public final class GoogleDriveProviderException extends RuntimeException {
     public enum Failure {
@@ -14,13 +16,23 @@ public final class GoogleDriveProviderException extends RuntimeException {
     }
 
     private final Failure failure;
+    private final @Nullable Duration retryAfter;
 
     public GoogleDriveProviderException(Failure failure) {
+        this(failure, null);
+    }
+
+    /** {@code retryAfter} is how long Google asked the caller to wait before trying again, when it said. */
+    public GoogleDriveProviderException(Failure failure, @Nullable Duration retryAfter) {
         super("Google acquisition failed: " + Objects.requireNonNull(failure, "failure"));
         this.failure = failure;
+        this.retryAfter = retryAfter;
     }
 
     public Failure failure() { return failure; }
+
+    /** The wait Google asked for with a {@code Retry-After} header on a throttled or unavailable response. */
+    public @Nullable Duration retryAfter() { return retryAfter; }
 
     /** The credential cannot serve any further request until the Google account is reconnected. */
     public boolean requiresReconnect() {

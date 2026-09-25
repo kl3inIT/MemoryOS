@@ -15,6 +15,7 @@ import io.memoryos.connector.source.SourceAccessPolicy;
 import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
+import io.memoryos.connector.sync.persistence.SyncTarget;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveCredentialRepository;
 import io.memoryos.connector.SourceSelectionProcessor.Work;
@@ -311,7 +312,8 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
             var state = connections.state(tenant, source);
             if (!connections.current(tenant, source, state.credentialRevision())) throw SourceException.conflict("Google connection is unavailable");
             if (drive.roots(tenant, source).isEmpty()) throw SourceException.invalid("Select roots before synchronizing.", "Drive roots not configured");
-            return sync.enqueue(tenant, source, state.credentialRevision(), SourceRunTrigger.MANUAL, actor);
+            return sync.enqueue(SyncTarget.GOOGLE_DRIVE, tenant, source, state.credentialRevision(),
+                    SourceRunTrigger.MANUAL, actor);
         }));
     }
 
@@ -526,9 +528,10 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
                     intent.scopeMode(), roots, creation.access(),
                     creation.authority().authority() == Authority.GLOBAL ? null : intent.actorId());
             sourceGroups.replace(tenant, source, creation.groupIds());
-            sync.enqueue(tenant, source, intent.credentialRevision(), SourceRunTrigger.INITIAL, intent.actorId());
+            sync.enqueue(SyncTarget.GOOGLE_DRIVE, tenant, source, intent.credentialRevision(),
+                    SourceRunTrigger.INITIAL, intent.actorId());
         } else {
-            sync.cancel(tenant, source);
+            sync.supersede(tenant, source);
             drive.replace(tenant, source, intent.scopeRevision(), intent.credentialRevision(), intent.scopeMode(),
                     roots, approvals);
             indexing.cancelForSource(tenant, source);

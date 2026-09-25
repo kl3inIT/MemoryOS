@@ -372,7 +372,7 @@ public class JdbcGoogleDriveCredentialRepository {
     private void invalidateSources(TenantId tenantId, CredentialId credentialId) {
         var attached = attachedSources(tenantId, credentialId);
         for (var source : attached) sources.lock(tenantId, source);
-        for (var source : attached) sync.cancel(tenantId, source);
+        for (var source : attached) sync.supersede(tenantId, source);
         jdbc.sql("""
                 UPDATE index_attempts a SET status = 'CANCELLED', claim_token = NULL,
                     lease_expires_at = NULL, completed_at = CURRENT_TIMESTAMP
@@ -386,11 +386,13 @@ public class JdbcGoogleDriveCredentialRepository {
             jdbc.sql("UPDATE google_drive_membership SET eligible = FALSE WHERE tenant_id = :tenant AND source_id = :source")
                     .param("tenant", tenantId.value()).param("source", source.value()).update();
             jdbc.sql("""
-                    UPDATE google_drive_sources SET next_sync_at = CURRENT_TIMESTAMP, error_code = NULL,
+                    UPDATE google_drive_sources SET next_sync_at = CURRENT_TIMESTAMP,
                       discovery_revision = discovery_revision + CASE WHEN scope_mode = 'SPECIFIC' THEN 1 ELSE 0 END,
                       discovered_at = NULL, discovery_scope_revision = NULL, discovery_credential_revision = NULL
                     WHERE tenant_id = :tenant AND source_id = :source
                     """).param("tenant", tenantId.value()).param("source", source.value()).update();
+            jdbc.sql("UPDATE connector_credential_pairs SET sync_error_code = NULL WHERE tenant_id = :tenant AND id = :source")
+                    .param("tenant", tenantId.value()).param("source", source.value()).update();
             jdbc.sql("DELETE FROM google_drive_link_origins WHERE tenant_id = :tenant AND source_id = :source")
                     .param("tenant", tenantId.value()).param("source", source.value()).update();
             jdbc.sql("DELETE FROM google_drive_discovery_errors WHERE tenant_id = :tenant AND source_id = :source")

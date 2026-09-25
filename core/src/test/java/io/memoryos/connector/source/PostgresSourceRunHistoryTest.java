@@ -16,7 +16,6 @@ import io.memoryos.connector.googledrive.GoogleDriveConnectionService;
 import io.memoryos.connector.googledrive.GoogleGroupSynchronizer;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveAclRepository;
 import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSourceRepository;
-import io.memoryos.connector.sharepoint.DefaultSharePointSyncService;
 import io.memoryos.connector.sharepoint.SharePointConnectionService;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceItemRepository;
@@ -24,7 +23,10 @@ import io.memoryos.connector.source.persistence.JdbcSourceQueryRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRunHistoryRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRunRetentionRepository;
-import io.memoryos.connector.sync.DefaultConnectorSyncService;
+import io.memoryos.connector.sync.SourceSyncEngine;
+import io.memoryos.connector.googledrive.GoogleDriveSyncTraversal;
+import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository;
+import io.memoryos.connector.sync.persistence.SyncTarget;
 import io.memoryos.connector.sync.ProviderAuthorityService;
 import io.memoryos.connector.sync.persistence.JdbcCleanupAttemptRepository;
 import io.memoryos.connector.sync.persistence.JdbcIndexAttemptRepository;
@@ -87,7 +89,7 @@ class PostgresSourceRunHistoryTest {
     private JdbcIndexAttemptRepository attempts;
     private JdbcSourceRunHistoryRepository queries;
     private SourceRunHistoryService history;
-    private DefaultConnectorSyncService service;
+    private SourceSyncEngine service;
     private OperationDispatchPort dispatch;
     private ObjectStorage storage;
     private TenantId tenant;
@@ -122,6 +124,22 @@ class PostgresSourceRunHistoryTest {
         source = pair.sourceId();
         jdbc.sql("UPDATE connectors SET connector_type='GOOGLE_DRIVE' WHERE id=:id").param("id", pair.connectorId()).update();
         jdbc.sql("UPDATE connector_credential_pairs SET access_type='PRIVATE' WHERE id=:id").param("id", source.value()).update();
+        // The engine fences every write on the Source's usable credential revision, as a real Google Source has.
+        var credential = UUID.randomUUID();
+        jdbc.sql("""
+                INSERT INTO credentials (id, tenant_id, name, credential_kind, status, owner_actor_id)
+                VALUES (:id, :tenant, 'History credential', 'GOOGLE_OAUTH', 'ACTIVE', :owner)
+                """).param("id", credential).param("tenant", tenant.value()).param("owner", owner.value()).update();
+        jdbc.sql("""
+                INSERT INTO google_drive_credentials (tenant_id, credential_id, account_subject, account_email,
+                    granted_scopes, connection_status, refresh_token_ciphertext, refresh_token_nonce, key_version,
+                    oauth_client_ciphertext, oauth_client_nonce, oauth_client_key_version, auth_method)
+                VALUES (:tenant, :id, 'history-subject', 'owner@example.test', 'openid', 'ACTIVE',
+                    :token, :nonce, 'test', :token, :nonce, 'test', 'OAUTH')
+                """).param("tenant", tenant.value()).param("id", credential).param("token", new byte[32])
+                .param("nonce", new byte[12]).update();
+        jdbc.sql("UPDATE connector_credential_pairs SET credential_id = :credential WHERE id = :id")
+                .param("credential", credential).param("id", source.value()).update();
         jdbc.sql("INSERT INTO google_drive_sources(tenant_id,source_id,scope_mode) VALUES (:tenant,:source,'SPECIFIC')")
                 .param("tenant", tenant.value()).param("source", source.value()).update();
         jdbc.sql("INSERT INTO google_drive_roots(tenant_id,source_id,file_id,name,mime_type) VALUES (:tenant,:source,'folder','Folder','application/vnd.google-apps.folder')")
@@ -173,9 +191,10 @@ class PostgresSourceRunHistoryTest {
         });
         var writes = new DefaultObjectWriteService(new JdbcStoredObjectRepository(jdbc), new JdbcObjectWriteRepository(jdbc), storage,
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5), Duration.ofMinutes(1), 16), manager);
-        service = new DefaultConnectorSyncService(sync, sources, new JdbcGoogleDriveSourceRepository(jdbc),
-                new JdbcGoogleDriveAclRepository(jdbc, event -> {}), items, attempts,
-                mappings, connections, writes, org.mockito.Mockito.mock(DefaultSharePointSyncService.class), org.mockito.Mockito.mock(GoogleGroupSynchronizer.class), manager);
+        service = new SourceSyncEngine(sync, sources, items, attempts, mappings, writes,
+                java.util.List.of(new GoogleDriveSyncTraversal(new JdbcGoogleDriveSyncRepository(jdbc, sync),
+                        new JdbcGoogleDriveSourceRepository(jdbc), new JdbcGoogleDriveAclRepository(jdbc, event -> {}),
+                        connections, org.mockito.Mockito.mock(GoogleGroupSynchronizer.class))), manager);
         dispatch = TestDatabase.transactionalProxy(new JdbcOperationDispatchRepository(jdbc), OperationDispatchPort.class, manager);
         queries = new JdbcSourceRunHistoryRepository(jdbc);
         history = new DefaultSourceRunHistoryService(queries, new DefaultIamAuthorization(new IamAuthorizationRepository(jdbc), new IamLockRepository(jdbc)), new JdbcSourceQueryRepository(jdbc));
@@ -360,7 +379,7 @@ class PostgresSourceRunHistoryTest {
     }
 
     @Test
-    void failedStorageAcquisitionRecordsSafeStageWithoutPruningEarlierDocuments() {
+    void storageFailureOfOneFileCompletesWithErrorsRecordingSafeStageWithoutPruningEarlierDocuments() {
         list(file("keep", "1"));
         finish(enqueue());
         assertThat(process(dispatch.claim(OperationWorkload.INGESTION, 1).getFirst().delivery())).isEqualTo(IngestionCoordinator.Outcome.COMPLETED);
@@ -368,7 +387,8 @@ class PostgresSourceRunHistoryTest {
         doThrow(new ObjectStorageException(ObjectStorageFailureCode.UNAVAILABLE, true,
                 new SSLException("private-host-and-token-must-not-escape"))).when(storage).write(any(), any(), any());
         var failed = finish(enqueue());
-        assertThat(failed.status()).isEqualTo(SourceRunStatus.FAILED);
+        // One file failing is isolated to that file: the run completes with errors instead of failing.
+        assertThat(failed.status()).isEqualTo(SourceRunStatus.COMPLETED_WITH_ERRORS);
         assertThat(failed.counts().scanned()).isEqualTo(1);
         assertThat(failed.counts().acquisitionFailed()).isEqualTo(1);
         assertThat(failed.counts().removed()).isZero();
@@ -567,7 +587,7 @@ class PostgresSourceRunHistoryTest {
     private SourceOperationId enqueue() {
         return Objects.requireNonNull(tx.execute(_ -> {
             sources.lock(tenant, source);
-            return sync.enqueue(tenant, source, 1, SourceRunTrigger.MANUAL, owner).id();
+            return sync.enqueue(SyncTarget.GOOGLE_DRIVE, tenant, source, 1, SourceRunTrigger.MANUAL, owner).id();
         }));
     }
 
