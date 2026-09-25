@@ -34,14 +34,13 @@ import { SearchFilterMenu, type SearchFilterOption } from "./search-filter-menu"
 import { SearchSourceRail, type SearchSourceOption } from "./search-source-rail";
 import { DocumentSourceIcon } from "./document-source-icon";
 import type { DocumentSourceType } from "./document-source-presentation";
-import { sourceProviders } from "@/features/sources/source-provider-catalog";
+import { sourceProviders } from "@/features/sources/shared/source-provider-catalog";
 import { SearchResultCard } from "./search-result-card";
 import { friendlyMediaType } from "./search-presentation";
 import {
   useApplicationSession,
   useGlobalCapability,
 } from "@/features/identity/application-session-context";
-import { loadDocumentSets } from "@/features/chat/chat-workspace-api";
 import { captureWorkflowFailure } from "@/lib/sentry";
 import { cn } from "@/lib/utils";
 import { searchDocuments } from "@/lib/hey-api/sdk.gen";
@@ -84,7 +83,15 @@ const PAGE_SIZE = 10;
 /** `SearchRequest.page` accepts 0–49. */
 const MAX_PAGES = 50;
 
-export function SearchPage() {
+/** A Document Set offered as a filter. */
+export type SearchDocumentSet = { id: string; name: string };
+/**
+ * Lists the Document Sets the member may filter by. Document Sets are Chat's; the backend search takes their ids,
+ * so the route hands the list in and Search depends on no Chat module.
+ */
+export type LoadSearchDocumentSets = (signal: AbortSignal) => Promise<SearchDocumentSet[]>;
+
+export function SearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSearchDocumentSets }) {
   const ui = useAppTranslation();
   const canSearch = useGlobalCapability("SEARCH_READ");
   if (!canSearch) {
@@ -101,10 +108,10 @@ export function SearchPage() {
       </AppShell>
     );
   }
-  return <AuthorizedSearchPage />;
+  return <AuthorizedSearchPage loadDocumentSets={loadDocumentSets} />;
 }
 
-function AuthorizedSearchPage() {
+function AuthorizedSearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSearchDocumentSets }) {
   const ui = useAppTranslation();
   const { actorId } = useApplicationSession();
   const [recentSearches, setRecentSearches] = useState(() => readRecentSearches(actorId));

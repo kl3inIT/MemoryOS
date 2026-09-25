@@ -25,9 +25,10 @@ import io.memoryos.chat.ChatReasoningDelta;
 import io.memoryos.chat.ChatResearchEvent;
 import io.memoryos.chat.ChatToolActivity;
 import io.memoryos.chat.ChatToolEvent;
-import io.memoryos.chat.execution.ChatAdmissionLedger;
+import io.memoryos.ai.ModelAdmissionLedger;
 import io.memoryos.chat.execution.ChatModelGuard;
-import io.memoryos.chat.execution.ChatModelTurns;
+import io.memoryos.chat.execution.ChatTurnListener;
+import io.memoryos.ai.ModelTurns;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.execution.StreamingLlmService;
 import io.memoryos.retrieval.SearchTasks;
@@ -116,7 +117,7 @@ public final class ResearchExecutor {
 
     private final class Run {
         final Turn turn;
-        final ChatAdmissionLedger ledger = new ChatAdmissionLedger();
+        final ModelAdmissionLedger ledger = new ModelAdmissionLedger();
         final boolean reasoning;
         final String language;
         final int inputLimit;
@@ -441,8 +442,8 @@ public final class ResearchExecutor {
         ChatModelGuard guard(ChatEvidence evidence, Consumer<ChatActivityEvent> events, int cycles, Runnable checkActive) {
             var binding = turn.setup().binding();
             // Research never uses provider-hosted Web search: agents search through the Web tools, as Onyx does.
-            var model = turn.model() instanceof ChatModelTurns turns
-                    ? turns.forTurn(new ChatModelTurns.Turn(evidence, events, false, checkActive)) : turn.model();
+            var model = turn.model() instanceof ModelTurns turns
+                    ? turns.forTurn(ChatTurnListener.turn(evidence, events, false, checkActive)) : turn.model();
             var guard = new ChatModelGuard(model, turn.process(), binding.service(), turn.budget(), cycles, checkActive,
                     binding.policy(), inputLimit, binding.finalRequest(), ledger);
             guard.researchPrompts();

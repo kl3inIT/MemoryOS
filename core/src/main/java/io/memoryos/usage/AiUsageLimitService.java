@@ -1,12 +1,12 @@
 package io.memoryos.usage;
 
-import io.memoryos.iam.audit.AuditAction;
-import io.memoryos.iam.audit.AuditRecord;
-import io.memoryos.iam.audit.AuditTrail;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.usage.persistence.AiUsageLimitRepository;
 import io.memoryos.usage.persistence.AiUsageLimitRepository.DaySpend;
 import java.math.BigDecimal;

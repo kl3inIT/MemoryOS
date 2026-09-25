@@ -4,10 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.usage.persistence.AiCostQueries;
-import io.memoryos.usage.persistence.AiCostQueries.Dimension;
 import io.memoryos.usage.persistence.AiCostQueries.Scope;
-import io.memoryos.usage.persistence.AiCostQueries.Split;
+import io.memoryos.usage.persistence.AiCostQueries;
 import io.memoryos.usage.persistence.AiUsageRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -68,35 +66,35 @@ class AiCostQueriesTest {
     }
 
     @Test void dailySeriesSplitByBoundaryOrModel() {
-        var byBoundary = queries.daily(scope(null, false, null, null), Split.BOUNDARY);
+        var byBoundary = queries.daily(scope(null, false, null, null), AiCostSplit.BOUNDARY);
         assertEquals(2, byBoundary.stream().filter(point -> point.day().equals(day)).count());
         assertTrue(byBoundary.stream().anyMatch(point -> point.day().equals(day.plusDays(1)) && point.key().equals("NONE")));
-        var byModel = queries.daily(scope(null, false, null, AiUsageFlow.CHAT), Split.MODEL);
+        var byModel = queries.daily(scope(null, false, null, AiUsageFlow.CHAT), AiCostSplit.MODEL);
         assertEquals(2, byModel.size());
     }
 
     @Test void breakdownsRankByCostAndLabelPeopleGroupsModelsFlowsAndProviders() {
-        var people = queries.breakdown(scope(null, false, null, null), Dimension.ACTOR, 10);
+        var people = queries.breakdown(scope(null, false, null, null), AiCostDimension.ACTOR, 10);
         assertEquals("Trần Thu Hà", people.getFirst().label());
         assertEquals("ha@tasco.vn", people.getFirst().detail());
         assertTrue(people.stream().anyMatch(row -> row.label().equals("quan@tasco.vn") && row.unknownCostCalls() == 1));
         assertTrue(people.stream().anyMatch(row -> row.key().equals("SYSTEM")));
-        var groups = queries.breakdown(scope(null, false, null, null), Dimension.GROUP, 10);
+        var groups = queries.breakdown(scope(null, false, null, null), AiCostDimension.GROUP, 10);
         assertEquals(1, groups.size());
         assertEquals("Pháp chế", groups.getFirst().label());
         assertEquals(2, groups.getFirst().calls());
-        var models = queries.breakdown(scope(null, false, null, null), Dimension.MODEL, 2);
+        var models = queries.breakdown(scope(null, false, null, null), AiCostDimension.MODEL, 2);
         assertEquals(2, models.size());
         assertEquals("gpt-5.1", models.getFirst().label());
         assertEquals("OpenAI", models.getFirst().detail());
-        var flows = queries.breakdown(scope(null, false, null, null), Dimension.FLOW, 10);
+        var flows = queries.breakdown(scope(null, false, null, null), AiCostDimension.FLOW, 10);
         assertEquals(3, flows.size());
-        var providers = queries.breakdown(scope(null, false, null, null), Dimension.PROVIDER, 10);
+        var providers = queries.breakdown(scope(null, false, null, null), AiCostDimension.PROVIDER, 10);
         assertTrue(providers.stream().anyMatch(row -> row.label().equals("vLLM nội bộ") && "INTERNAL".equals(row.detail())));
         // A provider relabelled mid-period keeps its External spend visible in its own row.
         recorder.record(AiUsage.tokens(tenant, ha, AiUsageFlow.CHAT, "OpenAI", "gpt-5.1", null, null, "INTERNAL", 10, 10, 0, 0.5,
                 day.atTime(10, 0).toInstant(java.time.ZoneOffset.UTC)));
-        var relabelled = queries.breakdown(scope(null, false, null, null), Dimension.PROVIDER, 10).stream()
+        var relabelled = queries.breakdown(scope(null, false, null, null), AiCostDimension.PROVIDER, 10).stream()
                 .filter(row -> row.label().equals("OpenAI")).toList();
         assertEquals(2, relabelled.size());
         assertTrue(relabelled.stream().anyMatch(row -> "EXTERNAL".equals(row.detail())

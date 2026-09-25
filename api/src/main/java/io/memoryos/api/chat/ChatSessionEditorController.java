@@ -1,5 +1,6 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.ai.ReasoningEffort;
 import io.memoryos.api.chat.contract.ChatSessionResponse;
 import io.memoryos.chat.ChatBranch;
 import io.memoryos.chat.ChatSessionService;
@@ -7,7 +8,7 @@ import io.memoryos.chat.ChatWorkspaceService;
 import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.ChatPersonaService;
 import io.memoryos.chat.ChatProjectService;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -107,7 +108,7 @@ class ChatSessionEditorController {
             @PathVariable UUID sessionId, @RequestBody ReasoningSelection request) {
         return ChatSessionResponse.from(sessions.pinReasoningEffort(identity.actorId(), sessionId, request.reasoningEffort()));
     }
-    record ReasoningSelection(io.memoryos.chat.preferences.@Nullable ReasoningEffort reasoningEffort) {}
+    record ReasoningSelection(@Nullable ReasoningEffort reasoningEffort) {}
 
     record Title(@NotBlank @Size(max = 200) String title) {}
     @PutMapping("/settings")

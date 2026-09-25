@@ -8,11 +8,11 @@ import io.memoryos.api.groups.contract.GroupSummaryPageResponse;
 import io.memoryos.api.groups.contract.GroupSummaryResponse;
 import io.memoryos.api.groups.contract.RenameGroupRequest;
 import io.memoryos.api.groups.contract.ReplaceGroupCapabilitiesRequest;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.GroupQuery;
-import io.memoryos.iam.group.GroupService;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupQuery;
+import io.memoryos.iam.GroupService;
+import io.memoryos.iam.IdentityContext;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

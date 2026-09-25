@@ -7,7 +7,7 @@ import io.memoryos.chat.ChatMessage;
 import io.memoryos.chat.ChatSessionService;
 import io.memoryos.chat.ChatWorkspaceService;
 import io.memoryos.chat.image.ImageArtifactService;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -52,11 +52,11 @@ class ChatSessionController {
     private final ImageArtifactService images;
     private final io.memoryos.chat.interpreter.InterpreterService interpreter;
     private final io.memoryos.chat.ChatTurnService turns;
-    private final io.memoryos.chat.application.ChatBranchService branches;
+    private final io.memoryos.chat.ChatBranchService branches;
 
     ChatSessionController(ChatSessionService sessions, ChatWorkspaceService workspace, ImageArtifactService images,
             io.memoryos.chat.interpreter.InterpreterService interpreter, io.memoryos.chat.ChatTurnService turns,
-            io.memoryos.chat.application.ChatBranchService branches) {
+            io.memoryos.chat.ChatBranchService branches) {
         this.sessions = sessions; this.workspace = workspace; this.images = images; this.interpreter = interpreter;
         this.turns = turns; this.branches = branches;
     }

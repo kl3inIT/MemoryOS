@@ -1,5 +1,7 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.ai.ModelFlow;
+import io.memoryos.ai.ModelAccounting;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -35,10 +37,10 @@ import java.util.stream.IntStream;
 import java.util.stream.Collectors;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import io.memoryos.chat.catalog.ModelSettings;
-import io.memoryos.chat.catalog.ModelCatalogService;
-import io.memoryos.chat.catalog.openai.OpenAiChatProviderAdapter;
-import io.memoryos.chat.catalog.openai.OpenAiChatProviderConfiguration;
+import io.memoryos.ai.ModelSettings;
+import io.memoryos.ai.ModelCatalogService;
+import io.memoryos.ai.openai.OpenAiProviderAdapter;
+import io.memoryos.ai.openai.OpenAiProviderConfiguration;
 import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.retrieval.SearchHit;
@@ -60,8 +62,8 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import io.memoryos.api.ApiPostgresDatabase;
 import io.memoryos.api.security.ActorAuthenticationToken;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.core.util.Json;
 
 import java.io.IOException;
@@ -86,13 +88,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import com.embabel.common.ai.model.PricingModel;
 import com.embabel.chat.UserMessage;
-import io.memoryos.chat.execution.ChatModelBinding;
-import io.memoryos.chat.execution.ChatRequestPolicy;
+import io.memoryos.ai.ModelBinding;
+import io.memoryos.ai.ModelRequestPolicy;
 import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import org.springframework.ai.chat.prompt.ChatOptions;
 
 import org.springframework.ai.chat.model.ChatModel;
@@ -124,7 +126,7 @@ import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
-import io.memoryos.chat.catalog.ChatProviderAdapter;
+import io.memoryos.ai.ProviderAdapter;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import reactor.core.publisher.Mono;
@@ -134,7 +136,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
-import io.memoryos.chat.execution.ChatExecutionProperties;
+import io.memoryos.chat.ChatExecutionProperties;
 import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -150,6 +152,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import io.memoryos.library.LibraryArchiveService;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "memoryos.chat.provider.api-key=test-only-model-is-mocked",
@@ -203,9 +206,9 @@ class ChatSessionApiIntegrationTest {
     @MockitoBean(name = "chatProviderModel")
     private ChatModel model;
     @MockitoSpyBean
-    private OpenAiChatProviderAdapter providerAdapter;
+    private OpenAiProviderAdapter providerAdapter;
     @MockitoBean private OpenSearchIndexService searchIndex;
-    @Autowired private io.memoryos.chat.application.ChatLibraryArchiveService libraryArchives;
+    @Autowired private LibraryArchiveService libraryArchives;
     @MockitoBean private DocumentChunkPort chunks;
     @MockitoBean private SourceDocumentAccessResolver sourceAccess;
     @MockitoBean private io.memoryos.connector.SourceSearchService sourceSearch;
@@ -240,7 +243,7 @@ class ChatSessionApiIntegrationTest {
         org.mockito.Mockito.doReturn(false).when(providerAdapter).listsModels();
         when(sourceSearch.scope(any())).thenAnswer(call -> new io.memoryos.connector.SourceSearchScope(new TenantId(TENANT), call.getArgument(0),
                 Map.of(searchSource, io.memoryos.connector.SourceType.FILE)));
-        doAnswer(call -> new ChatProviderAdapter.Client(OpenAiChatProviderAdapter.binding(
+        doAnswer(call -> new ProviderAdapter.Client(OpenAiProviderAdapter.binding(
                 call.getArgument(1), call.getArgument(2), model, new JTokkitTokenCountEstimator(EncodingType.O200K_BASE)), () -> {}))
                 .when(providerAdapter).create(any(), any(), any(), any());
         actor = actor();
@@ -405,7 +408,7 @@ class ChatSessionApiIntegrationTest {
         assertEquals(1,jdbc.sql("SELECT count(*) FROM chat_file_work WHERE file_id=:id").param("id",UUID.fromString(id)).query(Integer.class).single());
         mockMvc.perform(get("/api/chat/files/"+id+"/text").with(authentication(actor)))
                 .andExpect(status().isNotFound());
-        // Extraction itself is covered through real claims in ChatFileLifecycleIntegrationTest.
+        // Extraction itself is covered through real claims in UserFileLifecycleIntegrationTest.
         jdbc.sql("UPDATE chat_user_file SET status='READY',plaintext=:text,detected_media_type='text/plain' WHERE id=:id")
                 .param("text", "A😀Việt").param("id", UUID.fromString(id)).update();
         mockMvc.perform(get("/api/chat/files/"+id+"/text").with(authentication(actor)).param("offset","1").param("count","2"))
@@ -1713,11 +1716,11 @@ class ChatSessionApiIntegrationTest {
         var service = new SpringAiLlmService("fixture-model", "fixture-provider", provider,
                 (_, name) -> ChatOptions.builder().model(name).temperature(0.25).build(),
                 null, List.of(), PricingModel.usdPer1MTokens(1, 2));
-        var binding = new ChatModelBinding(service, prompt -> prompt, ChatRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
+        var binding = new ModelBinding(service, prompt -> prompt, ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
         for (int turn = 0; turn < 2; turn++) {
             var setup = new ChatTurnSetup(UUID.randomUUID(), UUID.randomUUID(), actor.getPrincipal().actorId(),
                     new TenantId(TENANT), "fixture-model", List.of(new UserMessage("Question")), binding);
-            var accounting = new AtomicReference<ChatModelExecutor.Accounting>();
+            var accounting = new AtomicReference<ModelAccounting>();
             var answer = new StringBuilder();
             executor.execute(setup, () -> {}, Mono.never(), answer::append, accounting::set, ignored -> {}, ignored -> {}, ignored -> {}, ignored -> {});
             assertEquals("Answer", answer.toString());
@@ -2154,6 +2157,44 @@ class ChatSessionApiIntegrationTest {
         }
     }
 
+    /** The catalog asks Chat to let go of a model before deleting it, alone or with its provider (ModelsRemoved). */
+    @Test
+    void deletingTheModelOrProviderAnAgentRunsOnReturnsTheAgentToItsInheritedModel() throws Exception {
+        grantModelManagement();
+        String personaId = create().path("personaId").asText();
+        var byModel = createConfiguredModel(createProvider("http://agent-model.internal/v1", true), "agent-model", 0.4);
+        long revision = agentModel(personaId, byModel.path("id").asText());
+        mockMvc.perform(delete("/api/chat/models/" + byModel.path("id").asText()).param("revision", "1")
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+        assertInherited(personaId, revision + 1);
+
+        var provider = createProvider("http://agent-provider.internal/v1", true);
+        var byProvider = createConfiguredModel(provider, "agent-provider-model", 0.4);
+        revision = agentModel(personaId, byProvider.path("id").asText());
+        mockMvc.perform(delete("/api/chat/providers/" + provider.path("id").asText()).param("revision", provider.path("revision").asText())
+                .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+        assertInherited(personaId, revision + 1);
+    }
+
+    private void assertInherited(String personaId, long revision) throws Exception {
+        var model = Json.mapper().readTree(mockMvc.perform(get("/api/chat/personas/" + personaId + "/model").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertTrue(model.path("modelConfigurationId").isNull() || model.path("modelConfigurationId").isMissingNode());
+        assertEquals(revision, model.path("revision").asLong());
+    }
+
+    /** Sets the agent's model and answers the agent model revision it now has. */
+    private long agentModel(String personaId, String modelId) throws Exception {
+        var saved = Json.mapper().readTree(mockMvc.perform(get("/api/chat/personas/" + personaId + "/model").with(authentication(actor)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        var set = Json.mapper().readTree(mockMvc.perform(put("/api/chat/personas/" + personaId + "/model")
+                        .param("revision", saved.path("revision").asText()).param("modelConfigurationId", modelId)
+                        .with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertEquals(modelId, set.path("modelConfigurationId").asText());
+        return set.path("revision").asLong();
+    }
+
     @Test
     void restrictedProviderUsesGroupAccessAndPersonaAllowlistAlsoAppliesToManagers() throws Exception {
         grantModelManagement();
@@ -2238,10 +2279,10 @@ class ChatSessionApiIntegrationTest {
         grantModelManagement();
         var flows = Json.mapper().readTree(mockMvc.perform(get("/api/chat/model-flows").with(authentication(actor)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        assertEquals(io.memoryos.chat.catalog.ModelFlow.values().length, flows.size(), "every task flow is listed");
+        assertEquals(ModelFlow.values().length, flows.size(), "every task flow is listed");
         var listed = new java.util.TreeSet<String>();
         flows.forEach(flow -> listed.add(flow.path("flow").asText()));
-        assertEquals(java.util.Arrays.stream(io.memoryos.chat.catalog.ModelFlow.values())
+        assertEquals(java.util.Arrays.stream(ModelFlow.values())
                 .map(Enum::name).collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new)), listed);
         var naming = flows.get(0);
         assertEquals("CHAT_NAMING", naming.path("flow").asText());
@@ -2655,8 +2696,8 @@ class ChatSessionApiIntegrationTest {
     @NullMarked
     static class LocalAdapterFixture {
         @Bean
-        ChatProviderAdapter fixtureLocalAdapter() {
-            return new ChatProviderAdapter() {
+        ProviderAdapter fixtureLocalAdapter() {
+            return new ProviderAdapter() {
                 @Override public String type() { return "fixture-local"; }
                 @Override public CredentialRequirement credentialRequirement() { return CredentialRequirement.NONE; }
                 @Override public List<TokenizerProfile> tokenizerProfiles() {
@@ -2670,7 +2711,7 @@ class ChatSessionApiIntegrationTest {
                         @Override public ChatResponse call(Prompt prompt) { throw new UnsupportedOperationException(); }
                         @Override public Flux<ChatResponse> stream(Prompt prompt) { return Flux.just(response("Local adapter answer", "stop", 2)); }
                     };
-                    return new Client(new ChatModelBinding(new SpringAiLlmService(name, "Fixture Local", nativeModel), p -> p, ChatRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling(), settings.capabilities().vision()), () -> {});
+                    return new Client(new ModelBinding(new SpringAiLlmService(name, "Fixture Local", nativeModel), p -> p, ModelRequestPolicy.hosted(new JTokkitTokenCountEstimator(EncodingType.O200K_BASE), p -> p), settings.contextWindow(), settings.maxOutputTokens(), settings.capabilities().toolCalling(), settings.capabilities().vision()), () -> {});
                 }
             };
         }
@@ -5320,9 +5361,9 @@ class ChatSessionApiIntegrationTest {
     void realProviderRunsThroughSendNativeRunnerAndPersistedHistory() throws Exception {
         String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
         assertTrue(key != null && !key.isBlank(), "SPRING_AI_OPENAI_API_KEY is required for this explicitly enabled check");
-        var configuration = new OpenAiChatProviderConfiguration();
-        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits);
-        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits);
+        var configuration = new OpenAiProviderConfiguration();
+        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
+        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var meters = new SimpleMeterRegistry();
         try {
             var provider = configuration.chatProviderModel(client, sync, key,
@@ -5427,9 +5468,9 @@ class ChatSessionApiIntegrationTest {
         assertTrue(key != null && !key.isBlank());
         String corpusFile = System.getenv("MEMORYOS_CHAT_CORPUS_FILE");
         assertTrue(corpusFile != null && !corpusFile.isBlank(), "MEMORYOS_CHAT_CORPUS_FILE is required for this opt-in check");
-        var configuration = new OpenAiChatProviderConfiguration();
-        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits);
-        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits);
+        var configuration = new OpenAiProviderConfiguration();
+        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
+        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var receipts = new ArrayList<Map<String, Object>>();
         var answerChecks = new ArrayList<org.junit.jupiter.api.function.Executable>();
         try (var corpus = new io.memoryos.retrieval.opensearch.LiveSearchCorpus(
@@ -5521,9 +5562,9 @@ class ChatSessionApiIntegrationTest {
     void realGroundedAnswersHandleNeighborsFollowUpMissingEvidenceAndDocumentInjection() throws Exception {
         String key = System.getenv("SPRING_AI_OPENAI_API_KEY");
         assertTrue(key != null && !key.isBlank(), "A managed OpenAI key is required for this opt-in check");
-        var configuration = new OpenAiChatProviderConfiguration();
-        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits);
-        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits);
+        var configuration = new OpenAiProviderConfiguration();
+        var client = configuration.chatOpenAiClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
+        var sync = configuration.chatOpenAiSyncClient(key, "https://api.openai.com/v1", limits.providerReadTimeout());
         var meters = new SimpleMeterRegistry();
         UUID policy = UUID.randomUUID(), contractor = UUID.randomUUID(), injection = UUID.randomUUID(), hidden = UUID.randomUUID();
         var generation = UUID.randomUUID();

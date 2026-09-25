@@ -1,26 +1,26 @@
 package io.memoryos.iam.group;
 
-import io.memoryos.iam.audit.AuditAction;
-import io.memoryos.iam.audit.AuditOutcome;
-import io.memoryos.iam.audit.AuditRecord;
-import io.memoryos.iam.audit.AuditTrail;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.group.Authority;
-import io.memoryos.iam.group.GroupAdministrationGuard;
-import io.memoryos.iam.group.GroupCapabilityMetadata;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.GroupMemberPage;
-import io.memoryos.iam.group.GroupPage;
-import io.memoryos.iam.group.GroupQuery;
-import io.memoryos.iam.group.GroupService;
-import io.memoryos.iam.group.GroupSummary;
-import io.memoryos.iam.group.GroupSystemKey;
-import io.memoryos.iam.group.IamAccess;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditOutcome;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
+import io.memoryos.iam.Authority;
+import io.memoryos.iam.GroupCapabilityMetadata;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupMemberPage;
+import io.memoryos.iam.GroupPage;
+import io.memoryos.iam.GroupPermissions;
+import io.memoryos.iam.GroupQuery;
+import io.memoryos.iam.GroupService;
+import io.memoryos.iam.GroupSummary;
+import io.memoryos.iam.GroupSystemKey;
+import io.memoryos.iam.IamAccess;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
 import io.memoryos.iam.group.persistence.GroupEntity;
 import io.memoryos.iam.group.persistence.GroupInvariantRepository;
@@ -43,8 +43,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 
 @Service
 public class DefaultGroupService implements GroupService {

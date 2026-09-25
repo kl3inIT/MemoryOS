@@ -1,7 +1,7 @@
 package io.memoryos.api.chat.contract;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.memoryos.chat.catalog.ProviderCredentials;
+import io.memoryos.ai.ProviderCredentials;
 import org.jspecify.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 

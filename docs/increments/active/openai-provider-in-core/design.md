@@ -1,5 +1,7 @@
 # OpenAI provider in core
 
+> **2026-09-25 — moved again.** The adapter now lives in `io.memoryos.ai.openai`, internal to the `ai` module, without the `openai` named interface ([ADR 0015](../../../decisions/0015-capability-module-map.md#step-2-what-ai-and-voice-hold)).
+
 ## Requirement
 
 Owner decision 2026-09-24 ([audit owner decisions](../audit-quality-fixes/owner-decisions.md), item 1.2): the OpenAI Chat provider (~1,600 lines) sat in the `api` composition root, against the rule that `api` and `worker` define no capability-owned behaviour ([conventions](../../../conventions.md)). It moves into `core`. Behaviour, `memoryos.chat.provider.*` property keys, bean names and the published HTTP contract (`openapi.yml`) stay unchanged.

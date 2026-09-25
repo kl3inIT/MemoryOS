@@ -1,16 +1,16 @@
 package io.memoryos.chat;
 
-import io.memoryos.chat.persistence.JdbcAgentRepository;
-import io.memoryos.chat.persistence.JdbcDocumentSetRepository;
+import io.memoryos.chat.persona.persistence.JdbcAgentRepository;
+import io.memoryos.chat.persona.persistence.JdbcDocumentSetRepository;
 import io.memoryos.connector.SourceCollectionScopeResolver;
 import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceSearchService;
 import io.memoryos.connector.SourceType;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,8 +35,8 @@ public class DocumentSetService implements SourceCollectionScopeResolver {
     public record SourceRef(UUID id, String name) {}
     public record Permissions(boolean edit, boolean share, boolean delete, boolean manage) {}
     public record View(UUID id, Permissions permissions, long revision, String name, String description, boolean isPublic,
-                       List<UUID> sourceIds, List<SourceRef> sources, int hiddenSources, List<JdbcAgentRepository.AgentPerson> userShares,
-                       List<JdbcAgentRepository.AgentRef> groupShares, Instant createdAt, Instant updatedAt) {}
+                       List<UUID> sourceIds, List<SourceRef> sources, int hiddenSources, List<AgentPerson> userShares,
+                       List<AgentRef> groupShares, Instant createdAt, Instant updatedAt) {}
 
     private final TenantAccessResolver tenants;
     private final IamAuthorization authorization;

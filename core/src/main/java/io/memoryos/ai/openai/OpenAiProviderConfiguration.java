@@ -1,0 +1,84 @@
+package io.memoryos.ai.openai;
+
+import com.embabel.agent.spi.support.springai.SpringAiLlmService;
+import com.openai.client.OpenAIClient;
+import com.openai.client.okhttp.OpenAIOkHttpClient;
+import io.memoryos.ai.ModelCatalogService;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
+
+import java.net.URI;
+import java.time.Duration;
+
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
+
+/**
+ * One supported protocol, using native Spring AI clients and Embabel service/options.
+ */
+@Configuration(proxyBeanMethods = false)
+public class OpenAiProviderConfiguration {
+    @Bean(destroyMethod = "close")
+    @Lazy
+    public OpenAiCancellation chatOpenAiClient(@Value("${memoryos.chat.provider.api-key:}") String key,
+                                              @Value("${memoryos.chat.provider.base-url:https://api.openai.com/v1}") String baseUrl,
+                                              @Value("${memoryos.chat.execution.provider-read-timeout}") Duration providerReadTimeout) {
+        requireCredential(key);
+        requireEndpoint(baseUrl);
+        return OpenAiProviderAdapter.asyncClient(baseUrl, key, providerReadTimeout);
+    }
+
+    @Bean(destroyMethod = "close")
+    @Lazy
+    public OpenAIClient chatOpenAiSyncClient(@Value("${memoryos.chat.provider.api-key:}") String key,
+                                             @Value("${memoryos.chat.provider.base-url:https://api.openai.com/v1}") String baseUrl,
+                                             @Value("${memoryos.chat.execution.provider-read-timeout}") Duration providerReadTimeout) {
+        requireCredential(key);
+        requireEndpoint(baseUrl);
+        return OpenAIOkHttpClient.builder().apiKey(key).baseUrl(baseUrl).maxRetries(0).timeout(OpenAiCancellation.gap(providerReadTimeout)).build();
+    }
+
+    @Bean
+    @Lazy
+    public ChatModel chatProviderModel(OpenAiCancellation chatOpenAiClient, @Lazy OpenAIClient chatOpenAiSyncClient,
+                                       @Value("${memoryos.chat.provider.api-key:}") String key,
+                                       ObservationRegistry observations, MeterRegistry meters) {
+        requireCredential(key);
+        return chatOpenAiClient.decorate(view -> OpenAiChatModel.builder().options(OpenAiChatOptions.builder().apiKey(key).maxRetries(0).build())
+                .openAiClient(chatOpenAiSyncClient).openAiClientAsync(view)
+                .observationRegistry(observations).meterRegistry(meters).build());
+    }
+
+    @Bean
+    public OpenAiProviderAdapter openAiChatProviderAdapter(ObservationRegistry observations, MeterRegistry meters) {
+        return new OpenAiProviderAdapter(observations, meters);
+    }
+
+    // Embabel's platform default metadata; Chat turns select their explicit catalog service.
+    @Bean
+    SpringAiLlmService chatLlmService(@Lazy ChatModel chatProviderModel,
+                                     ModelCatalogService.Deployment deployment) {
+        return OpenAiProviderAdapter.binding(deployment.modelName(), deployment.settings(), chatProviderModel,
+                TokenizerProfiles.hostedTokens()).service();
+    }
+
+
+    private static void requireCredential(String key) {
+        if (key.isBlank()) throw new IllegalStateException("Chat provider credential is not configured");
+    }
+
+    private static void requireEndpoint(String baseUrl) {
+        URI endpoint;
+        try { endpoint = URI.create(baseUrl); }
+        catch (IllegalArgumentException invalid) { throw new IllegalArgumentException("Invalid Chat provider endpoint"); }
+        // Server-owned configuration may address an HTTP provider on an internal deployment network.
+        if (!("https".equalsIgnoreCase(endpoint.getScheme()) || "http".equalsIgnoreCase(endpoint.getScheme())) || endpoint.getHost() == null
+                || endpoint.getRawUserInfo() != null || endpoint.getRawQuery() != null || endpoint.getRawFragment() != null)
+            throw new IllegalArgumentException("Chat provider endpoint must use HTTP(S) without credentials, query or fragment");
+    }
+}

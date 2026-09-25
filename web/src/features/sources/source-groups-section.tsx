@@ -11,8 +11,8 @@ import {
   updateSourceGroupsMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { GroupAccessPicker } from "@/features/groups/group-access-picker";
-import { sourceMutationError } from "./source-errors";
-import { SourceSectionIcon } from "./source-section-icon";
+import { sourceMutationError } from "@/features/sources/shared/source-errors";
+import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
 
 type SourceGroupsSectionProps = {
   sourceId: string;

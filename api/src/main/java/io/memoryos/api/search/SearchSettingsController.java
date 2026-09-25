@@ -8,7 +8,7 @@ import io.memoryos.api.search.contract.EmbeddingProviderTestResponse;
 import io.memoryos.api.search.contract.SearchGenerationRequest;
 import io.memoryos.api.search.contract.SearchGenerationResponse;
 import io.memoryos.api.search.contract.SearchSettingsResponse;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.retrieval.settings.SearchSettingsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

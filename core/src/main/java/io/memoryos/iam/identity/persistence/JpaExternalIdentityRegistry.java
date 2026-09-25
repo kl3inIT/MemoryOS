@@ -1,9 +1,9 @@
 package io.memoryos.iam.identity.persistence;
 
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.identity.ExternalIdentity;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.ExternalIdentity;
 import io.memoryos.iam.identity.ExternalIdentityRegistrar;
-import io.memoryos.iam.identity.ExternalIdentityResolver;
+import io.memoryos.iam.ExternalIdentityResolver;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;

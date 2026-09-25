@@ -4,7 +4,7 @@ import io.memoryos.document.DocumentChunk;
 import io.memoryos.document.DocumentChunkSet;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.DocumentIndexState;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.sql.Types;
 import java.time.Instant;
 import java.util.ArrayList;

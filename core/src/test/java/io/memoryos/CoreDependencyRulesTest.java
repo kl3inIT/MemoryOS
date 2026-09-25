@@ -13,6 +13,7 @@ class CoreDependencyRulesTest {
 
     private static final Set<String> CAPABILITIES = Set.of(
             "iam",
+            "ai",
             "objectstorage",
             "connector",
             "document",
@@ -21,7 +22,11 @@ class CoreDependencyRulesTest {
             "chat",
             "mcp",
             "usage",
-            "meeting"
+            "meeting",
+            "audit",
+            "shared",
+            "voice",
+            "library"
     );
 
     private final JavaClasses coreClasses = new ClassFileImporter()
@@ -47,7 +52,7 @@ class CoreDependencyRulesTest {
 
     private static ArchRule persistencePackageIsOwnedBy(String capability) {
         String ownerPackage = "io.memoryos." + capability + "..";
-        String persistencePackage = "io.memoryos." + capability + ".persistence..";
+        String persistencePackage = "io.memoryos." + capability + "..persistence..";
 
         return noClasses()
                 .that().resideOutsideOfPackage(ownerPackage)

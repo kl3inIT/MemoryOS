@@ -2,14 +2,14 @@ package io.memoryos.chat.tools;
 
 import com.embabel.agent.api.annotation.LlmTool;
 import io.memoryos.chat.ChatException;
-import io.memoryos.chat.ChatFileContentService;
+import io.memoryos.library.UserFileContentService;
 import io.memoryos.chat.ChatImageEvent;
 import io.memoryos.chat.image.ImageArtifactService;
 import io.memoryos.chat.image.ImageConnectionService;
 import io.memoryos.chat.image.ImageEditImages;
 import io.memoryos.chat.image.ImageProviderClient;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
@@ -29,7 +29,7 @@ public final class EditImageTool {
     private final ImageProviderClient client;
     private final ImageConnectionService.Connection connection;
     private final ImageArtifactService artifacts;
-    private final ChatFileContentService files;
+    private final UserFileContentService files;
     private final ActorId actor;
     private final TenantId tenant;
     private final UUID sessionId;
@@ -42,7 +42,7 @@ public final class EditImageTool {
     private int calls;
 
     public EditImageTool(ImageProviderClient client, ImageConnectionService.Connection connection, ImageArtifactService artifacts,
-                         ChatFileContentService files, ActorId actor, TenantId tenant, UUID sessionId, UUID messageId,
+                         UserFileContentService files, ActorId actor, TenantId tenant, UUID sessionId, UUID messageId,
                          Set<UUID> attachments, Map<UUID, String> filenames, Runnable active,
                          Consumer<ChatImageEvent> events, int maxCalls) {
         this.client = client; this.connection = connection; this.artifacts = artifacts; this.files = files;

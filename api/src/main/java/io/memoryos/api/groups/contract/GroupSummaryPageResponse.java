@@ -1,6 +1,6 @@
 package io.memoryos.api.groups.contract;
 
-import io.memoryos.iam.group.GroupPage;
+import io.memoryos.iam.GroupPage;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

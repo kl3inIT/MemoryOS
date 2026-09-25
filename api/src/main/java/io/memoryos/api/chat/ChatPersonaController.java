@@ -1,21 +1,25 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.api.chat.contract.AvailableChatModelResponse;
-import io.memoryos.chat.ChatPersonaService;
+import io.memoryos.api.chat.contract.ChatAgentRefResponse;
+import io.memoryos.api.chat.contract.ChatAgentShareOptionsResponse;
+import io.memoryos.api.chat.contract.ChatPersonaLabelRequest;
+import io.memoryos.api.chat.contract.ChatPersonaPinsRequest;
+import io.memoryos.chat.AgentListFilter;
 import io.memoryos.chat.ChatPersonaService.ListingInput;
 import io.memoryos.chat.ChatPersonaService.PersonaInput;
 import io.memoryos.chat.ChatPersonaService.PersonaView;
 import io.memoryos.chat.ChatPersonaService.SharingInput;
 import io.memoryos.chat.ChatPersonaService.TransferInput;
-import io.memoryos.chat.catalog.ModelCatalogService;
-import io.memoryos.chat.persistence.JdbcAgentRepository;
+import io.memoryos.chat.ChatPersonaService;
+import io.memoryos.chat.ChatModelAccess;
 import io.memoryos.connector.SourceSearchService;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
@@ -44,20 +48,18 @@ import org.springframework.web.bind.annotation.*;
 @SecurityRequirement(name = "bearerAuth")
 class ChatPersonaController {
     private final ChatPersonaService personas;
-    private final ModelCatalogService models;
+    private final ChatModelAccess models;
     private final SourceSearchService sources;
-    ChatPersonaController(ChatPersonaService personas, ModelCatalogService models, SourceSearchService sources) {
+    ChatPersonaController(ChatPersonaService personas, ChatModelAccess models, SourceSearchService sources) {
         this.personas = personas; this.models = models; this.sources = sources;
     }
 
-    record LabelRequest(String name) {}
-    record PinsRequest(List<UUID> personaIds) {}
 
     @GetMapping("/personas")
     @Operation(operationId = "listChatPersonas", summary = "List usable agents: all listed, the actor's own, or shared with the actor")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
     List<PersonaView> list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-            @RequestParam(defaultValue = "ALL") JdbcAgentRepository.View view, @RequestParam(required = false) @Nullable UUID labelId,
+            @RequestParam(defaultValue = "ALL") AgentListFilter view, @RequestParam(required = false) @Nullable UUID labelId,
             @RequestParam(required = false) @Nullable String q,
             @RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "30") int limit) {
         return personas.list(identity.actorId(), view, labelId, q, offset, limit);
@@ -133,7 +135,7 @@ class ChatPersonaController {
     @Operation(operationId = "reorderChatPersonas", summary = "Set display priorities from one ordered list; requires AGENTS_MANAGE")
     @ApiResponse(responseCode = "204", description = "Order saved")
     @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
-    void reorder(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody PinsRequest request) {
+    void reorder(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody ChatPersonaPinsRequest request) {
         personas.reorder(identity.actorId(), request.personaIds());
     }
     @GetMapping(value = "/personas/{personaId}/avatar", produces = {"image/png", "image/jpeg", "image/webp", "image/gif"})
@@ -168,29 +170,29 @@ class ChatPersonaController {
     @GetMapping("/persona-share-options")
     @Operation(operationId = "listChatPersonaShareOptions", summary = "Search active members and ordinary Groups to share an agent with")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    JdbcAgentRepository.AgentShareOptions shareOptions(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ChatAgentShareOptionsResponse shareOptions(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @RequestParam(required = false) @Nullable String q, @RequestParam(defaultValue = "20") int limit) {
-        return personas.shareOptions(identity.actorId(), q, limit);
+        return ChatAgentShareOptionsResponse.from(personas.shareOptions(identity.actorId(), q, limit));
     }
     @GetMapping("/persona-labels")
     @Operation(operationId = "listChatPersonaLabels", summary = "List agent labels")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    List<JdbcAgentRepository.AgentRef> labels(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return personas.labels(identity.actorId());
+    List<ChatAgentRefResponse> labels(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+        return personas.labels(identity.actorId()).stream().map(ChatAgentRefResponse::from).toList();
     }
     @PostMapping("/persona-labels")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(operationId = "createChatPersonaLabel", summary = "Create an agent label")
     @ApiResponse(responseCode = "201", description = "Successful chat operation", useReturnTypeSchema = true)
-    JdbcAgentRepository.AgentRef createLabel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody LabelRequest request) {
-        return personas.createLabel(identity.actorId(), request.name());
+    ChatAgentRefResponse createLabel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody ChatPersonaLabelRequest request) {
+        return ChatAgentRefResponse.from(personas.createLabel(identity.actorId(), request.name()));
     }
     @PutMapping("/persona-labels/{labelId}")
     @Operation(operationId = "renameChatPersonaLabel", summary = "Rename an agent label; requires AGENTS_MANAGE")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    JdbcAgentRepository.AgentRef renameLabel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
-            @PathVariable UUID labelId, @RequestBody LabelRequest request) {
-        return personas.renameLabel(identity.actorId(), labelId, request.name());
+    ChatAgentRefResponse renameLabel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @PathVariable UUID labelId, @RequestBody ChatPersonaLabelRequest request) {
+        return ChatAgentRefResponse.from(personas.renameLabel(identity.actorId(), labelId, request.name()));
     }
     @DeleteMapping("/persona-labels/{labelId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -207,7 +209,7 @@ class ChatPersonaController {
     @PutMapping("/persona-pins")
     @Operation(operationId = "replaceChatPersonaPins", summary = "Replace the actor's ordered pinned agents")
     @ApiResponse(responseCode = "200", description = "Successful chat operation", useReturnTypeSchema = true)
-    List<PersonaView> replacePins(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody PinsRequest request) {
+    List<PersonaView> replacePins(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody ChatPersonaPinsRequest request) {
         return personas.replacePins(identity.actorId(), request.personaIds());
     }
 }

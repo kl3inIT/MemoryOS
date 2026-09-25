@@ -1,6 +1,6 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.chat.voice.VoiceProvider;
+import io.memoryos.voice.VoiceProvider;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 

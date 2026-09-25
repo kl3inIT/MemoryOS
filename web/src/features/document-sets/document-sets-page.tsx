@@ -17,18 +17,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TablePagination } from "@/components/ui/table-pagination";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { actionErrorText } from "@/lib/action-errors";
 import {
   documentSetsKey,
   loadDocumentSets,
-  loadPersonaSources,
   type DocumentSet,
-} from "@/features/chat/chat-workspace-api";
+} from "@/features/document-sets/document-sets-api";
+import { loadPersonaSources } from "@/features/chat/chat-personas-api";
 import {
   useApplicationSession,
   useGlobalCapability,
 } from "@/features/identity/application-session-context";
-import { findSourceProvider } from "@/features/sources/source-provider-catalog";
+import { findSourceProvider } from "@/features/sources/shared/source-provider-catalog";
 import { deleteDocumentSet } from "@/lib/hey-api/sdk.gen";
 import { DocumentSetAccessBadge } from "./document-set-access-badge";
 
@@ -190,7 +190,7 @@ function DocumentSetTable({ sets }: { sets: DocumentSet[] }) {
                         confirmLabel={ui("Xóa bộ tài liệu")}
                         pendingLabel={ui("Đang xóa…")}
                         confirmTone="danger"
-                        errorMessage={(cause) => chatActionError(cause)}
+                        errorMessage={(cause) => actionErrorText(cause)}
                         onConfirm={async () => {
                           await deleteDocumentSet({
                             path: { documentSetId: set.id },

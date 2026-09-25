@@ -1,26 +1,26 @@
 package io.memoryos.api.security;
 
 import io.memoryos.api.invitation.InvitationSessionState;
-import io.memoryos.iam.audit.AuditAction;
-import io.memoryos.iam.audit.AuditOutcome;
-import io.memoryos.iam.audit.AuditRecord;
-import io.memoryos.iam.audit.AuditTrail;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.identity.ActorProfileRecorder;
-import io.memoryos.iam.identity.ExternalIdentity;
-import io.memoryos.iam.identity.ExternalIdentityResolver;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditOutcome;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.ActorProfileRecorder;
+import io.memoryos.iam.ExternalIdentity;
+import io.memoryos.iam.ExternalIdentityResolver;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.invitation.InvitationAcceptance;
-import io.memoryos.iam.invitation.InvitationException;
-import io.memoryos.iam.invitation.InvitationFailureReason;
-import io.memoryos.iam.invitation.InvitationService;
-import io.memoryos.iam.invitation.VerifiedEmailInvitationAcceptance;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
-import io.memoryos.iam.identity.TrustedIdentityAdmission;
-import io.memoryos.iam.identityprovider.JitAdmissionPolicy;
+import io.memoryos.iam.InvitationAcceptance;
+import io.memoryos.iam.InvitationException;
+import io.memoryos.iam.InvitationFailureReason;
+import io.memoryos.iam.InvitationService;
+import io.memoryos.iam.VerifiedEmailInvitationAcceptance;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
+import io.memoryos.iam.TrustedIdentityAdmission;
+import io.memoryos.iam.JitAdmissionPolicy;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -210,7 +210,8 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
                          @org.jspecify.annotations.Nullable OidcUser user, String reason, AuditOutcome outcome) {
         String who = user == null ? null : java.util.Objects.requireNonNullElse(user.getClaimAsString("email"),
                 user.getSubject());
-        audit.recordSeparately(AuditRecord.of(AuditAction.LOGIN_FAILURE, tenantId).outcome(outcome).actor(actor, who)
+        audit.recordSeparately(AuditRecord.of(AuditAction.LOGIN_FAILURE, tenantId).outcome(outcome)
+                .actor(actor, who)
                 .detail("reason", reason).build());
     }
 

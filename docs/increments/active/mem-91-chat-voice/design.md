@@ -1,5 +1,7 @@
 # MEM-91 — Voice cho Chat
 
+> **25/09/2026 — đổi package.** Voice nay là module `voice` (`io.memoryos.voice`, `voice.persistence`); cài đặt voice của từng người (auto-send, auto-playback, tốc độ) ở lại Chat trong `chat.preferences` ([ADR 0015](../../../decisions/0015-capability-module-map.md#step-2-what-ai-and-voice-hold)). Đường dẫn bên dưới giữ như lúc viết.
+
 Tracking: [MEM-91](https://linear.app/memory-os/issue/MEM-91). Tham chiếu hành vi Onyx: [onyx-voice-reference.md](onyx-voice-reference.md). Kế hoạch: [plan.md](plan.md). Liên quan: [MEM-77 catalog](../mem-77-provider-backend/design.md), [MEM-97 image connection](../../completed/mem-97-chat-image-generation/design.md), [Chat Web search](../chat-web-search/design.md).
 
 Trạng thái: **đang triển khai** (15/09/2026).

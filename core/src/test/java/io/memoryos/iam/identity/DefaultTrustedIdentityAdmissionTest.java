@@ -8,16 +8,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.identity.ExternalIdentity;
+import io.memoryos.iam.ExternalIdentity;
+import io.memoryos.iam.TrustedIdentityAdmission;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.group.GroupProvisioner;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapRequest;
-import io.memoryos.iam.tenant.bootstrap.InitialTenantBootstrapper;
-import io.memoryos.iam.tenant.TenantId;
-import io.memoryos.iam.identity.TrustedIdentityAdmission;
+import io.memoryos.iam.InitialTenantBootstrapRequest;
+import io.memoryos.iam.InitialTenantBootstrapper;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
 import io.memoryos.iam.group.persistence.GroupMembershipRepository;
 import io.memoryos.iam.group.persistence.GroupRepository;
@@ -40,14 +40,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.group.DefaultGroupProvisioner;
 import io.memoryos.iam.group.DefaultIamAuthorization;
-import io.memoryos.iam.identity.DefaultTrustedIdentityAdmission;
-import io.memoryos.iam.tenant.bootstrap.DefaultInitialTenantBootstrapper;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
+import io.memoryos.iam.tenant.DefaultInitialTenantBootstrapper;
 
 @Testcontainers
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
@@ -74,7 +68,7 @@ class DefaultTrustedIdentityAdmissionTest {
         tenants = new JpaTenantRepository(jpa.entityManager());
         identities = new JpaExternalIdentityRegistry(jpa.entityManager());
         locks = new IamLockRepository(jdbc);
-        groups = new DefaultGroupProvisioner(
+        groups = new GroupProvisioner(
                 new GroupRepository(jpa.entityManager()),
                 new GroupMembershipRepository(jpa.entityManager()),
                 new GroupCapabilityGrantRepository(jpa.entityManager())
@@ -220,18 +214,17 @@ class DefaultTrustedIdentityAdmissionTest {
     }
 
     private GroupProvisioner wrappingGroups(Runnable afterWrite) {
-        return new GroupProvisioner() {
-            @Override
-            public void bootstrap(TenantId tenantId, ActorId configuredOwner) {
-                groups.bootstrap(tenantId, configuredOwner);
-            }
-
-            @Override
-            public void addToBasicGroup(TenantId tenantId, ActorId actorId) {
-                groups.addToBasicGroup(tenantId, actorId);
-                afterWrite.run();
-            }
-        };
+        GroupProvisioner wrapping = org.mockito.Mockito.mock(GroupProvisioner.class);
+        org.mockito.Mockito.doAnswer(call -> {
+            groups.bootstrap(call.getArgument(0), call.getArgument(1));
+            return null;
+        }).when(wrapping).bootstrap(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.doAnswer(call -> {
+            groups.addToBasicGroup(call.getArgument(0), call.getArgument(1));
+            afterWrite.run();
+            return null;
+        }).when(wrapping).addToBasicGroup(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        return wrapping;
     }
 
     private long count(String table) {

@@ -1,5 +1,7 @@
 # MEM-92 — Meeting notes: bot-less meeting capture, live transcript and minutes
 
+> **2026-09-25 — dependencies moved.** Meetings now use `voice` and `ai` instead of `chat :: voice` and `chat :: summary`, and `MeetingLibraryService` publishes minutes through the `library` module; the meeting module no longer depends on `chat` ([ADR 0015 steps 2 and 3](../../../decisions/0015-capability-module-map.md#step-3-what-library-holds)).
+
 Linear: [MEM-92](https://linear.app/memory-os/issue/MEM-92) (this increment; phase 3 keeps its original cross-meeting tasks scope), related to [MEM-91](../mem-91-chat-voice/design.md) (voice providers). Meeting-platform transcript connectors are [MEM-169](https://linear.app/memory-os/issue/MEM-169). Status: phase 1 in progress (Soniox provider, meeting module and web recording done; minutes job, library publishing, upload and Tenant setting open). Interactive mock: [mock.html](mock.html) (also published at <https://claude.ai/artifact/2hZMDJbwYYpVZJUVg6Ltio>). The mock shows intent, not a specification: implementation follows MemoryOS components and may change layout and flow where the real product works better; record such changes here.
 
 ## Problem

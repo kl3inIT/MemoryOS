@@ -1,9 +1,9 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Globe, Lock, Users, type LucideIcon } from "lucide-react";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
-import { SourceHint } from "@/features/sources/source-hint";
-import { statusPill } from "@/features/sources/source-status-presentation";
-import type { DocumentSet } from "@/features/chat/chat-workspace-api";
+import { SourceHint } from "@/features/sources/shared/source-hint";
+import { statusPill } from "@/features/sources/shared/source-status-presentation";
+import type { DocumentSet } from "@/features/document-sets/document-sets-api";
 
 type AccessPresentation = { label: string; title: string; tone: StatusTone; icon: LucideIcon };
 

@@ -1,13 +1,13 @@
 package io.memoryos.iam.group;
 
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.GroupIdentityPage;
-import io.memoryos.iam.group.GroupQuery;
-import io.memoryos.iam.group.GroupScopeService;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupIdentityPage;
+import io.memoryos.iam.GroupQuery;
+import io.memoryos.iam.GroupScopeService;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.GroupInvariantRepository;
 import io.memoryos.iam.group.persistence.GroupProjectionRepository;
 
@@ -19,8 +19,6 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 
 @Service
 public class DefaultGroupScopeService implements GroupScopeService {

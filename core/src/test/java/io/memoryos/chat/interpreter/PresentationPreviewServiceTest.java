@@ -14,9 +14,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.memoryos.chat.ChatException;
-import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectKey;
@@ -52,8 +51,8 @@ class PresentationPreviewServiceTest {
         when(client.upload(eq("deck.pptx"), eq(InterpreterService.PPTX), any())).thenReturn("svc-deck");
     }
 
-    private JdbcInterpreterRepository.Artifact artifact(ObjectKey cached) {
-        return new JdbcInterpreterRepository.Artifact(deck, "Báo cáo quý 3.pptx", InterpreterService.PPTX, cached);
+    private InterpreterArtifact artifact(ObjectKey cached) {
+        return new InterpreterArtifact(deck, "Báo cáo quý 3.pptx", InterpreterService.PPTX, cached);
     }
 
     @Test void aCachedPreviewIsServedWithoutTheInterpreter() throws Exception {

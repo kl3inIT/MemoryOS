@@ -5,11 +5,11 @@ import { ClampedList } from "@/components/ui/clamped-list";
 import { IconButton } from "@/components/ui/icon-button";
 import { Label } from "@/components/ui/label";
 import { X } from "lucide-react";
-import { AgentPrincipalPicker } from "@/features/agents/agent-principal-picker";
-import { personLabel, type AgentPerson, type AgentRef } from "@/features/chat/chat-workspace-api";
+import { PrincipalPicker } from "@/features/identity/principal-picker";
+import { personLabel, type Person, type NamedRef } from "@/features/identity/principals";
 
 /** Who a meeting reaches beside its owner. Names typed for people outside MemoryOS are kept separately. */
-export type MeetingAudience = { people: AgentPerson[]; groups: AgentRef[] };
+export type MeetingAudience = { people: Person[]; groups: NamedRef[] };
 
 /**
  * Picks the members and Groups a meeting is shared with, reusing the invite field the Agent and Document Set
@@ -34,7 +34,7 @@ export function MeetingShareField({
   return (
     <div className="grid gap-1.5">
       <Label>{label}</Label>
-      <AgentPrincipalPicker
+      <PrincipalPicker
         exclude={chosen}
         onPick={(principal) =>
           principal.kind === "person"

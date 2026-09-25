@@ -1,7 +1,7 @@
 package io.memoryos.api.chat.contract;
 
+import io.memoryos.ai.ModelConfiguration;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.memoryos.chat.persistence.ModelCatalogRepository;
 import java.util.UUID;
 
 @Schema(name = "Model")
@@ -15,7 +15,7 @@ public record ChatModelResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) ChatModelSettingsResponse settings,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long revision
 ) {
-    public static ChatModelResponse from(ModelCatalogRepository.Model value) {
+    public static ChatModelResponse from(ModelConfiguration value) {
         return new ChatModelResponse(value.id(), value.tenantId(), value.providerId(), value.modelName(), value.displayName(),
                 value.visible(), ChatModelSettingsResponse.from(value.settings()), value.revision());
     }

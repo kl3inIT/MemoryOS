@@ -1,10 +1,21 @@
 package io.memoryos.iam.identityprovider;
 
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.IdentityProviderAdministration;
+import io.memoryos.iam.IdentityProviderCommand;
+import io.memoryos.iam.IdentityProviderException;
+import io.memoryos.iam.IdentityProviderFailureReason;
+import io.memoryos.iam.IdentityProviderUpdate;
+import io.memoryos.iam.IdentityProviderView;
+import io.memoryos.shared.TenantId;
+
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.identityprovider.persistence.JitAllowlistRepository;
-import io.memoryos.iam.keycloak.DiscoveredOidcProvider;
+import io.memoryos.iam.DiscoveredOidcProvider;
 import io.memoryos.iam.keycloak.OidcDiscoveryClient;
 
 import java.util.HashMap;
@@ -33,7 +44,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
     private final OidcDiscoveryClient discovery;
     private final JitAllowlistRepository allowlist;
     private final TransactionTemplate transactions;
-    private final io.memoryos.iam.audit.AuditTrail audit;
+    private final AuditTrail audit;
 
     public DefaultIdentityProviderAdministration(
             IamAuthorization authorization,
@@ -41,7 +52,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
             OidcDiscoveryClient discovery,
             JitAllowlistRepository allowlist,
             PlatformTransactionManager transactionManager,
-            io.memoryos.iam.audit.AuditTrail audit
+            AuditTrail audit
     ) {
         this.audit = Objects.requireNonNull(audit, "audit must not be null");
         this.authorization = Objects.requireNonNull(authorization, "authorization must not be null");
@@ -85,7 +96,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
         var created = toView(gateway.find(command.alias()).orElseThrow(
                 DefaultIdentityProviderAdministration::unavailableAfterWrite), command.jitAllowed());
         // Settled in Keycloak: no database transaction covers it, so the event is written on its own.
-        audit.recordSeparately(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.IDENTITY_PROVIDER_CREATE, tenant).actor(actorId)
+        audit.recordSeparately(AuditRecord.of(AuditAction.IDENTITY_PROVIDER_CREATE, tenant).actor(actorId)
                 .resource("IDENTITY_PROVIDER", command.alias(), command.displayName())
                 .detail("after", facts(command.alias(), command.issuer(), command.jitAllowed())).build());
         return created;
@@ -131,7 +142,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
         });
         var updated = toView(gateway.find(effectiveAlias).orElseThrow(
                 DefaultIdentityProviderAdministration::unavailableAfterWrite), update.jitAllowed());
-        audit.recordSeparately(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.IDENTITY_PROVIDER_UPDATE, tenant).actor(actorId)
+        audit.recordSeparately(AuditRecord.of(AuditAction.IDENTITY_PROVIDER_UPDATE, tenant).actor(actorId)
                 .resource("IDENTITY_PROVIDER", effectiveAlias, existing.getDisplayName())
                 .detail("before", before).detail("after", facts(effectiveAlias, targetIssuer, update.jitAllowed())).build());
         return updated;
@@ -145,7 +156,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
             allowlist.disallow(alias);
         });
         gateway.delete(alias);
-        audit.recordSeparately(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.IDENTITY_PROVIDER_DELETE, tenant).actor(actorId)
+        audit.recordSeparately(AuditRecord.of(AuditAction.IDENTITY_PROVIDER_DELETE, tenant).actor(actorId)
                 .resource("IDENTITY_PROVIDER", alias, alias).detail("alias", alias).build());
     }
 
@@ -158,7 +169,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
         return facts;
     }
 
-    private io.memoryos.iam.tenant.TenantId requireAdmin(ActorId actorId) {
+    private TenantId requireAdmin(ActorId actorId) {
         return authorization.require(
                 Objects.requireNonNull(actorId, "actorId must not be null"),
                 IamCapability.SYSTEM_ADMIN,

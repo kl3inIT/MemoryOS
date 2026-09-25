@@ -1,6 +1,6 @@
 package io.memoryos.api.usage;
 
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.usage.AiUsageLimit;
 import io.memoryos.usage.AiUsageLimitScope;
 import io.memoryos.usage.AiUsageLimitService;

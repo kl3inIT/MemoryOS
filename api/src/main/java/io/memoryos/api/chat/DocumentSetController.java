@@ -4,7 +4,7 @@ import io.memoryos.chat.DocumentSetService;
 import io.memoryos.chat.DocumentSetService.Input;
 import io.memoryos.chat.DocumentSetService.DocumentSetSharingInput;
 import io.memoryos.chat.DocumentSetService.View;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

@@ -1,5 +1,9 @@
 package io.memoryos.chat.execution;
 
+import io.memoryos.chat.ChatExecutionProperties;
+import io.memoryos.ai.ModelBinding;
+import io.memoryos.ai.ModelTurns;
+import io.memoryos.ai.ModelAccounting;
 import com.embabel.agent.api.common.ExecutingOperationContext;
 import com.embabel.agent.api.streaming.StreamingPromptRunnerBuilder;
 import com.embabel.agent.core.AgentProcessRepository;
@@ -32,6 +36,9 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
+import io.memoryos.library.UserFileContentService;
+import io.memoryos.library.UserFileSearchService;
+import io.memoryos.library.UserFileService;
 
 /** Calls the public native runner. There is no MemoryOS inference/tool loop here. */
 public final class ChatModelExecutor {
@@ -42,9 +49,9 @@ public final class ChatModelExecutor {
     private final ChatSearchProperties searchLimits;
     private final Scheduler scheduler;
     private final SearchTimings timings;
-    private final io.memoryos.chat.ChatFileService files;
-    private final io.memoryos.chat.ChatFileSearchService fileSearch;
-    private final io.memoryos.chat.ChatFileContentService fileContent;
+    private final UserFileService files;
+    private final UserFileSearchService fileSearch;
+    private final UserFileContentService fileContent;
     private final io.memoryos.chat.web.@Nullable WebProviderClient web;
     private final @Nullable ImageProviderClient image;
     private final ImageArtifactService imageArtifacts;
@@ -56,14 +63,14 @@ public final class ChatModelExecutor {
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
-            io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
+            UserFileService files, UserFileSearchService fileSearch, UserFileContentService fileContent,
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts) {
         this(contexts, processes, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, null, null, null, null, null, new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
     }
 
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
-            io.memoryos.chat.ChatFileService files, io.memoryos.chat.ChatFileSearchService fileSearch, io.memoryos.chat.ChatFileContentService fileContent,
+            UserFileService files, UserFileSearchService fileSearch, UserFileContentService fileContent,
             io.memoryos.chat.web.@Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts,
             io.memoryos.chat.interpreter.@Nullable InterpreterClient interpreter,
             io.memoryos.chat.interpreter.@Nullable InterpreterService interpreterSettings,
@@ -90,30 +97,6 @@ public final class ChatModelExecutor {
         this.meters = meters;
     }
 
-    /**
-     * Usage of one turn or naming call. {@code used} is false when no model call was admitted, so nothing is billed;
-     * unknown totals stay null and are never presented as zero.
-     */
-    public record Accounting(@Nullable Long input, @Nullable Long output, @Nullable Double cost, long cacheRead, boolean used) {
-        public static final Accounting NONE = new Accounting(null, null, null, 0, false);
-
-        static Accounting of(java.util.List<ChatModelGuard> guards, com.embabel.agent.core.AgentProcess process,
-                             com.embabel.common.ai.model.LlmMetadata metadata) {
-            var used = guards.stream().filter(ChatModelGuard::used).toList();
-            if (used.isEmpty()) return NONE;
-            boolean known = used.stream().allMatch(ChatModelGuard::usageKnown);
-            var usage = process.usage();
-            long cached = used.stream().mapToLong(ChatModelGuard::cacheReadTokens).sum();
-            Double cost = known && metadata.getPricingModel() != null ? process.cost() : null;
-            // Embabel prices every input token at the input rate; cached input is billed at the model's cache rate.
-            if (cost != null && metadata.getPricingModel() instanceof io.memoryos.chat.catalog.ChatModelPricing pricing)
-                cost = Math.max(0, cost - pricing.cacheDiscount(cached));
-            return new Accounting(known && usage.getPromptTokens() != null ? usage.getPromptTokens().longValue() : null,
-                    known && usage.getCompletionTokens() != null ? usage.getCompletionTokens().longValue() : null,
-                    cost, known ? cached : 0, true);
-        }
-    }
-
     /** Attachment bytes come from object storage; this bounds that read on its own, not by a turn deadline. */
     private static final Duration FILE_INPUT_TIMEOUT = Duration.ofSeconds(60);
 
@@ -122,43 +105,14 @@ public final class ChatModelExecutor {
         return toolCalling && options.codeInterpreter();
     }
 
-    /**
-     * One structured call outside any conversation, for background work such as a meeting's minutes: no tools, no
-     * attachments, no streaming. The model answers as {@code shape}, and {@code accounting} receives its usage even
-     * when the call fails. The input is untrusted data; the caller's instructions say so.
-     */
-    public <T> T generateObject(ChatModelBinding selected, String instructions, String input, Class<T> shape,
-                                Duration timeout, int maxOutputTokens, Consumer<Accounting> accounting) {
-        var context = contexts.getObject();
-        var process = context.getProcessContext().getAgentProcess();
-        var deadline = Instant.now().plus(timeout);
-        ChatModelGuard admitted = null;
-        try {
-            var metadata = selected.service();
-            int output = selected.outputAtMost(maxOutputTokens);
-            var guard = new ChatModelGuard(metadata.getChatModel(), process, metadata,
-                    new Budget(limits.costCap(), Integer.MAX_VALUE, limits.tokenCap()), 1,
-                    () -> { if (!Instant.now().isBefore(deadline)) throw new IllegalStateException("CHAT_DEADLINE"); },
-                    selected.policy(), selected.contextWindow() - output, selected.finalRequest());
-            guard.outputLimit(output);
-            admitted = guard;
-            var runner = context.ai().withLlmService(selected.withModel(guard));
-            var llm = Objects.requireNonNull(runner.getLlm()).withoutThinking().withMaxTokens(output).withTimeout(timeout);
-            return runner.withLlm(llm).createObject(instructions + "\n\n" + input, shape);
-        } finally {
-            try { accounting.accept(admitted == null ? Accounting.NONE : Accounting.of(List.of(admitted), process, selected.service())); }
-            finally { processes.delete(process); }
-        }
-    }
-
     /** Separate best-effort naming invocation: no tools, no attachment bytes, no answer mutation. */
-    public String generateTitle(ChatModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history) {
+    public String generateTitle(ModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history) {
         return generateTitle(selected, history, ignored -> {});
     }
 
-    /** As {@link #generateTitle(ChatModelBinding, java.util.List)}; {@code accounting} receives its usage even when naming fails. */
-    public String generateTitle(ChatModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history,
-                                Consumer<Accounting> accounting) {
+    /** As {@link #generateTitle(ModelBinding, java.util.List)}; {@code accounting} receives its usage even when naming fails. */
+    public String generateTitle(ModelBinding selected, java.util.List<io.memoryos.chat.ChatMessage> history,
+                                Consumer<ModelAccounting> accounting) {
         var context = contexts.getObject();
         var process = context.getProcessContext().getAgentProcess();
         var deadline = Instant.now().plusSeconds(10);
@@ -190,7 +144,7 @@ public final class ChatModelExecutor {
             if (title.isBlank()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
             return title.substring(0, title.offsetByCodePoints(0, Math.min(80, title.codePointCount(0, title.length()))));
         } finally {
-            try { accounting.accept(admitted == null ? Accounting.NONE : Accounting.of(List.of(admitted), process, selected.service())); }
+            try { accounting.accept(admitted == null ? ModelAccounting.NONE : ModelAccounting.of(List.of(admitted), process, selected.service())); }
             finally { processes.delete(process); }
         }
     }
@@ -226,7 +180,7 @@ public final class ChatModelExecutor {
     }
 
     public void execute(ChatTurnSetup setup, Runnable checkActive, Mono<?> cancellation,
-            Consumer<String> output, Consumer<Accounting> accounting, Consumer<ChatActivityEvent> events,
+            Consumer<String> output, Consumer<ModelAccounting> accounting, Consumer<ChatActivityEvent> events,
             Consumer<ChatImageEvent> imageEvents, Consumer<io.memoryos.chat.ChatCodeEvent> codeEvents,
             Consumer<CompletableFuture<Void>> onDrained) {
         var selected = setup.binding();
@@ -241,10 +195,10 @@ public final class ChatModelExecutor {
         Integer maxOutput = selected.maxOutputTokens();
         int outputBound = selected.outputBound();
         boolean nativeWeb = selected.toolCalling() && setup.webSearch() != io.memoryos.chat.WebSearchMode.off
-                && metadata.getChatModel() instanceof ChatModelTurns hosted && hosted.nativeWebSearch();
+                && metadata.getChatModel() instanceof ModelTurns hosted && hosted.nativeWebSearch();
         var delegate = metadata.getChatModel();
-        if (delegate instanceof ChatModelTurns turns)
-            delegate = turns.forTurn(new ChatModelTurns.Turn(setup.evidence(), events, nativeWeb, checkActive));
+        if (delegate instanceof ModelTurns turns)
+            delegate = turns.forTurn(ChatTurnListener.turn(setup.evidence(), events, nativeWeb, checkActive));
         int contextLimit = Math.min(limits.contextCap(), selected.inputLimit(limits.maxOutputTokens()));
         if (setup.options().contextTokenLimit() != null) contextLimit = Math.min(contextLimit, setup.options().contextTokenLimit());
         var guard = new ChatModelGuard(delegate, process, metadata,
@@ -354,9 +308,9 @@ public final class ChatModelExecutor {
             try {
                 // A timed-out provider can still record usage. Never persist an incomplete total as known.
                 if (!drained.isDone())
-                    accounting.accept(new Accounting(null, null, null, 0, guards.stream().anyMatch(ChatModelGuard::used)));
+                    accounting.accept(new ModelAccounting(null, null, null, 0, guards.stream().anyMatch(ChatModelGuard::used)));
                 // A research agent that failed before its first inference leaves an unused guard, which must not hide known usage.
-                else accounting.accept(Accounting.of(guards, process, metadata));
+                else accounting.accept(ModelAccounting.of(guards, process, metadata));
             } finally { onDrained.accept(drained.thenRun(() -> processes.delete(process))); }
         }
     }

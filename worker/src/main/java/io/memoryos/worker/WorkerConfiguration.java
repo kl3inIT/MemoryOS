@@ -1,24 +1,21 @@
 package io.memoryos.worker;
 
+import io.memoryos.library.UserFileWorkPort;
 import io.memoryos.connector.ConnectorCleanupPort;
 import io.memoryos.connector.ConnectorIndexingPort;
 import io.memoryos.connector.ConnectorSyncPort;
 import io.memoryos.connector.GoogleDriveSelectionProcessor;
-import io.memoryos.document.DocumentChunkPort;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.ingestion.IngestionCoordinator;
 import io.memoryos.ingestion.SourceContentExtractor;
 import io.memoryos.ingestion.application.DefaultIngestionCoordinator;
-import io.memoryos.ingestion.application.SearchIngestionCoordinator;
-import io.memoryos.ingestion.application.UserFileIngestionCoordinator;
-import io.memoryos.chat.UserFileWorkPort;
+import io.memoryos.ingestion.application.SearchProjectionMaintenance;
 import io.memoryos.ingestion.application.SelectionValidationProcessor;
 import io.memoryos.ingestion.application.SourceSyncProcessor;
-import io.memoryos.ingestion.persistence.JdbcSearchWorkRepository;
+import io.memoryos.ingestion.application.UserFileIngestionCoordinator;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.StoredObjectRegistry;
-import io.memoryos.retrieval.SearchIndex;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -50,9 +47,7 @@ class WorkerConfiguration {
             MeterRegistry registry,
             ConnectorSyncPort sourceSync,
             GoogleDriveSelectionProcessor selections,
-            JdbcSearchWorkRepository searchWork,
-            DocumentChunkPort chunks,
-            SearchIndex searchIndex,
+            SearchProjectionMaintenance searchProjection,
             UserFileWorkPort userFiles,
             io.memoryos.ingestion.ChatFileExtractor chatFileExtractor,
             io.memoryos.connector.SharePointSelectionProcessor sharePointSelections
@@ -71,8 +66,7 @@ class WorkerConfiguration {
                 new SourceSyncProcessor(sourceSync, claimLeaseScheduler, registry),
                 new SelectionValidationProcessor(selections, sharePointSelections, claimLeaseScheduler, registry)
         );
-        var search = new SearchIngestionCoordinator(searchWork, chunks, searchIndex,
-                new TransactionTemplate(transactionManager), claimLeaseScheduler, registry);
+        var search = searchProjection.coordinator(new TransactionTemplate(transactionManager), claimLeaseScheduler, registry);
         var files = new UserFileIngestionCoordinator(userFiles, chatFileExtractor, storage, artifacts, claimLeaseScheduler);
         return delivery -> switch (delivery.workload()) {
             case SEARCH -> search.process(delivery);

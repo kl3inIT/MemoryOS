@@ -4,15 +4,15 @@ import io.memoryos.api.chat.contract.ChatFilePolicyResponse;
 import io.memoryos.api.chat.contract.ChatFileResponse;
 import io.memoryos.api.chat.contract.ChatFileUploadRequest;
 import io.memoryos.api.chat.contract.ChatFileUploadResponse;
-import io.memoryos.chat.ChatFileService;
-import io.memoryos.chat.ChatFileContentService;
+import io.memoryos.library.UserFileService;
+import io.memoryos.library.UserFileContentService;
 import io.memoryos.api.chat.contract.ChatFileTextResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.ContentDisposition;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -27,6 +27,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import io.memoryos.library.UserFileSearchService;
+import io.memoryos.library.UserFile;
 
 @RestController
 @RequestMapping(value="/api/chat/files", produces=MediaType.APPLICATION_JSON_VALUE)
@@ -40,10 +42,10 @@ import org.springframework.web.bind.annotation.*;
 @SecurityRequirement(name="browserSession")
 @SecurityRequirement(name="bearerAuth")
 class ChatFileController {
-    private final ChatFileService files;
-    private final ChatFileContentService content;
-    private final io.memoryos.chat.ChatFileSearchService search;
-    ChatFileController(ChatFileService files, ChatFileContentService content, io.memoryos.chat.ChatFileSearchService search) {
+    private final UserFileService files;
+    private final UserFileContentService content;
+    private final UserFileSearchService search;
+    ChatFileController(UserFileService files, UserFileContentService content, UserFileSearchService search) {
         this.files = files; this.content = content; this.search = search;
     }
 
@@ -120,7 +122,7 @@ class ChatFileController {
     @ApiResponse(responseCode="200",description="Upload receipt and authorization when pending",useReturnTypeSchema=true)
     ChatFileUploadResponse upload(@Parameter(hidden=true) @AuthenticationPrincipal IdentityContext identity,
             @Valid @RequestBody ChatFileUploadRequest request) {
-        var result = files.initiate(identity.actorId(), new ChatFileService.UploadInput(request.requestId(), request.filename(),
+        var result = files.initiate(identity.actorId(), new UserFileService.UploadInput(request.requestId(), request.filename(),
                 request.mediaType(), request.sizeBytes(), request.sha256()));
         return new ChatFileUploadResponse(ChatFileResponse.from(result.file()), result.upload());
     }
@@ -139,7 +141,7 @@ class ChatFileController {
     List<ChatFileResponse> recent(@Parameter(hidden=true) @AuthenticationPrincipal IdentityContext identity,
             @RequestParam(defaultValue="0") int offset, @RequestParam(defaultValue="30") int limit) {
         var recent = files.recent(identity.actorId(), offset, limit);
-        var ready = search.ready(identity.actorId(), recent.stream().map(io.memoryos.chat.UserFile::id).collect(java.util.stream.Collectors.toSet()));
+        var ready = search.ready(identity.actorId(), recent.stream().map(UserFile::id).collect(java.util.stream.Collectors.toSet()));
         return recent.stream().map(file -> ChatFileResponse.from(file, ready.contains(file.id()))).toList();
     }
 

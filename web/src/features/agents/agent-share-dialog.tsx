@@ -7,15 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { shareChatPersona } from "@/lib/hey-api/sdk.gen";
 import { can } from "@/lib/resource-permissions";
-import { ChatDialog } from "@/features/chat/chat-dialog";
-import {
-  personLabel,
-  type AgentPermission,
-  type AgentPerson,
-  type AgentRef,
-  type Persona,
-} from "@/features/chat/chat-workspace-api";
-import { AgentPrincipalPicker } from "./agent-principal-picker";
+import { FormDialog } from "@/components/composites/form-dialog";
+import { personLabel, type Person, type NamedRef } from "@/features/identity/principals";
+import type { AgentPermission, Persona } from "@/features/chat/chat-personas-api";
+import { PrincipalPicker } from "@/features/identity/principal-picker";
 import { AgentTransferDialog } from "./agent-transfer-dialog";
 
 type Access = "INVITED" | "VIEWER" | "EDITOR";
@@ -29,10 +24,10 @@ const removeAccess = "__remove__";
 export function AgentShareDialog({ agent, onClose }: { agent: Persona; onClose: () => void }) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
-  const [people, setPeople] = useState<{ person: AgentPerson; permission: AgentPermission }[]>(
+  const [people, setPeople] = useState<{ person: Person; permission: AgentPermission }[]>(
     agent.userShares,
   );
-  const [groups, setGroups] = useState<{ group: AgentRef; permission: AgentPermission }[]>(
+  const [groups, setGroups] = useState<{ group: NamedRef; permission: AgentPermission }[]>(
     agent.groupShares,
   );
   const initialAccess: Access = agent.isPublic ? agent.publicPermission : "INVITED";
@@ -93,7 +88,7 @@ export function AgentShareDialog({ agent, onClose }: { agent: Persona; onClose: 
   if (transferring) return <AgentTransferDialog agent={agent} onClose={onClose} />;
 
   return (
-    <ChatDialog
+    <FormDialog
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -123,7 +118,7 @@ export function AgentShareDialog({ agent, onClose }: { agent: Persona; onClose: 
       }}
     >
       <div className="flex flex-col gap-5">
-        <AgentPrincipalPicker
+        <PrincipalPicker
           exclude={exclude}
           onPick={(principal) =>
             principal.kind === "person"
@@ -272,7 +267,7 @@ export function AgentShareDialog({ agent, onClose }: { agent: Persona; onClose: 
           </Button>
         </div>
       </div>
-    </ChatDialog>
+    </FormDialog>
   );
 }
 

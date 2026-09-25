@@ -7,11 +7,11 @@ import static org.mockito.Mockito.when;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.iam.group.Authority;
-import io.memoryos.iam.group.IamAccess;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.Authority;
+import io.memoryos.iam.IamAccess;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.usage.persistence.AiUsageLimitRepository;
 import io.memoryos.usage.persistence.AiUsageRepository;
 import java.math.BigDecimal;

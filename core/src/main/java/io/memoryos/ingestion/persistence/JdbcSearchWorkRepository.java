@@ -4,7 +4,7 @@ import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceOperationTraceContext;
 import io.memoryos.document.DocumentChanged;
 import io.memoryos.document.DocumentId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.ingestion.OperationDelivery;
 import java.sql.Types;
 import java.util.Collection;

@@ -8,7 +8,7 @@ import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.document.persistence.JdbcExtractionArtifactRepository;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectStorage;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

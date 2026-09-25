@@ -5,8 +5,8 @@ import { appText } from "./app-text";
 import { useAppTranslation } from "./use-app-translation";
 import { appEn, appVi } from "./app-translations";
 import { capabilityCopy } from "@/features/groups/group-capability-copy";
-import { sourceProviders } from "@/features/sources/source-provider-catalog";
-import { sourceStatusMessage } from "@/features/sources/source-errors";
+import { sourceProviders } from "@/features/sources/shared/source-provider-catalog";
+import { sourceStatusMessage } from "@/features/sources/shared/source-errors";
 import { formatUiDate } from "./format";
 
 describe("full application presentation boundary", () => {

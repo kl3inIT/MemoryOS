@@ -13,26 +13,25 @@ import static org.mockito.Mockito.when;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.chat.application.ChatBranchService;
-import io.memoryos.chat.application.ChatFileProperties;
-import io.memoryos.chat.application.ChatTurnPersistence;
-import io.memoryos.chat.application.DefaultChatSessionService;
+import io.memoryos.library.UserFileProperties;
+import io.memoryos.chat.session.ChatTurnPersistence;
+import io.memoryos.chat.session.DefaultChatSessionService;
 import io.memoryos.chat.interpreter.InterpreterProperties;
 import io.memoryos.chat.interpreter.InterpreterService;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
-import io.memoryos.chat.persistence.JdbcChatLibraryRepository;
-import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.chat.persistence.JdbcChatSearchRepository;
-import io.memoryos.chat.persistence.JdbcImageArtifactRepository;
-import io.memoryos.chat.persistence.JdbcUserFileRepository;
-import io.memoryos.iam.group.IamAuthorization;
+import io.memoryos.library.persistence.JdbcLibraryRepository;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.chat.session.persistence.JdbcChatSearchRepository;
+import io.memoryos.chat.image.persistence.JdbcImageArtifactRepository;
+import io.memoryos.library.persistence.JdbcUserFileRepository;
+import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.group.persistence.IamLockRepository;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.identity.ActorLanguageService;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.ActorLanguageService;
 import io.memoryos.iam.identity.persistence.ActorRefreshImpl;
 import io.memoryos.iam.identity.persistence.JpaActorRepository;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
 import io.memoryos.objectstorage.ContentSha256;
@@ -63,6 +62,13 @@ import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
+import io.memoryos.library.LibraryStorageProperties;
+import io.memoryos.library.StorageQuotaService;
+import io.memoryos.chat.files.ChatFileAttachments;
+import io.memoryos.chat.files.persistence.JdbcChatFileAttachmentRepository;
+import io.memoryos.library.LibraryTrashProperties;
+import io.memoryos.chat.files.persistence.JdbcChatArtifactRepository;
+import io.memoryos.library.UserFileService;
 
 /**
  * The conversation lifecycle (MEM-153): archiving takes a conversation off the sidebar without losing it, and
@@ -117,12 +123,11 @@ class ChatLifecycleIntegrationTest {
         sessions = TestDatabase.transactionalProxy(new DefaultChatSessionService(tenants, authorization, repository,
                 new JdbcChatSearchRepository(jdbc)), ChatSessionService.class,
                 jpa.transactionManager());
-        var quotas = new io.memoryos.chat.ChatStorageQuotaService(tenants,
-                new io.memoryos.chat.application.ChatStorageProperties(0), new JdbcChatLibraryRepository(jdbc));
-        var files = new ChatFileService(tenants, repository, new JdbcUserFileRepository(jdbc),
-                mock(ObjectUploadService.class), new ChatFileProperties(104857600, 262144000), quotas,
-                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
-                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)), jpa.transactionManager());
+        var quotas = new StorageQuotaService(tenants,
+                new LibraryStorageProperties(0), new JdbcLibraryRepository(jdbc));
+        var files = new UserFileService(tenants, new JdbcUserFileRepository(jdbc), new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbc)),
+                mock(ObjectUploadService.class), new UserFileProperties(104857600, 262144000), quotas,
+                new LibraryTrashProperties(java.time.Duration.ZERO), jpa.transactionManager());
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(jpa.transactionManager());
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
@@ -139,11 +144,10 @@ class ChatLifecycleIntegrationTest {
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5),
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
         interpreter = new InterpreterService(new JdbcInterpreterRepository(jdbc), new InterpreterProperties(null, null),
-                authorization, tenants, writes, storage, quotas, new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
-                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
+                authorization, tenants, writes, storage, quotas, new LibraryTrashProperties(java.time.Duration.ZERO),
                 jpa.transactionManager(), io.memoryos.TestDatabase.noAudit());
         // Constructed directly: the service owns its own transaction template, which is what the copy relies on.
-        branches = new ChatBranchService(tenants, repository, new JdbcChatLibraryRepository(jdbc), storage, writes,
+        branches = new ChatBranchService(tenants, repository, new JdbcChatArtifactRepository(jdbc), storage, writes,
                 jpa.transactionManager());
         seedTenant();
     }

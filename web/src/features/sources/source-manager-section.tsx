@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { listUsersOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { assignSourceManager } from "@/lib/hey-api/sdk.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
-import { sourceMutationError } from "./source-errors";
-import { SourceSectionIcon } from "./source-section-icon";
+import { sourceMutationError } from "@/features/sources/shared/source-errors";
+import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
 
 /**
  * Administrator-only. The appointed member attaches this Source to the groups they manage; the server rejects a

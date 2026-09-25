@@ -6,9 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.group.persistence.GroupEntity;
 import io.memoryos.iam.group.persistence.GroupInvariantRepository;
 
@@ -20,9 +20,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.group.DefaultGroupAdministrationGuard;
-import io.memoryos.iam.IamException;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class PostgresGroupAdministrationGuardTest {
@@ -38,7 +35,7 @@ class PostgresGroupAdministrationGuardTest {
 
     private JdbcClient jdbc;
     private TransactionTemplate transaction;
-    private DefaultGroupAdministrationGuard guard;
+    private GroupAdministrationGuard guard;
     private HikariDataSource dataSource;
 
     @AfterEach
@@ -53,7 +50,7 @@ class PostgresGroupAdministrationGuardTest {
         dataSource = TestDatabase.freshPostgres();
         jdbc = JdbcClient.create(dataSource);
         transaction = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
-        guard = new DefaultGroupAdministrationGuard(new GroupInvariantRepository(jdbc));
+        guard = new GroupAdministrationGuard(new GroupInvariantRepository(jdbc));
         jdbc.sql("""
                         INSERT INTO tenants (
                             id, slug, display_name, status, bootstrap_reference, deployment_slot

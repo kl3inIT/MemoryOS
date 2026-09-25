@@ -1,5 +1,6 @@
 package io.memoryos.chat;
 
+import io.memoryos.ai.ModelRequestPolicy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -16,18 +17,17 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.memoryos.chat.application.ChatTurnPersistence;
-import io.memoryos.chat.execution.ChatExecutionProperties;
+import io.memoryos.chat.session.ChatTurnPersistence;
 import io.memoryos.chat.execution.ChatModelExecutor;
-import io.memoryos.chat.execution.ChatModelBinding;
-import io.memoryos.chat.catalog.ChatModelResolver;
-import io.memoryos.chat.catalog.ChatModelClients;
+import io.memoryos.ai.ModelBinding;
+import io.memoryos.ai.ModelResolver;
+import io.memoryos.ai.ModelClients;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import org.springframework.ai.chat.model.ChatModel;
 import io.memoryos.chat.streaming.ChatStreamProperties;
 import io.memoryos.chat.streaming.StreamBufferWriter;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.mcp.McpTurnService;
 import io.memoryos.mcp.McpTurnTools;
 
@@ -53,8 +53,8 @@ import reactor.core.publisher.Mono;
 class ChatTurnServiceTest {
     private final ChatTurnPersistence persistence = mock(ChatTurnPersistence.class);
     private final ChatModelExecutor model = mock(ChatModelExecutor.class);
-    private final ChatModelResolver models = mock(ChatModelResolver.class);
-    private final ChatModelClients.Lease lease = mock(ChatModelClients.Lease.class);
+    private final ChatModelSelector models = mock(ChatModelSelector.class);
+    private final ModelClients.Lease lease = mock(ModelClients.Lease.class);
     private final ChatExecutionProperties limits = new ChatExecutionProperties(1, Duration.ofMinutes(30), Duration.ofSeconds(60), Duration.ofSeconds(60), 6, 1024, 32000, 10000,
             null, null, 10, Duration.ofSeconds(60));
     private final ActorId actor = new ActorId(UUID.randomUUID());
@@ -67,15 +67,15 @@ class ChatTurnServiceTest {
     private final ChatTurnPersistence.Reservation pair = new ChatTurnPersistence.Reservation(UUID.randomUUID(), UUID.randomUUID(), true);
 
     private void prepare() {
-        var binding = new ChatModelBinding(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p, io.memoryos.chat.execution.ChatRequestPolicy.hosted(new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(
+        var binding = new ModelBinding(new SpringAiLlmService("gpt-5-mini", "fixture", mock(ChatModel.class)), p -> p, ModelRequestPolicy.hosted(new org.springframework.ai.tokenizer.JTokkitTokenCountEstimator(
                 com.knuddels.jtokkit.api.EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
         when(lease.binding()).thenReturn(binding);
-        when(models.resolve(any(), any(), any())).thenReturn(new ChatModelResolver.Resolved(UUID.randomUUID(), null, lease));
+        when(models.resolve(any(), any(), any())).thenReturn(new ModelResolver.Resolved(UUID.randomUUID(), null, lease));
         when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(call -> new ChatTurnPersistence.TerminalOutcome(call.getArgument(2), call.getArgument(4)));
         when(persistence.existing(any(), any(), any(ChatCommand.class))).thenReturn(Optional.empty());
         // The builtin agent allows every tool and every MCP server the actor can use.
-        when(persistence.agent(any(), any())).thenReturn(new io.memoryos.chat.persistence.JdbcChatRepository.Persona(
+        when(persistence.agent(any(), any())).thenReturn(new io.memoryos.chat.session.persistence.JdbcChatRepository.Persona(
                 "", "gpt-5-mini", ChatTurnOptions.DEFAULT, "0", null, List.of(),
                 java.util.Set.of("search", "web_search", "image_generation"), null, true));
         when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(pair);

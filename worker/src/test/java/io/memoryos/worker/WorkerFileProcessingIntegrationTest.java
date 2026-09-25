@@ -1,5 +1,7 @@
 package io.memoryos.worker;
 
+import io.memoryos.shared.TenantId;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -8,7 +10,7 @@ import io.memoryos.connector.SourceManagementService;
 import io.memoryos.connector.SourceStatus;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -53,6 +55,16 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import io.memoryos.library.UserFileProperties;
+import io.memoryos.library.UserFileService;
+import io.memoryos.library.LibraryStorageProperties;
+import io.memoryos.library.StorageQuotaService;
+import io.memoryos.library.UserFile;
+import io.memoryos.library.persistence.JdbcLibraryRepository;
+import io.memoryos.library.persistence.JdbcUserFileRepository;
+import io.memoryos.chat.files.ChatFileAttachments;
+import io.memoryos.chat.files.persistence.JdbcChatFileAttachmentRepository;
+import io.memoryos.library.LibraryTrashProperties;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
@@ -214,7 +226,7 @@ class WorkerFileProcessingIntegrationTest {
     @Autowired
     private RedisExecutionTopology topology;
 
-    @Autowired private io.memoryos.iam.tenant.TenantAccessResolver tenants;
+    @Autowired private io.memoryos.iam.TenantAccessResolver tenants;
     @Autowired private io.memoryos.objectstorage.ObjectUploadService objectUploads;
     @Autowired private io.memoryos.objectstorage.ObjectUploadCleanupPort objectCleanup;
     @Autowired private org.springframework.transaction.PlatformTransactionManager transactions;
@@ -484,14 +496,13 @@ class WorkerFileProcessingIntegrationTest {
     }
     private void verifyPrivateImageWorkerRecovery() throws Exception {
         worker.stop();
-        var files = new io.memoryos.chat.ChatFileService(tenants, new io.memoryos.chat.persistence.JdbcChatRepository(jdbcClient),
-                new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbcClient), objectUploads,
-                new io.memoryos.chat.application.ChatFileProperties(104857600, 262144000),
-                new io.memoryos.chat.ChatStorageQuotaService(tenants,
-                new io.memoryos.chat.application.ChatStorageProperties(0), new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbcClient)),
+        var files = new UserFileService(tenants, new JdbcUserFileRepository(jdbcClient),
+                new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbcClient)), objectUploads,
+                new UserFileProperties(104857600, 262144000),
+                new StorageQuotaService(tenants,
+                new LibraryStorageProperties(0), new JdbcLibraryRepository(jdbcClient)),
                 // This suite drives the worker's own release path, so deletion releases at once.
-                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
-                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)), transactions);
+                new LibraryTrashProperties(java.time.Duration.ZERO), transactions);
         byte[] content;
         try (var output = new java.io.ByteArrayOutputStream()) {
             var image = new java.awt.image.BufferedImage(3000, 2, java.awt.image.BufferedImage.TYPE_INT_RGB);
@@ -500,7 +511,7 @@ class WorkerFileProcessingIntegrationTest {
             content = output.toByteArray();
         }
         var requestId = UUID.randomUUID();
-        var request = new io.memoryos.chat.ChatFileService.UploadInput(requestId, "private.png", "image/png", content.length,
+        var request = new UserFileService.UploadInput(requestId, "private.png", "image/png", content.length,
                 HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content)));
         var receipt = files.initiate(OWNER, request);
         assertEquals(receipt.file().id(), files.initiate(OWNER, request).file().id());
@@ -520,8 +531,8 @@ class WorkerFileProcessingIntegrationTest {
         topology.reconcileTopology();
         await(() -> redis.opsForStream().size(stream) > 0);
         worker.start();
-        await(() -> files.get(OWNER, id).status() == io.memoryos.chat.UserFile.Status.READY);
-        assertTrue(files.read(OWNER, new io.memoryos.iam.tenant.TenantId(TENANT_ID), id, 0, 16000).text().contains("3000x2"));
+        await(() -> files.get(OWNER, id).status() == UserFile.Status.READY);
+        assertTrue(files.read(OWNER, new TenantId(TENANT_ID), id, 0, 16000).text().contains("3000x2"));
         assertEquals(1, jdbcClient.sql("SELECT processing_attempts FROM chat_file_work WHERE file_id=:id AND action='PROCESS'")
                 .param("id", id).query(Integer.class).single());
         assertTrue(jdbcClient.sql("SELECT dispatch_attempts FROM chat_file_work WHERE file_id=:id AND action='PROCESS'")
@@ -535,7 +546,7 @@ class WorkerFileProcessingIntegrationTest {
             assertTrue(artifact.contains("3000x2"));
         }
         files.delete(OWNER, id);
-        await(() -> files.get(OWNER, id).status() == io.memoryos.chat.UserFile.Status.DELETED);
+        await(() -> files.get(OWNER, id).status() == UserFile.Status.DELETED);
         objectCleanup.cleanupAbandoned();
         extractionArtifacts.cleanup();
         try (var storage = s3Client()) {

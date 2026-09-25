@@ -5,8 +5,8 @@ import io.memoryos.api.source.contract.SourceGroupPageResponse;
 import io.memoryos.api.source.contract.UpdateSourceGroupsRequest;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceManagementService;
-import io.memoryos.iam.group.GroupQuery;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.GroupQuery;
+import io.memoryos.iam.IdentityContext;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

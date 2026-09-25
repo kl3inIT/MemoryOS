@@ -1,18 +1,17 @@
 package io.memoryos.usage.report;
 
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectWriteService;
 import io.memoryos.usage.AiCostException;
 import io.memoryos.usage.AiCostService;
-import io.memoryos.usage.persistence.UsageReportRepository;
 import io.memoryos.usage.persistence.UsageReportRepository.Claim;
-import io.memoryos.usage.persistence.UsageReportRepository.Report;
+import io.memoryos.usage.persistence.UsageReportRepository;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -58,7 +57,7 @@ public class UsageReportService {
 
     /** Queues a report for a UTC day range, bounded like the AI costs page. */
     @Transactional
-    public Report request(ActorId reader, LocalDate from, LocalDate to) {
+    public UsageReport request(ActorId reader, LocalDate from, LocalDate to) {
         var tenant = manager(reader);
         new AiCostService.Range(from, to, null, false, null, null);
         return reports.insert(tenant, UUID.randomUUID(), reader.value(), from, to);
@@ -66,14 +65,14 @@ public class UsageReportService {
 
     /** The Tenant's reports, newest first, whoever requested them. */
     @Transactional(readOnly = true)
-    public List<Report> list(ActorId reader) {
+    public List<UsageReport> list(ActorId reader) {
         return reports.list(manager(reader), LIST_LIMIT);
     }
 
     @Transactional(readOnly = true)
     public Download open(ActorId reader, UUID id) {
         var report = reports.find(manager(reader), id)
-                .filter(found -> found.status() == UsageReportRepository.Status.READY && found.objectKey() != null)
+                .filter(found -> found.status() == UsageReportStatus.READY && found.objectKey() != null)
                 .orElseThrow(AiCostException::reportNotFound);
         return new Download(storage.open(new ObjectKey(report.objectKey())), filename(report.from(), report.to()));
     }

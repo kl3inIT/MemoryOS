@@ -1,5 +1,8 @@
 package io.memoryos.chat.image;
 
+import org.springframework.modulith.NamedInterface;
+import io.memoryos.shared.ActorId;
+
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.net.URI;
@@ -16,6 +19,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /** Small protocol adapters; provider errors and credentials never become model/UI output. */
 @Component
+@NamedInterface("image")
 public final class ImageProviderClient {
     /**
      * Instruction editing that keeps unchanged content; SD 1.5 inpainting and img2img were rejected in MEM-109.
@@ -42,7 +46,7 @@ public final class ImageProviderClient {
      * Adds one delivered image to the AI usage ledger. Image connections carry no price, so the cost is unknown;
      * connection probes are not recorded because only Chat tools call this.
      */
-    public void recordImage(ImageConnectionService.Connection connection, io.memoryos.iam.identity.@Nullable ActorId actor, boolean edit) {
+    public void recordImage(ImageConnectionService.Connection connection, @Nullable ActorId actor, boolean edit) {
         if (usage == null) return;
         String model = edit && connection.provider() == ImageProvider.CLOUDFLARE_WORKERS_AI ? CLOUDFLARE_EDIT_MODEL
                 : resolvedModel(connection.provider(), connection.model());

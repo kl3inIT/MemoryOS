@@ -2,7 +2,7 @@ import { Check, ChevronDown, ChevronRight, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ChatModelLogo } from "@/features/chat/chat-model-logo";
+import { ModelLogo } from "./model-logo";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
@@ -82,7 +82,7 @@ export function ModelPicker({
           {selected ? (
             <>
               <span className="grid size-5 shrink-0 place-items-center [&_svg]:size-4">
-                <ChatModelLogo modelName={selected.model.modelName} />
+                <ModelLogo modelName={selected.model.modelName} />
               </span>
               <span className="min-w-0 flex-1 truncate font-medium">
                 {selected.model.displayName}
@@ -168,7 +168,7 @@ export function ModelPicker({
                       }}
                       className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 pl-8 text-left hover:bg-surface-base disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <ChatModelLogo modelName={option.model.modelName} />
+                      <ModelLogo modelName={option.model.modelName} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-main-ui-body">
                           {option.model.displayName}

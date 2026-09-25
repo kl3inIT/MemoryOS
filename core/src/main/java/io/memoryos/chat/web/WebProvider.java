@@ -1,6 +1,9 @@
 package io.memoryos.chat.web;
 
+import org.springframework.modulith.NamedInterface;
+
 /** Implemented external protocols; native model tools are not search-engine connections. */
+@NamedInterface("web")
 public enum WebProvider {
     BRAVE, TAVILY, EXA, SERPER, GOOGLE_PSE, SEARXNG, NINEROUTER, FIRECRAWL;
 

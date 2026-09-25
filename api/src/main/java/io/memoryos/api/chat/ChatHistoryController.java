@@ -1,8 +1,13 @@
 package io.memoryos.api.chat;
 
-import io.memoryos.chat.history.ChatHistoryService;
-import io.memoryos.chat.history.persistence.JdbcChatHistoryRepository;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.api.chat.contract.ChatHistoryEntryResponse;
+import io.memoryos.api.chat.contract.ChatHistoryMessageResponse;
+import io.memoryos.api.chat.contract.ChatHistoryPageResponse;
+import io.memoryos.api.chat.contract.ChatHistoryTranscriptResponse;
+import io.memoryos.chat.ChatHistoryFeedback;
+import io.memoryos.chat.ChatHistoryQuery;
+import io.memoryos.chat.ChatHistoryService;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -17,7 +22,6 @@ import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
@@ -50,71 +54,30 @@ class ChatHistoryController {
 
     ChatHistoryController(ChatHistoryService history) { this.history = history; }
 
-    @Schema(name = "ChatHistoryEntry", description = "One conversation. The person is absent when the Tenant hides who asked")
-    record Entry(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
-                 @Nullable UUID actorId, @Nullable String person, @Nullable String email,
-                 @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String title,
-                 @Nullable String question, @Nullable String answer, @Nullable String modelName,
-                 @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long messages,
-                 @Schema(requiredMode = Schema.RequiredMode.REQUIRED) JdbcChatHistoryRepository.Feedback feedback,
-                 @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The owner deleted this conversation; it is kept until retention removes it")
-                 boolean deleted,
-                 @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt) {
-        static Entry from(ChatHistoryService.Conversation value) {
-            return new Entry(value.id(), value.actorId(), value.person(), value.email(), value.title(),
-                    value.question(), value.answer(), value.modelName(), value.messages(), value.feedback(),
-                    value.deleted(), value.updatedAt());
-        }
-    }
-
-    @Schema(name = "ChatHistoryPage")
-    record Page(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<Entry> items, @Nullable String nextCursor,
-                @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long conversations,
-                @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long positive,
-                @Schema(requiredMode = Schema.RequiredMode.REQUIRED) long negative) {}
-
-    @Schema(name = "ChatHistoryMessage", description = "One message; citations are named, and opening one uses the reader's own Source authority")
-    record Message(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
-                   @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String role,
-                   @Schema(requiredMode = Schema.RequiredMode.REQUIRED) String content,
-                   @Nullable String modelName,
-                   @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
-                   @Nullable Boolean positive, @Nullable String comment,
-                   @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<String> citations) {
-        static Message from(JdbcChatHistoryRepository.Message value) {
-            return new Message(value.id(), value.role(), value.content(), value.modelName(), value.createdAt(),
-                    value.positive(), value.comment(), value.citations());
-        }
-    }
-
-    @Schema(name = "ChatHistoryTranscript")
-    record Transcript(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) Entry conversation,
-                      @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<Message> messages) {}
-
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping
     @Operation(operationId = "listChatHistory", summary = "The Tenant's conversations, newest first; requires conversation history access")
-    Page list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ChatHistoryPageResponse list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @Nullable Instant from,
               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @Nullable Instant to,
               @RequestParam(required = false) @Nullable String q,
               @RequestParam(required = false) @Nullable UUID actorId,
-              @RequestParam(required = false) JdbcChatHistoryRepository.@Nullable Feedback feedback,
+              @RequestParam(required = false) @Nullable ChatHistoryFeedback feedback,
               @RequestParam(required = false) @Nullable String cursor,
               @RequestParam(defaultValue = "30") int size) {
         var page = history.page(identity.actorId(), query(from, to, q, actorId, feedback), cursor, size);
-        return new Page(page.items().stream().map(Entry::from).toList(), page.nextCursor(),
+        return new ChatHistoryPageResponse(page.items().stream().map(ChatHistoryEntryResponse::from).toList(), page.nextCursor(),
                 page.totals().conversations(), page.totals().positive(), page.totals().negative());
     }
 
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping("/{sessionId}")
     @Operation(operationId = "getChatHistoryTranscript", summary = "One conversation's transcript; the read is itself recorded in the audit log")
-    Transcript transcript(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ChatHistoryTranscriptResponse transcript(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
                           @PathVariable UUID sessionId) {
         var transcript = history.transcript(identity.actorId(), sessionId);
-        return new Transcript(Entry.from(transcript.conversation()),
-                transcript.messages().stream().map(Message::from).toList());
+        return new ChatHistoryTranscriptResponse(ChatHistoryEntryResponse.from(transcript.conversation()),
+                transcript.messages().stream().map(ChatHistoryMessageResponse::from).toList());
     }
 
     @ApiResponse(responseCode = "200", description = "CSV", content = @Content(mediaType = "text/csv", schema = @Schema(type = "string", format = "binary")))
@@ -125,7 +88,7 @@ class ChatHistoryController {
                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @Nullable Instant to,
                 @RequestParam(required = false) @Nullable String q,
                 @RequestParam(required = false) @Nullable UUID actorId,
-                @RequestParam(required = false) JdbcChatHistoryRepository.@Nullable Feedback feedback,
+                @RequestParam(required = false) @Nullable ChatHistoryFeedback feedback,
                 HttpServletResponse response) throws IOException {
         response.setContentType("text/csv; charset=UTF-8");
         response.setHeader("Cache-Control", "no-store");
@@ -153,10 +116,10 @@ class ChatHistoryController {
         csv.flush();
     }
 
-    private static JdbcChatHistoryRepository.Query query(@Nullable Instant from, @Nullable Instant to,
+    private static ChatHistoryQuery query(@Nullable Instant from, @Nullable Instant to,
                                                          @Nullable String q, @Nullable UUID actorId,
-                                                         JdbcChatHistoryRepository.@Nullable Feedback feedback) {
-        return new JdbcChatHistoryRepository.Query(from, to, q == null || q.isBlank() ? null : q.trim(), actorId,
+                                                         @Nullable ChatHistoryFeedback feedback) {
+        return new ChatHistoryQuery(from, to, q == null || q.isBlank() ? null : q.trim(), actorId,
                 feedback);
     }
 

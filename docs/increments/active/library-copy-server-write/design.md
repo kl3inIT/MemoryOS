@@ -27,3 +27,7 @@ A copy's object has `input_kind = 'BINARY'`, not `CHAT_FILE`. Copies are bounded
 ## Reuse
 
 `ObjectWriteService` (`stage`, `adopt`, `discard`, `releaseAdopted`), `StoredObjectRegistry` and the thumbnail release sequence in `DefaultUserFileWorkService` are reused as they are; nothing new is added to object storage.
+
+## Module move (2026-09-25)
+
+[ADR 0015 step 3](../../../decisions/0015-capability-module-map.md#step-3-what-library-holds) moved `ChatLibraryService`, `ChatFileContentService`, `DefaultUserFileWorkService` (now `io.memoryos.library.work`) and the file repositories (`io.memoryos.library.persistence`) into the `library` module, names unchanged. A copy's artifact lookup still reads Chat's artifact tables from the library's listing repository; the copy's write path and V127 are unchanged.

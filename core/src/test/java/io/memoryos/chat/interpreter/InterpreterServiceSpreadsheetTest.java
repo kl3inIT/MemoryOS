@@ -10,9 +10,9 @@ import static org.mockito.Mockito.when;
 
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectKey;
@@ -39,7 +39,7 @@ class InterpreterServiceSpreadsheetTest {
         when(tenants.findActiveTenant(actor)).thenReturn(Optional.of(tenant));
         var key = new ObjectKey("raw/chart");
         when(repository.ownedArtifact(tenant, actor, id)).thenReturn(Optional.of(
-                new JdbcInterpreterRepository.Artifact(key, "chart.png", "image/png")));
+                new InterpreterArtifact(key, "chart.png", "image/png")));
         var closed = new AtomicBoolean();
         when(storage.open(key)).thenReturn(content(closed));
 

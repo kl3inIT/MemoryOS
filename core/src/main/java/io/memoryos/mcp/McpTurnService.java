@@ -1,8 +1,8 @@
 package io.memoryos.mcp;
 
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
 import io.memoryos.mcp.persistence.JpaMcpCredentialRepository;
 import io.memoryos.mcp.persistence.JpaMcpServerRepository;
 import io.memoryos.mcp.persistence.JpaMcpServerToolRepository;

@@ -1,56 +1,54 @@
 package io.memoryos.chat;
 
-import io.memoryos.chat.persistence.JdbcPromptShortcutRepository;
-import io.memoryos.chat.persistence.JdbcAgentRepository;
+import io.memoryos.ai.AiException;
 import static org.junit.jupiter.api.Assertions.*;
-
-import io.memoryos.TestDatabase;
-import io.memoryos.chat.application.ChatTurnPersistence;
-import io.memoryos.chat.application.DefaultChatSessionService;
-import io.memoryos.chat.application.PersonaProperties;
-import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.chat.persistence.JdbcChatSearchRepository;
-import io.memoryos.chat.persistence.JpaPersonaRepository;
-import io.memoryos.chat.persistence.JpaProjectRepository;
-import io.memoryos.chat.persistence.JpaChatSharingRepository;
-import io.memoryos.chat.persistence.JpaChatFeedbackRepository;
-import io.memoryos.chat.catalog.ModelCatalogService;
-import io.memoryos.chat.catalog.ModelSettings;
-import io.memoryos.connector.SourceSearchService;
-import io.memoryos.connector.SourceSearchScope;
-import io.memoryos.connector.SourceType;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.tenant.TenantId;
-import java.util.Map;
-import java.util.Set;
 import static org.mockito.Mockito.*;
-import io.memoryos.chat.execution.ChatModelBinding;
-import io.memoryos.chat.execution.ChatRequestPolicy;
-import io.memoryos.chat.execution.ChatTurnSetup;
+
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import com.knuddels.jtokkit.api.EncodingType;
-import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
-import org.springframework.ai.chat.model.ChatModel;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.identity.ActorLanguageService;
+import io.memoryos.TestDatabase;
+import io.memoryos.chat.session.ChatTurnPersistence;
+import io.memoryos.chat.session.DefaultChatSessionService;
+import io.memoryos.ai.ModelCatalogService;
+import io.memoryos.ai.ModelSettings;
+import io.memoryos.ai.ModelBinding;
+import io.memoryos.ai.ModelRequestPolicy;
+import io.memoryos.chat.execution.ChatTurnSetup;
+import io.memoryos.chat.persona.persistence.JdbcAgentRepository;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.chat.session.persistence.JdbcChatSearchRepository;
+import io.memoryos.chat.persona.persistence.JdbcPromptShortcutRepository;
+import io.memoryos.chat.session.persistence.JpaChatFeedbackRepository;
+import io.memoryos.chat.session.persistence.JpaChatSharingRepository;
+import io.memoryos.chat.persona.persistence.JpaPersonaRepository;
+import io.memoryos.chat.project.persistence.JpaProjectRepository;
+import io.memoryos.connector.SourceSearchScope;
+import io.memoryos.connector.SourceSearchService;
+import io.memoryos.connector.SourceType;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.iam.group.persistence.IamLockRepository;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.ActorLanguageService;
 import io.memoryos.iam.identity.persistence.ActorRefreshImpl;
 import io.memoryos.iam.identity.persistence.JpaActorRepository;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.group.persistence.IamLockRepository;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;
 import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
-
 import java.time.Duration;
-import java.util.UUID;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.tokenizer.JTokkitTokenCountEstimator;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.repository.core.support.RepositoryComposition.RepositoryFragments;
@@ -58,6 +56,21 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
 import org.springframework.transaction.support.TransactionTemplate;
+import io.memoryos.library.UserFileProperties;
+import io.memoryos.library.LibraryStorageProperties;
+import io.memoryos.library.StorageQuotaService;
+import io.memoryos.library.persistence.JdbcLibraryRepository;
+import io.memoryos.library.persistence.JdbcUserFileRepository;
+import io.memoryos.chat.files.ChatFileAttachments;
+import io.memoryos.chat.files.persistence.JdbcChatFileAttachmentRepository;
+import io.memoryos.library.LibraryTrashProperties;
+import io.memoryos.library.UserFileContentService;
+import io.memoryos.library.UserFileService;
+import io.memoryos.library.LibraryFile;
+import io.memoryos.library.UserFile;
+import io.memoryos.chat.files.persistence.JdbcChatArtifactRepository;
+import io.memoryos.library.FileAttachments;
+import io.memoryos.library.LibraryException;
 
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class ChatPersistenceIntegrationTest {
@@ -95,18 +108,17 @@ class ChatPersistenceIntegrationTest {
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(jpa.transactionManager());
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
-        var fileService = new ChatFileService(tenants, repository, new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc),
+        var fileService = new UserFileService(tenants, new JdbcUserFileRepository(jdbc), new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbc)),
                 mock(io.memoryos.objectstorage.ObjectUploadService.class),
-                new io.memoryos.chat.application.ChatFileProperties(104857600, 262144000),
-                new io.memoryos.chat.ChatStorageQuotaService(tenants,
-                new io.memoryos.chat.application.ChatStorageProperties(0), new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc)),
-                new io.memoryos.chat.application.ChatRetentionProperties(false, java.time.Duration.ZERO,
-                        java.time.Duration.ZERO, java.time.Duration.ofHours(24)),
+                new UserFileProperties(104857600, 262144000),
+                new StorageQuotaService(tenants,
+                new LibraryStorageProperties(0), new JdbcLibraryRepository(jdbc)),
+                new LibraryTrashProperties(java.time.Duration.ZERO),
                 jpa.transactionManager());
         var factory = new ProxyFactory(new ChatTurnPersistence(tenants, authorization, repository, fileService,
                 new ActorLanguageService(jpa.repository(JpaActorRepository.class,
                         RepositoryFragments.just(new ActorRefreshImpl(jpa.entityManager()))), tenants),
-                new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc)));
+                new io.memoryos.chat.image.persistence.JdbcImageArtifactRepository(jdbc)));
         factory.setProxyTargetClass(true);
         factory.addAdvice(interceptor);
         turns = (ChatTurnPersistence) factory.getProxy();
@@ -115,22 +127,22 @@ class ChatPersistenceIntegrationTest {
         other = member(tenant);
         when(authorization.effectiveCapabilities(owner)).thenReturn(Set.of(IamCapability.MODELS_MANAGE, IamCapability.AGENTS_MANAGE, IamCapability.AGENTS_CREATE));
         when(authorization.effectiveCapabilities(other)).thenReturn(Set.of());
-        var models = mock(ModelCatalogService.class);
+        var models = mock(ChatModelAccess.class);
         when(models.availableModelsForPersona(any(), any())).thenReturn(List.of(new ModelCatalogService.AvailableModel(
                 UUID.randomUUID(), UUID.randomUUID(), "Provider", "model", "Model",
                 new ModelSettings.Capabilities(true, true, false, false), 32000, 4096, null, true)));
         var sources = mock(SourceSearchService.class); sourceScope = sources; sourceId = UUID.randomUUID();
         when(sources.scope(any())).thenAnswer(call -> new SourceSearchScope(new TenantId(tenant), call.getArgument(0), Map.of(sourceId, SourceType.FILE)));
-        var agentRows = new io.memoryos.chat.persistence.JdbcAgentRepository(jdbc);
-        var documentSetRows = new io.memoryos.chat.persistence.JdbcDocumentSetRepository(jdbc);
+        var agentRows = new io.memoryos.chat.persona.persistence.JdbcAgentRepository(jdbc);
+        var documentSetRows = new io.memoryos.chat.persona.persistence.JdbcDocumentSetRepository(jdbc);
         documentSets = service(new DocumentSetService(tenants, authorization, sources, agentRows, documentSetRows), DocumentSetService.class);
         personas = service(new ChatPersonaService(tenants, authorization, repository, jpa.repository(JpaPersonaRepository.class),
-                agentRows, new io.memoryos.chat.persistence.PersonaRevisions(jpa.entityManager()),
+                agentRows, new io.memoryos.chat.persona.persistence.PersonaRevisions(jpa.entityManager()),
                 new PersonaProperties(), models, sources, documentSets, documentSetRows, fileService,
-                new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc), mock(ChatFileContentService.class)), ChatPersonaService.class);
+                mock(UserFileContentService.class)), ChatPersonaService.class);
         projects = service(new ChatProjectService(tenants, authorization, repository, jpa.repository(JpaProjectRepository.class), sessions, fileService), ChatProjectService.class);
         shortcuts = service(new ChatPromptShortcutService(tenants, authorization, repository,
-                new io.memoryos.chat.persistence.JdbcPromptShortcutRepository(jdbc)), ChatPromptShortcutService.class);
+                new io.memoryos.chat.persona.persistence.JdbcPromptShortcutRepository(jdbc)), ChatPromptShortcutService.class);
         collaboration = service(new ChatCollaborationService(tenants, authorization, repository, jpa.repository(JpaChatSharingRepository.class),
                 jpa.repository(JpaChatFeedbackRepository.class)), ChatCollaborationService.class);
     }
@@ -187,7 +199,7 @@ class ChatPersistenceIntegrationTest {
                 List.of(), List.of(), List.of(set.id()), Set.of("search"), null, null, null, null, List.of(), null, null,
                 null, false, false, null));
         personas.share(owner, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(
-                List.of(), List.of(), true, JdbcAgentRepository.Permission.VIEWER));
+                List.of(), List.of(), true, AgentPermission.VIEWER));
 
         var session = sessions.create(other, "Shared agent");
         personas.select(other, session.id(), agent.id());
@@ -251,7 +263,7 @@ class ChatPersistenceIntegrationTest {
 
     @Test
     void generatedImagesAreNamedInLaterContextAndEditSourcesStayInTheirSession() {
-        var images = new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc);
+        var images = new io.memoryos.chat.image.persistence.JdbcImageArtifactRepository(jdbc);
         var scope = new TenantId(tenant);
         var session = sessions.create(owner, "Images");
         var first = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Draw a man");
@@ -310,9 +322,10 @@ class ChatPersistenceIntegrationTest {
 
     @Test
     void theFileLibraryUnionsEverySourceForItsOwnerAndHidesWhatWasDeleted() {
-        var library = new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc);
+        var library = new JdbcLibraryRepository(jdbc);
+        var artifacts = new JdbcChatArtifactRepository(jdbc);
         var interpreter = new io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository(jdbc);
-        var images = new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc);
+        var images = new io.memoryos.chat.image.persistence.JdbcImageArtifactRepository(jdbc);
         var scope = new TenantId(tenant);
         var session = sessions.create(owner, "Báo cáo");
         var reply = reserve(session, session.rootMessageId(), UUID.randomUUID(), "Make a workbook");
@@ -326,13 +339,13 @@ class ChatPersistenceIntegrationTest {
                 new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/pic.png"), "image/png", ".png", 512,
                 "a red shirt", null, null);
 
-        var all = library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50);
+        var all = library.page(scope, owner, JdbcLibraryRepository.Filter.of("", Set.of(), Set.of(), null), LibraryFile.Sort.NEWEST, 0, 50);
         assertEquals(3, all.totalCount());
         assertEquals(4 + 2048 + 512, all.totalBytes());
-        assertEquals(List.of(ChatLibraryFile.Source.IMAGE, ChatLibraryFile.Source.GENERATED, ChatLibraryFile.Source.UPLOAD),
-                all.items().stream().map(ChatLibraryFile::source).toList());
+        assertEquals(List.of(LibraryFile.Source.IMAGE, LibraryFile.Source.GENERATED, LibraryFile.Source.UPLOAD),
+                all.items().stream().map(LibraryFile::source).toList());
         var workbook = all.items().stream().filter(file -> file.id().equals(generated)).findFirst().orElseThrow();
-        assertEquals(ChatLibraryFile.Category.SPREADSHEET, workbook.category());
+        assertEquals(LibraryFile.Category.SPREADSHEET, workbook.category());
         assertEquals(session.id(), workbook.sessionId());
         assertEquals("Báo cáo", workbook.sessionTitle());
         // An upload belongs to its owner, not to one conversation.
@@ -341,24 +354,24 @@ class ChatPersistenceIntegrationTest {
         var picture = all.items().stream().filter(file -> file.id().equals(image)).findFirst().orElseThrow();
         assertTrue(picture.filename().startsWith("image-") && picture.filename().endsWith(".png"), picture.filename());
         assertEquals(512, picture.sizeBytes());
-        assertEquals(List.of(image), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("red shirt", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(image), ids(library.page(scope, owner, JdbcLibraryRepository.Filter.of("red shirt", Set.of(), Set.of(), null), LibraryFile.Sort.NEWEST, 0, 50)));
 
-        assertEquals(List.of(generated), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("doanh", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
-        assertEquals(List.of(generated), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of("GENERATED"), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
-        assertEquals(List.of(upload), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of("DOCUMENT"), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(generated), ids(library.page(scope, owner, JdbcLibraryRepository.Filter.of("doanh", Set.of(), Set.of(), null), LibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(generated), ids(library.page(scope, owner, JdbcLibraryRepository.Filter.of("", Set.of("GENERATED"), Set.of(), null), LibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(upload), ids(library.page(scope, owner, JdbcLibraryRepository.Filter.of("", Set.of(), Set.of("DOCUMENT"), null), LibraryFile.Sort.NEWEST, 0, 50)));
         assertEquals(List.of(generated, image, upload),
-                ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.LARGEST, 0, 50)));
-        var second = library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 1, 1);
+                ids(library.page(scope, owner, JdbcLibraryRepository.Filter.of("", Set.of(), Set.of(), null), LibraryFile.Sort.LARGEST, 0, 50)));
+        var second = library.page(scope, owner, JdbcLibraryRepository.Filter.of("", Set.of(), Set.of(), null), LibraryFile.Sort.NEWEST, 1, 1);
         assertEquals(3, second.totalCount());
         assertEquals(List.of(generated), ids(second));
         // A page past the end still reports the filter's totals; they describe the filter, not the page.
-        var beyond = library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 10, 50);
+        var beyond = library.page(scope, owner, JdbcLibraryRepository.Filter.of("", Set.of(), Set.of(), null), LibraryFile.Sort.NEWEST, 10, 50);
         assertEquals(List.of(), ids(beyond));
         assertEquals(3, beyond.totalCount());
         assertEquals(4 + 2048 + 512, beyond.totalBytes());
         // A search term is matched literally, not as an ILIKE pattern.
-        assertEquals(List.of(), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("%", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
-        assertEquals(0, library.page(scope, other, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50).totalCount());
+        assertEquals(List.of(), ids(library.page(scope, owner, JdbcLibraryRepository.Filter.of("%", Set.of(), Set.of(), null), LibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(0, library.page(scope, other, JdbcLibraryRepository.Filter.of("", Set.of(), Set.of(), null), LibraryFile.Sort.NEWEST, 0, 50).totalCount());
 
         // Deleting a generated file hides it everywhere and refuses a preview that was converting meanwhile.
         assertTrue(interpreter.markArtifactDeleted(scope, owner, generated, java.time.Duration.ZERO));
@@ -371,7 +384,7 @@ class ChatPersistenceIntegrationTest {
         assertTrue(images.markDeleted(scope, owner, image, java.time.Duration.ZERO));
         assertFalse(images.markDeleted(scope, other, image, java.time.Duration.ZERO));
         assertTrue(images.inSession(scope, owner, session.id(), image).isEmpty());
-        assertEquals(List.of(upload), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(upload), ids(library.page(scope, owner, JdbcLibraryRepository.Filter.of("", Set.of(), Set.of(), null), LibraryFile.Sort.NEWEST, 0, 50)));
         // History keeps both as tombstones so the answer does not silently lose its cards.
         assertTrue(interpreter.byMessages(scope, List.of(reply.assistantMessageId()))
                 .get(reply.assistantMessageId()).getFirst().deleted());
@@ -388,22 +401,22 @@ class ChatPersistenceIntegrationTest {
         var keptFile = UUID.randomUUID();
         interpreter.insertArtifact(scope, keptReply.assistantMessageId(), keptFile, UUID.randomUUID(),
                 new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/notes.pdf"), "notes.pdf", "application/pdf", 8, null);
-        assertEquals(List.of(keptFile, upload), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(keptFile, upload), ids(library.page(scope, owner, JdbcLibraryRepository.Filter.of("", Set.of(), Set.of(), null), LibraryFile.Sort.NEWEST, 0, 50)));
         turns.delete(owner, kept.id());
-        assertEquals(List.of(upload), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(upload), ids(library.page(scope, owner, JdbcLibraryRepository.Filter.of("", Set.of(), Set.of(), null), LibraryFile.Sort.NEWEST, 0, 50)));
 
         // An upload a project holds is named rather than silently undeletable.
         var project = projects.create(owner, new ChatProjectService.ProjectInput("Kế hoạch", "", "", List.of(upload)));
-        var usage = new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc).usage(scope, List.of(upload));
-        assertEquals(List.of("Kế hoạch"), usage.stream().map(io.memoryos.chat.persistence.JdbcUserFileRepository.Usage::name).toList());
-        assertEquals(io.memoryos.chat.persistence.JdbcUserFileRepository.Usage.Kind.PROJECT, usage.getFirst().kind());
+        var usage = new JdbcChatFileAttachmentRepository(jdbc).holders(scope, List.of(upload));
+        assertEquals(List.of("Kế hoạch"), usage.stream().map(FileAttachments.Holder::name).toList());
+        assertEquals(LibraryFile.Usage.Kind.PROJECT, usage.getFirst().kind());
         assertEquals(project.id(), usage.getFirst().id());
     }
 
     @Test
     void aConversationsOwnFilesAreItsArtifactsAndTheUploadsAttachedInIt() {
-        var library = new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc);
-        var images = new io.memoryos.chat.persistence.JdbcImageArtifactRepository(jdbc);
+        var library = new JdbcLibraryRepository(jdbc);
+        var images = new io.memoryos.chat.image.persistence.JdbcImageArtifactRepository(jdbc);
         var scope = new TenantId(tenant);
         var session = sessions.create(owner, "Có tệp");
         var elsewhere = sessions.create(owner, "Nơi khác");
@@ -422,7 +435,7 @@ class ChatPersistenceIntegrationTest {
                 new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/elsewhere.png"), "image/png", ".png", 32,
                 null, null, null);
 
-        var inSession = library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), session.id()), ChatLibraryFile.Sort.NEWEST, 0, 50);
+        var inSession = library.page(scope, owner, JdbcLibraryRepository.Filter.of("", Set.of(), Set.of(), session.id()), LibraryFile.Sort.NEWEST, 0, 50);
         assertEquals(List.of(image, attached), ids(inSession));
         assertEquals(64 + 4, inSession.totalBytes());
         // Each row names the message to scroll to: the answer that made the image, the question that attached the file.
@@ -433,16 +446,17 @@ class ChatPersistenceIntegrationTest {
         assertFalse(ids(inSession).contains(otherImage));
         assertFalse(ids(inSession).contains(unattached));
         // Without the filter both conversations' files are listed.
-        assertTrue(ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null), ChatLibraryFile.Sort.NEWEST, 0, 50))
+        assertTrue(ids(library.page(scope, owner, JdbcLibraryRepository.Filter.of("", Set.of(), Set.of(), null), LibraryFile.Sort.NEWEST, 0, 50))
                 .containsAll(List.of(image, otherImage, attached, unattached)));
         // A conversation the caller does not own matches nothing, including their own upload used in it.
-        assertEquals(List.of(), ids(library.page(scope, other, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), session.id()), ChatLibraryFile.Sort.NEWEST, 0, 50)));
-        assertEquals(List.of(), ids(library.page(scope, owner, io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), UUID.randomUUID()), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(), ids(library.page(scope, other, JdbcLibraryRepository.Filter.of("", Set.of(), Set.of(), session.id()), LibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(), ids(library.page(scope, owner, JdbcLibraryRepository.Filter.of("", Set.of(), Set.of(), UUID.randomUUID()), LibraryFile.Sort.NEWEST, 0, 50)));
     }
 
     @Test
     void theLibraryRenamesStarsAndListsPendingUploadsOnlyForTheirOwner() {
-        var library = new io.memoryos.chat.persistence.JdbcChatLibraryRepository(jdbc);
+        var library = new JdbcLibraryRepository(jdbc);
+        var artifacts = new JdbcChatArtifactRepository(jdbc);
         var interpreter = new io.memoryos.chat.interpreter.persistence.JdbcInterpreterRepository(jdbc);
         var scope = new TenantId(tenant);
         var session = sessions.create(owner, "Tệp");
@@ -454,43 +468,43 @@ class ChatPersistenceIntegrationTest {
         interpreter.insertArtifact(scope, reply.assistantMessageId(), generated, UUID.randomUUID(),
                 new io.memoryos.objectstorage.ObjectKey("tenants/" + tenant + "/bang.xlsx"), "bang.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 64, null);
-        var filter = io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("", Set.of(), Set.of(), null);
+        var filter = JdbcLibraryRepository.Filter.of("", Set.of(), Set.of(), null);
 
         // The READY list is unchanged; the pending list holds only the failed upload, with its reason.
-        assertEquals(List.of(generated, upload), ids(library.page(scope, owner, filter, ChatLibraryFile.Sort.NEWEST, 0, 50)));
-        var pending = library.page(scope, owner, new io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter("",
-                Set.of(), Set.of(), null, false, true, null), ChatLibraryFile.Sort.NEWEST, 0, 50);
+        assertEquals(List.of(generated, upload), ids(library.page(scope, owner, filter, LibraryFile.Sort.NEWEST, 0, 50)));
+        var pending = library.page(scope, owner, new JdbcLibraryRepository.Filter("",
+                Set.of(), Set.of(), null, false, true, null), LibraryFile.Sort.NEWEST, 0, 50);
         assertEquals(List.of(failed), ids(pending));
         assertEquals(UserFile.Status.FAILED, pending.items().getFirst().status());
         assertEquals("EXTRACTION_FAILED", pending.items().getFirst().errorCode());
 
         // A rename rewrites the file's own name, so the name search and the listing follow it.
-        assertTrue(library.update(scope, owner, ChatLibraryFile.Source.GENERATED, generated, "Doanh thu quý 3.xlsx", null));
-        assertTrue(library.update(scope, owner, ChatLibraryFile.Source.UPLOAD, upload, null, true));
+        assertTrue(artifacts.update(scope, owner, LibraryFile.Source.GENERATED, generated, "Doanh thu quý 3.xlsx", null));
+        assertTrue(library.update(scope, owner, upload, null, true));
         assertEquals(List.of(generated), ids(library.page(scope, owner,
-                io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter.of("quý 3", Set.of(), Set.of(), null),
-                ChatLibraryFile.Sort.NEWEST, 0, 50)));
-        assertEquals(List.of(generated, upload), ids(library.page(scope, owner, filter, ChatLibraryFile.Sort.NAME, 0, 50)));
-        var starred = library.page(scope, owner, new io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter("",
-                Set.of(), Set.of(), null, true, false, null), ChatLibraryFile.Sort.NEWEST, 0, 50);
+                JdbcLibraryRepository.Filter.of("quý 3", Set.of(), Set.of(), null),
+                LibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(generated, upload), ids(library.page(scope, owner, filter, LibraryFile.Sort.NAME, 0, 50)));
+        var starred = library.page(scope, owner, new JdbcLibraryRepository.Filter("",
+                Set.of(), Set.of(), null, true, false, null), LibraryFile.Sort.NEWEST, 0, 50);
         assertEquals(List.of(upload), ids(starred));
         assertTrue(starred.items().getFirst().favorite());
         // Unstarring clears it; another member can neither rename nor star the file.
-        assertTrue(library.update(scope, owner, ChatLibraryFile.Source.UPLOAD, upload, null, false));
-        assertEquals(List.of(), ids(library.page(scope, owner, new io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter("",
-                Set.of(), Set.of(), null, true, false, null), ChatLibraryFile.Sort.NEWEST, 0, 50)));
-        assertFalse(library.update(scope, other, ChatLibraryFile.Source.GENERATED, generated, "x.xlsx", true));
-        assertFalse(library.update(scope, owner, ChatLibraryFile.Source.IMAGE, generated, "x.png", null));
+        assertTrue(library.update(scope, owner, upload, null, false));
+        assertEquals(List.of(), ids(library.page(scope, owner, new JdbcLibraryRepository.Filter("",
+                Set.of(), Set.of(), null, true, false, null), LibraryFile.Sort.NEWEST, 0, 50)));
+        assertFalse(artifacts.update(scope, other, LibraryFile.Source.GENERATED, generated, "x.xlsx", true));
+        assertFalse(artifacts.update(scope, owner, LibraryFile.Source.IMAGE, generated, "x.png", null));
         // A deleted artifact is no longer the owner's to change either.
         jdbc.sql("UPDATE chat_file_artifact SET deleted_at = CURRENT_TIMESTAMP WHERE id = :id").param("id", generated).update();
-        assertFalse(library.update(scope, owner, ChatLibraryFile.Source.GENERATED, generated, null, true));
+        assertFalse(artifacts.update(scope, owner, LibraryFile.Source.GENERATED, generated, null, true));
         // Only the listed ids remain when the filter names them.
-        assertEquals(List.of(upload), ids(library.page(scope, owner, new io.memoryos.chat.persistence.JdbcChatLibraryRepository.Filter("",
-                Set.of(), Set.of(), null, false, false, Set.of(upload)), ChatLibraryFile.Sort.NEWEST, 0, 50)));
+        assertEquals(List.of(upload), ids(library.page(scope, owner, new JdbcLibraryRepository.Filter("",
+                Set.of(), Set.of(), null, false, false, Set.of(upload)), LibraryFile.Sort.NEWEST, 0, 50)));
     }
 
-    private static List<UUID> ids(io.memoryos.chat.persistence.JdbcChatLibraryRepository.Page page) {
-        return page.items().stream().map(ChatLibraryFile::id).toList();
+    private static List<UUID> ids(JdbcLibraryRepository.Page page) {
+        return page.items().stream().map(LibraryFile::id).toList();
     }
 
     @Test
@@ -592,13 +606,13 @@ class ChatPersistenceIntegrationTest {
     void oversizedQuestionRollsBackBeforeTreeAdvancesAndBuiltinConfigurationSurvivesSend() {
         var session = sessions.create(owner, "Validation");
         var request = UUID.randomUUID();
-        assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(), session.rootMessageId(), request,
+        assertThrows(AiException.class, () -> turns.reserve(owner, session.id(), session.rootMessageId(), request,
                 "Question ".repeat(500), Duration.ofMinutes(2), 100));
         assertTrue(sessions.history(owner, session.id(), null, 100).isEmpty());
         jdbc.sql("UPDATE persona SET instructions = 'Answer' WHERE id = :id").param("id", session.personaId()).update();
         var tokens = new JTokkitTokenCountEstimator(EncodingType.O200K_BASE);
-        var policy = ChatRequestPolicy.hosted(tokens, p -> p);
-        var binding = new ChatModelBinding(new SpringAiLlmService("fixture", "fixture",
+        var policy = ModelRequestPolicy.hosted(tokens, p -> p);
+        var binding = new ModelBinding(new SpringAiLlmService("fixture", "fixture",
                 org.mockito.Mockito.mock(ChatModel.class)), p -> p, policy, 32000, 4096, false, false);
         String contribution = "Current date: 2026-09-11\n";
         // Reservation validates and stores the resolved prompt, including the account-language block.
@@ -607,7 +621,7 @@ class ChatPersistenceIntegrationTest {
                 contribution);
         int raw = tokens.estimate(instructions) + tokens.estimate("Question");
         var selection = new ChatTurnPersistence.ModelSelection(null, UUID.randomUUID(), null, binding, null, contribution);
-        assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(), session.rootMessageId(), request,
+        assertThrows(AiException.class, () -> turns.reserve(owner, session.id(), session.rootMessageId(), request,
                 "Question", Duration.ofMinutes(2), raw, selection));
         assertTrue(sessions.history(owner, session.id(), null, 100).isEmpty());
         jdbc.sql("UPDATE persona SET model = 'obsolete-model' WHERE id = :id").param("id", session.personaId()).update();
@@ -780,7 +794,7 @@ class ChatPersistenceIntegrationTest {
         assertTrue(sessions.list(other, false, 0, 30).isEmpty());
         assertEquals("CHAT_UNAVAILABLE", assertThrows(ChatException.class, () -> sessions.get(other, first.id())).code());
         // The deployment schema permits one Tenant; verify the repository still scopes by its ID.
-        assertTrue(new JdbcChatRepository(jdbc).findOwned(new io.memoryos.iam.tenant.TenantId(UUID.randomUUID()),
+        assertTrue(new JdbcChatRepository(jdbc).findOwned(new TenantId(UUID.randomUUID()),
                 owner, first.id(), false).isEmpty());
         jdbc.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE actor_id = :actor")
                 .param("actor", owner.value()).update();
@@ -1007,7 +1021,7 @@ class ChatPersistenceIntegrationTest {
             var locked = new CountDownLatch(1);
             var release = new CountDownLatch(1);
             var revoke = executor.submit(() -> tx.executeWithoutResult(_ -> {
-                new IamLockRepository(jdbc).lockTenant(new io.memoryos.iam.tenant.TenantId(tenant));
+                new IamLockRepository(jdbc).lockTenant(new TenantId(tenant));
                 jdbc.sql("UPDATE tenant_memberships SET status = 'INACTIVE' WHERE actor_id = :actor")
                         .param("actor", owner.value()).update();
                 locked.countDown();
@@ -1045,8 +1059,8 @@ class ChatPersistenceIntegrationTest {
 
         UUID editors = group("Ban điều hành", Map.of(groupEditor, false, manager, true));
         var shared = personas.share(creator, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(
-                List.of(new ChatPersonaService.UserShareInput(viewer.value(), JdbcAgentRepository.Permission.VIEWER)),
-                List.of(new ChatPersonaService.GroupShareInput(editors, JdbcAgentRepository.Permission.EDITOR)), null, null));
+                List.of(new ChatPersonaService.UserShareInput(viewer.value(), AgentPermission.VIEWER)),
+                List.of(new ChatPersonaService.GroupShareInput(editors, AgentPermission.EDITOR)), null, null));
         assertTrue(shared.revision() > agent.revision(), "Relation-only changes advance the revision");
         assertThrows(ChatException.class, () -> personas.share(creator, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(List.of(), List.of(), null, null)));
 
@@ -1061,23 +1075,23 @@ class ChatPersistenceIntegrationTest {
         assertEquals("KPI tháng", edited.name());
         // A non-owner editor cannot change Tenant-wide visibility; the rest of the share replacement applies.
         var editorShare = personas.share(groupEditor, agent.id(), edited.revision(), new ChatPersonaService.SharingInput(
-                List.of(), List.of(new ChatPersonaService.GroupShareInput(editors, JdbcAgentRepository.Permission.EDITOR)), true,
-                JdbcAgentRepository.Permission.EDITOR));
+                List.of(), List.of(new ChatPersonaService.GroupShareInput(editors, AgentPermission.EDITOR)), true,
+                AgentPermission.EDITOR));
         assertFalse(editorShare.isPublic());
         assertThrows(ChatException.class, () -> personas.get(viewer, agent.id()));
         // The Group manager edits a private agent whose share Groups they all manage.
         assertTrue(personas.get(manager, agent.id()).permissions().edit());
 
         var published = personas.share(creator, agent.id(), editorShare.revision(), new ChatPersonaService.SharingInput(
-                List.of(), List.of(new ChatPersonaService.GroupShareInput(editors, JdbcAgentRepository.Permission.VIEWER)), true,
-                JdbcAgentRepository.Permission.VIEWER));
+                List.of(), List.of(new ChatPersonaService.GroupShareInput(editors, AgentPermission.VIEWER)), true,
+                AgentPermission.VIEWER));
         assertTrue(published.isPublic());
         assertFalse(personas.get(stranger, agent.id()).permissions().edit());
         assertFalse(personas.get(manager, agent.id()).permissions().edit(), "Managers only edit private agents");
         var strangerSession = sessions.create(stranger, "Public agent");
         personas.select(stranger, strangerSession.id(), agent.id());
         assertEquals(List.of(sourceId), tx.execute(ignored -> new JdbcChatRepository(jdbc).persona(strangerSession.id(), false, false)).options().sourceIds());
-        assertTrue(personas.list(stranger, JdbcAgentRepository.View.SHARED, null, "kpi", 0, 30).stream().anyMatch(view -> view.id().equals(agent.id())));
+        assertTrue(personas.list(stranger, AgentListFilter.SHARED, null, "kpi", 0, 30).stream().anyMatch(view -> view.id().equals(agent.id())));
 
         var privateAgain = personas.share(creator, agent.id(), published.revision(), new ChatPersonaService.SharingInput(List.of(), List.of(), false, null));
         assertThrows(ChatException.class, () -> tx.execute(ignored -> new JdbcChatRepository(jdbc).persona(strangerSession.id(), false, false)),
@@ -1086,7 +1100,7 @@ class ChatPersistenceIntegrationTest {
         var transferred = personas.transfer(creator, agent.id(), privateAgain.revision(), new ChatPersonaService.TransferInput(viewer.value(), null));
         assertEquals(viewer.value(), transferred.owner().actor().actorId());
         assertTrue(transferred.userShares().stream().anyMatch(share -> share.person().actorId().equals(creator.value())
-                && share.permission() == JdbcAgentRepository.Permission.EDITOR), "The previous owner keeps editing access");
+                && share.permission() == AgentPermission.EDITOR), "The previous owner keeps editing access");
         assertTrue(personas.get(creator, agent.id()).permissions().edit());
         assertFalse(personas.get(creator, agent.id()).permissions().delete());
 
@@ -1098,12 +1112,42 @@ class ChatPersistenceIntegrationTest {
         var adopted = personas.transfer(owner, agent.id(), vacant.revision(), new ChatPersonaService.TransferInput(null, editors));
         assertEquals(editors, adopted.owner().group().id());
         // A direct sharee outside the owner Group sees a Group-owned agent under Shared.
-        assertTrue(personas.list(creator, JdbcAgentRepository.View.SHARED, null, null, 0, 30).stream()
+        assertTrue(personas.list(creator, AgentListFilter.SHARED, null, null, 0, 30).stream()
                 .anyMatch(view -> view.id().equals(agent.id())));
         assertTrue(personas.get(groupEditor, agent.id()).permissions().delete(), "AgentOwner Group members own the agent");
         personas.delete(groupEditor, agent.id(), personas.get(groupEditor, agent.id()).revision());
         assertThrows(ChatException.class, () -> personas.get(groupEditor, agent.id()));
         assertTrue(personas.restore(owner, agent.id()).deletedAt() == null);
+    }
+
+    @Test
+    void anAgentGrantsItsFilesToThoseWhoUseItAndIsNamedAsTheirHolder() {
+        var creator = member(tenant); var viewer = member(tenant); var stranger = member(tenant);
+        when(authorization.effectiveCapabilities(creator)).thenReturn(Set.of(IamCapability.CHAT_WRITE, IamCapability.AGENTS_CREATE));
+        var attached = readyFile(creator); var avatar = readyFile(creator); var unrelated = readyFile(creator);
+        var agent = personas.create(creator, input("Tài liệu", List.of(), List.of(), false, null, null, List.of(attached)));
+        // The avatar is set by row: the service only takes an image, and what is tested here is the grant.
+        jdbc.sql("UPDATE persona SET avatar_file_id = :file WHERE id = :id").param("file", avatar).param("id", agent.id()).update();
+        personas.share(creator, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(
+                List.of(new ChatPersonaService.UserShareInput(viewer.value(), AgentPermission.VIEWER)), List.of(), null, null));
+        var attachments = new JdbcChatFileAttachmentRepository(jdbc);
+        var scope = new TenantId(tenant);
+        var all = List.of(attached, avatar, unrelated);
+
+        // Someone the agent is shared with reads its file and its avatar, not the creator's other uploads.
+        var granted = attachments.usableThroughAgents(scope, viewer, all);
+        assertEquals(Set.of(attached, avatar), granted);
+        assertTrue(new JdbcUserFileRepository(jdbc).readable(scope, viewer, attached, granted, false).isPresent());
+        assertTrue(new JdbcUserFileRepository(jdbc).readable(scope, viewer, unrelated, granted, false).isEmpty());
+        // Someone it is not shared with is granted nothing.
+        assertEquals(Set.of(), attachments.usableThroughAgents(scope, stranger, all));
+
+        // The agent is what holds both files, once each; the unrelated upload is held by nothing.
+        var holders = attachments.holders(scope, all);
+        assertEquals(List.of(attached, avatar), holders.stream().map(FileAttachments.Holder::fileId).sorted(
+                java.util.Comparator.comparing(all::indexOf)).toList());
+        assertTrue(holders.stream().allMatch(holder -> holder.id().equals(agent.id())
+                && holder.kind() == LibraryFile.Usage.Kind.AGENT && holder.name().equals("Tài liệu")));
     }
 
     @Test
@@ -1154,10 +1198,10 @@ class ChatPersistenceIntegrationTest {
         var shared = shortcuts.create(owner, new ChatPromptShortcutService.ShortcutInput("kpi", "Xếp loại KPI tháng này", null), true);
         assertThrows(ChatException.class, () -> shortcuts.update(other, own.id(), own.revision(),
                 new ChatPromptShortcutService.ShortcutInput("tomtat", "Changed", null), false));
-        assertEquals(List.of("tomtat", "kpi"), shortcuts.list(member, false).stream().map(JdbcPromptShortcutRepository.PromptShortcut::name).toList());
+        assertEquals(List.of("tomtat", "kpi"), shortcuts.list(member, false).stream().map(PromptShortcut::name).toList());
         shortcuts.hide(member, shared.id(), true);
-        assertEquals(List.of("tomtat"), shortcuts.list(member, false).stream().map(JdbcPromptShortcutRepository.PromptShortcut::name).toList());
-        assertTrue(shortcuts.list(member, true).stream().anyMatch(JdbcPromptShortcutRepository.PromptShortcut::hidden));
+        assertEquals(List.of("tomtat"), shortcuts.list(member, false).stream().map(PromptShortcut::name).toList());
+        assertTrue(shortcuts.list(member, true).stream().anyMatch(PromptShortcut::hidden));
         assertTrue(shortcuts.preferences(member).enabled());
         assertFalse(shortcuts.preferences(member, false).enabled());
     }
@@ -1180,7 +1224,9 @@ class ChatPersistenceIntegrationTest {
         var a = readyFile(owner); var b = readyFile(owner); var foreign = readyFile(other);
         var session = sessions.create(owner, "Files");
         var denied = new ChatCommand(ChatCommand.Operation.SEND, session.rootMessageId(), UUID.randomUUID(), "", null, List.of(foreign));
-        assertThrows(ChatException.class, () -> turns.reserve(owner, session.id(), denied, Duration.ofMinutes(2), 32000, null));
+        // The library refuses the file; its failure answers the same CHAT_UNAVAILABLE problem Chat's would.
+        var refused = assertThrows(LibraryException.class, () -> turns.reserve(owner, session.id(), denied, Duration.ofMinutes(2), 32000, null));
+        assertEquals("CHAT_UNAVAILABLE", refused.code());
         assertTrue(sessions.history(owner, session.id(), null, 100).isEmpty());
         var command = new ChatCommand(ChatCommand.Operation.SEND, session.rootMessageId(), UUID.randomUUID(), "", null, List.of(b, a));
         var first = turns.reserve(owner, session.id(), command, Duration.ofMinutes(2), 32000, null);
@@ -1255,7 +1301,7 @@ class ChatPersistenceIntegrationTest {
             new io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository(jdbc).create(tenantId, objectId,
                     new io.memoryos.objectstorage.ObjectKey("raw/" + tenant + "/" + objectId.value()), spec, java.time.Instant.now().plusSeconds(600));
             new io.memoryos.objectstorage.persistence.JdbcObjectUploadRepository(jdbc).create(tenantId, uploadId, objectId, spec.purpose());
-            var id = new io.memoryos.chat.persistence.JdbcUserFileRepository(jdbc).create(tenantId, actor, UUID.randomUUID(), uploadId, spec);
+            var id = new JdbcUserFileRepository(jdbc).create(tenantId, actor, UUID.randomUUID(), uploadId, spec);
             // This suite tests message transactions; worker/adoption publication is exercised separately.
             jdbc.sql("UPDATE chat_user_file SET status='READY',plaintext='Test',detected_media_type='text/plain',"
                     + "stored_object_id=:object WHERE id=:id").param("object", objectId.value()).param("id", id).update();

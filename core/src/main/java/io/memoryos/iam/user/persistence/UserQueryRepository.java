@@ -1,18 +1,18 @@
 package io.memoryos.iam.user.persistence;
 
-import io.memoryos.iam.identity.AccountType;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.GroupIdentity;
-import io.memoryos.iam.group.GroupSystemKey;
-import io.memoryos.iam.tenant.TenantId;
-import io.memoryos.iam.tenant.TenantMembershipRole;
-import io.memoryos.iam.user.UserCounts;
-import io.memoryos.iam.user.UserListItem;
-import io.memoryos.iam.user.UserPage;
-import io.memoryos.iam.user.UserQuery;
-import io.memoryos.iam.user.UserSort;
-import io.memoryos.iam.user.UserStatus;
+import io.memoryos.iam.AccountType;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.GroupIdentity;
+import io.memoryos.iam.GroupSystemKey;
+import io.memoryos.shared.TenantId;
+import io.memoryos.iam.TenantMembershipRole;
+import io.memoryos.iam.UserCounts;
+import io.memoryos.iam.UserListItem;
+import io.memoryos.iam.UserPage;
+import io.memoryos.iam.UserQuery;
+import io.memoryos.iam.UserSort;
+import io.memoryos.iam.UserStatus;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

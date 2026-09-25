@@ -18,7 +18,7 @@ import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.ExtractionArtifactPort;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.ingestion.ExtractionException;
 import io.memoryos.ingestion.ExtractionFailure;
 import io.memoryos.ingestion.IngestionCoordinator;

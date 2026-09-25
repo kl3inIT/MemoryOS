@@ -1,5 +1,6 @@
 package io.memoryos.chat.interpreter;
 
+import org.springframework.modulith.NamedInterface;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -33,6 +34,7 @@ import tools.jackson.databind.ObjectMapper;
  * timeouts. As in Onyx, failure text (including a bounded error response body) reaches the model; the API key never does.
  */
 @Component
+@NamedInterface("interpreter")
 public class InterpreterClient implements AutoCloseable {
     /** Largest generated file copied into MemoryOS object storage (MEM-110 design). */
     public static final int MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;

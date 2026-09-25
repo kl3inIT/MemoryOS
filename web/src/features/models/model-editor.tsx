@@ -13,7 +13,7 @@ import {
   listConfiguredChatModelsOptions,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { createChatModel, updateChatModel, validateChatModel } from "@/lib/hey-api/sdk.gen";
-import { CatalogDialog } from "./catalog-dialog";
+import { CatalogDialog } from "@/components/composites/catalog-dialog";
 import {
   compactTokens,
   findKnownModel,

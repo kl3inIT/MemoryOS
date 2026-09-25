@@ -1,7 +1,7 @@
 package io.memoryos.connector;
 
 import io.memoryos.document.DocumentId;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;

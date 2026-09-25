@@ -1,14 +1,15 @@
 package io.memoryos.chat;
 
-import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.chat.persistence.JpaProjectRepository;
-import io.memoryos.chat.persistence.ChatPage;
-import io.memoryos.chat.persistence.ProjectEntity;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.library.UserFileService;
+import io.memoryos.chat.project.persistence.JpaProjectRepository;
+import io.memoryos.chat.project.persistence.ChatPage;
+import io.memoryos.chat.project.persistence.ProjectEntity;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -24,9 +25,9 @@ public class ChatProjectService {
     private final JdbcChatRepository chats;
     private final JpaProjectRepository settings;
     private final ChatSessionService sessions;
-    private final ChatFileService files;
+    private final UserFileService files;
     public ChatProjectService(TenantAccessResolver tenants, IamAuthorization authorization, JdbcChatRepository chats,
-                              JpaProjectRepository settings, ChatSessionService sessions, ChatFileService files) {
+                              JpaProjectRepository settings, ChatSessionService sessions, UserFileService files) {
         this.tenants = tenants; this.authorization = authorization; this.chats = chats; this.settings = settings; this.sessions = sessions;
         this.files = files;
     }

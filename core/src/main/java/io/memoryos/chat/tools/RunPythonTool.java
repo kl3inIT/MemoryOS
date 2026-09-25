@@ -1,13 +1,13 @@
 package io.memoryos.chat.tools;
 
 import com.embabel.agent.api.annotation.LlmTool;
-import io.memoryos.chat.ChatFileContentService;
+import io.memoryos.library.UserFileContentService;
 import io.memoryos.chat.ChatToolActivity;
-import io.memoryos.chat.UserFile;
+import io.memoryos.library.UserFile;
 import io.memoryos.chat.interpreter.InterpreterClient;
 import io.memoryos.chat.interpreter.InterpreterService;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -64,7 +64,7 @@ public final class RunPythonTool {
 
     private final InterpreterClient client;
     private final InterpreterService artifacts;
-    private final ChatFileContentService files;
+    private final UserFileContentService files;
     private final ActorId actor;
     private final TenantId tenant;
     private final UUID messageId;
@@ -75,7 +75,7 @@ public final class RunPythonTool {
     /** Onyx upload cache: (file name, content SHA-256) to service file id, for this turn only. */
     private final Map<String, String> uploads = new HashMap<>();
 
-    public RunPythonTool(InterpreterClient client, InterpreterService artifacts, ChatFileContentService files, ActorId actor,
+    public RunPythonTool(InterpreterClient client, InterpreterService artifacts, UserFileContentService files, ActorId actor,
                          TenantId tenant, UUID messageId, Collection<UUID> fileIds, Runnable active,
                          ChatToolActivity activity, java.util.function.Consumer<io.memoryos.chat.ChatCodeEvent> events) {
         this.client = client; this.artifacts = artifacts; this.files = files; this.actor = actor; this.tenant = tenant;

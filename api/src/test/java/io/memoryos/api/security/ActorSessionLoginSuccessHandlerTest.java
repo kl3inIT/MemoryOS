@@ -6,12 +6,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.invitation.InvitationException;
-import io.memoryos.iam.invitation.InvitationFailureReason;
-import io.memoryos.iam.invitation.InvitationService;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditOutcome;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.InvitationException;
+import io.memoryos.iam.InvitationFailureReason;
+import io.memoryos.iam.InvitationService;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -60,7 +64,7 @@ class ActorSessionLoginSuccessHandlerTest {
         var invitations = mock(InvitationService.class);
         when(invitations.acceptVerifiedEmail(any())).thenThrow(new InvitationException(
                 InvitationFailureReason.NOT_AVAILABLE, "No eligible invitation"));
-        var audit = mock(io.memoryos.iam.audit.AuditTrail.class);
+        var audit = mock(AuditTrail.class);
         var handler = new ActorSessionLoginSuccessHandler(
                 _ -> Optional.empty(),
                 mock(TenantAccessResolver.class),
@@ -91,10 +95,10 @@ class ActorSessionLoginSuccessHandlerTest {
         assertNull(request.getSession(false));
         assertNull(SecurityContextHolder.getContext().getAuthentication());
         // The refused sign-in is recorded, naming the person by the e-mail their provider asserted.
-        var event = org.mockito.ArgumentCaptor.forClass(io.memoryos.iam.audit.AuditRecord.class);
+        var event = org.mockito.ArgumentCaptor.forClass(AuditRecord.class);
         org.mockito.Mockito.verify(audit).recordSeparately(event.capture());
-        assertEquals(io.memoryos.iam.audit.AuditAction.LOGIN_FAILURE, event.getValue().action());
-        assertEquals(io.memoryos.iam.audit.AuditOutcome.DENIED, event.getValue().outcome());
+        assertEquals(AuditAction.LOGIN_FAILURE, event.getValue().action());
+        assertEquals(AuditOutcome.DENIED, event.getValue().outcome());
         assertEquals("member@example.test", event.getValue().actorLabel());
         assertEquals("NOT_ADMITTED", event.getValue().details().get("reason"));
     }

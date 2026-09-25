@@ -9,7 +9,7 @@ import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { createEmbeddingProvider, updateEmbeddingProvider } from "@/lib/hey-api/sdk.gen";
 import type { EmbeddingProviderRequest, EmbeddingProviderResponse } from "@/lib/hey-api/types.gen";
-import { CatalogDialog } from "@/features/models/catalog-dialog";
+import { CatalogDialog } from "@/components/composites/catalog-dialog";
 import { DataBoundaryField, type DataBoundary } from "@/features/models/data-boundary";
 import type { ProviderTestOutcome } from "@/features/models/provider-test";
 import { useModelMutation } from "@/features/models/model-mutation";

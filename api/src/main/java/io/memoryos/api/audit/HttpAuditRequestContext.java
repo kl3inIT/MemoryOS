@@ -1,6 +1,6 @@
 package io.memoryos.api.audit;
 
-import io.memoryos.iam.audit.AuditRequestContext;
+import io.memoryos.audit.AuditRequestContext;
 import jakarta.servlet.http.HttpServletRequest;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;

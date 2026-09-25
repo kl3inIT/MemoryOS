@@ -2,8 +2,8 @@ package io.memoryos.api.chat;
 
 import io.memoryos.BusinessException;
 import io.memoryos.api.chat.contract.VoiceTicketPurpose;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.IdentityContext;
 import java.util.Map;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;

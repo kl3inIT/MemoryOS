@@ -1,7 +1,7 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.chat.voice.VoiceFunction;
-import io.memoryos.chat.voice.VoiceProvider;
+import io.memoryos.voice.VoiceFunction;
+import io.memoryos.voice.VoiceProvider;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.jspecify.annotations.Nullable;

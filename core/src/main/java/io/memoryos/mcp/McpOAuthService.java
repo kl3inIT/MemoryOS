@@ -1,8 +1,13 @@
 package io.memoryos.mcp;
 
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.TenantId;
+
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
 import io.memoryos.mcp.persistence.JpaMcpCredentialRepository;
 import io.memoryos.mcp.persistence.JpaMcpOAuthClientRepository;
 import io.memoryos.mcp.persistence.JpaMcpServerRepository;
@@ -52,13 +57,13 @@ public class McpOAuthService {
     private final McpOAuthProtocol protocol;
     private final McpOAuthProperties properties;
     private final TransactionTemplate transactions;
-    private final io.memoryos.iam.audit.AuditTrail audit;
+    private final AuditTrail audit;
 
     public McpOAuthService(JpaMcpServerRepository servers, JpaMcpOAuthClientRepository clients,
                            JpaMcpCredentialRepository credentials, McpAccessRepository access,
                            IamAuthorization authorization, McpSecrets secrets,
                            McpOAuthProtocol protocol, McpOAuthProperties properties,
-                           PlatformTransactionManager transactionManager, io.memoryos.iam.audit.AuditTrail audit) {
+                           PlatformTransactionManager transactionManager, AuditTrail audit) {
         this.audit = audit;
         this.servers = servers; this.clients = clients; this.credentials = credentials; this.access = access;
         this.authorization = authorization;
@@ -588,13 +593,13 @@ public class McpOAuthService {
 
     private void clientChange(UUID tenant, ActorId actor, UUID serverId, String change, ClientView client) {
         String server = servers.findByTenantIdAndId(tenant, serverId).map(McpServerEntity::name).orElse(null);
-        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.MCP_OAUTH_CLIENT_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant))
+        audit.record(AuditRecord.of(AuditAction.MCP_OAUTH_CLIENT_CHANGE, new TenantId(tenant))
                 .actor(actor).resource("MCP_SERVER", serverId, server)
                 .detail("change", change).detail("client", client.label()).detail("issuer", client.issuer()).build());
     }
 
     private void connectionChange(UUID tenant, ActorId actor, McpServerEntity server, String change) {
-        audit.record(io.memoryos.iam.audit.AuditRecord.of(io.memoryos.iam.audit.AuditAction.MCP_CONNECTION_CHANGE, new io.memoryos.iam.tenant.TenantId(tenant))
+        audit.record(AuditRecord.of(AuditAction.MCP_CONNECTION_CHANGE, new TenantId(tenant))
                 .actor(actor).resource("MCP_SERVER", server.getId(), server.name()).detail("change", change).build());
     }
 }

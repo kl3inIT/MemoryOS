@@ -36,8 +36,8 @@ import io.memoryos.connector.SourceDocumentAccessResolver;
 import io.memoryos.document.DocumentCommandPort;
 import io.memoryos.document.DocumentId;
 import io.memoryos.document.ExtractionArtifactPort;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.ingestion.OperationDispatchPort;
 import io.memoryos.ingestion.OperationWorkload;
 import io.memoryos.ingestion.SourceContentExtractor;
@@ -1223,8 +1223,8 @@ class SourceApiIntegrationTest {
         ActorAuthenticationToken manager = scopedManager(tenantId, managedGroupId);
         UUID otherGroupId = UUID.randomUUID();
         scopedManager(tenantId, otherGroupId);
-        var managed = new io.memoryos.iam.group.GroupId(managedGroupId);
-        var other = new io.memoryos.iam.group.GroupId(otherGroupId);
+        var managed = new io.memoryos.iam.GroupId(managedGroupId);
+        var other = new io.memoryos.iam.GroupId(otherGroupId);
         UUID managerActorId = manager.getPrincipal().actorId().value();
         String sharedSourceId = sourceManagement.createFileSource(owner.getPrincipal().actorId(), "Shared source",
                 List.of(managed, other), io.memoryos.connector.SourceAccess.PRIVATE).id().value().toString();
@@ -1308,7 +1308,7 @@ class SourceApiIntegrationTest {
         UUID managedGroupId = UUID.randomUUID();
         ActorAuthenticationToken manager = scopedManager(tenantId, managedGroupId);
         String managedSourceId = sourceManagement.createFileSource(manager.getPrincipal().actorId(),
-                "Manager source", List.of(new io.memoryos.iam.group.GroupId(managedGroupId)),
+                "Manager source", List.of(new io.memoryos.iam.GroupId(managedGroupId)),
                 io.memoryos.connector.SourceAccess.PRIVATE).id().value().toString();
         String hiddenSourceId = sourceManagement.createFileSource(owner.getPrincipal().actorId(),
                 "Hidden manager source", List.of(), io.memoryos.connector.SourceAccess.PRIVATE).id().value().toString();

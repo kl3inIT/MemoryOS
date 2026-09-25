@@ -7,15 +7,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.group.Authority;
-import io.memoryos.iam.group.GroupAdministrationGuard;
-import io.memoryos.iam.group.GroupId;
-import io.memoryos.iam.group.IamAccess;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.audit.AuditTrail;
+import io.memoryos.iam.Authority;
+import io.memoryos.iam.GroupId;
+import io.memoryos.iam.IamAccess;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IamException;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.iam.IamFailureReason;
 import io.memoryos.iam.group.persistence.GroupCapabilityGrantRepository;
 import io.memoryos.iam.group.persistence.GroupEntity;
@@ -31,11 +31,6 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.group.DefaultGroupService;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
 
 class DefaultGroupServiceAuthorizationTest {
     private static final TenantId TENANT = new TenantId(
@@ -68,7 +63,7 @@ class DefaultGroupServiceAuthorizationTest {
                 projections,
                 invariants,
                 administrationGuard,
-                mock(io.memoryos.iam.audit.AuditTrail.class)
+                mock(AuditTrail.class)
         );
         GroupEntity group = new GroupEntity(
                 new TenantEntity(TENANT.value(), "tenant", "Tenant", "test"),
@@ -101,7 +96,7 @@ class DefaultGroupServiceAuthorizationTest {
                 mock(GroupProjectionRepository.class),
                 mock(GroupInvariantRepository.class),
                 mock(GroupAdministrationGuard.class),
-                mock(io.memoryos.iam.audit.AuditTrail.class)
+                mock(AuditTrail.class)
         );
 
         for (IamCapability capability : Set.of(
@@ -126,7 +121,7 @@ class DefaultGroupServiceAuthorizationTest {
                 mock(GroupProjectionRepository.class),
                 mock(GroupInvariantRepository.class),
                 mock(GroupAdministrationGuard.class),
-                mock(io.memoryos.iam.audit.AuditTrail.class)
+                mock(AuditTrail.class)
         );
 
         var registry = service.capabilities(MANAGER);

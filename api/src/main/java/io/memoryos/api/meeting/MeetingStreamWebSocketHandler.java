@@ -1,7 +1,7 @@
 package io.memoryos.api.meeting;
 
 import io.memoryos.BusinessException;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.shared.ActorId;
 import io.memoryos.meeting.Meeting;
 import io.memoryos.meeting.MeetingService;
 import java.io.IOException;

@@ -1,9 +1,10 @@
 package io.memoryos.api.chat;
 
-import io.memoryos.chat.catalog.ChatProviderAdapters;
-import io.memoryos.chat.catalog.ChatModelResolver;
-import io.memoryos.chat.catalog.ModelCatalogService;
-import io.memoryos.chat.catalog.ModelFlow;
+import io.memoryos.ai.ProviderAdapters;
+import io.memoryos.ai.ModelResolver;
+import io.memoryos.ai.ModelCatalogService;
+import io.memoryos.chat.ChatModelAccess;
+import io.memoryos.ai.ModelFlow;
 import io.memoryos.api.chat.contract.AvailableChatModelResponse;
 import io.memoryos.api.chat.contract.ChatGroupPageResponse;
 import io.memoryos.api.chat.contract.ChatModelDefaultResponse;
@@ -19,9 +20,9 @@ import io.memoryos.api.chat.contract.ChatProviderResponse;
 import io.memoryos.api.chat.contract.ChatProviderTestRequest;
 import io.memoryos.api.chat.contract.ChatProviderTestResponse;
 import io.memoryos.api.chat.contract.ChatReportedModelsResponse;
-import io.memoryos.chat.catalog.openai.ChatModelValidation;
-import io.memoryos.iam.group.GroupQuery;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.ai.ModelValidation;
+import io.memoryos.iam.GroupQuery;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -63,12 +64,14 @@ import org.springframework.web.bind.annotation.RestController;
 @SecurityRequirement(name = "bearerAuth")
 class ChatModelCatalogController {
     private final ModelCatalogService catalog;
-    private final ChatProviderAdapters adapters;
-    private final ChatModelValidation validation;
-    private final ChatModelResolver models;
-    ChatModelCatalogController(ModelCatalogService catalog, ChatProviderAdapters adapters,
-                               ChatModelValidation validation, ChatModelResolver models) {
+    private final ProviderAdapters adapters;
+    private final ModelValidation validation;
+    private final ModelResolver models;
+    private final ChatModelAccess access;
+    ChatModelCatalogController(ModelCatalogService catalog, ProviderAdapters adapters,
+                               ModelValidation validation, ModelResolver models, ChatModelAccess access) {
         this.catalog = catalog;
+        this.access = access;
         this.adapters = adapters;
         this.validation = validation;
         this.models = models;
@@ -79,7 +82,7 @@ class ChatModelCatalogController {
     @Operation(operationId = "listAvailableChatModels", summary = "List visible models authorized for this session or the builtin Persona")
     List<AvailableChatModelResponse> available(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
                                                        @RequestParam(required = false) @Nullable UUID sessionId) {
-        return catalog.availableModels(identity.actorId(), sessionId).stream().map(AvailableChatModelResponse::from).toList();
+        return access.availableModels(identity.actorId(), sessionId).stream().map(AvailableChatModelResponse::from).toList();
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping("/provider-adapters")
@@ -226,20 +229,20 @@ class ChatModelCatalogController {
             @RequestParam(required = false) @Nullable String cursor,
             @Parameter(schema = @Schema(type = "integer", format = "int32", minimum = "1", maximum = "100", defaultValue = "25"))
             @RequestParam(defaultValue = "25") int limit) {
-        return ChatPersonaPageResponse.from(catalog.personas(identity.actorId(), cursor, limit));
+        return ChatPersonaPageResponse.from(access.personas(identity.actorId(), cursor, limit));
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @GetMapping("/personas/{personaId}/model")
     @Operation(operationId = "getPersonaModel", summary = "Read the Persona model selection and revision; requires model management")
     ChatPersonaModelResponse persona(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID personaId) {
-        return ChatPersonaModelResponse.from(catalog.personaModel(identity.actorId(), personaId));
+        return ChatPersonaModelResponse.from(access.personaModel(identity.actorId(), personaId));
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @PutMapping("/personas/{personaId}/model")
     @Operation(operationId = "setPersonaModel", summary = "Set a Persona model or omit the model ID to inherit the Chat default")
     ChatPersonaModelResponse setPersona(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
             @PathVariable UUID personaId, @RequestParam(required = false) @Nullable UUID modelConfigurationId, @RequestParam @Positive long revision) {
-        return ChatPersonaModelResponse.from(catalog.setPersonaModel(identity.actorId(), personaId, modelConfigurationId, revision));
+        return ChatPersonaModelResponse.from(access.setPersonaModel(identity.actorId(), personaId, modelConfigurationId, revision));
     }
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
     @PostMapping("/models/{modelId}/validate")

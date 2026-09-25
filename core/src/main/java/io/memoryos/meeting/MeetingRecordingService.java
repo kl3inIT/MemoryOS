@@ -1,12 +1,12 @@
 package io.memoryos.meeting;
 
-import io.memoryos.chat.voice.BatchTranscriptionService;
-import io.memoryos.chat.voice.LiveTranscription;
-import io.memoryos.chat.voice.VoiceProvider;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.voice.BatchTranscriptionService;
+import io.memoryos.voice.LiveTranscription;
+import io.memoryos.voice.VoiceProvider;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import io.memoryos.meeting.persistence.MeetingRepository;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectKey;

@@ -1,10 +1,10 @@
 package io.memoryos.meeting;
 
-import io.memoryos.chat.voice.LiveTranscription;
-import io.memoryos.chat.voice.LiveTranscriptionService;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.voice.LiveTranscription;
+import io.memoryos.voice.LiveTranscriptionService;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
+import io.memoryos.shared.ActorId;
 import io.memoryos.meeting.persistence.MeetingRepository;
 import java.time.Duration;
 import java.util.ArrayList;

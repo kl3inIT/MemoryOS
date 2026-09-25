@@ -1,15 +1,15 @@
 package io.memoryos.chat;
 
-import io.memoryos.chat.persistence.ChatFeedbackEntity;
-import io.memoryos.chat.persistence.ChatSharingEntity;
-import io.memoryos.chat.persistence.JdbcChatRepository;
-import io.memoryos.chat.persistence.JpaChatSharingRepository;
-import io.memoryos.chat.persistence.JpaChatFeedbackRepository;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
-import io.memoryos.iam.group.IamAuthorization;
-import io.memoryos.iam.group.IamCapability;
+import io.memoryos.chat.session.persistence.ChatFeedbackEntity;
+import io.memoryos.chat.session.persistence.ChatSharingEntity;
+import io.memoryos.chat.session.persistence.JdbcChatRepository;
+import io.memoryos.chat.session.persistence.JpaChatSharingRepository;
+import io.memoryos.chat.session.persistence.JpaChatFeedbackRepository;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
+import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;

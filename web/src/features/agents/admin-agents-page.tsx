@@ -24,16 +24,15 @@ import {
   restoreChatPersona,
   setChatPersonaListing,
 } from "@/lib/hey-api/sdk.gen";
-import { ChatDialog } from "@/features/chat/chat-dialog";
-import { chatActionError } from "@/features/chat/chat-action-utils";
+import { FormDialog } from "@/components/composites/form-dialog";
+import { actionErrorText } from "@/lib/action-errors";
 import {
   agentLabelSchema,
   agentVisibility,
-  personLabel,
   personaSchema,
-  type AgentRef,
   type Persona,
-} from "@/features/chat/chat-workspace-api";
+} from "@/features/chat/chat-personas-api";
+import { personLabel, type NamedRef } from "@/features/identity/principals";
 import { AgentAvatar } from "./agent-avatar";
 import { AgentTransferDialog } from "./agent-transfer-dialog";
 import { PublicPromptShortcuts } from "./prompt-shortcuts";
@@ -82,7 +81,7 @@ export function AdminAgentsPage() {
       });
       await refresh();
     } catch (cause) {
-      setError(chatActionError(cause));
+      setError(actionErrorText(cause));
     }
   }
 
@@ -108,7 +107,7 @@ export function AdminAgentsPage() {
         });
       await refresh();
     } catch (cause) {
-      setError(chatActionError(cause));
+      setError(actionErrorText(cause));
     }
   }
 
@@ -130,7 +129,7 @@ export function AdminAgentsPage() {
       });
     } catch (cause) {
       cache.setQueryData(key, previous);
-      setError(chatActionError(cause));
+      setError(actionErrorText(cause));
     }
     await refresh();
   }
@@ -219,9 +218,9 @@ function AgentLabels() {
   const ui = useAppTranslation();
   const cache = useQueryClient();
   const { actorId, authorizationVersion } = useApplicationSession();
-  const [renaming, setRenaming] = useState<AgentRef>();
+  const [renaming, setRenaming] = useState<NamedRef>();
   const [name, setName] = useState("");
-  const [removing, setRemoving] = useState<AgentRef>();
+  const [removing, setRemoving] = useState<NamedRef>();
   const labels = useQuery({
     queryKey: ["chat-persona-labels", actorId, authorizationVersion],
     queryFn: async ({ signal }) =>
@@ -269,7 +268,7 @@ function AgentLabels() {
         ))}
       </ul>
       {renaming && (
-        <ChatDialog
+        <FormDialog
           open
           onOpenChange={(open) => !open && setRenaming(undefined)}
           title={ui("Đổi tên nhãn")}
@@ -288,7 +287,7 @@ function AgentLabels() {
             <span>{ui("Tên nhãn")}</span>
             <Input maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />
           </label>
-        </ChatDialog>
+        </FormDialog>
       )}
       <ConfirmDialog
         open={removing !== undefined}
@@ -298,7 +297,7 @@ function AgentLabels() {
         confirmLabel={ui("Xóa nhãn")}
         pendingLabel={ui("Đang lưu…")}
         confirmTone="danger"
-        errorMessage={chatActionError}
+        errorMessage={actionErrorText}
         onConfirm={async () => {
           if (!removing) return;
           await deleteChatPersonaLabel({

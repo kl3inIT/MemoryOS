@@ -3,7 +3,7 @@ package io.memoryos.api.chat;
 import io.memoryos.api.chat.contract.ChatSettingsRequest;
 import io.memoryos.api.chat.contract.ChatSettingsResponse;
 import io.memoryos.chat.ChatSettingsService;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -51,7 +51,7 @@ class ChatSettingsController {
     }
 
     @Schema(name = "ChatHistoryVisibilityRequest")
-    record VisibilityRequest(@jakarta.validation.constraints.NotNull io.memoryos.chat.history.ChatHistoryVisibility visibility,
+    record VisibilityRequest(@jakarta.validation.constraints.NotNull io.memoryos.chat.ChatHistoryVisibility visibility,
                              @jakarta.validation.constraints.Min(0) long revision) {}
 
     @PutMapping("/history-visibility")

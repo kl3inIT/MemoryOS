@@ -73,3 +73,7 @@ page size is reachable on a single-page library.
   is attached as itself; a generated file, a generated image or a crop is uploaded first, exactly as
   attaching it in Chat does.
 - The crop reads the whole image into the browser, which the preview already does to show it.
+
+## Module move (2026-09-25)
+
+[ADR 0015 step 3](../../../decisions/0015-capability-module-map.md#step-3-what-library-holds) moved the library listing into the `library` module. Its page ceiling is the library's own check (`Paging`), with the same bounds as `ChatPersonaService.page` (offset at most 10000, 1 to 100 rows), so the page-size control is unaffected.

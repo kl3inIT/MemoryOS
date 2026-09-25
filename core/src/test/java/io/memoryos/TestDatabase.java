@@ -1,5 +1,7 @@
 package io.memoryos;
 
+import io.memoryos.audit.AuditRequestContext;
+import io.memoryos.audit.AuditTrail;
 import com.zaxxer.hikari.HikariDataSource;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
@@ -161,7 +163,7 @@ public final class TestDatabase {
     public static JpaHarness jpa(DataSource dataSource, boolean validateSchema) {
         var factoryBean = new LocalContainerEntityManagerFactoryBean();
         factoryBean.setDataSource(dataSource);
-        factoryBean.setPackagesToScan("io.memoryos.iam", "io.memoryos.chat.persistence", "io.memoryos.mcp.persistence");
+        factoryBean.setPackagesToScan("io.memoryos.iam", "io.memoryos.ai.persistence", "io.memoryos.chat", "io.memoryos.mcp.persistence", "io.memoryos.voice.persistence");
         factoryBean.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
         factoryBean.setJpaPropertyMap(java.util.Map.of(
                 "hibernate.hbm2ddl.auto", validateSchema ? "validate" : "none",
@@ -214,18 +216,18 @@ public final class TestDatabase {
     }
 
     /** The audit writer over the test database; it joins whatever transaction the service under test opened. */
-    public static io.memoryos.iam.audit.AuditTrail audit(org.springframework.jdbc.core.simple.JdbcClient jdbc,
+    public static AuditTrail audit(org.springframework.jdbc.core.simple.JdbcClient jdbc,
                                                          PlatformTransactionManager transactions) {
-        return new io.memoryos.iam.audit.AuditTrail(jdbc, io.memoryos.iam.audit.AuditRequestContext.TRACE_ONLY,
+        return new AuditTrail(new io.memoryos.audit.persistence.JdbcAuditEventRepository(jdbc), AuditRequestContext.TRACE_ONLY,
                 new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), transactions);
     }
 
     /** An audit writer that records nothing, for tests of behaviour other than the audit stream itself. */
-    public static io.memoryos.iam.audit.AuditTrail noAudit() {
-        var audit = org.mockito.Mockito.mock(io.memoryos.iam.audit.AuditTrail.class);
+    public static AuditTrail noAudit() {
+        var audit = org.mockito.Mockito.mock(AuditTrail.class);
         org.mockito.Mockito.when(audit.person(org.mockito.ArgumentMatchers.any())).thenAnswer(call ->
-                new io.memoryos.iam.audit.AuditTrail.Person(
-                        call.<io.memoryos.iam.identity.ActorId>getArgument(0).value().toString(), null));
+                new AuditTrail.Person(
+                        call.<io.memoryos.shared.ActorId>getArgument(0).value().toString(), null));
         return audit;
     }
 }

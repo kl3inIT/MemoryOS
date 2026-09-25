@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { listChatPersonaPins, replaceChatPersonaPins } from "@/lib/hey-api/sdk.gen";
-import { personaSchema } from "@/features/chat/chat-workspace-api";
+import { personaSchema } from "@/features/chat/chat-personas-api";
 
 // Pin writes replace the whole ordered list, so they run one at a time on the latest server list.
 let queue: Promise<unknown> = Promise.resolve();

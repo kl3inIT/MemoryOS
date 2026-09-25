@@ -22,7 +22,7 @@ Nguồn: [audit.md](audit.md) (audit toàn repo trên origin/main 645340f2, 2026
 
 Mô hình `iam`: gốc module gần như trống; mỗi sub-capability là sub-package có type public + `persistence/` riêng, expose bằng `@NamedInterface`.
 
-- [ ] **Bước tiền đề:** gỡ các import persistence từ `api`/`worker` (`chat.persistence` ×10, `chat.history.persistence`, `usage.persistence`, `ingestion.persistence`; ví dụ `JdbcAgentRepository.AgentRef`, `JdbcChatHistoryRepository.Query`, `AiCostQueries.Split` đang là body HTTP). Chủ repo quyết định 2026-09-24: **không thêm ArchUnit**; `ModulithArchitectureTest` chỉ kiểm core nên ranh giới này giữ bằng review. **Có thể đổi schema OpenAPI.**
+- [x] **Bước tiền đề:** (xong 2026-09-25, bước 0 của [ADR 0015](../../../decisions/0015-capability-module-map.md)) gỡ các import persistence từ `api`/`worker` (`chat.persistence` ×10, `chat.history.persistence`, `usage.persistence`, `ingestion.persistence`; ví dụ `JdbcAgentRepository.AgentRef`, `JdbcChatHistoryRepository.Query`, `AiCostQueries.Split` đang là body HTTP). Chủ repo quyết định 2026-09-24: **không thêm ArchUnit**; `ModulithArchitectureTest` chỉ kiểm core nên ranh giới này giữ bằng review. **Có thể đổi schema OpenAPI.**
 - [ ] **`connector`** (75 file ở gốc, `application/` 25, `persistence/` 27, Google và SharePoint trộn lẫn) → `source/`, `googledrive/`, `sharepoint/`, `sync/` (engine trung lập), mỗi cái có `persistence/`.
 - [ ] **`chat`** (47 file ở gốc, `persistence/` 45 file dùng chung) → `session/`, `library/`, `persona/`, `project/`, `settings/`; `catalog/voice/image/web/interpreter` nhận `persistence/` riêng.
 - [ ] Giữ nguyên các module nhỏ (`mcp`, `meeting`, `usage`, `retrieval`, `objectstorage`, `document`, `ingestion`) theo "prefer fewer modules".
@@ -49,7 +49,7 @@ Không cần duyệt về nội dung, chỉ cần chọn **thời điểm**: dif
 - [ ] Bỏ ~71 header `Cache-Control: no-store` và ~15 `nosniff` thừa (Spring Security đã gửi).
 - [ ] Chuyển record lồng trong controller (`MeetingController` 34, `ChatLibraryController` 13, `ChatEventStream` 13…) sang `contract/` — cần kiểm tên schema OpenAPI không đổi.
 - [ ] `ApiProblem` khai báo `additionalProperties: false` nhưng handler thêm `scope`, `group`, `resetsAt`, `retryAfterSeconds`, `usedBy` — sửa schema sẽ đổi `openapi.yml` và client sinh ra.
-- [ ] `iam/audit` chứa SQL trong `@Service` → chuyển sang `iam/audit/persistence`.
+- [x] `iam/audit` chứa SQL trong `@Service` → chuyển sang `iam/audit/persistence`. (Xong 2026-09-25, bước 1 của [ADR 0015](../../../decisions/0015-capability-module-map.md): audit thành module riêng, SQL nằm ở `audit/persistence`.)
 - [ ] `IllegalStateException("CHAT_…")` + allowlist dò cause → exception có kiểu.
 
 ## 5. Hạ tầng triển khai

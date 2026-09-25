@@ -2,31 +2,33 @@ package io.memoryos.chat.tools;
 
 import com.embabel.agent.api.annotation.LlmTool;
 import io.memoryos.chat.ChatException;
-import io.memoryos.chat.ChatFileService;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantId;
+import io.memoryos.library.UserFileService;
+import io.memoryos.library.LibraryException;
+import io.memoryos.shared.ActorId;
+import io.memoryos.shared.TenantId;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.IntSupplier;
 import org.springframework.ai.tokenizer.TokenCountEstimator;
+import io.memoryos.library.UserFileSearchService;
 
 /** Per-turn allowlist plus fresh owner checks. Never resolves arbitrary storage keys or paths. */
 public final class FileReaderTool {
-    private final ChatFileService files;
+    private final UserFileService files;
     private final ActorId actor;
     private final TenantId tenant;
     private final Set<UUID> allowed;
     private final Runnable checkActive;
     private final IntSupplier availableTokens;
     private final TokenCountEstimator tokens;
-    private final io.memoryos.chat.ChatFileSearchService search;
+    private final UserFileSearchService search;
     private final io.memoryos.chat.ChatEvidence evidence;
     private final io.memoryos.retrieval.SearchTasks.Scope work;
     /** Bounds one storage read or file search on its own; a turn has no total deadline. */
     private static final java.time.Duration TIMEOUT = java.time.Duration.ofSeconds(60);
 
-    public FileReaderTool(ChatFileService files, ActorId actor, TenantId tenant, Set<UUID> allowed,
-                          Runnable checkActive, IntSupplier availableTokens, TokenCountEstimator tokens, io.memoryos.chat.ChatFileSearchService search,
+    public FileReaderTool(UserFileService files, ActorId actor, TenantId tenant, Set<UUID> allowed,
+                          Runnable checkActive, IntSupplier availableTokens, TokenCountEstimator tokens, UserFileSearchService search,
                           io.memoryos.chat.ChatEvidence evidence, io.memoryos.retrieval.SearchTasks.Scope work) {
         this.files = files; this.actor = actor; this.tenant = tenant; this.allowed = Set.copyOf(allowed);
         this.checkActive = checkActive; this.availableTokens = availableTokens; this.tokens = tokens;
@@ -41,7 +43,7 @@ public final class FileReaderTool {
 
     private String searchFilePassages(String query) {
         checkActive.run();
-        java.util.List<io.memoryos.chat.ChatFileSearchService.FileHit> hits;
+        java.util.List<UserFileSearchService.FileHit> hits;
         try {
             hits = search.search(actor, tenant, allowed, query);
         } catch (io.memoryos.retrieval.SearchUnavailableException unavailable) {
@@ -88,7 +90,7 @@ public final class FileReaderTool {
                     new io.memoryos.chat.ChatSource.FileLocation(offset, text.codePointCount(0, text.length()), null, null));
             return (source == null ? "" : "[" + source.citationId() + "] ") + "File " + id + ", offset=" + offset + ", next_offset=" + (offset + text.codePointCount(0, text.length()))
                     + ", total_characters=" + window.totalCharacters() + "\n" + text;
-        } catch (ChatException unavailable) { return "File unavailable or invalid character range."; }
+        } catch (ChatException | LibraryException unavailable) { return "File unavailable or invalid character range."; }
     }
 
     private String bounded(java.util.concurrent.Callable<String> operation) {

@@ -54,7 +54,7 @@ import type {
   MeetingTranscriber,
   MeetingUtterance,
 } from "@/lib/hey-api/types.gen";
-import { putAuthorizedObject, sha256 } from "@/features/sources/direct-upload";
+import { putAuthorizedObject, sha256 } from "@/lib/direct-upload";
 import type { MeetingTrack } from "./meeting-socket";
 
 export type {

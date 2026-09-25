@@ -1,7 +1,7 @@
 package io.memoryos.meeting;
 
-import io.memoryos.chat.summary.TranscriptCorrector;
-import io.memoryos.iam.identity.ActorId;
+import io.memoryos.ai.TranscriptCorrector;
+import io.memoryos.shared.ActorId;
 import io.memoryos.meeting.persistence.MeetingRepository;
 import java.time.Duration;
 import java.util.ArrayList;

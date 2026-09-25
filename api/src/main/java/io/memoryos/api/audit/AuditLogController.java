@@ -1,10 +1,11 @@
 package io.memoryos.api.audit;
 
-import io.memoryos.iam.audit.AuditAction;
-import io.memoryos.iam.audit.AuditEventClass;
-import io.memoryos.iam.audit.AuditLog;
-import io.memoryos.iam.audit.AuditOutcome;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditEventClass;
+import io.memoryos.audit.AuditLog;
+import io.memoryos.audit.AuditOutcome;
+import io.memoryos.iam.IdentityContext;
+import io.memoryos.shared.ActorId;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -74,7 +75,7 @@ class AuditLogController {
                          @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String sourceIp) {
         static EventResponse from(AuditLog.Event event) {
             return new EventResponse(event.id(), event.occurredAt(), event.action(), event.eventClass(), event.outcome(),
-                    event.actorId(), event.actorLabel(), event.actorEmail(), event.resourceType(), event.resourceId(),
+                    actorUuid(event), event.actorLabel(), event.actorEmail(), event.resourceType(), event.resourceId(),
                     event.resourceLabel(), event.details(), event.traceId(), event.endpoint(), event.sourceIp());
         }
     }
@@ -108,7 +109,7 @@ class AuditLogController {
                         @RequestParam(required = false) @Nullable String cursor,
                         @Parameter(schema = @Schema(type = "integer", format = "int32", minimum = "1", maximum = "100", defaultValue = "50"))
                         @RequestParam(defaultValue = "50") int size) {
-        var page = log.page(identity.actorId(), new AuditLog.Query(from, to, q, eventClass, action, outcome, actorId,
+        var page = log.page(identity.actorId(), new AuditLog.Query(from, to, q, eventClass, action, outcome, actor(actorId),
                 resourceType, resourceId), cursor, size);
         return new PageResponse(page.items().stream().map(EventResponse::from).toList(), page.nextCursor());
     }
@@ -142,7 +143,7 @@ class AuditLogController {
                 @RequestParam(required = false) @Nullable AuditOutcome outcome,
                 @RequestParam(required = false) @Nullable UUID actorId,
                 HttpServletResponse response) throws IOException {
-        var query = new AuditLog.Query(from, to, q, eventClass, action, outcome, actorId, null, null);
+        var query = new AuditLog.Query(from, to, q, eventClass, action, outcome, actor(actorId), null, null);
         response.setContentType("text/csv; charset=UTF-8");
         response.setHeader("Cache-Control", "no-store");
         response.setHeader("X-Content-Type-Options", "nosniff");
@@ -157,7 +158,7 @@ class AuditLogController {
                 "resource_id", "resource", "details", "source_ip", "endpoint", "trace_id");
         log.export(identity.actorId(), query, event -> {
             try {
-                csv.printRecord(event.occurredAt(), event.action(), event.eventClass(), event.outcome(), event.actorId(),
+                csv.printRecord(event.occurredAt(), event.action(), event.eventClass(), event.outcome(), actorUuid(event),
                         guard(event.actorLabel()), guard(event.actorEmail()), event.resourceType(), guard(event.resourceId()),
                         guard(event.resourceLabel()), guard(JSON.writeValueAsString(event.details())), event.sourceIp(),
                         event.endpoint(), event.traceId());
@@ -169,6 +170,14 @@ class AuditLogController {
     }
 
     /** User-controlled text only; the usage report guards the same prefixes. */
+    private static @Nullable UUID actorUuid(AuditLog.Event event) {
+        return event.actorId() == null ? null : event.actorId().value();
+    }
+
+    private static @Nullable ActorId actor(@Nullable UUID actorId) {
+        return actorId == null ? null : new ActorId(actorId);
+    }
+
     private static @Nullable String guard(@Nullable String value) {
         if (value == null || value.isEmpty()) return value;
         return FORMULA_PREFIXES.indexOf(value.charAt(0)) >= 0 ? "'" + value : value;

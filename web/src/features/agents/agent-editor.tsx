@@ -45,19 +45,19 @@ import {
 } from "@/lib/hey-api/sdk.gen";
 import { can } from "@/lib/resource-permissions";
 import { cn } from "@/lib/utils";
-import { chatActionError, chatField } from "@/features/chat/chat-action-utils";
-import { ChatFilePicker } from "@/features/chat/chat-file-picker";
-import { useMcpConnections } from "@/features/chat/chat-mcp-connections";
-import { ChatModelLogo } from "@/features/chat/chat-model-logo";
+import { actionErrorText, formField } from "@/lib/action-errors";
+import { ChatFilePicker } from "@/features/library/file-picker";
+import { useMcpConnections } from "@/features/mcp/mcp-connections";
+import { ModelLogo } from "@/features/models/model-logo";
 import {
   agentLabelSchema,
   agentTools,
-  loadDocumentSets,
   loadPersonaSources,
   personaSchema,
   type AgentTool,
   type Persona,
-} from "@/features/chat/chat-workspace-api";
+} from "@/features/chat/chat-personas-api";
+import { loadDocumentSets } from "@/features/document-sets/document-sets-api";
 import { AgentAvatar } from "./agent-avatar";
 import {
   AgentIconPicker,
@@ -170,7 +170,7 @@ export function AgentEditorPage({ agentId }: { agentId?: string }) {
           className="px-(--page-gutter) pt-10"
           icon={<WifiOff />}
           title={ui("Không mở được trợ lý")}
-          detail={chatActionError(agent.error)}
+          detail={actionErrorText(agent.error)}
           action={
             <Button size="sm" prominence="secondary" onClick={() => void agent.refetch()}>
               {ui("Tải lại")}
@@ -269,7 +269,7 @@ function AgentEditor({ agent }: { agent?: Persona }) {
               id: model.id,
               name: model.displayName || model.modelName || ui("Model"),
               keywords: [model.modelName ?? "", model.providerName ?? ""],
-              icon: <ChatModelLogo modelName={model.modelName ?? ""} />,
+              icon: <ModelLogo modelName={model.modelName ?? ""} />,
             },
           ]
         : [],
@@ -299,7 +299,7 @@ function AgentEditor({ agent }: { agent?: Persona }) {
       setForm((current) => ({ ...current, labelIds: [...current.labelIds, created.id] }));
       await cache.invalidateQueries({ queryKey: ["chat-persona-labels"] });
     } catch (cause) {
-      throw new Error(chatActionError(cause));
+      throw new Error(actionErrorText(cause));
     }
   }
 
@@ -350,7 +350,7 @@ function AgentEditor({ agent }: { agent?: Persona }) {
       ]);
       await navigate({ to: "/agents" });
     } catch (cause) {
-      setError(chatActionError(cause));
+      setError(actionErrorText(cause));
       setSaving(false);
     }
   }
@@ -463,7 +463,7 @@ function AgentEditor({ agent }: { agent?: Persona }) {
                 >
                   <textarea
                     id="agent-description"
-                    className={chatField}
+                    className={formField}
                     maxLength={2000}
                     rows={2}
                     value={form.description}
@@ -498,7 +498,7 @@ function AgentEditor({ agent }: { agent?: Persona }) {
             >
               <textarea
                 id="agent-instructions-text"
-                className={cn(chatField, "min-h-48")}
+                className={cn(formField, "min-h-48")}
                 maxLength={32000}
                 rows={9}
                 value={form.instructions}
@@ -515,7 +515,7 @@ function AgentEditor({ agent }: { agent?: Persona }) {
             >
               <textarea
                 id="agent-task-prompt"
-                className={chatField}
+                className={formField}
                 maxLength={32000}
                 rows={2}
                 value={form.taskPrompt}

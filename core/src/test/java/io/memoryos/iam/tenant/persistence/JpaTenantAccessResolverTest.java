@@ -7,11 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.zaxxer.hikari.HikariDataSource;
 import io.memoryos.TestDatabase;
 import io.memoryos.TestDatabase.JpaHarness;
-import io.memoryos.iam.identity.ActorId;
-import io.memoryos.iam.tenant.TenantAccessResolver;
-import io.memoryos.iam.tenant.TenantId;
-import io.memoryos.iam.tenant.TenantMembership;
-import io.memoryos.iam.tenant.TenantMembershipRole;
+import io.memoryos.shared.ActorId;
+import io.memoryos.iam.TenantAccessResolver;
+import io.memoryos.shared.TenantId;
+import io.memoryos.iam.TenantMembership;
+import io.memoryos.iam.TenantMembershipRole;
 
 import java.sql.SQLException;
 import java.util.UUID;
@@ -22,8 +22,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import io.memoryos.iam.group.persistence.IamLockRepository;
-import io.memoryos.iam.tenant.persistence.JpaTenantAccessResolver;
-import io.memoryos.iam.tenant.persistence.JpaTenantRepository;
 
 // SQL is exercised against the isolated, migrated Testcontainers database.
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})

@@ -5,7 +5,7 @@ import io.memoryos.api.chat.contract.InterpreterSettingsRequest;
 import io.memoryos.api.chat.contract.InterpreterSettingsResponse;
 import io.memoryos.chat.interpreter.InterpreterClient;
 import io.memoryos.chat.interpreter.InterpreterService;
-import io.memoryos.iam.identity.IdentityContext;
+import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

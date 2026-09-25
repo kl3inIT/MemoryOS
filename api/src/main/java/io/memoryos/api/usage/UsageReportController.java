@@ -1,7 +1,8 @@
 package io.memoryos.api.usage;
 
-import io.memoryos.iam.identity.IdentityContext;
-import io.memoryos.usage.persistence.UsageReportRepository;
+import io.memoryos.api.usage.contract.UsageReportRequest;
+import io.memoryos.api.usage.contract.UsageReportResponse;
+import io.memoryos.iam.IdentityContext;
 import io.memoryos.usage.report.UsageReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -13,11 +14,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
-import org.jspecify.annotations.Nullable;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -43,43 +41,19 @@ class UsageReportController {
 
     UsageReportController(UsageReportService reports) { this.reports = reports; }
 
-    @Schema(name = "UsageReportRequest", description = "An inclusive UTC day range of at most 366 days")
-    record Request(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) LocalDate from,
-                   @Schema(requiredMode = Schema.RequiredMode.REQUIRED) LocalDate to) {}
-
-    @Schema(name = "UsageReport", description = "A generated usage report: a ZIP of usage_by_user.csv, users.csv and, unless it "
-            + "could not be rendered, usage_report.pdf")
-    record Response(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
-                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) LocalDate from,
-                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) LocalDate to,
-                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, allowableValues = {"PENDING", "RUNNING", "READY", "FAILED"})
-                    String status,
-                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Display name or e-mail of the manager who asked for it")
-                    String requester,
-                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable Long sizeBytes,
-                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) boolean hasPdf,
-                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable String failure,
-                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Instant createdAt,
-                    @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true) @Nullable Instant finishedAt) {
-        static Response from(UsageReportRepository.Report report) {
-            return new Response(report.id(), report.from(), report.to(), report.status().name(), report.requester(),
-                    report.sizeBytes(), report.hasPdf(), report.failure(), report.createdAt(), report.finishedAt());
-        }
-    }
-
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Operation(operationId = "requestUsageReport", summary = "Queue a usage report for a UTC day range; requires model management")
     @ApiResponse(responseCode = "202", description = "Queued; the Worker builds it in the background", useReturnTypeSchema = true)
-    Response request(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody Request body) {
-        return Response.from(reports.request(identity.actorId(), body.from(), body.to()));
+    UsageReportResponse request(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @RequestBody UsageReportRequest body) {
+        return UsageReportResponse.from(reports.request(identity.actorId(), body.from(), body.to()));
     }
 
     @GetMapping
     @Operation(operationId = "listUsageReports", summary = "The Tenant's usage reports, newest first; requires model management")
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
-    List<Response> list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return reports.list(identity.actorId()).stream().map(Response::from).toList();
+    List<UsageReportResponse> list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+        return reports.list(identity.actorId()).stream().map(UsageReportResponse::from).toList();
     }
 
     @GetMapping(value = "/{reportId}/content", produces = "application/zip")

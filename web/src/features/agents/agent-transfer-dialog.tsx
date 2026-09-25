@@ -3,9 +3,10 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { User, Users } from "lucide-react";
 import { transferChatPersona } from "@/lib/hey-api/sdk.gen";
-import { ChatDialog } from "@/features/chat/chat-dialog";
-import { personLabel, type Persona } from "@/features/chat/chat-workspace-api";
-import { AgentPrincipalPicker, type Principal } from "./agent-principal-picker";
+import { FormDialog } from "@/components/composites/form-dialog";
+import { personLabel } from "@/features/identity/principals";
+import type { Persona } from "@/features/chat/chat-personas-api";
+import { PrincipalPicker, type Principal } from "@/features/identity/principal-picker";
 
 export function AgentTransferDialog({ agent, onClose }: { agent: Persona; onClose: () => void }) {
   const ui = useAppTranslation();
@@ -13,7 +14,7 @@ export function AgentTransferDialog({ agent, onClose }: { agent: Persona; onClos
   const [target, setTarget] = useState<Principal>();
   const current = agent.owner.actor?.actorId ?? agent.owner.group?.id;
   return (
-    <ChatDialog
+    <FormDialog
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -39,7 +40,7 @@ export function AgentTransferDialog({ agent, onClose }: { agent: Persona; onClos
       }}
     >
       <div className="space-y-3">
-        <AgentPrincipalPicker exclude={new Set(current ? [current] : [])} onPick={setTarget} />
+        <PrincipalPicker exclude={new Set(current ? [current] : [])} onPick={setTarget} />
         {target && (
           <p
             role="status"
@@ -56,6 +57,6 @@ export function AgentTransferDialog({ agent, onClose }: { agent: Persona; onClos
           </p>
         )}
       </div>
-    </ChatDialog>
+    </FormDialog>
   );
 }
