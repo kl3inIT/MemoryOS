@@ -4,10 +4,12 @@ import io.memoryos.connector.GoogleDriveAclChanged;
 import io.memoryos.connector.SourceAccessChanged;
 import io.memoryos.document.DocumentChanged;
 import io.memoryos.document.DocumentChunkPort;
+import io.memoryos.document.DocumentIndexState;
 import io.memoryos.ingestion.persistence.JdbcSearchWorkRepository;
 import io.memoryos.retrieval.SearchIndex;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.ScheduledExecutorService;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
@@ -21,7 +23,8 @@ public class SearchProjectionMaintenance {
     private final JdbcSearchWorkRepository work;
     private final SearchIndex index;
     private final TransactionTemplate transactions;
-    private String cursor = "";
+    /** In memory only: a restarted process begins a new pass, which repair tolerates. */
+    private DocumentIndexState.@Nullable Cursor cursor;
     private final int rebuildWindow;
 
     public SearchProjectionMaintenance(DocumentChunkPort documents, JdbcSearchWorkRepository work, SearchIndex index,
@@ -85,7 +88,7 @@ public class SearchProjectionMaintenance {
             }
             cursor = document.cursor();
         }
-        if (page.size() < 32) cursor = "";
+        if (page.size() < 32) cursor = null;
         index.purgeStale(identity);
     }
 
