@@ -1,5 +1,6 @@
 package io.memoryos.objectstorage.application;
 
+import io.memoryos.shared.Sha256;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectMetadata;
@@ -14,12 +15,9 @@ import io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
 import io.memoryos.shared.TenantId;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -182,11 +180,7 @@ public class DefaultObjectWriteService implements ObjectWriteService {
     }
 
     private static ContentSha256 checksum(byte[] bytes) {
-        try {
-            return new ContentSha256(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException(exception);
-        }
+        return new ContentSha256(Sha256.hex(bytes));
     }
 
     private static void requireTransaction() {

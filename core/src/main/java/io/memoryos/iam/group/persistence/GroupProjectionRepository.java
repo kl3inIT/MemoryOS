@@ -1,5 +1,6 @@
 package io.memoryos.iam.group.persistence;
 
+import io.memoryos.shared.LikePattern;
 import io.memoryos.iam.AccountType;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.GroupId;
@@ -507,12 +508,7 @@ public class GroupProjectionRepository {
             if (query.search() == null) {
                 return new Search(false, "%");
             }
-            String escaped = query.search()
-                    .toLowerCase(Locale.ROOT)
-                    .replace("\\", "\\\\")
-                    .replace("%", "\\%")
-                    .replace("_", "\\_");
-            return new Search(true, "%" + escaped + "%");
+            return new Search(true, LikePattern.containing(query.search().toLowerCase(Locale.ROOT)));
         }
     }
 }
