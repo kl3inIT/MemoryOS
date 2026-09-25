@@ -1,5 +1,6 @@
 package io.memoryos.api.source.contract;
 
+import io.memoryos.connector.SourceOperationStatus;
 import io.memoryos.connector.SourceOperationView;
 
 import java.time.Instant;
@@ -15,7 +16,7 @@ public record SourceOperationResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         String type,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-        String status,
+        SourceOperationStatus status,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
         Instant createdAt,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
@@ -27,7 +28,7 @@ public record SourceOperationResponse(
         return new SourceOperationResponse(
                 operation.id().value(),
                 operation.type().name(),
-                operation.status().name(),
+                operation.status(),
                 operation.createdAt(),
                 operation.completedAt(),
                 operation.errorCode()

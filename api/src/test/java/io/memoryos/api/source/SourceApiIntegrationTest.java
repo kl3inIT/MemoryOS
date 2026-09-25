@@ -369,6 +369,24 @@ class SourceApiIntegrationTest {
 
     @Test
     @Transactional
+    void aSyncCancelledByAPauseIsACancelledOperation() throws Exception {
+        var source = sourceManagement.createFileSource(owner.getPrincipal().actorId(), "API cancelled sync", List.of(), null);
+        UUID run = UUID.randomUUID();
+        jdbcClient.sql("""
+                INSERT INTO source_sync_attempts (id, tenant_id, source_id, scope_revision, credential_revision,
+                    generation, status, error_code, created_at, completed_at)
+                SELECT :run, tenant_id, id, 1, 1, 1, 'CANCELLED', 'SOURCE_PAUSED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                FROM connector_credential_pairs WHERE id = :source
+                """).param("run", run).param("source", source.id().value()).update();
+        mockMvc.perform(get("/api/source-operations/{id}", run).with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.type").value("SYNC_SOURCE"))
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.errorCode").value("SOURCE_PAUSED"));
+    }
+
+    @Test
+    @Transactional
     void aRunCompletedWithErrorsListsEachFileErrorWithItsResolution() throws Exception {
         var actor = owner.getPrincipal().actorId();
         var source = sourceManagement.createFileSource(actor, "API run errors", List.of(), null);

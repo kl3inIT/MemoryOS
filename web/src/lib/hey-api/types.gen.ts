@@ -38,7 +38,7 @@ export type SharePointSelectionReceiptResponse = {
 export type SourceOperation = {
     id: string;
     type: string;
-    status: string;
+    status: 'NOT_STARTED' | 'IN_PROGRESS' | 'SUCCEEDED' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED';
     createdAt: string;
     completedAt: string | null;
     errorCode: string | null;
@@ -1219,7 +1219,7 @@ export type SourceUploadAuthorization = {
 export type SourceIndexAttempt = {
     id: string;
     filename: string | null;
-    status: string;
+    status: 'NOT_STARTED' | 'IN_PROGRESS' | 'SUCCEEDED' | 'FAILED' | 'SUPERSEDED' | 'CANCELLED';
     createdAt: string;
     /**
      * Actual first processing start; null when not started or unavailable in retained history.

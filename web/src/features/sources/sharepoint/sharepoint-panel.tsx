@@ -139,7 +139,7 @@ export function SharePointPanel({
     setSettled(terminal.id);
     if (terminal.status !== "SUCCEEDED")
       setError(
-        terminal.status === "SUPERSEDED" || terminal.status === "CANCELLED"
+        terminal.status === "SUPERSEDED"
           ? "This scope change was superseded or cancelled. The saved scope is unchanged."
           : sourceStatusMessage(terminal.errorCode ?? "SOURCE_SHAREPOINT_SELECTION_FAILED"),
       );
@@ -205,6 +205,8 @@ export function SharePointPanel({
             v1: source.name,
           }),
         });
+      } else if (completed.status === "CANCELLED") {
+        notify({ tone: "info", title: "Synchronization cancelled", description: source.name });
       } else {
         const failureKind = completed.errorCode ?? "SOURCE_SYNC_FAILED";
         captureWorkflowFailure(new Error("SharePoint synchronization failed"), {

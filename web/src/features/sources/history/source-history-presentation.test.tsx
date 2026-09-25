@@ -441,7 +441,7 @@ describe("Current file processing status", () => {
     const item = {
       status: "UNKNOWN",
       searchStatus: "WAITING",
-      latestAttempt: { ...attempt, status: "UNKNOWN" },
+      latestAttempt: { ...attempt, status: "UNKNOWN" } as unknown as SourceIndexAttempt,
     } as const;
     render(<ItemStatus item={item} />);
     expect(screen.getByText("Unknown", { exact: true })).toBeInTheDocument();

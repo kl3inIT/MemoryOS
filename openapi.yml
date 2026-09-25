@@ -19018,6 +19018,13 @@ components:
           type: string
         status:
           type: string
+          enum:
+          - NOT_STARTED
+          - IN_PROGRESS
+          - SUCCEEDED
+          - FAILED
+          - SUPERSEDED
+          - CANCELLED
         createdAt:
           type: string
           format: date-time
@@ -21996,6 +22003,13 @@ components:
           - "null"
         status:
           type: string
+          enum:
+          - NOT_STARTED
+          - IN_PROGRESS
+          - SUCCEEDED
+          - FAILED
+          - SUPERSEDED
+          - CANCELLED
         createdAt:
           type: string
           format: date-time
