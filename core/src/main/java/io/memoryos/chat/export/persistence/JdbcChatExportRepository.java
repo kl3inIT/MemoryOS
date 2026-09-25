@@ -31,7 +31,7 @@ public class JdbcChatExportRepository {
 
     public JdbcChatExportRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
-    public record Claim(UUID id, UUID tenant, UUID owner, int attempts) {}
+    public record Claim(UUID id, UUID tenant, UUID owner, int attempts) implements io.memoryos.shared.LeasedJob.Claim {}
 
     public record Expired(TenantId tenant, UUID id, StoredObjectId object, ObjectKey key, UUID token) {}
 

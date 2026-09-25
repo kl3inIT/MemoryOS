@@ -1,5 +1,6 @@
 package io.memoryos.objectstorage.s3;
 
+import io.memoryos.shared.Sha256;
 import io.memoryos.objectstorage.ContentSha256;
 import io.memoryos.objectstorage.ObjectContent;
 import io.memoryos.objectstorage.ObjectKey;
@@ -101,16 +102,13 @@ public final class S3ObjectStorage implements ObjectStorage, AutoCloseable {
             throw new IllegalArgumentException("object write exceeds bounds");
         }
         try {
-            var checksum = java.util.Base64.getEncoder().encodeToString(
-                    java.security.MessageDigest.getInstance("SHA-256").digest(content));
+            var checksum = java.util.Base64.getEncoder().encodeToString(Sha256.digest(content));
             client.putObject(PutObjectRequest.builder().bucket(bucket).key(key.value())
                             .overrideConfiguration(c -> c.apiCallTimeout(java.time.Duration.ofMinutes(2)))
                             .contentType(mediaType).contentLength((long) content.length)
                             .checksumSHA256(checksum).ifNoneMatch("*").build(),
                     software.amazon.awssdk.core.sync.RequestBody.fromContentProvider(
                             () -> new ByteArrayInputStream(content), content.length, mediaType));
-        } catch (java.security.NoSuchAlgorithmException exception) {
-            throw new IllegalStateException(exception);
         } catch (S3Exception | SdkClientException exception) {
             throw translate(exception);
         }

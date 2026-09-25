@@ -1,13 +1,11 @@
 package io.memoryos.chat.web;
 
 import org.springframework.modulith.NamedInterface;
-import io.memoryos.shared.TenantId;
 
 import io.memoryos.audit.AuditAction;
-import io.memoryos.audit.AuditRecord;
-import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.ChatException;
 import io.memoryos.ai.ModelCatalogService;
+import io.memoryos.ai.ProviderConnections;
 import io.memoryos.ai.ProviderCredentials;
 import io.memoryos.chat.web.persistence.WebConnectionEntity;
 import io.memoryos.chat.web.persistence.WebConnectionRepository;
@@ -27,16 +25,13 @@ import org.springframework.transaction.annotation.Transactional;
 @NamedInterface("web")
 public class WebConnectionService {
     private final WebConnectionRepository connections;
-    private final ProviderCredentials credentials;
+    private final ProviderConnections admin;
     private final IamAuthorization authorization;
     private final TenantAccessResolver tenants;
-    private final AuditTrail audit;
 
-    public WebConnectionService(WebConnectionRepository connections, ProviderCredentials credentials,
-                                IamAuthorization authorization, TenantAccessResolver tenants,
-                                AuditTrail audit) {
-        this.audit = audit;
-        this.connections = connections; this.credentials = credentials;
+    public WebConnectionService(WebConnectionRepository connections, ProviderConnections admin,
+                                IamAuthorization authorization, TenantAccessResolver tenants) {
+        this.connections = connections; this.admin = admin;
         this.authorization = authorization; this.tenants = tenants;
     }
     public record View(WebProvider provider, String endpoint, String engineId, boolean credentialConfigured,
@@ -61,20 +56,19 @@ public class WebConnectionService {
         var tenant = authorization.lockAndRequireExclusive(actor, IamCapability.MODELS_MANAGE).tenantId().value();
         if (input == null || input.endpoint() == null || input.engineId() == null || input.engineId().length() > 200)
             throw ChatException.invalid("Invalid Web connection.");
-        if (provider.requiresEndpoint() && input.endpoint().isEmpty())
-            throw ChatException.invalid("This provider requires its own endpoint.");
-        if (!input.endpoint().isEmpty()) ModelCatalogService.validateEndpoint(input.endpoint());
+        ProviderConnections.checkEndpoint(input.endpoint(), provider.requiresEndpoint(),
+                () -> ChatException.invalid("This provider requires its own endpoint."));
         if (provider.requiresEngine() && input.engineId().isBlank()) throw ChatException.invalid("Search engine identity is required.");
         if (!provider.requiresEngine() && !input.engineId().isEmpty()) throw ChatException.invalid("This provider does not use a search engine identity.");
         var entity = connections.findByTenantIdAndProvider(tenant, provider).orElseGet(() -> new WebConnectionEntity(tenant, provider));
-        if (entity.revision() != input.revision()) throw ChatException.conflict();
-        String credential = credentials.update(tenant, entity.id(), entity.credential(), input.credential());
+        String credential = admin.reconfigure(tenant, entity.id(), entity.revision(), input.revision(),
+                entity.credential(), input.credential(), ChatException::conflict);
         entity.configure(input.endpoint(), input.engineId(), credential);
-        if (provider.requiresKey() && !credentials.configured(credential)) {
+        if (!admin.usable(provider.requiresKey(), credential)) {
             entity.selectSearch(false); entity.selectContent(false);
         }
         var saved = connections.saveAndFlush(entity);
-        audit.record(AuditRecord.of(AuditAction.WEB_CONNECTION_CHANGE, new TenantId(tenant)).actor(actor).resource("WEB_CONNECTION", provider.name(), provider.name()).detail("change", "CONFIGURE").detail("credentialChange", input.credential() == null ? "KEEP" : input.credential().action().name()).build());
+        audit(tenant, actor, provider, "CONFIGURE", ProviderConnections.credentialChange(input.credential()));
         return view(saved);
     }
 
@@ -88,13 +82,10 @@ public class WebConnectionService {
             selected = all.stream().filter(c -> c.provider() == provider).findFirst().orElseThrow(ChatException::unavailable);
             if (!(search ? provider.search() : provider.content()) || !usable(selected)) throw ChatException.providerUnavailable();
         }
-        for (var connection : all) {
-            if (search) connection.selectSearch(false); else connection.selectContent(false);
-        }
-        connections.flush(); // Clear the old partial-unique-index winner before selecting another.
-        if (selected != null) { if (search) selected.selectSearch(true); else selected.selectContent(true); }
+        ProviderConnections.selectOnly(all, selected,
+                search ? WebConnectionEntity::selectSearch : WebConnectionEntity::selectContent, connections::flush);
         String role = search ? "SEARCH" : "CONTENT";
-        audit.record(AuditRecord.of(AuditAction.WEB_CONNECTION_CHANGE, new TenantId(tenant)).actor(actor).resource("WEB_CONNECTION", provider == null ? null : provider.name(), provider == null ? null : provider.name()).detail("change", (provider == null ? "DISABLE_" : "SELECT_") + role).build());
+        audit(tenant, actor, provider, (provider == null ? "DISABLE_" : "SELECT_") + role, null);
     }
 
     @Transactional(readOnly = true)
@@ -123,15 +114,19 @@ public class WebConnectionService {
         if (typedKey != null && !typedKey.isBlank()) return typedKey;
         var saved = connections.findByTenantIdAndProvider(tenant, provider)
                 .filter(c -> c.endpoint().replaceAll("/+$", "").equals(endpoint.replaceAll("/+$", "")))
-                .filter(c -> credentials.configured(c.credential()))
+                .filter(c -> admin.configured(c.credential()))
                 .orElseThrow(() -> ChatException.invalid("Enter the API key."));
-        return credentials.resolve(tenant, saved.id(), saved.credential());
+        return admin.key(tenant, saved.id(), saved.credential());
     }
 
     public String key(Connection connection) {
-        return credentials.resolve(connection.tenantId(), connection.id(), connection.encryptedCredential());
+        return admin.key(connection.tenantId(), connection.id(), connection.encryptedCredential());
     }
-    private boolean usable(WebConnectionEntity c) { return !c.provider().requiresKey() || credentials.configured(c.credential()); }
-    private View view(WebConnectionEntity c) { return new View(c.provider(), c.endpoint(), c.engineId(), credentials.configured(c.credential()), c.searchActive(), c.contentActive(), c.revision()); }
+    private void audit(UUID tenant, ActorId actor, @Nullable WebProvider provider, String change, @Nullable String credential) {
+        admin.audit(AuditAction.WEB_CONNECTION_CHANGE, "WEB_CONNECTION", tenant, actor,
+                provider == null ? null : provider.name(), change, credential);
+    }
+    private boolean usable(WebConnectionEntity c) { return admin.usable(c.provider().requiresKey(), c.credential()); }
+    private View view(WebConnectionEntity c) { return new View(c.provider(), c.endpoint(), c.engineId(), admin.configured(c.credential()), c.searchActive(), c.contentActive(), c.revision()); }
     private Connection snapshot(WebConnectionEntity c) { return new Connection(c.id(), c.tenantId(), c.provider(), c.endpoint(), c.engineId(), c.credential(), c.revision()); }
 }

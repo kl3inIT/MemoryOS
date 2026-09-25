@@ -1,5 +1,6 @@
 package io.memoryos.chat.persona.persistence;
 
+import io.memoryos.shared.LikePattern;
 import io.memoryos.chat.AgentGroupShare;
 import io.memoryos.chat.AgentListFilter;
 import io.memoryos.chat.AgentOwner;
@@ -71,7 +72,7 @@ public class JdbcAgentRepository {
                         """.formatted(scope))
                 .param("tenant", tenant).param("actor", actor).param("agentsManage", agentsManage)
                 .param("label", label, Types.OTHER).param("query", query, Types.VARCHAR)
-                .param("pattern", query == null ? null : "%" + escapeLike(query) + "%", Types.VARCHAR)
+                .param("pattern", query == null ? null : LikePattern.containing(query), Types.VARCHAR)
                 .param("offset", offset).param("limit", limit).query(UUID.class).list();
     }
 
@@ -219,7 +220,7 @@ public class JdbcAgentRepository {
     }
 
     public AgentShareOptions shareOptions(UUID tenant, @Nullable String query, int limit) {
-        String pattern = query == null ? null : "%" + escapeLike(query) + "%";
+        String pattern = query == null ? null : LikePattern.containing(query);
         var people = jdbc.sql("""
                         SELECT m.actor_id, profile.display_name, profile.email FROM tenant_memberships m
                         LEFT JOIN actor_profiles profile ON profile.actor_id = m.actor_id
@@ -323,7 +324,4 @@ public class JdbcAgentRepository {
         return result;
     }
 
-    static String escapeLike(String value) {
-        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-    }
 }

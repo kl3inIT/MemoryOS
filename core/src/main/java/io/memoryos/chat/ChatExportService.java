@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import io.memoryos.shared.LeasedJob;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -117,20 +118,12 @@ public class ChatExportService {
 
     /** Packs the oldest waiting export, if any; the Worker calls this on a fixed delay. */
     public boolean buildNext() {
-        int abandoned = exports.failAbandoned(MAX_ATTEMPTS);
-        if (abandoned > 0) LOG.warn("Exports failed after {} attempts: {}", MAX_ATTEMPTS, abandoned);
-        var claimed = exports.claim(LEASE, MAX_ATTEMPTS);
-        if (claimed.isEmpty()) return false;
-        var claim = claimed.get();
-        try {
-            pack(claim);
-        } catch (RuntimeException failure) {
-            LOG.atError().addKeyValue("event", "chat.export.failed").addKeyValue("attempt", claim.attempts())
-                    .addKeyValue("error_type", failure.getClass().getName()).log("Export could not be packed");
-            exports.markFailed(claim.tenant(), claim.id(), claim.attempts(), MAX_ATTEMPTS,
-                    "The export could not be packed.");
-        }
-        return true;
+        return LeasedJob.runNext(LOG, "chat.export", new LeasedJob.Steps<>(
+                () -> exports.failAbandoned(MAX_ATTEMPTS),
+                () -> exports.claim(LEASE, MAX_ATTEMPTS),
+                this::pack,
+                (claim, failure) -> exports.markFailed(claim.tenant(), claim.id(), claim.attempts(), MAX_ATTEMPTS,
+                        "The export could not be packed.")));
     }
 
     private void pack(Claim claim) {

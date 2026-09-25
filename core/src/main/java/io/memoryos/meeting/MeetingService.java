@@ -117,7 +117,7 @@ public class MeetingService {
                 .anyMatch(speaker -> speaker.track() == track && speaker.label().equals(label));
         if (!asking) return voice;
         var offered = SpeakerIntroductions.suggest(meetings.utterancesOf(tenant, id, track, label),
-                meeting.participants(), List.of(voice)).get(SpeakerIntroductions.key(track, label));
+                meeting.participants(), List.of(voice)).get(SpeakerNames.key(track, label));
         return offered == null ? voice : new Meeting.Speaker(track, label, null, offered);
     }
 
@@ -578,7 +578,7 @@ public class MeetingService {
         if (asking.isEmpty()) return speakers;
         var offered = SpeakerIntroductions.suggest(utterances, row.participants(), asking);
         return speakers.stream().map(speaker -> {
-            var suggestion = offered.get(SpeakerIntroductions.key(speaker.track(), speaker.label()));
+            var suggestion = offered.get(SpeakerNames.key(speaker.track(), speaker.label()));
             return suggestion == null ? speaker
                     : new Meeting.Speaker(speaker.track(), speaker.label(), speaker.name(), suggestion);
         }).toList();

@@ -32,7 +32,10 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Service
 public class BatchTranscriptionService {
-    /** One recording at a time per process: a provider call holds the whole file in memory for as long as it runs. */
+    /**
+     * One recording at a time per process. The file is streamed, not held, but a provider call keeps a connection and
+     * a worker thread busy for as long as a five-hour recording takes to come back.
+     */
     private static final int MAX_CONCURRENT = 1;
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     /** One client for every provider call; each request carries its own timeout. */
@@ -52,8 +55,11 @@ public class BatchTranscriptionService {
         this.usage = usage.getIfAvailable();
     }
 
-    /** One uploaded recording, in the container the person chose. */
-    public record Recording(byte[] audio, String filename, String mediaType) {}
+    /**
+     * One uploaded recording, in the container the person chose. The audio is opened as the provider call sends it,
+     * and {@code sizeBytes} is its exact length, which the upload declares to the provider.
+     */
+    public record Recording(AudioSource audio, long sizeBytes, String filename, String mediaType) {}
 
     /** What a recording became, and which connection read it, so the meeting can record both. */
     public record Transcribed(VoiceProvider provider, String model, boolean diarized,
@@ -107,7 +113,7 @@ public class BatchTranscriptionService {
         var connection = connections.transcriber(actor, provider);
         if (!supports(connection.provider()))
             throw VoiceException.invalid("This provider does not transcribe uploaded recordings.");
-        if (recording.audio().length > maxBytes(connection.provider()))
+        if (recording.sizeBytes() > maxBytes(connection.provider()))
             throw VoiceException.invalid("The recording is larger than this provider accepts.");
         if (!running.tryAcquire()) throw VoiceException.busy();
         try {
@@ -128,8 +134,7 @@ public class BatchTranscriptionService {
     private static List<LiveTranscription.Segment> soniox(VoiceConnectionService.Connection connection, String key,
             LiveTranscription.Options options, boolean diarize, Recording recording) {
         return call(client -> SonioxAsync.segments(client, connection.provider().baseUrl(connection.endpoint()), key,
-                connection.sttModel(), options.language(), options.terms(), diarize, recording.audio(),
-                recording.filename(), recording.mediaType(), MAX_TIMEOUT));
+                connection.sttModel(), options.language(), options.terms(), diarize, recording, MAX_TIMEOUT));
     }
 
     /**
@@ -148,10 +153,10 @@ public class BatchTranscriptionService {
             fields.append("--").append(boundary).append("\r\nContent-Disposition: form-data; name=\"file\"; filename=\"")
                     .append(recording.filename().replaceAll("[\"\\r\\n\\\\]", "")).append("\"\r\nContent-Type: ")
                     .append(recording.mediaType()).append("\r\n\r\n");
-            // Sent as three parts, so the recording is never copied into a second buffer.
+            // Sent as three parts, and the recording is read from its source as it is sent.
             var body = HttpRequest.BodyPublishers.concat(
                     HttpRequest.BodyPublishers.ofString(fields.toString(), StandardCharsets.UTF_8),
-                    HttpRequest.BodyPublishers.ofByteArray(recording.audio()),
+                    AudioSource.body(recording.audio(), recording.sizeBytes()),
                     HttpRequest.BodyPublishers.ofString("\r\n--" + boundary + "--\r\n", StandardCharsets.UTF_8));
             var request = HttpRequest.newBuilder(URI.create(base + "/audio/transcriptions")).timeout(MAX_TIMEOUT)
                     .header("Authorization", "Bearer " + (key.isEmpty() ? "not-required" : key))

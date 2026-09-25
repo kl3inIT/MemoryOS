@@ -51,20 +51,16 @@ final class SpeakerIntroductions {
      */
     static Map<String, Meeting.SpeakerSuggestion> suggest(List<Meeting.Utterance> utterances, List<String> participants,
             List<Meeting.Speaker> asking) {
-        var wanted = asking.stream().map(speaker -> key(speaker.track(), speaker.label())).collect(Collectors.toSet());
+        var wanted = asking.stream().map(speaker -> SpeakerNames.key(speaker.track(), speaker.label())).collect(Collectors.toSet());
         var found = new LinkedHashMap<String, Meeting.SpeakerSuggestion>();
         var expected = participants.stream().map(SpeakerIntroductions::plain).filter(name -> !name.isBlank()).toList();
         for (var utterance : utterances) {
-            String key = key(utterance.track(), utterance.speaker());
+            String key = SpeakerNames.key(utterance.track(), utterance.speaker());
             if (!wanted.contains(key) || found.containsKey(key)) continue;
             said(utterance.text()).ifPresent(name -> found.put(key, new Meeting.SpeakerSuggestion(name, utterance.id(),
                     expected.contains(plain(name)) ? EXPECTED : SAID)));
         }
         return found;
-    }
-
-    static String key(Meeting.Track track, String label) {
-        return track.name() + "\u0000" + label;
     }
 
     private static Optional<String> said(String text) {

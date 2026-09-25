@@ -1,13 +1,10 @@
 package io.memoryos.chat.image;
 
 import org.springframework.modulith.NamedInterface;
-import io.memoryos.shared.TenantId;
 
 import io.memoryos.audit.AuditAction;
-import io.memoryos.audit.AuditRecord;
-import io.memoryos.audit.AuditTrail;
 import io.memoryos.chat.ChatException;
-import io.memoryos.ai.ModelCatalogService;
+import io.memoryos.ai.ProviderConnections;
 import io.memoryos.ai.ProviderCredentials;
 import io.memoryos.chat.image.persistence.ImageConnectionEntity;
 import io.memoryos.chat.image.persistence.ImageConnectionRepository;
@@ -27,16 +24,13 @@ import org.springframework.transaction.annotation.Transactional;
 @NamedInterface("image")
 public class ImageConnectionService {
     private final ImageConnectionRepository connections;
-    private final ProviderCredentials credentials;
+    private final ProviderConnections admin;
     private final IamAuthorization authorization;
     private final TenantAccessResolver tenants;
-    private final AuditTrail audit;
 
-    public ImageConnectionService(ImageConnectionRepository connections, ProviderCredentials credentials,
-                                  IamAuthorization authorization, TenantAccessResolver tenants,
-                                  AuditTrail audit) {
-        this.audit = audit;
-        this.connections = connections; this.credentials = credentials;
+    public ImageConnectionService(ImageConnectionRepository connections, ProviderConnections admin,
+                                  IamAuthorization authorization, TenantAccessResolver tenants) {
+        this.connections = connections; this.admin = admin;
         this.authorization = authorization; this.tenants = tenants;
     }
     public record View(ImageProvider provider, String endpoint, String model, boolean credentialConfigured,
@@ -77,17 +71,14 @@ public class ImageConnectionService {
         if (input == null || input.endpoint() == null || input.model() == null || input.model().length() > 200)
             throw ChatException.invalid("Invalid image connection.");
         if (input.model().isBlank()) throw ChatException.invalid("An image model is required.");
-        var endpoint = provider.normalizeEndpoint(input.endpoint());
-        if (provider.endpointRequired() && endpoint.isBlank())
-            throw ChatException.invalid("This image provider requires an endpoint.");
-        if (!endpoint.isEmpty()) ModelCatalogService.validateEndpoint(endpoint);
+        var endpoint = endpoint(provider, input.endpoint());
         var entity = connections.findByTenantIdAndProvider(tenant, provider).orElseGet(() -> new ImageConnectionEntity(tenant, provider));
-        if (entity.revision() != input.revision()) throw ChatException.conflict();
-        String credential = credentials.update(tenant, entity.id(), entity.credential(), input.credential());
+        String credential = admin.reconfigure(tenant, entity.id(), entity.revision(), input.revision(),
+                entity.credential(), input.credential(), ChatException::conflict);
         entity.configure(endpoint, input.model(), credential);
-        if (provider.requiresKey() && !credentials.configured(credential)) entity.select(false);
+        if (!admin.usable(provider.requiresKey(), credential)) entity.select(false);
         var saved = connections.saveAndFlush(entity);
-        audit.record(AuditRecord.of(AuditAction.IMAGE_CONNECTION_CHANGE, new TenantId(tenant)).actor(actor).resource("IMAGE_CONNECTION", provider.name(), provider.name()).detail("change", "CONFIGURE").detail("credentialChange", input.credential() == null ? "KEEP" : input.credential().action().name()).build());
+        audit(tenant, actor, provider, "CONFIGURE", ProviderConnections.credentialChange(input.credential()));
         return view(saved);
     }
 
@@ -101,10 +92,8 @@ public class ImageConnectionService {
             selected = all.stream().filter(c -> c.provider() == provider).findFirst().orElseThrow(ChatException::unavailable);
             if (!usable(selected)) throw ChatException.providerUnavailable();
         }
-        for (var connection : all) connection.select(false);
-        connections.flush(); // Clear the old partial-unique-index winner before selecting another.
-        if (selected != null) selected.select(true);
-        audit.record(AuditRecord.of(AuditAction.IMAGE_CONNECTION_CHANGE, new TenantId(tenant)).actor(actor).resource("IMAGE_CONNECTION", provider == null ? null : provider.name(), provider == null ? null : provider.name()).detail("change", provider == null ? "DISABLE" : "SELECT").build());
+        ProviderConnections.selectOnly(all, selected, ImageConnectionEntity::select, connections::flush);
+        audit(tenant, actor, provider, provider == null ? "DISABLE" : "SELECT", null);
     }
 
     /**
@@ -121,14 +110,11 @@ public class ImageConnectionService {
         }
         if (input.endpoint() == null || input.model() == null || input.model().isBlank() || input.model().length() > 200)
             throw ChatException.invalid("Invalid image connection.");
-        var endpoint = provider.normalizeEndpoint(input.endpoint());
-        if (provider.endpointRequired() && endpoint.isBlank())
-            throw ChatException.invalid("This image provider requires an endpoint.");
-        if (!endpoint.isEmpty()) ModelCatalogService.validateEndpoint(endpoint);
+        var endpoint = endpoint(provider, input.endpoint());
         String key = input.credentialValue();
         boolean override = key != null && !key.isBlank();
         if (override && key.length() > 8192) throw ChatException.invalid("Invalid provider credential.");
-        if (!override && provider.requiresKey() && (stored == null || !credentials.configured(stored.credential())))
+        if (!override && provider.requiresKey() && (stored == null || !admin.configured(stored.credential())))
             throw ChatException.invalid("An API key is required to test this provider.");
         var connection = new Connection(stored == null ? null : stored.id(), tenant, provider, endpoint,
                 input.model(), override || stored == null ? null : stored.credential(), stored == null ? 0 : stored.revision());
@@ -142,10 +128,19 @@ public class ImageConnectionService {
         return new Access(all.stream().filter(c -> c.active() && usable(c)).findFirst().map(this::snapshot).orElse(null));
     }
     public String key(Connection connection) {
-        return connection.encryptedCredential() == null ? ""
-            : credentials.resolve(connection.tenantId(), connection.id(), connection.encryptedCredential());
+        return admin.key(connection.tenantId(), connection.id(), connection.encryptedCredential());
     }
-    private boolean usable(ImageConnectionEntity c) { return !c.provider().requiresKey() || credentials.configured(c.credential()); }
-    private View view(ImageConnectionEntity c) { return new View(c.provider(), c.endpoint(), c.model(), credentials.configured(c.credential()), c.active(), c.revision()); }
+    private static String endpoint(ImageProvider provider, String input) {
+        var endpoint = provider.normalizeEndpoint(input);
+        ProviderConnections.checkEndpoint(endpoint, provider.endpointRequired(),
+                () -> ChatException.invalid("This image provider requires an endpoint."));
+        return endpoint;
+    }
+    private void audit(UUID tenant, ActorId actor, @Nullable ImageProvider provider, String change, @Nullable String credential) {
+        admin.audit(AuditAction.IMAGE_CONNECTION_CHANGE, "IMAGE_CONNECTION", tenant, actor,
+                provider == null ? null : provider.name(), change, credential);
+    }
+    private boolean usable(ImageConnectionEntity c) { return admin.usable(c.provider().requiresKey(), c.credential()); }
+    private View view(ImageConnectionEntity c) { return new View(c.provider(), c.endpoint(), c.model(), admin.configured(c.credential()), c.active(), c.revision()); }
     private Connection snapshot(ImageConnectionEntity c) { return new Connection(c.id(), c.tenantId(), c.provider(), c.endpoint(), c.model(), c.credential(), c.revision()); }
 }

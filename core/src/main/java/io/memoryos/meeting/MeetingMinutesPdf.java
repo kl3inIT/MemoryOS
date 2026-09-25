@@ -4,13 +4,11 @@ import io.memoryos.meeting.MeetingMinutesLayout.Align;
 import io.memoryos.meeting.MeetingMinutesLayout.Cell;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.text.Normalizer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import io.memoryos.shared.PdfText;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -78,23 +76,17 @@ public final class MeetingMinutesPdf {
     /** Collects the layout as measured blocks, then paginates and draws them. */
     private static final class PdfPage implements MeetingMinutesLayout.Page {
         private final PDDocument document;
+        private final PdfText text;
         private final PDType0Font regular;
         private final PDType0Font bold;
-        private final Map<PDType0Font, Map<Integer, Boolean>> known = new HashMap<>();
         private final List<Block> blocks = new ArrayList<>();
         private final float width = PDRectangle.A4.getWidth() - LEFT - RIGHT;
 
         private PdfPage(PDDocument document, String family) throws IOException {
             this.document = document;
-            this.regular = font(document, family + "-Regular.ttf");
-            this.bold = font(document, family + "-Bold.ttf");
-        }
-
-        private static PDType0Font font(PDDocument document, String file) throws IOException {
-            try (InputStream in = MeetingMinutesPdf.class.getResourceAsStream("/fonts/" + file)) {
-                if (in == null) throw new IOException("Missing font " + file);
-                return PDType0Font.load(document, in, true);
-            }
+            this.text = new PdfText(document);
+            this.regular = text.font(family + "-Regular.ttf");
+            this.bold = text.font(family + "-Bold.ttf");
         }
 
         @Override
@@ -257,62 +249,12 @@ public final class MeetingMinutesPdf {
             }
         }
 
-        /** Greedy wrapping on spaces; a word longer than a whole line is cut rather than run off the page. */
         private static List<List<String>> wrap(String text, PDType0Font face, float size, float first, float rest) {
-            var lines = new ArrayList<List<String>>();
-            var current = new ArrayList<String>();
-            float limit = first;
-            float used = 0;
-            float space;
-            try {
-                space = face.getStringWidth(" ") / 1000 * size;
-                for (String word : text.split(" ")) {
-                    if (word.isEmpty()) continue;
-                    float length = face.getStringWidth(word) / 1000 * size;
-                    if (!current.isEmpty() && used + space + length > limit) {
-                        lines.add(current);
-                        current = new ArrayList<>();
-                        used = 0;
-                        limit = rest;
-                    }
-                    while (length > limit && word.length() > 1) {
-                        int cut = word.length();
-                        while (cut > 1 && face.getStringWidth(word.substring(0, cut)) / 1000 * size > limit) cut--;
-                        lines.add(List.of(word.substring(0, cut)));
-                        word = word.substring(cut);
-                        length = face.getStringWidth(word) / 1000 * size;
-                        limit = rest;
-                    }
-                    used += (current.isEmpty() ? 0 : space) + length;
-                    current.add(word);
-                }
-            } catch (IOException failure) {
-                throw new UncheckedIOException(failure);
-            }
-            lines.add(current);
-            return lines;
+            return PdfText.words(text, face, size, first, rest);
         }
 
-        /**
-         * What was said is data: composed to NFC so Vietnamese marks use the face's own glyphs, and a character the
-         * face lacks becomes a question mark instead of failing the file.
-         */
         private String safe(String value, PDType0Font face) {
-            String normalized = Normalizer.normalize(value, Normalizer.Form.NFC);
-            var glyphs = known.computeIfAbsent(face, ignored -> new HashMap<>());
-            var out = new StringBuilder(normalized.length());
-            normalized.codePoints().forEach(point -> {
-                boolean drawable = glyphs.computeIfAbsent(point, code -> {
-                    try {
-                        face.encode(new String(Character.toChars(code)));
-                        return true;
-                    } catch (IllegalArgumentException | IOException missing) {
-                        return false;
-                    }
-                });
-                out.append(drawable ? new String(Character.toChars(point)) : "?");
-            });
-            return out.toString();
+            return text.safe(value, face);
         }
 
         private static float points(int halfPoints) {

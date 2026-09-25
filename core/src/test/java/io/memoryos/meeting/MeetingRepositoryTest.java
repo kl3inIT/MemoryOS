@@ -56,7 +56,7 @@ class MeetingRepositoryTest {
         assertTrue(meetings.claimMinutes(Duration.ofMinutes(10), MAX).isEmpty());
     }
 
-    @Test void aRecordingWhoseLastLeaseLapsedFailsEndsTheMeetingAndIsReturnedForRetirement() {
+    @Test void aRecordingWhoseLastLeaseLapsedFailsEndsTheMeetingAndIsHeldForRetirement() {
         UUID abandoned = meeting(), live = meeting();
         UUID upload = UUID.randomUUID();
         meetings.reserveAudio(tenant, abandoned, upload, "hop.m4a", "audio/mp4", 1024, null);
@@ -68,8 +68,9 @@ class MeetingRepositoryTest {
         jdbc.sql("UPDATE meeting SET audio_status = 'RUNNING', audio_attempts = :max, audio_lease_until = now() + interval '10 minutes' WHERE id = :id")
                 .param("max", MAX).param("id", live).update();
 
-        assertEquals(List.of(new MeetingRepository.AbandonedAudio(tenant, abandoned, upload)),
-                meetings.failAbandonedAudio(MAX));
+        assertEquals(1, meetings.failAbandonedAudio(MAX));
+        assertEquals(List.of(new MeetingRepository.HeldRecording(tenant, abandoned, upload)), meetings.heldRecordings(10),
+                "the given-up recording still holds its bytes until the sweep retires them");
 
         var failed = meetings.find(tenant, owner, abandoned).orElseThrow();
         assertEquals(Meeting.AudioStatus.FAILED, failed.audioStatus());
@@ -79,7 +80,85 @@ class MeetingRepositoryTest {
         var running = meetings.find(tenant, owner, live).orElseThrow();
         assertEquals(Meeting.AudioStatus.RUNNING, running.audioStatus(), "a lease still held is left alone");
         assertEquals(Meeting.Status.TRANSCRIBING, running.status());
-        assertTrue(meetings.failAbandonedAudio(MAX).isEmpty());
+        assertEquals(0, meetings.failAbandonedAudio(MAX));
+    }
+
+    @Test void onlyFinishedRecordingsAreHeldAndForgettingOneLeavesANewerUploadAlone() {
+        UUID done = meeting(), waiting = meeting();
+        UUID doneUpload = UUID.randomUUID();
+        meetings.reserveAudio(tenant, done, doneUpload, "hop.m4a", "audio/mp4", 1024, null);
+        assertTrue(meetings.queueAudio(tenant, done, "raw/hop.m4a"));
+        var claim = meetings.claimAudio(Duration.ofMinutes(10), MAX).orElseThrow();
+        assertTrue(meetings.writeAudio(tenant, done, claim.attempts(), "SONIOX", "stt-async-v5", true, List.of()));
+        meetings.reserveAudio(tenant, waiting, UUID.randomUUID(), "cho.m4a", "audio/mp4", 1024, null);
+
+        assertEquals(List.of(new MeetingRepository.HeldRecording(tenant, done, doneUpload)), meetings.heldRecordings(10),
+                "a recording still waiting or running is not the sweep's");
+
+        meetings.forgetAudio(tenant, done, UUID.randomUUID());
+        assertEquals(1, meetings.heldRecordings(10).size(), "another upload's retirement forgets nothing");
+        meetings.forgetAudio(tenant, done, doneUpload);
+        assertTrue(meetings.heldRecordings(10).isEmpty());
+        assertTrue(meetings.audioUpload(tenant, done).isEmpty());
+    }
+
+    @Test void aTranscribedRecordingItsMinutesAndItsSharesAreWrittenInAFixedNumberOfStatements() {
+        var counted = new io.memoryos.StatementCounter(dataSource);
+        var batched = new MeetingRepository(JdbcClient.create(counted));
+        UUID id = meeting();
+        batched.reserveAudio(tenant, id, UUID.randomUUID(), "hop.m4a", "audio/mp4", 1024, null);
+        assertTrue(batched.queueAudio(tenant, id, "raw/hop.m4a"));
+        var claim = batched.claimAudio(Duration.ofMinutes(10), MAX).orElseThrow();
+        var lines = new java.util.ArrayList<Meeting.Utterance>();
+        for (int i = 0; i < 300; i++)
+            lines.add(new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.MIC, Integer.toString(i % 3 + 1), i * 1000L,
+                    i * 1000L + 900, "Câu số " + i, 0.25 + i % 3 * 0.25, List.of(new Meeting.Span(0, 3, 0.4))));
+        counted.reset();
+
+        assertTrue(batched.writeAudio(tenant, id, claim.attempts(), "SONIOX", "stt-async-v5", true, lines));
+
+        assertEquals(3, counted.statements().size(), "the claim fence, the speakers and the lines, however many");
+        var stored = batched.utterances(tenant, id);
+        assertEquals(300, stored.size());
+        assertEquals(lines.get(7), stored.get(7), "every column survives the batch, spans and confidence included");
+        assertEquals(3, batched.speakers(tenant, id).size());
+
+        UUID ask = UUID.randomUUID();
+        var items = List.of(
+                new Meeting.MinutesItem(UUID.randomUUID(), Meeting.ItemKind.DECISION, "Chốt ngân sách", null, null,
+                        "chốt", stored.getFirst().id(), false),
+                new Meeting.MinutesItem(ask, Meeting.ItemKind.ACTION, "Gửi KPI", "Chị Lan", "Thứ Năm", null, null,
+                        false),
+                new Meeting.MinutesItem(UUID.randomUUID(), Meeting.ItemKind.TOPIC, "Ngân sách", null, null, null,
+                        stored.get(2).id(), false));
+        batched.queueMinutes(tenant, id);
+        var minutes = batched.claimMinutes(Duration.ofMinutes(10), MAX).orElseThrow();
+        counted.reset();
+        assertTrue(batched.writeMinutes(tenant, id, minutes.attempts(), "Tóm tắt", "GENERAL", items));
+        assertEquals(3, counted.statements().size(), "the fence, the old items out and the new ones in");
+        var read = batched.minutesItems(tenant, id);
+        assertEquals(3, read.size());
+        assertEquals(new Meeting.MinutesItem(ask, Meeting.ItemKind.ACTION, "Gửi KPI", "Chị Lan", "Thứ Năm", null, null,
+                false, false), read.stream().filter(item -> item.id().equals(ask)).findFirst().orElseThrow());
+
+        UUID reader = UUID.randomUUID(), other = UUID.randomUUID();
+        for (UUID actor : List.of(reader, other)) {
+            jdbc.sql("INSERT INTO actors(id) VALUES (:id)").param("id", actor).update();
+            jdbc.sql("INSERT INTO tenant_memberships(tenant_id, actor_id, role, status) VALUES (:tenant, :actor, 'MEMBER', 'ACTIVE')")
+                    .param("tenant", tenant).param("actor", actor).update();
+        }
+        counted.reset();
+        batched.share(tenant, id, List.of(reader, other), List.of());
+        assertEquals(3, counted.statements().size(), "two clears and one insert for every member named");
+        assertEquals(2, batched.readers(tenant, id).size());
+
+        UUID run = UUID.randomUUID();
+        var offers = stored.subList(0, 40).stream().map(line -> new Meeting.Correction(UUID.randomUUID(), line.id(), run,
+                0, 3, "Câu", "Cầu", "", 0.5, 0.75, 0.25, false, Meeting.CorrectionStatus.PENDING)).toList();
+        counted.reset();
+        batched.insertCorrections(tenant, id, run, offers);
+        assertEquals(1, counted.statements().size());
+        assertEquals(java.util.Set.copyOf(offers), java.util.Set.copyOf(batched.corrections(tenant, id)));
     }
 
     @Test void aMeetingHasUtterancesOnlyOnceSomebodySpoke() {

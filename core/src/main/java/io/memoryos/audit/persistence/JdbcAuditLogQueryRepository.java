@@ -1,5 +1,6 @@
 package io.memoryos.audit.persistence;
 
+import io.memoryos.shared.LikePattern;
 import io.memoryos.audit.AuditEventClass;
 import io.memoryos.audit.AuditLog;
 import io.memoryos.audit.AuditOutcome;
@@ -65,16 +66,11 @@ public class JdbcAuditLogQueryRepository {
                 .param("resourceType", query.resourceType(), Types.VARCHAR)
                 .param("resourceId", query.resourceId(), Types.VARCHAR)
                 .param("text", query.text(), Types.VARCHAR)
-                .param("pattern", query.text() == null ? null : "%" + escape(query.text()) + "%", Types.VARCHAR)
+                .param("pattern", query.text() == null ? null : LikePattern.containing(query.text()), Types.VARCHAR)
                 .param("afterAt", afterAt == null ? null : Timestamp.from(afterAt), Types.TIMESTAMP)
                 .param("afterId", afterId, Types.OTHER)
                 .param("limit", limit)
                 .query(JdbcAuditLogQueryRepository::event).list();
-    }
-
-    /** A search for a literal percent sign or underscore finds that character, not everything. */
-    private static String escape(String text) {
-        return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     @SuppressWarnings("unchecked")
