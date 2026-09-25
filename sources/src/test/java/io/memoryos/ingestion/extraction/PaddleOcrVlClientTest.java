@@ -14,10 +14,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Random;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -145,7 +149,7 @@ class PaddleOcrVlClientTest {
                 Thread.currentThread().interrupt();
             }
         });
-        server.setExecutor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor());
+        server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         server.start();
         assertFailure(ExtractionFailure.TIMEOUT, client(Duration.ofMillis(300)));
     }
@@ -166,7 +170,7 @@ class PaddleOcrVlClientTest {
                 Thread.currentThread().interrupt();
             }
         });
-        server.setExecutor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor());
+        server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         server.start();
         long started = System.nanoTime();
         assertFailure(ExtractionFailure.TIMEOUT, client(Duration.ofMillis(500)));
@@ -191,12 +195,12 @@ class PaddleOcrVlClientTest {
 
     @Test
     void aRequestWaitingForAPermitIsNotTimedOutByItsWait() throws Exception {
-        var inFlight = new java.util.concurrent.atomic.AtomicInteger();
-        var peak = new java.util.concurrent.atomic.AtomicInteger();
+        var inFlight = new AtomicInteger();
+        var peak = new AtomicInteger();
         serveSlowly(Duration.ofMillis(1_500), inFlight, peak);
         var properties = new PaddleOcrVlProperties(endpoint(), Duration.ofMillis(2_500), 200, null, 1);
         try (var client = new PaddleOcrVlClient(properties, mapper);
-                var callers = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+                var callers = Executors.newVirtualThreadPerTaskExecutor()) {
             long started = System.nanoTime();
             var first = callers.submit(() -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF));
             var second = callers.submit(() -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {2}), PaddleOcrVlClient.FileType.PDF));
@@ -211,13 +215,13 @@ class PaddleOcrVlClientTest {
 
     @Test
     void theServiceNeverHasMoreRequestsThanTheBound() throws Exception {
-        var inFlight = new java.util.concurrent.atomic.AtomicInteger();
-        var peak = new java.util.concurrent.atomic.AtomicInteger();
+        var inFlight = new AtomicInteger();
+        var peak = new AtomicInteger();
         serveSlowly(Duration.ofMillis(300), inFlight, peak);
         var properties = new PaddleOcrVlProperties(endpoint(), Duration.ofSeconds(10), 200, null, 2);
         try (var client = new PaddleOcrVlClient(properties, mapper);
-                var callers = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
-            var calls = new java.util.ArrayList<java.util.concurrent.Future<?>>();
+                var callers = Executors.newVirtualThreadPerTaskExecutor()) {
+            var calls = new ArrayList<Future<?>>();
             for (int call = 0; call < 6; call++) {
                 calls.add(callers.submit(() -> client.parse(PaddleOcrVlClient.Input.of(new byte[] {1}), PaddleOcrVlClient.FileType.PDF)));
             }
@@ -267,8 +271,8 @@ class PaddleOcrVlClientTest {
     }
 
     /** Answers every request after {@code hold}, on a thread of its own, counting the requests open at once. */
-    private void serveSlowly(Duration hold, java.util.concurrent.atomic.AtomicInteger inFlight,
-            java.util.concurrent.atomic.AtomicInteger peak) throws IOException {
+    private void serveSlowly(Duration hold, AtomicInteger inFlight,
+            AtomicInteger peak) throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/layout-parsing", exchange -> {
             try (exchange) {
@@ -285,7 +289,7 @@ class PaddleOcrVlClientTest {
                 Thread.currentThread().interrupt();
             }
         });
-        server.setExecutor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor());
+        server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         server.start();
     }
 

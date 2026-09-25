@@ -4,7 +4,9 @@ import io.memoryos.connector.SharePointProviderException;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.EnumMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * Counts Microsoft requests by what was asked for and how it ended. Both labels are bounded enumerations;
@@ -25,7 +27,7 @@ final class SharePointProviderMetrics {
             succeeded.put(operation, counter(registry, operation, "success"));
             var failures = new EnumMap<SharePointProviderException.Failure, Counter>(SharePointProviderException.Failure.class);
             for (var failure : SharePointProviderException.Failure.values()) {
-                failures.put(failure, counter(registry, operation, failure.name().toLowerCase(java.util.Locale.ROOT)));
+                failures.put(failure, counter(registry, operation, failure.name().toLowerCase(Locale.ROOT)));
             }
             failed.put(operation, failures);
         }
@@ -34,12 +36,12 @@ final class SharePointProviderMetrics {
     private static Counter counter(MeterRegistry registry, Operation operation, String outcome) {
         return Counter.builder(NAME)
                 .description("SharePoint provider requests by operation and outcome")
-                .tag("operation", operation.name().toLowerCase(java.util.Locale.ROOT))
+                .tag("operation", operation.name().toLowerCase(Locale.ROOT))
                 .tag("outcome", outcome)
                 .register(registry);
     }
 
-    <T> T record(Operation operation, java.util.function.Supplier<T> call) {
+    <T> T record(Operation operation, Supplier<T> call) {
         try {
             T value = call.get();
             succeeded.get(operation).increment();

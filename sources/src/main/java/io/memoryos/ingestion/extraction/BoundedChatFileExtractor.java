@@ -9,16 +9,21 @@ import io.memoryos.document.StructuredContent;
 import io.memoryos.ingestion.ChatFileExtractor;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.Semaphore;
 import org.apache.tika.Tika;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.ObjectMapper;
 
 /** One bounded disk-backed extraction per worker; Source and native-source limits are unchanged. */
 public final class BoundedChatFileExtractor implements ChatFileExtractor {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(BoundedChatFileExtractor.class);
+    private static final Logger LOG = LoggerFactory.getLogger(BoundedChatFileExtractor.class);
     /** Detection holds no per-call state, so one facade serves every file. */
     private static final Tika TIKA = new Tika();
     private final DoclingSourceContentExtractor docling;
@@ -38,7 +43,7 @@ public final class BoundedChatFileExtractor implements ChatFileExtractor {
             file = Files.createTempFile("memoryos-chat-file-", ".bin");
             try (var output = Files.newOutputStream(file)) {
                 byte[] buffer = new byte[65536]; long copied = 0; int read;
-                long deadline = System.nanoTime() + java.time.Duration.ofMinutes(5).toNanos();
+                long deadline = System.nanoTime() + Duration.ofMinutes(5).toNanos();
                 while ((read = stream.read(buffer)) >= 0) {
                     if (Thread.currentThread().isInterrupted() || System.nanoTime() > deadline) throw StructuredContent.failure(ExtractionFailure.TIMEOUT);
                     copied += read;
@@ -60,14 +65,14 @@ public final class BoundedChatFileExtractor implements ChatFileExtractor {
                 var read = docling.readChatImage(file, filename, mediaType);
                 if (read != null) return read;
             }
-            if (java.util.Set.of("text/html", "application/xhtml+xml", "message/rfc822", "application/epub+zip",
+            if (Set.of("text/html", "application/xhtml+xml", "message/rfc822", "application/epub+zip",
                     "image/png", "image/jpeg", "image/webp").contains(mediaType)) {
                 try (var tika = new TikaSourceContentExtractor()) {
                     return tika.extractChatFile(file, filename, mediaType);
                 }
             }
             if (DoclingSourceContentExtractor.usesDocling(mediaType)) return docling.extractChatFile(file, filename, mediaType);
-            if (mediaType.startsWith("text/") || java.util.Set.of("json", "xml", "yaml", "yml", "sql", "conf", "log", "mdx").contains(extension(name)))
+            if (mediaType.startsWith("text/") || Set.of("json", "xml", "yaml", "yml", "sql", "conf", "log", "mdx").contains(extension(name)))
                 return text(file, filename, mediaType);
             throw StructuredContent.failure(ExtractionFailure.UNSUPPORTED);
         } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw StructuredContent.failure(ExtractionFailure.TIMEOUT); }
@@ -82,7 +87,7 @@ public final class BoundedChatFileExtractor implements ChatFileExtractor {
     private DocumentContent text(Path file, String filename, String mediaType) throws IOException, ExtractionException {
         var output = new StructuredContent(mapper, SourceInputDescriptor.binary());
         var text = new StringBuilder();
-        try (var reader = Files.newBufferedReader(file, java.nio.charset.StandardCharsets.UTF_8)) {
+        try (var reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             char[] buffer = new char[8192]; int read;
             while ((read = reader.read(buffer)) >= 0) {
                 output.append(new String(buffer, 0, read));

@@ -6,6 +6,7 @@ import io.memoryos.connector.GoogleDriveProvider;
 import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.connector.SourceInputFormat;
+import io.memoryos.connector.adapter.RetryAfter;
 import io.memoryos.document.ExtractionException;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
@@ -15,12 +16,21 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.Signature;
+import java.time.Clock;
+import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -28,7 +38,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -43,8 +55,8 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
     /** Google accepts assertions valid for at most one hour. */
     private static final long ASSERTION_LIFETIME_SECONDS = 3600;
     private static final int DIRECTORY_PAGE_SIZE = 200;
-    private static final java.util.regex.Pattern DOMAIN = java.util.regex.Pattern.compile("[A-Za-z0-9.-]{1,253}");
-    private static final java.util.regex.Pattern DIRECTORY_EMAIL = java.util.regex.Pattern.compile("[^@\\s/]+@[A-Za-z0-9.-]+");
+    private static final Pattern DOMAIN = Pattern.compile("[A-Za-z0-9.-]{1,253}");
+    private static final Pattern DIRECTORY_EMAIL = Pattern.compile("[^@\\s/]+@[A-Za-z0-9.-]+");
     private static final String PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
     private final GoogleDriveProviderProperties properties;
     private final ObjectMapper mapper;
@@ -94,16 +106,16 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
         ObjectNode claims = mapper.createObjectNode().put("iss", key.clientEmail()).put("sub", credential.subject())
                 .put("scope", String.join(" ", SERVICE_ACCOUNT_SCOPES)).put("aud", properties.tokenUri().toString())
                 .put("iat", issuedAt).put("exp", issuedAt + ASSERTION_LIFETIME_SECONDS);
-        var encoder = java.util.Base64.getUrlEncoder().withoutPadding();
+        var encoder = Base64.getUrlEncoder().withoutPadding();
         String signingInput = encoder.encodeToString(mapper.writeValueAsBytes(header)) + "."
                 + encoder.encodeToString(mapper.writeValueAsBytes(claims));
         String assertion;
         try {
-            var signature = java.security.Signature.getInstance("SHA256withRSA");
+            var signature = Signature.getInstance("SHA256withRSA");
             signature.initSign(key.privateKey());
             signature.update(signingInput.getBytes(StandardCharsets.US_ASCII));
             assertion = signingInput + "." + encoder.encodeToString(signature.sign());
-        } catch (java.security.GeneralSecurityException exception) {
+        } catch (GeneralSecurityException exception) {
             throw failure(AUTHENTICATION);
         }
         return new DriveSession(bearer(exchangeToken("grant_type=" + encode(JWT_BEARER_GRANT) + "&assertion=" + encode(assertion))), null);
@@ -240,7 +252,7 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
                 mime = "application/json";
             } else if ("application/vnd.google-apps.presentation".equals(mime)) {
                 mime = PPTX;
-                filename = filename.toLowerCase(java.util.Locale.ROOT).endsWith(".pptx") ? filename : filename + ".pptx";
+                filename = filename.toLowerCase(Locale.ROOT).endsWith(".pptx") ? filename : filename + ".pptx";
                 bytes = request(properties.driveApiBaseUrl(), "/files/" + fileId(file.id())
                         + "/export?mimeType=" + encode(PPTX), budget, properties.maxBinaryBytes());
             } else {
@@ -376,7 +388,7 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
             budget.check();
             int status = response.statusCode();
             if (status < 200 || status >= 300) throw httpFailure(status, response.body(), oauth, forbidden,
-                    io.memoryos.connector.adapter.RetryAfter.of(response.headers(), java.time.Clock.systemUTC()));
+                    RetryAfter.of(response.headers(), Clock.systemUTC()));
             return response.body();
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
@@ -396,7 +408,7 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
      * or unavailable response carries the wait Google asked for in {@code Retry-After}.
      */
     private GoogleDriveProviderException httpFailure(int status, byte[] body, boolean oauth,
-            GoogleDriveProviderException.Failure forbidden, java.time.@org.jspecify.annotations.Nullable Duration retryAfter) {
+            GoogleDriveProviderException.Failure forbidden, @Nullable Duration retryAfter) {
         String reason = "";
         boolean missingScope = false;
         try {
@@ -428,7 +440,7 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
                     modified == null ? null : Instant.parse(modified), node.path("trashed").asBoolean(false),
                     parents, optional(node, "driveId"), optional(node.path("shortcutDetails"), "targetId"));
             return file;
-        } catch (java.time.DateTimeException exception) { throw failure(MALFORMED); }
+        } catch (DateTimeException exception) { throw failure(MALFORMED); }
     }
 
     private Permission parsePermission(JsonNode node) {
@@ -446,7 +458,7 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
                     expiration == null ? null : Instant.parse(expiration), optionalBoolean(node, "allowFileDiscovery"),
                     optionalBoolean(node, "deleted"), optionalBoolean(node, "pendingOwner"), details,
                     optionalText(node, "view"), optionalBoolean(node, "inheritedPermissionsDisabled"));
-        } catch (java.time.DateTimeException exception) { throw failure(MALFORMED); }
+        } catch (DateTimeException exception) { throw failure(MALFORMED); }
     }
 
     private static String requiredText(JsonNode node, String field) {
@@ -479,9 +491,9 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
     private static void verifyChecksum(FileMetadata file, byte[] bytes) {
         if (file.checksum() == null) return;
         try {
-            String actual = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("MD5").digest(bytes));
+            String actual = HexFormat.of().formatHex(MessageDigest.getInstance("MD5").digest(bytes));
             if (!actual.equalsIgnoreCase(file.checksum())) throw failure(INCONSISTENT);
-        } catch (java.security.NoSuchAlgorithmException exception) { throw failure(UNAVAILABLE); }
+        } catch (NoSuchAlgorithmException exception) { throw failure(UNAVAILABLE); }
     }
 
     private static void sameVersion(FileMetadata expected, FileMetadata actual) {
@@ -496,7 +508,7 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
             JsonNode node = reader.readTree(bytes);
             if (node == null || !node.isObject()) throw failure(MALFORMED);
             return node;
-        } catch (tools.jackson.core.JacksonException exception) { throw failure(MALFORMED); }
+        } catch (JacksonException exception) { throw failure(MALFORMED); }
     }
 
     private JsonNode array(JsonNode node, String field) {
@@ -544,7 +556,7 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
 
     private static String directoryEmail(String value) {
         if (value == null || value.length() > 320 || !DIRECTORY_EMAIL.matcher(value).matches()) throw failure(MALFORMED);
-        return value.toLowerCase(java.util.Locale.ROOT);
+        return value.toLowerCase(Locale.ROOT);
     }
 
     private static String encode(String value) { return URLEncoder.encode(value, StandardCharsets.UTF_8); }

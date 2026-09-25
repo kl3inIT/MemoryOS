@@ -2,6 +2,7 @@ package io.memoryos.ingestion.extraction;
 
 import io.memoryos.document.ExtractedDocument.Page;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -66,7 +67,7 @@ record PdfLayout(int pages, List<Frame> frames, boolean scanned) {
     private static boolean scanned(PDDocument pdf, int pages) throws IOException {
         var stripper = new PDFTextStripper();
         for (int page = 1; page <= pages; page++) {
-            if (Thread.currentThread().isInterrupted()) throw new java.io.InterruptedIOException("text layer measurement interrupted");
+            if (Thread.currentThread().isInterrupted()) throw new InterruptedIOException("text layer measurement interrupted");
             stripper.setStartPage(page);
             stripper.setEndPage(page);
             long characters = stripper.getText(pdf).codePoints().filter(c -> !Character.isWhitespace(c)).count();

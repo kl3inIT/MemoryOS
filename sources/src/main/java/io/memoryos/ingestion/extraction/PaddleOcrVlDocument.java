@@ -83,7 +83,7 @@ final class PaddleOcrVlDocument {
                     if (!table.cells().isEmpty()) {
                         blocks.add(Block.table(position, "", locations, table, null));
                     } else {
-                        String text = org.jsoup.Jsoup.parse(content).text().strip();
+                        String text = Jsoup.parse(content).text().strip();
                         if (!text.isEmpty()) blocks.add(Block.text(position, Kind.PARAGRAPH, text, locations));
                     }
                 } else if (content.isEmpty()) {

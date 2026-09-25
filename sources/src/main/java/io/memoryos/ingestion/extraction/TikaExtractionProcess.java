@@ -3,6 +3,7 @@ package io.memoryos.ingestion.extraction;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
+import io.memoryos.document.StructuredContent;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -32,6 +33,7 @@ import org.apache.tika.sax.BodyContentHandler;
 import org.jspecify.annotations.Nullable;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
+import tools.jackson.databind.ObjectMapper;
 
 final class TikaExtractionProcess {
 
@@ -69,7 +71,7 @@ final class TikaExtractionProcess {
     private static DocumentContent extractChat(Request request) throws ExtractionException, IOException {
         var file = Objects.requireNonNull(request.file());
         var type = Objects.requireNonNull(request.mediaType());
-        var mapper = new tools.jackson.databind.ObjectMapper();
+        var mapper = new ObjectMapper();
         return type.startsWith("image/") ? ChatImageExtractor.extract(file, request.filename(), type, mapper)
                 : ChatMarkupExtractor.extract(file, request.filename(), type, mapper);
     }
@@ -116,7 +118,7 @@ final class TikaExtractionProcess {
                 metadata.put(readString(input), readString(input));
             }
             return new DocumentContent(mediaType, title, normalizedText, metadata,
-                    readString(input, io.memoryos.document.StructuredContent.MAX_BYTES), null);
+                    readString(input, StructuredContent.MAX_BYTES), null);
         }
     }
 

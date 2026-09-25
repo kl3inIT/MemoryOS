@@ -6,16 +6,21 @@ import static org.mockito.Mockito.mock;
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
+import io.memoryos.document.application.StructuredDocumentChunker;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Objects;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import tools.jackson.databind.ObjectMapper;
@@ -23,7 +28,7 @@ import tools.jackson.databind.ObjectMapper;
 class SpreadsheetSourceContentExtractorTest {
     private final ObjectMapper mapper = new ObjectMapper();
     private final SpreadsheetSourceContentExtractor reader = new SpreadsheetSourceContentExtractor(mapper);
-    @org.junit.jupiter.api.io.TempDir java.nio.file.Path temporary;
+    @TempDir Path temporary;
 
     @Test
     void sourceAndChatShareWorkbookContractIncludingDatesAndSearchableCells() throws Exception {
@@ -51,7 +56,7 @@ class SpreadsheetSourceContentExtractorTest {
         assertEquals(source.structuredJson(), chat.structuredJson());
         assertEquals(source.normalizedText(), chat.normalizedText());
         assertTrue(chat.normalizedText().contains("1904-01-02"));
-        var chunks = new io.memoryos.document.application.StructuredDocumentChunker(mapper).chunk(chat.title(), chat.structuredJson());
+        var chunks = new StructuredDocumentChunker(mapper).chunk(chat.title(), chat.structuredJson());
         assertTrue(chunks.stream().anyMatch(chunk -> chunk.content().contains("[D1] 127")));
         assertTrue(chunks.stream().noneMatch(chunk -> chunk.content().contains("100+20")));
         assertTrue(chunks.stream().anyMatch(chunk -> chunk.provenanceJson().contains("Doanh thu")));
@@ -65,7 +70,7 @@ class SpreadsheetSourceContentExtractorTest {
                 .extract(new ByteArrayInputStream(bytes), bytes.length, "data.csv");
         assertEquals(source.structuredJson(), chat.structuredJson());
         assertEquals(source.normalizedText(), chat.normalizedText());
-        assertTrue(new io.memoryos.document.application.StructuredDocumentChunker(mapper).chunk(chat.title(), chat.structuredJson())
+        assertTrue(new StructuredDocumentChunker(mapper).chunk(chat.title(), chat.structuredJson())
                 .stream().anyMatch(chunk -> chunk.content().contains("[B3] =1+1")));
     }
 
@@ -76,11 +81,11 @@ class SpreadsheetSourceContentExtractorTest {
         var zip = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
         int checksum = zip.getInt(bytes.length - 6) + 16;
         zip.putInt(checksum, zip.getInt(checksum) ^ 1);
-        java.nio.file.Files.write(archive, bytes);
+        Files.write(archive, bytes);
         assertEquals(ExtractionFailure.MALFORMED, assertThrows(ExtractionException.class,
                 () -> reader.extractFile(archive, "corrupt.xlsx", SpreadsheetSourceContentExtractor.XLSX)).failure());
         var csv = temporary.resolve("large.csv");
-        java.nio.file.Files.writeString(csv, "\"" + "x".repeat(4_100_000));
+        Files.writeString(csv, "\"" + "x".repeat(4_100_000));
         assertEquals(ExtractionFailure.WRITE_LIMIT, assertThrows(ExtractionException.class,
                 () -> reader.extractFile(csv, "large.csv", "text/csv")).failure());
     }
@@ -187,7 +192,7 @@ class SpreadsheetSourceContentExtractorTest {
     private static byte[] zip64Workbook() throws Exception {
         // Synthetic OOXML with 64-bit streaming descriptors and zero local-header sizes.
         try (var input = SpreadsheetSourceContentExtractorTest.class.getResourceAsStream("/streaming-zip64.xlsx")) {
-            return java.util.Objects.requireNonNull(input).readAllBytes();
+            return Objects.requireNonNull(input).readAllBytes();
         }
     }
 }

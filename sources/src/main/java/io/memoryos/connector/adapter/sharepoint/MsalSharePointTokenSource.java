@@ -12,7 +12,11 @@ import com.microsoft.aad.msal4j.MsalException;
 import com.microsoft.aad.msal4j.MsalServiceException;
 import io.memoryos.connector.SharePointProvider;
 import io.memoryos.connector.SharePointProviderException;
+import java.io.ByteArrayInputStream;
+import java.net.MalformedURLException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.cert.CertificateFactory;
@@ -20,7 +24,9 @@ import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -60,14 +66,14 @@ final class MsalSharePointTokenSource implements SharePointTokenSource {
             String token = result.accessToken();
             if (token == null || token.isBlank()) throw new SharePointProviderException(MALFORMED);
             return token;
-        } catch (java.net.MalformedURLException exception) {
+        } catch (MalformedURLException exception) {
             throw new SharePointProviderException(MALFORMED);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new SharePointProviderException(UNAVAILABLE);
         } catch (TimeoutException exception) {
             throw new SharePointProviderException(UNAVAILABLE);
-        } catch (java.util.concurrent.ExecutionException exception) {
+        } catch (ExecutionException exception) {
             throw failure(exception.getCause());
         } catch (MsalException exception) {
             throw failure(exception);
@@ -83,21 +89,21 @@ final class MsalSharePointTokenSource implements SharePointTokenSource {
 
     private IClientCredential clientCredential(SharePointProvider.Credential credential) {
         if (credential.authMethod() == SharePointProvider.AuthMethod.CLIENT_SECRET) {
-            byte[] secret = java.util.Objects.requireNonNull(credential.clientSecret());
+            byte[] secret = Objects.requireNonNull(credential.clientSecret());
             try {
-                return ClientCredentialFactory.createFromSecret(new String(secret, java.nio.charset.StandardCharsets.UTF_8));
+                return ClientCredentialFactory.createFromSecret(new String(secret, StandardCharsets.UTF_8));
             } finally {
                 Arrays.fill(secret, (byte) 0);
             }
         }
-        byte[] key = java.util.Objects.requireNonNull(credential.privateKey());
+        byte[] key = Objects.requireNonNull(credential.privateKey());
         try {
             PrivateKey privateKey = KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(key));
             var certificate = (X509Certificate) CertificateFactory.getInstance("X.509")
-                    .generateCertificate(new java.io.ByteArrayInputStream(
-                            java.util.Objects.requireNonNull(credential.certificate())));
+                    .generateCertificate(new ByteArrayInputStream(
+                            Objects.requireNonNull(credential.certificate())));
             return ClientCredentialFactory.createFromCertificate(privateKey, certificate);
-        } catch (java.security.GeneralSecurityException exception) {
+        } catch (GeneralSecurityException exception) {
             throw new SharePointProviderException(MALFORMED);
         } finally {
             Arrays.fill(key, (byte) 0);
