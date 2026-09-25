@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.spi.LoggingEventBuilder;
 import org.springframework.stereotype.Service;
 
 /**
@@ -62,9 +63,10 @@ public class PresentationPreviewService {
                 if (PDF.equals(file.path()) && file.fileId() != null) output = file.fileId();
                 else if ("file".equals(file.kind()) && file.fileId() != null && !file.fileId().equals(deck)) delete(file.fileId());
             if (execution.timedOut() || execution.exitCode() == null || execution.exitCode() != 0 || output == null) {
-                LOG.atWarn().addKeyValue("event", "chat.presentation_preview.conversion_failed")
-                        .addKeyValue("timed_out", execution.timedOut()).addKeyValue("exit_code", execution.exitCode())
-                        .log("Presentation preview conversion failed");
+                LoggingEventBuilder log = LOG.atWarn().addKeyValue("event", "chat.presentation_preview.conversion_failed")
+                        .addKeyValue("timed_out", execution.timedOut());
+                if (execution.exitCode() != null) log = log.addKeyValue("exit_code", execution.exitCode());
+                log.log("Presentation preview conversion failed");
                 throw ChatException.invalid("The presentation could not be previewed");
             }
             byte[] pdf = client.download(output);

@@ -12,6 +12,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.spi.LoggingEventBuilder;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -84,9 +85,7 @@ public class AuditTrail {
             separate.executeWithoutResult(ignored -> record(event));
         } catch (RuntimeException failure) {
             meters.counter("memoryos.audit.write.failures", "action", event.action().value()).increment();
-            LOG.atError().addKeyValue("event", "audit.event.store_failed").addKeyValue("action", event.action().value())
-                    .addKeyValue("error_type", failure.getClass().getName()).addKeyValue("error_code", sqlState(failure))
-                    .log("Audit event could not be stored");
+            logFailure("audit.event.store_failed", event.action().value(), failure, "Audit event could not be stored");
         }
     }
 
@@ -115,15 +114,13 @@ public class AuditTrail {
         } catch (RuntimeException failure) {
             // The stream is evidence of what was recorded, not proof that nothing else happened: a gap shows up here.
             meters.counter("memoryos.audit.write.failures", "action", event.action().value()).increment();
-            LOG.atError().addKeyValue("event", "audit.event.store_failed").addKeyValue("action", event.action().value())
-                    .addKeyValue("error_type", failure.getClass().getName()).addKeyValue("error_code", sqlState(failure))
-                    .log("Audit event could not be stored; the change it records still committed");
+            logFailure("audit.event.store_failed", event.action().value(), failure,
+                    "Audit event could not be stored; the change it records still committed");
             try {
                 events.rollbackToSavepoint();
             } catch (RuntimeException lost) {
-                LOG.atError().addKeyValue("event", "audit.savepoint.rollback_failed")
-                        .addKeyValue("error_type", lost.getClass().getName()).addKeyValue("error_code", sqlState(lost))
-                        .log("Audit savepoint could not be released; the caller's transaction may fail");
+                logFailure("audit.savepoint.rollback_failed", null, lost,
+                        "Audit savepoint could not be released; the caller's transaction may fail");
             }
         }
         emit(id, at, event, actorLabel, details);
@@ -173,6 +170,16 @@ public class AuditTrail {
             if (value != null) declared.put(field, value);
         });
         return JSON.writeValueAsString(declared);
+    }
+
+    /** Logs a failed audit write by type and, when the database gave one, its SQLState; never the driver's message. */
+    private static void logFailure(String name, @Nullable String action, Throwable failure, String message) {
+        LoggingEventBuilder log = LOG.atError().addKeyValue("event", name)
+                .addKeyValue("error_type", failure.getClass().getName());
+        if (action != null) log = log.addKeyValue("action", action);
+        String state = sqlState(failure);
+        if (state != null) log = log.addKeyValue("error_code", state);
+        log.log(message);
     }
 
     /** The SQLState of the failure, a bounded code; the driver's message may quote the values it refused. */
