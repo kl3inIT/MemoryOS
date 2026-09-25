@@ -9,6 +9,7 @@ import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.Budget;
 import com.embabel.common.ai.model.LlmMetadata;
 import io.memoryos.ai.ModelSettings;
+import io.memoryos.ai.TurnFailureException;
 import io.memoryos.chat.execution.ChatModelGuard;
 import java.util.List;
 import java.util.Map;
@@ -108,7 +109,8 @@ class OpenAiRequestPolicyTest {
         var withTools = new Prompt("Question", OpenAiChatOptions.builder().model("gpt-5-mini")
                 .toolCallbacks(List.of(mock(ToolCallback.class))).toolChoice("auto").build());
         assertEquals("required", assertInstanceOf(OpenAiChatOptions.class, OpenAiRequestPolicy.requireTools(withTools).getOptions()).getToolChoice());
-        assertThrows(IllegalArgumentException.class, () -> OpenAiRequestPolicy.requireTools(new Prompt("Question")));
+        assertEquals("CHAT_UNSUPPORTED_OPTIONS", assertThrows(TurnFailureException.class,
+                () -> OpenAiRequestPolicy.requireTools(new Prompt("Question"))).code());
     }
 
     @Test

@@ -1,5 +1,6 @@
 package io.memoryos.chat.tools;
 
+import io.memoryos.ai.TurnFailureException;
 import com.embabel.agent.api.common.PromptRunner;
 import com.embabel.agent.api.annotation.LlmTool;
 import com.embabel.chat.Message;
@@ -666,8 +667,7 @@ public final class SearchTool implements AutoCloseable {
     }
     private static boolean boundaryFailure(Throwable failure) {
         for (int depth = 0; failure != null && depth < 8; depth++, failure = failure.getCause()) {
-            if (failure instanceof CancellationException
-                    || failure.getMessage() != null && failure.getMessage().startsWith("CHAT_")) return true;
+            if (failure instanceof CancellationException || failure instanceof TurnFailureException) return true;
         }
         return false;
     }

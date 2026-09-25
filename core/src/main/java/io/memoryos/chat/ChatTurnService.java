@@ -1,5 +1,7 @@
 package io.memoryos.chat;
 
+import io.memoryos.ai.TurnFailure;
+import io.memoryos.ai.TurnFailureException;
 import io.memoryos.ai.ModelTurns;
 import io.memoryos.ai.ModelAccounting;
 import io.memoryos.chat.session.ChatTurnPersistence;
@@ -18,7 +20,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.Set;
 import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
@@ -36,9 +37,6 @@ import reactor.core.publisher.Sinks;
 /** Background turn lifetime is independent of HTTP request/reader lifetime. Created only by the API. */
 public final class ChatTurnService implements AutoCloseable {
     private static final Logger LOG = LoggerFactory.getLogger(ChatTurnService.class);
-    private static final Set<String> FAILURE_CODES = Set.of("CHAT_OUTPUT_LIMIT", "CHAT_CYCLE_LIMIT", "CHAT_BUDGET_EXCEEDED",
-            "CHAT_MODEL_UNAVAILABLE", "CHAT_INCOMPLETE_RESPONSE", "CHAT_LAST_CYCLE_TOOL_CALL", "CHAT_UNSUPPORTED_OPTIONS",
-            "CHAT_EMPTY_RESPONSE", "CHAT_CONTEXT_LIMIT", "CHAT_MODEL_OUTPUT_LIMIT");
     private final ChatTurnPersistence persistence;
     private final ChatModelExecutor model;
     private final ChatModelSelector models;
@@ -384,7 +382,7 @@ public final class ChatTurnService implements AutoCloseable {
                     codeEvent -> streams.code(run.setup.assistantMessageId(), codeEvent),
                     draining -> run.draining = draining);
             run.check();
-            if (run.content.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
+            if (run.content.isEmpty()) throw TurnFailure.EMPTY_RESPONSE.exception();
             run.finish(ChatMessage.Status.COMPLETED, null);
         } catch (RuntimeException failure) {
             boolean userStop = run.stopReason.get() == StopReason.USER;
@@ -503,11 +501,8 @@ public final class ChatTurnService implements AutoCloseable {
     }
 
     private static String failureCode(Throwable failure) {
-        // Exact allowlist only: arbitrary provider messages can contain private content.
-        for (int depth = 0; failure != null && depth < 8; depth++, failure = failure.getCause()) {
-            if (failure.getMessage() != null && FAILURE_CODES.contains(failure.getMessage())) return failure.getMessage();
-        }
-        return "CHAT_EXECUTION_FAILED";
+        // Only a typed turn failure names the code: arbitrary provider messages can contain private content.
+        return TurnFailureException.reportedIn(failure).map(TurnFailure::code).orElse("CHAT_EXECUTION_FAILED");
     }
 
     private enum StopReason { USER, INTERRUPTED }
@@ -544,7 +539,7 @@ public final class ChatTurnService implements AutoCloseable {
         }
         synchronized void append(String text, int limit) {
             check();
-            if (content.length() + text.length() > limit) throw new IllegalStateException("CHAT_OUTPUT_LIMIT");
+            if (content.length() + text.length() > limit) throw TurnFailure.OUTPUT_LIMIT.exception();
             content.append(text);
         }
         synchronized void activity(ChatActivityEvent event) {

@@ -20,7 +20,7 @@ public final class ModelAdmissionLedger {
         long tokens = (long) input + output;
         double cost = pricing == null ? 0 : pricing.costOf(input, output);
         if (admittedTokens + tokens > budget.getTokens() || admittedCost + cost > budget.getCost())
-            throw new IllegalStateException("CHAT_BUDGET_EXCEEDED");
+            throw TurnFailure.BUDGET_EXCEEDED.exception();
         admittedTokens += tokens;
         admittedCost += cost;
         return new Reservation(tokens, cost);

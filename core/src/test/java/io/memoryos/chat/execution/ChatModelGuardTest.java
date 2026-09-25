@@ -1,5 +1,6 @@
 package io.memoryos.chat.execution;
 
+import io.memoryos.ai.TurnFailureException;
 import io.memoryos.ai.ModelRequestPolicy;
 import io.memoryos.ai.ModelAdmissionLedger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -68,7 +69,7 @@ class ChatModelGuardTest {
             var first = executor.submit(() -> guard.call(prompt));
             try {
                 assertTrue(entered.await(3, java.util.concurrent.TimeUnit.SECONDS));
-                assertEquals("CHAT_BUDGET_EXCEEDED", assertThrows(IllegalStateException.class, () -> guard.call(prompt)).getMessage());
+                assertEquals("CHAT_BUDGET_EXCEEDED", assertThrows(TurnFailureException.class, () -> guard.call(prompt)).code());
                 verify(provider).call(any(Prompt.class));
             } finally { release.countDown(); }
             first.get(3, java.util.concurrent.TimeUnit.SECONDS);
@@ -96,7 +97,7 @@ class ChatModelGuardTest {
         assertEquals("Partial but terminal", generation.getOutput().getText());
         assertTrue(guard.usageKnown());
         verify(process).recordLlmInvocation(any());
-        assertEquals("CHAT_CYCLE_LIMIT", assertThrows(IllegalStateException.class, () -> guard.stream(prompt).blockLast()).getMessage());
+        assertEquals("CHAT_CYCLE_LIMIT", assertThrows(TurnFailureException.class, () -> guard.stream(prompt).blockLast()).code());
         assertTrue(guard.usageKnown());
         verify(provider).stream(any(Prompt.class));
     }
@@ -122,8 +123,8 @@ class ChatModelGuardTest {
     @Test
     void missingTerminalMetadataFailsAndUnknownUsageIsNotFabricated() {
         when(provider.stream(any(Prompt.class))).thenReturn(Flux.just(response("Partial", "", 0)));
-        assertEquals("CHAT_INCOMPLETE_RESPONSE", assertThrows(IllegalStateException.class,
-                () -> guard.stream(prompt).blockLast()).getMessage());
+        assertEquals("CHAT_INCOMPLETE_RESPONSE", assertThrows(TurnFailureException.class,
+                () -> guard.stream(prompt).blockLast()).code());
         assertFalse(guard.usageKnown());
         verify(process, never()).recordLlmInvocation(any());
     }
@@ -156,7 +157,7 @@ class ChatModelGuardTest {
         guard.stream(prompt).blockLast();
         assertFalse(guard.usageKnown());
         when(budget.earlyTerminationPolicy().shouldTerminate(process)).thenReturn(mock(EarlyTermination.class));
-        assertEquals("CHAT_BUDGET_EXCEEDED", assertThrows(IllegalStateException.class, guard::checkActive).getMessage());
+        assertEquals("CHAT_BUDGET_EXCEEDED", assertThrows(TurnFailureException.class, guard::checkActive).code());
         assertThrows(IllegalStateException.class, () -> guard.call(prompt));
         assertThrows(IllegalStateException.class, () -> guard.stream(prompt).blockLast());
         verify(provider).call(any(Prompt.class));
@@ -169,7 +170,7 @@ class ChatModelGuardTest {
         var response = ToolResponseMessage.builder().responses(List.of(new ToolResponseMessage.ToolResponse(
                 "tool-1", "search_knowledge", "private document ".repeat(1000)))).build();
         var request = new Prompt(List.of(response), prompt.getOptions());
-        assertEquals("CHAT_CONTEXT_LIMIT", assertThrows(IllegalStateException.class, () -> guarded.stream(request).blockLast()).getMessage());
+        assertEquals("CHAT_CONTEXT_LIMIT", assertThrows(TurnFailureException.class, () -> guarded.stream(request).blockLast()).code());
         verify(provider, never()).stream(any(Prompt.class));
     }
 
@@ -181,8 +182,8 @@ class ChatModelGuardTest {
         var guarded = new ChatModelGuard(provider, process, mock(LlmMetadata.class), budget, 3, () -> {},
                 policy, ChatTurnSetup.IMAGE_INPUT_TOKENS - 1, p -> p);
         var request = new Prompt(List.of(message), prompt.getOptions());
-        assertEquals("CHAT_CONTEXT_LIMIT", assertThrows(IllegalStateException.class, () -> guarded.stream(request).blockLast()).getMessage());
-        assertEquals("CHAT_CONTEXT_LIMIT", assertThrows(IllegalStateException.class, () -> guarded.call(request)).getMessage());
+        assertEquals("CHAT_CONTEXT_LIMIT", assertThrows(TurnFailureException.class, () -> guarded.stream(request).blockLast()).code());
+        assertEquals("CHAT_CONTEXT_LIMIT", assertThrows(TurnFailureException.class, () -> guarded.call(request)).code());
         verify(provider, never()).stream(any(Prompt.class));
         verify(provider, never()).call(any(Prompt.class));
     }
@@ -195,8 +196,8 @@ class ChatModelGuardTest {
                 policy, 64, p -> p);
         when(provider.stream(any(Prompt.class))).thenReturn(Flux.just(response("first", "stop", 12)));
         assertEquals("first", guarded.stream(prompt).blockLast().getResult().getOutput().getText());
-        assertEquals("CHAT_CONTEXT_LIMIT", assertThrows(IllegalStateException.class,
-                () -> guarded.stream(new Prompt("Expanded tool result ".repeat(200))).blockLast()).getMessage());
+        assertEquals("CHAT_CONTEXT_LIMIT", assertThrows(TurnFailureException.class,
+                () -> guarded.stream(new Prompt("Expanded tool result ".repeat(200))).blockLast()).code());
         assertTrue(guarded.usageKnown(), "A local rejection must not erase usage from completed native calls");
         verify(provider).stream(any(Prompt.class));
     }
@@ -220,7 +221,7 @@ class ChatModelGuardTest {
         research.stream(prompt).blockLast();
         // The loop, not the guard, forces the report: a tool call on the last admitted cycle is not an error.
         research.stream(prompt).blockLast();
-        assertEquals("CHAT_CYCLE_LIMIT", assertThrows(IllegalStateException.class, () -> research.stream(prompt).blockLast()).getMessage());
+        assertEquals("CHAT_CYCLE_LIMIT", assertThrows(TurnFailureException.class, () -> research.stream(prompt).blockLast()).code());
         assertEquals(2, sent.size());
         for (var request : sent) {
             assertEquals(List.of("Question"), request.getInstructions().stream().map(org.springframework.ai.chat.messages.Message::getText).toList(),
@@ -242,7 +243,7 @@ class ChatModelGuardTest {
         when(provider.stream(any(Prompt.class))).thenReturn(Flux.never(), Flux.just(response("own ledger", "stop", 12)));
         var running = first.stream(prompt).subscribe();
         try {
-            assertEquals("CHAT_BUDGET_EXCEEDED", assertThrows(IllegalStateException.class, () -> second.stream(prompt).blockLast()).getMessage(),
+            assertEquals("CHAT_BUDGET_EXCEEDED", assertThrows(TurnFailureException.class, () -> second.stream(prompt).blockLast()).code(),
                     "A parallel research agent cannot spend the allowance another agent already reserved");
             assertEquals("own ledger", separate.stream(prompt).blockLast().getResult().getOutput().getText());
         } finally { running.dispose(); }

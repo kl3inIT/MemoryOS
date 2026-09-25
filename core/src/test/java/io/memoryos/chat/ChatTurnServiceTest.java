@@ -1,6 +1,7 @@
 package io.memoryos.chat;
 
 import io.memoryos.ai.ModelRequestPolicy;
+import io.memoryos.ai.TurnFailure;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -33,6 +34,7 @@ import io.memoryos.mcp.McpTurnTools;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,8 +45,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
@@ -431,6 +437,65 @@ class ChatTurnServiceTest {
             when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
                     .thenReturn(new ChatTurnPersistence.Reservation(pair.userMessageId(), UUID.randomUUID(), true));
             service.send(actor, session, parent, UUID.randomUUID(), "Question", null);
+        }
+    }
+
+    /** The failure codes a turn persists and the web shows; everything else is reported as CHAT_EXECUTION_FAILED. */
+    static Stream<Arguments> turnFailures() {
+        return Stream.of(
+                Arguments.of(turnFailure("CHAT_OUTPUT_LIMIT"), "CHAT_OUTPUT_LIMIT"),
+                Arguments.of(turnFailure("CHAT_CYCLE_LIMIT"), "CHAT_CYCLE_LIMIT"),
+                Arguments.of(turnFailure("CHAT_BUDGET_EXCEEDED"), "CHAT_BUDGET_EXCEEDED"),
+                Arguments.of(turnFailure("CHAT_MODEL_UNAVAILABLE"), "CHAT_MODEL_UNAVAILABLE"),
+                Arguments.of(turnFailure("CHAT_INCOMPLETE_RESPONSE"), "CHAT_INCOMPLETE_RESPONSE"),
+                Arguments.of(turnFailure("CHAT_LAST_CYCLE_TOOL_CALL"), "CHAT_LAST_CYCLE_TOOL_CALL"),
+                Arguments.of(turnFailure("CHAT_UNSUPPORTED_OPTIONS"), "CHAT_UNSUPPORTED_OPTIONS"),
+                Arguments.of(turnFailure("CHAT_EMPTY_RESPONSE"), "CHAT_EMPTY_RESPONSE"),
+                Arguments.of(turnFailure("CHAT_CONTEXT_LIMIT"), "CHAT_CONTEXT_LIMIT"),
+                Arguments.of(turnFailure("CHAT_MODEL_OUTPUT_LIMIT"), "CHAT_MODEL_OUTPUT_LIMIT"),
+                // Raised as turn failures but reported as a generic failure.
+                Arguments.of(turnFailure("CHAT_DEADLINE"), "CHAT_EXECUTION_FAILED"),
+                Arguments.of(turnFailure("CHAT_PROVIDER_UNAVAILABLE"), "CHAT_EXECUTION_FAILED"),
+                // A wrapped failure is found through its causes; a hidden one does not stop the search.
+                Arguments.of(new RuntimeException("wrapper", turnFailure("CHAT_OUTPUT_LIMIT")), "CHAT_OUTPUT_LIMIT"),
+                Arguments.of(new RuntimeException("wrapper", withCause(turnFailure("CHAT_DEADLINE"), turnFailure("CHAT_BUDGET_EXCEEDED"))),
+                        "CHAT_BUDGET_EXCEEDED"),
+                // Business failures and arbitrary provider messages never become the persisted code.
+                Arguments.of(ChatException.researchUnavailable(), "CHAT_EXECUTION_FAILED"),
+                Arguments.of(new RuntimeException("provider said something private"), "CHAT_EXECUTION_FAILED"),
+                // A code carried only as a message is not a turn failure.
+                Arguments.of(new IllegalStateException("CHAT_OUTPUT_LIMIT"), "CHAT_EXECUTION_FAILED"));
+    }
+
+    private static RuntimeException turnFailure(String code) {
+        return Arrays.stream(TurnFailure.values()).filter(failure -> failure.code().equals(code))
+                .findFirst().orElseThrow().exception();
+    }
+
+    private static RuntimeException withCause(RuntimeException failure, Throwable cause) {
+        failure.initCause(cause);
+        return failure;
+    }
+
+    @ParameterizedTest
+    @MethodSource("turnFailures")
+    void failedTurnPersistsOnlyReportedFailureCodes(RuntimeException failure, String persisted) {
+        prepare();
+        doThrow(failure).when(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        try (var service = new ChatTurnService(persistence, model, limits, Runnable::run, streams, models)) {
+            service.send(actor, session, parent, request, "Question", null);
+            verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.FAILED), eq(""),
+                    eq(persisted), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), any());
+        }
+    }
+
+    @Test
+    void emptyAnswerFailsWithEmptyResponse() {
+        prepare();
+        try (var service = new ChatTurnService(persistence, model, limits, Runnable::run, streams, models)) {
+            service.send(actor, session, parent, request, "Question", null);
+            verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.FAILED), eq(""),
+                    eq("CHAT_EMPTY_RESPONSE"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), any());
         }
     }
 }
