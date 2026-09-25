@@ -43,7 +43,6 @@ import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectStorageException;
 import io.memoryos.objectstorage.ObjectStorageFailureCode;
-import io.memoryos.objectstorage.ObjectWriteService;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;

@@ -1,7 +1,5 @@
 package io.memoryos.connector.sharepoint;
 
-import io.memoryos.BusinessException;
-import io.memoryos.FailureCategory;
 import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.SharePointException;
 import io.memoryos.connector.SharePointProvider;
@@ -11,58 +9,40 @@ import io.memoryos.connector.SharePointSourceService.RootKind;
 import io.memoryos.connector.SharePointSourceService.Scope;
 import io.memoryos.connector.SharePointSourceService.ScopeMode;
 import io.memoryos.connector.SourceException;
-import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSelectionRepository;
+import io.memoryos.connector.sync.SelectionBatchProcessor;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSelectionRepository.Entry;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSelectionRepository.Intent;
 import io.memoryos.connector.sharepoint.persistence.JdbcSharePointSourceRepository.ResolvedRoot;
-import io.memoryos.shared.TenantId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Resolves every address of an accepted scope request against Microsoft. A library is matched by the path
  * of its own URL rather than its display name, so a site in any language resolves.
  */
 @Service
-public class DefaultSharePointSelectionProcessor implements SharePointSelectionProcessor {
-    /** A batch hands the work back when it has run this long, so one claim never holds a worker. */
-    private static final long BATCH_MILLIS = 30_000;
-
+public class DefaultSharePointSelectionProcessor extends SelectionBatchProcessor
+        implements SharePointSelectionProcessor {
     private final JdbcSharePointSelectionRepository selections;
     private final DefaultSharePointSourceService sources;
     private final SharePointConnectionService connections;
-    private final TransactionTemplate transactions;
 
     public DefaultSharePointSelectionProcessor(JdbcSharePointSelectionRepository selections,
             DefaultSharePointSourceService sources, SharePointConnectionService connections,
             PlatformTransactionManager transactionManager) {
+        super(selections.operations(), transactionManager);
         this.selections = selections;
         this.sources = sources;
         this.connections = connections;
-        this.transactions = new TransactionTemplate(transactionManager);
     }
 
     @Override
-    public Optional<Work> claim(TenantId tenant, SourceOperationId operation, UUID delivery) {
-        return Objects.requireNonNull(transactions.execute(_ -> selections.claim(tenant, operation, delivery)));
-    }
-
-    @Override
-    public boolean renew(Work work) {
-        return Boolean.TRUE.equals(transactions.execute(_ -> selections.renew(work)));
-    }
-
-    @Override
-    public Result execute(Work work) {
-        long started = System.nanoTime();
+    protected Result verify(Work work, long started) {
         var intent = selections.intent(work);
         try {
             transactions.executeWithoutResult(_ -> sources.requireIntent(work, intent));
@@ -87,16 +67,8 @@ public class DefaultSharePointSelectionProcessor implements SharePointSelectionP
             String host = tenantHost;
             transactions.executeWithoutResult(_ -> sources.activate(work, intent, scope, roots, host));
             return Result.COMPLETED;
-        } catch (ContinueBatch exception) {
-            transactions.executeWithoutResult(_ -> selections.continueLater(work, elapsed(started), null));
-            return Result.CONTINUED;
         } catch (SharePointProviderException exception) {
             return providerFailure(work, intent, exception, started);
-        } catch (BusinessException exception) {
-            boolean stale = exception.category() != FailureCategory.VALIDATION;
-            transactions.executeWithoutResult(_ ->
-                    selections.finish(work, stale ? "SUPERSEDED" : "FAILED", exception.code()));
-            return stale ? Result.SUPERSEDED : Result.FAILED;
         }
     }
 
@@ -110,19 +82,14 @@ public class DefaultSharePointSelectionProcessor implements SharePointSelectionP
             case QUOTA, UNAVAILABLE, RESYNC_REQUIRED -> true;
             default -> false;
         };
-        if (retryable) {
-            transactions.executeWithoutResult(_ -> selections.continueLater(work, elapsed(started), code));
-            return Result.CONTINUED;
-        }
-        transactions.executeWithoutResult(_ -> selections.finish(work, "FAILED", code));
-        return Result.FAILED;
+        return retryable ? continueLater(work, started, code) : finish(work, Result.FAILED, code);
     }
 
     /** Resolves the roots that are still unverified, checkpointing each one as it succeeds. */
     private void verify(Work work, Intent intent, SharePointProvider.Session session, long started) {
         for (Entry entry : selections.entries(work)) {
             if (!entry.root() || entry.verified()) continue;
-            if (elapsed(started) >= BATCH_MILLIS) throw new ContinueBatch();
+            requireBatchTime(started);
             transactions.executeWithoutResult(_ -> sources.requireIntent(work, intent));
             var url = SharePointUrl.parse(entry.value());
             selections.reserveRequest(work);
@@ -184,12 +151,4 @@ public class DefaultSharePointSelectionProcessor implements SharePointSelectionP
         return SourceException.conflict("SharePoint credential changed while verifying the scope");
     }
 
-    private static long elapsed(long started) {
-        return (System.nanoTime() - started) / 1_000_000;
-    }
-
-    /** Signals that the batch ran long enough and the rest continues under a fresh claim. */
-    private static final class ContinueBatch extends RuntimeException {
-        private ContinueBatch() { super(null, null, false, false); }
-    }
 }

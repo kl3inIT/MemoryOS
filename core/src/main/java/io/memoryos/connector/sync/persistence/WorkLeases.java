@@ -280,7 +280,7 @@ public final class WorkLeases {
         return OffsetDateTime.ofInstant(instant, ZoneOffset.UTC);
     }
 
-    private static String identifier(String value) {
+    static String identifier(String value) {
         if (!IDENTIFIER.matcher(Objects.requireNonNull(value, "identifier")).matches()) {
             throw new IllegalArgumentException("not a plain SQL identifier: " + value);
         }

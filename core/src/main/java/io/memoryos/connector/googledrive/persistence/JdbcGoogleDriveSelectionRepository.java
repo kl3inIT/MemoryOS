@@ -4,13 +4,10 @@ import io.memoryos.connector.*;
 import io.memoryos.connector.SourceSelectionProcessor.Work;
 import io.memoryos.connector.GoogleDriveSourceService.*;
 import io.memoryos.connector.SourceAccess;
-import io.memoryos.connector.source.persistence.JdbcSourceRepository;
-import io.memoryos.connector.sync.persistence.WorkLeases;
+import io.memoryos.connector.sync.persistence.SelectionOperations;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.GroupId;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -22,7 +19,13 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class JdbcGoogleDriveSelectionRepository {
     private final JdbcClient jdbc;
-    public JdbcGoogleDriveSelectionRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
+    private final SelectionOperations operations;
+
+    public JdbcGoogleDriveSelectionRepository(JdbcClient jdbc) {
+        this.jdbc = jdbc;
+        this.operations = new SelectionOperations(jdbc, "google_drive_selection_operations",
+                SourceOperationType.VALIDATE_GOOGLE_DRIVE_SELECTION);
+    }
 
     public Optional<Boolean> ancestorCoverage(Work work,String id) {
         return jdbc.sql("""
@@ -77,42 +80,27 @@ public class JdbcGoogleDriveSelectionRepository {
     }
 
     public void cancelForSource(TenantId tenant, SourceId source) {
-        jdbc.sql("""
-                UPDATE google_drive_selection_operations SET status='CANCELLED',error_code='SOURCE_DELETING',
-                    completed_at=CURRENT_TIMESTAMP,claim_token=NULL,lease_expires_at=NULL
-                WHERE tenant_id=:tenant AND source_id=:source AND status IN ('NOT_STARTED','IN_PROGRESS')
-                """).param("tenant",tenant.value()).param("source",source.value()).update();
+        operations.cancelForSource(tenant, source);
     }
 
     public Optional<SourceOperationView> find(TenantId tenant, SourceOperationId operation) {
-        return jdbc.sql("SELECT * FROM google_drive_selection_operations WHERE tenant_id=:tenant AND id=:id")
-                .param("tenant", tenant.value()).param("id", operation.value()).query(this::operation).optional();
+        return operations.find(tenant, operation);
     }
 
     public Optional<SelectionReceipt> receipt(TenantId tenant, ActorId actor, UUID request, @Nullable String hash) {
-        return jdbc.sql("SELECT * FROM google_drive_selection_operations WHERE tenant_id=:tenant AND actor_id=:actor AND request_id=:request")
-                .param("tenant", tenant.value()).param("actor", actor.value()).param("request", request)
-                .query((r, n) -> {
-                    if (hash != null && !hash.equals(r.getString("request_hash")))
-                        throw SourceException.conflict("Selection request ID was already used with different content");
-                    return new SelectionReceipt(new SourceId(r.getObject("source_id", UUID.class)), operation(r,n));
-                }).optional();
+        return operations.receipt(tenant, actor, request, hash)
+                .map(receipt -> new SelectionReceipt(receipt.sourceId(), receipt.operation()));
     }
 
     public @Nullable SourceOperationView pending(TenantId tenant, SourceId source) {
-        return jdbc.sql("SELECT * FROM google_drive_selection_operations WHERE tenant_id=:tenant AND source_id=:source AND status IN ('NOT_STARTED','IN_PROGRESS')")
-                .param("tenant", tenant.value()).param("source", source.value()).query(this::operation).optional().orElse(null);
+        return operations.pending(tenant, source);
     }
 
     public SelectionReceipt submit(TenantId tenant, ActorId actor, UUID request, String hash, SourceId source,
             CredentialId credential, long credentialRevision, long scopeRevision, long discoveryRevision,
             ScopeMode mode, @Nullable String name, List<String> roots, List<LinkedDocument> approvals, SelectionPolicy policy,
             List<GroupId> groupIds, @Nullable SourceAccess access) {
-        jdbc.sql("""
-                UPDATE google_drive_selection_operations SET status='SUPERSEDED', completed_at=CURRENT_TIMESTAMP,
-                    claim_token=NULL, lease_expires_at=NULL,error_code='SELECTION_SUPERSEDED'
-                WHERE tenant_id=:tenant AND source_id=:source AND status IN ('NOT_STARTED','IN_PROGRESS')
-                """).param("tenant",tenant.value()).param("source",source.value()).update();
+        operations.supersedePending(tenant, source);
         UUID id = UUID.randomUUID();
         var trace = SourceOperationTraceContext.current();
         jdbc.sql("""
@@ -145,44 +133,21 @@ public class JdbcGoogleDriveSelectionRepository {
                 .param("selected",selected).param("name",name).param("mime",mime).update();
     }
 
+    /** The lifecycle this provider's selection operations share with every other provider's. */
+    public SelectionOperations operations() {
+        return operations;
+    }
+
     public Optional<Work> claim(TenantId tenant, SourceOperationId id, UUID delivery) {
-        // Serialize metadata verification for all selections sharing one credential, without holding a provider transaction.
-        var credential = jdbc.sql("SELECT credential_id FROM google_drive_selection_operations WHERE tenant_id=:tenant AND id=:id")
-                .param("tenant",tenant.value()).param("id",id.value()).query(UUID.class).optional();
-        if (credential.isPresent()) {
-            jdbc.sql("SELECT id FROM credentials WHERE tenant_id=:tenant AND id=:id FOR UPDATE")
-                    .param("tenant",tenant.value()).param("id",credential.get()).query(UUID.class).optional();
-            boolean busy = jdbc.sql("""
-                    SELECT EXISTS(SELECT 1 FROM google_drive_selection_operations WHERE tenant_id=:tenant AND credential_id=:credential
-                        AND id<>:id AND status='IN_PROGRESS' AND lease_expires_at>CURRENT_TIMESTAMP)
-                    """).param("tenant",tenant.value()).param("credential",credential.get()).param("id",id.value()).query(Boolean.class).single();
-            if (busy) {
-                jdbc.sql("""
-                        UPDATE google_drive_selection_operations SET status='NOT_STARTED',claim_token=NULL,lease_expires_at=NULL,
-                            delivery_id=NULL,dispatch_token=NULL,dispatch_lease_expires_at=NULL,redis_message_id=NULL,dispatched_at=NULL,
-                            next_dispatch_at=CURRENT_TIMESTAMP+INTERVAL '5 seconds'
-                        WHERE tenant_id=:tenant AND id=:id AND delivery_id=:delivery
-                            AND (status='NOT_STARTED' OR status='IN_PROGRESS' AND lease_expires_at<=CURRENT_TIMESTAMP)
-                        """).param("tenant",tenant.value()).param("id",id.value()).param("delivery",delivery).update();
-                return Optional.empty();
-            }
-        }
-        return WorkLeases.claim(jdbc,"google_drive_selection_operations",tenant.value(),id.value(),delivery,(operation,token) ->
-                jdbc.sql("SELECT * FROM google_drive_selection_operations WHERE tenant_id=:tenant AND id=:id")
-                        .param("tenant",tenant.value()).param("id",operation).query((r,n) -> new Work(tenant,
-                                new SourceId(r.getObject("source_id",UUID.class)),id,token,WorkLeases.initialQueueWait(r))).single());
+        return operations.claim(tenant, id, delivery);
     }
 
     public boolean renew(Work work) {
-        return WorkLeases.renew(jdbc,"google_drive_selection_operations",work.tenantId().value(),work.operationId().value(),work.claimToken());
+        return operations.renew(work);
     }
 
     public boolean current(Work work) {
-        return jdbc.sql("""
-                SELECT id FROM google_drive_selection_operations WHERE tenant_id=:tenant AND id=:id AND claim_token=:token
-                    AND status='IN_PROGRESS' AND lease_expires_at>CURRENT_TIMESTAMP FOR UPDATE
-                """).param("tenant",work.tenantId().value()).param("id",work.operationId().value()).param("token",work.claimToken())
-                .query(UUID.class).optional().isPresent();
+        return operations.current(work);
     }
 
     public Intent intent(Work work) {
@@ -258,31 +223,13 @@ public class JdbcGoogleDriveSelectionRepository {
     }
 
     public void finish(Work work,String status,@Nullable String code) {
-        jdbc.sql("""
-                UPDATE google_drive_selection_operations SET status=:status,error_code=:code,completed_at=CURRENT_TIMESTAMP,
-                    claim_token=NULL,lease_expires_at=NULL WHERE tenant_id=:tenant AND id=:id AND claim_token=:token
-                    AND status='IN_PROGRESS' AND lease_expires_at>CURRENT_TIMESTAMP
-                """).param("status",status).param("code",code).param("tenant",work.tenantId().value()).param("id",work.operationId().value())
-                .param("token",work.claimToken()).update();
+        operations.finish(work, status, code);
     }
 
     public void continueLater(Work work,long elapsed,@Nullable String error) {
-        jdbc.sql("""
-                UPDATE google_drive_selection_operations SET status=CASE WHEN failure_attempts+:failure>=5 THEN 'FAILED' ELSE 'NOT_STARTED' END,
-                    completed_at=CASE WHEN failure_attempts+:failure>=5 THEN CURRENT_TIMESTAMP ELSE NULL END,
-                    elapsed_millis=elapsed_millis+:elapsed,failure_attempts=failure_attempts+:failure,error_code=:error,
-                    claim_token=NULL,lease_expires_at=NULL,delivery_id=NULL,redis_message_id=NULL,dispatched_at=NULL,
-                    dispatch_token=NULL,dispatch_lease_expires_at=NULL,next_dispatch_at=CURRENT_TIMESTAMP+:seconds*INTERVAL '1 second'
-                WHERE tenant_id=:tenant AND id=:id AND claim_token=:token AND status='IN_PROGRESS' AND lease_expires_at>CURRENT_TIMESTAMP
-                """).param("failure",error==null?0:1).param("elapsed",elapsed).param("error",error).param("seconds",error==null?0:30)
-                .param("tenant",work.tenantId().value()).param("id",work.operationId().value()).param("token",work.claimToken()).update();
+        operations.continueLater(work, elapsed, error);
     }
 
-    private SourceOperationView operation(ResultSet r,int ignored) throws SQLException {
-        return new SourceOperationView(new SourceOperationId(r.getObject("id",UUID.class)),SourceOperationType.VALIDATE_GOOGLE_DRIVE_SELECTION,
-                JdbcSourceRepository.operationStatus(r.getString("status")),r.getTimestamp("created_at").toInstant(),
-                JdbcSourceRepository.instant(r,"completed_at"),r.getString("error_code"));
-    }
     public record Intent(ActorId actorId,@Nullable UUID credentialId,long credentialRevision,long scopeRevision,
             long discoveryRevision,ScopeMode scopeMode,@Nullable String name,List<GroupId> groupIds,SourceAccess access) {}
     public record Entry(String id,String kind,boolean wasSelected,boolean verified,boolean covered,String status,
