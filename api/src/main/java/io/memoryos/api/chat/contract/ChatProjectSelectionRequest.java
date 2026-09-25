@@ -6,4 +6,4 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.web.bind.annotation.*;
 
 @Schema(name = "ProjectSelection")
-public record ChatProjectSelectionRequest(@Nullable UUID projectId) {}
+public record ChatProjectSelectionRequest(@Schema(types = {"string", "null"}, format = "uuid") @Nullable UUID projectId) {}

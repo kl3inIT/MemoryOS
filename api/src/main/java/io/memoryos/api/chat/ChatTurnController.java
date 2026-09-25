@@ -1,5 +1,6 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.chat.contract.ChatEditTurnRequest;
 import io.memoryos.api.chat.contract.ChatRegenerateTurnRequest;
 import io.memoryos.api.chat.contract.ChatSendTurnRequest;
@@ -8,12 +9,10 @@ import io.memoryos.api.chat.contract.ChatTurnCancellationResponse;
 import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.ChatCommand;
 import io.memoryos.iam.IdentityContext;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.springframework.http.MediaType;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -23,7 +22,6 @@ import java.util.UUID;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -34,16 +32,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping(value = "/api/chat/sessions/{sessionId}/messages", produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "Chat")
-@ApiResponse(responseCode = "400", description = "Invalid request or cursor",
-        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "403", description = "Tenant membership or CSRF requirement not met",
-        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "404", description = "Conversation or message not accessible",
-        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "409", description = "Conflicting request or active reply",
-        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "503", description = "Chat capacity exhausted or provider unavailable",
-        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "400", description = "Invalid request or cursor")
+@ApiResponse(responseCode = "403", description = "Tenant membership or CSRF requirement not met")
+@ApiResponse(responseCode = "404", description = "Conversation or message not accessible")
+@ApiResponse(responseCode = "409", description = "Conflicting request or active reply")
+@ApiResponse(responseCode = "503", description = "Chat capacity exhausted or provider unavailable")
 @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content)
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
@@ -58,7 +51,7 @@ class ChatTurnController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Operation(operationId = "sendChatMessage", summary = "Reserve and execute a chat reply in the background")
     @ApiResponse(responseCode = "202", description = "Reserved reply", useReturnTypeSchema = true)
-    ChatTurnAcceptedResponse send(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ChatTurnAcceptedResponse send(@CurrentActor IdentityContext identity,
                   @PathVariable UUID sessionId, @Valid @RequestBody ChatSendTurnRequest request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.SEND,
                 request.parentMessageId(), request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds(), request.webSearch(), request.image(),
@@ -70,7 +63,7 @@ class ChatTurnController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Operation(operationId = "cancelChatMessage", summary = "Request Stop; read history for the committed terminal outcome")
     @ApiResponse(responseCode = "202", description = "Stop requested; history contains the committed outcome", useReturnTypeSchema = true)
-    ChatTurnCancellationResponse cancel(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ChatTurnCancellationResponse cancel(@CurrentActor IdentityContext identity,
                         @PathVariable UUID sessionId, @PathVariable UUID assistantMessageId) {
         var result = turns.cancel(identity.actorId(), sessionId, assistantMessageId);
         return new ChatTurnCancellationResponse(result.assistantMessageId(), result.status().name());
@@ -80,7 +73,7 @@ class ChatTurnController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Operation(operationId = "editChatMessage", summary = "Create a new question branch and execute its reply")
     @ApiResponse(responseCode = "202", description = "Reserved edited branch", useReturnTypeSchema = true)
-    ChatTurnAcceptedResponse edit(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId,
+    ChatTurnAcceptedResponse edit(@CurrentActor IdentityContext identity, @PathVariable UUID sessionId,
             @PathVariable UUID userMessageId, @Valid @RequestBody ChatEditTurnRequest request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.EDIT,
                 userMessageId, request.clientRequestId(), request.text(), request.modelConfigurationId(), request.fileIds(), request.webSearch(), request.image(),
@@ -92,7 +85,7 @@ class ChatTurnController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Operation(operationId = "regenerateChatMessage", summary = "Generate a new answer under the existing question")
     @ApiResponse(responseCode = "202", description = "Reserved regenerated reply", useReturnTypeSchema = true)
-    ChatTurnAcceptedResponse regenerate(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID sessionId,
+    ChatTurnAcceptedResponse regenerate(@CurrentActor IdentityContext identity, @PathVariable UUID sessionId,
             @PathVariable UUID userMessageId, @Valid @RequestBody ChatRegenerateTurnRequest request) {
         var accepted = turns.command(identity.actorId(), sessionId, new ChatCommand(ChatCommand.Operation.REGENERATE,
                 userMessageId, request.clientRequestId(), "", request.modelConfigurationId(), List.of(), request.webSearch(), request.image(),

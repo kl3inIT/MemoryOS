@@ -1,5 +1,6 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.chat.contract.ChatFileResponse;
 import io.memoryos.api.chat.contract.ChatLibraryArchiveFileRequest;
 import io.memoryos.api.chat.contract.ChatLibraryArchiveRequest;
@@ -36,7 +37,6 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -52,11 +52,11 @@ import io.memoryos.library.StorageQuotaService;
 @RestController
 @RequestMapping(value = "/api/chat/library", produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "Chat")
-@ApiResponse(responseCode = "400", description = "Invalid library request", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "403", description = "Tenant membership or CSRF requirement not met", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "404", description = "Chat is unavailable", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "400", description = "Invalid library request")
+@ApiResponse(responseCode = "403", description = "Tenant membership or CSRF requirement not met")
+@ApiResponse(responseCode = "404", description = "Chat is unavailable")
 @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content)
-@ApiResponse(responseCode = "503", description = "Storage unavailable", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "503", description = "Storage unavailable")
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
 class ChatLibraryController {
@@ -75,7 +75,7 @@ class ChatLibraryController {
             summary = "List the caller's own uploads, generated files and generated images as one paginated library,"
                     + " optionally narrowed to one conversation, to starred files, or to uploads still in progress")
     @ApiResponse(responseCode = "200", description = "A page of the caller's files", useReturnTypeSchema = true)
-    ResponseEntity<ChatLibraryPageResponse> list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ResponseEntity<ChatLibraryPageResponse> list(@CurrentActor IdentityContext identity,
             @RequestParam(defaultValue = "") String query,
             @Parameter(description = "Empty means every source") @RequestParam(required = false) @Nullable List<String> sources,
             @Parameter(description = "Empty means every category") @RequestParam(required = false) @Nullable List<String> categories,
@@ -103,7 +103,7 @@ class ChatLibraryController {
     @PatchMapping(value = "/{source}/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(operationId = "changeChatLibraryFile", summary = "Rename or star one of the caller's files")
     @ApiResponse(responseCode = "200", description = "The file as the library now lists it", useReturnTypeSchema = true)
-    ResponseEntity<ChatLibraryFileResponse> change(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ResponseEntity<ChatLibraryFileResponse> change(@CurrentActor IdentityContext identity,
             @Parameter(schema = @Schema(allowableValues = {"UPLOAD", "GENERATED", "IMAGE"})) @PathVariable String source,
             @PathVariable UUID id, @RequestBody ChatLibraryFileChangeRequest request) {
         return ResponseEntity.ok().body(ChatLibraryFileResponse.from(library.update(
@@ -114,7 +114,7 @@ class ChatLibraryController {
     @Operation(operationId = "searchChatLibraryContent",
             summary = "Find the caller's own indexed uploads by what they contain, with the matching passages")
     @ApiResponse(responseCode = "200", description = "Matching files, best first", useReturnTypeSchema = true)
-    ResponseEntity<List<ChatLibraryContentMatchResponse>> search(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ResponseEntity<List<ChatLibraryContentMatchResponse>> search(@CurrentActor IdentityContext identity,
             @RequestParam String query) {
         return ResponseEntity.ok().body(library.searchContent(identity.actorId(), query)
                 .stream().map(match -> new ChatLibraryContentMatchResponse(ChatLibraryFileResponse.from(match.file()),
@@ -128,7 +128,7 @@ class ChatLibraryController {
                     + " a Project or an assistant; asking again returns the same upload")
     @ApiResponse(responseCode = "200", description = "The upload holding the copy; it is PROCESSING until extracted",
             useReturnTypeSchema = true)
-    ResponseEntity<ChatFileResponse> copy(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ResponseEntity<ChatFileResponse> copy(@CurrentActor IdentityContext identity,
             @Parameter(schema = @Schema(allowableValues = {"GENERATED", "IMAGE"})) @PathVariable String source,
             @PathVariable UUID id) {
         return ResponseEntity.ok().body(ChatFileResponse.from(
@@ -140,7 +140,7 @@ class ChatLibraryController {
     @Operation(operationId = "requestChatLibraryArchive",
             summary = "Ask for a ZIP of the selected files; a worker packs it and its owner downloads it until it expires")
     @ApiResponse(responseCode = "202", description = "The archive request as recorded", useReturnTypeSchema = true)
-    ChatLibraryArchiveResponse requestArchive(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ChatLibraryArchiveResponse requestArchive(@CurrentActor IdentityContext identity,
             @RequestBody ChatLibraryArchiveRequest request) {
         var files = (request.files() == null ? List.<ChatLibraryArchiveFileRequest>of() : request.files()).stream()
                 .map(file -> new LibraryArchiveItem(
@@ -152,7 +152,7 @@ class ChatLibraryController {
     @GetMapping("/archives")
     @Operation(operationId = "listChatLibraryArchives", summary = "The caller's own archives that have not expired")
     @ApiResponse(responseCode = "200", description = "Archives, newest first", useReturnTypeSchema = true)
-    ResponseEntity<List<ChatLibraryArchiveResponse>> listArchives(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+    ResponseEntity<List<ChatLibraryArchiveResponse>> listArchives(@CurrentActor IdentityContext identity) {
         return ResponseEntity.ok()
                 .body(archives.list(identity.actorId()).stream().map(ChatLibraryArchiveResponse::from).toList());
     }
@@ -160,7 +160,7 @@ class ChatLibraryController {
     @GetMapping("/archives/{archiveId}")
     @Operation(operationId = "getChatLibraryArchive", summary = "One archive of the caller, with its status")
     @ApiResponse(responseCode = "200", description = "The archive", useReturnTypeSchema = true)
-    ResponseEntity<ChatLibraryArchiveResponse> getArchive(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ResponseEntity<ChatLibraryArchiveResponse> getArchive(@CurrentActor IdentityContext identity,
             @PathVariable UUID archiveId) {
         return ResponseEntity.ok()
                 .body(ChatLibraryArchiveResponse.from(archives.get(identity.actorId(), archiveId)));
@@ -170,7 +170,7 @@ class ChatLibraryController {
     @Operation(operationId = "downloadChatLibraryArchive", summary = "Download the caller's own archive while it lives")
     @ApiResponse(responseCode = "200", description = "The ZIP bytes",
             content = @Content(mediaType = "application/zip", schema = @Schema(type = "string", format = "binary")))
-    void downloadArchive(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    void downloadArchive(@CurrentActor IdentityContext identity,
             @PathVariable UUID archiveId, jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
         var download = archives.open(identity.actorId(), archiveId);
         try (var content = download.content()) {
@@ -187,7 +187,7 @@ class ChatLibraryController {
             summary = "What the caller's file library holds and the storage limit that applies to them")
     @ApiResponse(responseCode = "200", description = "Used bytes, file count, the limit and the breakdown",
             useReturnTypeSchema = true)
-    ResponseEntity<ChatLibraryUsageResponse> usage(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+    ResponseEntity<ChatLibraryUsageResponse> usage(@CurrentActor IdentityContext identity) {
         var usage = quotas.usage(identity.actorId());
         return ResponseEntity.ok().body(new ChatLibraryUsageResponse(usage.usedBytes(),
                 usage.fileCount(), usage.limitBytes(),
@@ -200,7 +200,7 @@ class ChatLibraryController {
     @Operation(operationId = "getChatLibraryTrashWindow",
             summary = "How long a deleted file stays in the trash in this deployment")
     @ApiResponse(responseCode = "200", description = "The trash window", useReturnTypeSchema = true)
-    ResponseEntity<ChatLibraryTrashWindowResponse> trashWindow(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+    ResponseEntity<ChatLibraryTrashWindowResponse> trashWindow(@CurrentActor IdentityContext identity) {
         return ResponseEntity.ok()
                 .body(new ChatLibraryTrashWindowResponse(trash.window().toDays()));
     }
@@ -210,7 +210,7 @@ class ChatLibraryController {
     @Operation(operationId = "restoreChatLibraryFile",
             summary = "Take one of the caller's files out of the trash while its bytes are still there")
     @ApiResponse(responseCode = "204", description = "Restored", content = @Content)
-    void restore(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    void restore(@CurrentActor IdentityContext identity,
             @Parameter(schema = @Schema(allowableValues = {"UPLOAD", "GENERATED", "IMAGE"})) @PathVariable String source,
             @PathVariable UUID id) {
         trash.restore(identity.actorId(), value(source, LibraryFile.Source.class), id);
@@ -221,7 +221,7 @@ class ChatLibraryController {
     @Operation(operationId = "purgeChatLibraryFile",
             summary = "End the trash window of one file now, so its bytes are released")
     @ApiResponse(responseCode = "204", description = "The file is queued for release", content = @Content)
-    void purge(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    void purge(@CurrentActor IdentityContext identity,
             @Parameter(schema = @Schema(allowableValues = {"UPLOAD", "GENERATED", "IMAGE"})) @PathVariable String source,
             @PathVariable UUID id) {
         trash.purge(identity.actorId(), value(source, LibraryFile.Source.class), id);
@@ -230,7 +230,7 @@ class ChatLibraryController {
     @PostMapping("/trash/empty")
     @Operation(operationId = "emptyChatLibraryTrash", summary = "End the trash window of everything the caller deleted")
     @ApiResponse(responseCode = "200", description = "How many files were queued for release", useReturnTypeSchema = true)
-    ResponseEntity<ChatLibraryTrashEmptiedResponse> emptyTrash(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+    ResponseEntity<ChatLibraryTrashEmptiedResponse> emptyTrash(@CurrentActor IdentityContext identity) {
         return ResponseEntity.ok()
                 .body(new ChatLibraryTrashEmptiedResponse(trash.empty(identity.actorId())));
     }

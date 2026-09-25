@@ -7,4 +7,4 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.web.bind.annotation.*;
 
 @Schema(name = "BranchSelection")
-public record ChatBranchSelectionRequest(@NotNull UUID messageId, @Nullable UUID expectedChildId) {}
+public record ChatBranchSelectionRequest(@NotNull UUID messageId, @Schema(types = {"string", "null"}, format = "uuid") @Nullable UUID expectedChildId) {}

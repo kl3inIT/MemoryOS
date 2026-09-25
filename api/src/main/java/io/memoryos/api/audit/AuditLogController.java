@@ -1,5 +1,6 @@
 package io.memoryos.api.audit;
 
+import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.audit.contract.AuditCatalogActionResponse;
 import io.memoryos.api.audit.contract.AuditCatalogResponse;
 import io.memoryos.api.audit.contract.AuditEventPageResponse;
@@ -32,7 +33,6 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -43,8 +43,8 @@ import tools.jackson.databind.ObjectMapper;
 @RestController
 @RequestMapping(value = "/api/audit", produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "Audit")
-@ApiResponse(responseCode = "400", description = "Invalid filter or cursor", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "403", description = "Audit reading or Tenant membership requirement not met", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "400", description = "Invalid filter or cursor")
+@ApiResponse(responseCode = "403", description = "Audit reading or Tenant membership requirement not met")
 @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content)
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
@@ -60,7 +60,7 @@ class AuditLogController {
     @GetMapping("/events")
     @Operation(operationId = "listAuditEvents", summary = "The Tenant's audit events, newest first, one page at a time; requires AUDIT_READ")
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
-    AuditEventPageResponse events(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    AuditEventPageResponse events(@CurrentActor IdentityContext identity,
                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @Nullable Instant from,
                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @Nullable Instant to,
                         @RequestParam(required = false) @Nullable String q,
@@ -81,15 +81,15 @@ class AuditLogController {
     @GetMapping("/events/{eventId}")
     @Operation(operationId = "getAuditEvent", summary = "One audit event; requires AUDIT_READ")
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
-    @ApiResponse(responseCode = "404", description = "No event with this id in the Tenant", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-    AuditEventResponse event(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID eventId) {
+    @ApiResponse(responseCode = "404", description = "No event with this id in the Tenant")
+    AuditEventResponse event(@CurrentActor IdentityContext identity, @PathVariable UUID eventId) {
         return AuditEventResponse.from(log.get(identity.actorId(), eventId));
     }
 
     @GetMapping("/catalog")
     @Operation(operationId = "getAuditCatalog", summary = "Every action the audit stream can hold, for the viewer's action filter; requires AUDIT_READ")
     @ApiResponse(responseCode = "200", description = "Successful result", useReturnTypeSchema = true)
-    AuditCatalogResponse catalog(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+    AuditCatalogResponse catalog(@CurrentActor IdentityContext identity) {
         log.requireReader(identity.actorId());
         return new AuditCatalogResponse(Arrays.stream(AuditAction.values())
                 .map(action -> new AuditCatalogActionResponse(action.value(), action.eventClass())).toList());
@@ -98,7 +98,7 @@ class AuditLogController {
     @GetMapping(value = "/export", produces = "text/csv")
     @Operation(operationId = "exportAuditEvents", summary = "The events the filters select as CSV, at most 50,000 rows; the export is itself recorded; requires AUDIT_READ")
     @ApiResponse(responseCode = "200", description = "CSV", content = @Content(mediaType = "text/csv", schema = @Schema(type = "string", format = "binary")))
-    void export(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    void export(@CurrentActor IdentityContext identity,
                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @Nullable Instant from,
                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @Nullable Instant to,
                 @RequestParam(required = false) @Nullable String q,

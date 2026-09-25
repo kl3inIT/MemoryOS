@@ -1,5 +1,6 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.chat.contract.CodeEvent;
 import io.memoryos.api.chat.contract.ImageEvent;
 import io.memoryos.api.chat.contract.IntermediateReportCitationsEvent;
@@ -17,7 +18,6 @@ import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.streaming.ChatStreamProperties;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -29,7 +29,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -42,14 +41,10 @@ import reactor.core.scheduler.Scheduler;
 @RestController
 @RequestMapping("/api/chat/sessions/{sessionId}/messages/{assistantMessageId}/events")
 @Tag(name = "Chat")
-@ApiResponse(responseCode = "400", description = "Invalid request or cursor",
-        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "403", description = "Tenant membership or CSRF requirement not met",
-        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "404", description = "Conversation or message not accessible",
-        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "503", description = "Chat capacity exhausted or provider unavailable",
-        content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "400", description = "Invalid request or cursor")
+@ApiResponse(responseCode = "403", description = "Tenant membership or CSRF requirement not met")
+@ApiResponse(responseCode = "404", description = "Conversation or message not accessible")
+@ApiResponse(responseCode = "503", description = "Chat capacity exhausted or provider unavailable")
 @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content)
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
@@ -78,7 +73,7 @@ class ChatStreamController {
                             ResearchPlanEvent.class,
                             TopLevelBranchingEvent.class, ResearchAgentStartEvent.class,
                             IntermediateReportEvent.class, IntermediateReportCitationsEvent.class})))
-    ResponseEntity<Flux<ServerSentEvent<Object>>> events(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ResponseEntity<Flux<ServerSentEvent<Object>>> events(@CurrentActor IdentityContext identity,
             @PathVariable UUID sessionId, @PathVariable UUID assistantMessageId,
             @RequestHeader(value = "Last-Event-ID", required = false) @Nullable String lastEvent,
             @RequestParam(required = false) @Nullable String after) {
