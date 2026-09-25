@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 
@@ -89,9 +90,8 @@ class Judge:
         )
 
     def _once(self, question: str, gold_answer: str, reply: str, partial: bool) -> Verdict:
-        body = {
+        body: dict[str, Any] = {
             "model": self._config.judge_model,
-            "temperature": 0,
             "messages": [
                 {"role": "system", "content": SYSTEM + (PARTIAL if partial else "")},
                 {
@@ -104,6 +104,8 @@ class Judge:
                 },
             ],
         }
+        if self._config.judge_temperature is not None:
+            body["temperature"] = self._config.judge_temperature
         response = httpx.post(
             f"{self._config.judge_base_url}/chat/completions",
             headers={"Authorization": f"Bearer {self._config.judge_api_key}"},

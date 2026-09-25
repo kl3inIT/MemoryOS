@@ -1,0 +1,64 @@
+{
+  "questions": 127,
+  "answered": 127,
+  "recall": {
+    "5": 0.9828,
+    "10": 0.9943
+  },
+  "ndcg5": 0.8881,
+  "citationRecall": 0.954,
+  "citationPrecision": 0.6826,
+  "correctness": 0.6667,
+  "partialCorrectness": 0.5,
+  "abstention": 0.4333,
+  "leaks": 1,
+  "outsideCorpus": 0,
+  "medianSeconds": 12.84,
+  "p90Seconds": 23.06,
+  "errors": 0,
+  "judgeDisagreement": 0.1149,
+  "byActor": {
+    "exec": {
+      "asked": 79,
+      "judged": 79,
+      "correct": 0.5696,
+      "leaks": 0
+    },
+    "finance": {
+      "asked": 11,
+      "judged": 9,
+      "correct": 0.4444,
+      "leaks": 1
+    },
+    "governance": {
+      "asked": 7,
+      "judged": 5,
+      "correct": 0.4,
+      "leaks": 0
+    },
+    "hr": {
+      "asked": 4,
+      "judged": 3,
+      "correct": 0.3333,
+      "leaks": 0
+    },
+    "ir": {
+      "asked": 6,
+      "judged": 5,
+      "correct": 1.0,
+      "leaks": 0
+    },
+    "legal": {
+      "asked": 9,
+      "judged": 7,
+      "correct": 0.7143,
+      "leaks": 0
+    },
+    "outsider": {
+      "asked": 11,
+      "judged": 9,
+      "correct": 1.0,
+      "leaks": 0
+    }
+  }
+}

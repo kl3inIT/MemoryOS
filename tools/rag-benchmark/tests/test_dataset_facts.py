@@ -22,7 +22,7 @@ def test_the_shipped_set_covers_every_category_and_actor() -> None:
     rows = questions()
     categories = {question.category for question in rows}
 
-    assert len(rows) == 90
+    assert len(rows) == 89
     assert categories == {
         "lookup",
         "multi_hop",
@@ -33,7 +33,7 @@ def test_the_shipped_set_covers_every_category_and_actor() -> None:
         "group",
         "cross_department",
     }
-    assert len([q for q in rows if q.category == "cross_department"]) == 10
+    assert len([q for q in rows if q.category == "cross_department"]) == 9
 
 
 def test_no_forbidden_fact_is_already_in_the_question() -> None:
