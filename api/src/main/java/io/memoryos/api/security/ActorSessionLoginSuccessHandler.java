@@ -1,26 +1,12 @@
 package io.memoryos.api.security;
 
 import io.memoryos.api.invitation.InvitationSessionState;
-import io.memoryos.audit.AuditAction;
-import io.memoryos.audit.AuditOutcome;
-import io.memoryos.audit.AuditRecord;
-import io.memoryos.audit.AuditTrail;
-import io.memoryos.shared.ActorId;
-import io.memoryos.iam.ActorProfileRecorder;
 import io.memoryos.iam.ExternalIdentity;
-import io.memoryos.iam.ExternalIdentityResolver;
 import io.memoryos.iam.IdentityContext;
-import io.memoryos.iam.IamException;
-import io.memoryos.iam.IamFailureReason;
-import io.memoryos.iam.InvitationAcceptance;
-import io.memoryos.iam.InvitationException;
 import io.memoryos.iam.InvitationFailureReason;
-import io.memoryos.iam.InvitationService;
-import io.memoryos.iam.VerifiedEmailInvitationAcceptance;
-import io.memoryos.iam.TenantAccessResolver;
-import io.memoryos.shared.TenantId;
-import io.memoryos.iam.TrustedIdentityAdmission;
-import io.memoryos.iam.JitAdmissionPolicy;
+import io.memoryos.iam.SignInAdmission;
+import io.memoryos.iam.SignInAttempt;
+import io.memoryos.iam.SignInOutcome;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -28,6 +14,7 @@ import java.io.IOException;
 import java.util.Objects;
 
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -38,50 +25,25 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 
+/**
+ * Reads the validated ID token into a {@link SignInAttempt}, lets IAM's {@link SignInAdmission} decide, and maps the
+ * outcome to the browser: an Actor-only session and {@code /}, or an invalidated session and a refusal page.
+ */
 final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHandler {
 
     private static final String AUTHENTICATED_DESTINATION = "/";
     private static final String ACCESS_NOT_PROVISIONED_DESTINATION = "/access-not-provisioned";
     private static final String INVITATION_FAILURE_DESTINATION = "/invitation?reason=";
+    private static final String IDENTITY_PROVIDER_CLAIM = "memoryos_identity_provider";
 
-    private final ExternalIdentityResolver identityResolver;
-    private final TenantAccessResolver tenantAccessResolver;
-    private final InvitationService invitationService;
-    private final ActorProfileRecorder profileRecorder;
-    private final TrustedIdentityAdmission trustedIdentityAdmission;
-    private final JitAdmissionPolicy jitAdmissionPolicy;
-    private final TenantId tenantId;
-    private final String trustedIssuer;
-    private final AuditTrail audit;
+    private final SignInAdmission admission;
+    private final SignInAttempt.JitTrust trust;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
     private final RedirectStrategy redirectStrategy = new DefaultRedirectStrategy();
 
-    ActorSessionLoginSuccessHandler(
-            ExternalIdentityResolver identityResolver,
-            TenantAccessResolver tenantAccessResolver,
-            InvitationService invitationService,
-            ActorProfileRecorder profileRecorder,
-            TrustedIdentityAdmission trustedIdentityAdmission,
-            JitAdmissionPolicy jitAdmissionPolicy,
-            TenantId tenantId,
-            String trustedIssuer,
-            AuditTrail audit
-    ) {
-        this.audit = Objects.requireNonNull(audit, "audit must not be null");
-        this.identityResolver = Objects.requireNonNull(identityResolver, "identityResolver must not be null");
-        this.tenantAccessResolver = Objects.requireNonNull(
-                tenantAccessResolver,
-                "tenantAccessResolver must not be null"
-        );
-        this.invitationService = Objects.requireNonNull(
-                invitationService,
-                "invitationService must not be null"
-        );
-        this.profileRecorder = Objects.requireNonNull(profileRecorder, "profileRecorder must not be null");
-        this.trustedIdentityAdmission = Objects.requireNonNull(trustedIdentityAdmission);
-        this.jitAdmissionPolicy = Objects.requireNonNull(jitAdmissionPolicy);
-        this.tenantId = Objects.requireNonNull(tenantId);
-        this.trustedIssuer = Objects.requireNonNull(trustedIssuer);
+    ActorSessionLoginSuccessHandler(SignInAdmission admission, SignInAttempt.JitTrust trust) {
+        this.admission = Objects.requireNonNull(admission, "admission must not be null");
+        this.trust = Objects.requireNonNull(trust, "trust must not be null");
     }
 
     @Override
@@ -90,143 +52,71 @@ final class ActorSessionLoginSuccessHandler implements AuthenticationSuccessHand
             @NonNull HttpServletResponse response,
             @NonNull Authentication authentication
     ) throws IOException {
-        if (!(authentication instanceof OAuth2AuthenticationToken oauth2Authentication)
-                || !(oauth2Authentication.getPrincipal() instanceof OidcUser oidcUser)) {
-            refused(null, null, "UNREADABLE_IDENTITY", AuditOutcome.FAILURE);
-            rejectLogin(request, response);
-            return;
-        }
-
-        var idToken = oidcUser.getIdToken();
-        var issuer = idToken.getIssuer();
-        String subject = idToken.getSubject();
-        if (issuer == null || subject == null || subject.isBlank()) {
-            refused(null, oidcUser, "UNREADABLE_IDENTITY", AuditOutcome.FAILURE);
-            rejectLogin(request, response);
-            return;
-        }
-
-        var externalIdentity = new ExternalIdentity(issuer.toString(), subject);
-        var actorId = identityResolver.resolve(externalIdentity).orElse(null);
-        if (actorId == null || !tenantAccessResolver.hasActiveTenant(actorId)) {
-            if (trustedIssuer.equals(externalIdentity.issuer())
-                    && jitAdmissionPolicy.allows(idToken.getClaims().get("memoryos_identity_provider"))) {
-                try {
-                    actorId = trustedIdentityAdmission.admit(tenantId, externalIdentity);
-                } catch (IamException exception) {
-                    if (!IamFailureReason.ACCESS_DENIED.code().equals(exception.code())) {
-                        invalidatePartialSession(request);
-                        throw exception;
-                    }
-                    refused(actorId, oidcUser, "NOT_ADMITTED", AuditOutcome.DENIED);
-                    rejectLogin(request, response);
-                    return;
-                } catch (RuntimeException exception) {
-                    invalidatePartialSession(request);
-                    throw exception;
-                }
-            } else {
-                actorId = acceptInvitation(request, response, oidcUser, externalIdentity);
-            }
-            if (actorId == null) {
-                return;
-            }
-        }
-
+        SignInOutcome outcome;
         try {
-            profileRecorder.record(
-                    actorId,
-                    externalIdentity,
-                    oidcUser.getClaimAsString("name"),
-                    oidcUser.getClaimAsString("email"),
-                    Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("email_verified"))
-            );
+            outcome = admission.admit(attempt(request, authentication));
         } catch (RuntimeException exception) {
             invalidatePartialSession(request);
             throw exception;
         }
-
-        InvitationSessionState.clear(request);
-        var securityContext = SecurityContextHolder.createEmptyContext();
-        securityContext.setAuthentication(new ActorAuthenticationToken(new IdentityContext(actorId)));
-        SecurityContextHolder.setContext(securityContext);
-        securityContextRepository.saveContext(securityContext, request, response);
-        ProviderSessionState.remember(request, idToken.getClaimAsString("sid"));
-        ActorId signedIn = actorId;
-        tenantAccessResolver.findActiveTenant(signedIn).ifPresent(tenant -> audit.recordSeparately(
-                AuditRecord.of(AuditAction.LOGIN, tenant).actor(signedIn).build()));
-        redirectStrategy.sendRedirect(request, response, AUTHENTICATED_DESTINATION);
-    }
-
-    private ActorId acceptInvitation(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            OidcUser oidcUser,
-            ExternalIdentity externalIdentity
-    ) throws IOException {
-        var continuation = InvitationSessionState.read(request);
-        boolean activationFlow = InvitationSessionState.isActivation(request);
-
-        try {
-            if (continuation != null) {
-                return invitationService.accept(new InvitationAcceptance(
-                        continuation.invitationId(),
-                        continuation.tenant(),
-                        externalIdentity,
-                        oidcUser.getClaimAsString("email"),
-                        Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("email_verified"))
-                ));
-            }
-            return invitationService.acceptVerifiedEmail(
-                    new VerifiedEmailInvitationAcceptance(
-                            externalIdentity,
-                            oidcUser.getClaimAsString("email"),
-                            Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("email_verified"))
-                    )
-            );
-        } catch (InvitationException exception) {
-            refused(identityResolver.resolve(externalIdentity).orElse(null), oidcUser,
-                    continuation != null || activationFlow ? "INVITATION_" + exception.reason().name() : "NOT_ADMITTED",
-                    continuation != null || activationFlow ? AuditOutcome.FAILURE : AuditOutcome.DENIED);
-            if (continuation != null || activationFlow) {
-                rejectInvitation(
-                        request,
-                        response,
-                        invitationFailurePathReason(exception.reason())
-                );
-            } else {
-                rejectLogin(request, response);
-            }
-            return null;
+        switch (outcome) {
+            case SignInOutcome.Admitted admitted -> signIn(request, response, admitted, authentication);
+            case SignInOutcome.NotAdmitted ignored -> reject(request, response, ACCESS_NOT_PROVISIONED_DESTINATION);
+            case SignInOutcome.InvitationRefused refused ->
+                    reject(request, response, INVITATION_FAILURE_DESTINATION + invitationFailurePathReason(refused.reason()));
         }
     }
 
-    /**
-     * A sign-in that authenticated at the provider but was not let in. Onyx records the same as
-     * {@code auth.login_failure}: refused (not admitted) is {@code DENIED}, an invitation that could not be used is
-     * {@code FAILURE}. The person is named by the e-mail their provider asserted, since they may have no profile here.
-     */
-    private void refused(@org.jspecify.annotations.Nullable ActorId actor,
-                         @org.jspecify.annotations.Nullable OidcUser user, String reason, AuditOutcome outcome) {
-        String who = user == null ? null : java.util.Objects.requireNonNullElse(user.getClaimAsString("email"),
-                user.getSubject());
-        audit.recordSeparately(AuditRecord.of(AuditAction.LOGIN_FAILURE, tenantId).outcome(outcome)
-                .actor(actor, who)
-                .detail("reason", reason).build());
+    private SignInAttempt attempt(HttpServletRequest request, Authentication authentication) {
+        if (!(authentication instanceof OAuth2AuthenticationToken oauth2Authentication)
+                || !(oauth2Authentication.getPrincipal() instanceof OidcUser oidcUser)) {
+            return SignInAttempt.unreadable(null, trust);
+        }
+        var idToken = oidcUser.getIdToken();
+        var issuer = idToken.getIssuer();
+        String subject = idToken.getSubject();
+        String email = oidcUser.getClaimAsString("email");
+        if (issuer == null || subject == null || subject.isBlank()) {
+            return SignInAttempt.unreadable(asserted(email, oidcUser.getSubject()), trust);
+        }
+        var continuation = InvitationSessionState.read(request);
+        return new SignInAttempt(
+                new ExternalIdentity(issuer.toString(), subject),
+                asserted(email, oidcUser.getSubject()),
+                // Only the signed ID token may select trusted JIT; UserInfo never can.
+                idToken.getClaims().get(IDENTITY_PROVIDER_CLAIM),
+                oidcUser.getClaimAsString("name"),
+                email,
+                Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("email_verified")),
+                continuation == null ? null : new SignInAttempt.Invitation(continuation.invitationId(), continuation.tenant()),
+                InvitationSessionState.isActivation(request),
+                trust
+        );
     }
 
-    private void rejectLogin(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        invalidatePartialSession(request);
-        redirectStrategy.sendRedirect(request, response, ACCESS_NOT_PROVISIONED_DESTINATION);
-    }
-
-    private void rejectInvitation(
+    private void signIn(
             HttpServletRequest request,
             HttpServletResponse response,
-            String reason
+            SignInOutcome.Admitted admitted,
+            Authentication authentication
     ) throws IOException {
+        InvitationSessionState.clear(request);
+        var securityContext = SecurityContextHolder.createEmptyContext();
+        securityContext.setAuthentication(new ActorAuthenticationToken(new IdentityContext(admitted.actorId())));
+        SecurityContextHolder.setContext(securityContext);
+        securityContextRepository.saveContext(securityContext, request, response);
+        var oidcUser = (OidcUser) authentication.getPrincipal();
+        ProviderSessionState.remember(request, oidcUser.getIdToken().getClaimAsString("sid"));
+        redirectStrategy.sendRedirect(request, response, AUTHENTICATED_DESTINATION);
+    }
+
+    private void reject(HttpServletRequest request, HttpServletResponse response, String destination) throws IOException {
         invalidatePartialSession(request);
-        redirectStrategy.sendRedirect(request, response, INVITATION_FAILURE_DESTINATION + reason);
+        redirectStrategy.sendRedirect(request, response, destination);
+    }
+
+    private static @Nullable String asserted(@Nullable String email, @Nullable String subject) {
+        return email != null ? email : subject;
     }
 
     private static void invalidatePartialSession(HttpServletRequest request) {

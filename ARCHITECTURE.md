@@ -258,14 +258,14 @@ sequenceDiagram
 
     Browser->>Keycloak: Authorization Code and PKCE
     Keycloak-->>API: Validated identity
-    API->>IAM: Resolve exact issuer and subject
-    IAM-->>API: Actor, Tenant and current grants
+    API->>IAM: Sign-in admission for the exact issuer and subject
+    IAM-->>API: Admitted Actor, or a refusal
     Browser->>API: Protected request with session
     API->>IAM: Recheck membership and scope
     API->>Capability: Execute authorized operation
 ```
 
-Keycloak is the browser credential store and enterprise identity broker. MemoryOS binds the exact validated `(issuer, subject)` to an Actor and owns Tenant membership, Group grants, capability implications and resource scope. Email, provider role presentation and indexed metadata never substitute for authorization; a verified login email is only matched against provider permissions of Auto Sync Sources ([ADR 0011](docs/decisions/0011-verified-email-source-permission-matching.md)). IAM mutations advance the Tenant authorization revision so the browser can discard revoked private state.
+Keycloak is the browser credential store and enterprise identity broker. The API's login callback only reads the validated ID token and maps the outcome to the browser; IAM's `SignInAdmission` decides member, trusted JIT or invitation admission, records the profile and `LOGIN` in one transaction, and audits every refusal. MemoryOS binds the exact validated `(issuer, subject)` to an Actor and owns Tenant membership, Group grants, capability implications and resource scope. Email, provider role presentation and indexed metadata never substitute for authorization; a verified login email is only matched against provider permissions of Auto Sync Sources ([ADR 0011](docs/decisions/0011-verified-email-source-permission-matching.md)). IAM mutations advance the Tenant authorization revision so the browser can discard revoked private state.
 
 Protected Admin/Basic Groups persist `SYSTEM_ADMIN`/`SYSTEM_BASIC`. Admin expands to every enum capability; Basic implies `SEARCH_READ`, `CHAT_READ`, `CHAT_WRITE`, `IMAGE_GENERATE` and `LLM_GATEWAY_USE`. Only Users, Groups, Sources and Models management are assignable ordinary grants. Chat retains its membership/resource policy rather than granular Chat-token enforcement; image/gateway vocabulary does not claim feature delivery. The [Identity contract](docs/specs/identity.md) defines protected memberships, peer-manager restrictions, Onyx identity presentation and the `manage_grants` gate that hides ordinary Group Permissions and its registry query.
 
