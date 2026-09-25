@@ -21,7 +21,7 @@ dependencies {
     implementation(libs.spring.boot.starter.data.jpa)
     implementation(libs.spring.boot.starter.data.redis)
     implementation(libs.db.scheduler.spring.boot4)
-    runtimeOnly(project(":connector"))
+    runtimeOnly(project(":sources"))
     runtimeOnly(libs.postgresql)
     runtimeOnly(libs.commons.pool2)
     testAndDevelopmentOnly(platform(libs.arconia.bom))
