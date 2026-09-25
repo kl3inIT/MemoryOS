@@ -103,6 +103,8 @@ Làm song song với Phase B, vì hai phase không phụ thuộc nhau.
 
 ## Phase F — Đưa production sang Qwen3-4B
 
+Đã xong ngày 2026-09-25 cho cả staging và production; số đo nằm trong design, mục "Đưa vào chạy".
+
 1. Deploy các phase B–D lên staging. Kiểm tra staging giữ nguyên index OpenAI (`PRESENT` được gieo, không dựng lại).
 2. Deploy production.
 3. Trên trang quản trị production:
