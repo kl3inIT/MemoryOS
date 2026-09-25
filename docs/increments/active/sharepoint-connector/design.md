@@ -460,11 +460,11 @@ Tên dưới đây là dự kiến; SQL nằm trong repository `JdbcSharePoint*`
 - **Workload mới** `SHAREPOINT_SELECTION_VALIDATION`: stream `…:v1`, routing và cấu hình exhaustive theo [ingestion spec](../../../specs/ingestion.md).
 - **`SOURCE_SYNC`** giữ nguyên. `SourceSyncProcessor` phân nhánh theo `SourceType` sang `DefaultSharePointSyncService`: tối đa 16 bước mỗi lần giao, có deadline, claim fence bằng scope và credential revision; checkpoint theo drive/site trong `sharepoint_sync_runs`.
 - **`SourceInputDescriptor`** thêm format `SHAREPOINT_PAGE`; router có reader tương ứng.
-- **Provider bundle** `connector/src/main/java/io/memoryos/provider/sharepoint/`:
+- **Provider bundle** `sources/src/main/java/io/memoryos/connector/adapter/sharepoint/`:
   - `RestSharePointProvider`, `MsalSharePointTokenSource`;
   - `SharePointPageSourceContentExtractor`;
   - `SharePointProviderProperties`, auto-configuration.
-  - Port `SharePointProvider` nằm trong `core/connector`. `ProviderDependencyRulesTest` giữ hướng phụ thuộc.
+  - Port `SharePointProvider` nằm trong `core/connector`. `SourcesDependencyRulesTest` giữ hướng phụ thuộc.
 
 ### 5.11 Giao diện
 
