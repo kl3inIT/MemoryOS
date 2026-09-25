@@ -113,8 +113,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @AutoConfigureMockMvc
 @Import({
         SourceApiIntegrationTest.StorageTestConfiguration.class,
-        io.memoryos.provider.file.FileProviderAutoConfiguration.class,
-        io.memoryos.provider.SourceContentExtractorAutoConfiguration.class
+        io.memoryos.ingestion.extraction.FileProviderAutoConfiguration.class,
+        io.memoryos.ingestion.extraction.SourceContentExtractorAutoConfiguration.class
 })
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class SourceApiIntegrationTest {

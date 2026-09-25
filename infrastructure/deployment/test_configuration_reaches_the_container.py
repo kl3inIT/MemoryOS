@@ -17,8 +17,8 @@ DEPLOYMENT = ROOT / "infrastructure/deployment"
 
 # Each service and the resource directories whose configuration it loads.
 SERVICES = {
-    "api": ("api/src/main/resources", "core/src/main/resources", "connector/src/main/resources"),
-    "worker": ("worker/src/main/resources", "core/src/main/resources", "connector/src/main/resources"),
+    "api": ("api/src/main/resources", "core/src/main/resources", "sources/src/main/resources"),
+    "worker": ("worker/src/main/resources", "core/src/main/resources", "sources/src/main/resources"),
 }
 
 ENVIRONMENTS = ("staging", "production")

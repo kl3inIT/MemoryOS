@@ -222,8 +222,8 @@ flowchart TD
 | `core/objectstorage` | Object IO và lifecycle trước adoption của raw input | Không quyết định Source/Document permissions |
 | `core/ingestion/application` | SOURCE_SYNC và INGESTION orchestration qua public contracts; leases và transaction coordination | Không sở hữu SQL hoặc Google SDK |
 | `core/document` | Current Document, canonical artifact tracking/adoption/cleanup | Không thêm document-read endpoint hoặc source permission model |
-| `connector/.../provider/google` | OAuth/Drive/Sheets/Docs protocol, paging và snapshot acquisition | Không tự publish Document hoặc quyết định quyền Actor |
-| `connector/.../provider/file` và adapters đọc bảng thực sự cần thiết | Đọc bounded binary/native snapshot thành canonical blocks | Không remote reread trong INGESTION; không registry/plugin framework |
+| `sources/.../connector/adapter/googledrive` | OAuth/Drive/Sheets/Docs protocol, paging và snapshot acquisition | Không tự publish Document hoặc quyết định quyền Actor |
+| `sources/.../ingestion/extraction` và adapters đọc bảng thực sự cần thiết | Đọc bounded binary/native snapshot thành canonical blocks | Không remote reread trong INGESTION; không registry/plugin framework |
 | `worker` | Composition, recurring scans/relays, Redis consumer groups | Không là authority store |
 
 Các điểm baseline đã được mở rộng trong implementation:
@@ -236,7 +236,7 @@ Các điểm baseline đã được mở rộng trong implementation:
 - `DefaultIngestionCoordinator.processIndex`: mở object, extract, stage artifact; publish Document và complete operation trong một transaction, rollback khi claim cũ.
 - `DefaultSourceDocumentAccessResolver` / `JdbcSourceDocumentRepository`: hiện chỉ grant FILE PUBLIC cho membership đang hoạt động; chưa có Google principal matching.
 
-Giữ bốn Gradle modules. API nhận integration bundle `:connector` theo ADR 0006 nhưng không compose parser; worker compose extractor. Google callback dùng controller/security chain riêng, giữ nguyên Keycloak login và Actor-only session thay vì port toàn bộ Spring OAuth success-handler chain của donor. `document` phụ thuộc public `tenant` và `objectstorage`; architecture/README đã được hợp nhất với current Document/V12.
+Giữ bốn Gradle modules. API nhận integration bundle `:sources` (tên cũ `:connector`, ADR 0016) theo ADR 0006 nhưng không compose parser; worker compose extractor. Google callback dùng controller/security chain riêng, giữ nguyên Keycloak login và Actor-only session thay vì port toàn bộ Spring OAuth success-handler chain của donor. `document` phụ thuộc public `tenant` và `objectstorage`; architecture/README đã được hợp nhất với current Document/V12.
 
 ## 4. Acquisition và transaction boundaries
 
