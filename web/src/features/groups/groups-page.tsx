@@ -2,7 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { CirclePlus, Search, SearchX, Users, WifiOff } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TextButton } from "@/components/ui/text-button";
 import { TablePagination } from "@/components/ui/table-pagination";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { listGroupsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { GroupCard } from "./group-card";
@@ -44,17 +45,17 @@ export function GroupsPage() {
     void navigate({ replace: true, search: (current) => ({ ...current, page: lastPage }) });
   }, [groups.data?.totalPages, groups.isPlaceholderData, navigate, search.page]);
 
-  useEffect(() => {
-    const nextSearch = searchDraft.trim();
-    if (nextSearch === appliedSearch) return;
-    const timeout = window.setTimeout(() => {
-      void navigate({
-        replace: true,
-        search: (current) => ({ ...current, search: nextSearch || undefined, page: 0 }),
-      });
-    }, 250);
-    return () => window.clearTimeout(timeout);
-  }, [searchDraft, appliedSearch, navigate]);
+  // Typing applies the search once it pauses. Only a settled draft navigates: the Clear button
+  // or history navigation changes the applied search at once, and must not be undone.
+  const settledSearch = useDebouncedValue(searchDraft.trim(), 250);
+  const applySettledSearch = useEffectEvent((nextSearch: string) => {
+    if (nextSearch === appliedSearch || nextSearch !== searchDraft.trim()) return;
+    void navigate({
+      replace: true,
+      search: (current) => ({ ...current, search: nextSearch || undefined, page: 0 }),
+    });
+  });
+  useEffect(() => applySettledSearch(settledSearch), [settledSearch]);
 
   function updateView(update: Partial<GroupsSearch>, resetPage = false) {
     void navigate({
