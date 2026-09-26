@@ -12,7 +12,7 @@
     "dev:e2e": "pnpm generate:api && node scripts/start-e2e-server.ts",
     "typecheck": "tsc -b",
     "build": "vite build && node scripts/assert-font-assets.mjs && node scripts/assert-bundle-budget.mjs && tsc -b",
-    "check:routes": "node scripts/assert-generated-stable.mjs src/routeTree.gen.ts -- pnpm build",
+    "check:routes": "node scripts/assert-generated-stable.mjs src/routeTree.gen.ts src/lib/cn-tables.ts -- pnpm build",
     "lint": "oxlint --deny-warnings .",
     "lint:target": "oxlint -c .oxlintrc.target.json --deny-warnings",
     "format": "oxfmt --write .",

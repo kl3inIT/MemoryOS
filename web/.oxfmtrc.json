@@ -8,6 +8,7 @@
     "playwright-report/**",
     "src/lib/hey-api/**",
     "src/routeTree.gen.ts",
+    "src/lib/cn-tables.ts",
     "test-results/**"
   ]
 }
