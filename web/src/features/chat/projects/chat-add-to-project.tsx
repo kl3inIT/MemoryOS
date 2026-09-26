@@ -1,15 +1,16 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Alert, AlertTitle } from "@/components/ui/alert";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { TextButton } from "@/components/ui/text-button";
-import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { createChatProject } from "@/lib/hey-api/sdk.gen";
+import { createChatProjectMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { FormDialog } from "@/components/composites/form-dialog";
 import { chatLibraryKey, type LibraryFile } from "@/features/library/library";
 import { addToProject, ProjectFull, PROJECT_FILE_LIMIT } from "./chat-project-files";
-import { loadProjects, projectSchema } from "@/features/chat/projects/chat-projects-api";
+import { invalidateProjects, projectOf, projectsOptions, type Project } from "./chat-projects-api";
 
 /**
  * Adds library files to one of the caller's Projects (MEM-152). The Project's own update admits them, so the
@@ -27,26 +28,32 @@ export function ChatAddToProjectDialog({
 }) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
-  const { actorId, authorizationVersion } = useApplicationSession();
   const open = files !== undefined;
   const [projectId, setProjectId] = useState("");
   const [name, setName] = useState("");
   const [newProject, setNewProject] = useState(false);
-  const [full, setFull] = useState(false);
-  const projects = useQuery({
-    queryKey: ["chat-projects", actorId, authorizationVersion],
-    queryFn: ({ signal }) => loadProjects(signal),
-    enabled: open,
+  const projects = useQuery({ ...projectsOptions(), enabled: open });
+  const create = useMutation({
+    ...createChatProjectMutation(),
+    onSuccess: () => invalidateProjects(cache),
+  });
+  const add = useMutation({
+    mutationFn: ({ project, added }: { project: Project; added: readonly LibraryFile[] }) =>
+      addToProject(project.id, added, AbortSignal.timeout(120_000)),
+    // Generated files are copied into uploads first, so the library changes even when the Project is full.
+    onSettled: () => cache.invalidateQueries({ queryKey: chatLibraryKey }),
+    onSuccess: (_, { project }) => invalidateProjects(cache, project.id),
   });
   const chosen = projects.data?.find((project) => project.id === projectId) ?? projects.data?.[0];
   // With no Project yet there is nothing to choose, so the dialog starts on making one.
   const creating = name.length > 0 || newProject || projects.data?.length === 0;
+  const full = add.error instanceof ProjectFull;
 
   return (
     <FormDialog
       open={open}
       onOpenChange={(next) => {
-        setFull(false);
+        add.reset();
         onOpenChange(next);
       }}
       title={ui("Thêm vào dự án")}
@@ -58,30 +65,23 @@ export function ChatAddToProjectDialog({
       closeOnSuccess={false}
       onSubmit={async () => {
         if (!files) return;
-        setFull(false);
+        add.reset();
         // A first Project is made here rather than sending the person away to make one and come back.
         const project = creating
-          ? projectSchema.parse(
-              (
-                await createChatProject({
-                  body: { name: name.trim(), description: "", instructions: "", fileIds: [] },
-                  signal: AbortSignal.timeout(30000),
-                })
-              ).data,
+          ? projectOf(
+              await create.mutateAsync({
+                body: { name: name.trim(), description: "", instructions: "", fileIds: [] },
+              }),
             )
           : chosen;
         if (!project) return;
         try {
-          await addToProject(project.id, files, AbortSignal.timeout(120_000));
+          await add.mutateAsync({ project, added: files });
         } catch (failure) {
           // A full Project is named here; any other failure is the dialog's generic error.
-          if (failure instanceof ProjectFull) return setFull(true);
+          if (failure instanceof ProjectFull) return;
           throw failure;
-        } finally {
-          await cache.invalidateQueries({ queryKey: chatLibraryKey });
         }
-        await cache.invalidateQueries({ queryKey: ["chat-projects"] });
-        await cache.invalidateQueries({ queryKey: ["chat-project"] });
         onAdded?.(project.name);
         onOpenChange(false);
       }}
@@ -89,31 +89,32 @@ export function ChatAddToProjectDialog({
       {projects.isPending && open && <p role="status">{ui("Đang tải dự án…")}</p>}
       {projects.isError && <p role="alert">{ui("Không tải được danh sách dự án.")}</p>}
       {projects.data && creating && (
-        <label className="block space-y-1">
-          <span>{ui("Tên dự án")}</span>
+        <Field>
+          <FieldLabel htmlFor="add-to-project-name">{ui("Tên dự án")}</FieldLabel>
           <Input
+            id="add-to-project-name"
             value={name}
-            autoFocus
             maxLength={120}
             placeholder={ui("Ví dụ: Báo cáo quý 4")}
             onChange={(event) => setName(event.target.value)}
           />
-        </label>
+        </Field>
       )}
       {projects.data && projects.data.length > 0 && !creating && (
-        <label className="block space-y-1">
-          <span>{ui("Dự án")}</span>
+        <Field>
+          <FieldLabel htmlFor="add-to-project-target">{ui("Dự án")}</FieldLabel>
           <NativeSelect
+            id="add-to-project-target"
             value={chosen?.id ?? ""}
             onChange={(event) => setProjectId(event.target.value)}
           >
             {projects.data.map((project) => (
-              <option key={project.id} value={project.id}>
+              <NativeSelectOption key={project.id} value={project.id}>
                 {project.name} ({project.fileIds.length}/{PROJECT_FILE_LIMIT})
-              </option>
+              </NativeSelectOption>
             ))}
           </NativeSelect>
-        </label>
+        </Field>
       )}
       {projects.data && projects.data.length > 0 && (
         <TextButton
@@ -130,11 +131,13 @@ export function ChatAddToProjectDialog({
         {ui("Đã chọn {{count}} tệp", { count: files?.length ?? 0 })}
       </p>
       {full && (
-        <p role="alert" className="text-sm text-status-danger-content">
-          {ui("Dự án chỉ giữ tối đa {{max}} tệp. Gỡ bớt tệp khỏi dự án rồi thử lại.", {
-            max: PROJECT_FILE_LIMIT,
-          })}
-        </p>
+        <Alert variant="destructive">
+          <AlertTitle>
+            {ui("Dự án chỉ giữ tối đa {{max}} tệp. Gỡ bớt tệp khỏi dự án rồi thử lại.", {
+              max: PROJECT_FILE_LIMIT,
+            })}
+          </AlertTitle>
+        </Alert>
       )}
     </FormDialog>
   );

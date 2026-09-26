@@ -5,6 +5,7 @@ import { DownloadIcon } from "lucide-react";
 import { File as FileDisplay } from "@/components/assistant-ui/elements/file";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { IconButton } from "@/components/ui/icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fileSize } from "@/lib/file-size";
 import { fileArtifactUrl } from "@/features/library/content-urls";
@@ -36,7 +37,7 @@ export function ChatGeneratedFiles() {
         .map((file) => (
           <Suspense
             key={`chart:${file.id}`}
-            fallback={<Skeleton className="mt-3 aspect-video w-full max-w-2xl rounded-xl" />}
+            fallback={<Skeleton className="mt-3 aspect-video w-full max-w-2xl" />}
           >
             <ChatChartCard file={file} />
           </Suspense>
@@ -82,15 +83,20 @@ export function ChatGeneratedFiles() {
                     {fileSize(file.sizeBytes, uiLocale())}
                   </span>
                 </div>
-                <a
-                  data-slot="file-download"
-                  href={fileArtifactUrl(file.id)}
-                  download={file.filename}
+                <IconButton
+                  asChild
+                  size="sm"
+                  prominence="internal"
                   aria-label={ui("Tải {{file}}", { file: file.filename })}
-                  className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                 >
-                  <DownloadIcon className="size-4" aria-hidden />
-                </a>
+                  <a
+                    data-slot="file-download"
+                    href={fileArtifactUrl(file.id)}
+                    download={file.filename}
+                  >
+                    <DownloadIcon aria-hidden="true" />
+                  </a>
+                </IconButton>
               </FileDisplay.Root>
             </li>
           ),

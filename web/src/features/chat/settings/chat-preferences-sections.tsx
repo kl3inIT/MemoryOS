@@ -71,7 +71,7 @@ export function ChatPreferencesSections() {
                   aria-label={ui("Default Model")}
                   aria-describedby="default-model-description"
                   disabled={disabled || !catalog.isSuccess}
-                  className="h-9 rounded-lg border-border-subtle bg-surface-raised sm:w-64"
+                  className="h-9 sm:w-64"
                 />
                 <ModelSelectorContent className="w-80 max-w-[calc(100vw-2rem)]" align="end">
                   <ModelSelectorSearch
@@ -181,7 +181,7 @@ export function ChatPreferencesSections() {
       >
         <div>
           <h2 id="personal-preferences-heading" className="font-heading-h3 text-content-primary">
-            <label htmlFor="personal-preferences">{ui("Personal Preferences")}</label>
+            {ui("Personal Preferences")}
           </h2>
           <p id="personal-preferences-description" className="text-content-muted">
             {ui("Provide your custom preferences in natural language.")}
@@ -189,6 +189,7 @@ export function ChatPreferencesSections() {
         </div>
         <Textarea
           id="personal-preferences"
+          aria-labelledby="personal-preferences-heading"
           aria-describedby="personal-preferences-description"
           rows={4}
           maxLength={PREFERENCES_LIMIT}

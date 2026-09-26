@@ -1,7 +1,6 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQuery } from "@tanstack/react-query";
-import { listAvailableChatModels } from "@/lib/hey-api/sdk.gen";
-import { useApplicationSession } from "@/features/identity/application-session-context";
+import { listAvailableChatModelsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { ModelLogo } from "@/features/models/model-logo";
 
 /**
@@ -49,11 +48,8 @@ function chatModelKey(actorId: string) {
 /** The authorized model catalog for a conversation, shared by the picker and regeneration. */
 export function useChatModels(sessionId?: string) {
   const ui = useAppTranslation();
-  const { actorId, authorizationVersion } = useApplicationSession();
   const catalog = useQuery({
-    queryKey: ["chat-models", actorId, authorizationVersion, sessionId],
-    queryFn: async ({ signal }) =>
-      (await listAvailableChatModels({ query: { sessionId }, signal })).data,
+    ...listAvailableChatModelsOptions({ query: { sessionId } }),
     retry: false,
   });
   const entries = (catalog.data ?? []).flatMap((model) =>

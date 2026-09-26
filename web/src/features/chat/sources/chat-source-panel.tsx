@@ -1,84 +1,22 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Dialog } from "radix-ui";
+import { useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
-import { DocumentPreviewContent } from "@/features/documents/document-preview-content";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import type { ChatSource } from "./chat-evidence";
 import { ChatFileReader } from "./chat-file-reader";
 import { useTranslation } from "react-i18next";
 import type { ChatArtifact } from "@/features/chat/thread/chat-artifacts";
 import { ChatArtifactView } from "@/features/chat/thread/chat-artifact-view";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { documentOriginalReader } from "@/features/documents/document-original-reader";
-import { useDocumentReading } from "@/features/documents/document-reading";
 import { firstEvidenceView, type EvidenceView } from "@/features/documents/evidence-order";
-import { EvidenceViewSwitch } from "@/features/documents/evidence-view-switch";
-import { matchingProvenance, readSourceLocation } from "@/features/documents/source-provenance";
-import {
-  DocumentPreviewDialog,
-  type DocumentSelection,
-} from "@/features/documents/document-preview-dialog";
+import { DocumentPreviewDialog } from "@/features/documents/document-preview-dialog";
+import { citationSelection } from "./chat-citation-selection";
+import { ChatDocumentEvidence } from "./chat-document-evidence";
 import { ChatSourceHeader, ChatSourceRow } from "./chat-source-list";
 
-/** The cited passages of an indexed document or file citation, read with Chat authority. */
-function citationSelection(source: ChatSource): DocumentSelection {
-  const ordinal = source.fileLocation?.ordinal;
-  return {
-    documentId: source.documentId ?? source.fileId!,
-    generation: source.generation ?? source.fileLocation!.generation!,
-    title: source.title,
-    mediaType: source.mediaType,
-    sourceTypes: source.sourceTypes,
-    providerUrl: source.providerUrl,
-    matches: [
-      {
-        from: Math.max(0, (ordinal ?? source.startOrdinal) - 2),
-        matchingOrdinal: ordinal ?? source.startOrdinal,
-        matchingEndOrdinal: ordinal ?? source.endOrdinal,
-        provenance: matchingProvenance(source.provenance, ordinal ?? source.startOrdinal),
-      },
-    ],
-    activeMatchIndex: 0,
-  };
-}
-
-/**
- * One document citation inside the narrow panel: its passages and its stored original share the reading
- * state, so the original opens on the same match and paints the passages that were actually cited.
- */
-function ChatDocumentEvidence({
-  source,
-  view,
-  onViewChange,
-}: {
-  source: ChatSource;
-  view?: EvidenceView;
-  onViewChange: (view: EvidenceView) => void;
-}) {
-  const selection = citationSelection(source);
-  const reading = useDocumentReading(selection, "chat", source.fileId ?? undefined);
-  const location = readSourceLocation(selection.matches[0]!.provenance ?? []);
-  const original =
-    source.documentId && source.generation
-      ? {
-          reader: documentOriginalReader("chat", source.documentId, source.generation),
-          filename: source.title,
-          mediaType: source.mediaType,
-          pages: location.pages,
-          boxes: location.boxes,
-          citations: reading.citations,
-        }
-      : undefined;
-  return (
-    <EvidenceViewSwitch
-      original={original}
-      table={location.table}
-      view={view}
-      onViewChange={onViewChange}
-    >
-      <DocumentPreviewContent variant="chat" selection={selection} reading={reading} />
-    </EvidenceViewSwitch>
-  );
+/** An indexed document or indexed file citation, which the passages and original views read. */
+function isDocumentCitation(source: ChatSource | undefined) {
+  return !!source && !source.web && !(source.fileId != null && !source.fileLocation?.generation);
 }
 
 const wideQuery = "(min-width: 1024px)";
@@ -148,10 +86,9 @@ export function ChatSourcePanel({
     stepping.current = true;
     onSelect(next.citationId);
   };
-  const documentCitation =
-    selected && !selected.web && !(selected.fileId != null && !selected.fileLocation?.generation);
+  const documentCitation = isDocumentCitation(selected);
   // The original is shown for an indexed document citation; an owner-private file keeps its own reader.
-  const original = documentCitation && selected.documentId ? selected : undefined;
+  const original = documentCitation && selected?.documentId ? selected : undefined;
   const view = selected
     ? (views[selected.citationId] ??
       (original ? firstEvidenceView(original.title, original.mediaType ?? "") : "passages"))
@@ -233,6 +170,93 @@ export function ChatSourcePanel({
           <X />
         </IconButton>
       </header>
+      <SourcePanelBody
+        sources={sources}
+        artifact={artifact}
+        selected={selected}
+        view={view}
+        expanded={expanded}
+        expandRef={expandRef}
+        titleRef={titleRef}
+        onSelect={onSelect}
+        onViewChange={changeView}
+        onCollapse={() => setExpanded(false)}
+      />
+    </>
+  );
+
+  return wide ? (
+    <aside
+      id={id}
+      aria-label={artifact ? rendererText("artifact") : t("sources")}
+      className="flex h-full min-h-0 w-[min(25rem,44%)] shrink-0 flex-col border-l border-border-default bg-surface-base"
+    >
+      {content}
+    </aside>
+  ) : (
+    <Sheet
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <SheetContent
+        id={id}
+        side="right"
+        showCloseButton={false}
+        aria-describedby={undefined}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          restoreFocus();
+        }}
+        className="w-full max-w-md sm:max-w-md"
+      >
+        <SheetTitle className="sr-only">
+          {artifact
+            ? artifact.title
+            : selected?.web
+              ? ui("Nội dung trang Web: {{title}}", { title: selected.title })
+              : selected
+                ? t("documentTitle", { title: selected.title })
+                : t("sources")}
+        </SheetTitle>
+        <div className="flex min-h-0 flex-1 flex-col bg-surface-base pb-[max(0px,env(safe-area-inset-bottom))]">
+          {content}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/** What the panel shows under its header: an artifact, a Web excerpt, one cited source or the source list. */
+function SourcePanelBody({
+  sources,
+  artifact,
+  selected,
+  view,
+  expanded,
+  expandRef,
+  titleRef,
+  onSelect,
+  onViewChange,
+  onCollapse,
+}: {
+  sources: ChatSource[];
+  artifact?: ChatArtifact;
+  selected?: ChatSource;
+  view?: EvidenceView;
+  expanded: boolean;
+  expandRef: RefObject<HTMLButtonElement | null>;
+  titleRef: RefObject<HTMLHeadingElement | null>;
+  onSelect: (citationId?: number) => void;
+  onViewChange: (view: EvidenceView) => void;
+  onCollapse: () => void;
+}) {
+  const { t } = useTranslation("reader");
+  const documentCitation = isDocumentCitation(selected);
+  const original = documentCitation && selected?.documentId ? selected : undefined;
+  return (
+    <>
       {artifact ? (
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
           <ChatArtifactView artifact={artifact} />
@@ -273,7 +297,7 @@ export function ChatSourcePanel({
               key={`${selected.documentId}:${selected.generation}:${selected.citationId}`}
               source={selected}
               view={view}
-              onViewChange={changeView}
+              onViewChange={onViewChange}
             />
           )}
           {expanded ? (
@@ -284,7 +308,7 @@ export function ChatSourcePanel({
               view={view}
               returnFocusRef={expandRef}
               fallbackFocusRef={titleRef}
-              onClose={() => setExpanded(false)}
+              onClose={onCollapse}
             />
           ) : null}
         </>
@@ -300,46 +324,5 @@ export function ChatSourcePanel({
         </div>
       )}
     </>
-  );
-
-  return wide ? (
-    <aside
-      id={id}
-      aria-label={artifact ? rendererText("artifact") : t("sources")}
-      className="flex h-full min-h-0 w-100 max-w-[44%] shrink-0 flex-col border-l border-border-default bg-surface-base"
-    >
-      {content}
-    </aside>
-  ) : (
-    <Dialog.Root
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim" />
-        <Dialog.Content
-          id={id}
-          aria-describedby={undefined}
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            restoreFocus();
-          }}
-          className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-surface-base pb-[env(safe-area-inset-bottom)] shadow-lg outline-none"
-        >
-          <Dialog.Title className="sr-only">
-            {artifact
-              ? artifact.title
-              : selected?.web
-                ? ui("Nội dung trang Web: {{title}}", { title: selected.title })
-                : selected
-                  ? t("documentTitle", { title: selected.title })
-                  : t("sources")}
-          </Dialog.Title>
-          {content}
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
   );
 }

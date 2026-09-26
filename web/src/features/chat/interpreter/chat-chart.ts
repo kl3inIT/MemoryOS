@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** Bounds applied before rendering; larger charts show their PNG. */
-export const MAX_SERIES = 20;
+const MAX_SERIES = 20;
 export const MAX_POINTS = 1000;
 
 const text = z.string().max(500).nullish();

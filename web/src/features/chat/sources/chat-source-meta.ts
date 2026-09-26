@@ -28,14 +28,6 @@ export function sourceMeta(source: ChatSource, ui: Translate): string[] {
   ];
 }
 
-/** Cited pages and regions when the citation is an indexed PDF whose provenance records pages. */
-export function citedPdfLocation(source: ChatSource) {
-  if (!source.documentId || !source.generation || source.mediaType !== "application/pdf")
-    return undefined;
-  const location = readSourceLocation(source.provenance.map((item) => item.provenanceJson));
-  return location.pages.length ? location : undefined;
-}
-
 /** Host and path without protocol or `www.`, the way search results print a URL. */
 export function webDisplayUrl(value: string) {
   const url = new URL(value);

@@ -14,6 +14,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
+import { Separator } from "@/components/ui/separator";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ChatFilePickerContent } from "@/features/library/file-picker";
 import { ChatLibraryPicker } from "@/features/library/library-picker";
@@ -119,7 +120,7 @@ export function ChatComposerMenu({
                 <span className="flex-1">{ui("Chọn tệp đã có")}</span>
                 <ChevronRight aria-hidden="true" />
               </button>
-              <div role="separator" className="my-1 border-t border-border-subtle" />
+              <Separator className="my-1" />
               {allowed?.web !== false && (
                 <ChatWebToggle {...web} onDone={close} onConfigure={() => setView("web")} />
               )}
@@ -145,7 +146,7 @@ export function ChatComposerMenu({
                 className="self-start"
                 onClick={() => setView("root")}
               >
-                <ArrowLeft className="size-4" aria-hidden="true" />
+                <ArrowLeft data-icon="inline-start" aria-hidden="true" />
                 {ui("Chọn tệp đã có")}
               </Button>
               <ChatFilePickerContent
@@ -189,7 +190,7 @@ export function ChatComposerMenu({
           disabled={disabled || Boolean(research.unsupported)}
           onClick={() => research.onChange(!research.value)}
         >
-          <Telescope className="size-4" aria-hidden="true" />
+          <Telescope data-icon="inline-start" aria-hidden="true" />
           <span className="hidden sm:inline">{ui("Deep research")}</span>
         </Button>
       )}

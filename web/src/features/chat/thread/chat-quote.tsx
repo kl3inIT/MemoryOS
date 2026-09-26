@@ -6,6 +6,7 @@ import {
   type TextMessagePartProps,
 } from "@assistant-ui/react";
 import { TextQuote, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 
 /** Floating Quote action for a passage selected inside one answer. */
@@ -13,9 +14,11 @@ export function ChatSelectionToolbar() {
   const ui = useAppTranslation();
   return (
     <SelectionToolbarPrimitive.Root className="rounded-xl border border-border-subtle bg-surface-overlay p-1 shadow-md">
-      <SelectionToolbarPrimitive.Quote className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm outline-none hover:bg-surface-sunken focus-visible:ring-2 focus-visible:ring-ring">
-        <TextQuote className="size-4" />
-        {ui("Trích dẫn")}
+      <SelectionToolbarPrimitive.Quote asChild>
+        <Button size="sm" prominence="internal">
+          <TextQuote data-icon="inline-start" aria-hidden="true" />
+          {ui("Trích dẫn")}
+        </Button>
       </SelectionToolbarPrimitive.Quote>
     </SelectionToolbarPrimitive.Root>
   );
@@ -29,8 +32,8 @@ export function ChatComposerQuote() {
       aria-label={ui("Đoạn trích dẫn")}
       className="flex items-start gap-2 rounded-xl bg-surface-sunken px-3 py-2 text-sm text-content-secondary"
     >
-      <TextQuote className="mt-0.5 size-4 shrink-0" />
-      <ComposerPrimitive.QuoteText className="line-clamp-2 min-w-0 flex-1 [overflow-wrap:anywhere]" />
+      <TextQuote aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+      <ComposerPrimitive.QuoteText className="line-clamp-2 min-w-0 flex-1 wrap-anywhere" />
       <ComposerPrimitive.QuoteDismiss asChild>
         <IconButton size="sm" prominence="internal" aria-label={ui("Bỏ trích dẫn")}>
           <X />

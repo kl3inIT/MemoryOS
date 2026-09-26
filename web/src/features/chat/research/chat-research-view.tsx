@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { TextMessagePartProvider, useAuiState } from "@assistant-ui/react";
-import { Brain, ListChecks, Loader2, Search } from "lucide-react";
+import { Brain, ListChecks, Search } from "lucide-react";
 import {
   ActivityChips,
   ActivityGroupContent,
@@ -11,6 +11,7 @@ import {
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ChatResearchToolStep } from "@/features/chat/activity/chat-activity-view";
 import { spokenDuration, useElapsed } from "@/features/chat/activity/chat-duration";
@@ -95,7 +96,7 @@ export function ChatResearchView({ research }: { research: ResearchState }) {
                     <TabsTrigger key={agent.toolCallId} value={agent.toolCallId}>
                       <span className="flex items-center gap-1.5">
                         {agent.status === "RUNNING" && running && (
-                          <Loader2 className="size-3 animate-spin" aria-hidden />
+                          <Spinner className="size-3" aria-hidden />
                         )}
                         {ui("Tác tử {{n}}", { n: agent.tabIndex + 1 })}
                       </span>
@@ -122,8 +123,8 @@ function AgentPanel({ agent, running }: { agent: ResearchAgent; running: boolean
   const report = mergedReport(agent);
   const thoughts = agent.activity.reasoning.map((segment) => segment.text).join("\n\n");
   return (
-    <div className="mt-2 min-w-0 space-y-2">
-      {agent.task && <p className="text-content-primary [overflow-wrap:anywhere]">{agent.task}</p>}
+    <div className="mt-2 flex min-w-0 flex-col gap-2">
+      {agent.task && <p className="text-content-primary wrap-anywhere">{agent.task}</p>}
       {agent.durationMs !== null && (
         <p className="text-xs text-content-muted">
           {ui("Đã chạy {{duration}}", { duration: spokenDuration(agent.durationMs) })}
@@ -205,9 +206,8 @@ function ResearchMarkdown({
         ref={body}
         style={clamped ? { maxHeight: collapsedHeight } : undefined}
         className={cn(
-          "min-w-0 text-sm [overflow-wrap:anywhere] [&_.aui-md]:text-sm [&_.aui-md]:leading-6 [&_.aui-md]:text-content-secondary",
-          clamped &&
-            "overflow-hidden [mask-image:linear-gradient(to_bottom,black_55%,transparent)]",
+          "min-w-0 text-sm wrap-anywhere [&_.aui-md]:text-sm [&_.aui-md]:leading-6 [&_.aui-md]:text-content-secondary",
+          clamped && "overflow-hidden mask-b-from-55%",
         )}
       >
         <TextMessagePartProvider text={text} isRunning={running}>

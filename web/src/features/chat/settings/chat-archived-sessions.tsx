@@ -1,7 +1,9 @@
-import { useDeferredValue, useState } from "react";
-import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Archive, ArchiveRestore, Search, Trash2 } from "lucide-react";
+import { hoverReveal } from "@/components/composites/hover-reveal";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -13,22 +15,22 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { IconButton } from "@/components/ui/icon-button";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Item, ItemActions, ItemContent, ItemDescription } from "@/components/ui/item";
-import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useApplicationSession } from "@/features/identity/application-session-context";
+import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import {
-  deleteChatSession,
-  listChatSessions,
-  searchChatSessions,
-  unarchiveChatSession,
-} from "@/lib/hey-api/sdk.gen";
-import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { actionErrorText } from "@/lib/action-errors";
-import { chatSessionsKey } from "@/features/chat/chat-api";
+import {
+  deleteChatSessionMutation,
+  listChatSessionsInfiniteOptions,
+  searchChatSessionsOptions,
+  unarchiveChatSessionMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import type { ChatSession } from "@/lib/hey-api/types.gen";
+import { cn } from "@/lib/utils";
 
 const PAGE = 30;
 
@@ -39,48 +41,36 @@ const PAGE = 30;
  */
 export function ChatArchivedSessionsPage() {
   const ui = useAppTranslation();
-  const cache = useQueryClient();
-  const { actorId, authorizationVersion } = useApplicationSession();
+  const refreshSessions = useRefreshChatSessions();
   const [search, setSearch] = useState("");
-  const query = useDeferredValue(search.trim());
-  const [failure, setFailure] = useState<string>();
+  const query = useDebouncedValue(search.trim(), 300);
 
   const pages = useInfiniteQuery({
-    queryKey: [...chatSessionsKey, actorId, authorizationVersion, "archived"],
-    queryFn: ({ pageParam, signal }) =>
-      listChatSessions({
-        query: { archived: true, offset: pageParam, limit: PAGE },
-        signal,
-      }).then((answer) => answer.data),
+    ...listChatSessionsInfiniteOptions({ query: { archived: true, limit: PAGE } }),
     initialPageParam: 0,
     getNextPageParam: (last, all) => (last.length === PAGE ? all.length * PAGE : undefined),
     enabled: query.length === 0,
   });
   const matches = useQuery({
-    queryKey: [...chatSessionsKey, actorId, authorizationVersion, "archived-search", query],
-    queryFn: ({ signal }) =>
-      searchChatSessions({ query: { query, limit: PAGE }, signal }).then(
-        // A search reads every conversation the owner has; this page shows the archived ones.
-        (answer) =>
-          answer.data.items.filter((item) => item.session.archivedAt).map((item) => item.session),
-      ),
+    ...searchChatSessionsOptions({ query: { query, limit: PAGE } }),
+    // A search reads every conversation the owner has; this page shows the archived ones.
+    select: (found) =>
+      found.items.filter((item) => item.session.archivedAt).map((item) => item.session),
     enabled: query.length > 0,
+  });
+  const unarchive = useMutation({
+    ...unarchiveChatSessionMutation(),
+    onSuccess: (_session, { path }) => refreshSessions(path.sessionId),
+  });
+  const remove = useMutation({
+    ...deleteChatSessionMutation(),
+    onSuccess: (_answer, { path }) => refreshSessions(path.sessionId),
   });
 
   const sessions: ChatSession[] =
     query.length > 0 ? (matches.data ?? []) : (pages.data?.pages.flat() ?? []);
   const loading = query.length > 0 ? matches.isPending : pages.isPending;
   const failed = query.length > 0 ? matches.isError : pages.isError;
-
-  const act = async (run: () => Promise<unknown>) => {
-    setFailure(undefined);
-    try {
-      await run();
-      await cache.invalidateQueries({ queryKey: chatSessionsKey });
-    } catch (cause) {
-      setFailure(actionErrorText(cause));
-    }
-  };
 
   return (
     <SettingsLayout>
@@ -92,23 +82,21 @@ export function ChatArchivedSessionsPage() {
         )}
       />
       <div className="flex max-w-3xl flex-col gap-4">
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
-            aria-hidden="true"
-          />
-          <Input
+        <InputGroup>
+          <InputGroupAddon>
+            <Search aria-hidden="true" />
+          </InputGroupAddon>
+          <InputGroupInput
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={ui("Tìm trong hội thoại đã lưu trữ")}
             aria-label={ui("Tìm trong hội thoại đã lưu trữ")}
             maxLength={200}
-            className="pl-9"
           />
-        </div>
-        {failure && (
+        </InputGroup>
+        {unarchive.isError && (
           <Alert variant="destructive">
-            <AlertTitle>{failure}</AlertTitle>
+            <AlertTitle>{actionErrorText(unarchive.error)}</AlertTitle>
           </Alert>
         )}
         {failed && (
@@ -119,7 +107,7 @@ export function ChatArchivedSessionsPage() {
         {loading && (
           <div className="flex flex-col gap-2" aria-hidden="true">
             {[0, 1, 2].map((row) => (
-              <Skeleton key={row} className="h-14 w-full rounded-lg" />
+              <Skeleton key={row} className="h-14 w-full" />
             ))}
           </div>
         )}
@@ -143,79 +131,29 @@ export function ChatArchivedSessionsPage() {
           </Empty>
         )}
         {sessions.length > 0 && (
-          <ul role="list" className="flex flex-col">
+          <ul className="flex flex-col">
             {sessions.map((session) => (
-              <li key={session.id}>
-                <Item
-                  variant="default"
-                  className="border-b border-border-subtle last:border-b-0 hover:bg-surface-subtle"
-                >
-                  <ItemContent className="min-w-0">
-                    <Link
-                      to="/chat/$sessionId"
-                      params={{ sessionId: session.id }}
-                      className="min-w-0 truncate font-main-ui-action hover:underline"
-                    >
-                      {session.title}
-                    </Link>
-                    <ItemDescription>
-                      {session.archivedAt
-                        ? ui("Đã lưu trữ {{date}}", {
-                            date: new Date(session.archivedAt).toLocaleString(uiLocale(), {
-                              dateStyle: "medium",
-                              timeStyle: "short",
-                            }),
-                          })
-                        : ""}
-                    </ItemDescription>
-                  </ItemContent>
-                  <ItemActions className="opacity-100 transition-opacity md:opacity-0 md:group-hover/item:opacity-100 md:group-focus-within/item:opacity-100">
-                    <Button
-                      size="sm"
-                      prominence="internal"
-                      onClick={() =>
-                        void act(() =>
-                          unarchiveChatSession({
-                            path: { sessionId: session.id },
-                            signal: AbortSignal.timeout(30000),
-                          }),
-                        )
-                      }
-                    >
-                      <ArchiveRestore className="size-4" aria-hidden="true" />
-                      {ui("Bỏ lưu trữ")}
-                    </Button>
-                    <ConfirmDialog
-                      trigger={
-                        <IconButton
-                          size="sm"
-                          prominence="internal"
-                          aria-label={ui("Xoá hội thoại {{name}}", { name: session.title })}
-                        >
-                          <Trash2 />
-                        </IconButton>
-                      }
-                      title={ui("Xóa hội thoại?")}
-                      description={ui(
-                        "“{{v1}}” sẽ bị xóa khỏi lịch sử và liên kết chia sẻ. Câu trả lời đang chạy cũng sẽ dừng.",
-                        { v1: session.title },
-                      )}
-                      confirmLabel={ui("Xóa hội thoại")}
-                      pendingLabel={ui("Đang xóa…")}
-                      confirmTone="danger"
-                      errorMessage={actionErrorText}
-                      onConfirm={() =>
-                        act(() =>
-                          deleteChatSession({
-                            path: { sessionId: session.id },
-                            signal: AbortSignal.timeout(30000),
-                          }),
-                        )
-                      }
-                    />
-                  </ItemActions>
-                </Item>
-              </li>
+              <ArchivedSessionRow
+                key={session.id}
+                session={session}
+                restoring={
+                  unarchive.isPending && unarchive.variables?.path.sessionId === session.id
+                }
+                onRestore={() => {
+                  remove.reset();
+                  unarchive.mutate({
+                    path: { sessionId: session.id },
+                    signal: AbortSignal.timeout(30000),
+                  });
+                }}
+                onDelete={async () => {
+                  unarchive.reset();
+                  await remove.mutateAsync({
+                    path: { sessionId: session.id },
+                    signal: AbortSignal.timeout(30000),
+                  });
+                }}
+              />
             ))}
           </ul>
         )}
@@ -231,5 +169,73 @@ export function ChatArchivedSessionsPage() {
         )}
       </div>
     </SettingsLayout>
+  );
+}
+
+function ArchivedSessionRow({
+  session,
+  restoring,
+  onRestore,
+  onDelete,
+}: {
+  session: ChatSession;
+  restoring: boolean;
+  onRestore: () => void;
+  onDelete: () => Promise<void>;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <li className="group border-b border-border-subtle last:border-b-0">
+      <Item variant="default">
+        <ItemContent className="min-w-0">
+          <Link
+            to="/chat/$sessionId"
+            params={{ sessionId: session.id }}
+            className="min-w-0 truncate font-main-ui-action hover:underline"
+          >
+            {session.title}
+          </Link>
+          <ItemDescription>
+            {session.archivedAt
+              ? ui("Đã lưu trữ {{date}}", {
+                  date: new Date(session.archivedAt).toLocaleString(uiLocale(), {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }),
+                })
+              : ""}
+          </ItemDescription>
+        </ItemContent>
+        <ItemActions>
+          <div className={cn("flex items-center gap-1", hoverReveal)}>
+            <Button size="sm" prominence="internal" pending={restoring} onClick={onRestore}>
+              <ArchiveRestore data-icon="inline-start" aria-hidden="true" />
+              {ui("Bỏ lưu trữ")}
+            </Button>
+            <ConfirmDialog
+              trigger={
+                <IconButton
+                  size="sm"
+                  prominence="internal"
+                  aria-label={ui("Xoá hội thoại {{name}}", { name: session.title })}
+                >
+                  <Trash2 />
+                </IconButton>
+              }
+              title={ui("Xóa hội thoại?")}
+              description={ui(
+                "“{{v1}}” sẽ bị xóa khỏi lịch sử và liên kết chia sẻ. Câu trả lời đang chạy cũng sẽ dừng.",
+                { v1: session.title },
+              )}
+              confirmLabel={ui("Xóa hội thoại")}
+              pendingLabel={ui("Đang xóa…")}
+              confirmTone="danger"
+              errorMessage={actionErrorText}
+              onConfirm={onDelete}
+            />
+          </div>
+        </ItemActions>
+      </Item>
+    </li>
   );
 }

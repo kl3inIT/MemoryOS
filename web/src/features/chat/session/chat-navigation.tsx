@@ -1,6 +1,6 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAuiState } from "@assistant-ui/react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Bot,
@@ -14,26 +14,26 @@ import {
 } from "lucide-react";
 import { hoverReveal } from "@/components/composites/hover-reveal";
 import { SortableList } from "@/components/composites/sortable-list";
-import { useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { ThreadList, groupThreadTitles } from "@/components/assistant-ui/elements/thread-list";
-import type { ChatSession } from "@/lib/hey-api/types.gen";
+import type { ChatSession, PersonaView } from "@/lib/hey-api/types.gen";
 import { ChatHistorySearch } from "./chat-history-search";
-import { useApplicationSession } from "@/features/identity/application-session-context";
-import { chatSessionsKey, newChatSession } from "@/features/chat/chat-api";
-import { listChatPersonaPins } from "@/lib/hey-api/sdk.gen";
+import { newChatSession } from "@/features/chat/chat-api";
+import {
+  listChatPersonaPinsOptions,
+  listChatPersonaPinsQueryKey,
+  moveChatProjectMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import { usePinUpdates } from "@/features/agents/agent-pins";
 import { AgentAvatar } from "@/features/agents/agent-avatar";
 import { ChatSessionRow, CHAT_DRAG_TYPE } from "./chat-session-row";
-import { ProjectEditor, ProjectIcon } from "@/features/chat/projects/chat-projects-page";
-import {
-  loadProjects,
-  moveConversation,
-  type Project,
-} from "@/features/chat/projects/chat-projects-api";
-import { personaSchema, type Persona } from "@/features/chat/chat-personas-api";
+import { ProjectEditor } from "@/features/chat/projects/project-editor";
+import { ProjectIcon } from "@/features/chat/projects/project-icon";
+import { projectsOptions, type Project } from "@/features/chat/projects/chat-projects-api";
+import { personaOf, type Persona } from "@/features/chat/chat-personas-api";
 import { actionErrorText } from "@/lib/action-errors";
 import {
   useChatThreads,
@@ -41,6 +41,7 @@ import {
 } from "@/features/chat/runtime/chat-threads-context";
 import { sessionFromThread } from "@/features/chat/runtime/chat-thread-list-adapter";
 import { cn } from "@/lib/utils";
+import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
 export function ChatNavigation({
   collapsed,
@@ -55,13 +56,9 @@ export function ChatNavigation({
   const ui = useAppTranslation();
 
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { actorId, authorizationVersion } = useApplicationSession();
   const threads = useOptionalChatThreads();
   const [creating, setCreating] = useState(false);
-  const projects = useQuery({
-    queryKey: ["chat-projects", actorId, authorizationVersion],
-    queryFn: ({ signal }) => loadProjects(signal),
-  });
+  const projects = useQuery(projectsOptions());
   return (
     <div className="flex h-full min-h-0 flex-col gap-1">
       <SidebarTab
@@ -167,45 +164,35 @@ export function ChatNavigation({
 /** Pinned agents start a new conversation with that agent; drag to reorder, unpin on hover (Onyx sidebar pins). */
 function PinnedAgents({ onNavigate }: { onNavigate?: () => void }) {
   const ui = useAppTranslation();
-  const { actorId, authorizationVersion } = useApplicationSession();
   const cache = useQueryClient();
+  const refreshSessions = useRefreshChatSessions();
   const navigate = useNavigate();
-  const [pending, setPending] = useState<string>();
-  const [error, setError] = useState<string>();
-  const pinsKey = ["chat-persona-pins", actorId, authorizationVersion];
   const updatePins = usePinUpdates();
   const pins = useQuery({
-    queryKey: pinsKey,
-    queryFn: async ({ signal }) =>
-      personaSchema.array().parse((await listChatPersonaPins({ signal })).data),
+    ...listChatPersonaPinsOptions(),
+    select: (views) => views.map(personaOf),
   });
-  if (!pins.data?.length) return null;
-
-  async function savePins(next: Persona[], change: (current: string[]) => string[]) {
-    setError(undefined);
-    cache.setQueryData(pinsKey, next);
-    try {
-      await updatePins(change);
-    } catch (cause) {
-      setError(actionErrorText(cause));
-      await cache.invalidateQueries({ queryKey: ["chat-persona-pins"] });
-    }
-  }
-
-  async function start(agent: Persona) {
-    setPending(agent.id);
-    setError(undefined);
-    try {
-      const session = await newChatSession(agent.name, AbortSignal.timeout(30000), agent.id);
-      await cache.invalidateQueries({ queryKey: chatSessionsKey });
+  const reorder = useMutation({
+    mutationFn: ({ change }: { next: Persona[]; change: (current: string[]) => string[] }) =>
+      updatePins(change),
+    // Shows the new order at once; the cache keeps the views as the API sent them.
+    onMutate: ({ next }) =>
+      cache.setQueryData<PersonaView[]>(listChatPersonaPinsQueryKey(), (views) =>
+        next.flatMap((agent) => views?.filter((view) => view.id === agent.id) ?? []),
+      ),
+    onError: () => cache.invalidateQueries({ queryKey: listChatPersonaPinsQueryKey() }),
+  });
+  const start = useMutation({
+    mutationFn: (agent: Persona) =>
+      newChatSession(agent.name, AbortSignal.timeout(30000), agent.id),
+    onSuccess: async (session) => {
+      await refreshSessions();
       await navigate({ to: "/chat/$sessionId", params: { sessionId: session.id } });
       onNavigate?.();
-    } catch (cause) {
-      setError(actionErrorText(cause));
-    } finally {
-      setPending(undefined);
-    }
-  }
+    },
+  });
+  if (!pins.data?.length) return null;
+  const error = start.error ?? reorder.error;
 
   return (
     <section aria-labelledby="pinned-agents" className="mb-4">
@@ -216,7 +203,9 @@ function PinnedAgents({ onNavigate }: { onNavigate?: () => void }) {
         <SortableList
           items={pins.data}
           getId={(agent) => agent.id}
-          onReorder={(next) => void savePins(next, () => next.map((agent) => agent.id))}
+          onReorder={(next) =>
+            reorder.mutate({ next, change: () => next.map((agent) => agent.id) })
+          }
         >
           {(agent, handle) => (
             <li
@@ -241,27 +230,28 @@ function PinnedAgents({ onNavigate }: { onNavigate?: () => void }) {
               </button>
               <button
                 type="button"
-                disabled={pending !== undefined}
+                disabled={start.isPending}
                 className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pr-8 text-left text-sm disabled:opacity-60"
-                onClick={() => void start(agent)}
+                onClick={() => start.mutate(agent)}
               >
                 <AgentAvatar agent={agent} size="sm" />
                 <span className="min-w-0 flex-1 truncate">{agent.name}</span>
               </button>
-              <IconButton
-                size="sm"
-                prominence="internal"
-                aria-label={ui("Bỏ ghim {{v1}}", { v1: agent.name })}
-                className={cn("absolute right-0.5", hoverReveal)}
-                onClick={() =>
-                  void savePins(
-                    pins.data.filter((item) => item.id !== agent.id),
-                    (current) => current.filter((id) => id !== agent.id),
-                  )
-                }
-              >
-                <PinOff />
-              </IconButton>
+              <span className={cn("absolute right-0.5", hoverReveal)}>
+                <IconButton
+                  size="sm"
+                  prominence="internal"
+                  aria-label={ui("Bỏ ghim {{v1}}", { v1: agent.name })}
+                  onClick={() =>
+                    reorder.mutate({
+                      next: pins.data.filter((item) => item.id !== agent.id),
+                      change: (current) => current.filter((id) => id !== agent.id),
+                    })
+                  }
+                >
+                  <PinOff />
+                </IconButton>
+              </span>
             </li>
           )}
         </SortableList>
@@ -276,7 +266,7 @@ function PinnedAgents({ onNavigate }: { onNavigate?: () => void }) {
       </Link>
       {error && (
         <p role="alert" className="px-2 text-xs text-status-danger-content">
-          {error}
+          {actionErrorText(error)}
         </p>
       )}
     </section>
@@ -371,10 +361,11 @@ function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?:
   const ui = useAppTranslation();
 
   const [over, setOver] = useState(false);
-  const [pending, setPending] = useState(false);
-  const busy = useRef(false);
-  const [error, setError] = useState<string>();
-  const cache = useQueryClient();
+  const refreshSessions = useRefreshChatSessions();
+  const move = useMutation({
+    ...moveChatProjectMutation(),
+    onSuccess: (_moved, { path }) => refreshSessions(path.sessionId),
+  });
   const selected = useRouterState({
     select: (state) => state.location.pathname === `/projects/${project.id}`,
   });
@@ -382,7 +373,7 @@ function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?:
     <div
       data-project-id={project.id}
       onDragOver={(event) => {
-        if (!busy.current && event.dataTransfer.types.includes(CHAT_DRAG_TYPE)) {
+        if (!move.isPending && event.dataTransfer.types.includes(CHAT_DRAG_TYPE)) {
           event.preventDefault();
           event.dataTransfer.dropEffect = "move";
           setOver(true);
@@ -395,23 +386,12 @@ function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?:
         event.preventDefault();
         setOver(false);
         const sessionId = event.dataTransfer.getData(CHAT_DRAG_TYPE);
-        if (!sessionId || busy.current) return;
-        busy.current = true;
-        setPending(true);
-        setError(undefined);
-        void moveConversation(sessionId, project.id)
-          .then(async () => {
-            await Promise.all([
-              cache.invalidateQueries({ queryKey: chatSessionsKey }),
-              cache.invalidateQueries({ queryKey: ["chat-project-sessions"] }),
-              cache.invalidateQueries({ queryKey: ["chat-session", sessionId] }),
-            ]);
-          })
-          .catch((cause: unknown) => setError(actionErrorText(cause)))
-          .finally(() => {
-            busy.current = false;
-            setPending(false);
-          });
+        if (!sessionId || move.isPending) return;
+        move.mutate({
+          path: { sessionId },
+          body: { projectId: project.id },
+          signal: AbortSignal.timeout(30000),
+        });
       }}
     >
       <div
@@ -432,14 +412,14 @@ function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?:
           <span className="truncate">{project.name}</span>
         </Link>
       </div>
-      {pending && (
+      {move.isPending && (
         <p role="status" className="px-3 text-xs">
           {ui("Đang chuyển hội thoại…")}
         </p>
       )}
-      {error && (
+      {move.isError && (
         <p role="alert" className="px-3 text-xs">
-          {ui(error)}
+          {ui(actionErrorText(move.error))}
         </p>
       )}
     </div>

@@ -2,19 +2,17 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
 import { i18n } from "@/i18n/index";
+import {
+  handleListMcpConnections,
+  handleStartMcpConnectionAuthorization,
+} from "@/lib/hey-api/msw.gen";
 import type { McpConnection } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { ChatMcpServers } from "./chat-mcp-options";
 
-const listMcpConnections = vi.fn();
 const startMcpConnectionAuthorization = vi.fn();
-const saveMcpConnectionApiKey = vi.fn();
-
-vi.mock("@/lib/hey-api/sdk.gen", () => ({
-  listMcpConnections: (...args: unknown[]) => listMcpConnections(...args),
-  startMcpConnectionAuthorization: (...args: unknown[]) => startMcpConnectionAuthorization(...args),
-  saveMcpConnectionApiKey: (...args: unknown[]) => saveMcpConnectionApiKey(...args),
-}));
 
 const connection = (overrides: Partial<McpConnection>): McpConnection => ({
   id: "11111111-1111-4111-8111-111111111111",
@@ -34,7 +32,13 @@ const connection = (overrides: Partial<McpConnection>): McpConnection => ({
 });
 
 function show(connections: McpConnection[], onChange = vi.fn(), selected: string[] = []) {
-  listMcpConnections.mockResolvedValue({ data: connections });
+  server.use(
+    handleListMcpConnections({ body: connections }),
+    handleStartMcpConnectionAuthorization(() => {
+      startMcpConnectionAuthorization();
+      return HttpResponse.json({});
+    }),
+  );
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>

@@ -53,7 +53,7 @@ export function ChatModelPicker({
         variant="ghost"
         size="sm"
         disabled={disabled || catalog.isPending || models.length === 0}
-        className="min-w-0 max-w-[min(18rem,50vw)] text-content-secondary"
+        className="min-w-0 max-w-[min(18rem,50vw)]"
       >
         {catalog.isPending
           ? ui("Đang tải mô hình…")

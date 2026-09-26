@@ -2,22 +2,26 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useEffect, useState } from "react";
 import { useMatch, useNavigate, useParams } from "@tanstack/react-router";
 import { useAui } from "@assistant-ui/react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { NativeSelect } from "@/components/ui/native-select";
-import { useApplicationSession } from "@/features/identity/application-session-context";
-import { configureChatSession } from "@/lib/hey-api/sdk.gen";
+import {
+  configureChatSessionMutation,
+  listAvailableChatModelsQueryKey,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { FormDialog } from "@/components/composites/form-dialog";
-import { loadPersonas } from "@/features/chat/chat-personas-api";
-import { loadProjects } from "@/features/chat/projects/chat-projects-api";
+import { personasOptions } from "@/features/chat/chat-personas-api";
+import { projectsOptions } from "@/features/chat/projects/chat-projects-api";
 import { ChatBranchOrigin } from "@/features/chat/thread/chat-branch-action";
 import { ChatSessionFiles } from "./chat-session-files";
 import { ChatSessionMenu } from "./chat-session-menu";
 import { SharingDialog } from "./chat-sharing-dialog";
-import { chatSessionsKey } from "@/features/chat/chat-api";
 import { waitForChatFile } from "@/features/library/files";
 import { composerAttachment } from "@/features/chat/composer/use-composer-file-selection";
+import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
 export function ChatSessionSettings({
   session,
@@ -34,23 +38,7 @@ export function ChatSessionSettings({
   onDelete: () => void;
   onShowMessage?: (messageId: string) => Promise<boolean>;
 }) {
-  const ui = useAppTranslation();
-
-  const { actorId, authorizationVersion } = useApplicationSession();
-  const cache = useQueryClient();
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [personaId, setPersona] = useState("");
-  const [projectId, setProject] = useState("");
-  const personas = useQuery({
-    queryKey: ["chat-personas", actorId, authorizationVersion],
-    queryFn: ({ signal }) => loadPersonas(signal),
-    enabled: settingsOpen,
-  });
-  const projects = useQuery({
-    queryKey: ["chat-projects", actorId, authorizationVersion],
-    queryFn: ({ signal }) => loadProjects(signal),
-    enabled: settingsOpen,
-  });
+  const [configuring, setConfiguring] = useState(false);
   if (!session) return null;
   return (
     <div className="flex shrink-0 items-center gap-1">
@@ -63,86 +51,123 @@ export function ChatSessionSettings({
         onChange={onChange}
         deleteSession={deleteSession}
         onDelete={onDelete}
-        onConfigure={() => {
-          setPersona(session.personaId);
-          setProject(session.projectId ?? "");
-          setSettingsOpen(true);
-        }}
+        onConfigure={() => setConfiguring(true)}
       />
-      {settingsOpen && (
-        <FormDialog
-          open
-          onOpenChange={setSettingsOpen}
-          title={ui("Cấu hình hội thoại")}
-          description={ui("Thay đổi áp dụng cho lượt tiếp theo. Lịch sử đã lưu giữ nguyên.")}
-          submitDisabled={
-            busy ||
-            personas.isFetching ||
-            projects.isFetching ||
-            personas.isError ||
-            projects.isError
-          }
-          onSubmit={async () => {
-            await configureChatSession({
-              path: { sessionId: session.id },
-              body: { personaId, projectId: projectId || null },
-              signal: AbortSignal.timeout(30000),
-            });
-            await onChange();
-            await cache.invalidateQueries({ queryKey: ["chat-models"] });
-            await cache.invalidateQueries({ queryKey: ["chat-project-sessions"] });
-            await cache.invalidateQueries({ queryKey: chatSessionsKey });
-          }}
-        >
-          <label className="block space-y-1">
-            <span>{ui("Trợ lý")}</span>
-            <NativeSelect value={personaId} onChange={(e) => setPersona(e.target.value)}>
-              {personas.data?.map((persona) => (
-                <option key={persona.id} value={persona.id}>
-                  {persona.name}
-                </option>
-              ))}
-              {personas.isPending && <option value={personaId}>{ui("Đang tải trợ lý…")}</option>}
-              {personas.data && !personas.data.some((p) => p.id === personaId) && (
-                <option value={personaId}>{ui("Trợ lý không còn khả dụng")}</option>
-              )}
-            </NativeSelect>
-          </label>
-          <label className="block space-y-1">
-            <span>{ui("Dự án")}</span>
-            <NativeSelect value={projectId} onChange={(e) => setProject(e.target.value)}>
-              <option value="">{ui("Ngoài dự án")}</option>
-              {projects.data?.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-              {projectId && projects.isPending && (
-                <option value={projectId}>{ui("Đang tải dự án…")}</option>
-              )}
-              {projectId && projects.data && !projects.data.some((p) => p.id === projectId) && (
-                <option value={projectId}>{ui("Dự án không còn khả dụng")}</option>
-              )}
-            </NativeSelect>
-          </label>
-          {(personas.isError || projects.isError) && (
-            <p role="alert">
-              {ui("Không tải đủ cấu hình.")}{" "}
-              <Button
-                type="button"
-                prominence="internal"
-                onClick={() => {
-                  void personas.refetch();
-                  void projects.refetch();
-                }}
-              >
-                {ui("Tải lại")}
-              </Button>
-            </p>
-          )}
-        </FormDialog>
+      {configuring && (
+        <ChatSessionConfigureDialog
+          session={session}
+          busy={busy}
+          onChange={onChange}
+          onClose={() => setConfiguring(false)}
+        />
       )}
     </div>
+  );
+}
+
+/** Moves a conversation to another agent or Project; the change applies from the next turn. */
+function ChatSessionConfigureDialog({
+  session,
+  busy,
+  onChange,
+  onClose,
+}: {
+  session: ChatSession;
+  busy: boolean;
+  onChange: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const ui = useAppTranslation();
+  const cache = useQueryClient();
+  const refreshSessions = useRefreshChatSessions();
+  const [personaId, setPersona] = useState(session.personaId);
+  const [projectId, setProject] = useState(session.projectId ?? "");
+  const personas = useQuery(personasOptions());
+  const projects = useQuery(projectsOptions());
+  const configure = useMutation(configureChatSessionMutation());
+  return (
+    <FormDialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      title={ui("Cấu hình hội thoại")}
+      description={ui("Thay đổi áp dụng cho lượt tiếp theo. Lịch sử đã lưu giữ nguyên.")}
+      submitDisabled={
+        busy || personas.isFetching || projects.isFetching || personas.isError || projects.isError
+      }
+      onSubmit={async () => {
+        await configure.mutateAsync({
+          path: { sessionId: session.id },
+          body: { personaId, projectId: projectId || null },
+          signal: AbortSignal.timeout(30000),
+        });
+        await onChange();
+        // The agent decides which models the conversation may use.
+        await cache.invalidateQueries({ queryKey: listAvailableChatModelsQueryKey() });
+        await refreshSessions(session.id);
+      }}
+    >
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor="chat-session-agent">{ui("Trợ lý")}</FieldLabel>
+          <NativeSelect
+            id="chat-session-agent"
+            value={personaId}
+            onChange={(e) => setPersona(e.target.value)}
+          >
+            {personas.data?.map((persona) => (
+              <option key={persona.id} value={persona.id}>
+                {persona.name}
+              </option>
+            ))}
+            {personas.isPending && <option value={personaId}>{ui("Đang tải trợ lý…")}</option>}
+            {personas.data && !personas.data.some((p) => p.id === personaId) && (
+              <option value={personaId}>{ui("Trợ lý không còn khả dụng")}</option>
+            )}
+          </NativeSelect>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="chat-session-project">{ui("Dự án")}</FieldLabel>
+          <NativeSelect
+            id="chat-session-project"
+            value={projectId}
+            onChange={(e) => setProject(e.target.value)}
+          >
+            <option value="">{ui("Ngoài dự án")}</option>
+            {projects.data?.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+            {projectId && projects.isPending && (
+              <option value={projectId}>{ui("Đang tải dự án…")}</option>
+            )}
+            {projectId && projects.data && !projects.data.some((p) => p.id === projectId) && (
+              <option value={projectId}>{ui("Dự án không còn khả dụng")}</option>
+            )}
+          </NativeSelect>
+        </Field>
+      </FieldGroup>
+      {(personas.isError || projects.isError) && (
+        <Alert variant="destructive">
+          <AlertDescription>{ui("Không tải đủ cấu hình.")}</AlertDescription>
+          <AlertAction>
+            <Button
+              type="button"
+              size="sm"
+              prominence="internal"
+              onClick={() => {
+                void personas.refetch();
+                void projects.refetch();
+              }}
+            >
+              {ui("Tải lại")}
+            </Button>
+          </AlertAction>
+        </Alert>
+      )}
+    </FormDialog>
   );
 }
 
@@ -156,11 +181,7 @@ export function ChatStarterPrompts({
   disabled: boolean;
 }) {
   const aui = useAui();
-  const { actorId, authorizationVersion } = useApplicationSession();
-  const personas = useQuery({
-    queryKey: ["chat-personas", actorId, authorizationVersion],
-    queryFn: ({ signal }) => loadPersonas(signal),
-  });
+  const personas = useQuery(personasOptions());
   const persona = personaId
     ? personas.data?.find((p) => p.id === personaId)
     : personas.data?.find((p) => p.builtin);

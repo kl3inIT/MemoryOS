@@ -102,7 +102,7 @@ export function ChatTemporaryBadge({ temporary }: { temporary: boolean }) {
   const ui = useAppTranslation();
   if (!temporary) return null;
   return (
-    <Badge variant="secondary" className="gap-1">
+    <Badge variant="secondary">
       <EyeOff aria-hidden="true" />
       {ui("Tạm thời")}
     </Badge>

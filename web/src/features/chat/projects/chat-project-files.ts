@@ -1,7 +1,7 @@
 import { getChatProject, updateChatProject } from "@/lib/hey-api/sdk.gen";
 import { libraryUpload, type LibraryFile } from "@/features/library/library";
 import type { ChatFile } from "@/features/library/files";
-import { projectSchema } from "@/features/chat/projects/chat-projects-api";
+import { projectOf } from "@/features/chat/projects/chat-projects-api";
 
 /** A Project admits at most this many files, as a message does. */
 export const PROJECT_FILE_LIMIT = 20;
@@ -38,7 +38,7 @@ async function changeProjectFiles(
   signal: AbortSignal,
   change: (current: string[]) => string[],
 ) {
-  const project = projectSchema.parse((await getChatProject({ path: { projectId }, signal })).data);
+  const project = projectOf((await getChatProject({ path: { projectId }, signal })).data);
   const fileIds = change(project.fileIds);
   if (fileIds.length > PROJECT_FILE_LIMIT) throw new ProjectFull();
   await updateChatProject({

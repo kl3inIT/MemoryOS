@@ -1,83 +1,23 @@
-import { Alert, AlertTitle } from "@/components/ui/alert";
-import { useState, type ReactNode } from "react";
-import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Cpu, Globe, MessagesSquare, Settings2, Telescope } from "lucide-react";
-import { Dialog } from "radix-ui";
-import { Switch } from "@/components/ui/switch";
-import { SettingsLayout, PageHeader } from "@/components/composites/settings-layout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { useApplicationSession } from "@/features/identity/application-session-context";
-import {
-  getChatSettings,
-  listChatProviderAdapters,
-  listChatProviders,
-  listChatWebConnections,
-  listChatWebEngines,
-  listConfiguredChatModels,
-  saveChatHistoryVisibility,
-  saveChatSettings,
-  saveChatWebConnection,
-  selectChatWebProvider,
-  testChatWebConnection,
-  updateChatModel,
-} from "@/lib/hey-api/sdk.gen";
-import type {
-  ChatHistoryVisibilityRequest,
-  Model,
-  WebConnectionResponse,
-} from "@/lib/hey-api/types.gen";
-
-type ChatHistoryVisibility = ChatHistoryVisibilityRequest["visibility"];
-import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
-import { useProblemMessage } from "@/lib/use-problem-message";
-import type { AppCopy } from "@/i18n/app-text";
-import { useAppTranslation } from "@/i18n/use-app-translation";
+import { Globe } from "lucide-react";
+import { ConnectionStatusBadge } from "@/components/composites/connection-form";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { ProviderCard } from "@/components/provider-logos/provider-card";
-import { ProviderLogo } from "@/components/provider-logos/provider-logo";
-import { hasProviderMark } from "@/components/provider-logos/provider-marks";
+import { Alert, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { useApplicationSession } from "@/features/identity/application-session-context";
+import { useAppTranslation } from "@/i18n/use-app-translation";
+import { useProblemMessage } from "@/lib/use-problem-message";
+import {
+  ConversationHistorySection,
+  DeepResearchSection,
+  NativeSearchSection,
+  WebNotice,
+  WebSection,
+} from "./chat-web-sections";
+import { useWebConnections, webProblem, type WebProvider } from "./use-web-connections";
+import { WebConnectionCard } from "./web-connection-card";
 
-const webProblem = (error: unknown): ErrorMessage =>
-  presentProblem(error, "mutation", {
-    CHAT_PROVIDER_UNAVAILABLE: { key: "webProviderUnavailable" },
-  }).message;
-
-const providers = [
-  "BRAVE",
-  "TAVILY",
-  "EXA",
-  "SERPER",
-  "GOOGLE_PSE",
-  "SEARXNG",
-  "NINEROUTER",
-  "FIRECRAWL",
-] as const;
-const names = {
-  BRAVE: "Brave",
-  TAVILY: "Tavily",
-  EXA: "Exa",
-  SERPER: "Serper",
-  GOOGLE_PSE: "Google PSE",
-  SEARXNG: "SearXNG",
-  NINEROUTER: "9Router",
-  FIRECRAWL: "Firecrawl",
-};
-type Provider = (typeof providers)[number];
-const providerDetails = {
-  BRAVE: { description: "brave.com", endpoint: "https://api.search.brave.com" },
-  TAVILY: { description: "tavily.com", endpoint: "https://api.tavily.com" },
-  EXA: { description: "exa.ai", endpoint: "https://api.exa.ai" },
-  SERPER: { description: "serper.dev", endpoint: "https://google.serper.dev" },
-  GOOGLE_PSE: {
-    description: "programmablesearchengine.google.com",
-    endpoint: "https://customsearch.googleapis.com",
-  },
-  SEARXNG: { description: "searxng.org", endpoint: "" },
-  NINEROUTER: { description: "9router.com", endpoint: "" },
-  FIRECRAWL: { description: "firecrawl.dev", endpoint: "https://api.firecrawl.dev" },
-};
-const searchProviders: Provider[] = [
+const searchProviders: WebProvider[] = [
   "EXA",
   "SERPER",
   "BRAVE",
@@ -86,75 +26,37 @@ const searchProviders: Provider[] = [
   "NINEROUTER",
   "TAVILY",
 ];
-const readerProviders: Provider[] = ["FIRECRAWL", "EXA", "TAVILY"];
-const notice =
-  "rounded-xl border border-border-default bg-surface-sunken px-4 py-3 text-sm text-content-secondary";
+const readerProviders: WebProvider[] = ["FIRECRAWL", "EXA", "TAVILY"];
 
-function InUseBadge({ children }: { children: ReactNode }) {
-  return (
-    <StatusBadge tone="success" className="gap-1">
-      <CheckCircle2 className="size-3.5" aria-hidden="true" />
-      {children}
-    </StatusBadge>
-  );
-}
-
+/** The Web search administration: the search engine and page reader in use and how Chat reaches the Web. */
 export function ChatWebSettings() {
   const ui = useAppTranslation();
-  const session = useApplicationSession();
-  const manager = session.capabilities.includes("MODELS_MANAGE");
-  const cache = useQueryClient();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<ErrorMessage>();
+  const manager = useApplicationSession().capabilities.includes("MODELS_MANAGE");
   const problemMessage = useProblemMessage();
-  const query = useQuery({
-    queryKey: ["web-connections", session.actorId, session.authorizationVersion],
-    enabled: manager,
-    queryFn: async ({ signal }) => (await listChatWebConnections({ signal })).data,
-    retry: false,
-  });
-  async function changed() {
-    await Promise.all([
-      query.refetch(),
-      cache.invalidateQueries({ queryKey: ["chat-web"] }),
-      cache.invalidateQueries({ queryKey: ["chat-provider-models"] }),
-    ]);
-  }
-  async function select(search: boolean, provider: Provider | null) {
-    setPending(true);
-    setError(undefined);
-    try {
-      await selectChatWebProvider({
-        body: { search, provider: provider ?? undefined },
-      });
-      await changed();
-    } catch (failed) {
-      setError(webProblem(failed));
-    } finally {
-      setPending(false);
-    }
-  }
-  function card(provider: Provider, search: boolean) {
-    const connection = query.data?.find((c) => c.provider === provider);
-    return (
-      <ConnectionCard
-        key={`${provider}:${connection?.revision ?? "new"}`}
-        provider={provider}
-        search={search}
-        connection={connection}
-        disabled={pending}
-        onChanged={changed}
-        onSelect={select}
-      />
-    );
-  }
+  const { connections, select } = useWebConnections(manager);
   if (!manager)
     return (
       <p role="alert" className="p-6">
         {ui("Bạn không có quyền quản lý mô hình.")}
       </p>
     );
-  const builtInReader = !query.data?.some((c) => c.contentActive);
+  const choose = (search: boolean, provider: WebProvider | null) =>
+    select.mutate({ body: { search, provider: provider ?? undefined } });
+  const card = (provider: WebProvider, search: boolean) => {
+    const connection = connections.data?.find((candidate) => candidate.provider === provider);
+    return (
+      <WebConnectionCard
+        key={`${provider}:${connection?.revision ?? "new"}`}
+        provider={provider}
+        search={search}
+        connection={connection}
+        disabled={select.isPending}
+        onSelect={choose}
+      />
+    );
+  };
+  const searchActive = connections.data?.some((connection) => connection.searchActive) ?? false;
+  const builtInReader = !connections.data?.some((connection) => connection.contentActive);
   return (
     <SettingsLayout>
       <PageHeader
@@ -162,36 +64,36 @@ export function ChatWebSettings() {
         icon={<Globe />}
         description={ui("Cài đặt tìm kiếm bên ngoài trên internet.")}
       />
-      {query.isError ? (
-        <div role="alert">
-          <p>{ui("Không tải được kết nối Web.")}</p>
-          <Button onClick={() => void query.refetch()}>{ui("Tải lại")}</Button>
-        </div>
-      ) : query.isPending ? (
+      {connections.isError ? (
+        <Alert variant="destructive">
+          <AlertTitle>{ui("Không tải được kết nối Web.")}</AlertTitle>
+          <div>
+            <Button onClick={() => void connections.refetch()}>{ui("Tải lại")}</Button>
+          </div>
+        </Alert>
+      ) : connections.isPending ? (
         <p role="status">{ui("Đang tải…")}</p>
       ) : (
-        <>
-          <section aria-label={ui("Công cụ tìm kiếm")} className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold">{ui("Công cụ tìm kiếm")}</h2>
+        <div className="flex flex-col gap-8">
+          <WebSection
+            title={ui("Công cụ tìm kiếm")}
+            action={
               <Button
                 size="sm"
                 prominence="secondary"
-                disabled={pending || !query.data?.some((c) => c.searchActive)}
-                onClick={() => void select(true, null)}
+                disabled={select.isPending || !searchActive}
+                onClick={() => choose(true, null)}
               >
                 {ui("Tắt công cụ tìm kiếm")}
               </Button>
-            </div>
-            {!query.data?.some((c) => c.searchActive) && (
-              <p className={notice}>{ui("Chọn một công cụ tìm kiếm để bật tìm kiếm Web.")}</p>
+            }
+          >
+            {!searchActive && (
+              <WebNotice>{ui("Chọn một công cụ tìm kiếm để bật tìm kiếm Web.")}</WebNotice>
             )}
-            <div className="space-y-3">
-              {searchProviders.map((provider) => card(provider, true))}
-            </div>
-          </section>
-          <section aria-label={ui("Trình đọc trang Web")} className="mt-8 space-y-3">
-            <h2 className="text-lg font-semibold">{ui("Trình đọc trang Web")}</h2>
+            {searchProviders.map((provider) => card(provider, true))}
+          </WebSection>
+          <WebSection title={ui("Trình đọc trang Web")}>
             <ProviderCard
               logo={<Globe />}
               name={ui("Trình đọc MemoryOS")}
@@ -199,13 +101,13 @@ export function ChatWebSettings() {
               selected={builtInReader}
               actions={
                 builtInReader ? (
-                  <InUseBadge>{ui("Đang dùng")}</InUseBadge>
+                  <ConnectionStatusBadge>{ui("Đang dùng")}</ConnectionStatusBadge>
                 ) : (
                   <Button
                     size="sm"
                     prominence="secondary"
-                    disabled={pending}
-                    onClick={() => void select(false, null)}
+                    disabled={select.isPending}
+                    onClick={() => choose(false, null)}
                   >
                     {ui("Dùng trình đọc tích hợp")}
                   </Button>
@@ -213,582 +115,17 @@ export function ChatWebSettings() {
               }
             />
             {readerProviders.map((provider) => card(provider, false))}
-          </section>
-          <NativeSearchSection onChanged={changed} />
+          </WebSection>
+          <NativeSearchSection />
           <DeepResearchSection />
           <ConversationHistorySection />
-        </>
-      )}
-      {error && (
-        <p role="alert" className="mt-4 text-sm text-status-danger-content">
-          {problemMessage(error)}
-        </p>
-      )}
-    </SettingsLayout>
-  );
-}
-
-function ConnectionCard({
-  provider,
-  search,
-  connection,
-  disabled,
-  onChanged,
-  onSelect,
-}: {
-  provider: Provider;
-  search: boolean;
-  connection?: WebConnectionResponse;
-  disabled: boolean;
-  onChanged: () => Promise<void>;
-  onSelect: (search: boolean, provider: Provider) => Promise<void>;
-}) {
-  const ui = useAppTranslation();
-  const problemMessage = useProblemMessage();
-  const [open, setOpen] = useState(false);
-  const [key, setKey] = useState("");
-  const [endpoint, setEndpoint] = useState(connection?.endpoint ?? "");
-  const [engineId, setEngineId] = useState(connection?.engineId ?? "");
-  const [pending, setPending] = useState(false);
-  const [saveError, setSaveError] = useState<ErrorMessage>();
-  const [testError, setTestError] = useState<ErrorMessage>();
-  const [tested, setTested] = useState(false);
-  // 9Router lists its connected search engines; the field stays free text for anything it does not report.
-  const [engines, setEngines] = useState<string[]>();
-  const [enginesError, setEnginesError] = useState<ErrorMessage>();
-  async function loadEngines() {
-    setPending(true);
-    setEnginesError(undefined);
-    try {
-      const { data } = await listChatWebEngines({
-        path: { provider },
-        body: { endpoint, key: key || null },
-      });
-      setEngines(data.engines);
-      if (!engineId && data.engines.length === 1) setEngineId(data.engines[0]!);
-    } catch (failed) {
-      setEngines(undefined);
-      setEnginesError(webProblem(failed));
-    } finally {
-      setPending(false);
-    }
-  }
-  function changeOpen(next: boolean) {
-    if (pending) return;
-    if (!next) {
-      setSaveError(undefined);
-      setTestError(undefined);
-      setTested(false);
-      setKey("");
-    }
-    setOpen(next);
-  }
-  const active = search ? connection?.searchActive : connection?.contentActive;
-  const configured = !!connection && (provider === "SEARXNG" || connection.credentialConfigured);
-  async function save() {
-    setPending(true);
-    setSaveError(undefined);
-    setTestError(undefined);
-    setTested(false);
-    try {
-      await saveChatWebConnection({
-        path: { provider },
-        body: {
-          endpoint,
-          engineId,
-          revision: connection?.revision ?? 0,
-          credentialAction: key ? "REPLACE" : "KEEP",
-          credentialValue: key || undefined,
-        },
-      });
-      setKey("");
-      await onChanged();
-      setOpen(false);
-    } catch (failed) {
-      setSaveError(webProblem(failed));
-    } finally {
-      setPending(false);
-    }
-  }
-  async function test(search: boolean) {
-    setPending(true);
-    setSaveError(undefined);
-    setTestError(undefined);
-    setTested(false);
-    try {
-      await testChatWebConnection({
-        path: { provider },
-        body: { search },
-      });
-      setTested(true);
-    } catch (failed) {
-      setTestError(webProblem(failed));
-    } finally {
-      setPending(false);
-    }
-  }
-  return (
-    <ProviderCard
-      as="section"
-      aria-label={names[provider]}
-      logo={<ProviderLogo mark={provider} />}
-      name={names[provider]}
-      description={providerDetails[provider].description}
-      selected={!!active}
-      actions={
-        <>
-          {active ? (
-            <InUseBadge>{ui("Đang dùng")}</InUseBadge>
-          ) : configured ? (
-            <InUseBadge>{ui("Đã kết nối")}</InUseBadge>
-          ) : null}
-          {configured && !active && (
-            <Button
-              size="sm"
-              prominence="secondary"
-              disabled={disabled || pending}
-              onClick={() => void onSelect(search, provider)}
-            >
-              {ui("Đặt làm mặc định")}
-            </Button>
-          )}
-          {configured ? (
-            <Button
-              size="sm"
-              prominence="tertiary"
-              disabled={disabled || pending}
-              onClick={() => setOpen(true)}
-            >
-              <Settings2 aria-hidden="true" /> {ui("Cấu hình")}
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              prominence="secondary"
-              disabled={disabled || pending}
-              onClick={() => setOpen(true)}
-            >
-              {ui("Kết nối")}
-            </Button>
-          )}
-        </>
-      }
-    >
-      <Dialog.Root open={open} onOpenChange={changeOpen}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px]" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border-default bg-surface-overlay p-6 shadow-md outline-none">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void save();
-              }}
-            >
-              <Dialog.Title className="text-xl font-semibold">{names[provider]}</Dialog.Title>
-              <Dialog.Description className="mt-2 text-sm text-content-secondary">
-                {providerDetails[provider].description}
-              </Dialog.Description>
-              <fieldset disabled={disabled || pending} className="mt-5 space-y-4">
-                <label className="block space-y-1">
-                  <span>
-                    {provider === "SEARXNG"
-                      ? ui("Địa chỉ SearXNG")
-                      : provider === "NINEROUTER"
-                        ? ui("Địa chỉ 9Router")
-                        : ui("Địa chỉ tùy chỉnh (để trống dùng mặc định)")}
-                  </span>
-                  <Input
-                    value={endpoint}
-                    onChange={(e) => setEndpoint(e.target.value)}
-                    required={provider === "SEARXNG" || provider === "NINEROUTER"}
-                    maxLength={2048}
-                    placeholder={
-                      provider === "NINEROUTER"
-                        ? "https://9router.example.com/v1"
-                        : providerDetails[provider].endpoint || "https://searx.example.com"
-                    }
-                  />
-                </label>
-                {provider === "GOOGLE_PSE" && (
-                  <label className="block space-y-1">
-                    <span>{ui("Mã công cụ tìm kiếm")}</span>
-                    <Input
-                      value={engineId}
-                      onChange={(e) => setEngineId(e.target.value)}
-                      required
-                      maxLength={200}
-                    />
-                  </label>
-                )}
-                {provider === "NINEROUTER" && (
-                  <div className="space-y-1">
-                    <label className="block space-y-1">
-                      <span>{ui("Engine tìm kiếm")}</span>
-                      <div className="flex gap-2">
-                        <Input
-                          value={engineId}
-                          onChange={(e) => setEngineId(e.target.value)}
-                          required
-                          maxLength={200}
-                          list="nine-router-engines"
-                          className="min-w-0 flex-1"
-                        />
-                        <Button
-                          type="button"
-                          prominence="secondary"
-                          disabled={pending || !endpoint.trim()}
-                          onClick={() => void loadEngines()}
-                        >
-                          {ui("Lấy danh sách")}
-                        </Button>
-                      </div>
-                    </label>
-                    <datalist id="nine-router-engines">
-                      {engines?.map((engine) => (
-                        <option key={engine} value={engine} />
-                      ))}
-                    </datalist>
-                    {engines && (
-                      <p role="status" className="text-xs text-content-muted">
-                        {engines.length > 0
-                          ? ui("9Router có {{count}} engine: {{names}}", {
-                              count: engines.length,
-                              names: engines.slice(0, 6).join(", "),
-                            })
-                          : ui(
-                              "9Router chưa kết nối engine tìm kiếm nào. Thêm provider tìm kiếm trong 9Router rồi thử lại.",
-                            )}
-                      </p>
-                    )}
-                    {enginesError && (
-                      <p role="alert" className="text-xs text-status-danger-content">
-                        {problemMessage(enginesError)}
-                      </p>
-                    )}
-                  </div>
-                )}
-                <label className="block space-y-1">
-                  <span>{ui("Khóa API")}</span>
-                  <Input
-                    type="password"
-                    autoComplete="new-password"
-                    value={key}
-                    maxLength={8192}
-                    onChange={(e) => setKey(e.target.value)}
-                    placeholder={
-                      connection?.credentialConfigured
-                        ? ui("Đã lưu khóa; để trống để giữ nguyên")
-                        : ""
-                    }
-                  />
-                </label>
-              </fieldset>
-              {tested && (
-                <Alert variant="success" role="status" className="mt-4">
-                  <CheckCircle2 aria-hidden="true" />
-                  <AlertTitle>{ui("Kiểm tra kết nối thành công")}</AlertTitle>
-                </Alert>
-              )}
-              {(saveError || testError) && (
-                <p role="alert" className="mt-4 text-sm text-status-danger-content">
-                  {problemMessage(saveError ?? testError!)}
-                </p>
-              )}
-              <div className="mt-6 flex justify-end gap-2">
-                {configured && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    prominence="internal"
-                    disabled={disabled || pending}
-                    onClick={() => void test(search)}
-                  >
-                    {ui("Kiểm tra kết nối")}
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  size="sm"
-                  prominence="secondary"
-                  disabled={pending}
-                  onClick={() => changeOpen(false)}
-                >
-                  {ui("Đóng")}
-                </Button>
-                <Button type="submit" size="sm" pending={pending} disabled={disabled}>
-                  {ui("Lưu")}
-                </Button>
-              </div>
-            </form>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
-    </ProviderCard>
-  );
-}
-
-/** As Onyx Chat Preferences: Deep research is offered in the composer while enabled, and is enabled until changed. */
-/**
- * Who may read other people's conversations (MEM-125). "Hide who asked" hides the name and the e-mail and nothing
- * else — a question often names its author — so the screen says that rather than promising anonymity.
- */
-function ConversationHistorySection() {
-  const ui = useAppTranslation();
-  const problemMessage = useProblemMessage();
-  const session = useApplicationSession();
-  const cache = useQueryClient();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<ErrorMessage>();
-  const settings = useQuery({
-    queryKey: ["chat-settings", session.actorId, session.authorizationVersion],
-    queryFn: async ({ signal }) => (await getChatSettings({ signal })).data,
-    retry: false,
-  });
-  async function choose(visibility: ChatHistoryVisibility) {
-    if (!settings.data) return;
-    setPending(true);
-    setError(undefined);
-    try {
-      await saveChatHistoryVisibility({
-        body: { visibility, revision: settings.data.revision },
-      });
-      await cache.invalidateQueries({ queryKey: ["chat-settings"] });
-    } catch (failed) {
-      setError(presentProblem(failed, "mutation").message);
-    } finally {
-      setPending(false);
-    }
-  }
-  if (settings.isPending) return null;
-  const modes: { value: ChatHistoryVisibility; label: AppCopy; detail: AppCopy }[] = [
-    {
-      value: "NORMAL",
-      label: "Show who asked",
-      detail: "A reader sees the name and e-mail of the person who asked.",
-    },
-    {
-      value: "ANONYMIZED",
-      label: "Hide who asked",
-      detail:
-        "The name and e-mail are hidden; the questions and answers are not. A question often names its author.",
-    },
-    {
-      value: "DISABLED",
-      label: "Nobody reads other people's conversations",
-      detail: "Conversations are still recorded; this screen and its export are refused.",
-    },
-  ];
-  return (
-    <section aria-label={ui("Conversation history")} className="mt-8 space-y-3">
-      <h2 className="text-lg font-semibold">{ui("Conversation history")}</h2>
-      <p className="text-content-muted">
-        {ui(
-          "Who may read the organization's questions and answers. Opening a conversation is recorded in the audit log.",
-        )}
-      </p>
-      {settings.isError ? (
-        <p role="alert">{ui("Không tải được cài đặt Chat.")}</p>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {modes.map((mode) => (
-            <ProviderCard
-              key={mode.value}
-              logo={<MessagesSquare />}
-              name={ui(mode.label)}
-              description={ui(mode.detail)}
-              selected={settings.data.chatHistoryVisibility === mode.value}
-              actions={
-                <Switch
-                  checked={settings.data.chatHistoryVisibility === mode.value}
-                  disabled={pending}
-                  aria-label={ui(mode.label)}
-                  onCheckedChange={(checked) => (checked ? void choose(mode.value) : undefined)}
-                />
-              }
-            />
-          ))}
         </div>
       )}
-      {error && (
-        <p role="alert" className="text-sm text-status-danger-content">
-          {problemMessage(error)}
-        </p>
-      )}
-    </section>
-  );
-}
-
-function DeepResearchSection() {
-  const ui = useAppTranslation();
-  const problemMessage = useProblemMessage();
-  const session = useApplicationSession();
-  const cache = useQueryClient();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<ErrorMessage>();
-  const settings = useQuery({
-    queryKey: ["chat-settings", session.actorId, session.authorizationVersion],
-    queryFn: async ({ signal }) => (await getChatSettings({ signal })).data,
-    retry: false,
-  });
-  async function toggle(enabled: boolean) {
-    if (!settings.data) return;
-    setPending(true);
-    setError(undefined);
-    try {
-      await saveChatSettings({
-        body: { deepResearchEnabled: enabled, revision: settings.data.revision },
-      });
-      await cache.invalidateQueries({ queryKey: ["chat-settings"] });
-    } catch (failed) {
-      setError(presentProblem(failed, "mutation").message);
-    } finally {
-      setPending(false);
-    }
-  }
-  if (settings.isPending) return null;
-  return (
-    <section aria-label={ui("Deep Research")} className="mt-8 space-y-3">
-      <h2 className="text-lg font-semibold">{ui("Deep Research")}</h2>
-      {settings.isError ? (
-        <p role="alert">{ui("Không tải được cài đặt Chat.")}</p>
-      ) : (
-        <ProviderCard
-          logo={<Telescope />}
-          name={ui("Deep Research")}
-          description={ui(
-            "Hệ thống nghiên cứu tự động trên Web và các nguồn đã kết nối. Dùng nhiều token hơn đáng kể cho mỗi câu hỏi.",
-          )}
-          selected={settings.data.deepResearchEnabled}
-          actions={
-            <Switch
-              checked={settings.data.deepResearchEnabled}
-              disabled={pending}
-              aria-label={ui("Bật Deep Research")}
-              onCheckedChange={(checked) => void toggle(checked)}
-            />
-          }
-        />
-      )}
-      {error && (
-        <p role="alert" className="text-sm text-status-danger-content">
-          {problemMessage(error)}
-        </p>
-      )}
-    </section>
-  );
-}
-
-/** Provider-hosted search is a per-model option on adapters that support it; it reuses the model's own credential. */
-function NativeSearchSection({ onChanged }: { onChanged: () => Promise<void> }) {
-  const ui = useAppTranslation();
-  const problemMessage = useProblemMessage();
-  const session = useApplicationSession();
-  const [pending, setPending] = useState<string>();
-  const [error, setError] = useState<ErrorMessage>();
-  const adapters = useQuery({
-    queryKey: ["chat-provider-adapters", session.actorId, session.authorizationVersion],
-    queryFn: async ({ signal }) => (await listChatProviderAdapters({ signal })).data,
-    retry: false,
-  });
-  const providers = useQuery({
-    queryKey: ["chat-providers", session.actorId, session.authorizationVersion],
-    queryFn: async ({ signal }) => (await listChatProviders({ signal })).data,
-    retry: false,
-  });
-  const nativeProviders = (providers.data ?? []).filter((provider) =>
-    adapters.data?.some(
-      (adapter) => adapter.type === provider.adapterType && adapter.nativeWebSearch,
-    ),
-  );
-  const models = useQueries({
-    queries: nativeProviders.map((provider) => ({
-      queryKey: ["chat-provider-models", provider.id, provider.revision],
-      queryFn: async ({ signal }: { signal: AbortSignal }) =>
-        (
-          await listConfiguredChatModels({
-            path: { providerId: provider.id! },
-            signal,
-          })
-        ).data,
-      retry: false,
-    })),
-  });
-  const rows = nativeProviders.flatMap((provider, index) =>
-    (models[index]?.data ?? []).map((model) => ({ provider, model })),
-  );
-  async function toggle(model: Model, enable: boolean) {
-    if (!model.id || model.revision === undefined || !model.settings) return;
-    setPending(model.id);
-    setError(undefined);
-    try {
-      const options = { ...(model.settings.options ?? {}) };
-      if (enable) options.webSearch = "native";
-      else delete options.webSearch;
-      await updateChatModel({
-        path: { modelId: model.id },
-        query: { revision: model.revision },
-        body: {
-          modelName: model.modelName,
-          displayName: model.displayName,
-          visible: model.visible,
-          settings: { ...model.settings, options },
-        },
-      });
-      await onChanged();
-    } catch (failed) {
-      setError(webProblem(failed));
-    } finally {
-      setPending(undefined);
-    }
-  }
-  if (adapters.isPending || providers.isPending) return null;
-  if (nativeProviders.length === 0) return null;
-  return (
-    <section aria-label={ui("Tìm kiếm của nhà cung cấp mô hình")} className="mt-8 space-y-3">
-      <h2 className="text-lg font-semibold">{ui("Tìm kiếm của nhà cung cấp mô hình")}</h2>
-      {rows.length === 0 ? (
-        <p className={notice}>{ui("Chưa có mô hình nào trên nhà cung cấp hỗ trợ tìm kiếm.")}</p>
-      ) : (
-        <ul className="space-y-3">
-          {rows.map(({ provider, model }) => {
-            const enabled = model.settings?.options?.webSearch === "native";
-            const toolCalling = !!model.settings?.capabilities?.toolCalling;
-            const adapter = (provider.adapterType ?? "").toUpperCase();
-            const mark = hasProviderMark(adapter) ? adapter : undefined;
-            return (
-              <ProviderCard
-                key={model.id}
-                as="li"
-                logo={mark ? <ProviderLogo mark={mark} /> : <Cpu />}
-                name={model.displayName || model.modelName}
-                description={provider.name}
-                selected={enabled}
-                actions={
-                  <>
-                    {enabled && <InUseBadge>{ui("Đang dùng")}</InUseBadge>}
-                    {!toolCalling && (
-                      <StatusBadge tone="neutral">{ui("Không hỗ trợ công cụ")}</StatusBadge>
-                    )}
-                    <Switch
-                      checked={enabled}
-                      disabled={!toolCalling || pending !== undefined}
-                      aria-label={ui("Tìm kiếm Web của nhà cung cấp cho {{name}}", {
-                        name: model.displayName || model.modelName,
-                      })}
-                      onCheckedChange={(checked) => void toggle(model, checked)}
-                    />
-                  </>
-                }
-              />
-            );
-          })}
-        </ul>
-      )}
-      {error && (
-        <p role="alert" className="text-sm text-status-danger-content">
-          {problemMessage(error)}
-        </p>
-      )}
-    </section>
+      {select.error ? (
+        <Alert variant="destructive">
+          <AlertTitle>{problemMessage(webProblem(select.error))}</AlertTitle>
+        </Alert>
+      ) : null}
+    </SettingsLayout>
   );
 }

@@ -2,17 +2,16 @@ import { useChat } from "@ai-sdk/react";
 import { useAISDKRuntime } from "@assistant-ui/ai-sdk";
 import {
   AssistantRuntimeProvider,
-  type AssistantRuntime,
   useAuiState,
   useRemoteThreadListRuntime,
 } from "@assistant-ui/react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useMatch, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useChatDictationAdapter } from "@/features/voice/use-chat-dictation-adapter";
 import { useChatSpeechAdapter } from "@/features/voice/use-chat-speech-adapter";
-import { chatSessionsKey, type ChatUiMessage } from "@/features/chat/chat-api";
+import type { ChatUiMessage } from "@/features/chat/chat-api";
 import { createChatAttachmentAdapter } from "@/features/library/files";
 import { ChatThreadRegistry } from "./chat-thread-controller";
 import { chatHistoryAdapter, createChatThreadListAdapter } from "./chat-thread-list-adapter";
@@ -81,44 +80,23 @@ export function ChatRuntimeProvider({ children }: { children: ReactNode }) {
       ? failure.sessionId
       : undefined;
 
-  useThreadListFollowsInvalidation(runtime);
+  // A changed authorization can hide or reveal conversations; the thread list reads them again.
   const authorization = useRef(authorizationVersion);
   useEffect(() => {
     if (authorization.current === authorizationVersion) return;
     authorization.current = authorizationVersion;
-    void queries.invalidateQueries({ queryKey: chatSessionsKey });
-  }, [authorizationVersion, queries]);
+    void runtime.threads.reload();
+  }, [authorizationVersion, runtime]);
 
   const value = useMemo(
     () => ({ runtime, registry, routeError, retryRoute: () => setAttempt((n) => n + 1) }),
     [runtime, registry, routeError],
   );
   return (
-    <ChatThreadsContext.Provider value={value}>
+    <ChatThreadsContext value={value}>
       <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>
-    </ChatThreadsContext.Provider>
+    </ChatThreadsContext>
   );
-}
-
-/**
- * Conversation mutations across the application invalidate `chatSessionsKey` and await it. The thread list is
- * assistant-ui state rather than a query, so an observed query stands for it: invalidating the key reloads the list,
- * and the awaited invalidation settles once the list has been read again. Its data is the reloaded thread ids.
- */
-function useThreadListFollowsInvalidation(runtime: AssistantRuntime) {
-  useQuery({
-    queryKey: chatSessionsKey,
-    queryFn: async () => {
-      await runtime.threads.reload();
-      return runtime.threads.getState().threadIds;
-    },
-    // The thread list adapter reads the first page itself; only an invalidation reads it again.
-    initialData: [] as readonly string[],
-    staleTime: Infinity,
-    gcTime: Infinity,
-    refetchOnWindowFocus: false,
-    retry: false,
-  });
 }
 
 function useChatThreadRuntime(registry: ChatThreadRegistry) {

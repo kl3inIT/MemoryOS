@@ -1,98 +1,35 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useMemo, useRef, useState, type FocusEvent, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   ComposerPrimitive,
   useAui,
   type Unstable_TriggerItem,
   type Unstable_TriggerMatcher,
 } from "@assistant-ui/react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Eye, EyeOff, MinusCircle, Plus } from "lucide-react";
-import { z } from "zod";
+import { Plus } from "lucide-react";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { useActionNotifications } from "@/components/ui/action-notifications";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
-import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { useApplicationSession } from "@/features/identity/application-session-context";
+import { actionErrorText } from "@/lib/action-errors";
 import {
-  createChatPromptShortcut,
-  createPublicChatPromptShortcut,
-  deleteChatPromptShortcut,
-  deletePublicChatPromptShortcut,
-  getChatPromptShortcutPreferences,
-  hideChatPromptShortcut,
-  listChatPromptShortcuts,
-  listPublicChatPromptShortcuts,
-  setChatPromptShortcutPreferences,
-  updateChatPromptShortcut,
-  updatePublicChatPromptShortcut,
-} from "@/lib/hey-api/sdk.gen";
-import { cn } from "@/lib/utils";
-import { actionErrorText, formField } from "@/lib/action-errors";
-
-const shortcutSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  content: z.string(),
-  active: z.boolean(),
-  isPublic: z.boolean(),
-  hidden: z.boolean(),
-  revision: z.number().int(),
-});
-type Shortcut = z.infer<typeof shortcutSchema>;
-type Scope = "own" | "public";
-const shortcutsKey = ["chat-prompt-shortcuts"] as const;
-
-/** Vietnamese users often type without diacritics: "/tom tat" finds "Tóm tắt hợp đồng". */
-function fold(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/[đĐ]/g, "d")
-    .toLocaleLowerCase("vi");
-}
-
-function useShortcutPreferences() {
-  const { actorId, authorizationVersion } = useApplicationSession();
-  return useQuery({
-    queryKey: [...shortcutsKey, "preferences", actorId, authorizationVersion],
-    queryFn: async ({ signal }) =>
-      z
-        .object({ enabled: z.boolean() })
-        .parse((await getChatPromptShortcutPreferences({ signal })).data),
-  });
-}
-
-function useShortcuts(includeHidden: boolean) {
-  const { actorId, authorizationVersion } = useApplicationSession();
-  return useQuery({
-    queryKey: [...shortcutsKey, actorId, authorizationVersion, includeHidden],
-    queryFn: async ({ signal }) =>
-      shortcutSchema
-        .array()
-        .parse((await listChatPromptShortcuts({ query: { includeHidden }, signal })).data),
-  });
-}
-
-/** Shortcuts the composer offers: enabled by the actor, active and not hidden. */
-function useComposerShortcuts() {
-  const preferences = useShortcutPreferences();
-  const shortcuts = useShortcuts(false);
-  const enabled = preferences.data?.enabled === true;
-  const items = useMemo(
-    () => (shortcuts.data ?? []).filter((shortcut) => shortcut.active && !shortcut.hidden),
-    [shortcuts.data],
-  );
-  return { enabled, items };
-}
-
-function matching(items: Shortcut[], query: string) {
-  const folded = fold(query.trim());
-  return folded ? items.filter((shortcut) => fold(shortcut.name).includes(folded)) : items;
-}
+  listPublicChatPromptShortcutsOptions,
+  setChatPromptShortcutPreferencesMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import { SharedShortcut, ShortcutFields, type ShortcutScope } from "./prompt-shortcut-fields";
+import {
+  invalidateShortcuts,
+  matchingShortcuts,
+  shortcutOf,
+  useComposerShortcuts,
+  useShortcutPreferences,
+  useShortcuts,
+  type Shortcut,
+} from "./prompt-shortcuts-api";
 
 /** The menu row shared by "/" and the `+` menu (Onyx `LineItemButton`: name, then content). */
 function ShortcutMenuRow({ name, content }: { name: string; content: string }) {
@@ -138,7 +75,7 @@ export function ChatPromptShortcutPopover() {
       categories: () => [],
       categoryItems: () => [],
       search: (query: string): Unstable_TriggerItem[] =>
-        matching(items, query).map((shortcut) => ({
+        matchingShortcuts(items, query).map((shortcut) => ({
           id: shortcut.id,
           type: "command",
           label: shortcut.name,
@@ -177,7 +114,7 @@ export function ChatPromptShortcutPopover() {
           ))
         }
       </ComposerPrimitive.Unstable_TriggerPopoverItems>
-      <div role="separator" className="my-1 border-t border-border-subtle" />
+      <Separator className="my-1" />
       <CreateShortcutLink />
     </ComposerPrimitive.Unstable_TriggerPopover>
   );
@@ -188,6 +125,11 @@ export function PersonalPromptShortcuts() {
   const ui = useAppTranslation();
   const cache = useQueryClient();
   const notify = useActionNotifications();
+  const savePreferences = useMutation({
+    ...setChatPromptShortcutPreferencesMutation(),
+    onSuccess: () => invalidateShortcuts(cache),
+    onError: (cause) => notify({ title: actionErrorText(cause), tone: "error" }),
+  });
   const preferences = useShortcutPreferences();
   const shortcuts = useShortcuts(true);
   const own = shortcuts.data?.filter((shortcut) => !shortcut.isPublic) ?? [];
@@ -216,28 +158,20 @@ export function PersonalPromptShortcuts() {
               id="prompt-shortcuts-enabled"
               checked={preferences.data?.enabled ?? true}
               disabled={!preferences.isSuccess}
-              onCheckedChange={async (enabled) => {
-                try {
-                  await setChatPromptShortcutPreferences({
-                    body: { enabled },
-                    signal: AbortSignal.timeout(30000),
-                  });
-                  await cache.invalidateQueries({ queryKey: shortcutsKey });
-                } catch (cause) {
-                  notify({ title: actionErrorText(cause), tone: "error" });
-                }
-              }}
+              onCheckedChange={(enabled) => savePreferences.mutate({ body: { enabled } })}
             />
           }
         />
       </SettingRows>
       {shortcuts.isError && (
-        <p role="alert" className="font-secondary-body text-status-danger-content">
-          {ui("Không tải được lệnh tắt.")}{" "}
-          <Button size="sm" prominence="tertiary" onClick={() => void shortcuts.refetch()}>
-            {ui("Tải lại")}
-          </Button>
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{ui("Không tải được lệnh tắt.")}</AlertDescription>
+          <AlertAction>
+            <Button size="sm" prominence="tertiary" onClick={() => void shortcuts.refetch()}>
+              {ui("Tải lại")}
+            </Button>
+          </AlertAction>
+        </Alert>
       )}
       {shortcuts.isSuccess && (
         <>
@@ -263,11 +197,9 @@ export function PersonalPromptShortcuts() {
 /** Administration of public shortcuts (AGENTS_MANAGE), edited inline like personal ones. */
 export function PublicPromptShortcuts() {
   const ui = useAppTranslation();
-  const { actorId, authorizationVersion } = useApplicationSession();
   const shortcuts = useQuery({
-    queryKey: [...shortcutsKey, "public", actorId, authorizationVersion],
-    queryFn: async ({ signal }) =>
-      shortcutSchema.array().parse((await listPublicChatPromptShortcuts({ signal })).data),
+    ...listPublicChatPromptShortcutsOptions(),
+    select: (views) => views.map(shortcutOf),
   });
   return (
     <section aria-labelledby="public-prompt-shortcuts" className="flex flex-col gap-4">
@@ -280,9 +212,9 @@ export function PublicPromptShortcuts() {
         </p>
       </header>
       {shortcuts.isError && (
-        <p role="alert" className="font-secondary-body text-status-danger-content">
-          {ui("Không tải được lệnh tắt.")}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{ui("Không tải được lệnh tắt.")}</AlertDescription>
+        </Alert>
       )}
       {shortcuts.isSuccess && <EditableShortcuts shortcuts={shortcuts.data} scope="public" />}
     </section>
@@ -309,7 +241,7 @@ function ShortcutGroup({
   );
 }
 
-function EditableShortcuts({ shortcuts, scope }: { shortcuts: Shortcut[]; scope: Scope }) {
+function EditableShortcuts({ shortcuts, scope }: { shortcuts: Shortcut[]; scope: ShortcutScope }) {
   // The trailing empty pair creates a shortcut; a new key clears it once that succeeds.
   const [draftKey, setDraftKey] = useState(0);
   return (
@@ -322,245 +254,6 @@ function EditableShortcuts({ shortcuts, scope }: { shortcuts: Shortcut[]; scope:
         scope={scope}
         onCreated={() => setDraftKey((key) => key + 1)}
       />
-    </div>
-  );
-}
-
-function NameInput({
-  value,
-  readOnly,
-  invalid,
-  onChange,
-}: {
-  value: string;
-  readOnly?: boolean;
-  invalid?: boolean;
-  onChange?: (value: string) => void;
-}) {
-  const ui = useAppTranslation();
-  return (
-    <div className="relative min-w-0">
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 font-main-ui-body text-content-muted"
-      >
-        /
-      </span>
-      <Input
-        aria-label={ui("Tên lệnh tắt")}
-        aria-invalid={invalid || undefined}
-        maxLength={100}
-        readOnly={readOnly}
-        value={value}
-        placeholder={readOnly ? undefined : ui("Tên lệnh tắt mới")}
-        className={cn("pl-6", readOnly && "bg-surface-sunken text-content-secondary")}
-        onChange={(event) => onChange?.(event.target.value)}
-      />
-    </div>
-  );
-}
-
-function ContentInput({
-  value,
-  readOnly,
-  invalid,
-  onChange,
-}: {
-  value: string;
-  readOnly?: boolean;
-  invalid?: boolean;
-  onChange?: (value: string) => void;
-}) {
-  const ui = useAppTranslation();
-  return (
-    <textarea
-      aria-label={ui("Nội dung lệnh tắt")}
-      aria-invalid={invalid || undefined}
-      className={cn(formField, "resize-y", readOnly && "bg-surface-sunken text-content-secondary")}
-      rows={3}
-      maxLength={8000}
-      readOnly={readOnly}
-      value={value}
-      placeholder={readOnly ? undefined : ui("Nội dung sẽ được chèn vào ô chat khi chọn lệnh này")}
-      onChange={(event) => onChange?.(event.target.value)}
-    />
-  );
-}
-
-/** One shortcut as a name and content pair, saved when focus leaves the pair (Onyx settings). */
-function ShortcutFields({
-  shortcut,
-  scope,
-  onCreated,
-}: {
-  shortcut?: Shortcut;
-  scope: Scope;
-  onCreated?: () => void;
-}) {
-  const ui = useAppTranslation();
-  const cache = useQueryClient();
-  const notify = useActionNotifications();
-  const [name, setName] = useState(shortcut?.name ?? "");
-  const [content, setContent] = useState(shortcut?.content ?? "");
-  const [error, setError] = useState<string>();
-  const [removing, setRemoving] = useState(false);
-  const saving = useRef(false);
-  // A blur during a save is replayed after it finishes, with the server's newer revision.
-  const again = useRef(false);
-  const empty = !name.trim() && !content.trim();
-
-  async function commit() {
-    const trimmed = name.trim();
-    const unchanged = shortcut && trimmed === shortcut.name && content === shortcut.content;
-    if (saving.current) {
-      again.current = true;
-      return;
-    }
-    if (unchanged || (!shortcut && empty)) return;
-    if (!trimmed || !content.trim()) {
-      setError(ui("Cần cả tên và nội dung."));
-      return;
-    }
-    saving.current = true;
-    setError(undefined);
-    const body = { name: trimmed, content };
-    const options = {
-      signal: AbortSignal.timeout(30000),
-    };
-    try {
-      if (shortcut) {
-        const request = {
-          path: { shortcutId: shortcut.id },
-          query: { revision: shortcut.revision },
-          body,
-          ...options,
-        };
-        if (scope === "public") await updatePublicChatPromptShortcut(request);
-        else await updateChatPromptShortcut(request);
-        notify({ title: ui("Đã lưu lệnh tắt"), tone: "success" });
-      } else {
-        if (scope === "public") await createPublicChatPromptShortcut({ body, ...options });
-        else await createChatPromptShortcut({ body, ...options });
-        notify({ title: ui("Đã tạo lệnh tắt"), tone: "success" });
-        onCreated?.();
-      }
-      await cache.invalidateQueries({ queryKey: shortcutsKey });
-    } catch (cause) {
-      setError(actionErrorText(cause));
-    } finally {
-      saving.current = false;
-    }
-    if (again.current) {
-      again.current = false;
-      if (shortcut) void commit();
-    }
-  }
-
-  async function remove() {
-    if (!shortcut) {
-      setName("");
-      setContent("");
-      setError(undefined);
-      return;
-    }
-    setRemoving(true);
-    try {
-      const request = {
-        path: { shortcutId: shortcut.id },
-        signal: AbortSignal.timeout(30000),
-      };
-      if (scope === "public") await deletePublicChatPromptShortcut(request);
-      else await deleteChatPromptShortcut(request);
-      notify({ title: ui("Đã xóa lệnh tắt"), tone: "success" });
-      await cache.invalidateQueries({ queryKey: shortcutsKey });
-    } catch (cause) {
-      setError(actionErrorText(cause));
-      setRemoving(false);
-    }
-  }
-
-  return (
-    <div
-      className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-1 gap-y-1.5"
-      onBlur={(event: FocusEvent<HTMLDivElement>) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) void commit();
-      }}
-    >
-      <NameInput value={name} invalid={!!error && !name.trim()} onChange={setName} />
-      {shortcut || !empty ? (
-        <IconButton
-          type="button"
-          prominence="tertiary"
-          aria-label={
-            shortcut
-              ? ui("Xóa lệnh tắt {{v1}}", { v1: shortcut.name })
-              : ui("Xóa nội dung đang nhập")
-          }
-          disabled={removing}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => void remove()}
-        >
-          <MinusCircle />
-        </IconButton>
-      ) : (
-        <span className="size-9" />
-      )}
-      <ContentInput value={content} invalid={!!error && !content.trim()} onChange={setContent} />
-      <span />
-      {error && (
-        <p role="alert" className="col-span-2 font-secondary-body text-status-danger-content">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/** A public shortcut as members see it: read-only, hideable for themselves. */
-function SharedShortcut({ shortcut }: { shortcut: Shortcut }) {
-  const ui = useAppTranslation();
-  const cache = useQueryClient();
-  const notify = useActionNotifications();
-  const [pending, setPending] = useState(false);
-  return (
-    <div
-      className={cn(
-        "grid grid-cols-[minmax(0,1fr)_auto] gap-x-1 gap-y-1.5",
-        shortcut.hidden && "opacity-60",
-      )}
-    >
-      <NameInput value={shortcut.name} readOnly />
-      <IconButton
-        type="button"
-        prominence="tertiary"
-        disabled={pending}
-        aria-label={
-          shortcut.hidden
-            ? ui("Hiện lại {{v1}}", { v1: shortcut.name })
-            : ui("Ẩn {{v1}} cho riêng tôi", { v1: shortcut.name })
-        }
-        title={shortcut.hidden ? ui("Hiện lại") : ui("Ẩn cho riêng tôi")}
-        onClick={async () => {
-          setPending(true);
-          try {
-            await hideChatPromptShortcut({
-              path: { shortcutId: shortcut.id },
-              body: { hidden: !shortcut.hidden },
-              signal: AbortSignal.timeout(30000),
-            });
-            await cache.invalidateQueries({ queryKey: shortcutsKey });
-          } catch (cause) {
-            notify({ title: actionErrorText(cause), tone: "error" });
-            setPending(false);
-          }
-        }}
-      >
-        {shortcut.hidden ? <Eye /> : <EyeOff />}
-      </IconButton>
-      <ContentInput value={shortcut.content} readOnly />
-      <span className="font-secondary-body text-content-muted">
-        {shortcut.hidden ? ui("Đã ẩn") : null}
-      </span>
     </div>
   );
 }
