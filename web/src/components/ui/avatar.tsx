@@ -1,4 +1,5 @@
 import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { Avatar as AvatarPrimitive } from "radix-ui";
 
@@ -7,14 +8,14 @@ function Avatar({
   size = "default",
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Root> & {
-  size?: "default" | "sm" | "lg";
+  size?: "default" | "xs" | "sm" | "lg";
 }) {
   return (
     <AvatarPrimitive.Root
       data-slot="avatar"
       data-size={size}
       className={cn(
-        "group/avatar relative flex size-8 shrink-0 rounded-full select-none after:absolute after:inset-0 after:rounded-full after:border after:border-border after:mix-blend-darken data-[size=lg]:size-10 data-[size=sm]:size-6 dark:after:mix-blend-lighten",
+        "group/avatar relative flex size-8 shrink-0 rounded-full select-none after:absolute after:inset-0 after:rounded-full after:border after:border-border after:mix-blend-darken data-[size=lg]:size-10 data-[size=sm]:size-6 data-[size=xs]:size-4 dark:after:mix-blend-lighten",
         className,
       )}
       {...props}
@@ -32,17 +33,35 @@ function AvatarImage({ className, ...props }: React.ComponentProps<typeof Avatar
   );
 }
 
+// MemoryOS: initials are tinted by a status tone so the same identity keeps its colour.
+const avatarFallbackVariants = cva(
+  "flex size-full items-center justify-center rounded-full text-sm font-semibold group-data-[size=sm]/avatar:text-xs group-data-[size=xs]/avatar:text-[0.5rem] [&_svg:not([class*='size-'])]:size-4 group-data-[size=sm]/avatar:[&_svg:not([class*='size-'])]:size-3 group-data-[size=xs]/avatar:[&_svg:not([class*='size-'])]:size-3",
+  {
+    variants: {
+      tone: {
+        neutral: "bg-surface-sunken text-content-secondary",
+        info: "bg-status-info-surface text-status-info-content",
+        success: "bg-status-success-surface text-status-success-content",
+        warning: "bg-status-warning-surface text-status-warning-content",
+      },
+    },
+    defaultVariants: {
+      tone: "neutral",
+    },
+  },
+);
+
 function AvatarFallback({
   className,
+  tone,
   ...props
-}: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {
+}: React.ComponentProps<typeof AvatarPrimitive.Fallback> &
+  VariantProps<typeof avatarFallbackVariants>) {
   return (
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"
-      className={cn(
-        "flex size-full items-center justify-center rounded-full bg-muted text-sm text-muted-foreground group-data-[size=sm]/avatar:text-xs",
-        className,
-      )}
+      data-tone={tone ?? "neutral"}
+      className={cn(avatarFallbackVariants({ tone }), className)}
       {...props}
     />
   );
