@@ -70,7 +70,14 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
   const shown =
     useSearch({ from: "/_authenticated/library", shouldThrow: false }) ?? librarySearchDefaults;
   const navigate = useNavigate({ from: "/library" });
-  const { q: search, mode, category: categories, source: sources, sort, view, size } = shown;
+  const { mode, category: categories, source: sources, sort, view, size } = shown;
+  // The box holds what is typed; the address follows it, and Back or a cleared filter sets the box again.
+  const [search, setSearch] = useState(shown.q);
+  const [shownSearch, setShownSearch] = useState(shown.q);
+  if (shownSearch !== shown.q) {
+    setShownSearch(shown.q);
+    if (search !== shown.q) setSearch(shown.q);
+  }
   const offset = shown.page * size;
   const query = useDeferredValue(search.trim());
   const [renaming, setRenaming] = useState<LibraryFile>();
@@ -89,10 +96,17 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
     void navigate({ search: (current) => ({ ...current, ...next }), replace, resetScroll: false });
   };
   const showPage = (nextOffset: number) => show({ page: Math.floor(nextOffset / size) });
-  const showFirstPage = () => show({ page: 0 });
+  /** After a change to the files the list restarts in place, without an entry to return to. */
+  const showFirstPage = () => show({ page: 0 }, true);
   /** Every filter change starts the list again: page 3 of the previous filter means nothing. Typing replaces. */
   const filterBy = (next: Partial<LibrarySearch>, replace = false) =>
     show({ ...next, page: 0 }, replace);
+
+  useEffect(() => {
+    if (search !== shown.q) filterBy({ q: search }, true);
+    // Only typing writes the search; the other filters navigate themselves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   const uploads = useLibraryUploads();
   const archive = useLibraryArchive();
@@ -344,7 +358,7 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
                 sortable={view === "ready" || view === "favorite"}
                 state={{ search, mode, sources, categories, sort, layout }}
                 handlers={{
-                  onSearch: (next) => filterBy({ q: next }, true),
+                  onSearch: setSearch,
                   onMode: (next) => filterBy({ mode: next }),
                   onSources: (next) => filterBy({ source: next }),
                   onCategories: (next) => filterBy({ category: next }),
@@ -355,7 +369,7 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
               <LibraryFilterPills
                 state={{ search, mode, sources, categories, sort, layout }}
                 handlers={{
-                  onSearch: (next) => filterBy({ q: next }, true),
+                  onSearch: setSearch,
                   onMode: (next) => filterBy({ mode: next }),
                   onSources: (next) => filterBy({ source: next }),
                   onCategories: (next) => filterBy({ category: next }),

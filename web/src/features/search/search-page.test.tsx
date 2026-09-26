@@ -151,6 +151,9 @@ describe("SearchPage", () => {
     await renderNewSession();
 
     expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
+    // The page's title reaches the shell header, beside the navigation button.
+    const banner = screen.getByRole("button", { name: "Open navigation" }).closest("header")!;
+    expect(within(banner).getByText("Search documents")).toBeInTheDocument();
     // Document Search is its own sidebar entry; the header has no Chat/Search mode menu.
     expect(screen.getByRole("link", { name: "Search documents" })).toHaveAttribute(
       "href",

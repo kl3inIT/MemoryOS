@@ -36,6 +36,13 @@ async function renderShell(path: string, capabilities: ApplicationCapability[]) 
   const authenticated = createRoute({
     getParentRoute: () => root,
     id: "_authenticated",
+    // As the real layout: a read before every load and an opening screen shown at once while it is pending.
+    beforeLoad: async () => {
+      await Promise.resolve();
+    },
+    pendingMs: 0,
+    pendingMinMs: 0,
+    pendingComponent: () => <p>Opening</p>,
     component: () => (
       <ApplicationSessionProvider session={session(capabilities)}>
         <ThemeProvider>
@@ -102,6 +109,7 @@ it("keeps the sidebar mounted while moving between administration pages", async 
 
   expect(await screen.findByText("Audit page")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Expand sidebar" })).toBeInTheDocument();
+  expect(screen.queryByText("Opening")).not.toBeInTheDocument();
 });
 
 it("refuses an administration page the session may not open, without the administration frame", async () => {
