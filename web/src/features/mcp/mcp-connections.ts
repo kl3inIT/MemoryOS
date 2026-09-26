@@ -9,8 +9,8 @@ import {
  * split is unambiguous; any other name is not an MCP tool.
  */
 export function parseMcpToolName(name: string): { slug: string; tool: string } | null {
-  const match = /^mcp_([a-z0-9]{1,16})_(.+)$/.exec(name);
-  return match ? { slug: match[1]!, tool: match[2]! } : null;
+  const [, slug, tool] = /^mcp_([a-z0-9]{1,16})_(.+)$/.exec(name) ?? [];
+  return slug && tool ? { slug, tool } : null;
 }
 
 /** The MCP servers the signed-in User may use, with their own connection state. */

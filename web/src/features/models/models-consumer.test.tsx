@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import type * as RouterModule from "@tanstack/react-router";
 import { ApiError } from "@/lib/api";
@@ -257,10 +257,10 @@ describe("provider secret lifetime and coherent Access", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save provider" }));
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(screen.getByLabelText("API key")).toHaveValue("");
-    expect(await requests[0]!.clone().json()).toMatchObject({
+    expect(await requests[0]?.clone().json()).toMatchObject({
       credential: { action: "REPLACE", value: "synthetic-secret-not-for-storage" },
     });
-    expect(requests[0]!.headers.get("X-MemoryOS-CSRF")).toBe("1");
+    expect(requests[0]?.headers.get("X-MemoryOS-CSRF")).toBe("1");
     // The write in flight is a mutation, but its variables are only its AbortSignal.
     expect(client.getMutationCache().getAll()).toHaveLength(1);
     expect(retainedMutations(client)).not.toContain("synthetic-secret-not-for-storage");
@@ -340,15 +340,18 @@ describe("provider secret lifetime and coherent Access", () => {
     expect(screen.getByLabelText("Provider name")).toHaveValue("My unsaved rename");
     fireEvent.click(screen.getByRole("button", { name: "Save provider" }));
     await waitFor(() => expect(writes).toHaveLength(1));
-    expect(new URL(writes[0]!.url).searchParams.get("revision")).toBe("4");
-    expect(await writes[0]!.clone().json()).toMatchObject({
+    const [write] = writes;
+    assert.isDefined(write);
+    expect(new URL(write.url).searchParams.get("revision")).toBe("4");
+    const body = await write.clone().json();
+    expect(body).toMatchObject({
       name: "My unsaved rename",
       isPublic: true,
       groupIds: newer.groupIds,
       personaIds: newer.personaIds,
       credential: { action: "KEEP" },
     });
-    expect((await writes[0]!.clone().json()).credential).not.toHaveProperty("value");
+    expect(body.credential).not.toHaveProperty("value");
     client.clear();
   });
 
@@ -384,11 +387,11 @@ describe("provider secret lifetime and coherent Access", () => {
     fireEvent.click(screen.getByLabelText("Provider enabled"));
     fireEvent.click(screen.getByRole("button", { name: "Save provider" }));
     await waitFor(() => expect(writes).toHaveLength(1));
-    expect(await writes[0]!.clone().json()).toMatchObject({
-      enabled: false,
-      credential: { action: "REMOVE" },
-    });
-    expect((await writes[0]!.clone().json()).credential).not.toHaveProperty("value");
+    const [write] = writes;
+    assert.isDefined(write);
+    const body = await write.clone().json();
+    expect(body).toMatchObject({ enabled: false, credential: { action: "REMOVE" } });
+    expect(body.credential).not.toHaveProperty("value");
     client.clear();
   });
 
@@ -643,7 +646,7 @@ describe("model manager authority", () => {
       window.dispatchEvent(new Event("pagehide"));
     });
     // The unmount is synchronous, so the request is aborted before the page can be cached.
-    expect(writes[0]!.signal.aborted).toBe(true);
+    expect(writes[0]?.signal.aborted).toBe(true);
     expect(screen.queryByLabelText("API key")).not.toBeInTheDocument();
     await act(async () => {
       pending.resolve(Response.json({ ...provider, revision: 4 }));

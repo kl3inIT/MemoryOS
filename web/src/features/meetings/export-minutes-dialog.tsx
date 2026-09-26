@@ -43,7 +43,8 @@ import { useFailureText } from "./use-failure-text";
  * Nghị định 30 asks for Times New Roman and a company follows it by convention, so it leads. Word only names the face;
  * the reader's own machine supplies it, which is why these are faces every office machine has.
  */
-const TYPEFACES = ["Times New Roman", "Arial", "Calibri", "Tahoma"];
+const DEFAULT_TYPEFACE = "Times New Roman";
+const TYPEFACES = [DEFAULT_TYPEFACE, "Arial", "Calibri", "Tahoma"];
 
 /** How long typing must pause before the page is drawn again, and before the heading is kept. */
 const SETTLE_MS = 700;
@@ -117,7 +118,7 @@ function initialHeading(meeting: MeetingDetail, saved: MeetingHeading): HeadingV
       secretary: text(saved.secretary),
       secretaryRole: text(saved.secretaryRole),
       attendees: (saved.attendees ?? []).join(", "),
-      font: saved.font || TYPEFACES[0]!,
+      font: saved.font || DEFAULT_TYPEFACE,
     };
   // A meeting without a heading of its own starts from the organization and typeface of the last biên bản.
   return {
@@ -133,7 +134,7 @@ function initialHeading(meeting: MeetingDetail, saved: MeetingHeading): HeadingV
     secretary: "",
     secretaryRole: "",
     attendees: meeting.participants.join(", "),
-    font: saved.font || TYPEFACES[0]!,
+    font: saved.font || DEFAULT_TYPEFACE,
   };
 }
 

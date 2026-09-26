@@ -27,11 +27,9 @@ export function AgentCreatorFilter({
     owner.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
   );
   const label =
-    value.length === 0
-      ? ui("Mọi người tạo")
-      : value.length === 1
-        ? value[0]!
-        : ui("{{v1}} người tạo", { v1: value.length });
+    value.length > 1
+      ? ui("{{v1}} người tạo", { v1: value.length })
+      : (value[0] ?? ui("Mọi người tạo"));
   return (
     <ButtonGroup>
       <Popover>

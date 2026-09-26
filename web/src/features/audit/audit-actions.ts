@@ -147,7 +147,14 @@ const valueLabels: Record<string, AppCopy> = {
 type Translate = (copy: AppCopy) => string;
 
 export function fieldLabel(field: string, ui: Translate) {
-  return fieldLabels[field] ? ui(fieldLabels[field]!) : field;
+  const label = fieldLabels[field];
+  return label ? ui(label) : field;
+}
+
+/** The action's name, or its code when this client has no name for it. */
+export function actionLabel(action: string, ui: Translate) {
+  const label = actionLabels[action];
+  return label ? ui(label) : action;
 }
 
 /** A detail value as text: lists joined, objects as their fields, codes as words, nothing for an absent value. */
@@ -161,7 +168,8 @@ export function detailText(value: unknown, ui: Translate = (copy) => String(copy
       .join(" · ");
   if (typeof value === "boolean") return ui(value ? "Yes" : "No");
   const text = String(value);
-  return valueLabels[text] ? ui(valueLabels[text]!) : text;
+  const label = valueLabels[text];
+  return label ? ui(label) : text;
 }
 
 /**

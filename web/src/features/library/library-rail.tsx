@@ -62,7 +62,7 @@ export function LibraryRail({
           >
             <span className="flex items-center gap-2">
               <span className="truncate">{entry.label}</span>
-              {counts[entry.value] !== undefined && counts[entry.value]! > 0 && (
+              {(counts[entry.value] ?? 0) > 0 && (
                 <span className="font-secondary-body tabular-nums text-content-muted">
                   {counts[entry.value]}
                 </span>

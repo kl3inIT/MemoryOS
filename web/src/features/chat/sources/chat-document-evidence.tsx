@@ -22,7 +22,7 @@ export function ChatDocumentEvidence({
 }) {
   const selection = citationSelection(source);
   const reading = useDocumentReading(selection, "chat", source.fileId ?? undefined);
-  const location = readSourceLocation(selection.matches[0]!.provenance ?? []);
+  const location = readSourceLocation(selection.matches[0]?.provenance ?? []);
   const original =
     source.documentId && source.generation
       ? {

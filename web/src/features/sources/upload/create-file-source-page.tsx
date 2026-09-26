@@ -131,11 +131,9 @@ function FileSourceSetup() {
           creation={creation}
           onFilesChosen={(batch) => {
             // A single file names the Source until the person names it.
-            if (batch.length === 1 && !form.state.values.sourceName.trim() && !sourceId)
-              form.setFieldValue(
-                "sourceName",
-                batch[0]!.name.replace(/\.[^.]+$/, "").slice(0, 120),
-              );
+            const [only, ...others] = batch;
+            if (only && others.length === 0 && !form.state.values.sourceName.trim() && !sourceId)
+              form.setFieldValue("sourceName", only.name.replace(/\.[^.]+$/, "").slice(0, 120));
           }}
         />
         {creation.error ? (

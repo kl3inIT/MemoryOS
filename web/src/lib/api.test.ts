@@ -18,7 +18,7 @@ describe("API client defaults", () => {
     async (method) => {
       const fetch = stubFetch(() => Response.json({}));
       await client.request({ method, url: "/api/probe" });
-      expect(fetch.mock.calls[0]![0].headers.get("X-MemoryOS-CSRF")).toBe("1");
+      expect(fetch.mock.calls[0]?.[0].headers.get("X-MemoryOS-CSRF")).toBe("1");
     },
   );
 
@@ -27,7 +27,7 @@ describe("API client defaults", () => {
     async (method) => {
       const fetch = stubFetch(() => new Response(null, { status: 204 }));
       await client.request({ method, url: "/api/probe" });
-      expect(fetch.mock.calls[0]![0].headers.has("X-MemoryOS-CSRF")).toBe(false);
+      expect(fetch.mock.calls[0]?.[0].headers.has("X-MemoryOS-CSRF")).toBe(false);
     },
   );
 

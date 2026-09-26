@@ -121,8 +121,10 @@ export function ChatMarkdownLink({ href, children }: ComponentProps<"a">) {
   }
   // Files that run_python generated are ours and are served from this origin; everything else
   // relative is model-written text, not a link.
-  const generated = /^\/api\/chat\/file-artifacts\/([0-9a-fA-F-]{36})\/content$/.exec(href ?? "");
-  if (generated)
+  const generatedId = /^\/api\/chat\/file-artifacts\/([0-9a-fA-F-]{36})\/content$/.exec(
+    href ?? "",
+  )?.[1];
+  if (generatedId)
     return (
       // Onyx MemoizedTextComponents: a link to a chat file opens the preview instead of downloading.
       <button
@@ -133,7 +135,7 @@ export function ChatMarkdownLink({ href, children }: ComponentProps<"a">) {
           panel.previewFile(
             {
               source: "generated",
-              id: generated[1]!,
+              id: generatedId,
               filename: typeof children === "string" ? children : textOf(children),
             },
             event.currentTarget,

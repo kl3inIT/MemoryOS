@@ -169,7 +169,7 @@ export function chatHistoryAdapter(controller: ChatThreadController): ThreadHist
         const messages = await controller.loadHistory();
         return {
           messages: messages.map((message, index) => ({
-            parentId: index === 0 ? null : messages[index - 1]!.id,
+            parentId: messages[index - 1]?.id ?? null,
             message: message as unknown as TMessage,
           })),
         };

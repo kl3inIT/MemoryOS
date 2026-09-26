@@ -123,7 +123,9 @@ export function useFileSourceCreation({
       stage = "upload";
       let receipt = ownPending;
       for (let index = completedCount; index < files.length; index++) {
-        current = files[index]!;
+        const file = files[index];
+        if (!file) break;
+        current = file;
         setCurrentIndex(index);
         if (!receipt) {
           receipt = await upload.store(targetId, current, controller.signal, {
@@ -143,13 +145,14 @@ export function useFileSourceCreation({
       setUploadAccepted(true);
       await queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() });
       controller.signal.throwIfAborted();
+      const [onlyFile, ...otherFiles] = files;
       notify({
         title: "Source created; upload accepted",
         description:
-          files.length === 1
+          onlyFile && otherFiles.length === 0
             ? appText(
                 "{{v1}} was created. {{v2}} was accepted for indexing; indexing is not complete yet.",
-                { v1: name, v2: files[0]!.name },
+                { v1: name, v2: onlyFile.name },
               )
             : appText(
                 "{{v1}} was created. {{v2}} files were accepted for indexing; indexing is not complete yet.",

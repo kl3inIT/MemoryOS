@@ -189,8 +189,9 @@ function WebConnectionDialog({
                     },
                     {
                       onSuccess: ({ engines: found }) => {
-                        if (!form.getFieldValue("engineId") && found.length === 1)
-                          form.setFieldValue("engineId", found[0]!);
+                        const [only, ...others] = found;
+                        if (!form.getFieldValue("engineId") && only && others.length === 0)
+                          form.setFieldValue("engineId", only);
                       },
                     },
                   )

@@ -170,15 +170,15 @@ export class ActivityChunks {
     if (event.stage === "SOURCE") {
       if (!tool || !event.source) return [];
       const cited = this.citations[event.toolCallId] ?? [];
-      if (!cited.includes(event.source.citationId))
-        this.citations = {
-          ...this.citations,
-          [event.toolCallId]: [...cited, event.source.citationId],
-        };
+      const citations = cited.includes(event.source.citationId)
+        ? cited
+        : [...cited, event.source.citationId];
+      if (citations !== cited)
+        this.citations = { ...this.citations, [event.toolCallId]: citations };
       // Hosted search cites after its step completes; a finished part keeps its output and the
       // citations travel in message metadata instead.
       if (tool.done) return [];
-      tool.progress = { ...tool.progress, citations: this.citations[event.toolCallId]! };
+      tool.progress = { ...tool.progress, citations };
       return [this.input(event.toolCallId, tool)];
     }
     const chunks: UIMessageChunk[] = [];

@@ -64,14 +64,16 @@ export function PdfView({
   const fitWidth = Math.max(240, useWidth(container, pageCount));
   const [zoom, setZoom] = useState(0);
   const [wholeFile, setWholeFile] = useState(false);
-  const renderedWidth = Math.round(fitWidth * ZOOM_STEPS[zoom]!);
+  const scale = ZOOM_STEPS[zoom] ?? 1;
+  const renderedWidth = Math.round(fitWidth * scale);
   const [pageViews, setPageViews] = useState<Record<number, PdfPageView>>({});
   const [nearPages, setNearPages] = useState<ReadonlySet<number>>(() => new Set());
   const [visiblePage, setVisiblePage] = useState<number>();
   // A new object per opening: react-pdf releases the document on unmount and never shares it across readers.
   const file = useMemo(() => (typeof url === "string" ? { url } : url), [url]);
   const cited = pages.length ? pages : [1];
-  const anchor = Math.min(cited[0]!, pageCount ?? cited[0]!);
+  const [firstCited = 1] = cited;
+  const anchor = Math.min(firstCited, pageCount ?? firstCited);
   const currentPage = visiblePage ?? anchor;
   const figures = useRef(new Map<number, HTMLElement>());
   const firstBox = useRef<HTMLSpanElement | null>(null);
@@ -286,11 +288,7 @@ export function PdfView({
             </ToolbarGroup>
           ) : null}
           <ZoomControl
-            label={
-              zoom === 0
-                ? ui("Vừa khung")
-                : ui("{{percent}}%", { percent: ZOOM_STEPS[zoom]! * 100 })
-            }
+            label={zoom === 0 ? ui("Vừa khung") : ui("{{percent}}%", { percent: scale * 100 })}
             onOut={() => setZoom((value) => Math.max(0, value - 1))}
             onIn={() => setZoom((value) => Math.min(ZOOM_STEPS.length - 1, value + 1))}
             outDisabled={zoom === 0}

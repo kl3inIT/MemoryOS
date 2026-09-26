@@ -64,8 +64,9 @@ export function ChatUserMessageQuote() {
 /** Saved questions carry the quote as a leading Markdown blockquote in their text. */
 export function ChatUserText({ text }: TextMessagePartProps) {
   const quoted = /^((?:> .*(?:\n|$))+)\n/.exec(text);
-  if (!quoted) return text;
-  const quote = quoted[1]!
+  const block = quoted?.[1];
+  if (!quoted || block === undefined) return text;
+  const quote = block
     .replace(/\n$/, "")
     .split("\n")
     .map((line) => line.slice(2))

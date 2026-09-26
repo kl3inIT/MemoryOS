@@ -7,10 +7,9 @@ const avatarSizes = { xs: "xs", sm: "sm", md: "default" } as const;
 
 function initials(name: string) {
   const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return "?";
-  const first = words[0]!.charAt(0);
-  const last = words.length > 1 ? words[words.length - 1]!.charAt(0) : "";
-  return (first + last).toLocaleUpperCase();
+  const [first, ...rest] = words;
+  if (first === undefined) return "?";
+  return (first.charAt(0) + (rest.at(-1)?.charAt(0) ?? "")).toLocaleUpperCase();
 }
 
 function toneFor(seed: string) {

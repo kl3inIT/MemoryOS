@@ -157,7 +157,7 @@ export function Transcript({
     const next = (((at + step) % total) + total) % total;
     setAt(next);
     let line = 0;
-    while (line + 1 < firstMatch.length && firstMatch[line + 1]! <= next) line += 1;
+    while ((firstMatch[line + 1] ?? Infinity) <= next) line += 1;
     following.current = false;
     pendingHit.current = next;
     rows.scrollToIndex(line, { align: "center" });
@@ -234,7 +234,8 @@ export function Transcript({
       >
         <ol className="relative" style={{ height: rows.getTotalSize() }}>
           {rows.getVirtualItems().map((item) => {
-            const utterance = shown[item.index]!;
+            const utterance = shown[item.index];
+            if (!utterance) return null;
             return (
               <li
                 key={item.key}

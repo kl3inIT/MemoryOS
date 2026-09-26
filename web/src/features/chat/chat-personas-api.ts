@@ -106,7 +106,10 @@ export function personaOf({
     labels: namedRefsOf(labels),
     owner: {
       actor: personOf(owner?.actor),
-      group: owner?.group?.id === undefined ? null : namedRefsOf([owner.group])[0]!,
+      group:
+        owner?.group?.id === undefined
+          ? null
+          : { id: owner.group.id, name: owner.group.name ?? "" },
     },
     vacant,
     userShares: userShares.flatMap((share) => {

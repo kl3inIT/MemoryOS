@@ -33,7 +33,7 @@ import { listAuditEventsOptions } from "@/lib/hey-api/@tanstack/react-query.gen"
 import type { AuditEvent, ListAuditEventsData } from "@/lib/hey-api/types.gen";
 import { AuditEventSheet } from "./audit-event-sheet";
 import {
-  actionLabels,
+  actionLabel,
   classLabels,
   outcomeLabels,
   outcomeTones,
@@ -132,7 +132,7 @@ const columns = column.columns([
             className="block max-w-full truncate rounded-sm text-left text-content-secondary focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
             onClick={() => table.options.meta?.open(event)}
           >
-            {actionLabels[event.action] ? ui(actionLabels[event.action]!) : event.action}
+            {actionLabel(event.action, ui)}
             {event.resourceLabel ? (
               <span className="font-main-ui-action text-content-primary">
                 {" "}

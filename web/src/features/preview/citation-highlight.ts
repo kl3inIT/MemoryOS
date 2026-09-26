@@ -83,7 +83,8 @@ function pointIn(runs: readonly TextRun[], at: number): { node: Text; offset: nu
   let found: TextRun | undefined;
   while (low <= high) {
     const middle = (low + high) >> 1;
-    const run = runs[middle]!;
+    const run = runs[middle];
+    if (!run) break;
     if (at < run.from) high = middle - 1;
     else if (at > run.from + run.node.data.length) low = middle + 1;
     else {

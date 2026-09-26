@@ -167,7 +167,8 @@ export function ChatMessageActions({ author }: { author: "user" | "assistant" })
         index={index}
         disabled={editing.busy}
         onIndexChange={(next) => {
-          void editing.branch(siblings[next]!.id, message.id).catch(() => {});
+          const sibling = siblings[next];
+          if (sibling) void editing.branch(sibling.id, message.id).catch(() => {});
         }}
       />
       {author === "assistant" && (

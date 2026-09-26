@@ -164,8 +164,8 @@ describe("normalizeForMatch", () => {
     const { text, sources } = normalizeForMatch(raw);
     expect(text).toBe("doanh thu quý 3");
     expect(sources).toHaveLength(text.length);
-    expect(raw[sources[0]!]).toBe("D");
-    expect(raw[sources[text.indexOf("quý")]!]).toBe("q");
-    expect(raw[sources[text.length - 1]!]).toBe("3");
+    expect(raw.charAt(sources[0] ?? -1)).toBe("D");
+    expect(raw.charAt(sources[text.indexOf("quý")] ?? -1)).toBe("q");
+    expect(raw.charAt(sources[text.length - 1] ?? -1)).toBe("3");
   });
 });

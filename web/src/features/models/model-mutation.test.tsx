@@ -42,7 +42,7 @@ describe("catalog mutations", () => {
     await expect(result.current.first.run()).rejects.toThrow("already in progress");
     act(() => result.current.first.cancel());
     await expect(first).rejects.toThrow("discarded");
-    expect(seen[0]!.aborted).toBe(true);
+    expect(seen[0]?.aborted).toBe(true);
     await waitFor(() => expect(result.current.busy).toBe(false));
     expect(result.current.first).toMatchObject({ pending: false, error: null });
     expect(result.current.second.pending).toBe(false);
@@ -71,7 +71,7 @@ describe("catalog mutations", () => {
     });
     await waitFor(() => expect(seen).toHaveLength(1));
     unmount();
-    expect(seen[0]!.aborted).toBe(true);
+    expect(seen[0]?.aborted).toBe(true);
     await expect(run).rejects.toThrow("discarded");
     resolve();
     await Promise.resolve();

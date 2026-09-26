@@ -99,7 +99,7 @@ export function CsvView({
               return (
                 <SheetRow
                   key={item.index}
-                  row={sheet.rows[item.index]!}
+                  row={sheet.rows[item.index] ?? []}
                   columns={sheet.widths.length}
                   cited={marked.has(sheetRow)}
                   current={active === sheetRow}
@@ -168,8 +168,8 @@ function parseSheet(csv: string) {
   const widths: number[] = [];
   for (let column = 0; column < columns; column++) {
     let longest = header[column]?.length ?? 0;
-    for (let row = 0; row < Math.min(rows.length, WIDTH_SAMPLE); row++) {
-      longest = Math.max(longest, rows[row]![column]?.length ?? 0);
+    for (const row of rows.slice(0, WIDTH_SAMPLE)) {
+      longest = Math.max(longest, row[column]?.length ?? 0);
     }
     widths.push(Math.min(Math.max(longest * CHARACTER + CELL_PADDING, MIN_COLUMN), MAX_COLUMN));
   }

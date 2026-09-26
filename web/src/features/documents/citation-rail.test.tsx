@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n";
 import { CitationRail } from "./citation-rail";
 
@@ -77,11 +77,12 @@ describe("CitationRail", () => {
     await i18n.changeLanguage("vi");
     const onActivate = rail(["exact", "exact"]);
 
-    const cards = screen.getAllByRole("button");
-    expect(cards[0]).toHaveAttribute("aria-current", "true");
-    expect(cards[1]).not.toHaveAttribute("aria-current");
+    const [first, second] = screen.getAllByRole("button");
+    assert.isDefined(second);
+    expect(first).toHaveAttribute("aria-current", "true");
+    expect(second).not.toHaveAttribute("aria-current");
 
-    await userEvent.click(cards[1]!);
+    await userEvent.click(second);
     expect(onActivate).toHaveBeenCalledWith(1);
   });
 });

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import { MemoryOsChatTransport } from "./chat-transport";
 import { initialChatTitle, loadChatHistory, toUiMessages } from "@/features/chat/chat-api";
 import { mergedReport, type ResearchState } from "@/features/chat/research/chat-research";
@@ -175,9 +175,11 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     const reads = fetch.mock.calls
       .map(([input]) => input as Request)
       .filter((r) => r.method === "GET" && new URL(r.url).pathname.endsWith("/messages"));
+    const [read] = reads;
     expect(reads).toHaveLength(1);
-    expect(new URL(reads[0]!.url).searchParams.get("after")).toBe(userId);
-    expect(new URL(reads[0]!.url).searchParams.get("limit")).toBe("1");
+    assert.isDefined(read);
+    expect(new URL(read.url).searchParams.get("after")).toBe(userId);
+    expect(new URL(read.url).searchParams.get("limit")).toBe("1");
     expect(toUiMessages([{ ...row, artifacts }])[0]?.metadata?.artifacts).toEqual(artifacts);
     // Files run_python generated survive a reload.
     const generated = {
@@ -278,7 +280,9 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     const pending = send(transport);
     transport.selectModel(fixtureSource.generation);
     await collect(await pending);
-    const request = new Request(fetch.mock.calls[0]![0], fetch.mock.calls[0]![1]);
+    const [input, init] = fetch.mock.calls[0] ?? [];
+    assert.isDefined(input);
+    const request = new Request(input, init);
     expect((await request.json()).modelConfigurationId).toBe(fixtureSource.documentId);
     expect(accepted).toHaveBeenCalledWith({ userMessageId: userId, assistantMessageId: runId });
   });
@@ -301,7 +305,9 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
         ],
       }),
     );
-    const request = new Request(fetch.mock.calls[0]![0], fetch.mock.calls[0]![1]);
+    const [input, init] = fetch.mock.calls[0] ?? [];
+    assert.isDefined(input);
+    const request = new Request(input, init);
     expect((await request.json()).text).toBe("> First line\n> Second\n\nQuestion");
   });
 
@@ -356,7 +362,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     ["missing provenance", { provenance: [] }],
     [
       "too many passages",
-      { provenance: Array.from({ length: 61 }, () => fixtureSource.provenance[0]!) },
+      { provenance: Array.from({ length: 61 }, () => fixtureSource.provenance).flat() },
     ],
     ["provenance outside range", { provenance: [{ ordinal: 2, provenanceJson: "{}" }] }],
     ["oversized provenance", { provenance: [{ ordinal: 3, provenanceJson: "x".repeat(8193) }] }],
@@ -509,13 +515,15 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
         report: "Revenue grew [1].",
       },
     ]);
-    expect(last.data.agents[0]!.activity.steps[0]).toMatchObject({
+    expect(last.data.agents[0]?.activity.steps[0]).toMatchObject({
       toolName: "search_knowledge",
       status: "COMPLETED",
       queries: ["revenue"],
     });
-    expect(last.data.agents[0]!.activity.reasoning[0]!.text).toBe("Check margins");
-    expect(mergedReport(last.data.agents[0]!)).toBe("Revenue grew [3].");
+    expect(last.data.agents[0]?.activity.reasoning[0]?.text).toBe("Check margins");
+    const [researchAgent] = last.data.agents;
+    assert.isDefined(researchAgent);
+    expect(mergedReport(researchAgent)).toBe("Revenue grew [3].");
     expect(chunks.findIndex((chunk) => chunk.type === "data-research")).toBeLessThan(
       chunks.findIndex((chunk) => chunk.type === "text-start"),
     );
@@ -549,7 +557,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
       id: `${runId}:research`,
       data: { plan: "1. Revenue", agents: [{ tabIndex: 1, status: "FAILED" }] },
     });
-    expect(toUiMessages([row])[0]!.parts[0]).toMatchObject({ type: "text" });
+    expect(toUiMessages([row])[0]?.parts[0]).toMatchObject({ type: "text" });
   });
 
   it("keeps hosted-search citations that arrive after the step finished in message metadata", async () => {
@@ -621,7 +629,7 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
     });
     expect(message!.parts[3]).toEqual({ type: "text", text: " After." });
     expect(message!.parts[4]).toMatchObject({ state: "output-error", errorText: "TOOL_FAILED" });
-    expect(toUiMessages([row])[0]!.parts.map((part) => part.type)).toEqual(["text"]);
+    expect(toUiMessages([row])[0]?.parts.map((part) => part.type)).toEqual(["text"]);
   });
 
   it("uses server IDs and stable request identity, ignores duplicate replay and finishes only on outcome", async () => {
@@ -635,7 +643,9 @@ describe("MemoryOS ChatTransport using the generated HTTP/SSE clients", () => {
       { type: "text-delta", id: runId, delta: "Hello 👋" },
     ]);
     expect(chunks.at(-1)).toEqual({ type: "finish", finishReason: "stop" });
-    const request = new Request(fetch.mock.calls[0]![0], fetch.mock.calls[0]![1]);
+    const [input, init] = fetch.mock.calls[0] ?? [];
+    assert.isDefined(input);
+    const request = new Request(input, init);
     expect(await request.json()).toMatchObject({
       clientRequestId: requestId,
       parentMessageId: session.rootMessageId,

@@ -74,8 +74,8 @@ describe("spending limits", () => {
     await screen.findByText("The whole organization");
     await userEvent.click(screen.getByRole("switch", { name: "Enforced" }));
     await waitFor(() => expect(sent).toHaveLength(1));
-    expect(sent[0]!.limitId).toBe(tenantLimit.id);
-    expect(sent[0]!.body).toMatchObject({ enabled: false, tokenBudget: 90_000, periodDays: 30 });
+    expect(sent[0]?.limitId).toBe(tenantLimit.id);
+    expect(sent[0]?.body).toMatchObject({ enabled: false, tokenBudget: 90_000, periodDays: 30 });
   });
 
   it("says so when a change to a limit is refused", async () => {

@@ -58,8 +58,8 @@ export function normalizeForMatch(raw: string): NormalizedText {
       cluster += mark;
       index += mark.length;
     }
-    if (IGNORED.test(cluster[0]!)) continue;
-    if (WHITESPACE.test(cluster[0]!)) {
+    if (IGNORED.test(cluster.charAt(0))) continue;
+    if (WHITESPACE.test(cluster.charAt(0))) {
       if (pendingSpace < 0) pendingSpace = start;
       continue;
     }

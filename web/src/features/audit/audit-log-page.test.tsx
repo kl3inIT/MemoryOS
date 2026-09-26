@@ -71,7 +71,9 @@ function mount(
       const url = new URL(request.url);
       requested.push(url);
       if (pages === "error") return new HttpResponse(null, { status: 403 });
-      return HttpResponse.json(url.searchParams.get("cursor") ? pages[1]! : pages[0]!);
+      const page = url.searchParams.get("cursor") ? pages[1] : pages[0];
+      if (!page) return new HttpResponse(null, { status: 404 });
+      return HttpResponse.json(page);
     }),
   );
   router = auditRouter(path);

@@ -19,7 +19,7 @@ import { formatUiDate } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { AuditEvent } from "@/lib/hey-api/types.gen";
 import {
-  actionLabels,
+  actionLabel,
   changeRows,
   classLabels,
   detailText,
@@ -47,9 +47,7 @@ export function AuditEventSheet({
         {event ? (
           <>
             <SheetHeader>
-              <SheetTitle>
-                {actionLabels[event.action] ? ui(actionLabels[event.action]!) : event.action}
-              </SheetTitle>
+              <SheetTitle>{actionLabel(event.action, ui)}</SheetTitle>
               <SheetDescription asChild>
                 <div className="flex flex-wrap items-center gap-2">
                   <code className="font-mono text-xs">{event.action}</code>

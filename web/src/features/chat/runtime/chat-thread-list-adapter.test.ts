@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { AssistantMessageStream } from "assistant-stream";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
 import { ChatThreadRegistry } from "./chat-thread-controller";
 import {
@@ -80,7 +80,9 @@ describe("assistant-ui thread list adapter over the session API", () => {
 
     expect(requests).toEqual(["GET /api/chat/sessions?offset=0&limit=30&archived=false"]);
     expect(first.nextCursor).toBe("30");
-    expect(sessionFromThread(first.threads[1]!)).toEqual(page[1]);
+    const second = first.threads[1];
+    assert.isDefined(second);
+    expect(sessionFromThread(second)).toEqual(page[1]);
     await adapter.list({ after: "30" });
     expect(requests.at(-1)).toBe("GET /api/chat/sessions?offset=30&limit=30&archived=false");
   });
@@ -185,8 +187,8 @@ describe("assistant-ui thread list adapter over the session API", () => {
     const loaded = await chatHistoryAdapter(controller).withFormat!({} as never).load();
     expect(loaded.messages.map((item) => item.parentId)).toEqual([
       null,
-      saved[0]!.id,
-      saved[1]!.id,
+      saved[0]?.id,
+      saved[1]?.id,
     ]);
     expect(controller.getState()).toMatchObject({
       resume: true,

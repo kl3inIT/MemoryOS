@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HttpResponse } from "msw";
-import { beforeEach, describe, expect, it } from "vitest";
+import { assert, beforeEach, describe, expect, it } from "vitest";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
 import {
@@ -115,10 +115,13 @@ describe("DocumentSetsPage", () => {
     );
     await renderPage();
 
-    const rows = await bodyRows();
-    expect(within(rows[0]!).getByText("Public")).toBeVisible();
-    expect(within(rows[1]!).getByText("Shared")).toBeVisible();
-    expect(within(rows[2]!).getByText("Private")).toBeVisible();
+    const [publicRow, sharedRow, privateRow] = await bodyRows();
+    assert.isDefined(publicRow);
+    assert.isDefined(sharedRow);
+    assert.isDefined(privateRow);
+    expect(within(publicRow).getByText("Public")).toBeVisible();
+    expect(within(sharedRow).getByText("Shared")).toBeVisible();
+    expect(within(privateRow).getByText("Private")).toBeVisible();
   });
 
   it("pages through the sets on the server, one page at a time", async () => {

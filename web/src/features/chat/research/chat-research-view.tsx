@@ -86,10 +86,8 @@ export function ChatResearchView({ research }: { research: ResearchState }) {
             {cycles.size > 1 && (
               <p className="mb-1 text-content-muted">{ui("Chu kỳ {{n}}", { n: cycle + 1 })}</p>
             )}
-            {agents.length === 1 ? (
-              <AgentPanel agent={agents[0]!} running={running} />
-            ) : (
-              <Tabs defaultValue={agents[0]!.toolCallId}>
+            {agents.length > 1 ? (
+              <Tabs defaultValue={agents[0]?.toolCallId}>
                 {/* Scrolling sideways must not add a vertical scrollbar to the fixed-height tab row. */}
                 <TabsList className="max-w-full overflow-x-auto overflow-y-hidden">
                   {agents.map((agent) => (
@@ -109,6 +107,8 @@ export function ChatResearchView({ research }: { research: ResearchState }) {
                   </TabsContent>
                 ))}
               </Tabs>
+            ) : (
+              agents[0] && <AgentPanel agent={agents[0]} running={running} />
             )}
           </li>
         ))}

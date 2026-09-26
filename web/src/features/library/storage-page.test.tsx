@@ -53,7 +53,7 @@ it("shows what is used against the deployment limit, biggest kind first", async 
   const rows = screen.getAllByRole("listitem");
   expect(rows[0]).toHaveTextContent("Ảnh");
   expect(rows[1]).toHaveTextContent("Tài liệu");
-  expect(rows[0]!.querySelector("a")).toHaveAttribute("href", "/library");
+  expect(rows[0]?.querySelector("a")).toHaveAttribute("href", "/library");
 });
 
 it("warns when the library is nearly full", async () => {
