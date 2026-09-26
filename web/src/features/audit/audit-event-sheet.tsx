@@ -7,6 +7,14 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { formatUiDate } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { AuditEvent } from "@/lib/hey-api/types.gen";
@@ -42,80 +50,84 @@ export function AuditEventSheet({
               <SheetTitle>
                 {actionLabels[event.action] ? ui(actionLabels[event.action]!) : event.action}
               </SheetTitle>
-              <SheetDescription className="flex flex-wrap items-center gap-2">
-                <code className="font-mono text-xs">{event.action}</code>
-                <StatusBadge tone={outcomeTones[event.outcome]} size="sm">
-                  {ui(outcomeLabels[event.outcome])}
-                </StatusBadge>
-                <span>{ui(classLabels[event.eventClass])}</span>
+              <SheetDescription asChild>
+                <div className="flex flex-wrap items-center gap-2">
+                  <code className="font-mono text-xs">{event.action}</code>
+                  <StatusBadge tone={outcomeTones[event.outcome]} size="sm">
+                    {ui(outcomeLabels[event.outcome])}
+                  </StatusBadge>
+                  <span>{ui(classLabels[event.eventClass])}</span>
+                </div>
               </SheetDescription>
             </SheetHeader>
             <div className="flex flex-col gap-6 px-4 pb-6">
               <Block title={ui("When")}>
-                <Field label={ui("Local time")}>
+                <Detail label={ui("Local time")}>
                   {formatUiDate(event.occurredAt, { dateStyle: "full", timeStyle: "medium" })}
-                </Field>
-                <Field label={ui("UTC")}>
+                </Detail>
+                <Detail label={ui("UTC")}>
                   <span className="font-mono text-xs">{event.occurredAt}</span>
-                </Field>
+                </Detail>
               </Block>
               <Block title={ui("Who")}>
-                <Field label={ui("Person")}>{event.actorLabel ?? ui("System")}</Field>
-                {event.actorEmail ? <Field label={ui("Email")}>{event.actorEmail}</Field> : null}
-                {event.sourceIp ? <Field label={ui("IP address")}>{event.sourceIp}</Field> : null}
+                <Detail label={ui("Person")}>{event.actorLabel ?? ui("System")}</Detail>
+                {event.actorEmail ? <Detail label={ui("Email")}>{event.actorEmail}</Detail> : null}
+                {event.sourceIp ? <Detail label={ui("IP address")}>{event.sourceIp}</Detail> : null}
                 {event.endpoint ? (
-                  <Field label={ui("Request")}>
+                  <Detail label={ui("Request")}>
                     <span className="font-mono text-xs break-all">{event.endpoint}</span>
-                  </Field>
+                  </Detail>
                 ) : null}
                 {event.traceId ? (
-                  <Field label={ui("Trace")}>
+                  <Detail label={ui("Trace")}>
                     <span className="font-mono text-xs break-all">{event.traceId}</span>
-                  </Field>
+                  </Detail>
                 ) : null}
               </Block>
               <Block title={ui("What")}>
-                <Field label={ui("Item")}>{event.resourceLabel ?? "—"}</Field>
+                <Detail label={ui("Item")}>{event.resourceLabel ?? "—"}</Detail>
                 {event.resourceType ? (
-                  <Field label={ui("Type")}>
+                  <Detail label={ui("Type")}>
                     <span className="font-mono text-xs">{event.resourceType}</span>
-                  </Field>
+                  </Detail>
                 ) : null}
                 {event.resourceId ? (
-                  <Field label={ui("ID")}>
+                  <Detail label={ui("ID")}>
                     <span className="font-mono text-xs break-all">{event.resourceId}</span>
-                  </Field>
+                  </Detail>
                 ) : null}
                 {others.map(([key, value]) => (
-                  <Field key={key} label={fieldLabel(key, ui)}>
+                  <Detail key={key} label={fieldLabel(key, ui)}>
                     {detailText(value, ui)}
-                  </Field>
+                  </Detail>
                 ))}
               </Block>
               {changes.length > 0 ? (
                 <Block title={ui("Changes")}>
-                  <table className="w-full table-fixed text-left">
-                    <thead className="font-secondary-body text-content-muted">
-                      <tr>
-                        <th className="w-1/3 pb-1 font-normal">{ui("Field")}</th>
-                        <th className="pb-1 font-normal">{ui("Before")}</th>
-                        <th className="pb-1 font-normal">{ui("After")}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="align-top">
+                  <Table className="table-fixed">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-1/3">{ui("Field")}</TableHead>
+                        <TableHead>{ui("Before")}</TableHead>
+                        <TableHead>{ui("After")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {changes.map((row) => (
-                        <tr key={row.field} className="border-t border-border-subtle">
-                          <td className="py-1.5 pr-2 break-words text-content-muted">
-                            {row.field ? fieldLabel(row.field, ui) : "—"}
-                          </td>
-                          <td className="py-1.5 pr-2 break-words text-content-secondary">
-                            {row.before}
-                          </td>
-                          <td className="py-1.5 break-words text-content-primary">{row.after}</td>
-                        </tr>
+                        <TableRow key={row.field}>
+                          <TableCell className="break-words align-top">
+                            <span className="text-content-muted">
+                              {row.field ? fieldLabel(row.field, ui) : "—"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="break-words align-top">
+                            <span className="text-content-secondary">{row.before}</span>
+                          </TableCell>
+                          <TableCell className="break-words align-top">{row.after}</TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </Block>
               ) : null}
             </div>
@@ -135,11 +147,11 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Detail({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="grid grid-cols-[7rem_1fr] gap-3">
-      <dt className="font-secondary-body text-content-muted">{label}</dt>
-      <dd className="min-w-0 break-words text-content-primary">{children}</dd>
+    <div className="flex gap-3">
+      <dt className="w-28 shrink-0 font-secondary-body text-content-muted">{label}</dt>
+      <dd className="min-w-0 flex-1 break-words text-content-primary">{children}</dd>
     </div>
   );
 }
