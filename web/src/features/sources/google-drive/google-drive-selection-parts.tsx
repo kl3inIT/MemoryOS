@@ -1,10 +1,13 @@
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { Search, SearchX, SlidersHorizontal } from "lucide-react";
-import type { RefObject } from "react";
+import { Search, SearchX, SlidersHorizontal, TriangleAlert } from "lucide-react";
+import { useEffect, useRef, type RefObject } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -131,25 +135,27 @@ export function SelectionFilterControls({
           </IconButton>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-56">
-          <div className="flex flex-col gap-1.5">
-            <span className="font-secondary-action text-content-primary">{ui("Content type")}</span>
+          <Field>
+            <FieldLabel htmlFor="google-drive-selection-kind">{ui("Content type")}</FieldLabel>
             <Select
               value={kind || allKinds}
               onValueChange={(next) =>
                 onKindChange(next === allKinds ? "" : (next as SelectionKind))
               }
             >
-              <SelectTrigger aria-label={ui("Content type")} className="w-full">
+              <SelectTrigger id="google-drive-selection-kind" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={allKinds}>{ui("All types")}</SelectItem>
-                <SelectItem value="FOLDER">{ui("Folders")}</SelectItem>
-                <SelectItem value="FILE">{ui("Files")}</SelectItem>
-                <SelectItem value="LINKED">{ui("Linked documents")}</SelectItem>
+                <SelectGroup>
+                  <SelectItem value={allKinds}>{ui("All types")}</SelectItem>
+                  <SelectItem value="FOLDER">{ui("Folders")}</SelectItem>
+                  <SelectItem value="FILE">{ui("Files")}</SelectItem>
+                  <SelectItem value="LINKED">{ui("Linked documents")}</SelectItem>
+                </SelectGroup>
               </SelectContent>
             </Select>
-          </div>
+          </Field>
           <Button prominence="tertiary" disabled={!filtered} onClick={onClear}>
             {ui("Clear filters")}
           </Button>
@@ -170,6 +176,9 @@ export function SelectionSearchForm({
   onSubmit: () => void;
 }) {
   const ui = useAppTranslation();
+  const input = useRef<HTMLInputElement>(null);
+  // The field opens on request, so it takes focus as it appears.
+  useEffect(() => input.current?.focus(), []);
   return (
     <form
       className="flex flex-col gap-2 sm:flex-row sm:items-center"
@@ -178,15 +187,14 @@ export function SelectionSearchForm({
         onSubmit();
       }}
     >
-      <label className="min-w-0 flex-1">
-        <span className="sr-only">{ui("Search selected files")}</span>
-        <Input
-          autoFocus
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={ui("Search selected files")}
-        />
-      </label>
+      <Input
+        ref={input}
+        aria-label={ui("Search selected files")}
+        className="min-w-0 flex-1"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={ui("Search selected files")}
+      />
       <HelpPopover label={ui("Search scope")}>
         <p>
           {ui(
@@ -226,57 +234,61 @@ export function SelectionOperationStatus({
   const ui = useAppTranslation();
   if (!operation && !tracking.recovering && !tracking.uncertain) return null;
   return (
-    <div className="space-y-2 rounded-lg border border-border-subtle bg-surface-subtle p-3 text-sm">
-      {operation ? (
-        <div role="status" className="space-y-2">
-          <StatusBadge
-            tone={pending ? "info" : operation.status === "SUCCEEDED" ? "success" : "warning"}
-          >
-            {pending
-              ? ui("Pending validation")
-              : operation.status === "SUCCEEDED"
-                ? ui("Selection activated")
-                : ui("Proposal not activated")}
-          </StatusBadge>
-          <p>
-            {pending
-              ? ui(
-                  "The active selection remains in use until verification succeeds. Leaving this page does not cancel validation. A newer submitted proposal supersedes the pending proposal.",
-                )
-              : ui(
-                  "The saved selection is shown below. Revision details are available in Selected content help.",
-                )}
-          </p>
+    <Card size="sm">
+      <CardContent>
+        <div className="flex flex-col items-start gap-2 text-sm">
+          {operation ? (
+            <div role="status" className="flex flex-col items-start gap-2">
+              <StatusBadge
+                tone={pending ? "info" : operation.status === "SUCCEEDED" ? "success" : "warning"}
+              >
+                {pending
+                  ? ui("Pending validation")
+                  : operation.status === "SUCCEEDED"
+                    ? ui("Selection activated")
+                    : ui("Proposal not activated")}
+              </StatusBadge>
+              <p>
+                {pending
+                  ? ui(
+                      "The active selection remains in use until verification succeeds. Leaving this page does not cancel validation. A newer submitted proposal supersedes the pending proposal.",
+                    )
+                  : ui(
+                      "The saved selection is shown below. Revision details are available in Selected content help.",
+                    )}
+              </p>
+            </div>
+          ) : null}
+          {tracking.recovering ? (
+            <p role="status" className="text-content-muted">
+              {ui("Recovering submitted selection…")}
+            </p>
+          ) : null}
+          {tracking.recoveryError ? (
+            <Button prominence="secondary" onClick={() => void tracking.retryRecovery()}>
+              {ui("Retry selection recovery")}
+            </Button>
+          ) : null}
+          {tracking.recoveryMissing ? (
+            <Button prominence="secondary" onClick={onDiscard}>
+              {ui("Discard unaccepted request")}
+            </Button>
+          ) : null}
+          {tracking.statusUnavailable ? (
+            <Button prominence="secondary" onClick={() => void tracking.retryStatus()}>
+              {ui("Retry validation status")}
+            </Button>
+          ) : null}
+          {tracking.uncertain && !busy ? (
+            <p className="text-content-muted">
+              {ui(
+                "The response was not received. Retry Save selection with the same request ID; the server will not apply it twice.",
+              )}
+            </p>
+          ) : null}
         </div>
-      ) : null}
-      {tracking.recovering ? (
-        <p role="status" className="text-content-muted">
-          {ui("Recovering submitted selection…")}
-        </p>
-      ) : null}
-      {tracking.recoveryError ? (
-        <Button prominence="secondary" onClick={() => void tracking.retryRecovery()}>
-          {ui("Retry selection recovery")}
-        </Button>
-      ) : null}
-      {tracking.recoveryMissing ? (
-        <Button prominence="secondary" onClick={onDiscard}>
-          {ui("Discard unaccepted request")}
-        </Button>
-      ) : null}
-      {tracking.statusUnavailable ? (
-        <Button prominence="secondary" onClick={() => void tracking.retryStatus()}>
-          {ui("Retry validation status")}
-        </Button>
-      ) : null}
-      {tracking.uncertain && !busy ? (
-        <p className="text-content-muted">
-          {ui(
-            "The response was not received. Retry Save selection with the same request ID; the server will not apply it twice.",
-          )}
-        </p>
-      ) : null}
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -348,7 +360,7 @@ export function SelectionResults({
               ))}
             </ul>
           ) : (
-            <Empty className="py-8">
+            <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <SearchX aria-hidden="true" />
@@ -435,19 +447,26 @@ export function DiscoveryErrors({
   const ui = useAppTranslation();
   if (!failures.length) return null;
   return (
-    <Collapsible className="rounded-lg bg-status-warning-surface p-3 text-sm text-status-warning-content">
-      <CollapsibleTrigger className="min-h-11 cursor-pointer">
-        {ui("Discovery could not check")} {failures.length} {ui("inputs")}
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <ul>
-          {failures.map((failure) => (
-            <li key={`${failure.fileId}:${failure.code}`} className="break-words">
-              {failure.fileName}: {ui(sourceStatusMessage(failure.code))}
-            </li>
-          ))}
-        </ul>
-      </CollapsibleContent>
-    </Collapsible>
+    <Alert variant="warning" role="note">
+      <TriangleAlert aria-hidden="true" />
+      <AlertDescription>
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <button type="button" className="min-h-11 cursor-pointer text-left">
+              {ui("Discovery could not check")} {failures.length} {ui("inputs")}
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <ul>
+              {failures.map((failure) => (
+                <li key={`${failure.fileId}:${failure.code}`} className="break-words">
+                  {failure.fileName}: {ui(sourceStatusMessage(failure.code))}
+                </li>
+              ))}
+            </ul>
+          </CollapsibleContent>
+        </Collapsible>
+      </AlertDescription>
+    </Alert>
   );
 }

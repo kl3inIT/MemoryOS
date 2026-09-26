@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, use } from "react";
 
 export type PendingSourceFinalize = {
   sourceId: string;
@@ -14,7 +14,7 @@ export type SourceUploadRecovery = {
 export const SourceUploadRecoveryContext = createContext<SourceUploadRecovery | null>(null);
 
 export function useSourceUploadRecovery() {
-  const recovery = useContext(SourceUploadRecoveryContext);
+  const recovery = use(SourceUploadRecoveryContext);
   if (!recovery) {
     throw new Error("useSourceUploadRecovery must be used within SourceUploadRecoveryProvider");
   }

@@ -598,6 +598,8 @@ Object.assign(englishUi, {
   "Add file source": "Thêm nguồn tệp",
   "Upload a document to start indexing.": "Tải tài liệu lên để bắt đầu lập chỉ mục.",
   "Source name": "Tên nguồn",
+  "Enter a source name.": "Nhập tên nguồn.",
+  "Enter a name.": "Nhập tên.",
   "e.g. Product documentation": "Ví dụ: Tài liệu sản phẩm",
   "Access groups": "Nhóm truy cập",
   "Optional · defaults to the protected Admin group":

@@ -2,7 +2,6 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { GoogleDriveCredentialResponse } from "@/lib/hey-api/types.gen";
 import { GoogleDriveIcon } from "./google-drive-icon";
-import { statusPill } from "@/features/sources/shared/source-status-presentation";
 
 type GoogleDriveConnectionAccountProps = {
   credential: GoogleDriveCredentialResponse | undefined;
@@ -41,7 +40,7 @@ export function GoogleDriveConnectionAccount({
               : ui("{{v1}} ({{v2}})", { v1: credential.name, v2: credential.accountEmail })}
         </p>
       </div>
-      <StatusBadge tone={tone} className={statusPill(tone)}>
+      <StatusBadge tone={tone} variant="pill">
         {connected ? ui("Connected") : ui("Not connected")}
       </StatusBadge>
     </div>

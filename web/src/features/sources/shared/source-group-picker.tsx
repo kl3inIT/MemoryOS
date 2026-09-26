@@ -75,11 +75,7 @@ export function SourceGroupPicker({
         {label}
       </span>
       {/* cmdk labels its input from this text; without it the field is nameless whatever the placeholder says. */}
-      <Command
-        label={label}
-        shouldFilter={false}
-        className="relative overflow-visible bg-transparent"
-      >
+      <Command label={label} shouldFilter={false} className="relative overflow-visible">
         <div className="flex h-10 items-center gap-2 rounded-xl border border-border-default bg-surface-raised px-3 focus-within:border-border-strong">
           <Search aria-hidden="true" className="size-4 shrink-0 text-content-disabled" />
           <CommandPrimitive.Input
@@ -100,41 +96,45 @@ export function SourceGroupPicker({
           />
         </div>
         {open && !full ? (
-          <CommandList
+          // The list floats under the field; a press inside it must not blur the field and close it.
+          <div
+            role="presentation"
             onMouseDown={(event) => event.preventDefault()}
-            className="absolute top-full left-0 z-50 mt-1 max-h-72 w-full rounded-xl border border-border-subtle bg-surface-overlay p-1 shadow-md"
+            className="absolute top-full left-0 z-50 mt-1 w-full rounded-xl border border-border-subtle bg-surface-overlay p-1 shadow-md"
           >
-            {options.isPending ? (
-              <p role="status" className="py-6 text-center text-sm text-content-muted">
-                {ui("Loading groups")}
-              </p>
-            ) : options.isError ? (
-              <p role="alert" className="px-3 py-6 text-center text-sm text-content-secondary">
-                {ui("Available groups could not be loaded. Your selection is unchanged.")}
-              </p>
-            ) : (
-              <>
-                <CommandEmpty>
-                  {query ? ui("No groups match your search.") : ui("No groups are available.")}
-                </CommandEmpty>
-                <CommandGroup>
-                  {unselected.map((group) => (
-                    <CommandItem key={group.id} value={group.id} onSelect={() => add(group)}>
-                      <Users aria-hidden="true" className="size-4 shrink-0" />
-                      <span className="truncate" title={group.name}>
-                        {group.name}
-                      </span>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-                {options.data && options.data.totalPages > 1 ? (
-                  <p className="border-t border-border-subtle px-3 py-2 text-xs text-content-muted">
-                    {ui("Type to find more groups.")}
-                  </p>
-                ) : null}
-              </>
-            )}
-          </CommandList>
+            <CommandList>
+              {options.isPending ? (
+                <p role="status" className="py-6 text-center text-sm text-content-muted">
+                  {ui("Loading groups")}
+                </p>
+              ) : options.isError ? (
+                <p role="alert" className="px-3 py-6 text-center text-sm text-content-secondary">
+                  {ui("Available groups could not be loaded. Your selection is unchanged.")}
+                </p>
+              ) : (
+                <>
+                  <CommandEmpty>
+                    {query ? ui("No groups match your search.") : ui("No groups are available.")}
+                  </CommandEmpty>
+                  <CommandGroup>
+                    {unselected.map((group) => (
+                      <CommandItem key={group.id} value={group.id} onSelect={() => add(group)}>
+                        <Users aria-hidden="true" className="size-4 shrink-0" />
+                        <span className="truncate" title={group.name}>
+                          {group.name}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                  {options.data && options.data.totalPages > 1 ? (
+                    <p className="border-t border-border-subtle px-3 py-2 text-xs text-content-muted">
+                      {ui("Type to find more groups.")}
+                    </p>
+                  ) : null}
+                </>
+              )}
+            </CommandList>
+          </div>
         ) : null}
       </Command>
       {selected.size > 0 ? (

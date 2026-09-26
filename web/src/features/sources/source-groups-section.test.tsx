@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState, type ReactNode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { afterEach, describe, expect, it } from "vitest";
 import { GroupSourcesSection } from "@/features/groups/group-sources-section";
 import {
   ApplicationSessionContext,
@@ -12,6 +13,15 @@ import { listSourceGroupOptionsOptions } from "@/lib/hey-api/@tanstack/react-que
 import type { GroupSummary, SourceGroup, SourceSummary } from "@/lib/hey-api/types.gen";
 import { useGroupSourcesDraft } from "@/features/groups/group-sources-draft";
 import { GroupAccessPicker } from "@/features/groups/group-access-picker";
+import {
+  handleListGroupSources,
+  handleListSourceGroupOptions,
+  handleListSourceGroups,
+  handleListSources,
+  handleRemoveGroupSource,
+  handleUpdateSourceGroups,
+} from "@/lib/hey-api/msw.gen";
+import { server } from "@/test/msw";
 import { SourceGroupsSection } from "./source-groups-section";
 
 const ordinary: SourceGroup = { id: "team", name: "Knowledge team", systemKey: null };
@@ -69,10 +79,8 @@ const scopedSession: ApplicationSession = {
 const clients: QueryClient[] = [];
 
 afterEach(() => {
-  cleanup();
   for (const client of clients) client.clear();
   clients.length = 0;
-  vi.unstubAllGlobals();
 });
 
 function setup(
@@ -85,47 +93,35 @@ function setup(
 ) {
   const saved: string[][] = [];
   const removed: string[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (request: Request) => {
-      const url = new URL(request.url);
-      if (url.pathname === "/api/sources/group-options") {
-        return Response.json({
-          items:
-            paginated && url.searchParams.get("page") === "1"
-              ? [other]
-              : [...systemGroups, ordinary],
-          page: Number(url.searchParams.get("page") ?? 0),
-          size: 25,
-          totalItems: paginated ? 2 : 1,
-          totalPages: paginated ? 2 : 1,
-        });
-      }
-      if (url.pathname === "/api/sources/source/groups") {
-        if (request.method === "POST") {
-          const body = (await request.json()) as { groupIds: string[] };
-          saved.push(body.groupIds);
-          return Response.json({ items: body.groupIds.map((id) => ({ ...ordinary, id })) });
-        }
-        return Response.json({ items: sourceGroups });
-      }
-      if (url.pathname === "/api/sources") return Response.json([groupSource]);
-      if (url.pathname === "/api/groups/team/sources")
-        return Response.json({ items: [groupSource], removableSourceIds });
-      if (url.pathname === "/api/groups/team/sources/source/remove" && request.method === "POST") {
-        removed.push("source");
-        return new Response(null, { status: 204 });
-      }
-      throw new Error(`Unexpected request: ${request.method} ${url.pathname}`);
+  server.use(
+    handleListSourceGroupOptions(({ request }) => {
+      const page = new URL(request.url).searchParams.get("page");
+      return HttpResponse.json({
+        items: paginated && page === "1" ? [other] : [...systemGroups, ordinary],
+        page: Number(page ?? 0),
+        size: 25,
+        totalItems: paginated ? 2 : 1,
+        totalPages: paginated ? 2 : 1,
+      });
+    }),
+    handleListSourceGroups({ body: { items: sourceGroups } }),
+    handleUpdateSourceGroups(async ({ request }) => {
+      const body = (await request.json()) as { groupIds: string[] };
+      saved.push(body.groupIds);
+      return HttpResponse.json({ items: body.groupIds.map((id) => ({ ...ordinary, id })) });
+    }),
+    handleListSources({ body: [groupSource] }),
+    handleListGroupSources({ body: { items: [groupSource], removableSourceIds } }),
+    handleRemoveGroupSource(({ params }) => {
+      removed.push(params.sourceId);
+      return new HttpResponse(null, { status: 204 });
     }),
   );
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   clients.push(client);
   const wrap = (currentSession: ApplicationSession) => (
     <QueryClientProvider client={client}>
-      <ApplicationSessionContext.Provider value={currentSession}>
-        {children}
-      </ApplicationSessionContext.Provider>
+      <ApplicationSessionContext value={currentSession}>{children}</ApplicationSessionContext>
     </QueryClientProvider>
   );
   const view = render(wrap(session));

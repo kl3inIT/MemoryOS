@@ -24,14 +24,15 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { getSourceRunOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceRun, SourceRunCounts } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
-import { statusPill } from "@/features/sources/shared/source-status-presentation";
 import { historyDuration, runErrorMessage, runIsActive } from "./source-history";
 import { RunErrors } from "./source-run-errors";
 import { HistoryTime, RunOutcome } from "./source-history-presentation";
@@ -160,19 +161,18 @@ function RunStage({
   const [label, tone, Icon] = stageStates[state] ?? unknownStage;
   return (
     <li className="flex items-center gap-3 rounded-lg border border-border-subtle px-3 py-2.5">
-      <Icon
-        aria-hidden="true"
-        className={cn(
-          "size-4 shrink-0",
-          toneText[tone],
-          Icon === LoaderCircle && "motion-safe:animate-spin",
-        )}
-      />
+      {Icon === LoaderCircle ? (
+        <span className="inline-flex shrink-0 text-status-info-content">
+          <Spinner aria-hidden="true" />
+        </span>
+      ) : (
+        <Icon aria-hidden="true" className={cn("size-4 shrink-0", toneText[tone])} />
+      )}
       <span className="min-w-0 flex-1 font-medium text-content-primary">{name}</span>
       {duration ? (
         <span className="text-xs tabular-nums text-content-muted">{duration}</span>
       ) : null}
-      <StatusBadge tone={tone} className={statusPill(tone)}>
+      <StatusBadge tone={tone} variant="pill">
         {ui(label)}
       </StatusBadge>
     </li>
@@ -202,17 +202,18 @@ export function RunDetails({ initialRun }: { initialRun: SourceRun }) {
   ];
   return (
     <>
-      <SheetHeader className="gap-1.5 border-b border-border-subtle px-5 py-4 pr-12">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <SheetTitle className="font-heading-h3 text-content-primary">
-            {ui("Run details")}
-          </SheetTitle>
-          <RunOutcome run={run} />
-        </div>
-        <SheetDescription className="text-content-muted">
-          {run.startedAt ? <HistoryTime value={run.startedAt} /> : ui("at an unknown time")}
-        </SheetDescription>
-      </SheetHeader>
+      {/* The header leaves room for the sheet's close button. */}
+      <div className="border-b border-border-subtle pr-8">
+        <SheetHeader>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <SheetTitle>{ui("Run details")}</SheetTitle>
+            <RunOutcome run={run} />
+          </div>
+          <SheetDescription>
+            {run.startedAt ? <HistoryTime value={run.startedAt} /> : ui("at an unknown time")}
+          </SheetDescription>
+        </SheetHeader>
+      </div>
       <div className="min-w-0 divide-y divide-border-subtle">
         {detail.isError ? (
           <div
@@ -228,7 +229,7 @@ export function RunDetails({ initialRun }: { initialRun: SourceRun }) {
         <RunSection title={ui("Overview")}>
           <dl className="text-sm">
             <DetailRow icon={Hash} label={ui("Run ID")}>
-              <code className="text-xs select-text [overflow-wrap:anywhere]">{run.id}</code>
+              <code className="text-xs select-text wrap-anywhere">{run.id}</code>
             </DetailRow>
             <DetailRow icon={Zap} label={ui("Trigger")}>
               <RunTrigger run={run} />
@@ -263,7 +264,7 @@ export function RunDetails({ initialRun }: { initialRun: SourceRun }) {
           </dl>
         </RunSection>
         <RunSection title={ui("Stages")}>
-          <ol className="space-y-2 text-sm">
+          <ol className="flex flex-col gap-2 text-sm">
             <RunStage
               name={ui("Read content")}
               state={run.acquisitionStatus}
@@ -319,29 +320,29 @@ export function RunDetails({ initialRun }: { initialRun: SourceRun }) {
         </RunSection>
         {run.errorCode ? (
           <section className="px-5 py-4">
-            <div className="rounded-xl bg-status-danger-surface p-4">
-              <h3 className="text-sm font-medium text-status-danger-content">
-                {ui("Historical run error")}
-              </h3>
-              <p className="mt-2 text-sm break-words text-content-primary">
-                {runErrorMessage(ui, run.errorCode)}
-              </p>
-              <Collapsible className="mt-2 text-xs text-content-secondary">
-                <CollapsibleTrigger className="min-h-11 cursor-pointer py-3 focus-visible:outline-2 focus-visible:outline-focus-ring">
-                  {ui("Technical details")}
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <dl className="space-y-2">
-                    <div>
+            {/* A past failure is a record, not news, so it is not announced. */}
+            <Alert variant="destructive" role="note">
+              <CircleX aria-hidden="true" />
+              <AlertTitle>{ui("Historical run error")}</AlertTitle>
+              <AlertDescription>
+                <p className="break-words">{runErrorMessage(ui, run.errorCode)}</p>
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <Button size="sm" prominence="tertiary" className="px-0">
+                      {ui("Technical details")}
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <dl className="text-xs">
                       <dt>{ui("Error code")}</dt>
-                      <dd className="mt-1 select-text [overflow-wrap:anywhere]">
+                      <dd className="mt-1 select-text wrap-anywhere">
                         <code>{run.errorCode}</code>
                       </dd>
-                    </div>
-                  </dl>
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
+                    </dl>
+                  </CollapsibleContent>
+                </Collapsible>
+              </AlertDescription>
+            </Alert>
           </section>
         ) : null}
         {run.detailsExpired ? (

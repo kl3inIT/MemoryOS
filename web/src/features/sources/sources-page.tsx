@@ -5,8 +5,11 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { BookOpen, ChevronDown, ChevronRight, Files, ListFilter, Settings } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { BrandLoader } from "@/components/brand-loader";
+import { EmptyState } from "@/components/composites/empty-state";
+import { Card, CardContent } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -21,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -87,17 +91,15 @@ export function SourcesPage() {
           <BrandLoader label={ui("Loading sources")} />
         </div>
       ) : sourcesQuery.isError ? (
-        <div className="py-14 text-center">
-          <h2 className="font-heading-h3 text-content-primary">{ui("Sources unavailable")}</h2>
-          <Button
-            prominence="secondary"
-            size="sm"
-            className="mt-4"
-            onClick={() => void sourcesQuery.refetch()}
-          >
-            {ui("Try again")}
-          </Button>
-        </div>
+        <EmptyState
+          role="alert"
+          title={ui("Sources unavailable")}
+          action={
+            <Button prominence="secondary" size="sm" onClick={() => void sourcesQuery.refetch()}>
+              {ui("Try again")}
+            </Button>
+          }
+        />
       ) : sources.length === 0 ? (
         <SourcesEmpty canCreate={canCreate} />
       ) : (
@@ -122,20 +124,22 @@ function SourcesEmpty({ canCreate }: { canCreate: boolean }) {
   const ui = useAppTranslation();
 
   return (
-    <Empty className="min-h-80 border border-dashed border-border-default bg-surface-base">
+    <Empty className="min-h-80">
       <EmptyHeader>
-        <EmptyMedia className="flex-row gap-3">
-          {sourceProviders.map((provider) => {
-            const ProviderIcon = provider.icon;
-            return (
-              <span
-                key={provider.type}
-                className="grid size-12 place-items-center rounded-2xl border border-border-subtle bg-surface-raised shadow-xs"
-              >
-                <ProviderIcon className="size-6" aria-hidden="true" />
-              </span>
-            );
-          })}
+        <EmptyMedia>
+          <span className="flex gap-3">
+            {sourceProviders.map((provider) => {
+              const ProviderIcon = provider.icon;
+              return (
+                <span
+                  key={provider.type}
+                  className="grid size-12 place-items-center rounded-2xl border border-border-subtle bg-surface-raised shadow-xs"
+                >
+                  <ProviderIcon className="size-6" aria-hidden="true" />
+                </span>
+              );
+            })}
+          </span>
         </EmptyMedia>
         <EmptyTitle>{ui("No sources yet")}</EmptyTitle>
         <EmptyDescription>
@@ -144,24 +148,26 @@ function SourcesEmpty({ canCreate }: { canCreate: boolean }) {
           )}
         </EmptyDescription>
       </EmptyHeader>
-      <EmptyContent className="max-w-none flex-row flex-wrap justify-center">
+      <EmptyContent>
         {canCreate ? (
-          sourceProviders.map((provider) => {
-            const ProviderIcon = provider.icon;
-            return (
-              <Button
-                key={provider.type}
-                asChild
-                size="sm"
-                prominence={provider.type === "GOOGLE_DRIVE" ? "primary" : "secondary"}
-              >
-                <Link to={provider.setupPath}>
-                  <ProviderIcon className="size-4" aria-hidden="true" />
-                  {ui(emptyProviderActions[provider.type])}
-                </Link>
-              </Button>
-            );
-          })
+          <div className="flex flex-wrap justify-center gap-2">
+            {sourceProviders.map((provider) => {
+              const ProviderIcon = provider.icon;
+              return (
+                <Button
+                  key={provider.type}
+                  asChild
+                  size="sm"
+                  prominence={provider.type === "GOOGLE_DRIVE" ? "primary" : "secondary"}
+                >
+                  <Link to={provider.setupPath}>
+                    <ProviderIcon data-icon="inline-start" aria-hidden="true" />
+                    {ui(emptyProviderActions[provider.type])}
+                  </Link>
+                </Button>
+              );
+            })}
+          </div>
         ) : (
           <EmptyDescription>{ui("Ask a workspace manager to add a source.")}</EmptyDescription>
         )}
@@ -170,13 +176,14 @@ function SourcesEmpty({ canCreate }: { canCreate: boolean }) {
   );
 }
 
+type SourceFilters = { status: string; provider: string; access: string };
+const noFilters: SourceFilters = { status: "", provider: "", access: "" };
+
 function SourceList({ sources }: { sources: SourceSummary[] }) {
   const ui = useAppTranslation();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [providerFilter, setProviderFilter] = useState("");
-  const [accessFilter, setAccessFilter] = useState("");
+  const [filters, setFilters] = useState(noFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [collapsedTypes, setCollapsedTypes] = useState<Set<string>>(() => new Set());
   const filteredSources = useMemo(() => {
@@ -187,15 +194,14 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
         (!query ||
           source.name.toLowerCase().includes(query) ||
           providerName.toLowerCase().includes(query)) &&
-        (!statusFilter || source.status === statusFilter) &&
-        (!providerFilter || source.type === providerFilter) &&
-        (!accessFilter || source.access === accessFilter)
+        (!filters.status || source.status === filters.status) &&
+        (!filters.provider || source.type === filters.provider) &&
+        (!filters.access || source.access === filters.access)
       );
     });
-  }, [accessFilter, providerFilter, searchQuery, sources, statusFilter, ui]);
+  }, [filters, searchQuery, sources, ui]);
   const groups = useMemo(() => groupSources(filteredSources), [filteredSources]);
   const hasExpandedGroups = groups.some((group) => !collapsedTypes.has(group.type));
-  const hasActiveFilters = Boolean(statusFilter || providerFilter || accessFilter);
 
   function toggle(type: string) {
     setCollapsedTypes((current) => {
@@ -219,7 +225,7 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
           value={searchQuery}
           placeholder={ui("Search sources")}
           aria-label={ui("Search sources")}
-          className="min-w-40 flex-1 bg-surface-sunken"
+          className="min-w-40 flex-1"
           onChange={(event) => setSearchQuery(event.target.value)}
         />
         <Button size="sm" prominence="secondary" onClick={toggleAll}>
@@ -237,91 +243,13 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
         </IconButton>
       </div>
 
-      {filtersOpen ? (
-        <div
-          id="source-filters"
-          className="mt-2 grid gap-3 border border-border-subtle bg-surface-raised p-4 sm:grid-cols-2 sm:items-end lg:grid-cols-[repeat(3,minmax(0,1fr))_auto]"
-        >
-          <label className="grid gap-1.5 font-secondary-action text-content-secondary">
-            {ui("Status")}
-            <Select
-              value={statusFilter || anyFilterValue}
-              onValueChange={(next) => setStatusFilter(next === anyFilterValue ? "" : next)}
-            >
-              <SelectTrigger size="sm" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={anyFilterValue}>{ui("All statuses")}</SelectItem>
-                {sourceStatusOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {ui(option.label)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-          <label className="grid gap-1.5 font-secondary-action text-content-secondary">
-            {ui("Provider")}
-            <Select
-              value={providerFilter || anyFilterValue}
-              onValueChange={(next) => setProviderFilter(next === anyFilterValue ? "" : next)}
-            >
-              <SelectTrigger size="sm" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={anyFilterValue}>{ui("All providers")}</SelectItem>
-                {sourceProviders.map((provider) => (
-                  <SelectItem key={provider.type} value={provider.type}>
-                    {ui(provider.name)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-          <label className="grid gap-1.5 font-secondary-action text-content-secondary">
-            {ui("Access")}
-            <Select
-              value={accessFilter || anyFilterValue}
-              onValueChange={(next) => setAccessFilter(next === anyFilterValue ? "" : next)}
-            >
-              <SelectTrigger size="sm" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={anyFilterValue}>{ui("All access")}</SelectItem>
-                {sourceAccessOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {ui(option.label)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-          <Button
-            size="sm"
-            prominence="tertiary"
-            disabled={!hasActiveFilters}
-            onClick={() => {
-              setStatusFilter("");
-              setProviderFilter("");
-              setAccessFilter("");
-            }}
-          >
-            {ui("Clear filters")}
-          </Button>
-        </div>
-      ) : null}
+      {filtersOpen ? <SourceFilterFields value={filters} onChange={setFilters} /> : null}
 
-      <div
-        className="relative overflow-x-auto"
-        tabIndex={0}
-        role="region"
-        aria-label={ui("Connected sources table")}
-      >
-        <Table className="w-full min-w-[74rem] table-fixed border-collapse">
-          <TableCaption className="sr-only">{ui("Connected sources")}</TableCaption>
+      <div className="overflow-hidden rounded-lg border border-border-subtle">
+        <Table aria-labelledby="connected-sources-caption" className="min-w-6xl table-fixed">
+          <TableCaption id="connected-sources-caption" className="sr-only">
+            {ui("Connected sources")}
+          </TableCaption>
           <colgroup>
             <col />
             <col className="w-44" />
@@ -340,12 +268,11 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
           ))}
           {groups.length === 0 ? (
             <TableBody>
-              <TableRow className="border border-border-subtle">
-                <TableCell
-                  colSpan={6}
-                  className="px-4 py-12 text-center text-sm text-content-muted"
-                >
-                  {ui("No sources match your search and filters.")}
+              <TableRow>
+                <TableCell colSpan={6} className="px-4 py-12 text-center">
+                  <span className="text-sm text-content-muted">
+                    {ui("No sources match your search and filters.")}
+                  </span>
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -353,6 +280,82 @@ function SourceList({ sources }: { sources: SourceSummary[] }) {
         </Table>
       </div>
     </>
+  );
+}
+
+/** Status, provider and access filters; "any" stands for an unset filter, which Radix selects need. */
+function SourceFilterFields({
+  value,
+  onChange,
+}: {
+  value: SourceFilters;
+  onChange: (next: SourceFilters) => void;
+}) {
+  const ui = useAppTranslation();
+  const fields = [
+    {
+      name: "status",
+      label: ui("Status"),
+      any: ui("All statuses"),
+      options: sourceStatusOptions.map((option) => ({ ...option, label: ui(option.label) })),
+    },
+    {
+      name: "provider",
+      label: ui("Provider"),
+      any: ui("All providers"),
+      options: sourceProviders.map((provider) => ({
+        value: provider.type,
+        label: ui(provider.name),
+      })),
+    },
+    {
+      name: "access",
+      label: ui("Access"),
+      any: ui("All access"),
+      options: sourceAccessOptions.map((option) => ({ ...option, label: ui(option.label) })),
+    },
+  ] as const;
+
+  return (
+    <Card id="source-filters" size="sm" className="mt-2">
+      <CardContent>
+        <div className="grid gap-3 sm:grid-cols-2 sm:items-end lg:grid-cols-4">
+          {fields.map((field) => (
+            <Field key={field.name}>
+              <FieldLabel htmlFor={`source-filter-${field.name}`}>{field.label}</FieldLabel>
+              <Select
+                value={value[field.name] || anyFilterValue}
+                onValueChange={(next) =>
+                  onChange({ ...value, [field.name]: next === anyFilterValue ? "" : next })
+                }
+              >
+                <SelectTrigger id={`source-filter-${field.name}`} size="sm" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value={anyFilterValue}>{field.any}</SelectItem>
+                    {field.options.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
+          ))}
+          <Button
+            size="sm"
+            prominence="tertiary"
+            disabled={!value.status && !value.provider && !value.access}
+            onClick={() => onChange(noFilters)}
+          >
+            {ui("Clear filters")}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -379,19 +382,9 @@ function SourceGroupBody({
   const workspaceAccessCount = group.sources.filter((source) => source.access === "PUBLIC").length;
 
   return (
-    // TableBody clears the last row's border; a group's last Source row closes its frame.
-    <TableBody className="[&_tr:last-child]:border-x [&_tr:last-child]:border-b">
-      <TableRow aria-hidden="true">
-        <TableCell colSpan={6} className="h-4 p-0" />
-      </TableRow>
-      <TableRow
-        className="h-[72px] cursor-pointer bg-surface-raised transition-colors hover:bg-surface-subtle/70"
-        onClick={onToggle}
-      >
-        <TableHead
-          scope="rowgroup"
-          className="border-y border-l border-border-subtle px-4 text-left"
-        >
+    <TableBody>
+      <TableRow className="h-18">
+        <TableHead scope="rowgroup" className="px-4">
           <button
             type="button"
             aria-expanded={!collapsed}
@@ -400,10 +393,7 @@ function SourceGroupBody({
               v2: group.sources.length,
               v3: documentCount,
             })}
-            onClick={(event) => {
-              event.stopPropagation();
-              onToggle();
-            }}
+            onClick={onToggle}
             className="flex h-full w-full items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
           >
             {collapsed ? (
@@ -427,19 +417,29 @@ function SourceGroupBody({
           value={`${workspaceAccessCount}/${group.sources.length}`}
         />
         <SummaryMetric label={ui("Total docs indexed")} value={documentCount} />
-        <TableCell className="border-y border-r border-border-subtle" />
+        <TableCell />
       </TableRow>
       {!collapsed ? (
         <>
-          <TableRow className="h-[42px] border-x border-b border-border-subtle text-left">
-            <SourceColumnHeader>{ui("Name")}</SourceColumnHeader>
-            <SourceColumnHeader>{ui("Last indexed")}</SourceColumnHeader>
-            <SourceColumnHeader>{ui("Status")}</SourceColumnHeader>
-            <SourceColumnHeader>{ui("Access")}</SourceColumnHeader>
-            <SourceColumnHeader>{ui("Total docs")}</SourceColumnHeader>
-            <SourceColumnHeader>
+          <TableRow className="h-10.5">
+            <TableHead scope="col" className="px-4 whitespace-nowrap">
+              {ui("Name")}
+            </TableHead>
+            <TableHead scope="col" className="px-4 whitespace-nowrap">
+              {ui("Last indexed")}
+            </TableHead>
+            <TableHead scope="col" className="px-4 whitespace-nowrap">
+              {ui("Status")}
+            </TableHead>
+            <TableHead scope="col" className="px-4 whitespace-nowrap">
+              {ui("Access")}
+            </TableHead>
+            <TableHead scope="col" className="px-4 whitespace-nowrap">
+              {ui("Total docs")}
+            </TableHead>
+            <TableHead scope="col" className="px-4">
               <span className="sr-only">{ui("Manage")}</span>
-            </SourceColumnHeader>
+            </TableHead>
           </TableRow>
           {group.sources.map((source) => (
             <SourceRow key={source.id} source={source} />
@@ -452,31 +452,18 @@ function SourceGroupBody({
 
 function SummaryMetric({ label, value }: { label: string; value: string | number }) {
   return (
-    <TableCell className="border-y border-border-subtle px-4">
+    <TableCell className="px-4">
       <span className={cn("block whitespace-nowrap", statLabelClass)}>{label}</span>
       <span className={cn("mt-1 block", statValueClass)}>{value}</span>
     </TableCell>
   );
 }
 
-function SourceColumnHeader({ children }: { children: ReactNode }) {
-  return (
-    <TableHead
-      scope="col"
-      className="px-4 text-sm font-medium whitespace-nowrap text-content-muted"
-    >
-      {children}
-    </TableHead>
-  );
-}
 function SourceRow({ source }: { source: SourceSummary }) {
   const ui = useAppTranslation();
 
   return (
-    <TableRow
-      id={`source-${source.id}`}
-      className="h-[60px] border-x border-b border-border-subtle hover:bg-surface-subtle/50"
-    >
+    <TableRow id={`source-${source.id}`} className="h-15">
       <TableCell className="px-4">
         <Link
           to="/admin/sources/$sourceId"
@@ -486,8 +473,10 @@ function SourceRow({ source }: { source: SourceSummary }) {
           {source.name}
         </Link>
       </TableCell>
-      <TableCell className="px-4 font-secondary-body text-content-muted">
-        <LastIndexed value={source.lastSucceededAt} />
+      <TableCell className="px-4">
+        <span className="font-secondary-body text-content-muted">
+          <LastIndexed value={source.lastSucceededAt} />
+        </span>
       </TableCell>
       <TableCell className="px-4">
         <SourceStatusBadge status={source.status} />
@@ -495,8 +484,8 @@ function SourceRow({ source }: { source: SourceSummary }) {
       <TableCell className="px-4">
         <SourceAccessBadge access={source.access} />
       </TableCell>
-      <TableCell className="px-4 text-sm tabular-nums text-content-secondary">
-        {source.documentCount}
+      <TableCell className="px-4">
+        <span className="text-sm tabular-nums text-content-secondary">{source.documentCount}</span>
       </TableCell>
       <TableCell className="px-4 text-center">
         {Object.values(source.permissions).some(Boolean) ? (

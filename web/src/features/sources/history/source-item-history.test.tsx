@@ -1,8 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { delay } from "msw";
+import { describe, expect, it } from "vitest";
+import { handleListSourceIndexAttempts } from "@/lib/hey-api/msw.gen";
 import type { SourceIndexAttempt } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { SourceItemHistory } from "./source-item-history";
 
 const failed: SourceIndexAttempt = {
@@ -15,15 +18,9 @@ const failed: SourceIndexAttempt = {
   errorCode: "SOURCE_GOOGLE_UNAVAILABLE",
 };
 
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-});
-
 function showAttempts(items: SourceIndexAttempt[]) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () => Response.json({ items, nextCursor: null, totalItems: items.length })),
+  server.use(
+    handleListSourceIndexAttempts({ body: { items, nextCursor: null, totalItems: items.length } }),
   );
   render(
     <QueryClientProvider
@@ -78,11 +75,10 @@ describe("File indexing attempt details", () => {
 describe("File indexing attempt paging", () => {
   it("keeps paging usable while the open attempts are refetched in the background", async () => {
     let calls = 0;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
+    server.use(
+      handleListSourceIndexAttempts(async () => {
         calls += 1;
-        if (calls > 1) return new Promise<Response>(() => {});
+        if (calls > 1) await delay("infinite");
         return Response.json({ items: [failed], nextCursor: "next", totalItems: 12 });
       }),
     );

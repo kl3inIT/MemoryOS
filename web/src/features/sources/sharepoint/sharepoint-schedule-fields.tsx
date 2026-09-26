@@ -1,5 +1,6 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useId } from "react";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { Input } from "@/components/ui/input";
 import {
@@ -8,17 +9,17 @@ import {
   type SharePointScopeDraft,
 } from "./sharepoint-scope";
 
+type Schedule = Pick<SharePointScopeDraft, "syncIntervalMinutes" | "pruneIntervalHours">;
+
 /** The two intervals a SharePoint Source runs on: an incremental refresh and a full prune. */
 export function SharePointScheduleFields({
   draft,
   disabled,
   onChange,
 }: {
-  draft: Pick<SharePointScopeDraft, "syncIntervalMinutes" | "pruneIntervalHours">;
+  draft: Schedule;
   disabled: boolean;
-  onChange: (
-    draft: Pick<SharePointScopeDraft, "syncIntervalMinutes" | "pruneIntervalHours">,
-  ) => void;
+  onChange: (draft: Schedule) => void;
 }) {
   const ui = useAppTranslation();
 
@@ -27,10 +28,8 @@ export function SharePointScheduleFields({
 
   return (
     <div className="grid gap-5 sm:grid-cols-2">
-      <div>
-        <label htmlFor={`${id}-sync`} className="font-secondary-action text-content-primary">
-          {ui("Synchronization interval in minutes")}
-        </label>
+      <Field>
+        <FieldLabel htmlFor={`${id}-sync`}>{ui("Synchronization interval in minutes")}</FieldLabel>
         <Input
           id={`${id}-sync`}
           type="number"
@@ -39,22 +38,19 @@ export function SharePointScheduleFields({
           max={MAX_SHAREPOINT_SYNC_INTERVAL_MINUTES}
           step={1}
           required
-          className="mt-2"
           value={draft.syncIntervalMinutes}
           disabled={disabled}
           onChange={(event) => onChange({ ...draft, syncIntervalMinutes: event.target.value })}
         />
-        <p className="mt-1 font-secondary-body text-content-muted">
+        <FieldDescription>
           {ui(
             "Each run reads the change log from where the previous one stopped, with a thirty-minute overlap.",
           )}
-        </p>
-      </div>
-      <div>
+        </FieldDescription>
+      </Field>
+      <Field>
         <div className="flex items-center gap-2">
-          <label htmlFor={`${id}-prune`} className="font-secondary-action text-content-primary">
-            {ui("Prune interval in hours")}
-          </label>
+          <FieldLabel htmlFor={`${id}-prune`}>{ui("Prune interval in hours")}</FieldLabel>
           <HelpPopover label={ui("Prune interval in hours")}>
             <p>
               {ui(
@@ -77,17 +73,16 @@ export function SharePointScheduleFields({
           max={MAX_SHAREPOINT_PRUNE_INTERVAL_HOURS}
           step={1}
           required
-          className="mt-2"
           value={draft.pruneIntervalHours}
           disabled={disabled}
           onChange={(event) => onChange({ ...draft, pruneIntervalHours: event.target.value })}
         />
-        <p className="mt-1 font-secondary-body text-content-muted">
+        <FieldDescription>
           {prune === 0
             ? ui("Pruning is disabled. Only what the change log reports is removed.")
             : ui("Documents deleted outside the change log are found by the next prune.")}
-        </p>
-      </div>
+        </FieldDescription>
+      </Field>
     </div>
   );
 }

@@ -1,7 +1,8 @@
+import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
-import { TriangleAlert } from "lucide-react";
-import { type RefObject, useId, useRef, useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { type RefObject, useRef } from "react";
+import { z } from "zod";
+import { useAppForm, useProblemErrors } from "@/components/form/app-form";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,16 +12,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   renameSourceMutation,
   updateSourceAccessMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
-import { SourceAccessChoice } from "@/features/sources/shared/source-access-choice";
-import { sourceMutationError } from "@/features/sources/shared/source-errors";
+import { zRenameSourceRequest, zUpdateSourceAccessRequest } from "@/lib/hey-api/zod.gen";
+import { SourceAccessField } from "@/features/sources/shared/source-form-fields";
 
 export type SourceMetadataField = "name" | "access";
 
@@ -44,38 +43,49 @@ export function SourceMetadataDialog({
   onSaved: () => Promise<void>;
 }) {
   const ui = useAppTranslation();
-  const accessLabelId = useId();
   const rename = useMutation(renameSourceMutation());
   const updateAccess = useMutation(updateSourceAccessMutation());
-  const [name, setName] = useState(source.name);
-  const [access, setAccess] = useState(source.access);
-  const [error, setError] = useState<AppCopy | null>(null);
+  const problemErrors = useProblemErrors();
   const saved = useRef(false);
-  const pending = rename.isPending || updateAccess.isPending;
-  const unchanged = field === "name" ? name.trim() === source.name : access === source.access;
-
-  async function save() {
-    if (disabled || pending || unchanged || (field === "name" && !name.trim())) return;
-    setError(null);
-    try {
-      if (field === "name") {
-        await rename.mutateAsync({
-          path: { sourceId: source.id },
-          body: { name: name.trim() },
-        });
-      } else {
-        await updateAccess.mutateAsync({
-          path: { sourceId: source.id },
-          body: { access },
-        });
+  const form = useAppForm({
+    defaultValues: { name: source.name, access: source.access },
+    validationLogic: revalidateLogic(),
+    validators: {
+      onDynamic: z.object({
+        name: zRenameSourceRequest.shape.name.trim().min(1, ui("Enter a source name.")),
+        access: zUpdateSourceAccessRequest.shape.access,
+      }),
+      // A new attempt clears the previous attempt's server errors.
+      onSubmit: () => undefined,
+    },
+    onSubmit: async ({ value, formApi }) => {
+      formApi.setErrorMap({ onSubmit: { form: undefined, fields: {} } });
+      try {
+        if (field === "name")
+          await rename.mutateAsync({
+            path: { sourceId: source.id },
+            body: { name: value.name.trim() },
+          });
+        else
+          await updateAccess.mutateAsync({
+            path: { sourceId: source.id },
+            body: { access: value.access },
+          });
+      } catch (cause) {
+        formApi.setErrorMap({ onSubmit: problemErrors(cause) });
+        return;
       }
       saved.current = true;
       onClose();
       await onSaved();
-    } catch (cause) {
-      setError(sourceMutationError(cause, "metadata"));
-    }
-  }
+    },
+  });
+  const pending = useStore(form.store, (state) => state.isSubmitting);
+  const unchanged = useStore(form.store, (state) =>
+    field === "name"
+      ? state.values.name.trim() === source.name
+      : state.values.access === source.access,
+  );
 
   return (
     <Dialog
@@ -94,10 +104,11 @@ export function SourceMetadataDialog({
         }}
       >
         <form
-          className="grid gap-4"
+          className="flex flex-col gap-4"
+          noValidate
           onSubmit={(event) => {
             event.preventDefault();
-            void save();
+            void form.handleSubmit();
           }}
         >
           <DialogHeader>
@@ -109,49 +120,37 @@ export function SourceMetadataDialog({
             ) : null}
           </DialogHeader>
           {field === "name" ? (
-            <label className="grid gap-2">
-              <span className="text-sm font-medium text-content-primary">{ui("Source name")}</span>
-              <Input
-                value={name}
-                maxLength={120}
-                required
-                disabled={disabled || pending}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </label>
+            <form.AppField name="name">
+              {(nameField) => (
+                <nameField.TextField
+                  label={ui("Source name")}
+                  maxLength={120}
+                  disabled={disabled || pending}
+                />
+              )}
+            </form.AppField>
           ) : (
-            <div className="grid gap-2">
-              <span id={accessLabelId} className="text-sm font-medium text-content-primary">
-                {ui("Visibility")}
-              </span>
-              <SourceAccessChoice
-                id={`${accessLabelId}-choice`}
-                labelledBy={accessLabelId}
-                modes={source.type === "GOOGLE_DRIVE" ? googleDriveAccessModes : fileAccessModes}
-                value={access}
-                disabled={disabled || pending}
-                onValueChange={setAccess}
-              />
-            </div>
+            <form.AppField name="access">
+              {() => (
+                <SourceAccessField
+                  label={ui("Visibility")}
+                  modes={source.type === "GOOGLE_DRIVE" ? googleDriveAccessModes : fileAccessModes}
+                  disabled={disabled || pending}
+                />
+              )}
+            </form.AppField>
           )}
-          {error ? (
-            <Alert variant="destructive">
-              <TriangleAlert aria-hidden="true" />
-              <AlertDescription>{ui(error)}</AlertDescription>
-            </Alert>
-          ) : null}
-          <DialogFooter>
-            <Button prominence="secondary" disabled={pending} onClick={onClose}>
-              {ui("Cancel")}
-            </Button>
-            <Button
-              type="submit"
-              pending={pending}
-              disabled={disabled || unchanged || (field === "name" && !name.trim())}
-            >
-              {field === "name" ? ui("Save name") : ui("Save visibility")}
-            </Button>
-          </DialogFooter>
+          <form.AppForm>
+            <form.FormError />
+            <DialogFooter>
+              <Button prominence="secondary" disabled={pending} onClick={onClose}>
+                {ui("Cancel")}
+              </Button>
+              <form.SubmitButton disabled={disabled || unchanged}>
+                {field === "name" ? ui("Save name") : ui("Save visibility")}
+              </form.SubmitButton>
+            </DialogFooter>
+          </form.AppForm>
         </form>
       </DialogContent>
     </Dialog>

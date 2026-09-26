@@ -9,7 +9,6 @@ import type { SourceRun, SourceRunError } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { sourceStatusMessage } from "@/features/sources/shared/source-errors";
-import { statusPill } from "@/features/sources/shared/source-status-presentation";
 import { useCursorPaging } from "@/features/sources/shared/use-cursor-paging";
 import { runErrorMessage, runIsActive } from "./source-history";
 import { HistoryTime } from "./source-history-presentation";
@@ -46,7 +45,10 @@ export function RunErrors({ run }: { run: SourceRun }) {
   // A live run is polled, so the refresh control follows the press rather than the poll.
   const errorsRefresh = useManualRefresh(errors.refetch);
   return (
-    <div className="space-y-3 text-sm text-content-secondary" aria-busy={errors.isPlaceholderData}>
+    <div
+      className="flex flex-col gap-3 text-sm text-content-secondary"
+      aria-busy={errors.isPlaceholderData}
+    >
       <div className="flex justify-end">
         <Button
           size="sm"
@@ -54,7 +56,8 @@ export function RunErrors({ run }: { run: SourceRun }) {
           pending={errorsRefresh.pending}
           onClick={errorsRefresh.refresh}
         >
-          <RefreshCw aria-hidden="true" /> {ui("Refresh file states")}
+          <RefreshCw data-icon="inline-start" aria-hidden="true" />
+          {ui("Refresh file states")}
         </Button>
       </div>
       {errors.isError ? (
@@ -116,15 +119,15 @@ function RunErrorRow({ error }: { error: SourceRunError }) {
           <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
             <span
               className={cn(
-                "min-w-0 break-words font-medium whitespace-pre-wrap [overflow-wrap:anywhere]",
+                "min-w-0 break-words font-medium whitespace-pre-wrap wrap-anywhere",
                 text,
               )}
             >
               {name}
             </span>
             {resolved ? (
-              <StatusBadge tone="success" className={statusPill("success")}>
-                <CircleCheck aria-hidden="true" className="size-3.5 shrink-0" />
+              <StatusBadge tone="success" variant="pill">
+                <CircleCheck aria-hidden="true" />
                 {ui("Resolved")}
               </StatusBadge>
             ) : (
@@ -136,7 +139,7 @@ function RunErrorRow({ error }: { error: SourceRunError }) {
             {" · "}
             <HistoryTime value={error.occurredAt} />
           </span>
-          <span className={cn("mt-1 block text-sm leading-relaxed [overflow-wrap:anywhere]", text)}>
+          <span className={cn("mt-1 block text-sm leading-relaxed wrap-anywhere", text)}>
             {error.errorMessage ?? runErrorMessage(ui, error.code)}
           </span>
         </span>
@@ -163,26 +166,26 @@ function RunErrorRow({ error }: { error: SourceRunError }) {
         ) : null}
         <div>
           <dt className="text-content-muted">{ui("Error code")}</dt>
-          <dd className="mt-1 select-text [overflow-wrap:anywhere]">
+          <dd className="mt-1 select-text wrap-anywhere">
             <code>{error.code}</code>
           </dd>
         </div>
         <div>
           <dt className="text-content-muted">{ui("Operation ID")}</dt>
-          <dd className="mt-1 select-text [overflow-wrap:anywhere]">
+          <dd className="mt-1 select-text wrap-anywhere">
             <code>{error.operationId ?? ui("Not recorded")}</code>
           </dd>
         </div>
         <div>
           <dt className="text-content-muted">{ui("Run ID")}</dt>
-          <dd className="mt-1 select-text [overflow-wrap:anywhere]">
+          <dd className="mt-1 select-text wrap-anywhere">
             <code>{error.runId}</code>
           </dd>
         </div>
         {error.fileId ? (
           <div>
             <dt className="text-content-muted">{ui("File ID")}</dt>
-            <dd className="mt-1 select-text [overflow-wrap:anywhere]">
+            <dd className="mt-1 select-text wrap-anywhere">
               <code>{error.fileId}</code>
             </dd>
           </div>
@@ -191,7 +194,7 @@ function RunErrorRow({ error }: { error: SourceRunError }) {
       {error.errorDetail ? (
         <div className="mt-3">
           <p className="text-xs text-content-muted">{ui("Technical details")}</p>
-          <pre className="mt-1 max-h-64 overflow-auto rounded-md bg-surface-sunken p-3 text-xs whitespace-pre-wrap [overflow-wrap:anywhere] text-content-secondary select-text">
+          <pre className="mt-1 max-h-64 overflow-auto rounded-md bg-surface-sunken p-3 text-xs whitespace-pre-wrap wrap-anywhere text-content-secondary select-text">
             {error.errorDetail}
           </pre>
         </div>
@@ -222,7 +225,7 @@ function CurrentFileStateBadge({ error }: { error: SourceRunError }) {
           ? "info"
           : "neutral";
   return (
-    <StatusBadge tone={tone} className={statusPill(tone)}>
+    <StatusBadge tone={tone} variant="pill">
       {ui(
         status === "INDEXED"
           ? "Indexed"
@@ -246,7 +249,7 @@ function CurrentFileState({ error }: { error: SourceRunError }) {
     error.currentItemLastIndexedAt !== null &&
     new Date(error.currentItemLastIndexedAt).getTime() > new Date(error.occurredAt).getTime();
   return (
-    <div className="space-y-1">
+    <div className="flex flex-col items-start gap-1">
       <CurrentFileStateBadge error={error} />
       <p className="text-xs text-content-muted">
         {status === "INDEXED"

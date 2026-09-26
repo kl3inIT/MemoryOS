@@ -1,3 +1,4 @@
+import type { PaginationState, Updater } from "@tanstack/react-table";
 import { useState } from "react";
 
 /**
@@ -34,4 +35,30 @@ export function useCursorPaging() {
       if (totalPages !== undefined && previous.length >= Math.max(totalPages, 1)) reset();
     },
   };
+}
+
+export type CursorPaging = ReturnType<typeof useCursorPaging>;
+
+/**
+ * The server-side paging options of a TanStack table over cursor pages: the page index is the
+ * number of pages walked, and moving one page forward or back follows the cursors, so a
+ * `TablePagination` footer drives the table with `table.nextPage()`/`table.previousPage()`.
+ */
+export function cursorTablePaging(
+  paging: CursorPaging,
+  pageSize: number,
+  nextCursor: string | null | undefined,
+  totalPages: number | undefined,
+) {
+  const pagination: PaginationState = { pageIndex: paging.page, pageSize };
+  return {
+    manualPagination: true,
+    pageCount: totalPages ?? paging.page + (nextCursor ? 2 : 1),
+    state: { pagination },
+    onPaginationChange: (updater: Updater<PaginationState>) => {
+      const next = typeof updater === "function" ? updater(pagination) : updater;
+      if (next.pageIndex > pagination.pageIndex) paging.goNext(nextCursor);
+      else if (next.pageIndex < pagination.pageIndex) paging.goPrevious();
+    },
+  } as const;
 }

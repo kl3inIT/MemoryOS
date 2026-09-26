@@ -1,6 +1,8 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { FolderTree } from "lucide-react";
+import { FolderTree, TriangleAlert } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FieldError } from "@/components/ui/field";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type {
@@ -81,7 +83,7 @@ export function SharePointScopeCard({
       <CardContent>
         {draft ? (
           <form
-            className="space-y-5 rounded-xl border border-border-subtle p-4 sm:p-5"
+            className="flex flex-col gap-5 rounded-xl border border-border-subtle p-4 sm:p-5"
             onSubmit={(event) => {
               event.preventDefault();
               if (!scopeError) onSave();
@@ -94,18 +96,17 @@ export function SharePointScopeCard({
               onChange={onDraftChange}
             />
             {roots.data && roots.data.total > roots.data.roots.length ? (
-              <p role="alert" className="text-sm text-status-warning-content">
-                {ui(
-                  "Only the first {{count}} addresses are shown. Saving replaces the whole scope with what is listed here.",
-                  { count: roots.data.roots.length },
-                )}
-              </p>
+              <Alert variant="warning">
+                <TriangleAlert aria-hidden="true" />
+                <AlertDescription>
+                  {ui(
+                    "Only the first {{count}} addresses are shown. Saving replaces the whole scope with what is listed here.",
+                    { count: roots.data.roots.length },
+                  )}
+                </AlertDescription>
+              </Alert>
             ) : null}
-            {scopeError ? (
-              <p role="alert" className="text-sm text-status-danger-content">
-                {ui(scopeError)}
-              </p>
-            ) : null}
+            {scopeError ? <FieldError role="alert">{ui(scopeError)}</FieldError> : null}
             <div className="flex flex-wrap gap-2">
               <Button type="submit" pending={saving} disabled={busy || Boolean(scopeError)}>
                 {ui("Save scope")}
@@ -138,7 +139,7 @@ function SavedScope({
   const ui = useAppTranslation();
 
   return (
-    <div className="space-y-3 text-sm">
+    <div className="flex flex-col gap-3 text-sm">
       <p className="text-content-primary">
         {configuration.scopeMode === "ALL_SITES"
           ? ui("All sites the Entra application can read")
@@ -161,7 +162,7 @@ function SavedScope({
             {ui("Saved addresses could not be loaded. Refresh status before editing the scope.")}
           </p>
         ) : (
-          <ul className="space-y-1">
+          <ul className="flex flex-col gap-1">
             {roots.data?.roots.map((root) => (
               <li key={root.url} className="flex flex-wrap items-center gap-2">
                 <StatusBadge tone={root.verified ? "neutral" : "warning"}>

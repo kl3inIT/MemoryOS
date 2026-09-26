@@ -2,6 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -50,22 +51,20 @@ export function SourceAccessChoice({
         </SelectValue>
       </SelectTrigger>
       <SelectContent position="popper" className="max-w-(--radix-select-trigger-width)">
-        {modes.map((mode) => {
-          const { label, title, icon: AccessIcon } = sourceAccessPresentation[mode];
-          return (
-            <SelectItem
-              key={mode}
-              value={mode}
-              className="items-start py-2 *:[span]:last:items-start"
-            >
-              <AccessIcon className="mt-0.5 text-content-secondary" aria-hidden="true" />
-              <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-content-primary">{ui(label)}</span>
-                <span className="text-xs whitespace-normal text-content-muted">{ui(title)}</span>
-              </span>
-            </SelectItem>
-          );
-        })}
+        <SelectGroup>
+          {modes.map((mode) => {
+            const { label, title, icon: AccessIcon } = sourceAccessPresentation[mode];
+            return (
+              <SelectItem key={mode} value={mode} className="items-start">
+                <AccessIcon className="mt-0.5 text-content-secondary" aria-hidden="true" />
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-content-primary">{ui(label)}</span>
+                  <span className="text-xs whitespace-normal text-content-muted">{ui(title)}</span>
+                </span>
+              </SelectItem>
+            );
+          })}
+        </SelectGroup>
       </SelectContent>
     </Select>
   );

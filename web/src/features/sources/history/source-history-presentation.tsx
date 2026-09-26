@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { historyRelativeTime, runHasNoChanges, runIsActive } from "./source-history";
 import { SourceHint } from "@/features/sources/shared/source-hint";
-import { statusPill } from "@/features/sources/shared/source-status-presentation";
+import { Spinner } from "@/components/ui/spinner";
 
 /** A local time; `relative` words times within the last week as "6 minutes ago". */
 export function HistoryTime({
@@ -64,11 +64,8 @@ export function RunOutcome({ run }: { run: SourceRun }) {
   const tone = failed ? "danger" : active ? "info" : knownComplete ? "success" : "neutral";
   const Icon = failed ? CircleX : active ? LoaderCircle : knownComplete ? CircleCheck : CircleHelp;
   return (
-    <StatusBadge tone={tone} className={`${statusPill(tone)} px-2.5 py-0.5`}>
-      <Icon
-        aria-hidden="true"
-        className={`size-3.5 shrink-0 ${active ? "motion-safe:animate-spin" : ""}`}
-      />
+    <StatusBadge tone={tone} variant="pill">
+      {active ? <Spinner aria-hidden="true" className="size-3.5" /> : <Icon aria-hidden="true" />}
       {ui(label)}
     </StatusBadge>
   );
@@ -174,11 +171,12 @@ export function ItemStatus({
     : item.status === "PENDING" && attemptStatus === "IN_PROGRESS";
   return (
     <>
-      <StatusBadge tone={tone} className={`${statusPill(tone)} px-2.5 py-1`}>
-        <Icon
-          aria-hidden="true"
-          className={`size-3.5 shrink-0 ${spinning ? "motion-safe:animate-spin" : ""}`}
-        />
+      <StatusBadge tone={tone} variant="pill">
+        {spinning ? (
+          <Spinner aria-hidden="true" className="size-3.5" />
+        ) : (
+          <Icon aria-hidden="true" />
+        )}
         {ui(label)}
       </StatusBadge>
       {item.latestAttempt && attemptLabel !== label ? (

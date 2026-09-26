@@ -293,9 +293,4 @@ function isSafeCode(code: string) {
   return /^[A-Z][A-Z0-9_]{2,80}$/.test(code);
 }
 
-export {
-  isGoogleDriveRevisionConflict,
-  sourceMutationError,
-  sourceStatusMessage,
-  type SourceMutation,
-};
+export { isGoogleDriveRevisionConflict, sourceMutationError, sourceStatusMessage };

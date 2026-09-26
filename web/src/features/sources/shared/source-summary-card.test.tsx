@@ -1,21 +1,16 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { describe, expect, it } from "vitest";
 import {
   ApplicationSessionContext,
   type ApplicationSession,
 } from "@/features/identity/application-session-context";
-import type * as Sdk from "@/lib/hey-api/sdk.gen";
+import { handleListSourceGroups } from "@/lib/hey-api/msw.gen";
 import type { SourceGroup, SourceSummary } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { SourceSummaryCard } from "./source-summary-card";
-
-const listSourceGroupsMock = vi.hoisted(() => vi.fn());
-
-vi.mock("@/lib/hey-api/sdk.gen", async (importOriginal) => ({
-  ...(await importOriginal<typeof Sdk>()),
-  listSourceGroups: listSourceGroupsMock,
-}));
 
 const session: ApplicationSession = {
   actorId: "actor",
@@ -50,21 +45,23 @@ const groupsOnly =
 const perFile = "Whoever can open the file in Google Drive can read it.";
 
 function renderCard(source: SourceSummary, groups: SourceGroup[] = []) {
-  listSourceGroupsMock.mockResolvedValue({ data: { items: groups } });
+  const requested: string[] = [];
+  server.use(
+    handleListSourceGroups(({ params }) => {
+      requested.push(params.sourceId);
+      return HttpResponse.json({ items: groups });
+    }),
+  );
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <ApplicationSessionContext.Provider value={session}>
+      <ApplicationSessionContext value={session}>
         <SourceSummaryCard source={source} />
-      </ApplicationSessionContext.Provider>
+      </ApplicationSessionContext>
     </QueryClientProvider>,
   );
+  return { requested };
 }
-
-afterEach(() => {
-  cleanup();
-  vi.clearAllMocks();
-});
 
 async function openReadersHelp() {
   await userEvent.click(screen.getByRole("button", { name: "Who can read help" }));
@@ -72,7 +69,7 @@ async function openReadersHelp() {
 
 describe("SourceSummaryCard", () => {
   it("names source-permission readers briefly and explains the Google Drive rule in its help", async () => {
-    renderCard(drive, [{ id: "finance", name: "Finance", systemKey: null }]);
+    const { requested } = renderCard(drive, [{ id: "finance", name: "Finance", systemKey: null }]);
 
     expect(screen.getByText("People with access in Google Drive")).toBeTruthy();
     await openReadersHelp();
@@ -80,7 +77,7 @@ describe("SourceSummaryCard", () => {
     expect(screen.queryByText(groupsOnly)).toBeNull();
     // Groups never decide who reads it, so the summary neither lists nor loads them.
     expect(screen.queryByText("Groups")).toBeNull();
-    expect(listSourceGroupsMock).not.toHaveBeenCalled();
+    expect(requested).toEqual([]);
   });
 
   it("explains that a Private Drive Source follows its groups", async () => {
@@ -93,11 +90,11 @@ describe("SourceSummaryCard", () => {
   });
 
   it("describes a Public Drive Source and a FILE Source like their access badges", async () => {
-    renderCard({ ...drive, access: "PUBLIC" });
+    const { requested } = renderCard({ ...drive, access: "PUBLIC" });
     await openReadersHelp();
     expect(await screen.findByText("Everyone can read it.")).toBeTruthy();
     expect(screen.queryByText("Groups")).toBeNull();
-    expect(listSourceGroupsMock).not.toHaveBeenCalled();
+    expect(requested).toEqual([]);
     cleanup();
 
     renderCard({ ...drive, id: "file", type: "FILE", access: "PRIVATE" });
@@ -108,7 +105,7 @@ describe("SourceSummaryCard", () => {
   });
 
   it("lists associated groups without system groups", async () => {
-    renderCard({ ...drive, access: "PRIVATE" }, [
+    const { requested } = renderCard({ ...drive, access: "PRIVATE" }, [
       { id: "finance", name: "Finance", systemKey: null },
       { id: "legal", name: "Legal", systemKey: null },
       { id: "admins", name: "Administrators", systemKey: "ADMIN" },
@@ -117,9 +114,7 @@ describe("SourceSummaryCard", () => {
     const summary = screen.getByLabelText("Source summary");
     expect(await within(summary).findByText("Finance, Legal")).toBeTruthy();
     expect(within(summary).queryByText(/Administrators/)).toBeNull();
-    expect(listSourceGroupsMock).toHaveBeenCalledWith(
-      expect.objectContaining({ path: { sourceId: drive.id } }),
-    );
+    expect(requested).toContain(drive.id);
   });
 
   it("caps the summary at three groups and names the remainder on hover", async () => {

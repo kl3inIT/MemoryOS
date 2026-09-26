@@ -13,22 +13,6 @@ import {
 import type { StatusTone } from "@/components/ui/status-badge";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
 
-const pillTones: Record<StatusTone, string> = {
-  success: "border-status-success-emphasis-border bg-status-success-emphasis",
-  warning: "border-status-warning-emphasis-border bg-status-warning-emphasis",
-  danger: "border-status-danger-emphasis-border bg-status-danger-emphasis",
-  info: "border-status-info-emphasis-border bg-status-info-emphasis",
-  neutral: "border-status-neutral-emphasis-border bg-status-neutral-emphasis",
-};
-
-/**
- * A white-lettered pill on a deep fill of its tone, as Onyx draws connector status. The dark
- * theme's status surfaces are near-black, so pills use the emphasis fills instead.
- */
-export function statusPill(tone: StatusTone) {
-  return `gap-1.5 rounded-full border font-medium text-content-on-emphasis ${pillTones[tone]}`;
-}
-
 type SourceStatusPresentation = {
   label: string;
   tone: StatusTone;

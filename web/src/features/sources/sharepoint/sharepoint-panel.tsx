@@ -1,49 +1,24 @@
-import { appText } from "@/i18n/app-text";
-import type { AppCopy } from "@/i18n/app-text";
 import { uiLocale } from "@/i18n/format";
 import { statusLabel } from "@/i18n/status-copy";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, RefreshCw } from "lucide-react";
-import { useLayoutEffect, useRef, useState } from "react";
-import { useActionNotifications } from "@/components/ui/action-notifications";
+import { KeyRound, RefreshCw, TriangleAlert } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { useCapabilityAuthority } from "@/features/identity/application-session-context";
-import { can } from "@/lib/resource-permissions";
-import { captureWorkflowFailure } from "@/lib/sentry";
-import { useManualRefresh } from "@/lib/use-manual-refresh";
-import {
-  getSharePointConfigurationOptions,
-  getSharePointRootsOptions,
-  getSharePointSelectionPolicyOptions,
-  getSharePointSelectionRequestOptions,
-  listSharePointCredentialsOptions,
-  listSourcesQueryKey,
-  replaceSharePointScopeMutation,
-  synchronizeSharePointSourceMutation,
-  updateSharePointPauseMutation,
-  updateSharePointScheduleMutation,
-} from "@/lib/hey-api/@tanstack/react-query.gen";
-import type { SourceOperation, SourceSummary } from "@/lib/hey-api/types.gen";
+import type {
+  SharePointConfigurationResponse,
+  SharePointCredentialResponse,
+  SourceSummary,
+} from "@/lib/hey-api/types.gen";
 import { formatSyncInterval } from "@/features/sources/shared/sync-interval";
 import { sourceMutationError, sourceStatusMessage } from "@/features/sources/shared/source-errors";
 import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
 import { SourceSummaryCard } from "@/features/sources/shared/source-summary-card";
-import { useSourceSelectionOperation } from "@/features/sources/shared/source-selection-operation";
-import { waitForSourceOperation } from "@/features/sources/shared/source-operations";
-import { sourceOperationNotice } from "@/features/sources/shared/source-operation-notice";
-import { SharePointScheduleFields } from "./sharepoint-schedule-fields";
+import { SharePointScheduleCard } from "./sharepoint-schedule-card";
 import { SharePointScopeCard } from "./sharepoint-scope-card";
-import {
-  sharePointScheduleError,
-  sharePointScopeRequest,
-  type SharePointScopeDraft,
-} from "./sharepoint-scope";
-
-type PanelAction = "sync" | "pause" | "schedule" | "scope";
+import { type SharePointPanelState, useSharePointPanel } from "./use-sharepoint-panel";
 
 export function SharePointPanel({
   source,
@@ -57,215 +32,8 @@ export function SharePointPanel({
   onBusyChange: (busy: boolean) => void;
 }) {
   const ui = useAppTranslation();
-
-  const queryClient = useQueryClient();
-  const notify = useActionNotifications();
-  const authority = useCapabilityAuthority("SOURCES_MANAGE");
-  const canConfigure = can(source, "manageConfiguration");
-  const canSchedule = can(source, "edit");
-  const canSynchronize = can(source, "edit");
-  const configurationQuery = useQuery({
-    ...getSharePointConfigurationOptions({ path: { sourceId: source.id } }),
-    retry: false,
-    refetchInterval: (query) =>
-      query.state.data?.pendingWork || source.pendingWork ? 1_500 : false,
-  });
-  const configuration = configurationQuery.data;
-  // This panel polls while work is pending, so its refresh controls follow the press, not the poll.
-  const connectionRetry = useManualRefresh(configurationQuery.refetch);
-  const statusRefresh = useManualRefresh(refresh);
-  const credentials = useQuery({
-    ...listSharePointCredentialsOptions(),
-    enabled: authority !== "none",
-    retry: false,
-  });
-  const credential = credentials.data?.find((entry) => entry.id === configuration?.credentialId);
-  const policy = useQuery({ ...getSharePointSelectionPolicyOptions(), retry: false });
-  const roots = useQuery({
-    ...getSharePointRootsOptions({ path: { sourceId: source.id }, query: { size: 50 } }),
-    enabled: configuration?.scopeMode === "SPECIFIC",
-    retry: false,
-  });
-  const synchronize = useMutation(synchronizeSharePointSourceMutation());
-  const updatePause = useMutation({ ...updateSharePointPauseMutation(), retry: false });
-  const updateSchedule = useMutation({ ...updateSharePointScheduleMutation(), retry: false });
-  const replaceScope = useMutation({ ...replaceSharePointScopeMutation(), retry: false });
-  const tracking = useSourceSelectionOperation({
-    provider: "sharepoint",
-    scope: source.id,
-    pending: configuration?.pendingSelectionOperation,
-    recover: (requestId) => getSharePointSelectionRequestOptions({ path: { requestId } }),
-  });
-  const [activeAction, setActiveAction] = useState<PanelAction | null>(null);
-  const [error, setError] = useState<AppCopy | null>(null);
-  const [scheduleDraft, setScheduleDraft] = useState<{
-    syncIntervalMinutes: string;
-    pruneIntervalHours: string;
-    scheduleRevision: number;
-  } | null>(null);
-  const [scopeDraft, setScopeDraft] = useState<SharePointScopeDraft | null>(null);
-  const [observing, setObserving] = useState(false);
-  const controller = useRef<AbortController | null>(null);
-  const active = useRef(true);
-  const busy = Boolean(activeAction) || observing;
-  const stale = sourceStale || configurationQuery.isError;
-  const verifying = Boolean(tracking.operation && !tracking.terminal);
-  // Source-level pause (the header menu) outranks the schedule's own pause and blocks every change here.
-  const sourcePaused = source.status === "PAUSED" || source.status === "PAUSING";
-  const controlsDisabled = disabled || busy || stale || verifying || sourcePaused;
-
-  useLayoutEffect(() => {
-    active.current = true;
-    return () => {
-      active.current = false;
-      controller.current?.abort();
-    };
-  }, []);
-
-  useLayoutEffect(() => {
-    onBusyChange(busy);
-    return () => onBusyChange(false);
-  }, [busy, onBusyChange]);
-
-  const terminal = tracking.terminal ? tracking.operation : null;
-  const [settled, setSettled] = useState<string | null>(null);
-  if (terminal && settled !== terminal.id) {
-    setSettled(terminal.id);
-    if (terminal.status !== "SUCCEEDED")
-      setError(
-        terminal.status === "SUPERSEDED"
-          ? "This scope change was superseded or cancelled. The saved scope is unchanged."
-          : sourceStatusMessage(terminal.errorCode ?? "SOURCE_SHAREPOINT_SELECTION_FAILED"),
-      );
-    void refresh();
-  }
-
-  async function refresh() {
-    await Promise.all([
-      configurationQuery.refetch(),
-      roots.refetch(),
-      queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() }),
-    ]);
-  }
-
-  function run(action: PanelAction, task: () => Promise<void>) {
-    if (busy) return;
-    setActiveAction(action);
-    setError(null);
-    void task()
-      .catch((cause: unknown) => {
-        if (active.current)
-          setError(
-            sourceMutationError(
-              cause,
-              action === "schedule" ? "sharepoint-schedule" : "sharepoint",
-            ),
-          );
-      })
-      .finally(() => {
-        if (active.current) setActiveAction(null);
-      });
-  }
-
-  async function sync() {
-    const operation = await synchronize.mutateAsync({
-      path: { sourceId: source.id },
-    });
-    notify({ tone: "info", title: "Synchronization requested", description: source.name });
-    void observe(operation);
-    await refresh();
-  }
-
-  async function observe(operation: SourceOperation) {
-    const own = new AbortController();
-    controller.current?.abort();
-    controller.current = own;
-    setObserving(true);
-    try {
-      const completed = await waitForSourceOperation(operation, own.signal);
-      if (completed.status === "FAILED")
-        captureWorkflowFailure(new Error("SharePoint synchronization failed"), {
-          workflow: "sharepoint-sync",
-          stage: "operation-complete",
-          failureKind: completed.errorCode ?? "SOURCE_SYNC_FAILED",
-        });
-      notify(
-        sourceOperationNotice(completed, {
-          subject: source.name,
-          titles: {
-            succeeded: "Synchronization complete",
-            superseded: "Synchronization superseded",
-            cancelled: "Synchronization cancelled",
-            failed: "Synchronization failed",
-          },
-          succeeded: appText("{{v1}}: content is synchronized. Indexing may still be running.", {
-            v1: source.name,
-          }),
-          failureCode: "SOURCE_SYNC_FAILED",
-          failureSubject: false,
-        }),
-      );
-      await refresh();
-    } catch (cause) {
-      if (!own.signal.aborted)
-        captureWorkflowFailure(cause, {
-          workflow: "sharepoint-sync",
-          stage: "operation-status",
-          failureKind: "status-unavailable",
-        });
-    } finally {
-      if (controller.current === own) {
-        controller.current = null;
-        if (active.current) setObserving(false);
-      }
-    }
-  }
-
-  async function togglePause() {
-    if (!configuration) return;
-    await updatePause.mutateAsync({
-      path: { sourceId: source.id },
-      body: { expectedRevision: configuration.scheduleRevision, paused: !configuration.syncPaused },
-    });
-    await refresh();
-  }
-
-  async function saveSchedule() {
-    if (!configuration || !scheduleDraft) return;
-    await updateSchedule.mutateAsync({
-      path: { sourceId: source.id },
-      headers: {
-        "If-Match": `"${scheduleDraft.scheduleRevision}"`,
-      },
-      body: {
-        syncIntervalMinutes: Number(scheduleDraft.syncIntervalMinutes),
-        pruneIntervalHours: Number(scheduleDraft.pruneIntervalHours),
-      },
-    });
-    if (!active.current) return;
-    setScheduleDraft(null);
-    await refresh();
-  }
-
-  async function saveScope() {
-    if (!configuration || !scopeDraft) return;
-    const requestId = tracking.begin(true);
-    const receipt = await replaceScope.mutateAsync({
-      path: { sourceId: source.id },
-      headers: {
-        "If-Match": `"${configuration.scopeRevision}"`,
-      },
-      body: {
-        requestId,
-        expectedCredentialRevision: configuration.credentialRevision,
-        scope: sharePointScopeRequest(scopeDraft),
-      },
-    });
-    if (!active.current) return;
-    tracking.accept(receipt);
-    setScopeDraft(null);
-    await refresh();
-  }
+  const panel = useSharePointPanel({ source, sourceStale, disabled, onBusyChange });
+  const { configuration, configurationQuery } = panel;
 
   if (!configuration) {
     return (
@@ -284,28 +52,29 @@ export function SharePointPanel({
               {ui("Loading SharePoint configuration…")}
             </p>
           ) : (
-            <div className="space-y-3">
-              <p role="alert" className="text-sm text-status-danger-content">
+            <Alert variant="destructive">
+              <AlertDescription>
                 {ui(sourceMutationError(configurationQuery.error, "sharepoint"))}
-              </p>
-              <Button
-                prominence="secondary"
-                pending={connectionRetry.pending}
-                onClick={connectionRetry.refresh}
-              >
-                {ui("Retry connection status")}
-              </Button>
-            </div>
+              </AlertDescription>
+              <div className="mt-2">
+                <Button
+                  size="sm"
+                  prominence="secondary"
+                  pending={panel.connectionRetry.pending}
+                  onClick={panel.connectionRetry.refresh}
+                >
+                  {ui("Retry connection status")}
+                </Button>
+              </div>
+            </Alert>
           )}
         </div>
       </>
     );
   }
 
-  const scheduleError = scheduleDraft ? sharePointScheduleError(scheduleDraft) : null;
-
   return (
-    <section aria-label={ui("SharePoint configuration")} className="space-y-6">
+    <section aria-label={ui("SharePoint configuration")} className="flex flex-col gap-6">
       <SourceSummaryCard source={source}>
         <div className="min-w-0">
           <dt className="text-content-muted">{ui("Synchronization interval")}</dt>
@@ -321,7 +90,7 @@ export function SharePointPanel({
         <div>
           <dt className="text-content-muted">{ui("Automatic synchronization")}</dt>
           <dd className="mt-2 text-content-primary">
-            {sourcePaused
+            {panel.sourcePaused
               ? ui("Paused with the Source")
               : configuration.syncPaused
                 ? ui("Paused")
@@ -329,212 +98,220 @@ export function SharePointPanel({
           </dd>
         </div>
       </SourceSummaryCard>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <SourceSectionIcon icon={RefreshCw} />
-          <h2 className="font-heading-h3 text-content-primary">{ui("Synchronization")}</h2>
-          <HelpPopover label={ui("Synchronization")}>
-            <p>
-              {ui(
-                "A refresh reads each library's change log from where the previous run stopped, with a thirty-minute overlap, and applies deletions the log reports.",
-              )}
-            </p>
-            <p>
-              {ui(
-                "A prune lists the whole scope and removes what it no longer finds, but only after the listing completes.",
-              )}
-            </p>
-          </HelpPopover>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            prominence="tertiary"
-            disabled={disabled || busy}
-            pending={statusRefresh.pending}
-            onClick={statusRefresh.refresh}
-          >
-            <RefreshCw /> {ui("Refresh status")}
-          </Button>
-          {canSchedule ? (
-            <Button
-              prominence="secondary"
-              disabled={controlsDisabled}
-              pending={activeAction === "pause"}
-              onClick={() => run("pause", togglePause)}
-            >
-              {configuration.syncPaused ? ui("Resume automatic sync") : ui("Pause automatic sync")}
-            </Button>
-          ) : null}
-          {canSynchronize ? (
-            <Button
-              disabled={controlsDisabled || configuration.pendingWork || source.pendingWork}
-              pending={activeAction === "sync" || observing}
-              onClick={() => run("sync", sync)}
-            >
-              <RefreshCw /> {ui("Synchronize now")}
-            </Button>
-          ) : null}
-        </div>
-      </div>
-
-      {stale ? (
-        <p role="alert" className="text-sm text-status-danger-content">
-          {ui(
-            "Status could not be refreshed. Displayed values may be out of date; refresh before making changes.",
-          )}
-        </p>
-      ) : null}
-      {error ? (
-        <p role="alert" className="text-sm text-status-danger-content">
-          {ui(error)}
-        </p>
-      ) : null}
-      {configuration.errorCode ? (
-        <p className="rounded-lg bg-status-danger-surface p-4 text-sm text-status-danger-content">
-          {ui(sourceStatusMessage(configuration.errorCode))}
-        </p>
-      ) : null}
-      {configuration.credentialStatus !== "ACTIVE" ? (
-        <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-          {ui(
-            "This credential needs updating. Replace its authentication in SharePoint setup; saved scope and documents are retained.",
-          )}
-        </p>
-      ) : null}
-      {verifying ? (
-        <p
-          role="status"
-          className="rounded-lg border border-border-subtle bg-surface-subtle p-4 text-sm"
-        >
-          <StatusBadge tone="info">{ui("Pending validation")}</StatusBadge>{" "}
-          {ui("Microsoft is resolving the submitted addresses. The saved scope still applies.")}{" "}
-          <span className="break-all text-xs text-content-muted">
-            {ui("Operation")} {tracking.operation?.id} ·{" "}
-            {ui(statusLabel(tracking.operation?.status ?? "PENDING"))}
-          </span>
-        </p>
-      ) : null}
-
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-3 border-b border-border-subtle">
-          <SourceSectionIcon icon={KeyRound} />
-          <h2 className="font-heading-h3 text-content-primary">{ui("Credential")}</h2>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid gap-4 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-content-muted">{ui("Name")}</dt>
-              <dd className="mt-1 wrap-anywhere text-content-primary">
-                {configuration.credentialName}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-content-muted">{ui("Authentication")}</dt>
-              <dd className="mt-1 text-content-primary">
-                {credential?.authMethod === "CERTIFICATE" ? ui("Certificate") : ui("Client secret")}
-                {credential?.certificateNotAfter ? (
-                  <span className="mt-1 block text-xs text-content-muted">
-                    {ui("Expires {{v1}}", {
-                      v1: new Date(credential.certificateNotAfter).toLocaleDateString(uiLocale()),
-                    })}
-                  </span>
-                ) : null}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-content-muted">{ui("SharePoint host")}</dt>
-              <dd className="mt-1 wrap-anywhere text-content-primary">
-                {configuration.tenantHost ?? ui("Not resolved yet")}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-content-muted">{ui("Last prune")}</dt>
-              <dd className="mt-1 text-content-primary">
-                {configuration.lastPrunedAt ? (
-                  <time dateTime={configuration.lastPrunedAt}>
-                    {new Date(configuration.lastPrunedAt).toLocaleString(uiLocale())}
-                  </time>
-                ) : (
-                  ui("Not yet")
-                )}
-              </dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
-
+      <SynchronizationHeader
+        source={source}
+        configuration={configuration}
+        panel={panel}
+        disabled={disabled}
+      />
+      <SharePointNotices configuration={configuration} panel={panel} />
+      <CredentialCard configuration={configuration} credential={panel.credential} />
       <SharePointScopeCard
         configuration={configuration}
-        roots={roots}
-        policy={policy.data}
-        draft={scopeDraft}
-        canConfigure={canConfigure}
-        controlsDisabled={controlsDisabled}
-        busy={busy}
-        saving={activeAction === "scope"}
-        onDraftChange={setScopeDraft}
-        onSave={() => run("scope", saveScope)}
+        roots={panel.roots}
+        policy={panel.policy.data}
+        draft={panel.scopeDraft}
+        canConfigure={panel.permissions.configure}
+        controlsDisabled={panel.controlsDisabled}
+        busy={panel.busy}
+        saving={panel.activeAction === "scope"}
+        onDraftChange={panel.setScopeDraft}
+        onSave={panel.saveScope}
       />
-
-      <Card>
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
-          <h2 className="font-heading-h3 text-content-primary">{ui("Schedule")}</h2>
-          {canSchedule && !scheduleDraft ? (
-            <Button
-              prominence="secondary"
-              disabled={controlsDisabled}
-              onClick={() =>
-                setScheduleDraft({
-                  syncIntervalMinutes: String(configuration.syncIntervalMinutes),
-                  pruneIntervalHours: String(configuration.pruneIntervalHours),
-                  scheduleRevision: configuration.scheduleRevision,
-                })
-              }
-            >
-              {ui("Edit intervals")}
-            </Button>
-          ) : null}
-        </CardHeader>
-        <CardContent>
-          {scheduleDraft ? (
-            <form
-              className="space-y-4"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!scheduleError) run("schedule", saveSchedule);
-              }}
-            >
-              <SharePointScheduleFields
-                draft={scheduleDraft}
-                disabled={busy}
-                onChange={(next) => setScheduleDraft({ ...scheduleDraft, ...next })}
-              />
-              {scheduleError ? (
-                <p role="alert" className="text-sm text-status-danger-content">
-                  {ui(scheduleError)}
-                </p>
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="submit"
-                  pending={activeAction === "schedule"}
-                  disabled={busy || Boolean(scheduleError)}
-                >
-                  {ui("Save intervals")}
-                </Button>
-                <Button
-                  prominence="tertiary"
-                  disabled={busy}
-                  onClick={() => setScheduleDraft(null)}
-                >
-                  {ui("Cancel")}
-                </Button>
-              </div>
-            </form>
-          ) : null}
-        </CardContent>
-      </Card>
+      <SharePointScheduleCard
+        configuration={configuration}
+        canSchedule={panel.permissions.schedule}
+        editing={panel.editingSchedule}
+        controlsDisabled={panel.controlsDisabled}
+        busy={panel.busy}
+        saving={panel.activeAction === "schedule"}
+        onEditingChange={panel.setEditingSchedule}
+        onSave={panel.saveSchedule}
+      />
     </section>
+  );
+}
+
+/** The synchronization title with the status refresh, the automatic pause and the manual run. */
+function SynchronizationHeader({
+  source,
+  configuration,
+  panel,
+  disabled,
+}: {
+  source: SourceSummary;
+  configuration: SharePointConfigurationResponse;
+  panel: SharePointPanelState;
+  disabled: boolean;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-3">
+        <SourceSectionIcon icon={RefreshCw} />
+        <h2 className="font-heading-h3 text-content-primary">{ui("Synchronization")}</h2>
+        <HelpPopover label={ui("Synchronization")}>
+          <p>
+            {ui(
+              "A refresh reads each library's change log from where the previous run stopped, with a thirty-minute overlap, and applies deletions the log reports.",
+            )}
+          </p>
+          <p>
+            {ui(
+              "A prune lists the whole scope and removes what it no longer finds, but only after the listing completes.",
+            )}
+          </p>
+        </HelpPopover>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          prominence="tertiary"
+          disabled={disabled || panel.busy}
+          pending={panel.statusRefresh.pending}
+          onClick={panel.statusRefresh.refresh}
+        >
+          <RefreshCw data-icon="inline-start" aria-hidden="true" />
+          {ui("Refresh status")}
+        </Button>
+        {panel.permissions.schedule ? (
+          <Button
+            prominence="secondary"
+            disabled={panel.controlsDisabled}
+            pending={panel.activeAction === "pause"}
+            onClick={panel.togglePause}
+          >
+            {configuration.syncPaused ? ui("Resume automatic sync") : ui("Pause automatic sync")}
+          </Button>
+        ) : null}
+        {panel.permissions.synchronize ? (
+          <Button
+            disabled={panel.controlsDisabled || configuration.pendingWork || source.pendingWork}
+            pending={panel.activeAction === "sync" || panel.observing}
+            onClick={panel.synchronize}
+          >
+            <RefreshCw data-icon="inline-start" aria-hidden="true" />
+            {ui("Synchronize now")}
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/** Stale status, a failed action, the Source's last error, a credential to fix and a scope in verification. */
+function SharePointNotices({
+  configuration,
+  panel,
+}: {
+  configuration: SharePointConfigurationResponse;
+  panel: SharePointPanelState;
+}) {
+  const ui = useAppTranslation();
+  const operation = panel.tracking.operation;
+  return (
+    <>
+      {panel.stale ? (
+        <Alert variant="destructive">
+          <AlertDescription>
+            {ui(
+              "Status could not be refreshed. Displayed values may be out of date; refresh before making changes.",
+            )}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {panel.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{ui(panel.error)}</AlertDescription>
+        </Alert>
+      ) : null}
+      {configuration.errorCode ? (
+        // The last run's error is a standing state of the Source, not news.
+        <Alert variant="destructive" role="note">
+          <AlertDescription>{ui(sourceStatusMessage(configuration.errorCode))}</AlertDescription>
+        </Alert>
+      ) : null}
+      {configuration.credentialStatus !== "ACTIVE" ? (
+        <Alert variant="warning" role="note">
+          <TriangleAlert aria-hidden="true" />
+          <AlertDescription>
+            {ui(
+              "This credential needs updating. Replace its authentication in SharePoint setup; saved scope and documents are retained.",
+            )}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {panel.verifying ? (
+        <Alert variant="info" role="status">
+          <AlertDescription>
+            <StatusBadge tone="info">{ui("Pending validation")}</StatusBadge>{" "}
+            {ui("Microsoft is resolving the submitted addresses. The saved scope still applies.")}{" "}
+            <span className="break-all text-xs">
+              {ui("Operation")} {operation?.id} · {ui(statusLabel(operation?.status ?? "PENDING"))}
+            </span>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+    </>
+  );
+}
+
+function CredentialCard({
+  configuration,
+  credential,
+}: {
+  configuration: SharePointConfigurationResponse;
+  credential: SharePointCredentialResponse | undefined;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <SourceSectionIcon icon={KeyRound} />
+          <h2 className="font-heading-h3 text-content-primary">{ui("Credential")}</h2>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <dl className="grid gap-4 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-content-muted">{ui("Name")}</dt>
+            <dd className="mt-1 wrap-anywhere text-content-primary">
+              {configuration.credentialName}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-content-muted">{ui("Authentication")}</dt>
+            <dd className="mt-1 text-content-primary">
+              {credential?.authMethod === "CERTIFICATE" ? ui("Certificate") : ui("Client secret")}
+              {credential?.certificateNotAfter ? (
+                <span className="mt-1 block text-xs text-content-muted">
+                  {ui("Expires {{v1}}", {
+                    v1: new Date(credential.certificateNotAfter).toLocaleDateString(uiLocale()),
+                  })}
+                </span>
+              ) : null}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-content-muted">{ui("SharePoint host")}</dt>
+            <dd className="mt-1 wrap-anywhere text-content-primary">
+              {configuration.tenantHost ?? ui("Not resolved yet")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-content-muted">{ui("Last prune")}</dt>
+            <dd className="mt-1 text-content-primary">
+              {configuration.lastPrunedAt ? (
+                <time dateTime={configuration.lastPrunedAt}>
+                  {new Date(configuration.lastPrunedAt).toLocaleString(uiLocale())}
+                </time>
+              ) : (
+                ui("Not yet")
+              )}
+            </dd>
+          </div>
+        </dl>
+      </CardContent>
+    </Card>
   );
 }

@@ -1,9 +1,16 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { afterEach, describe, expect, it } from "vitest";
 import type { SourceIndexAttempt, SourceRun, SourceRunError } from "@/lib/hey-api/types.gen";
 import { listSourceRunsQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
+import {
+  handleGetSourceRun,
+  handleListSourceRunErrors,
+  handleListSourceRuns,
+} from "@/lib/hey-api/msw.gen";
+import { server } from "@/test/msw";
 import { uiLocale } from "@/i18n/format";
 import { historyDuration, historyRelativeTime, runHasNoChanges } from "./source-history";
 import { HistoryTime, ItemStatus, RunOutcome } from "./source-history-presentation";
@@ -43,10 +50,8 @@ const run: SourceRun = {
 };
 const clients: QueryClient[] = [];
 afterEach(() => {
-  cleanup();
   for (const client of clients) client.clear();
   clients.length = 0;
-  vi.unstubAllGlobals();
 });
 
 function showHistory(items: SourceRun[], runErrors: SourceRunError[] = []) {
@@ -58,17 +63,17 @@ function showHistory(items: SourceRun[], runErrors: SourceRunError[] = []) {
     lastCompleted: null,
     lastSuccessful: null,
   };
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (request: Request) => {
-      if (new URL(request.url).pathname.endsWith("/errors")) {
-        return Response.json({ items: runErrors, nextCursor: null });
-      }
-      const selected = items.find((item) =>
-        new URL(request.url).pathname.endsWith(`/runs/${item.id}`),
-      );
-      return Response.json(selected ?? historyPage);
+  const listed: URL[] = [];
+  server.use(
+    handleListSourceRuns(({ request }) => {
+      listed.push(new URL(request.url));
+      return HttpResponse.json(historyPage);
     }),
+    handleGetSourceRun(({ params }) => {
+      const selected = items.find((item) => item.id === params.runId);
+      return selected ? HttpResponse.json(selected) : new HttpResponse(null, { status: 404 });
+    }),
+    handleListSourceRunErrors({ body: { items: runErrors, nextCursor: null } }),
   );
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -81,12 +86,12 @@ function showHistory(items: SourceRun[], runErrors: SourceRunError[] = []) {
     }),
     historyPage,
   );
-  const result = render(
+  render(
     <QueryClientProvider client={client}>
       <SourceRunHistory sourceId={run.sourceId} />
     </QueryClientProvider>,
   );
-  return result;
+  return { listed };
 }
 
 describe("Source execution and current-file history", () => {
@@ -148,13 +153,8 @@ describe("Source execution and current-file history", () => {
 
   it("filters runs by several statuses through the API and clears the filter", async () => {
     const user = userEvent.setup();
-    showHistory([run]);
-    const statusesOf = () =>
-      vi
-        .mocked(fetch)
-        .mock.calls.map(([request]) =>
-          new URL((request as Request).url).searchParams.getAll("status").join(","),
-        );
+    const { listed } = showHistory([run]);
+    const statusesOf = () => listed.map((url) => url.searchParams.getAll("status").join(","));
 
     await user.click(screen.getByRole("button", { name: /^Filter status$/ }));
     await user.click(screen.getByRole("menuitemcheckbox", { name: "Failed" }));
@@ -173,10 +173,10 @@ describe("Source execution and current-file history", () => {
     await waitFor(() => expect(statusesOf().at(-1)).toBe(""));
   });
 
-  it("opens a run from its row with its trigger, stages and file counts", async () => {
+  it("opens a run with its trigger, stages and file counts", async () => {
     const user = userEvent.setup();
     showHistory([run]);
-    await user.click(screen.getByText("Manual"));
+    await user.click(screen.getByRole("button", { name: /^View details for run started/ }));
     const detail = within(await screen.findByRole("dialog", { name: "Run details" }));
     expect(detail.getByText("Trigger").nextElementSibling).toHaveTextContent("Manual");
     expect(detail.getByText("Read content").parentElement).toHaveTextContent(/30 sec\s*Completed/);

@@ -2,8 +2,9 @@ import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useId, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from "react";
 import { ChevronDown, Paperclip, X } from "lucide-react";
-import { IconButton } from "@/components/ui/icon-button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupButton } from "@/components/ui/input-group";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { GOOGLE_SERVICE_ACCOUNT_SCOPES } from "./google-drive-credential";
@@ -120,16 +121,19 @@ export function GoogleDriveServiceAccountInput({
     <fieldset disabled={disabled} className="flex min-w-0 flex-col gap-4">
       <legend className="sr-only">{ui("Service account key")}</legend>
       <p className="font-main-ui-action text-content-primary">{ui("Service account key")}</p>
-      <Collapsible className="group font-secondary-body text-content-muted">
-        <CollapsibleTrigger className="flex w-fit cursor-pointer items-center gap-2 focus-visible:outline-2 focus-visible:outline-focus-ring">
-          {ui("Setup instructions")}
-          <ChevronDown
-            aria-hidden="true"
-            className="size-4 group-data-[state=open]:rotate-180 motion-safe:transition-transform"
-          />
+      <Collapsible className="group">
+        <CollapsibleTrigger asChild>
+          <Button size="sm" prominence="tertiary" className="w-fit px-0">
+            {ui("Setup instructions")}
+            <ChevronDown
+              data-icon="inline-end"
+              aria-hidden="true"
+              className="group-data-[state=open]:rotate-180 motion-safe:transition-transform"
+            />
+          </Button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="mt-3 flex flex-col gap-3">
+          <div className="mt-3 flex flex-col gap-3 font-secondary-body text-content-muted">
             <p>
               {ui(
                 "Enable the Drive, Docs, Sheets and Admin SDK APIs in your Google Cloud project, create a service account and download its JSON key.",
@@ -153,7 +157,6 @@ export function GoogleDriveServiceAccountInput({
               aria-labelledby={`${id}-scopes`}
               readOnly
               value={GOOGLE_SERVICE_ACCOUNT_SCOPES.join(",")}
-              className="font-mono text-xs"
             />
           </div>
         </CollapsibleContent>
@@ -168,51 +171,49 @@ export function GoogleDriveServiceAccountInput({
         disabled={disabled}
         onChange={(event) => void readFile(event.target.files?.[0])}
       />
-      <div
-        className={cn(
-          "flex w-full items-center justify-between gap-1 rounded-lg border border-border-subtle bg-surface-raised p-1.5 transition-colors hover:border-border-default",
-          disabled && "border-transparent bg-surface-sunken",
-          error && "border-status-danger-content",
-        )}
-      >
+      <InputGroup aria-invalid={error ? true : undefined}>
         <span
           id={`${id}-file`}
           className={cn(
-            "min-w-0 flex-1 truncate p-0.5 text-sm",
+            "min-w-0 flex-1 truncate px-2.5 text-sm",
             fileName ? "text-content-primary" : "text-content-muted",
           )}
         >
           {fileName ?? ui("Attach the service account JSON key")}
         </span>
-        {fileName !== null || reading ? (
-          <IconButton
-            size="sm"
-            prominence="tertiary"
-            aria-label={ui("Clear service account key")}
-            disabled={disabled}
-            onClick={clear}
-          >
-            <X />
-          </IconButton>
-        ) : (
-          <IconButton
-            size="sm"
-            prominence="tertiary"
-            aria-label={ui("Attach file")}
-            aria-describedby={`${id}-file`}
-            disabled={disabled}
-            onClick={() => upload.current?.click()}
-          >
-            <Paperclip />
-          </IconButton>
-        )}
-      </div>
+        <InputGroupAddon align="inline-end">
+          {fileName !== null || reading ? (
+            <InputGroupButton
+              size="icon-xs"
+              aria-label={ui("Clear service account key")}
+              disabled={disabled}
+              onClick={clear}
+            >
+              <X aria-hidden="true" />
+            </InputGroupButton>
+          ) : (
+            <InputGroupButton
+              size="icon-xs"
+              aria-label={ui("Attach file")}
+              aria-describedby={`${id}-file`}
+              disabled={disabled}
+              onClick={() => upload.current?.click()}
+            >
+              <Paperclip aria-hidden="true" />
+            </InputGroupButton>
+          )}
+        </InputGroupAddon>
+      </InputGroup>
       {key ? (
-        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
-          <dt className="text-content-muted">{ui("Service account")}</dt>
-          <dd className="wrap-anywhere text-content-primary">{key.clientEmail}</dd>
-          <dt className="text-content-muted">{ui("Client ID")}</dt>
-          <dd className="font-mono text-xs text-content-primary">{key.clientId}</dd>
+        <dl className="flex flex-col gap-1 text-sm">
+          <div className="flex min-w-0 gap-3">
+            <dt className="shrink-0 text-content-muted">{ui("Service account")}</dt>
+            <dd className="min-w-0 wrap-anywhere text-content-primary">{key.clientEmail}</dd>
+          </div>
+          <div className="flex min-w-0 gap-3">
+            <dt className="shrink-0 text-content-muted">{ui("Client ID")}</dt>
+            <dd className="min-w-0 font-mono text-xs text-content-primary">{key.clientId}</dd>
+          </div>
         </dl>
       ) : null}
       {reading ? (
