@@ -206,30 +206,25 @@ public final class ChatPrompts {
         return false;
     }
 
+    /**
+     * The only source of the date in the system prompt, always present: the placeholder is filled, and instructions
+     * without one get Onyx's {@code ADDITIONAL_INFO} date line. There is no per-agent switch to leave it out.
+     */
     public static String resolve(String instructions, boolean searchEnabled, Instant now) {
-        return resolve(instructions, searchEnabled, now, true);
-    }
-
-    /** Onyx {@code datetime_aware}: fill the date placeholder when aware; otherwise drop the date sentence. */
-    static String resolve(String instructions, boolean searchEnabled, Instant now, boolean datetimeAware) {
-        String dated = datetimeAware ? instructions.replace("{{CURRENT_DATETIME}}", now.toString())
-                : instructions.replace("The current date is {{CURRENT_DATETIME}}.\n", "").replace("{{CURRENT_DATETIME}}", "");
+        String dated = instructions.contains("{{CURRENT_DATETIME}}") ? instructions.replace("{{CURRENT_DATETIME}}", now.toString())
+                : instructions + "\n\nAdditional Information:\n\t- The current date is " + now + ".";
         return dated + (searchEnabled ? "\n" + SEARCH_GUIDANCE : "");
     }
 
     /** Account hint, not a translated system prompt. Custom Persona instructions keep their precedence. */
     public static String resolve(String instructions, boolean searchEnabled, Instant now, @Nullable String uiLanguage) {
-        return resolve(instructions, searchEnabled, now, uiLanguage, true);
-    }
-
-    public static String resolve(String instructions, boolean searchEnabled, Instant now, @Nullable String uiLanguage, boolean datetimeAware) {
         String language = "vi".equals(uiLanguage)
                 ? "Prefer replying in Vietnamese. If the user explicitly requests another language, use that language."
                 : "Reply in the language the user writes in, unless they explicitly request another language.";
         String base = instructions.startsWith(DEFAULT_SYSTEM)
                 ? instructions.replace("Reply in the language the user writes in, unless they explicitly request another language.", language)
                 : "# Account language preference\n" + language + "\n\n" + instructions;
-        return resolve(base, searchEnabled, now, datetimeAware);
+        return resolve(base, searchEnabled, now);
     }
 
     /**

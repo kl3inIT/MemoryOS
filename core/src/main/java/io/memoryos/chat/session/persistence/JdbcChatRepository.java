@@ -355,13 +355,12 @@ public class JdbcChatRepository {
      */
     public record Persona(String instructions, String model, ChatTurnOptions options, String revision,
                           @Nullable UUID modelConfigurationId, List<UUID> fileIds, Set<String> tools,
-                          @Nullable List<UUID> mcpServerIds, boolean datetimeAware,
+                          @Nullable List<UUID> mcpServerIds,
                           @Nullable ReasoningEffort reasoningEffort) {
         public Persona(String instructions, String model, ChatTurnOptions options, String revision,
                        @Nullable UUID modelConfigurationId, List<UUID> fileIds, Set<String> tools,
-                       @Nullable List<UUID> mcpServerIds, boolean datetimeAware) {
-            this(instructions, model, options, revision, modelConfigurationId, fileIds, tools, mcpServerIds,
-                    datetimeAware, null);
+                       @Nullable List<UUID> mcpServerIds) {
+            this(instructions, model, options, revision, modelConfigurationId, fileIds, tools, mcpServerIds, null);
         }
     }
 
@@ -407,10 +406,10 @@ public class JdbcChatRepository {
         return jdbc.sql("""
                         SELECT p.builtin_key, p.model, p.model_configuration_id, p.context_token_limit, p.output_token_limit,
                             s.reasoning_effort,
-                            p.task_prompt, p.datetime_aware, p.knowledge_cutoff,
+                            p.task_prompt, p.knowledge_cutoff,
                             CASE WHEN p.builtin_key IS NULL THEN p.file_ids ELSE COALESCE(pr.file_ids,'[]'::jsonb) END AS file_ids,
                             %s AS revision,
-                            CASE WHEN p.builtin_key IS NULL AND p.replace_base_system_prompt AND p.datetime_aware
+                            CASE WHEN p.builtin_key IS NULL AND p.replace_base_system_prompt
                                       AND position('{{CURRENT_DATETIME}}' IN p.instructions) = 0
                                      THEN concat_ws(chr(10), p.instructions, 'The current date is {{CURRENT_DATETIME}}.')
                                  WHEN p.builtin_key IS NULL AND p.replace_base_system_prompt THEN p.instructions
@@ -449,7 +448,6 @@ public class JdbcChatRepository {
                             row.getString("revision"), row.getObject("model_configuration_id", UUID.class),
                             List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), tools,
                             builtin ? null : List.of((UUID[]) row.getArray("mcp_servers").getArray()),
-                            row.getBoolean("datetime_aware"),
                             pinned == null ? null : ReasoningEffort.valueOf(pinned));
                 })
                 .optional().orElseThrow(ChatException::unavailable);

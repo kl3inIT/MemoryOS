@@ -239,7 +239,7 @@ public class ChatTurnPersistence {
         else {
             var binding = selection.binding().forOptions(settings.options().sampling(), settings.options().outputTokenLimit());
             instructions = ChatPrompts.resolve(instructions,
-                    binding.toolCalling() && settings.options().searchEnabled(), Instant.now(), language, settings.datetimeAware());
+                    binding.toolCalling() && settings.options().searchEnabled(), Instant.now(), language);
             instructions = userInformation(actor, instructions, own);
             ChatTurnSetup.validateQuestion(instructions, text, effectiveContext, binding, selection.promptContribution());
         }

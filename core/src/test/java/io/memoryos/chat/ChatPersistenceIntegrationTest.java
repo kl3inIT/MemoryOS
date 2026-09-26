@@ -191,7 +191,7 @@ class ChatPersistenceIntegrationTest {
         var set = documentSets.create(owner, new DocumentSetService.Input("Finance", "Monthly reports", List.of(), false));
         var agent = personas.create(owner, new ChatPersonaService.PersonaInput("Finance assistant", "", "Use reports.", null,
                 List.of(), List.of(), List.of(set.id()), Set.of("search"), null, null, null, null, List.of(), null, null,
-                null, false, false, null));
+                null, false, null));
 
         assertEquals(List.of(set.id()), personas.get(owner, agent.id()).documentSetIds());
         assertEquals(List.of("Finance"), personas.get(owner, agent.id()).documentSets().stream().map(ChatPersonaService.DocumentSetRef::name).toList());
@@ -228,7 +228,7 @@ class ChatPersistenceIntegrationTest {
         var set = documentSets.create(owner, new DocumentSetService.Input("Owner only", "", List.of(sourceId), false));
         var agent = personas.create(owner, new ChatPersonaService.PersonaInput("Reports", "", "Use reports.", null,
                 List.of(), List.of(), List.of(set.id()), Set.of("search"), null, null, null, null, List.of(), null, null,
-                null, false, false, null));
+                null, false, null));
         personas.share(owner, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(
                 List.of(), List.of(), true, AgentPermission.VIEWER));
 
@@ -660,7 +660,8 @@ class ChatPersistenceIntegrationTest {
         assertEquals("obsolete-model", turns.loadContext(owner, session.id(), reservation).model());
         var setup = ChatTurnSetup.resolve(session.id(), reservation.assistantMessageId(),
                 turns.loadContext(owner, session.id(), reservation), raw + 64, binding, contribution);
-        assertEquals(List.of(instructions, "Question"), setup.messages().stream().map(Message::getContent).toList());
+        // The prompt carries the instant it was resolved at, which differs between this expectation and the reservation.
+        assertEquals(List.of(undated(instructions), "Question"), setup.messages().stream().map(Message::getContent).map(ChatPersistenceIntegrationTest::undated).toList());
     }
 
     @AfterEach
@@ -1195,7 +1196,7 @@ class ChatPersistenceIntegrationTest {
         assertThrows(ChatException.class, () -> personas.renameLabel(reader, label.id(), "Finance"));
         var agent = personas.create(creator, new ChatPersonaService.PersonaInput("Finance", "", "", "Always cite the report month.",
                 List.of(), List.of(), null, Set.of("search"), null, null, null, null, List.of(), "chart", null, List.of(label.id()),
-                false, false, Instant.parse("2026-01-01T00:00:00Z")));
+                false, Instant.parse("2026-01-01T00:00:00Z")));
         assertEquals(List.of(label), agent.labels());
         var published = personas.share(creator, agent.id(), agent.revision(), new ChatPersonaService.SharingInput(List.of(), List.of(), true, null));
         assertThrows(ChatException.class, () -> personas.listing(creator, agent.id(), published.revision(), new ChatPersonaService.ListingInput(true, true, 1)));
@@ -1216,7 +1217,6 @@ class ChatPersistenceIntegrationTest {
         assertEquals(Set.of("search"), settings.tools());
         assertFalse(settings.options().codeInterpreter(), "run_python follows the agent tool policy");
         assertEquals(List.of(), settings.mcpServerIds());
-        assertFalse(settings.datetimeAware());
     }
 
     @Test
@@ -1416,7 +1416,11 @@ class ChatPersistenceIntegrationTest {
     private static ChatPersonaService.PersonaInput input(String name, String instructions, List<String> starters, List<UUID> sources,
             boolean search, Integer context, Integer output, List<UUID> files) {
         return new ChatPersonaService.PersonaInput(name, "", instructions, null, starters, sources, null,
-                search ? Set.of("search") : Set.of(), null, null, context, output, files, null, null, null, null, null, null);
+                search ? Set.of("search") : Set.of(), null, null, context, output, files, null, null, null, null, null);
+    }
+
+    private static String undated(String prompt) {
+        return prompt.replaceAll("\\d{4}-\\d{2}-\\d{2}T[0-9:.]+Z", "<now>");
     }
 
     private UUID readyFile(ActorId actor) {

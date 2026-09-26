@@ -876,7 +876,6 @@ export type PersonaInput = {
     avatarFileId?: string;
     labelIds?: Array<string>;
     replaceBaseSystemPrompt?: boolean;
-    datetimeAware?: boolean;
     knowledgeCutoff?: string;
 };
 
@@ -959,7 +958,6 @@ export type PersonaView = {
     featured?: boolean;
     displayPriority?: number;
     replaceBaseSystemPrompt?: boolean;
-    datetimeAware?: boolean;
     knowledgeCutoff?: string;
     pinned?: boolean;
     deletedAt?: string;

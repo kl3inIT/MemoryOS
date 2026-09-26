@@ -53,7 +53,6 @@ export const personaSchema = z.object({
   featured: z.boolean().default(false),
   displayPriority: z.number().nullish(),
   replaceBaseSystemPrompt: z.boolean().default(false),
-  datetimeAware: z.boolean().default(true),
   knowledgeCutoff: z.string().nullish(),
   pinned: z.boolean().default(false),
   deletedAt: z.string().nullish(),
