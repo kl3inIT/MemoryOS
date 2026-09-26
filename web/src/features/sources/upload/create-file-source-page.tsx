@@ -18,15 +18,23 @@ import {
 import { captureWorkflowFailure } from "@/lib/sentry";
 import {
   createFileSourceMutation,
-  finalizeSourceUploadMutation,
-  initiateSourceUploadMutation,
   listSourcesQueryKey,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { DirectUploadError, putAuthorizedObject, sha256 } from "@/lib/direct-upload";
+import { DirectUploadError } from "@/lib/direct-upload";
 import { sourceMutationError } from "@/features/sources/shared/source-errors";
 import { useSourceUploadRecovery } from "./source-upload-recovery-context";
 import { SourceAccessChoice } from "@/features/sources/shared/source-access-choice";
 import { SourceGroupPicker } from "@/features/sources/shared/source-group-picker";
+import {
+  useSourceFileUpload,
+  type SourceUploadPhase,
+} from "@/features/sources/shared/use-source-file-upload";
+
+const uploadPhaseCopy: Record<SourceUploadPhase, string> = {
+  hashing: "Preparing file…",
+  authorizing: "Preparing upload…",
+  uploading: "Uploading file…",
+};
 
 export function CreateFileSourcePage() {
   const ui = useAppTranslation();
@@ -39,8 +47,7 @@ export function CreateFileSourcePage() {
   const navigate = useNavigate({ from: "/admin/sources/new/file" });
   const notify = useActionNotifications();
   const createSource = useMutation(createFileSourceMutation());
-  const initiateUpload = useMutation(initiateSourceUploadMutation());
-  const finalizeUpload = useMutation(finalizeSourceUploadMutation());
+  const upload = useSourceFileUpload();
   const { pendingFinalize, setPendingFinalize } = useSourceUploadRecovery();
   const [sourceName, setSourceName] = useState("");
   const [groupIds, setGroupIds] = useState<Set<string>>(() => new Set());
@@ -139,34 +146,14 @@ export function CreateFileSourcePage() {
         current = files[index]!;
         setCurrentIndex(index);
         if (!receipt) {
-          setPhase("Preparing file…");
-          const checksum = await sha256(current, controller.signal);
-          setPhase("Preparing upload…");
-          const authorization = await initiateUpload.mutateAsync({
-            path: { sourceId: targetId },
-            body: {
-              filename: current.name,
-              mediaType: current.type || "application/octet-stream",
-              sizeBytes: current.size,
-              sha256: checksum,
-            },
-            signal: controller.signal,
+          receipt = await upload.store(targetId, current, controller.signal, {
+            onPhase: (next) => setPhase(uploadPhaseCopy[next]),
+            onProgress: setProgress,
           });
-          setProgress(0);
-          setPhase("Uploading file…");
-          await putAuthorizedObject(authorization, current, controller.signal, setProgress);
-          receipt = {
-            sourceId: targetId,
-            uploadId: authorization.uploadId,
-            filename: current.name,
-          };
           setPendingFinalize(receipt);
         }
         setPhase("Finishing upload…");
-        await finalizeUpload.mutateAsync({
-          path: { sourceId: receipt.sourceId, uploadId: receipt.uploadId },
-          signal: controller.signal,
-        });
+        await upload.finalize(receipt, controller.signal);
         controller.signal.throwIfAborted();
         receipt = null;
         setPendingFinalize(null);
