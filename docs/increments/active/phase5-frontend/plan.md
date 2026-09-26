@@ -19,6 +19,7 @@ Branch `dathip04/frontend-audit`; wave 1 runs in parallel worktrees on disjoint 
 - [ ] Hey API zod plugin; generated schemas replace hand-written API response schemas.
 - [ ] Forms on TanStack Form + zod + shadcn `Field` (all form files); shadcn `input-group`, `spinner`, `combobox`, `pagination`, `avatar`, `button-group`, `native-select`, `calendar` replace their hand-written equivalents; mutation failures surfaced and rolled back; `useDebouncedValue`; `formatUiDate` everywhere.
 - [ ] React 19 APIs; hooks gathered in `src/hooks`; `noUncheckedIndexedAccess`.
+- [ ] Application sidebar on the shadcn `sidebar` with the Onyx look kept; before/after screenshots of app, admin, settings, collapsed and mobile.
 - [ ] `@shadcn/lint` and `jsx-a11y` findings to zero, rules at error; banners on `Alert`; axe in Playwright specs; oxfmt Tailwind sorting last.
 
 ## Verification
