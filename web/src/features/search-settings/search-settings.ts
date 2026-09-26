@@ -1,6 +1,10 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { appText, type AppCopy, type AppText } from "@/i18n/app-text";
 import { ApiError } from "@/lib/api";
+import {
+  getSearchSettingsQueryKey,
+  listEmbeddingProvidersQueryKey,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import type {
   EmbeddingModelPresetResponse,
   SearchGenerationRequest,
@@ -17,8 +21,8 @@ export type ModelPreset = EmbeddingModelPresetResponse;
 /** Every read on this page changes together: providers carry `inUse`, generations carry provider names. */
 export async function refreshSearchSettings(client: QueryClient) {
   await Promise.all(
-    ["getSearchSettings", "listEmbeddingProviders"].map((id) =>
-      client.invalidateQueries({ queryKey: [{ _id: id }] }, { throwOnError: true }),
+    [getSearchSettingsQueryKey(), listEmbeddingProvidersQueryKey()].map((queryKey) =>
+      client.invalidateQueries({ queryKey }, { throwOnError: true }),
     ),
   );
 }
