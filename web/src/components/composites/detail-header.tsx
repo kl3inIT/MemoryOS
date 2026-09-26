@@ -59,7 +59,7 @@ export function DetailHeader({
             <>
               <BreadcrumbSeparator />
               <BreadcrumbItem className="min-w-0">
-                <BreadcrumbPage className="truncate">{title}</BreadcrumbPage>
+                <BreadcrumbPage>{title}</BreadcrumbPage>
               </BreadcrumbItem>
             </>
           ) : null}
