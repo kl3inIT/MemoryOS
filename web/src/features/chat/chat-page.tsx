@@ -1,39 +1,18 @@
-import {
-  readChatModelPreference,
-  RESEARCH_MINIMUM_CONTEXT,
-  useChatModels,
-  writeChatModelPreference,
-} from "./chat-models";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAttachOnOpen } from "@/features/chat/composer/use-attach-on-open";
 import { useAuiState } from "@assistant-ui/react";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  getChatBranchesOptions,
-  getChatFeedbackOptions,
-  getChatProjectOptions,
-} from "@/lib/hey-api/@tanstack/react-query.gen";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { AppShellHeader } from "@/components/app-shell/app-shell-header";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import {
-  editChatMessage,
-  regenerateChatMessage,
-  selectChatBranch,
-  getChatSettings,
-  getChatImageAvailability,
-  getChatWebAvailability,
-  pinChatReasoningEffort,
-} from "@/lib/hey-api/sdk.gen";
-import type { Accepted, ReasoningSelection } from "@/lib/hey-api/types.gen";
-import type { MemoryOsChatTransport } from "@/features/chat/runtime/chat-transport";
+import { getChatProjectOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { useProblemMessage } from "@/lib/use-problem-message";
 import { ChatThread } from "@/features/chat/thread/chat-thread";
-import { ChatModelPicker } from "./chat-model-picker";
 import { ChatComposerMenu } from "@/features/chat/composer/chat-composer-menu";
-import type { WebSearchMode } from "@/features/chat/web-search/chat-web-preference";
-import type { ImageMode } from "@/features/chat/image/chat-image";
 import { ChatEditingContext } from "@/features/chat/thread/chat-editing-context";
 import { ChatImageEditContext } from "@/features/chat/image/chat-image-edit-context";
 import {
@@ -46,18 +25,35 @@ import {
   ChatTemporaryToggle,
 } from "@/features/chat/session/chat-temporary";
 import { ChatConversationSearch } from "@/features/chat/thread/chat-conversation-search";
-import { branchOf, feedbackOf } from "@/features/chat/chat-api";
-import { personasOptions } from "@/features/chat/chat-personas-api";
 import { projectOf, type Project } from "@/features/chat/projects/chat-projects-api";
 import {
   ProjectContextPanel,
   ProjectConversationList,
 } from "@/features/chat/projects/chat-projects-page";
-import { useTranslation } from "react-i18next";
-import { useProblemMessage } from "@/lib/use-problem-message";
 import { useChatThreads } from "@/features/chat/runtime/chat-threads-context";
 import type { ChatThreadController } from "@/features/chat/runtime/chat-thread-controller";
-import { branchSteps } from "@/features/chat/thread/chat-branch-steps";
+import { ChatModelPicker } from "./chat-model-picker";
+import { useChatConversation } from "./use-chat-conversation";
+
+/** A page state before or instead of the conversation: loading, unavailable or failed. */
+function ChatPageState({
+  title,
+  failed,
+  children,
+}: {
+  title: string;
+  failed?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      <AppShellHeader title={title} />
+      <div role={failed ? "alert" : "status"} className="flex flex-col gap-3 p-6">
+        {children}
+      </div>
+    </>
+  );
+}
 
 export function ChatPage() {
   const ui = useAppTranslation();
@@ -85,42 +81,35 @@ export function ChatPage() {
   ]);
   if (sessionId && routeError === sessionId)
     return (
-      <>
-        <AppShellHeader title={ui("Chat")} />
-        <div role="alert" className="space-y-3 p-6">
-          <p>{ui("Không tải được hội thoại.")}</p>
+      <ChatPageState title={ui("Chat")} failed>
+        <p>{ui("Không tải được hội thoại.")}</p>
+        <div>
           <Button prominence="secondary" onClick={retryRoute}>
             {ui("Thử lại")}
           </Button>
         </div>
-      </>
+      </ChatPageState>
     );
   // The server ID of a conversation created here arrives before the route changes, so promotion
   // never passes through this branch and keeps the composer mounted.
   if ((sessionId && mainRemoteId !== sessionId) || !controller)
     return (
-      <>
-        <AppShellHeader title={ui("Chat")} />
-        <p role="status" className="p-6 text-content-secondary">
-          {ui("Đang tải hội thoại…")}
-        </p>
-      </>
+      <ChatPageState title={ui("Chat")}>
+        <p className="text-content-secondary">{ui("Đang tải hội thoại…")}</p>
+      </ChatPageState>
     );
   if (projectId && !project.data)
     return (
-      <>
-        <AppShellHeader title={ui("Dự án")} />
-        <div className="p-6" role={project.isError ? "alert" : "status"}>
-          {project.isError ? (
-            <>
-              {ui("Dự án không khả dụng.")}{" "}
-              <Button onClick={() => void project.refetch()}>{ui("Tải lại")}</Button>
-            </>
-          ) : (
-            ui("Đang tải dự án…")
-          )}
-        </div>
-      </>
+      <ChatPageState title={ui("Dự án")} failed={project.isError}>
+        {project.isError ? (
+          <p>
+            {ui("Dự án không khả dụng.")}{" "}
+            <Button onClick={() => void project.refetch()}>{ui("Tải lại")}</Button>
+          </p>
+        ) : (
+          <p>{ui("Đang tải dự án…")}</p>
+        )}
+      </ChatPageState>
     );
   return (
     <ChatConversation
@@ -139,208 +128,46 @@ function ChatConversation({
   project?: Project;
 }) {
   const ui = useAppTranslation();
-  const { t } = useTranslation("chatStatus");
-  const problemMessage = useProblemMessage();
   const { runtime } = useChatThreads();
-  const state = useSyncExternalStore(controller.subscribe, controller.getState);
-  const { transport } = controller;
-  const session = state.session;
-  const title = useAuiState(
-    (s) => s.threads.threadItems.find((item) => item.id === controller.id)?.title,
-  );
   const loadingHistory = useAuiState((s) => s.thread.isLoading);
-  useEffect(() => controller.setProject(project?.id), [controller, project?.id]);
-  const model = useChatModelChoice(transport);
-  const [webSearch, setWebSearch] = useState<WebSearchMode>(transport.webSearch);
-  /** Decided before the first question: a conversation cannot become temporary once it exists (MEM-153). */
-  const [temporary, setTemporary] = useState(transport.temporary);
-  const navigate = useNavigate();
-  const [mcpServerIds, setMcpServerIds] = useState<string[]>(transport.mcpServerIds);
-  const [image, setImage] = useState<ImageMode>(transport.image);
-  const [deepResearch, setDeepResearch] = useState(transport.deepResearch);
-  // The level pinned on this conversation; a new conversation starts on the member's own default.
-  const [effort, setEffort] = useState<string>();
-  const pinnedEffort = effort ?? session?.reasoningEffort ?? undefined;
-  const pinReasoning = useMutation({
-    mutationFn: async (level: string) => {
-      setEffort(level);
-      if (!session?.id) return;
-      await pinChatReasoningEffort({
-        path: { sessionId: session.id },
-        body: { reasoningEffort: level as ReasoningSelection["reasoningEffort"] },
-      });
-    },
-  });
-  const applicationSession = useApplicationSession();
-  const chatSettings = useQuery({
-    queryKey: [
-      "chat-settings",
-      applicationSession.actorId,
-      applicationSession.authorizationVersion,
-    ],
-    queryFn: async ({ signal }) => (await getChatSettings({ signal })).data,
-    retry: false,
-  });
-  const personas = useQuery({
-    ...personasOptions(),
-  });
-  const persona = session?.personaId
-    ? personas.data?.find((candidate) => candidate.id === session.personaId)
-    : personas.data?.find((candidate) => candidate.builtin);
-  const webAvailability = useQuery({
-    queryKey: [
-      "chat-web",
-      applicationSession.actorId,
-      applicationSession.authorizationVersion,
-      session?.id,
-    ],
-    queryFn: async ({ signal }) =>
-      (
-        await getChatWebAvailability({
-          query: { sessionId: session?.id },
-          signal,
-        })
-      ).data,
-    retry: false,
-  });
-  const imageAvailability = useQuery({
-    queryKey: ["chat-image", applicationSession.actorId, applicationSession.authorizationVersion],
-    queryFn: async ({ signal }) => (await getChatImageAvailability({ signal })).data,
-    retry: false,
-  });
-  // As Onyx: Deep research is offered outside Projects while the organization setting is on and research agents
-  // have internal Search or an external Web search connection (research never uses provider-hosted search).
-  const researchAvailable =
-    !project &&
-    !session?.projectId &&
-    chatSettings.data?.deepResearchEnabled === true &&
-    (persona?.tools.includes("search") === true ||
-      (persona?.tools.includes("web_search") !== false &&
-        webAvailability.data?.searchAvailable === true));
-  // MEM-130: the server rejects research on a model without tool calling or under 50,000 tokens; say so up front.
-  const { catalog: modelCatalog } = useChatModels(session?.id);
-  const selectedModel = modelCatalog.data?.find((candidate) => candidate.id === model.choice.id);
-  const researchUnsupported =
-    selectedModel &&
-    (!selectedModel.capabilities.toolCalling ||
-      selectedModel.contextWindow < RESEARCH_MINIMUM_CONTEXT)
-      ? ui(
-          "Mô hình này không chạy được Deep research: cần gọi công cụ và ngữ cảnh từ 50.000 token.",
-        )
-      : undefined;
-  // Until the session agent is known, no tool is sent: a command must never carry a tool the agent forbids.
-  const allowedTools = useMemo(
-    () =>
-      persona
-        ? {
-            web: persona.tools.includes("web_search"),
-            image: persona.tools.includes("image_generation"),
-            mcpServerIds: persona.builtin ? null : persona.mcpServers.map((server) => server.id),
-          }
-        : { web: false, image: false, mcpServerIds: [] },
-    [persona],
-  );
-  // The server rejects tools the agent does not allow; the transport drops them and the composer hides them.
-  useEffect(() => transport.restrictTools(allowedTools), [transport, allowedTools]);
-  const shownWebSearch = allowedTools?.web === false ? "off" : webSearch;
-  const shownImage = allowedTools?.image === false ? "off" : image;
-  const shownMcpServerIds = mcpServerIds.filter(
-    (id) => !allowedTools?.mcpServerIds || allowedTools.mcpServerIds.includes(id),
-  );
-  const busy = state.connection !== "ready" || state.checking;
-  const imageEditing = useMemo(
-    () => ({
-      enableImages: () => {
-        if (transport.image !== "off") return;
-        transport.selectImage("auto");
-        setImage("auto");
-      },
-    }),
-    [transport],
-  );
-  const { branches, feedback } = useChatVersions(session?.id);
-
-  /**
-   * Scrolls to a message of this conversation (MEM-152 "show in conversation"). A message on another version is
-   * brought onto the selected path first, one version choice at a time, as the version arrows would.
-   */
-  const showMessage = async (messageId: string) => {
-    const find = () =>
-      document.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(messageId)}"]`);
-    let element = find();
-    if (!element && session) {
-      const current = (await branches.refetch()).data ?? [];
-      if (!current.some((branch) => branch.id === messageId)) return false;
-      const steps = branchSteps(current, messageId);
-      if (steps.length > 0) {
-        await controller.mutate(async () => {
-          for (const step of steps)
-            await selectChatBranch({
-              path: { sessionId: session.id },
-              body: step,
-              signal: AbortSignal.timeout(30000),
-            });
-        });
-        await branches.refetch();
-      }
-      for (let waited = 0; !element && waited < 5000; waited += 100) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        element = find();
-      }
-    }
-    if (!element) return false;
-    element.scrollIntoView({ block: "center", behavior: "smooth" });
-    element.setAttribute("data-chat-search-match", "true");
-    setTimeout(() => element.removeAttribute("data-chat-search-match"), 2400);
-    return true;
-  };
+  const conversation = useChatConversation(controller, project);
+  const { state, session, headerSession, busy, tools } = conversation;
 
   if (state.unavailable)
     return (
-      <>
-        <AppShellHeader title={ui("Chat")} />
-        <p role="alert" className="p-6">
-          {ui("Hội thoại không còn khả dụng.")}
-        </p>
-      </>
+      <ChatPageState title={ui("Chat")} failed>
+        <p>{ui("Hội thoại không còn khả dụng.")}</p>
+      </ChatPageState>
     );
   if (state.historyFailed && !session)
     return (
-      <>
-        <AppShellHeader title={ui("Chat")} />
-        <div role="alert" className="space-y-3 p-6">
-          <p>{ui("Không tải được hội thoại.")}</p>
+      <ChatPageState title={ui("Chat")} failed>
+        <p>{ui("Không tải được hội thoại.")}</p>
+        <div>
           <Button prominence="secondary" onClick={() => void controller.check()}>
             {ui("Thử lại")}
           </Button>
         </div>
-      </>
+      </ChatPageState>
     );
   if (loadingHistory && controller.remoteId)
     return (
-      <>
-        <AppShellHeader title={ui("Chat")} />
-        <p role="status" className="p-6 text-content-secondary">
-          {ui("Đang tải hội thoại…")}
-        </p>
-      </>
+      <ChatPageState title={ui("Chat")}>
+        <p className="text-content-secondary">{ui("Đang tải hội thoại…")}</p>
+      </ChatPageState>
     );
-  const headerSession = session && { ...session, title: title ?? session.title };
   return (
     <>
       <AppShellHeader
         title={headerSession?.title ?? (project ? ui("Dự án") : ui("Chat"))}
         actions={
           <div className="flex items-center gap-1">
-            <ChatTemporaryBadge temporary={headerSession?.temporary ?? temporary} />
+            <ChatTemporaryBadge temporary={headerSession?.temporary ?? tools.temporary} />
             {!session && !project && (
               <ChatTemporaryToggle
-                value={temporary}
+                value={tools.temporary}
                 disabled={busy}
-                onChange={(next) => {
-                  transport.selectTemporary(next);
-                  setTemporary(next);
-                }}
+                onChange={tools.selectTemporary}
               />
             )}
             <ChatConversationSearch key={headerSession?.id ?? "new"} />
@@ -348,265 +175,154 @@ function ChatConversation({
               session={headerSession}
               busy={busy}
               onChange={async () => {
-                model.select(undefined);
+                conversation.model.select(undefined);
                 await controller.check();
               }}
               deleteSession={() => runtime.threads.getItemById(controller.id).delete()}
               onDelete={() => controller.markUnavailable()}
-              onShowMessage={showMessage}
+              onShowMessage={conversation.showMessage}
             />
           </div>
         }
       />
       <div className="flex h-full min-h-0 flex-col">
-        <ChatImageEditContext.Provider value={imageEditing}>
-          <ChatEditingContext.Provider
-            value={{
-              sessionId: session?.id,
-              sessionTitle: headerSession?.title,
-              busy,
-              branches: branches.data ?? [],
-              feedback: feedback.data ?? [],
-              edit: (userMessageId, text, clientRequestId, fileIds) =>
-                controller.mutate(async () => {
-                  const { data } = await editChatMessage({
-                    path: { sessionId: session!.id, userMessageId },
-                    body: {
-                      text,
-                      clientRequestId,
-                      modelConfigurationId: model.choice.id,
-                      fileIds,
-                      webSearch: shownWebSearch,
-                      deepResearch: researchAvailable && !researchUnsupported && deepResearch,
-                    },
-                    signal: AbortSignal.timeout(30000),
-                  });
-                  transport.recordModelSelection(data);
-                }),
-              regenerate: (userMessageId, clientRequestId, modelConfigurationId) =>
-                controller.mutate(async () => {
-                  const { data } = await regenerateChatMessage({
-                    path: { sessionId: session!.id, userMessageId },
-                    body: {
-                      clientRequestId,
-                      modelConfigurationId: modelConfigurationId ?? model.choice.id,
-                      webSearch: shownWebSearch,
-                      deepResearch: researchAvailable && !researchUnsupported && deepResearch,
-                    },
-                    signal: AbortSignal.timeout(30000),
-                  });
-                  transport.recordModelSelection(data);
-                }),
-              branch: (messageId, expectedChildId) =>
-                controller.mutate(() =>
-                  selectChatBranch({
-                    path: { sessionId: session!.id },
-                    body: { messageId, expectedChildId },
-                    signal: AbortSignal.timeout(30000),
-                  }),
-                ),
-            }}
-          >
-            {(branches.isError || feedback.isError) && (
-              <p role="alert" className="px-4 text-sm">
-                {ui("Không tải được phiên bản hoặc đánh giá.")}{" "}
-                <Button
-                  prominence="internal"
-                  size="sm"
-                  onClick={() => {
-                    void branches.refetch();
-                    void feedback.refetch();
-                  }}
-                >
-                  {ui("Tải lại")}
-                </Button>
-              </p>
-            )}
-            {state.attachmentError && (
-              <p role="alert" className="text-sm">
-                {problemMessage(state.attachmentError)}
-                <Button
-                  type="button"
-                  size="sm"
-                  prominence="internal"
-                  onClick={() => controller.setAttachmentError(undefined)}
-                >
-                  {ui("Đóng")}
-                </Button>
-              </p>
-            )}
-            <ChatThread
-              sendDisabled={!persona}
-              welcome={project && !session ? <ProjectContextPanel project={project} /> : undefined}
-              afterComposer={
-                (headerSession?.temporary ?? (temporary && !session)) ? (
-                  <ChatTemporaryNotice
-                    onLeave={() => {
-                      transport.selectTemporary(false);
-                      setTemporary(false);
-                      void navigate({ to: "/" });
-                    }}
-                  />
-                ) : project && !session ? (
-                  <ProjectConversationList projectId={project.id} />
-                ) : undefined
-              }
-              starters={<ChatStarterPrompts personaId={session?.personaId} disabled={busy} />}
-              composerMenu={
-                <ChatComposerMenu
-                  disabled={busy}
-                  allowed={allowedTools}
-                  web={{
-                    sessionId: session?.id,
-                    modelId: model.choice.id,
-                    value: shownWebSearch,
-                    onChange: (mode) => {
-                      transport.selectWeb(mode);
-                      setWebSearch(mode);
-                    },
-                  }}
-                  research={
-                    researchAvailable
-                      ? {
-                          unsupported: researchUnsupported,
-                          value: deepResearch,
-                          onChange: (enabled) => {
-                            transport.selectResearch(enabled);
-                            setDeepResearch(enabled);
-                          },
-                        }
-                      : undefined
-                  }
-                  image={{
-                    available: imageAvailability.data?.available === true,
-                    pending: imageAvailability.isPending,
-                    onRetry: imageAvailability.isError
-                      ? () => void imageAvailability.refetch()
-                      : undefined,
-                    value: shownImage,
-                    onChange: (mode) => {
-                      transport.selectImage(mode);
-                      setImage(mode);
-                    },
-                  }}
-                  mcp={{
-                    selected: shownMcpServerIds,
-                    sessionId: session?.id,
-                    onChange: (ids) => {
-                      transport.selectMcpServers(ids);
-                      setMcpServerIds(ids);
-                    },
-                  }}
-                />
-              }
-              modelPicker={
-                <ChatModelPicker
-                  sessionId={transport.session?.id}
-                  value={model.choice.id}
-                  onChange={model.select}
-                  effort={pinnedEffort}
-                  onEffortChange={(level) => pinReasoning.mutate(level)}
-                  disabled={busy}
-                />
-              }
-              modelNotice={
-                model.choice.fallback
-                  ? ui(
-                      "Mô hình đã chọn không khả dụng. Câu trả lời đang dùng mô hình mặc định mà bạn được phép sử dụng.",
-                    )
-                  : undefined
-              }
-              connection={state.connection}
-              stopping={state.stopping}
-              onStop={() => void controller.stop()}
-              error={
-                state.error
-                  ? typeof state.error === "string"
-                    ? t(state.error)
-                    : problemMessage(state.error)
-                  : undefined
-              }
-              onCheck={() => controller.check()}
-              checking={state.checking}
+        <ChatImageEditContext value={tools.imageEditing}>
+          <ChatEditingContext value={conversation.editing}>
+            <ChatConversationBody
+              controller={controller}
+              conversation={conversation}
+              project={project}
             />
-          </ChatEditingContext.Provider>
-        </ChatImageEditContext.Provider>
+          </ChatEditingContext>
+        </ChatImageEditContext>
       </div>
     </>
   );
 }
 
-type ModelChoice = { id?: string; fallback?: boolean };
-
-function useChatModelChoice(transport: MemoryOsChatTransport) {
-  const { actorId, authorizationVersion } = useApplicationSession();
-  const queryClient = useQueryClient();
-  const [choice, setChoice] = useState<ModelChoice>(() => {
-    // Keep the accepted-turn notice through the new-chat route transition,
-    // using the in-memory query cache. A page reload retains only the model ID.
-    const accepted = queryClient.getQueryData<Accepted>([
-      "chat-model-selection",
-      actorId,
-      authorizationVersion,
-      transport.session?.id,
-    ]);
-    const saved = readChatModelPreference(actorId);
-    if (!saved) return {};
-    return {
-      id: saved,
-      fallback: accepted?.modelConfigurationId === saved && !!accepted.fallbackReason,
-    };
-  });
-  useEffect(() => {
-    transport.selectModel(choice.id);
-    return transport.listenModelSelection((accepted) => {
-      queryClient.setQueryData(
-        ["chat-model-selection", actorId, authorizationVersion, transport.session?.id],
-        accepted,
-      );
-      if (accepted.fallbackReason) {
-        const next = { id: accepted.modelConfigurationId, fallback: true };
-        transport.selectModel(next.id);
-        writeChatModelPreference(actorId, next.id);
-        setChoice(next);
-      } else {
-        setChoice((current) => (current.fallback ? { id: current.id } : current));
-      }
-    });
-  }, [transport, choice.id, actorId, authorizationVersion, queryClient]);
-  function select(id?: string) {
-    transport.selectModel(id);
-    setChoice({ id });
-    writeChatModelPreference(actorId, id);
-  }
-  return { choice, select };
-}
-
-/** Feedback is read for at most this many answers per request. */
-const FEEDBACK_CHUNK = 100;
-
-/** The version relationships of a conversation and the feedback on each version. */
-function useChatVersions(sessionId: string | undefined) {
-  const branches = useQuery({
-    ...getChatBranchesOptions({ path: { sessionId: sessionId ?? "" } }),
-    enabled: sessionId !== undefined,
-    select: (views) => views.map(branchOf),
-  });
-  const ids = branches.data?.map((branch) => branch.id) ?? [];
-  const chunks = Array.from({ length: Math.ceil(ids.length / FEEDBACK_CHUNK) }, (_, index) =>
-    ids.slice(index * FEEDBACK_CHUNK, (index + 1) * FEEDBACK_CHUNK),
+/** The notices above the thread and the thread with its composer controls. */
+function ChatConversationBody({
+  controller,
+  conversation,
+  project,
+}: {
+  controller: ChatThreadController;
+  conversation: ReturnType<typeof useChatConversation>;
+  project?: Project;
+}) {
+  const ui = useAppTranslation();
+  const { t } = useTranslation("chatStatus");
+  const problemMessage = useProblemMessage();
+  const navigate = useNavigate();
+  const { state, session, headerSession, busy, tools, model, imageAvailability } = conversation;
+  return (
+    <>
+      {conversation.versionsFailed && (
+        <Alert variant="destructive">
+          <AlertDescription>{ui("Không tải được phiên bản hoặc đánh giá.")}</AlertDescription>
+          <AlertAction>
+            <Button prominence="internal" size="sm" onClick={conversation.reloadVersions}>
+              {ui("Tải lại")}
+            </Button>
+          </AlertAction>
+        </Alert>
+      )}
+      {state.attachmentError && (
+        <Alert variant="destructive">
+          <AlertDescription>{problemMessage(state.attachmentError)}</AlertDescription>
+          <AlertAction>
+            <Button
+              type="button"
+              size="sm"
+              prominence="internal"
+              onClick={() => controller.setAttachmentError(undefined)}
+            >
+              {ui("Đóng")}
+            </Button>
+          </AlertAction>
+        </Alert>
+      )}
+      <ChatThread
+        sendDisabled={!conversation.persona}
+        welcome={project && !session ? <ProjectContextPanel project={project} /> : undefined}
+        afterComposer={
+          (headerSession?.temporary ?? (tools.temporary && !session)) ? (
+            <ChatTemporaryNotice
+              onLeave={() => {
+                tools.selectTemporary(false);
+                void navigate({ to: "/" });
+              }}
+            />
+          ) : project && !session ? (
+            <ProjectConversationList projectId={project.id} />
+          ) : undefined
+        }
+        starters={<ChatStarterPrompts personaId={session?.personaId} disabled={busy} />}
+        composerMenu={
+          <ChatComposerMenu
+            disabled={busy}
+            allowed={conversation.allowedTools}
+            web={{
+              sessionId: session?.id,
+              modelId: model.choice.id,
+              value: conversation.shownWebSearch,
+              onChange: tools.selectWeb,
+            }}
+            research={
+              conversation.research
+                ? {
+                    unsupported: conversation.research.unsupported,
+                    value: tools.deepResearch,
+                    onChange: tools.selectResearch,
+                  }
+                : undefined
+            }
+            image={{
+              available: imageAvailability.data?.available === true,
+              pending: imageAvailability.isPending,
+              onRetry: imageAvailability.isError
+                ? () => void imageAvailability.refetch()
+                : undefined,
+              value: conversation.shownImage,
+              onChange: tools.selectImage,
+            }}
+            mcp={{
+              selected: conversation.shownMcpServerIds,
+              sessionId: session?.id,
+              onChange: tools.selectMcpServers,
+            }}
+          />
+        }
+        modelPicker={
+          <ChatModelPicker
+            sessionId={controller.transport.session?.id}
+            value={model.choice.id}
+            onChange={model.select}
+            effort={conversation.pinnedEffort}
+            onEffortChange={conversation.pinEffort}
+            disabled={busy}
+          />
+        }
+        modelNotice={
+          model.choice.fallback
+            ? ui(
+                "Mô hình đã chọn không khả dụng. Câu trả lời đang dùng mô hình mặc định mà bạn được phép sử dụng.",
+              )
+            : undefined
+        }
+        connection={state.connection}
+        stopping={state.stopping}
+        onStop={() => void controller.stop()}
+        error={
+          state.error
+            ? typeof state.error === "string"
+              ? t(state.error)
+              : problemMessage(state.error)
+            : undefined
+        }
+        onCheck={() => controller.check()}
+        checking={state.checking}
+      />
+    </>
   );
-  const feedback = useQueries({
-    queries: chunks.map((messageIds) => ({
-      ...getChatFeedbackOptions({ path: { sessionId: sessionId ?? "" }, query: { messageIds } }),
-      enabled: sessionId !== undefined,
-      select: (views: Parameters<typeof feedbackOf>[0][]) => views.map(feedbackOf),
-    })),
-    combine: (results) => ({
-      data: results.flatMap((result) => result.data ?? []),
-      isError: results.some((result) => result.isError),
-      refetch: () => Promise.all(results.map((result) => result.refetch())),
-    }),
-  });
-  return { branches, feedback };
 }

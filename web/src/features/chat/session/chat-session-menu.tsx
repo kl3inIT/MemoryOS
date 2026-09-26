@@ -1,5 +1,4 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { ThreadListItemMorePrimitive as More } from "@assistant-ui/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useRef, useState } from "react";
@@ -14,18 +13,34 @@ import {
   Share2,
   Trash2,
 } from "lucide-react";
-import { IconButton } from "@/components/ui/icon-button";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { IconButton } from "@/components/ui/icon-button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { archiveChatSession, deleteChatSession, unarchiveChatSession } from "@/lib/hey-api/sdk.gen";
+import {
+  archiveChatSessionMutation,
+  deleteChatSessionMutation,
+  moveChatProjectMutation,
+  unarchiveChatSessionMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { FormDialog } from "@/components/composites/form-dialog";
-import { SharingDialog } from "./chat-sharing-dialog";
 import { actionErrorText } from "@/lib/action-errors";
 import { projectsOptions } from "@/features/chat/projects/chat-projects-api";
-import { moveChatProjectMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
+import { SharingDialog } from "./chat-sharing-dialog";
+
+type MenuSession = Pick<ChatSession, "id" | "title" | "projectId" | "archivedAt">;
 
 export function ChatSessionMenu({
   session,
@@ -38,7 +53,7 @@ export function ChatSessionMenu({
   onArchive,
   busy = false,
 }: {
-  session: Pick<ChatSession, "id" | "title" | "projectId" | "archivedAt">;
+  session: MenuSession;
   onRename?: () => void;
   onConfigure?: () => void;
   onChange?: () => Promise<void>;
@@ -51,18 +66,15 @@ export function ChatSessionMenu({
   busy?: boolean;
 }) {
   const ui = useAppTranslation();
-
   const [dialog, setDialog] = useState<"move" | "delete" | "share">();
-  const [target, setTarget] = useState<string | null>();
   const trigger = useRef<HTMLButtonElement>(null);
   const refreshSessions = useRefreshChatSessions();
-  const move = useMutation(moveChatProjectMutation());
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const projects = useQuery({
-    ...projectsOptions(),
-    enabled: dialog === "move",
-  });
+  const archive = useMutation(archiveChatSessionMutation());
+  const unarchive = useMutation(unarchiveChatSessionMutation());
+  const remove = useMutation(deleteChatSessionMutation());
+  const path = { sessionId: session.id };
   async function refresh(notify = true) {
     await refreshSessions(session.id);
     if (notify) await onChange?.();
@@ -74,22 +86,22 @@ export function ChatSessionMenu({
    */
   async function setArchived(next: boolean) {
     if (archiveSession) await archiveSession(next);
-    else {
-      const call = next ? archiveChatSession : unarchiveChatSession;
-      await call({
-        path: { sessionId: session.id },
+    else
+      await (next ? archive : unarchive).mutateAsync({
+        path,
         signal: AbortSignal.timeout(30000),
       });
-    }
     onArchive?.(next);
     await refresh();
   }
-  const itemClass =
-    "flex cursor-default items-center gap-2 rounded-lg px-3 py-2 text-sm outline-none data-[highlighted]:bg-surface-sunken data-[disabled]:opacity-40";
+  function closeDialog() {
+    setDialog(undefined);
+    trigger.current?.focus();
+  }
   return (
     <>
-      <More.Root>
-        <More.Trigger asChild>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
           <IconButton
             ref={trigger}
             size="sm"
@@ -98,129 +110,59 @@ export function ChatSessionMenu({
           >
             <MoreHorizontal />
           </IconButton>
-        </More.Trigger>
-        <More.Content
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
           align="end"
           sideOffset={5}
-          className="z-50 min-w-52 rounded-xl border border-border-subtle bg-surface-overlay p-1.5 shadow-md"
+          className="min-w-52"
           onCloseAutoFocus={(event) => {
             if (dialog) event.preventDefault();
           }}
         >
-          <More.Item className={itemClass} onSelect={() => setDialog("share")}>
-            <Share2 className="size-4" />
-            {ui("Chia sẻ")}
-          </More.Item>
-          {onRename && (
-            <More.Item className={itemClass} onSelect={onRename}>
-              <Pencil className="size-4" />
-              {ui("Đổi tên")}
-            </More.Item>
-          )}
-          <More.Item
-            className={itemClass}
-            disabled={busy}
-            onSelect={() => {
-              setTarget(undefined);
-              setDialog("move");
-            }}
-          >
-            <FolderInput className="size-4" />
-            {ui("Chuyển vào dự án")}
-          </More.Item>
-          {onConfigure && (
-            <More.Item className={itemClass} disabled={busy} onSelect={onConfigure}>
-              <Settings2 className="size-4" />
-              {ui("Cấu hình hội thoại")}
-            </More.Item>
-          )}
-          <More.Item
-            className={itemClass}
-            disabled={busy}
-            onSelect={() => void setArchived(!archived)}
-          >
-            {archived ? <ArchiveRestore className="size-4" /> : <Archive className="size-4" />}
-            {archived ? ui("Bỏ lưu trữ") : ui("Lưu trữ")}
-          </More.Item>
-          <More.Separator className="my-1 border-t border-border-subtle" />
-          <More.Item
-            className={`${itemClass} text-status-danger-content`}
-            onSelect={() => setDialog("delete")}
-          >
-            <Trash2 className="size-4" />
-            {ui("Xóa")}
-          </More.Item>
-        </More.Content>
-      </More.Root>
+          <DropdownMenuGroup>
+            <DropdownMenuItem onSelect={() => setDialog("share")}>
+              <Share2 />
+              {ui("Chia sẻ")}
+            </DropdownMenuItem>
+            {onRename && (
+              <DropdownMenuItem onSelect={onRename}>
+                <Pencil />
+                {ui("Đổi tên")}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem disabled={busy} onSelect={() => setDialog("move")}>
+              <FolderInput />
+              {ui("Chuyển vào dự án")}
+            </DropdownMenuItem>
+            {onConfigure && (
+              <DropdownMenuItem disabled={busy} onSelect={onConfigure}>
+                <Settings2 />
+                {ui("Cấu hình hội thoại")}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem disabled={busy} onSelect={() => void setArchived(!archived)}>
+              {archived ? <ArchiveRestore /> : <Archive />}
+              {archived ? ui("Bỏ lưu trữ") : ui("Lưu trữ")}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuItem variant="destructive" onSelect={() => setDialog("delete")}>
+              <Trash2 />
+              {ui("Xóa")}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <SharingDialog
         sessionId={session.id}
         open={dialog === "share"}
         onOpenChange={(next) => {
-          if (!next) {
-            setDialog(undefined);
-            trigger.current?.focus();
-          }
+          if (!next) closeDialog();
         }}
       />
       {dialog === "move" && (
-        <FormDialog
-          open
-          onOpenChange={(next) => {
-            if (!next) {
-              setDialog(undefined);
-              trigger.current?.focus();
-            }
-          }}
-          title={ui("Chuyển hội thoại")}
-          description={ui(
-            "Lịch sử hội thoại được giữ nguyên. Hướng dẫn dự án áp dụng cho lượt tiếp theo.",
-          )}
-          submitLabel={ui("Chuyển")}
-          submitDisabled={target === undefined || projects.isFetching || projects.isError}
-          onSubmit={async () => {
-            if (target === undefined) return;
-            await move.mutateAsync({
-              path: { sessionId: session.id },
-              body: { projectId: target },
-            });
-            await refresh();
-          }}
-        >
-          {projects.isPending && <p role="status">{ui("Đang tải dự án…")}</p>}
-          {projects.isError && (
-            <p role="alert">
-              {ui("Không tải được dự án.")}{" "}
-              <Button type="button" onClick={() => void projects.refetch()}>
-                {ui("Tải lại")}
-              </Button>
-            </p>
-          )}
-          <RadioGroup
-            aria-label={ui("Dự án đích")}
-            className="max-h-64 space-y-1 overflow-y-auto"
-            value={target === undefined ? "" : (target ?? "none")}
-            onValueChange={(next) => setTarget(next === "none" ? null : next)}
-          >
-            {[{ id: null, name: ui("Ngoài dự án") }, ...(projects.data ?? [])].map((project) => (
-              <label
-                key={project.id ?? "none"}
-                className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-surface-sunken has-checked:bg-surface-sunken has-disabled:opacity-40 has-focus-visible:ring-2 has-focus-visible:ring-ring"
-              >
-                <RadioGroupItem
-                  value={project.id ?? "none"}
-                  aria-label={project.name}
-                  disabled={project.id === (session.projectId ?? null)}
-                />
-                {project.id ? (
-                  <FolderInput className="size-4" />
-                ) : (
-                  <FolderOutput className="size-4" />
-                )}
-                {project.name}
-              </label>
-            ))}
-          </RadioGroup>
-        </FormDialog>
+        <ChatMoveDialog session={session} onMoved={() => refresh()} onClose={closeDialog} />
       )}
       <ConfirmDialog
         open={dialog === "delete"}
@@ -238,16 +180,91 @@ export function ChatSessionMenu({
         errorMessage={actionErrorText}
         onConfirm={async () => {
           if (deleteSession) await deleteSession();
-          else
-            await deleteChatSession({
-              path: { sessionId: session.id },
-              signal: AbortSignal.timeout(30000),
-            });
+          else await remove.mutateAsync({ path, signal: AbortSignal.timeout(30000) });
           onDelete?.();
           if (pathname === `/chat/${session.id}`) await navigate({ to: "/" });
           await refresh(false);
         }}
       />
     </>
+  );
+}
+
+/** Moves a conversation into a Project, or out of every Project; its history is kept. */
+function ChatMoveDialog({
+  session,
+  onMoved,
+  onClose,
+}: {
+  session: MenuSession;
+  onMoved: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const ui = useAppTranslation();
+  const [target, setTarget] = useState<string | null>();
+  const projects = useQuery(projectsOptions());
+  const move = useMutation(moveChatProjectMutation());
+  return (
+    <FormDialog
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      title={ui("Chuyển hội thoại")}
+      description={ui(
+        "Lịch sử hội thoại được giữ nguyên. Hướng dẫn dự án áp dụng cho lượt tiếp theo.",
+      )}
+      submitLabel={ui("Chuyển")}
+      submitDisabled={target === undefined || projects.isFetching || projects.isError}
+      onSubmit={async () => {
+        if (target === undefined) return;
+        await move.mutateAsync({
+          path: { sessionId: session.id },
+          body: { projectId: target },
+          signal: AbortSignal.timeout(30000),
+        });
+        await onMoved();
+      }}
+    >
+      {projects.isPending && <p role="status">{ui("Đang tải dự án…")}</p>}
+      {projects.isError && (
+        <Alert variant="destructive">
+          <AlertDescription>{ui("Không tải được dự án.")}</AlertDescription>
+          <AlertAction>
+            <Button type="button" size="sm" onClick={() => void projects.refetch()}>
+              {ui("Tải lại")}
+            </Button>
+          </AlertAction>
+        </Alert>
+      )}
+      <RadioGroup
+        aria-label={ui("Dự án đích")}
+        className="max-h-64 overflow-y-auto"
+        value={target === undefined ? "" : (target ?? "none")}
+        onValueChange={(next) => setTarget(next === "none" ? null : next)}
+      >
+        {[{ id: null, name: ui("Ngoài dự án") }, ...(projects.data ?? [])].map((project) => {
+          const value = project.id ?? "none";
+          return (
+            <FieldLabel key={value} htmlFor={`chat-move-${value}`}>
+              <Field orientation="horizontal">
+                <RadioGroupItem
+                  id={`chat-move-${value}`}
+                  value={value}
+                  aria-label={project.name}
+                  disabled={project.id === (session.projectId ?? null)}
+                />
+                {project.id ? (
+                  <FolderInput aria-hidden="true" />
+                ) : (
+                  <FolderOutput aria-hidden="true" />
+                )}
+                {project.name}
+              </Field>
+            </FieldLabel>
+          );
+        })}
+      </RadioGroup>
+    </FormDialog>
   );
 }

@@ -4,22 +4,27 @@ import {
   useExternalStoreRuntime,
   type ThreadMessageLike,
 } from "@assistant-ui/react";
-import { useQuery } from "@tanstack/react-query";
-import { z } from "zod";
+import { queryOptions, useQuery } from "@tanstack/react-query";
+import type { z } from "zod";
 import { AppShellHeader } from "@/components/app-shell/app-shell-header";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { useApplicationSession } from "@/features/identity/application-session-context";
-import { getSharedChatHistory, getSharedChatSession } from "@/lib/hey-api/sdk.gen";
-import type { ChatMessage } from "@/lib/hey-api/types.gen";
+import {
+  getSharedChatHistoryQueryKey,
+  getSharedChatSessionOptions,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import { getSharedChatHistory } from "@/lib/hey-api/sdk.gen";
+import type { ChatMessage, SharedSession } from "@/lib/hey-api/types.gen";
 import { ChatThread } from "@/features/chat/thread/chat-thread";
 import { sourcesSchema } from "@/features/chat/sources/chat-evidence";
 import { artifactsSchema } from "@/features/chat/thread/chat-artifacts";
 
-const sharedSchema = z.object({
-  id: z.string().uuid(),
-  title: z.string(),
-  rootMessageId: z.string().uuid(),
-});
+/** A shared conversation as the API sends it; the published contract marks its fields optional. */
+function sharedSessionOf({ id, title = "", rootMessageId }: SharedSession) {
+  if (id === undefined || rootMessageId === undefined)
+    throw new TypeError("A shared conversation carries its id and root message.");
+  return { id, title, rootMessageId };
+}
 type SharedMessage = Omit<ChatMessage, "sources" | "artifacts"> & {
   sources: z.infer<typeof sourcesSchema>;
   artifacts: z.infer<typeof artifactsSchema>;
@@ -59,28 +64,26 @@ async function loadShared(sessionId: string, signal: AbortSignal) {
   throw new Error("Shared history exceeds the browser limit");
 }
 
+/** The whole shared branch, read page by page under the generated history key. */
+function sharedHistoryOptions(sessionId: string) {
+  return queryOptions({
+    queryKey: [...getSharedChatHistoryQueryKey({ path: { sessionId } }), "all"] as const,
+    queryFn: ({ signal }) => loadShared(sessionId, signal),
+  });
+}
+
 export function ChatSharedPage({ sessionId }: { sessionId: string }) {
   const ui = useAppTranslation();
 
-  const { actorId, authorizationVersion } = useApplicationSession();
   const access = useQuery({
-    queryKey: ["chat-shared-access", actorId, authorizationVersion, sessionId],
-    queryFn: async ({ signal }) =>
-      sharedSchema.parse(
-        (
-          await getSharedChatSession({
-            path: { sessionId },
-            signal: AbortSignal.any([signal, AbortSignal.timeout(30000)]),
-          })
-        ).data,
-      ),
+    ...getSharedChatSessionOptions({ path: { sessionId } }),
+    select: sharedSessionOf,
     retry: false,
     gcTime: 0,
     refetchInterval: 30000,
   });
   const shared = useQuery({
-    queryKey: ["chat-shared", actorId, authorizationVersion, sessionId],
-    queryFn: ({ signal }) => loadShared(sessionId, signal),
+    ...sharedHistoryOptions(sessionId),
     retry: false,
     gcTime: 0,
     enabled: access.isSuccess,
@@ -94,15 +97,19 @@ export function ChatSharedPage({ sessionId }: { sessionId: string }) {
       <AppShellHeader title={ui("Hội thoại được chia sẻ")} />
       <div className="flex h-full min-h-0 flex-col">
         {access.isError || shared.isError ? (
-          <div role="alert" className="space-y-3 p-6">
-            <p>
-              {ui(
-                "Hội thoại không khả dụng. Liên kết có thể đã bị thu hồi hoặc bạn không thuộc Tenant được chia sẻ.",
-              )}
-            </p>
-            <Button prominence="secondary" onClick={reload}>
-              {ui("Tải lại")}
-            </Button>
+          <div className="flex flex-col gap-3 p-6">
+            <Alert variant="destructive">
+              <AlertDescription>
+                {ui(
+                  "Hội thoại không khả dụng. Liên kết có thể đã bị thu hồi hoặc bạn không thuộc Tenant được chia sẻ.",
+                )}
+              </AlertDescription>
+            </Alert>
+            <div>
+              <Button prominence="secondary" onClick={reload}>
+                {ui("Tải lại")}
+              </Button>
+            </div>
           </div>
         ) : access.isPending || shared.isPending ? (
           <p role="status" className="p-6">

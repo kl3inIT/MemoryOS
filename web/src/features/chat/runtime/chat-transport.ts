@@ -131,7 +131,10 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
   selectModel(id?: string) {
     this.modelConfigurationId = id;
   }
+  /** The model the server last accepted a turn with, kept while the thread stays mounted. */
+  lastModelSelection?: Accepted;
   recordModelSelection(selection: Accepted) {
+    this.lastModelSelection = selection;
     this.onModelAccepted?.(selection);
   }
   listenModelSelection(listener: (selection: Accepted) => void) {
@@ -282,7 +285,7 @@ export class MemoryOsChatTransport implements ChatTransport<ChatUiMessage> {
       });
       this.runId = data.assistantMessageId;
       this.runCreatedAt = new Date().toISOString();
-      this.onModelAccepted?.(data);
+      this.recordModelSelection(data);
       this.runParentId = data.userMessageId;
       if (this.stopWhenAccepted) {
         // Stop can be pressed before the reservation response supplies its run ID.
