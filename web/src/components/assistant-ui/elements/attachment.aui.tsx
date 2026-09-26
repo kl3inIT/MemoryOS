@@ -1,7 +1,7 @@
 // Adapted from assistant-ui (MIT), registry retrieved 2026-09-12.
 "use client";
 
-import { type PropsWithChildren, useState, type FC, isValidElement } from "react";
+import { type PropsWithChildren, useState, isValidElement } from "react";
 import { XIcon, Loader2Icon, AlertCircleIcon } from "lucide-react";
 import { AttachmentPrimitive, ComposerPrimitive, useAuiState, useAui } from "@assistant-ui/react";
 import { useTranslation } from "react-i18next";
@@ -61,7 +61,7 @@ type AttachmentPreviewProps = {
   src: string;
 };
 
-const AttachmentPreview: FC<AttachmentPreviewProps> = ({ src }) => {
+function AttachmentPreview({ src }: AttachmentPreviewProps) {
   const { t } = useTranslation("attachments");
   const [isLoaded, setIsLoaded] = useState(false);
   return (
@@ -77,9 +77,9 @@ const AttachmentPreview: FC<AttachmentPreviewProps> = ({ src }) => {
       onLoad={() => setIsLoaded(true)}
     />
   );
-};
+}
 
-const AttachmentPreviewDialog: FC<PropsWithChildren> = ({ children }) => {
+function AttachmentPreviewDialog({ children }: PropsWithChildren) {
   const { t } = useTranslation("attachments");
   const src = useAttachmentSrc();
 
@@ -98,9 +98,9 @@ const AttachmentPreviewDialog: FC<PropsWithChildren> = ({ children }) => {
       </DialogContent>
     </Dialog>
   );
-};
+}
 
-const AttachmentThumb: FC = () => {
+function AttachmentThumb() {
   const { t } = useTranslation("attachments");
   const src = useAttachmentSrc();
   const name = useAuiState((s) => s.attachment.name);
@@ -123,9 +123,9 @@ const AttachmentThumb: FC = () => {
       </AvatarPrimitive.Fallback>
     </AvatarPrimitive.Root>
   );
-};
+}
 
-const AttachmentUI: FC = () => {
+function AttachmentUI() {
   const { t, i18n } = useTranslation("attachments");
   const status = useAuiState((s) => s.attachment.status);
   const name = useAuiState((s) => s.attachment.name);
@@ -232,9 +232,9 @@ const AttachmentUI: FC = () => {
       </Tooltip>
     </TooltipProvider>
   );
-};
+}
 
-const AttachmentRemove: FC = () => {
+function AttachmentRemove() {
   const { t } = useTranslation("attachments");
   return (
     <AttachmentPrimitive.Remove asChild>
@@ -249,7 +249,7 @@ const AttachmentRemove: FC = () => {
       </IconButton>
     </AttachmentPrimitive.Remove>
   );
-};
+}
 
 /**
  * A file the composer is still preparing on the server, before it exists as an attachment: the library copy a
@@ -264,7 +264,7 @@ export type ComposerPendingAttachment = {
   onRemove?: () => void;
 };
 
-const PendingAttachmentUI: FC<{ item: ComposerPendingAttachment }> = ({ item }) => {
+function PendingAttachmentUI({ item }: { item: ComposerPendingAttachment }) {
   const { t } = useTranslation("attachments");
   return (
     <div className="aui-attachment-root animate-in fade-in-0 zoom-in-95 relative flex w-64 max-w-full shrink-0 items-center gap-2 rounded-xl bg-muted p-2 duration-200 motion-reduce:animate-none">
@@ -314,15 +314,17 @@ const PendingAttachmentUI: FC<{ item: ComposerPendingAttachment }> = ({ item }) 
       )}
     </div>
   );
-};
+}
 
 /**
  * The draft's attachments, kept to two rows: a message may carry twenty files, and twenty tiles would push the
  * question out of the composer. The rest sit behind the list's "+N" card, where they can still be taken off.
  */
-export const ComposerAttachments: FC<{ pending?: readonly ComposerPendingAttachment[] }> = ({
+export function ComposerAttachments({
   pending = [],
-}) => {
+}: {
+  pending?: readonly ComposerPendingAttachment[];
+}) {
   const { t } = useTranslation("attachments");
   const attachments = useAuiState((state) => state.composer.attachments);
   const items = [
@@ -341,4 +343,4 @@ export const ComposerAttachments: FC<{ pending?: readonly ComposerPendingAttachm
       <ClampedList label={t("list")} maxRows={2} items={items} />
     </div>
   );
-};
+}

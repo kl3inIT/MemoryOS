@@ -5,7 +5,7 @@ import { Toast } from "radix-ui";
 import {
   createContext,
   useCallback,
-  useContext,
+  use,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -24,7 +24,7 @@ interface ActionNotification {
 const NotificationContext = createContext<((notice: ActionNotification) => void) | null>(null);
 
 export function useActionNotifications() {
-  const notify = useContext(NotificationContext);
+  const notify = use(NotificationContext);
   if (!notify) throw new Error("Action notifications require a provider");
   return notify;
 }
@@ -50,7 +50,7 @@ export function ActionNotifications({ children, scope }: { children: ReactNode; 
   }, [scope]);
 
   return (
-    <NotificationContext.Provider value={notify}>
+    <NotificationContext value={notify}>
       <Toast.Provider duration={Infinity} swipeDirection="right">
         {children}
         {notices.map((notice) => (
@@ -61,7 +61,7 @@ export function ActionNotifications({ children, scope }: { children: ReactNode; 
           className="pointer-events-none fixed right-0 top-0 z-50 flex max-h-[100dvh] w-full max-w-sm flex-col gap-2 overflow-y-auto p-4 outline-none"
         />
       </Toast.Provider>
-    </NotificationContext.Provider>
+    </NotificationContext>
   );
 }
 

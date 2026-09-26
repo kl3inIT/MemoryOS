@@ -16,7 +16,7 @@ import {
 } from "streamdown";
 import { createMathPlugin } from "@streamdown/math";
 import "katex/dist/katex.min.css";
-import { type ComponentProps, type FC, memo, useEffect, useMemo, useRef, useState } from "react";
+import { type ComponentProps, memo, useEffect, useMemo, useRef, useState } from "react";
 import type { TextMessagePartProps } from "@assistant-ui/react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 
@@ -57,7 +57,7 @@ const useShallowStable = <T extends Record<string, unknown> | undefined>(value: 
   return ref.current;
 };
 
-const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components, remarkPlugins = [] }) => {
+function MarkdownTextImpl({ components, remarkPlugins = [] }: MarkdownTextProps) {
   const stableComponents = useShallowStable(components);
   const markdownComponents = useMemo(() => {
     if (!stableComponents) return defaultComponents;
@@ -84,11 +84,11 @@ const MarkdownTextImpl: FC<MarkdownTextProps> = ({ components, remarkPlugins = [
       defer
     />
   );
-};
+}
 
 export const MarkdownText = memo(MarkdownTextImpl);
 
-const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
+function CodeHeader({ language, code }: CodeHeaderProps) {
   const { t } = useTranslation("renderers");
   const [isCopied, setCopied] = useState(false);
   useEffect(() => {
@@ -123,7 +123,7 @@ const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
       </IconButton>
     </div>
   );
-};
+}
 
 // The code-fence adapter synthesizes pre props through a callback ref. Its AST
 // node may lag behind children during deferred rendering, so a node-only memo

@@ -2,7 +2,7 @@
 // SVG is an inert image, not model-controlled live DOM; Dialog owns modal behavior.
 import { cssToken } from "@/lib/css-token";
 import { renderMermaidSVG } from "beautiful-mermaid";
-import { useContext, useMemo, useState } from "react";
+import { use, useMemo, useState } from "react";
 import { Dialog } from "radix-ui";
 import { Maximize2, Minus, Plus, RotateCcw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -11,7 +11,7 @@ import { IconButton } from "@/components/ui/icon-button";
 
 export default function MermaidDiagram({ code }: { code: string }) {
   const { t } = useTranslation("renderers");
-  const theme = useContext(ThemeContext)?.resolvedTheme ?? "light";
+  const theme = use(ThemeContext)?.resolvedTheme ?? "light";
   const [scale, setScale] = useState(1);
   const src = useMemo(() => {
     if (code.length > 20_000 || code.split(/\r?\n/).length > 250) return undefined;

@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
   createContext,
-  useContext,
+  use,
   type ComponentPropsWithoutRef,
   type ReactNode,
 } from "react";
@@ -127,7 +127,7 @@ type ModelSelectorContextValue = {
 const ModelSelectorContext = createContext<ModelSelectorContextValue | null>(null);
 
 export function useModelSelectorContext() {
-  const ctx = useContext(ModelSelectorContext);
+  const ctx = use(ModelSelectorContext);
   if (!ctx) {
     throw new Error("ModelSelector sub-components must be used within ModelSelector.Root");
   }
@@ -210,11 +210,11 @@ function ModelSelectorRoot({
   );
 
   return (
-    <ModelSelectorContext.Provider value={contextValue}>
+    <ModelSelectorContext value={contextValue}>
       <Popover open={open ?? false} onOpenChange={setOpen}>
         {children}
       </Popover>
-    </ModelSelectorContext.Provider>
+    </ModelSelectorContext>
   );
 }
 
