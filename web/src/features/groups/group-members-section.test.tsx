@@ -109,9 +109,9 @@ describe("GroupMembersSection", () => {
     const user = userEvent.setup();
     render(
       <QueryClientProvider client={client}>
-        <ApplicationSessionContext.Provider value={session}>
+        <ApplicationSessionContext value={session}>
           <DeferredMembers />
-        </ApplicationSessionContext.Provider>
+        </ApplicationSessionContext>
       </QueryClientProvider>,
     );
 

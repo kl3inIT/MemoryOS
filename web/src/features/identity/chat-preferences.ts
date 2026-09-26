@@ -1,9 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getChatPreferencesOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
+import {
+  getChatPreferencesOptions,
+  listAvailableChatModelsQueryKey,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import { saveChatPreferences } from "@/lib/hey-api/sdk.gen";
 import type { ChatPreferences, ChatPreferencesInput } from "@/lib/hey-api/types.gen";
 
-export const chatPreferencesKey = getChatPreferencesOptions().queryKey;
+/** Typed by the generated options, so cache reads and writes carry the preferences type. */
+const preferencesKey = getChatPreferencesOptions().queryKey;
 
 export function useChatPreferences() {
   return useQuery({ ...getChatPreferencesOptions(), staleTime: 60_000 });
@@ -25,7 +29,7 @@ export function useSaveChatPreferences() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: async (change: Partial<ChatPreferencesInput>) => {
-      const current = client.getQueryData<ChatPreferences>(chatPreferencesKey);
+      const current = client.getQueryData(preferencesKey);
       if (!current) throw new Error("Preferences are not loaded.");
       return (
         await saveChatPreferences({
@@ -34,9 +38,9 @@ export function useSaveChatPreferences() {
       ).data;
     },
     onSuccess: (data) => {
-      client.setQueryData(chatPreferencesKey, data);
+      client.setQueryData(preferencesKey, data);
       // The personal default changes which model new conversations inherit.
-      void client.invalidateQueries({ queryKey: ["chat-models"] });
+      void client.invalidateQueries({ queryKey: listAvailableChatModelsQueryKey() });
     },
   });
 }

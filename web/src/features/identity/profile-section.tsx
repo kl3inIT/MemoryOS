@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useChatPreferences, useSaveChatPreferences } from "./chat-preferences";
@@ -40,28 +41,28 @@ export function ProfileSection() {
             </span>
           }
         />
-        <div className="flex flex-col gap-2 px-4 py-3">
-          <label htmlFor="work-role" className="font-main-ui-action text-content-primary">
-            {ui("Work Role")}
-          </label>
-          <p id="work-role-description" className="font-secondary-body text-content-muted">
-            {ui("Share your role to better tailor responses.")}
-          </p>
-          <Input
-            id="work-role"
-            aria-describedby="work-role-description"
-            maxLength={200}
-            placeholder={ui("Your role")}
-            value={role}
-            disabled={!preferences.isSuccess || save.isPending}
-            onChange={(event) => setDraft(event.target.value)}
-            onBlur={() => {
-              if (draft === undefined || !preferences.isSuccess) return;
-              if (draft.trim() === data?.workRole) setDraft(undefined);
-              else
-                save.mutate({ workRole: draft.trim() }, { onSettled: () => setDraft(undefined) });
-            }}
-          />
+        <div className="px-4 py-3">
+          <Field>
+            <FieldLabel htmlFor="work-role">{ui("Work Role")}</FieldLabel>
+            <FieldDescription id="work-role-description">
+              {ui("Share your role to better tailor responses.")}
+            </FieldDescription>
+            <Input
+              id="work-role"
+              aria-describedby="work-role-description"
+              maxLength={200}
+              placeholder={ui("Your role")}
+              value={role}
+              disabled={!preferences.isSuccess || save.isPending}
+              onChange={(event) => setDraft(event.target.value)}
+              onBlur={() => {
+                if (draft === undefined || !preferences.isSuccess) return;
+                if (draft.trim() === data?.workRole) setDraft(undefined);
+                else
+                  save.mutate({ workRole: draft.trim() }, { onSettled: () => setDraft(undefined) });
+              }}
+            />
+          </Field>
         </div>
       </SettingRows>
       <p aria-live="polite" className="font-secondary-body text-content-muted">

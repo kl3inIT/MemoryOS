@@ -11,9 +11,5 @@ export function ApplicationSessionProvider({
   session: ApplicationSession;
   children: ReactNode;
 }) {
-  return (
-    <ApplicationSessionContext.Provider value={session}>
-      {children}
-    </ApplicationSessionContext.Provider>
-  );
+  return <ApplicationSessionContext value={session}>{children}</ApplicationSessionContext>;
 }

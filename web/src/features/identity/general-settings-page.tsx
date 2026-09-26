@@ -6,16 +6,18 @@ import { useTranslation } from "react-i18next";
 import { SettingsLayout, PageHeader } from "@/components/composites/settings-layout";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { useApplicationSession } from "./application-session-context";
-import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { setCurrentIdentityLanguage } from "@/lib/hey-api/sdk.gen";
-import type { CurrentIdentity } from "@/lib/hey-api/types.gen";
+import {
+  getCurrentIdentityOptions,
+  setCurrentIdentityLanguageMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import { presentProblem } from "@/lib/problem-presentation";
-import { uiLanguage, type UiLanguage } from "@/i18n";
+import { uiLanguage } from "@/i18n";
 import { AppearanceSection } from "./appearance-section";
 import { ProfileSection } from "./profile-section";
 
-const identityKey = getCurrentIdentityQueryKey();
+const identityKey = getCurrentIdentityOptions().queryKey;
 
 /**
  * The member's General settings. The destructive section at the end belongs to another capability (deleting every
@@ -31,25 +33,22 @@ export function GeneralSettingsPage({ dangerZone }: { dangerZone?: ReactNode }) 
   const [reloading, setReloading] = useState(false);
   const saving = useRef(false);
   const mutation = useMutation({
-    mutationFn: async ({ language }: { language: UiLanguage; actorId: string }) => {
-      // Cancel an older identity response before saving; refetch the authoritative value afterward.
+    ...setCurrentIdentityLanguageMutation(),
+    // Cancel an older identity response before saving; the save applies only to the actor that made it.
+    onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: identityKey, exact: true });
-      const { data } = await setCurrentIdentityLanguage({
-        body: { uiLanguage: language },
-      });
-      return data;
+      return { actorId: session.actorId };
     },
-    onSuccess: async (data, variables) => {
-      const current = queryClient.getQueryData<CurrentIdentity>(identityKey);
-      if (current?.actorId !== variables.actorId) return;
+    onSuccess: async (data, _variables, saved) => {
+      const current = queryClient.getQueryData(identityKey);
+      if (current?.actorId !== saved.actorId) return;
       await queryClient.cancelQueries({ queryKey: identityKey, exact: true });
-      queryClient.setQueryData<CurrentIdentity>(identityKey, (value) =>
-        value?.actorId === variables.actorId ? { ...value, uiLanguage: data.uiLanguage } : value,
+      queryClient.setQueryData(identityKey, (value) =>
+        value?.actorId === saved.actorId ? { ...value, uiLanguage: data.uiLanguage } : value,
       );
     },
-    onError: async (_, variables) => {
-      if (queryClient.getQueryData<CurrentIdentity>(identityKey)?.actorId !== variables.actorId)
-        return;
+    onError: async (_error, _variables, saved) => {
+      if (queryClient.getQueryData(identityKey)?.actorId !== saved?.actorId) return;
       setUncertain(true);
       try {
         await queryClient.refetchQueries(
@@ -89,13 +88,11 @@ export function GeneralSettingsPage({ dangerZone }: { dangerZone?: ReactNode }) 
       />
       <ProfileSection />
       <AppearanceSection />
-      <div className="flex max-w-2xl flex-col gap-3">
-        <label htmlFor="ui-language" className="font-main-ui-body text-content-primary">
-          {t("settings:language")}
-        </label>
-        <p id="ui-language-description" className="text-content-muted">
+      <Field className="max-w-2xl">
+        <FieldLabel htmlFor="ui-language">{t("settings:language")}</FieldLabel>
+        <FieldDescription id="ui-language-description">
           {t("settings:languageDescription")}
-        </p>
+        </FieldDescription>
         <NativeSelect
           id="ui-language"
           aria-describedby="ui-language-description"
@@ -105,7 +102,7 @@ export function GeneralSettingsPage({ dangerZone }: { dangerZone?: ReactNode }) 
           onChange={(event) => {
             if (saving.current) return;
             saving.current = true;
-            mutation.mutate({ language: uiLanguage(event.target.value), actorId: session.actorId });
+            mutation.mutate({ body: { uiLanguage: uiLanguage(event.target.value) } });
           }}
         >
           <option value="vi" lang="vi">
@@ -137,7 +134,7 @@ export function GeneralSettingsPage({ dangerZone }: { dangerZone?: ReactNode }) 
             {t("settings:reload")}
           </Button>
         ) : null}
-      </div>
+      </Field>
       {dangerZone}
     </SettingsLayout>
   );
