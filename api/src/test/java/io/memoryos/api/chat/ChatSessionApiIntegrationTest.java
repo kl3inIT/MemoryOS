@@ -4568,6 +4568,16 @@ class ChatSessionApiIntegrationTest {
 
     @Test
     void groundedAnswersAndGuardrailsAreModelManagersSettings() throws Exception {
+        // The Tenant is shared by this class: grounded answers left on would refuse every later turn.
+        jdbc.sql("DELETE FROM chat_settings WHERE tenant_id = :tenant").param("tenant", TENANT).update();
+        try {
+            groundedSettingsRoundTrip();
+        } finally {
+            jdbc.sql("DELETE FROM chat_settings WHERE tenant_id = :tenant").param("tenant", TENANT).update();
+        }
+    }
+
+    private void groundedSettingsRoundTrip() throws Exception {
         // Members read whether answers are grounded; only model managers change it or read the guardrails.
         mockMvc.perform(get("/api/chat/settings").with(authentication(actor))).andExpect(status().isOk())
                 .andExpect(jsonPath("$.groundedAnswers").value(false)).andExpect(jsonPath("$.groundedAllowWeb").value(false));
