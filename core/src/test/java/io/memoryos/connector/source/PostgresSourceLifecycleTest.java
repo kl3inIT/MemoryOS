@@ -457,6 +457,56 @@ class PostgresSourceLifecycleTest {
     }
 
     @Test
+    void deletingASourceCancelsItsPendingSelectionInEveryProviderTable() {
+        var deleted = service.createFileSource(owner, "Deleted", List.of(), SourceAccess.PRIVATE);
+        var kept = service.createFileSource(owner, "Kept", List.of(), SourceAccess.PRIVATE);
+        UUID googleDeleted = pendingGoogleSelection(deleted.id());
+        UUID sharePointDeleted = pendingSharePointSelection(deleted.id());
+        UUID googleKept = pendingGoogleSelection(kept.id());
+        UUID sharePointKept = pendingSharePointSelection(kept.id());
+
+        service.deleteSource(owner, deleted.id());
+
+        assertEquals("CANCELLED/SOURCE_DELETING", selectionOutcome("google_drive_selection_operations", googleDeleted));
+        assertEquals("CANCELLED/SOURCE_DELETING", selectionOutcome("sharepoint_selection_operations", sharePointDeleted));
+        assertEquals("NOT_STARTED/null", selectionOutcome("google_drive_selection_operations", googleKept));
+        assertEquals("NOT_STARTED/null", selectionOutcome("sharepoint_selection_operations", sharePointKept));
+    }
+
+    private UUID pendingGoogleSelection(SourceId source) {
+        UUID operation = UUID.randomUUID();
+        jdbcClient.sql("""
+                INSERT INTO google_drive_selection_operations (
+                    id, tenant_id, source_id, actor_id, request_id, request_hash,
+                    credential_revision, scope_revision, discovery_revision, scope_mode,
+                    max_requests, max_metadata, max_roots, max_request_bytes)
+                VALUES (:operation, :tenant, :source, :actor, :request, 'hash',
+                    1, 0, 0, 'SPECIFIC', 100, 100, 100, 10000)
+                """).param("operation", operation).param("tenant", tenantId).param("source", source.value())
+                .param("actor", owner.value()).param("request", UUID.randomUUID()).update();
+        return operation;
+    }
+
+    private UUID pendingSharePointSelection(SourceId source) {
+        UUID operation = UUID.randomUUID();
+        jdbcClient.sql("""
+                INSERT INTO sharepoint_selection_operations (
+                    id, tenant_id, source_id, actor_id, request_id, request_hash, credential_revision,
+                    scope_revision, scope_mode, sync_interval_minutes, prune_interval_hours,
+                    max_requests, max_roots, max_request_bytes)
+                VALUES (:operation, :tenant, :source, :actor, :request, 'hash', 1,
+                    0, 'SPECIFIC', 60, 24, 100, 100, 10000)
+                """).param("operation", operation).param("tenant", tenantId).param("source", source.value())
+                .param("actor", owner.value()).param("request", UUID.randomUUID()).update();
+        return operation;
+    }
+
+    private String selectionOutcome(String table, UUID operation) {
+        return jdbcClient.sql("SELECT status || '/' || COALESCE(error_code, 'null') FROM " + table + " WHERE id = :id")
+                .param("id", operation).query(String.class).single();
+    }
+
+    @Test
     void pendingSelectionReceiptBelongsToItsActorAndStillRequiresCurrentRole() {
         GroupId group = new GroupId(UUID.randomUUID());
         ActorId manager = addScopedManager(group);
