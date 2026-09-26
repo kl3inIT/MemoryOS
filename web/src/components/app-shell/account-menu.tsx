@@ -1,8 +1,16 @@
 import { LogOut, Moon, Settings, Settings2, Sun } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Popover } from "radix-ui";
-import { MenuItem } from "@/components/ui/menu-item";
+import { Link } from "@tanstack/react-router";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { useTheme } from "@/features/theme/theme-context";
 import {
@@ -56,8 +64,8 @@ export function AccountMenu({
   }
 
   return (
-    <Popover.Root open={menuOpen} onOpenChange={setMenuOpen}>
-      <Popover.Trigger asChild>
+    <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+      <DropdownMenuTrigger asChild>
         <SidebarTab
           icon={
             <span className="grid size-4 place-items-center rounded-full bg-surface-raised font-figure-small-label text-content-primary ring-1 ring-border-default">
@@ -69,70 +77,69 @@ export function AccountMenu({
         >
           {membershipLabel}
         </SidebarTab>
-      </Popover.Trigger>
+      </DropdownMenuTrigger>
 
-      <Popover.Portal>
-        <Popover.Content
-          side="right"
-          align="end"
-          sideOffset={10}
-          collisionPadding={12}
-          className="z-50 max-h-[var(--radix-popover-content-available-height)] w-64 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-2xl border border-border-subtle bg-surface-overlay p-2 shadow-md outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in"
-        >
-          <p className="break-words px-2 pt-2 font-main-ui-body text-content-primary">
+      <DropdownMenuContent
+        side="right"
+        align="end"
+        sideOffset={10}
+        collisionPadding={12}
+        className="w-64 max-w-[calc(100vw-1.5rem)]"
+      >
+        <DropdownMenuLabel className="flex flex-col">
+          <span className="break-words font-main-ui-body text-content-primary">
             {tenant.displayName}
-          </p>
-          <p className="px-2 pb-2 font-secondary-body text-content-muted">{membershipLabel}</p>
-          <div className="mt-1 border-t border-border-subtle pt-1">
-            <MenuItem
-              icon={isDark ? <Sun className="size-4.5" /> : <Moon className="size-4.5" />}
-              onClick={() => setTheme(isDark ? "light" : "dark")}
-            >
-              {t(isDark ? "lightTheme" : "darkTheme")}
-            </MenuItem>
-            <MenuItem
-              to="/settings/general"
-              icon={<Settings2 className="size-4.5" />}
-              onClick={() => {
-                setMenuOpen(false);
-                onNavigate?.();
-              }}
-            >
+          </span>
+          <span className="font-secondary-body text-content-muted">{membershipLabel}</span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            onSelect={(event) => {
+              // The theme changes in place, so the menu stays open on the switched item.
+              event.preventDefault();
+              setTheme(isDark ? "light" : "dark");
+            }}
+          >
+            {isDark ? <Sun /> : <Moon />}
+            {t(isDark ? "lightTheme" : "darkTheme")}
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild onSelect={() => onNavigate?.()}>
+            <Link to="/settings/general">
+              <Settings2 />
               {t("settings")}
-            </MenuItem>
-            {canAccessAdmin ? (
-              <MenuItem
-                to={adminEntryPath}
-                icon={<Settings className="size-4.5" />}
-                onClick={() => {
-                  setMenuOpen(false);
-                  onNavigate?.();
-                }}
-              >
+            </Link>
+          </DropdownMenuItem>
+          {canAccessAdmin ? (
+            <DropdownMenuItem asChild onSelect={() => onNavigate?.()}>
+              <Link to={adminEntryPath}>
+                <Settings />
                 {t("admin")}
-              </MenuItem>
-            ) : null}
-          </div>
-          <div className="mt-1 border-t border-border-subtle pt-1">
-            <MenuItem
-              icon={<LogOut className="size-4.5" />}
-              tone="danger"
-              disabled={signingOut}
-              onClick={() => void requestSignOut()}
-            >
-              {t(signingOut ? "signingOut" : "signOut")}
-            </MenuItem>
-            {signOutState === "error" ? (
-              <p
-                className="px-3 pb-2 pt-1 font-secondary-body text-status-danger-content"
-                role="alert"
-              >
-                {t("signOutFailed")}
-              </p>
-            ) : null}
-          </div>
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+              </Link>
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={signingOut}
+            onSelect={(event) => {
+              // Sign-out stays in the menu, so a failure is shown where it was asked for.
+              event.preventDefault();
+              void requestSignOut();
+            }}
+          >
+            <LogOut />
+            {t(signingOut ? "signingOut" : "signOut")}
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        {signOutState === "error" ? (
+          <p className="px-1.5 py-1 font-secondary-body text-status-danger-content" role="alert">
+            {t("signOutFailed")}
+          </p>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
