@@ -47,12 +47,12 @@ export function GoogleDriveSelectionPanel({
     onBusyChange,
     onActivated,
   });
-  const { draft, busy, tracking, refs } = selection;
+  const { draft, busy, tracking, inputRef, editButtonRef, cancelButtonRef, panelRef } = selection;
   const specific = configuration.scopeMode === "SPECIFIC";
   const refreshContent = () => onActivated().catch(selection.reportRefreshFailure);
   const draftActions = draft ? (
     <SelectionDraftActions
-      cancelRef={refs.cancelButton}
+      cancelRef={cancelButtonRef}
       saving={selection.action === "save"}
       saveDisabled={selection.saveDisabled}
       busy={busy}
@@ -67,7 +67,7 @@ export function GoogleDriveSelectionPanel({
   ) : null;
   return (
     <section
-      ref={refs.panel}
+      ref={panelRef}
       aria-label={ui("Selected content")}
       className="flex min-w-0 flex-col gap-3"
     >
@@ -89,7 +89,7 @@ export function GoogleDriveSelectionPanel({
         <div className="ml-auto flex flex-wrap items-center gap-1">
           {specific && !draft?.editingRoots ? (
             <Button
-              ref={refs.editButton}
+              ref={editButtonRef}
               prominence="secondary"
               disabled={disabled || busy || tracking.recovering || tracking.uncertain}
               pending={selection.action === "load"}
@@ -149,23 +149,16 @@ export function GoogleDriveSelectionPanel({
         </div>
       ) : null}
       {specific && draft?.editingRoots ? (
-        // Escape inside the root editor leaves it, as Cancel does.
-        <div
-          role="group"
-          aria-label={ui("File or folder links")}
-          className="flex flex-col gap-3 rounded-lg border border-border-default p-4"
-          onKeyDown={(event) => {
-            if (event.key === "Escape" && selection.escapeRoots()) event.preventDefault();
-          }}
-        >
+        <div className="flex flex-col gap-3 rounded-lg border border-border-default p-4">
           <GoogleDriveLinks
             policy={selection.policy.data}
             scopeMode={configuration.scopeMode}
             value={draft.links}
-            inputRef={refs.input}
+            inputRef={inputRef}
             disabled={selection.controlsDisabled || selection.conflicted}
             errorMessage=""
             onChange={selection.editLinks}
+            onEscape={selection.escapeRoots}
           />
           {draftActions}
         </div>

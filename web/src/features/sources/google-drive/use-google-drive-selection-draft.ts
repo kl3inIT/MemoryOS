@@ -440,7 +440,10 @@ export function useGoogleDriveSelectionDraft({
       conflicted ||
       Boolean(validation) ||
       tracking.recoveryError,
-    refs: { input, editButton, cancelButton, panel },
+    inputRef: input,
+    editButtonRef: editButton,
+    cancelButtonRef: cancelButton,
+    panelRef: panel,
     loadDraft,
     approveBranch,
     approve,

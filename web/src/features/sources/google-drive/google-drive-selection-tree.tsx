@@ -277,7 +277,7 @@ function SelectionBranch({
       {!changed && branch.hasNextPage ? (
         <Button
           prominence="tertiary"
-          className="h-auto w-full justify-start gap-1 py-2 text-content-secondary"
+          className="h-auto w-full justify-start py-2"
           disabled={branch.isFetchingNextPage}
           aria-label={
             parent
@@ -357,7 +357,7 @@ const SelectionTreeNode = memo(function SelectionTreeNode({
             <TooltipTrigger asChild>
               <Button
                 prominence="tertiary"
-                className="size-8 shrink-0 p-0 text-content-muted"
+                className="size-8 shrink-0 p-0"
                 aria-label={ui("Expand everything in {{v1}}", { v1: item.name })}
                 onClick={() => view.onExpandAll(path)}
               >

@@ -1,7 +1,9 @@
 import { appText } from "@/i18n/app-text";
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAppForm } from "@/components/form/app-form";
 import { useNavigate } from "@tanstack/react-router";
 import { KeyRound, TriangleAlert, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
@@ -14,10 +16,11 @@ import {
   DialogClose,
   DialogContent,
   DialogDescription,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/icon-button";
-import { Input } from "@/components/ui/input";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { isUnauthenticated } from "@/lib/api";
 import {
@@ -26,6 +29,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { startGoogleDriveAuthorization } from "@/lib/hey-api/sdk.gen";
 import type { GoogleDriveCredentialResponse } from "@/lib/hey-api/types.gen";
+import { zStartGoogleDriveAuthorizationRequest } from "@/lib/hey-api/zod.gen";
 import { sourceMutationError } from "@/features/sources/shared/source-errors";
 import { launchGoogleDriveAuthorization } from "./google-drive-authorization";
 import {
@@ -75,27 +79,30 @@ export function GoogleDriveCredentialDialog(props: CredentialDialogProps) {
         onPointerDownOutside={(event) => {
           if (busy) event.preventDefault();
         }}
-        className="flex max-h-[calc(100dvh-2rem)] w-240 max-w-[calc(100dvw-2rem)] flex-col gap-0 overflow-hidden rounded-2xl border border-border-default bg-surface-base p-0 shadow-2xl ring-0 sm:max-w-[calc(100dvw-2rem)] md:left-[calc(50%+var(--sidebar-width)/2)] md:max-w-[calc(100dvw-var(--sidebar-width)-2rem)]"
+        // Centred on the content beside the sidebar rather than on the whole window.
+        className="w-240 sm:max-w-[calc(100dvw-2rem)] md:left-[calc(50%+var(--sidebar-width)/2)] md:max-w-[calc(100dvw-var(--sidebar-width)-2rem)]"
       >
-        <header className="flex shrink-0 items-center gap-3 px-6 py-4">
-          <KeyRound className="size-5 shrink-0 text-content-secondary" aria-hidden="true" />
-          <DialogTitle className="min-w-0 flex-1">
-            {replacingKey
-              ? ui("Replace a service account key")
-              : reconnecting
-                ? ui("Reconnect a Google Drive credential")
-                : ui("Create a Google Drive credential")}
-          </DialogTitle>
-          <DialogClose asChild>
-            <IconButton
-              prominence="tertiary"
-              aria-label={ui("Close credential dialog")}
-              disabled={busy}
-            >
-              <X />
-            </IconButton>
-          </DialogClose>
-        </header>
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <KeyRound className="size-5 shrink-0 text-content-secondary" aria-hidden="true" />
+            <DialogTitle className="min-w-0 flex-1">
+              {replacingKey
+                ? ui("Replace a service account key")
+                : reconnecting
+                  ? ui("Reconnect a Google Drive credential")
+                  : ui("Create a Google Drive credential")}
+            </DialogTitle>
+            <DialogClose asChild>
+              <IconButton
+                prominence="tertiary"
+                aria-label={ui("Close credential dialog")}
+                disabled={busy}
+              >
+                <X />
+              </IconButton>
+            </DialogClose>
+          </div>
+        </DialogHeader>
         <CredentialForm key={props.session} {...props} />
       </DialogContent>
     </Dialog>
@@ -124,7 +131,16 @@ function CredentialForm({
   const [method, setMethod] = useState<GoogleDriveCredentialResponse["authMethod"]>(
     replacingKey ? "SERVICE_ACCOUNT" : "OAUTH",
   );
-  const [name, setName] = useState(reconnecting?.name ?? "");
+  const form = useAppForm({
+    defaultValues: { name: reconnecting?.name ?? "" },
+    validationLogic: revalidateLogic(),
+    validators: {
+      onDynamic: zStartGoogleDriveAuthorizationRequest.pick({ name: true }),
+    },
+    onSubmit: () => connect(),
+  });
+  // Authenticate waits for a name, as for the OAuth app, so it names what is missing by staying disabled.
+  const name = useStore(form.store, (state) => state.values.name);
   const [savingServiceAccount, setSavingServiceAccount] = useState(false);
   const [replaceClient, setReplaceClient] = useState(false);
   const [clientReady, setClientReady] = useState(false);
@@ -196,14 +212,10 @@ function CredentialForm({
       }),
       tone: "success",
     });
+    // Sources on a replaced key read their configuration afresh when they are next opened.
     void Promise.all([
       refetchCredentials(),
-      ...(replaced
-        ? [
-            queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() }),
-            queryClient.invalidateQueries({ queryKey: [{ _id: "getGoogleDriveConfiguration" }] }),
-          ]
-        : []),
+      ...(replaced ? [queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() })] : []),
     ]);
     if (!replaced) void navigate({ search: { credentialId: credential.id } });
   }
@@ -224,7 +236,7 @@ function CredentialForm({
     setError(null);
     setAuthorizing(true);
     try {
-      // OAuth client JSON must never enter React Query variables or caches.
+      // A direct call, not a mutation: OAuth client JSON must never enter React Query variables or caches.
       const { data: response } = await startGoogleDriveAuthorization({
         body: {
           name: name.trim(),
@@ -259,13 +271,10 @@ function CredentialForm({
   }
 
   return (
-    <div className="min-h-0 space-y-5 overflow-y-auto overscroll-contain px-6 pb-6">
-      <div>
+    <div className="flex min-w-0 flex-col gap-5">
+      <div className="flex flex-col gap-2">
         <h2 className="font-heading-h2">{ui("Google Drive Authentication")}</h2>
-        <DialogDescription
-          id="credential-modal-description"
-          className="mt-2 text-sm text-content-secondary"
-        >
+        <DialogDescription id="credential-modal-description">
           {method === "SERVICE_ACCOUNT"
             ? ui("Connect with a service account key.")
             : ui("Authenticate with OAuth to access your Google Drive documents.")}
@@ -303,43 +312,39 @@ function CredentialForm({
         />
       ) : (
         <form
-          className="space-y-5"
+          className="flex flex-col gap-5"
           onSubmit={(event) => {
             event.preventDefault();
-            void connect();
+            void form.handleSubmit();
           }}
         >
-          <div>
-            <label
-              htmlFor="google-drive-credential-name"
-              className="text-sm font-medium text-content-primary"
-            >
-              {ui("Credential name")}
-            </label>
-            <Input
-              id="google-drive-credential-name"
-              value={name}
-              maxLength={120}
-              required
-              disabled={busy}
-              readOnly={Boolean(reconnecting)}
-              onChange={(event) => setName(event.target.value)}
-              placeholder={ui("e.g. Team Google account")}
-              autoComplete="off"
-              className="mt-2"
-            />
-          </div>
+          <form.AppField name="name">
+            {(field) => (
+              <field.TextField
+                label={ui("Credential name")}
+                maxLength={120}
+                disabled={busy}
+                readOnly={Boolean(reconnecting)}
+                placeholder={ui("e.g. Team Google account")}
+                autoComplete="off"
+              />
+            )}
+          </form.AppField>
           {reconnecting ? (
-            <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-              {ui("Reconnecting affects all")} {reconnecting.sourceCount}{" "}
-              {ui(
-                "Sources using this credential, not just one Source. Use the same Google account. Saved links and indexed documents are retained.",
-              )}
-            </p>
+            <Alert variant="warning" role="note">
+              <TriangleAlert aria-hidden="true" />
+              <AlertDescription>
+                {ui("Reconnecting affects all")} {reconnecting.sourceCount}{" "}
+                {ui(
+                  "Sources using this credential, not just one Source. Use the same Google account. Saved links and indexed documents are retained.",
+                )}
+              </AlertDescription>
+            </Alert>
           ) : null}
           {reconnectingCredential?.oauthClientConfigured && canReplaceClient ? (
-            <label className="flex items-center gap-2 text-sm">
+            <Field orientation="horizontal">
               <Checkbox
+                id="google-drive-credential-replace-client"
                 checked={replaceClient}
                 disabled={busy}
                 onCheckedChange={(event) => {
@@ -348,8 +353,10 @@ function CredentialForm({
                   setReplaceClient(event === true);
                 }}
               />
-              {ui("Replace OAuth app on reconnect")}
-            </label>
+              <FieldLabel htmlFor="google-drive-credential-replace-client">
+                {ui("Replace OAuth app on reconnect")}
+              </FieldLabel>
+            </Field>
           ) : null}
           {needsClient ? (
             <GoogleDriveOAuthClientInput
@@ -358,11 +365,14 @@ function CredentialForm({
               onReadyChange={setClientReady}
             />
           ) : missingClient ? (
-            <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-              {ui(
-                "This credential has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect it, or create a new credential with your own OAuth app.",
-              )}
-            </p>
+            <Alert variant="warning" role="note">
+              <TriangleAlert aria-hidden="true" />
+              <AlertDescription>
+                {ui(
+                  "This credential has no saved OAuth app. Ask a tenant administrator with global Source management permission to add the app and reconnect it, or create a new credential with your own OAuth app.",
+                )}
+              </AlertDescription>
+            </Alert>
           ) : (
             <p className="text-sm text-content-secondary">
               {ui("Reconnect reuses the OAuth app saved with this credential.")}

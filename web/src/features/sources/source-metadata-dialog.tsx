@@ -3,7 +3,6 @@ import { useMutation } from "@tanstack/react-query";
 import { type RefObject, useRef } from "react";
 import { z } from "zod";
 import { useAppForm, useProblemErrors } from "@/components/form/app-form";
-import { useFieldValidity } from "@/components/form/form-context";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   renameSourceMutation,
@@ -21,7 +19,7 @@ import {
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import { zRenameSourceRequest, zUpdateSourceAccessRequest } from "@/lib/hey-api/zod.gen";
-import { SourceAccessChoice } from "@/features/sources/shared/source-access-choice";
+import { SourceAccessField } from "@/features/sources/shared/source-form-fields";
 
 export type SourceMetadataField = "name" | "access";
 
@@ -134,7 +132,7 @@ export function SourceMetadataDialog({
           ) : (
             <form.AppField name="access">
               {() => (
-                <AccessField
+                <SourceAccessField
                   label={ui("Visibility")}
                   modes={source.type === "GOOGLE_DRIVE" ? googleDriveAccessModes : fileAccessModes}
                   disabled={disabled || pending}
@@ -156,35 +154,5 @@ export function SourceMetadataDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/** The access dropdown bound to the form's `access` field. */
-function AccessField({
-  label,
-  modes,
-  disabled,
-}: {
-  label: string;
-  modes: readonly SourceSummary["access"][];
-  disabled: boolean;
-}) {
-  const { field, invalid, errors } = useFieldValidity<SourceSummary["access"]>();
-  const labelId = `${field.name}-label`;
-  return (
-    <Field data-invalid={invalid || undefined}>
-      <FieldLabel id={labelId} htmlFor={field.name}>
-        {label}
-      </FieldLabel>
-      <SourceAccessChoice
-        id={field.name}
-        labelledBy={labelId}
-        modes={modes}
-        value={field.state.value}
-        disabled={disabled}
-        onValueChange={field.handleChange}
-      />
-      {invalid ? <FieldError errors={errors} /> : null}
-    </Field>
   );
 }

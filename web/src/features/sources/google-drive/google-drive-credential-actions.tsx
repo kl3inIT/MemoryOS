@@ -4,6 +4,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -75,44 +76,50 @@ export function GoogleDriveCredentialActions({
             event.preventDefault();
           }}
         >
-          <DropdownMenuLabel className="font-normal text-content-muted">
-            {ui("Used by")} {credential.sourceCount}{" "}
-            {credential.sourceCount === 1 ? ui("Source") : ui("Sources")}
+          <DropdownMenuLabel>
+            <span className="font-normal text-content-muted">
+              {ui("Used by")} {credential.sourceCount}{" "}
+              {credential.sourceCount === 1 ? ui("Source") : ui("Sources")}
+            </span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {canReconnect ? (
-            <DropdownMenuItem
-              onSelect={() => (attached ? confirm("reconnect") : onReconnect(trigger.current))}
-            >
-              <RefreshCw aria-hidden="true" />
-              {ui("Reconnect")}
-            </DropdownMenuItem>
-          ) : null}
-          {canReplaceKey ? (
-            <DropdownMenuItem onSelect={() => onReplaceKey(trigger.current)}>
-              <KeyRound aria-hidden="true" />
-              {ui("Replace key")}
-            </DropdownMenuItem>
-          ) : null}
-          {canRevoke ? (
-            <DropdownMenuItem variant="destructive" onSelect={() => confirm("revoke")}>
-              <Unplug aria-hidden="true" />
-              {ui("Revoke")}
-            </DropdownMenuItem>
-          ) : null}
-          {canDelete ? (
-            <DropdownMenuItem
-              variant="destructive"
-              disabled={attached}
-              onSelect={() => confirm("delete")}
-            >
-              <Trash2 aria-hidden="true" />
-              {ui("Delete")}
-            </DropdownMenuItem>
-          ) : null}
+          <DropdownMenuGroup>
+            {canReconnect ? (
+              <DropdownMenuItem
+                onSelect={() => (attached ? confirm("reconnect") : onReconnect(trigger.current))}
+              >
+                <RefreshCw aria-hidden="true" />
+                {ui("Reconnect")}
+              </DropdownMenuItem>
+            ) : null}
+            {canReplaceKey ? (
+              <DropdownMenuItem onSelect={() => onReplaceKey(trigger.current)}>
+                <KeyRound aria-hidden="true" />
+                {ui("Replace key")}
+              </DropdownMenuItem>
+            ) : null}
+            {canRevoke ? (
+              <DropdownMenuItem variant="destructive" onSelect={() => confirm("revoke")}>
+                <Unplug aria-hidden="true" />
+                {ui("Revoke")}
+              </DropdownMenuItem>
+            ) : null}
+            {canDelete ? (
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={attached}
+                onSelect={() => confirm("delete")}
+              >
+                <Trash2 aria-hidden="true" />
+                {ui("Delete")}
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuGroup>
           {canDelete && attached ? (
-            <DropdownMenuLabel className="max-w-56 font-normal text-wrap text-content-muted">
-              {ui("Delete all attached Sources before deleting this credential")}
+            <DropdownMenuLabel>
+              <span className="block max-w-56 font-normal text-wrap text-content-muted">
+                {ui("Delete all attached Sources before deleting this credential")}
+              </span>
             </DropdownMenuLabel>
           ) : null}
         </DropdownMenuContent>
