@@ -80,9 +80,9 @@ function mount(children: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return {
     ...render(
-      <ApplicationSessionContext.Provider value={session}>
+      <ApplicationSessionContext value={session}>
         <QueryClientProvider client={client}>{children}</QueryClientProvider>
-      </ApplicationSessionContext.Provider>,
+      </ApplicationSessionContext>,
     ),
     client,
   };

@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { TextMessagePartProvider, useAuiState } from "@assistant-ui/react";
-import { Brain, ListChecks, Loader2, Search } from "lucide-react";
+import { Brain, ListChecks, Search } from "lucide-react";
 import {
   ActivityChips,
   ActivityGroupContent,
@@ -11,6 +11,7 @@ import {
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ChatResearchToolStep } from "@/features/chat/activity/chat-activity-view";
 import { spokenDuration, useElapsed } from "@/features/chat/activity/chat-duration";
@@ -95,7 +96,7 @@ export function ChatResearchView({ research }: { research: ResearchState }) {
                     <TabsTrigger key={agent.toolCallId} value={agent.toolCallId}>
                       <span className="flex items-center gap-1.5">
                         {agent.status === "RUNNING" && running && (
-                          <Loader2 className="size-3 animate-spin" aria-hidden />
+                          <Spinner className="size-3" aria-hidden />
                         )}
                         {ui("Tác tử {{n}}", { n: agent.tabIndex + 1 })}
                       </span>

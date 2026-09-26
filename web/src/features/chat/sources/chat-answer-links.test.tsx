@@ -17,7 +17,7 @@ describe("links in an answer body", () => {
   it("opens a generated-file link in the preview and neutralizes every other model-written path", () => {
     const previewed: unknown[] = [];
     render(
-      <ChatPanelContext.Provider
+      <ChatPanelContext
         value={{
           open: () => {},
           previewFile: (target) => previewed.push(target),
@@ -29,7 +29,7 @@ describe("links in an answer body", () => {
         <ChatMarkdownLink href="/admin/users">nội bộ</ChatMarkdownLink>
         <ChatMarkdownLink href="javascript:alert(1)">bấm đi</ChatMarkdownLink>
         <ChatMarkdownLink href="/api/chat/file-artifacts/../../etc/content">giả</ChatMarkdownLink>
-      </ChatPanelContext.Provider>,
+      </ChatPanelContext>,
     );
 
     // Onyx: a link to a chat file opens the preview modal instead of downloading.
