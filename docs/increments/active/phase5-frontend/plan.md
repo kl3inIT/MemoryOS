@@ -19,6 +19,9 @@ Branch `dathip04/frontend-audit`; wave 1 runs in parallel worktrees on disjoint 
 
 ## Wave 2
 
+- [x] **Pilot · patterns.** Libraries (TanStack Form 1.33.5 and Table 9.2.4, MSW 2.15.0, Base UI, react-day-picker, shadcn `cn`) and the shadcn `field`, `input-group`, `spinner`, `combobox`, `avatar`, `button-group`, `native-select`, `calendar` adapted to the repo `Button`/`Input`/`Select` API and tokens; MSW node server with the generated `handle<Operation>` factories (Hey API `msw` plugin); `.oxlintrc.target.json` and `pnpm lint:target`; Document Sets converted end to end as the reference (generated factories and keys, `DataTable`, `useAppForm`, MSW tests). Patterns recorded in [conventions](../../../conventions.md#frontend-patterns).
+  - Target lint 2026-09-26 over `src` after the exceptions: 1,077 findings (no-restyle 719, no-arbitrary-values 266, require-static-classes 20, jsx-a11y 61, no-inline-styles 9, no-raw-colors 1, no-unknown-classes 1); Document Sets keeps one (`StatusBadge` needs a pill variant instead of `statusPill()` classes).
+  - The Document Set list follows the API's name order with server paging; it no longer lists editable sets first across all pages.
 - [ ] Generated query/mutation factories everywhere; MSW in unit tests.
 - [ ] Data tables on TanStack Table (the shadcn Data Table pattern, server-side paging and sorting kept through `manualPagination`/`manualSorting`): users, library, Source items and runs, Group members, models and provider models, document sets, audit log, Chat history. Static tables stay plain `Table`.
 - [ ] Hey API zod plugin; generated schemas replace hand-written API response schemas.
