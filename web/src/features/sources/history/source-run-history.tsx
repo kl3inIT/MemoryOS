@@ -1,22 +1,22 @@
 import { formatUiDate, uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  createColumnHelper,
+  rowPaginationFeature,
+  tableFeatures,
+  useTable,
+} from "@tanstack/react-table";
 import { useRef, useState } from "react";
 import { ChevronRight, History, RefreshCw } from "lucide-react";
+import { DataTable, type DataTableColumnMeta } from "@/components/data-table/data-table";
+import { EmptyState } from "@/components/composites/empty-state";
 import { Button } from "@/components/ui/button";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { IconButton } from "@/components/ui/icon-button";
 import { PageSizeSelect } from "@/components/ui/page-size-select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { listSourceRunsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceRun } from "@/lib/hey-api/types.gen";
@@ -24,8 +24,7 @@ import { cn } from "@/lib/utils";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { runIsActive } from "./source-history";
 import { HistoryTime, RunOutcome } from "./source-history-presentation";
-import { statusPill } from "@/features/sources/shared/source-status-presentation";
-import { useCursorPaging } from "@/features/sources/shared/use-cursor-paging";
+import { cursorTablePaging, useCursorPaging } from "@/features/sources/shared/use-cursor-paging";
 import { type SourceFilterOption, SourceFilterMenu } from "./source-filter-menu";
 import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
 import { RunDetails, RunDuration, RunTrigger } from "./source-run-details";
@@ -77,6 +76,133 @@ const runStatusFilter: {
   ],
 };
 
+const features = tableFeatures({
+  rowPaginationFeature,
+  columnMeta: {} as DataTableColumnMeta,
+  tableMeta: {} as { viewDetails: (run: SourceRun, opener: HTMLElement) => void },
+});
+const column = createColumnHelper<typeof features, SourceRun>();
+
+const startedColumn = column.display({
+  id: "started",
+  header: function StartedHeader() {
+    const ui = useAppTranslation();
+    return ui("Started");
+  },
+  meta: { width: "w-44" },
+  cell: ({ row }) => (
+    <span className="whitespace-nowrap">
+      <span className="block font-medium text-content-primary">
+        <HistoryTime value={row.original.startedAt} relative />
+      </span>
+      {row.original.startedAt ? (
+        <span className="block text-xs text-content-muted">
+          {formatUiDate(row.original.startedAt)}
+        </span>
+      ) : null}
+    </span>
+  ),
+});
+const statusColumn = column.display({
+  id: "status",
+  header: function StatusHeader() {
+    const ui = useAppTranslation();
+    return ui("Status");
+  },
+  meta: { width: "w-52" },
+  cell: ({ row }) => <RunOutcome run={row.original} />,
+});
+const kindColumn = column.display({
+  id: "kind",
+  header: function KindHeader() {
+    const ui = useAppTranslation();
+    return ui("Kind");
+  },
+  meta: { width: "w-28" },
+  cell: function KindCell({ row }) {
+    const ui = useAppTranslation();
+    return row.original.runKind ? (
+      <StatusBadge tone="neutral">
+        {row.original.runKind === "PRUNE" ? ui("Prune") : ui("Refresh")}
+      </StatusBadge>
+    ) : (
+      <span className="text-content-muted">—</span>
+    );
+  },
+});
+const trailingColumns = [
+  column.display({
+    id: "trigger",
+    header: function TriggerHeader() {
+      const ui = useAppTranslation();
+      return ui("Trigger");
+    },
+    meta: { width: "w-36" },
+    cell: ({ row }) => (
+      <span className="whitespace-nowrap text-content-secondary">
+        <RunTrigger run={row.original} />
+      </span>
+    ),
+  }),
+  column.display({
+    id: "duration",
+    header: function DurationHeader() {
+      const ui = useAppTranslation();
+      return ui("Duration");
+    },
+    meta: { width: "w-28" },
+    cell: ({ row }) => (
+      <span className="whitespace-nowrap text-content-muted">
+        <RunDuration run={row.original} />
+      </span>
+    ),
+  }),
+  column.display({
+    id: "activity",
+    header: function ActivityHeader() {
+      const ui = useAppTranslation();
+      return ui("Activity");
+    },
+    cell: ({ row }) => <RunActivity run={row.original} />,
+  }),
+  column.display({
+    id: "details",
+    header: function DetailsHeader() {
+      const ui = useAppTranslation();
+      return <span className="sr-only">{ui("Run details")}</span>;
+    },
+    meta: { width: "w-16", align: "end" },
+    cell: function DetailsCell({ row, table }) {
+      const ui = useAppTranslation();
+      const run = row.original;
+      return (
+        <IconButton
+          size="sm"
+          aria-label={ui("View details for run started {{v1}}", {
+            v1: run.startedAt
+              ? new Date(run.startedAt).toLocaleString(uiLocale())
+              : ui("at an unknown time"),
+          })}
+          onClick={(event) => table.options.meta?.viewDetails(run, event.currentTarget)}
+        >
+          <ChevronRight aria-hidden="true" />
+        </IconButton>
+      );
+    },
+  }),
+];
+/*
+ * Columns live at module scope, because a cell renderer is a component and a rebuilt list remounts
+ * every cell. SharePoint alone adds the kind of run.
+ */
+const runColumns = column.columns([startedColumn, statusColumn, ...trailingColumns]);
+const runColumnsWithKind = column.columns([
+  startedColumn,
+  statusColumn,
+  kindColumn,
+  ...trailingColumns,
+]);
+
 export function SourceRunHistory({
   sourceId,
   kinds = false,
@@ -115,6 +241,14 @@ export function SourceRunHistory({
     setDetailRun(run);
     setDetailOpen(true);
   };
+  const table = useTable({
+    features,
+    columns: kinds ? runColumnsWithKind : runColumns,
+    data: history.data?.items ?? [],
+    getRowId: (run) => run.id,
+    meta: { viewDetails },
+    ...cursorTablePaging(paging, size, history.data?.nextCursor, totalPages),
+  });
   const latestRun = history.data?.current ?? history.data?.lastCompleted;
   const overview = (
     [
@@ -124,18 +258,18 @@ export function SourceRunHistory({
   ).flatMap(([label, run]) => (run ? [[label, run] as const] : []));
 
   return (
-    <section aria-label={ui("Sync history")} className="min-w-0 space-y-4">
+    <section aria-label={ui("Sync history")} className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-3 font-heading-h3 text-content-primary">
             <SourceSectionIcon icon={History} />
             {ui("Sync history")}
             <HelpPopover label={ui("Run statuses")}>
-              <dl className="space-y-2">
+              <dl className="flex flex-col gap-2">
                 {outcomeLegend.map(([label, tone, description]) => (
                   <div key={label} className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <dt>
-                      <StatusBadge tone={tone} className={statusPill(tone)}>
+                      <StatusBadge tone={tone} variant="pill">
                         {ui(label)}
                       </StatusBadge>
                     </dt>
@@ -157,7 +291,8 @@ export function SourceRunHistory({
           pending={runsRefresh.pending}
           onClick={runsRefresh.refresh}
         >
-          <RefreshCw aria-hidden="true" /> {ui("Refresh")}
+          <RefreshCw data-icon="inline-start" aria-hidden="true" />
+          {ui("Refresh")}
         </Button>
       </div>
       {history.isError ? (
@@ -174,187 +309,85 @@ export function SourceRunHistory({
       {history.data ? (
         <>
           {overview.length ? (
-            <dl className="grid overflow-hidden rounded-xl border border-border-subtle bg-surface-raised sm:auto-cols-fr sm:grid-flow-col">
+            <div className="grid overflow-hidden rounded-xl border border-border-subtle bg-surface-raised sm:auto-cols-fr sm:grid-flow-col">
               {overview.map(([label, run], index) => (
                 <div
                   key={label}
                   className={cn(
-                    "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-4 py-3",
+                    "flex min-w-0 items-center gap-3 px-4 py-3",
                     index > 0 && "border-t border-border-subtle sm:border-t-0 sm:border-l",
                   )}
                 >
-                  <dt className="text-xs text-content-muted">{ui(label)}</dt>
-                  <dd className="col-start-1 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-content-primary">
-                    <HistoryTime value={run.startedAt} relative />
-                    <RunOutcome run={run} />
-                  </dd>
-                  <dd className="col-start-2 row-span-2 row-start-1">
-                    <Button
-                      size="sm"
-                      prominence="tertiary"
-                      onClick={(event) => viewDetails(run, event.currentTarget)}
-                    >
-                      {ui("View details")}
-                      <span className="sr-only"> — {ui(label)}</span>
-                    </Button>
-                  </dd>
+                  <dl className="min-w-0 flex-1">
+                    <dt className="text-xs text-content-muted">{ui(label)}</dt>
+                    <dd className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium text-content-primary">
+                      <HistoryTime value={run.startedAt} relative />
+                      <RunOutcome run={run} />
+                    </dd>
+                  </dl>
+                  <Button
+                    size="sm"
+                    prominence="tertiary"
+                    onClick={(event) => viewDetails(run, event.currentTarget)}
+                  >
+                    {ui("View details")}
+                    <span className="sr-only"> — {ui(label)}</span>
+                  </Button>
                 </div>
               ))}
-            </dl>
+            </div>
           ) : null}
-          <div className="overflow-hidden rounded-xl border border-border-subtle">
-            <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle bg-surface-raised px-3 py-2">
-              <SourceFilterMenu
-                {...runStatusFilter}
-                value={statuses}
-                onValueChange={(next) => {
-                  setStatuses(next as SourceRun["status"][]);
-                  paging.reset();
-                }}
-              />
-            </div>
-            <div
-              role="region"
-              aria-label={ui("Sync history")}
-              tabIndex={0}
-              className="overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
-            >
-              <Table
-                aria-label={ui("Source indexing attempts, newest first")}
-                className="min-w-[48rem] text-left text-sm"
-              >
-                <TableHeader className="bg-surface-sunken text-content-muted">
-                  <TableRow>
-                    <TableHead scope="col" className="px-4 font-medium">
-                      {ui("Started")}
-                    </TableHead>
-                    <TableHead scope="col" className="px-4 font-medium">
-                      {ui("Status")}
-                    </TableHead>
-                    {kinds ? (
-                      <TableHead scope="col" className="px-4 font-medium">
-                        {ui("Kind")}
-                      </TableHead>
-                    ) : null}
-                    <TableHead scope="col" className="px-4 font-medium">
-                      {ui("Trigger")}
-                    </TableHead>
-                    <TableHead scope="col" className="px-4 font-medium">
-                      {ui("Duration")}
-                    </TableHead>
-                    <TableHead scope="col" className="px-4 font-medium">
-                      {ui("Activity")}
-                    </TableHead>
-                    <TableHead scope="col" className="w-12 px-2">
-                      <span className="sr-only">{ui("Run details")}</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {history.data.items.map((run) => (
-                    <TableRow
-                      key={run.id}
-                      data-state={detailOpen && detailRun?.id === run.id ? "selected" : undefined}
-                      className="cursor-pointer"
-                      // The row is a larger pointer target for its details button, which stays
-                      // the keyboard and assistive-technology control.
-                      onClick={(event) => {
-                        if ((event.target as Element).closest("button, a")) return;
-                        event.currentTarget
-                          .querySelector<HTMLButtonElement>("[data-run-details]")
-                          ?.click();
-                      }}
-                    >
-                      <TableCell className="whitespace-nowrap px-4 py-3">
-                        <span className="block font-medium text-content-primary">
-                          <HistoryTime value={run.startedAt} relative />
-                        </span>
-                        {run.startedAt ? (
-                          <span className="block text-xs text-content-muted">
-                            {formatUiDate(run.startedAt)}
-                          </span>
-                        ) : null}
-                      </TableCell>
-                      <TableCell className="px-4 py-3">
-                        <RunOutcome run={run} />
-                      </TableCell>
-                      {kinds ? (
-                        <TableCell className="whitespace-nowrap px-4 py-3">
-                          {run.runKind ? (
-                            <StatusBadge tone="neutral">
-                              {run.runKind === "PRUNE" ? ui("Prune") : ui("Refresh")}
-                            </StatusBadge>
-                          ) : (
-                            <span className="text-content-muted">—</span>
-                          )}
-                        </TableCell>
-                      ) : null}
-                      <TableCell className="whitespace-nowrap px-4 py-3 text-content-secondary">
-                        <RunTrigger run={run} />
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap px-4 py-3 text-content-muted">
-                        <RunDuration run={run} />
-                      </TableCell>
-                      <TableCell className="px-4 py-3 whitespace-normal">
-                        <RunActivity run={run} />
-                      </TableCell>
-                      <TableCell className="px-2 py-3 text-right">
-                        <IconButton
-                          size="sm"
-                          data-run-details
-                          aria-label={ui("View details for run started {{v1}}", {
-                            v1: run.startedAt
-                              ? new Date(run.startedAt).toLocaleString(uiLocale())
-                              : ui("at an unknown time"),
-                          })}
-                          onClick={(event) => viewDetails(run, event.currentTarget)}
-                        >
-                          <ChevronRight aria-hidden="true" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {!history.data.items.length ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="px-4 py-8 text-center text-content-muted">
-                        {ui("No Source executions on this page.")}
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                </TableBody>
-              </Table>
-            </div>
-            <TablePagination
-              label={ui("Source attempt pages")}
-              page={paging.page}
-              totalPages={totalPages}
-              previousLabel={ui("Previous source attempts")}
-              nextLabel={ui("Next source attempts")}
-              previousDisabled={!paging.hasPrevious || history.isPlaceholderData}
-              nextDisabled={
-                !history.data.nextCursor || history.isPlaceholderData || history.isError
-              }
-              onPrevious={paging.goPrevious}
-              onNext={() => paging.goNext(history.data?.nextCursor)}
-            >
-              <PageSizeSelect
-                label={ui("Source attempts per page")}
-                rowsLabel={ui("Rows")}
-                value={size}
-                sizes={[5, 10, 25, 50]}
-                disabled={history.isPlaceholderData}
-                onSizeChange={(next) => {
-                  setSize(next);
-                  paging.reset();
-                }}
-              />
-            </TablePagination>
+          <div className="flex flex-wrap items-center gap-2">
+            <SourceFilterMenu
+              {...runStatusFilter}
+              value={statuses}
+              onValueChange={(next) => {
+                setStatuses(next as SourceRun["status"][]);
+                paging.reset();
+              }}
+            />
           </div>
+          {history.data.items.length ? (
+            <DataTable
+              table={table}
+              label={ui("Source indexing attempts, newest first")}
+              className="min-w-3xl"
+              footer={
+                <TablePagination
+                  label={ui("Source attempt pages")}
+                  page={paging.page}
+                  totalPages={totalPages}
+                  previousLabel={ui("Previous source attempts")}
+                  nextLabel={ui("Next source attempts")}
+                  previousDisabled={!table.getCanPreviousPage() || history.isPlaceholderData}
+                  nextDisabled={
+                    !history.data.nextCursor || history.isPlaceholderData || history.isError
+                  }
+                  onPrevious={() => table.previousPage()}
+                  onNext={() => table.nextPage()}
+                >
+                  <PageSizeSelect
+                    label={ui("Source attempts per page")}
+                    rowsLabel={ui("Rows")}
+                    value={size}
+                    sizes={[5, 10, 25, 50]}
+                    disabled={history.isPlaceholderData}
+                    onSizeChange={(next) => {
+                      setSize(next);
+                      paging.reset();
+                    }}
+                  />
+                </TablePagination>
+              }
+            />
+          ) : (
+            <EmptyState title={ui("No Source executions on this page.")} />
+          )}
         </>
       ) : null}
       <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
         <SheetContent
-          className="w-full gap-0 overflow-y-auto sm:max-w-xl"
+          className="w-full overflow-y-auto sm:max-w-xl"
           onCloseAutoFocus={(event) => {
             // Opened without a SheetTrigger, so Radix has no trigger to refocus.
             event.preventDefault();
