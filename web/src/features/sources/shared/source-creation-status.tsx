@@ -1,6 +1,7 @@
 import type { AppCopy } from "@/i18n/app-text";
 import { statusLabel } from "@/i18n/status-copy";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { SourceOperation } from "@/lib/hey-api/types.gen";
@@ -43,22 +44,24 @@ export function SourceCreationStatus({
   return (
     <>
       {tracking.operation && !createdSourceId ? (
-        <div
-          role="status"
-          className="space-y-2 rounded-lg border border-border-subtle bg-surface-subtle p-4 text-sm"
-        >
-          <StatusBadge tone={pendingValidation ? "info" : "warning"}>
-            {pendingValidation ? ui("Pending validation") : ui("Proposal not activated")}
-          </StatusBadge>
-          <p>
-            {pendingValidation
-              ? pendingMessage
-              : ui("Review the error and edit the proposal before submitting again.")}
-          </p>
-          <p className="break-all text-xs text-content-muted">
-            {ui("Operation")} {tracking.operation.id} · {ui(statusLabel(tracking.operation.status))}
-          </p>
-        </div>
+        <Alert variant={pendingValidation ? "info" : "warning"} role="status">
+          <AlertDescription>
+            <div className="flex flex-col items-start gap-2">
+              <StatusBadge tone={pendingValidation ? "info" : "warning"}>
+                {pendingValidation ? ui("Pending validation") : ui("Proposal not activated")}
+              </StatusBadge>
+              <p>
+                {pendingValidation
+                  ? pendingMessage
+                  : ui("Review the error and edit the proposal before submitting again.")}
+              </p>
+              <p className="break-all text-xs text-content-muted">
+                {ui("Operation")} {tracking.operation.id} ·{" "}
+                {ui(statusLabel(tracking.operation.status))}
+              </p>
+            </div>
+          </AlertDescription>
+        </Alert>
       ) : null}
       {tracking.recovering ? <p role="status">{ui("Recovering your submitted Source…")}</p> : null}
       {!error && (tracking.recoveryError || tracking.statusUnavailable) ? (

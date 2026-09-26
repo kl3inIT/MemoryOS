@@ -96,7 +96,7 @@ export function SourceFilterMenu({
                 <>
                   <span className="sr-only">: </span>
                   <span aria-hidden="true" className="h-4 w-px shrink-0 bg-border-default" />
-                  <span aria-hidden="true" className="flex shrink-0 -space-x-0.5">
+                  <span aria-hidden="true" className="flex shrink-0 gap-0.5">
                     {selected.map((option) => (
                       <ToneDot key={option.value} tone={option.tone} />
                     ))}

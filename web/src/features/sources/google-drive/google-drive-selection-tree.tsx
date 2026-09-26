@@ -6,6 +6,7 @@ import { memo, useCallback, useEffect, useId, useMemo, useRef, useSyncExternalSt
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { getGoogleDriveSelectionTreeInfiniteOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type {
   GetGoogleDriveConfigurationResponse,
@@ -471,14 +472,15 @@ function BranchSelectionControl({
         ? true
         : "indeterminate";
   return (
-    <label className="flex min-h-8 cursor-pointer items-center gap-2 text-xs">
+    <Field orientation="horizontal" className="w-auto shrink-0">
       <Checkbox
+        id={`select-branch-${item.id}`}
         aria-label={ui("Sync all links in {{v1}}", { v1: item.name })}
         checked={checked}
         disabled={disabled || linked.length === 0}
         onCheckedChange={(event) => onApproveBranch(item.id, event === true)}
       />
-      {ui("Select for sync")}
-    </label>
+      <FieldLabel htmlFor={`select-branch-${item.id}`}>{ui("Select for sync")}</FieldLabel>
+    </Field>
   );
 }
