@@ -1879,6 +1879,8 @@ Object.assign(englishUi, {
   "Feedback: {{comment}}": "Đánh giá: {{comment}}",
   "Spending limit": "Hạn mức chi tiêu",
   "Spending limits": "Hạn mức chi tiêu",
+  Spent: "Đã hết",
+  "Nearly spent": "Sắp hết",
   "Budget: {{whose}}": "Hạn mức: {{whose}}",
   "The budget is spent. It frees again on {{when}}.": "Đã dùng hết hạn mức. Mở lại vào {{when}}.",
   "Counted over {{days}} days. It frees again on {{when}}.":

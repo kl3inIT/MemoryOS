@@ -1,10 +1,20 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { describe, expect, it, vi } from "vitest";
 import type * as RouterModule from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { createMemoryOsQueryClient } from "@/lib/query-client";
-import type { AiCostDay } from "@/lib/hey-api/types.gen";
+import {
+  handleGetAiCostDetail,
+  handleGetAiCostSummary,
+  handleListAiCostBreakdown,
+  handleListAiCostDays,
+  handleListAiUsageLimits,
+  handleListUsageReports,
+} from "@/lib/hey-api/msw.gen";
+import type { AiCostDay, AiCostRow, AiCostSummary } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { chartRows, period } from "./ai-costs";
 import { AiCostsPage } from "./ai-costs-page";
 
@@ -12,8 +22,6 @@ vi.mock("@tanstack/react-router", async (importOriginal) => ({
   ...(await importOriginal<typeof RouterModule>()),
   Link: ({ children }: { children: ReactNode }) => <a href="/admin/models">{children}</a>,
 }));
-
-afterEach(() => vi.unstubAllGlobals());
 
 describe("AI cost periods and daily series", () => {
   it("counts whole UTC days for each period", () => {
@@ -50,48 +58,46 @@ describe("AI cost periods and daily series", () => {
 
 describe("AI costs page", () => {
   it("shows known and unpriced spend, ranks people and opens a person's detail", async () => {
-    const paths: string[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (request: Request) => {
-        const url = new URL(request.url);
-        paths.push(
-          `${url.pathname}?${url.searchParams.get("by") ?? url.searchParams.get("split") ?? ""}`,
-        );
-        const summary = {
-          cost: 41.2,
-          externalCost: 30.9,
-          calls: 3812,
-          unknownCostCalls: 214,
-          inputTokens: 1_500_000,
-          outputTokens: 340_000,
-          cacheReadTokens: 200_000,
-          imageCount: 4,
-          audioSeconds: 60,
-          activePeople: 27,
-        };
-        const row = {
-          key: "00000000-0000-0000-0000-000000000011",
-          label: "Trần Thu Hà",
-          detail: "ha@tasco.vn",
-          calls: 412,
-          unknownCostCalls: 3,
-          inputTokens: 1_800_000,
-          outputTokens: 300_000,
-          cost: 6.8,
-        };
-        if (url.pathname === "/api/ai-costs/summary") return Response.json(summary);
-        if (url.pathname === "/api/ai-costs/daily") return Response.json([]);
-        if (url.pathname === "/api/ai-costs/breakdown") return Response.json([row]);
-        if (url.pathname === "/api/ai-costs/detail")
-          return Response.json({
-            summary: { ...summary, cost: 6.8, calls: 412 },
-            daily: [],
-            models: [{ ...row, key: "gpt-5.1|OpenAI", label: "gpt-5.1", detail: "OpenAI" }],
-            flows: [{ ...row, key: "CHAT_NAMING", label: "CHAT_NAMING", detail: null }],
-            providers: [],
-          });
-        throw new Error(`Unexpected synthetic route: ${url.pathname}`);
+    const breakdowns: (string | null)[] = [];
+    const summary: AiCostSummary = {
+      cost: 41.2,
+      externalCost: 30.9,
+      calls: 3812,
+      unknownCostCalls: 214,
+      inputTokens: 1_500_000,
+      outputTokens: 340_000,
+      cacheReadTokens: 200_000,
+      imageCount: 4,
+      audioSeconds: 60,
+      activePeople: 27,
+    };
+    const row: AiCostRow = {
+      key: "00000000-0000-0000-0000-000000000011",
+      label: "Trần Thu Hà",
+      detail: "ha@tasco.vn",
+      calls: 412,
+      unknownCostCalls: 3,
+      inputTokens: 1_800_000,
+      outputTokens: 300_000,
+      cost: 6.8,
+    };
+    server.use(
+      handleGetAiCostSummary({ body: summary }),
+      handleListAiCostDays({ body: [] }),
+      handleListAiCostBreakdown(({ request }) => {
+        breakdowns.push(new URL(request.url).searchParams.get("by"));
+        return HttpResponse.json([row]);
+      }),
+      handleListUsageReports({ body: [] }),
+      handleListAiUsageLimits({ body: [] }),
+      handleGetAiCostDetail({
+        body: {
+          summary: { ...summary, cost: 6.8, calls: 412 },
+          daily: [],
+          models: [{ ...row, key: "gpt-5.1|OpenAI", label: "gpt-5.1", detail: "OpenAI" }],
+          flows: [{ ...row, key: "CHAT_NAMING", label: "CHAT_NAMING", detail: null }],
+          providers: [],
+        },
       }),
     );
     const client = createMemoryOsQueryClient();
@@ -109,7 +115,7 @@ describe("AI costs page", () => {
     const sheet = await screen.findByRole("dialog");
     expect(await within(sheet).findByText("Conversation naming")).toBeInTheDocument();
     expect(within(sheet).getByText("gpt-5.1")).toBeInTheDocument();
-    await waitFor(() => expect(paths).toContain("/api/ai-costs/breakdown?ACTOR"));
+    await waitFor(() => expect(breakdowns).toContain("ACTOR"));
     client.clear();
   });
 });

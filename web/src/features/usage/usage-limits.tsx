@@ -3,26 +3,11 @@ import { CircleAlert, Gauge, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { EmptyState } from "@/components/composites/empty-state";
 import { SectionHeader } from "@/components/composites/section-header";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/icon-button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
 import {
   Table,
@@ -34,22 +19,17 @@ import {
 } from "@/components/ui/table";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { cn } from "@/lib/utils";
 import {
-  createAiUsageLimitMutation,
   deleteAiUsageLimitMutation,
   listAiUsageLimitsOptions,
   listAiUsageLimitsQueryKey,
-  listGroupsOptions,
   updateAiUsageLimitMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { AiUsageLimit } from "@/lib/hey-api/types.gen";
-
-type AiUsageLimitScope = AiUsageLimit["scope"];
+import { presentProblem } from "@/lib/problem-presentation";
+import { useProblemMessage } from "@/lib/use-problem-message";
 import { count, money, scopeLabels } from "./ai-costs";
-
-const scopes: AiUsageLimitScope[] = ["TENANT", "GROUP", "PERSON"];
-const periodChoices = [1, 7, 30] as const;
+import { AddLimitDialog } from "./usage-limit-dialog";
 
 /** Where a limit's spend stands: the share used, so a row reads at a glance. */
 function share(limit: AiUsageLimit) {
@@ -58,11 +38,14 @@ function share(limit: AiUsageLimit) {
   return Math.min(1, Math.max(byTokens, byCost));
 }
 
-/** Spent is red, nearly spent is amber, and everything else is the ordinary bar. */
-function barTone(used: number) {
-  if (used >= 1) return "[&_[data-slot=progress-indicator]]:bg-status-danger-content";
-  if (used >= 0.8) return "[&_[data-slot=progress-indicator]]:bg-status-warning-content";
-  return "";
+/** The limits, what is spent against them, and the changes a row offers; every change rereads the list. */
+function useUsageLimits() {
+  const cache = useQueryClient();
+  const limits = useQuery(listAiUsageLimitsOptions());
+  const refresh = () => cache.invalidateQueries({ queryKey: listAiUsageLimitsQueryKey() });
+  const update = useMutation({ ...updateAiUsageLimitMutation(), onSettled: refresh });
+  const remove = useMutation({ ...deleteAiUsageLimitMutation(), onSuccess: refresh });
+  return { limits, refresh, update, remove };
 }
 
 /**
@@ -71,13 +54,14 @@ function barTone(used: number) {
  */
 export function UsageLimits() {
   const ui = useAppTranslation();
-  const queryClient = useQueryClient();
+  const problem = useProblemMessage();
   const [adding, setAdding] = useState(false);
-  const limits = useQuery(listAiUsageLimitsOptions());
-  const refresh = () => queryClient.invalidateQueries({ queryKey: listAiUsageLimitsQueryKey() });
-  const update = useMutation({ ...updateAiUsageLimitMutation(), onSuccess: () => void refresh() });
-  const remove = useMutation({ ...deleteAiUsageLimitMutation(), onSuccess: () => void refresh() });
+  const { limits, refresh, update, remove } = useUsageLimits();
   const list = limits.data ?? [];
+  // The most recent failed change; the switch shows the saved state again once the list is reread.
+  const failure = [update, remove]
+    .filter((mutation) => mutation.isError)
+    .sort((a, b) => b.submittedAt - a.submittedAt)[0]?.error;
 
   return (
     <section aria-labelledby="usage-limits-heading" className="flex min-w-0 flex-col gap-4">
@@ -89,11 +73,19 @@ export function UsageLimits() {
         )}
         actions={
           <Button prominence="secondary" onClick={() => setAdding(true)}>
-            <Plus aria-hidden="true" />
+            <Plus data-icon="inline-start" aria-hidden="true" />
             {ui("Add a limit")}
           </Button>
         }
       />
+
+      {failure ? (
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>
+            {problem(presentProblem(failure, "mutation").message)}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {limits.isPending ? (
         <p role="status" className="font-secondary-body text-content-muted">
@@ -114,15 +106,15 @@ export function UsageLimits() {
         <EmptyState icon={<Gauge />} title={ui("No limit is set.")} />
       ) : (
         <div className="overflow-hidden rounded-md border border-border-subtle">
-          <Table className="w-full min-w-[44rem] table-fixed">
+          <Table className="w-full min-w-176 table-fixed">
             <colgroup>
-              <col className="w-[28%]" />
+              <col className="w-2/7" />
               <col />
-              <col className="w-[8rem]" />
-              <col className="w-[7rem]" />
-              <col className="w-[4rem]" />
+              <col className="w-32" />
+              <col className="w-28" />
+              <col className="w-16" />
             </colgroup>
-            <TableHeader className="border-b border-border-subtle bg-surface-subtle">
+            <TableHeader>
               <TableRow>
                 <TableHead scope="col" className="h-11 px-4">
                   {ui("Applies to")}
@@ -141,9 +133,9 @@ export function UsageLimits() {
                 </TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody className="divide-y divide-border-subtle">
+            <TableBody>
               {list.map((limit) => (
-                <TableRow key={limit.id} className="bg-surface-raised align-middle">
+                <TableRow key={limit.id} className="align-middle">
                   <TableCell className="px-4 py-3">
                     <span className="block font-main-ui-action text-content-primary">
                       {limit.scope === "GROUP" && limit.groupName
@@ -159,8 +151,10 @@ export function UsageLimits() {
                   <TableCell className="px-4 py-3">
                     <Spend limit={limit} />
                   </TableCell>
-                  <TableCell className="px-4 py-3 font-secondary-body text-content-secondary tabular-nums">
-                    {ui("{{days}} days", { days: limit.periodDays })}
+                  <TableCell className="px-4 py-3">
+                    <span className="font-secondary-body text-content-secondary tabular-nums">
+                      {ui("{{days}} days", { days: limit.periodDays })}
+                    </span>
                   </TableCell>
                   <TableCell className="px-4 py-3">
                     <Switch
@@ -185,11 +179,8 @@ export function UsageLimits() {
                     <IconButton
                       aria-label={ui("Remove")}
                       prominence="tertiary"
-                      onClick={() =>
-                        remove.mutate({
-                          path: { limitId: limit.id },
-                        })
-                      }
+                      pending={remove.isPending && remove.variables?.path.limitId === limit.id}
+                      onClick={() => remove.mutate({ path: { limitId: limit.id } })}
                     >
                       <Trash2 aria-hidden="true" />
                     </IconButton>
@@ -201,7 +192,7 @@ export function UsageLimits() {
         </div>
       )}
 
-      <AddLimit open={adding} onOpenChange={setAdding} onCreated={() => void refresh()} />
+      <AddLimitDialog open={adding} onOpenChange={setAdding} onCreated={() => void refresh()} />
     </section>
   );
 }
@@ -209,9 +200,10 @@ export function UsageLimits() {
 /** Both budgets read on one line, with the bar carrying the tighter of the two. */
 function Spend({ limit }: { limit: AiUsageLimit }) {
   const ui = useAppTranslation();
+  const used = share(limit);
   return (
-    <span className="block min-w-0">
-      <span className="block font-secondary-body text-content-secondary tabular-nums">
+    <span className="flex min-w-0 flex-col gap-1.5">
+      <span className="flex flex-wrap items-center gap-2 font-secondary-body text-content-secondary tabular-nums">
         {limit.tokenBudget
           ? ui(
               appText("{{used}} / {{budget}} token", {
@@ -229,165 +221,23 @@ function Spend({ limit }: { limit: AiUsageLimit }) {
               }),
             )
           : null}
+        {/* A budget that is nearly spent says so, as Langdock warns before it blocks. */}
+        {used >= 1 ? (
+          <StatusBadge tone="danger" size="sm">
+            {ui("Spent")}
+          </StatusBadge>
+        ) : used >= 0.8 ? (
+          <StatusBadge tone="warning" size="sm">
+            {ui("Nearly spent")}
+          </StatusBadge>
+        ) : null}
       </span>
-      {/* A bar that is nearly full says so, as Langdock warns before it blocks. */}
-      <Progress
-        className={cn("mt-1.5 h-1.5", barTone(share(limit)))}
-        value={Math.round(share(limit) * 100)}
-        aria-hidden="true"
-      />
+      <Progress className="h-1.5" value={Math.round(used * 100)} aria-hidden="true" />
       {limit.scope === "PERSON" ? (
-        <span className="mt-1 block font-secondary-body text-content-muted">
+        <span className="block font-secondary-body text-content-muted">
           {ui("The person who spent the most")}
         </span>
       ) : null}
     </span>
-  );
-}
-
-function AddLimit({
-  open,
-  onOpenChange,
-  onCreated,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onCreated: () => void;
-}) {
-  const ui = useAppTranslation();
-  const [scope, setScope] = useState<AiUsageLimitScope>("TENANT");
-  const [groupId, setGroupId] = useState<string>("");
-  const [tokens, setTokens] = useState("");
-  const [cost, setCost] = useState("");
-  const [days, setDays] = useState("30");
-  const groups = useQuery({ ...listGroupsOptions({ query: { size: 100 } }), enabled: open });
-  const create = useMutation({
-    ...createAiUsageLimitMutation(),
-    onSuccess: () => {
-      onCreated();
-      onOpenChange(false);
-      setTokens("");
-      setCost("");
-    },
-  });
-  const usable = (tokens.trim() !== "" || cost.trim() !== "") && (scope !== "GROUP" || groupId);
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{ui("Add a limit")}</DialogTitle>
-          <DialogDescription>
-            {ui(
-              "Set a token budget, a cost budget, or both. A model with no price adds token usage but no cost, so only a token budget caps it.",
-            )}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="limit-scope">{ui("Applies to")}</Label>
-            <Select value={scope} onValueChange={(value) => setScope(value as AiUsageLimitScope)}>
-              <SelectTrigger id="limit-scope">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {scopes.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {ui(scopeLabels[value])}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {scope === "GROUP" ? (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="limit-group">{ui("Group")}</Label>
-              <Select value={groupId} onValueChange={setGroupId}>
-                <SelectTrigger id="limit-group">
-                  <SelectValue placeholder={ui("Choose a group")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {(groups.data?.items ?? []).map((group) => (
-                    <SelectItem key={group.id} value={group.id}>
-                      {group.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="limit-tokens">{ui("Token budget")}</Label>
-              <Input
-                id="limit-tokens"
-                inputMode="numeric"
-                value={tokens}
-                placeholder={ui("No limit")}
-                onChange={(event) => setTokens(event.target.value.replace(/\D/g, ""))}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="limit-cost">{ui("Cost budget (USD)")}</Label>
-              <Input
-                id="limit-cost"
-                inputMode="decimal"
-                value={cost}
-                placeholder={ui("No limit")}
-                onChange={(event) => setCost(event.target.value.replace(/[^\d.]/g, ""))}
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="limit-period">{ui("Period")}</Label>
-            <Select value={days} onValueChange={setDays}>
-              <SelectTrigger id="limit-period">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {periodChoices.map((value) => (
-                  <SelectItem key={value} value={String(value)}>
-                    {ui("{{days}} days", { days: value })}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {create.isError ? (
-            <p role="alert" className="font-secondary-body text-status-danger-content">
-              {ui("The limit could not be saved. Check the budget and try again.")}
-            </p>
-          ) : null}
-        </div>
-
-        <DialogFooter>
-          <Button prominence="secondary" onClick={() => onOpenChange(false)}>
-            {ui("Cancel")}
-          </Button>
-          <Button
-            disabled={!usable || create.isPending}
-            onClick={() =>
-              create.mutate({
-                body: {
-                  scope,
-                  groupId: scope === "GROUP" ? groupId : undefined,
-                  tokenBudget: tokens.trim() === "" ? undefined : Number(tokens),
-                  costBudgetUsd: cost.trim() === "" ? undefined : Number(cost),
-                  periodDays: Number(days),
-                  enabled: true,
-                },
-              })
-            }
-          >
-            {ui("Save")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
