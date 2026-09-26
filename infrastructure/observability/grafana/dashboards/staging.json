@@ -1,8 +1,8 @@
 {
   "uid": "memoryos-staging",
-  "title": "MemoryOS staging",
+  "title": "MemoryOS overview",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "editable": false,
   "timezone": "browser",
   "tags": [
@@ -421,6 +421,19 @@
         "overrides": []
       },
       "options": {}
+    }
+  ],
+  "description": "Landing page: HTTP, JVM, pools, workers, ingestion, errors and alert state. Linked to the service, Chat & AI and traces dashboards.",
+  "links": [
+    {
+      "title": "MemoryOS",
+      "type": "dashboards",
+      "tags": [
+        "memoryos"
+      ],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": true
     }
   ]
 }

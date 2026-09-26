@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
-    <springProfile name="!staging">
+    <springProfile name="!(staging | production)">
         <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
     </springProfile>
-    <springProfile name="staging">
+    <springProfile name="staging | production">
         <include resource="org/springframework/boot/logging/logback/structured-console-appender.xml"/>
     </springProfile>
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
     </root>
-    <springProfile name="staging">
+    <springProfile name="staging | production">
         <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
             <captureKeyValuePairAttributes>true</captureKeyValuePairAttributes>
             <captureMdcAttributes>operation_id,delivery_id,workload</captureMdcAttributes>

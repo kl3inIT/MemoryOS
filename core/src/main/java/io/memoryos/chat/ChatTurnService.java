@@ -35,6 +35,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -60,6 +61,7 @@ public final class ChatTurnService implements AutoCloseable {
     private final @Nullable ResearchProperties research;
     private final @Nullable McpTurnService mcp;
     private final @Nullable ChatGuardrailCheck guardrails;
+    private final @Nullable ChatTurnMetrics metrics;
     private final ChatExecutionProperties limits;
     private final TaskExecutor executor;
     private final StreamBufferWriter streams;
@@ -114,7 +116,19 @@ public final class ChatTurnService implements AutoCloseable {
             @Nullable ResearchProperties research,
             @Nullable McpTurnService mcp,
             @Nullable AiUsageLimitService spending, @Nullable ChatGuardrailCheck guardrails) {
+        this(persistence, model, limits, executor, streams, models, web, images, settings, research, mcp, spending, guardrails, null);
+    }
+
+    public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
+            @Nullable WebConnectionService web,
+            @Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
+            @Nullable ResearchProperties research,
+            @Nullable McpTurnService mcp,
+            @Nullable AiUsageLimitService spending, @Nullable ChatGuardrailCheck guardrails,
+            @Nullable ChatTurnMetrics metrics) {
         this.guardrails = guardrails;
+        this.metrics = metrics;
         this.spending = spending;
         this.research = research;
         this.persistence = persistence;
@@ -427,6 +441,7 @@ public final class ChatTurnService implements AutoCloseable {
         } finally {
             // Also close the product lifecycle if framework linkage or another Error escapes the task.
             run.finish(ChatMessage.Status.FAILED, "CHAT_EXECUTION_FAILED");
+            measure(run);
             finalizeRun(run);
             retireWhenDrained(run);
         }
@@ -436,6 +451,25 @@ public final class ChatTurnService implements AutoCloseable {
         if (text.isEmpty()) return;
         run.append(text, limits.maxAnswerCharacters());
         streams.append(run.setup.assistantMessageId(), text);
+        firstText(run);
+    }
+
+    private void firstText(Active run) {
+        if (metrics != null && run.firstTextShown.compareAndSet(false, true))
+            metrics.firstText(run.grounded, System.nanoTime() - run.admitted);
+    }
+
+    private void measure(Active run) {
+        var outcome = run.outcome;
+        if (metrics == null || outcome == null) return;
+        try {
+            metrics.turn(outcome.status(), outcome.failure(), outcome.refusal(), run.grounded, run.setup.research().enabled(),
+                    System.nanoTime() - run.admitted);
+        } catch (RuntimeException failure) {
+            // Telemetry never changes a turn's outcome.
+            LOG.atWarn().addKeyValue("event", "chat.metrics.not_recorded")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat turn metrics not recorded");
+        }
     }
 
     /**
@@ -445,11 +479,14 @@ public final class ChatTurnService implements AutoCloseable {
     private boolean checkGuardrails(Active run) {
         if (guardrails == null || !ChatGuardrailCheck.applies(run.setup, run.policy)) return true;
         ChatGuardrailCheck.Result result;
+        long started = System.nanoTime();
         try {
             result = guardrails.check(run.setup, run.question, run.policy, accounting -> recordCheck(run, accounting));
+            if (metrics != null) metrics.guardrail(result.kind().name().toLowerCase(Locale.ROOT), System.nanoTime() - started);
         } catch (CancellationException stopped) {
             throw stopped;
         } catch (RuntimeException failure) {
+            if (metrics != null) metrics.guardrail("unavailable", System.nanoTime() - started);
             // Fail closed: a turn whose question could not be checked is not answered.
             LOG.atWarn().addKeyValue("event", "chat.guardrail.unavailable").addKeyValue("message_id", run.setup.assistantMessageId())
                     .addKeyValue("error_type", failure.getClass().getName()).log("Chat guardrail check unavailable");
@@ -491,6 +528,7 @@ public final class ChatTurnService implements AutoCloseable {
     private void refuse(Active run, String reason, String text) {
         boolean shown = run.refuse(reason, text);
         streams.append(run.setup.assistantMessageId(), shown ? "\n\n" + text : text);
+        firstText(run);
     }
 
     private void recordCheck(Active run, ModelAccounting accounting) {
@@ -660,9 +698,14 @@ public final class ChatTurnService implements AutoCloseable {
         final ReentrantLock finalizing = new ReentrantLock();
         volatile Outcome outcome;
         volatile ModelAccounting accounting = ModelAccounting.NONE;
+        /** For the turn metrics: when the turn was admitted, whether it was grounded then, and whether text has shown. */
+        final long admitted = System.nanoTime();
+        final boolean grounded;
+        final AtomicBoolean firstTextShown = new AtomicBoolean();
         Active(ChatTurnSetup setup, ModelResolver.Resolved resolved, ChatSettingsService.TurnPolicy policy, String question,
                @Nullable String uiLanguage) {
             this.setup = setup; this.resolved = resolved; this.policy = policy; this.question = question; this.uiLanguage = uiLanguage;
+            this.grounded = setup.options().grounded();
         }
         synchronized int sourceCount() { return sources.size(); }
         /** Replaces the answer with a refusal; returns whether answer text had already been released. */
