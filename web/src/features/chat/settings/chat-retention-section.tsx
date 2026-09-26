@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock } from "lucide-react";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -15,9 +15,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { getChatRetention, previewChatRetention, saveChatRetention } from "@/lib/hey-api/sdk.gen";
+import {
+  getChatRetentionOptions,
+  getChatRetentionQueryKey,
+  previewChatRetentionOptions,
+  previewChatRetentionQueryKey,
+  saveChatRetentionMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import { actionErrorText } from "@/lib/action-errors";
 import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
@@ -35,18 +40,14 @@ const CUSTOM = "custom";
  */
 export function ChatRetentionSection() {
   const ui = useAppTranslation();
-  const { actorId, authorizationVersion } = useApplicationSession();
-  const policy = useQuery({
-    queryKey: ["chat-retention", actorId, authorizationVersion],
-    queryFn: ({ signal }) => getChatRetention({ signal }).then((answer) => answer.data),
-  });
+  const policy = useQuery(getChatRetentionOptions());
 
   return (
     <section aria-labelledby="chat-retention-heading" className="flex max-w-2xl flex-col gap-3">
       <h2 id="chat-retention-heading" className="font-heading-h3 text-content-primary">
         {ui("Tự xoá hội thoại")}
       </h2>
-      {policy.isPending && <Skeleton className="h-24 w-full rounded-xl" />}
+      {policy.isPending && <Skeleton className="h-24 w-full" />}
       {policy.isError && (
         <Alert variant="destructive">
           <AlertTitle>{ui("Không tải được thiết lập tự xoá.")}</AlertTitle>
@@ -65,13 +66,10 @@ function RetentionForm({ saved }: { saved: number | null }) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
   const refreshSessions = useRefreshChatSessions();
-  const { actorId, authorizationVersion } = useApplicationSession();
   const preset =
     saved === null ? OFF : (PRESETS as readonly number[]).includes(saved) ? String(saved) : CUSTOM;
   const [choice, setChoice] = useState<string>(preset);
   const [custom, setCustom] = useState(String(saved ?? 90));
-  const [failure, setFailure] = useState<string>();
-  const [done, setDone] = useState(false);
 
   const typed = Number.parseInt(custom, 10);
   const valid = Number.isInteger(typed) && typed >= 1 && typed <= MAX_DAYS;
@@ -79,33 +77,20 @@ function RetentionForm({ saved }: { saved: number | null }) {
   const unchanged = days === saved;
 
   const preview = useQuery({
-    queryKey: ["chat-retention-preview", actorId, authorizationVersion, days],
-    queryFn: ({ signal }) =>
-      previewChatRetention({ query: { days: days ?? undefined }, signal }).then(
-        (answer) => answer.data,
-      ),
+    ...previewChatRetentionOptions({ query: { days: days ?? undefined } }),
     enabled: days !== null,
   });
   const affected = days === null ? 0 : (preview.data?.affected ?? 0);
 
-  const save = async () => {
-    setFailure(undefined);
-    setDone(false);
-    try {
-      await saveChatRetention({
-        // Leaving the field out is what clears the policy; there is no partial update to confuse it with.
-        body: days === null ? {} : { days },
-        signal: AbortSignal.timeout(30000),
-      });
-      setDone(true);
-      await cache.invalidateQueries({ queryKey: ["chat-retention"] });
-      await cache.invalidateQueries({ queryKey: ["chat-retention-preview"] });
-      await refreshSessions();
-    } catch (cause) {
-      setFailure(actionErrorText(cause));
-      throw cause;
-    }
-  };
+  const save = useMutation({
+    ...saveChatRetentionMutation(),
+    onSuccess: () =>
+      Promise.all([
+        cache.invalidateQueries({ queryKey: getChatRetentionQueryKey() }),
+        cache.invalidateQueries({ queryKey: previewChatRetentionQueryKey() }),
+        refreshSessions(),
+      ]),
+  });
 
   return (
     <SettingRows>
@@ -124,7 +109,7 @@ function RetentionForm({ saved }: { saved: number | null }) {
             value={choice}
             onValueChange={(next) => {
               setChoice(next);
-              setDone(false);
+              save.reset();
             }}
           >
             <SelectTrigger aria-label={ui("Xoá hội thoại sau")} className="w-44">
@@ -143,22 +128,23 @@ function RetentionForm({ saved }: { saved: number | null }) {
         }
       />
       {choice === CUSTOM && (
-        <div className="flex flex-col gap-2 px-4 py-3">
-          <Label htmlFor="retention-days">{ui("Số ngày không hoạt động")}</Label>
-          <Input
-            id="retention-days"
-            type="number"
-            min={1}
-            max={MAX_DAYS}
-            value={custom}
-            className="w-40"
-            onChange={(event) => setCustom(event.target.value)}
-          />
-          {!valid && (
-            <p role="alert" className="font-secondary-body text-status-danger-content">
-              {ui("Số ngày phải từ 1 đến {{max}}.", { max: MAX_DAYS })}
-            </p>
-          )}
+        <div className="px-4 py-3">
+          <Field data-invalid={!valid || undefined}>
+            <FieldLabel htmlFor="retention-days">{ui("Số ngày không hoạt động")}</FieldLabel>
+            <Input
+              id="retention-days"
+              type="number"
+              min={1}
+              max={MAX_DAYS}
+              value={custom}
+              aria-invalid={!valid || undefined}
+              className="w-40"
+              onChange={(event) => setCustom(event.target.value)}
+            />
+            {!valid && (
+              <FieldError>{ui("Số ngày phải từ 1 đến {{max}}.", { max: MAX_DAYS })}</FieldError>
+            )}
+          </Field>
         </div>
       )}
       <div className="flex flex-col gap-3 px-4 py-3">
@@ -171,12 +157,12 @@ function RetentionForm({ saved }: { saved: number | null }) {
             </AlertTitle>
           </Alert>
         )}
-        {failure && (
+        {save.isError && (
           <Alert variant="destructive">
-            <AlertTitle>{failure}</AlertTitle>
+            <AlertTitle>{actionErrorText(save.error)}</AlertTitle>
           </Alert>
         )}
-        {done && (
+        {save.isSuccess && (
           <Alert variant="success">
             <AlertTitle>{ui("Đã lưu thiết lập tự xoá.")}</AlertTitle>
           </Alert>
@@ -198,7 +184,13 @@ function RetentionForm({ saved }: { saved: number | null }) {
           confirmLabel={ui("Lưu thiết lập")}
           pendingLabel={ui("Đang lưu…")}
           confirmTone={affected > 0 ? "danger" : "default"}
-          onConfirm={save}
+          onConfirm={async () => {
+            // Leaving the field out is what clears the policy; there is no partial update to confuse it with.
+            await save.mutateAsync({
+              body: days === null ? {} : { days },
+              signal: AbortSignal.timeout(30000),
+            });
+          }}
         />
       </div>
     </SettingRows>

@@ -1,20 +1,27 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { describe, expect, it } from "vitest";
+import {
+  handleGetChatPreferences,
+  handleListAvailableChatModels,
+  handleSaveChatPreferences,
+} from "@/lib/hey-api/msw.gen";
+import { server } from "@/test/msw";
 import { createMemoryOsQueryClient } from "@/lib/query-client";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
 import { ChatPreferencesSections } from "./chat-preferences-sections";
 import { ProfileSection } from "@/features/identity/profile-section";
 
-afterEach(() => vi.unstubAllGlobals());
-
 const saved = {
   workRole: "Kế toán trưởng",
   personalPreferences: "",
   defaultModelId: null,
   autoScroll: true,
+  temperatureDefault: null,
+  reasoningEffortDefault: "MEDIUM" as const,
   displayName: "Trần Thu Hà",
   email: "ha.tt@tasco.vn",
 };
@@ -41,20 +48,20 @@ const session: ApplicationSession = {
 };
 
 function mount(ui: React.ReactNode) {
-  const puts: unknown[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (request: Request) => {
-      if (request.method === "PUT") {
-        const body = await request.clone().json();
-        puts.push(body);
-        return Response.json({ ...saved, ...body, defaultModelId: body.defaultModelId ?? null });
-      }
-      if (request.url.includes("/api/chat/preferences")) return Response.json(saved);
-      return Response.json([
-        model("luna", "OpenAI", "GPT-5.6 Luna"),
-        model("qwen", "vLLM nội bộ", "qwen3-32b"),
-      ]);
+  const puts: Record<string, unknown>[] = [];
+  server.use(
+    handleGetChatPreferences({ body: saved }),
+    handleSaveChatPreferences(async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      puts.push(body);
+      return HttpResponse.json({
+        ...saved,
+        ...body,
+        defaultModelId: (body.defaultModelId as string | undefined) ?? null,
+      });
+    }),
+    handleListAvailableChatModels({
+      body: [model("luna", "OpenAI", "GPT-5.6 Luna"), model("qwen", "vLLM nội bộ", "qwen3-32b")],
     }),
   );
   render(

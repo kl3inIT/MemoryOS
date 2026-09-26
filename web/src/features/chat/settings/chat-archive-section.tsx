@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Archive, ArchiveRestore } from "lucide-react";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { archiveAllChatSessions } from "@/lib/hey-api/sdk.gen";
+import { archiveAllChatSessionsMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
 /**
@@ -15,7 +15,11 @@ import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-con
 export function ChatArchiveSection() {
   const ui = useAppTranslation();
   const refreshSessions = useRefreshChatSessions();
-  const [archived, setArchived] = useState<number>();
+  const archiveAll = useMutation({
+    ...archiveAllChatSessionsMutation(),
+    onSuccess: () => refreshSessions(),
+  });
+  const archived = archiveAll.data?.archived;
   return (
     <section aria-labelledby="chat-archive-heading" className="flex max-w-2xl flex-col gap-3">
       <h2 id="chat-archive-heading" className="font-heading-h3 text-content-primary">
@@ -50,11 +54,7 @@ export function ChatArchiveSection() {
               confirmLabel={ui("Lưu trữ tất cả")}
               pendingLabel={ui("Đang lưu trữ…")}
               onConfirm={async () => {
-                const { data } = await archiveAllChatSessions({
-                  signal: AbortSignal.timeout(60000),
-                });
-                setArchived(data.archived);
-                await refreshSessions();
+                await archiveAll.mutateAsync({ signal: AbortSignal.timeout(60000) });
               }}
             />
           }

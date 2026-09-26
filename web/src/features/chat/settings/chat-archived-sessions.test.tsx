@@ -1,25 +1,25 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { HttpResponse } from "msw";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n/index";
-import type { ChatSession } from "@/lib/hey-api/types.gen";
+import {
+  handleDeleteChatSession,
+  handleListChatSessions,
+  handleSearchChatSessions,
+  handleUnarchiveChatSession,
+} from "@/lib/hey-api/msw.gen";
+import type { ChatSession, ChatSessionSearchPage } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { ChatArchivedSessionsPage } from "./chat-archived-sessions";
 
-const listChatSessions = vi.hoisted(() => vi.fn());
-const searchChatSessions = vi.hoisted(() => vi.fn());
-const unarchiveChatSession = vi.hoisted(() => vi.fn());
-const deleteChatSession = vi.hoisted(() => vi.fn());
-
-vi.mock("@/lib/hey-api/sdk.gen", () => ({
-  listChatSessions: (...args: unknown[]) => listChatSessions(...args),
-  searchChatSessions: (...args: unknown[]) => searchChatSessions(...args),
-  unarchiveChatSession: (...args: unknown[]) => unarchiveChatSession(...args),
-  deleteChatSession: (...args: unknown[]) => deleteChatSession(...args),
-}));
-vi.mock("@/features/identity/application-session-context", () => ({
-  useApplicationSession: () => ({ actorId: "actor", authorizationVersion: 1, capabilities: [] }),
-}));
+/** The requests the page sent, as the query or path each carried. */
+const listChatSessions = vi.fn<(query: Record<string, string>) => void>();
+const searchChatSessions = vi.fn<(query: Record<string, string>) => void>();
+const unarchiveChatSession = vi.fn<(sessionId: string) => void>();
+const deleteChatSession = vi.fn<(sessionId: string) => void>();
+let found: ChatSessionSearchPage = { items: [], hasMore: false };
 vi.mock("@/components/app-shell/app-shell", () => ({
   AppShell: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
@@ -43,7 +43,24 @@ const archived: ChatSession = {
 };
 
 function show(sessions: ChatSession[] = [archived]) {
-  listChatSessions.mockResolvedValue({ data: sessions });
+  server.use(
+    handleListChatSessions(({ request }) => {
+      listChatSessions(Object.fromEntries(new URL(request.url).searchParams));
+      return HttpResponse.json(sessions);
+    }),
+    handleSearchChatSessions(({ request }) => {
+      searchChatSessions(Object.fromEntries(new URL(request.url).searchParams));
+      return HttpResponse.json(found);
+    }),
+    handleUnarchiveChatSession(({ params }) => {
+      unarchiveChatSession(String(params.sessionId));
+      return HttpResponse.json({ ...archived, archivedAt: null });
+    }),
+    handleDeleteChatSession(({ params }) => {
+      deleteChatSession(String(params.sessionId));
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
@@ -62,11 +79,10 @@ afterEach(cleanup);
 it("lists what the owner archived and puts one back", async () => {
   show();
   const user = userEvent.setup();
-  unarchiveChatSession.mockResolvedValue({ data: { ...archived, archivedAt: null } });
 
   await waitFor(() =>
     expect(listChatSessions).toHaveBeenCalledWith(
-      expect.objectContaining({ query: expect.objectContaining({ archived: true, offset: 0 }) }),
+      expect.objectContaining({ archived: "true", offset: "0" }),
     ),
   );
   const row = (await screen.findByText("Doanh thu quý 3")).closest("li")!;
@@ -74,40 +90,34 @@ it("lists what the owner archived and puts one back", async () => {
 
   await user.click(within(row).getByRole("button", { name: "Bỏ lưu trữ" }));
 
-  await waitFor(() =>
-    expect(unarchiveChatSession).toHaveBeenCalledWith(
-      expect.objectContaining({ path: { sessionId: archived.id } }),
-    ),
-  );
+  await waitFor(() => expect(unarchiveChatSession).toHaveBeenCalledWith(archived.id));
 });
 
 it("asks the server when searching, and only shows the archived matches", async () => {
   show();
   const user = userEvent.setup();
-  searchChatSessions.mockResolvedValue({
-    data: {
-      items: [
-        { session: archived, snippet: null },
-        // A match that is not archived belongs to the sidebar, not to this page.
-        {
-          session: {
-            ...archived,
-            id: "44444444-4444-4444-8444-444444444444",
-            title: "Đang dùng",
-            archivedAt: null,
-          },
-          snippet: null,
+  found = {
+    items: [
+      { session: archived, snippet: null },
+      // A match that is not archived belongs to the sidebar, not to this page.
+      {
+        session: {
+          ...archived,
+          id: "44444444-4444-4444-8444-444444444444",
+          title: "Đang dùng",
+          archivedAt: null,
         },
-      ],
-      hasMore: false,
-    },
-  });
+        snippet: null,
+      },
+    ],
+    hasMore: false,
+  };
 
   await user.type(screen.getByRole("textbox", { name: "Tìm trong hội thoại đã lưu trữ" }), "doanh");
 
   await waitFor(() =>
     expect(searchChatSessions).toHaveBeenLastCalledWith(
-      expect.objectContaining({ query: expect.objectContaining({ query: "doanh" }) }),
+      expect.objectContaining({ query: "doanh" }),
     ),
   );
   expect(await screen.findByText("Doanh thu quý 3")).toBeInTheDocument();
@@ -123,16 +133,11 @@ it("says so when nothing is archived", async () => {
 it("deletes an archived conversation after the confirmation", async () => {
   show();
   const user = userEvent.setup();
-  deleteChatSession.mockResolvedValue({ data: undefined });
 
   await user.click(await screen.findByRole("button", { name: "Xoá hội thoại Doanh thu quý 3" }));
   await user.click(
     within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Xóa hội thoại" }),
   );
 
-  await waitFor(() =>
-    expect(deleteChatSession).toHaveBeenCalledWith(
-      expect.objectContaining({ path: { sessionId: archived.id } }),
-    ),
-  );
+  await waitFor(() => expect(deleteChatSession).toHaveBeenCalledWith(archived.id));
 });

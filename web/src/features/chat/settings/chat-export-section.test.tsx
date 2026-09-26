@@ -1,21 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { HttpResponse } from "msw";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n/index";
+import { handleListChatExports, handleRequestChatExport } from "@/lib/hey-api/msw.gen";
 import type { ChatExport } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { ChatExportSection } from "./chat-export-section";
 
-const listChatExports = vi.hoisted(() => vi.fn());
-const requestChatExport = vi.hoisted(() => vi.fn());
-
-vi.mock("@/lib/hey-api/sdk.gen", () => ({
-  listChatExports: (...args: unknown[]) => listChatExports(...args),
-  requestChatExport: (...args: unknown[]) => requestChatExport(...args),
-}));
-vi.mock("@/features/identity/application-session-context", () => ({
-  useApplicationSession: () => ({ actorId: "actor", authorizationVersion: 1, capabilities: [] }),
-}));
+const requestChatExport = vi.fn();
 
 const ready: ChatExport = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -30,7 +24,13 @@ const ready: ChatExport = {
 };
 
 function show(exports: ChatExport[]) {
-  listChatExports.mockResolvedValue({ data: exports });
+  server.use(
+    handleListChatExports({ body: exports }),
+    handleRequestChatExport(() => {
+      requestChatExport();
+      return HttpResponse.json({ ...ready, status: "PENDING" }, { status: 202 });
+    }),
+  );
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
@@ -49,7 +49,6 @@ afterEach(cleanup);
 it("asks for an export and offers the download when it is ready", async () => {
   show([ready]);
   const user = userEvent.setup();
-  requestChatExport.mockResolvedValue({ data: { ...ready, status: "PENDING" } });
 
   expect(
     await screen.findByText("Bản xuất đã sẵn sàng: 3 hội thoại, 2 tệp · 2 KB"),
