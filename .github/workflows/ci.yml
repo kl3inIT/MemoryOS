@@ -190,6 +190,27 @@ jobs:
       - name: Verify off-host backup and retention
         run: python3 -m unittest discover -s infrastructure/backup -p 'test_*.py'
 
+      - name: Analyse a test heap dump
+        # A test JVM that ran out of heap left a dump; Eclipse MAT names what held it.
+        if: ${{ failure() && hashFiles('core/build/heapdump/*.hprof') != '' }}
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/mat.zip "https://www.eclipse.org/downloads/download.php?file=/mat/1.17.0/rcp/MemoryAnalyzer-1.17.0.20260601-linux.gtk.x86_64.zip&r=1"
+          unzip -q /tmp/mat.zip -d /tmp
+          for dump in core/build/heapdump/*.hprof; do
+            /tmp/mat/ParseHeapDump.sh "$dump" org.eclipse.mat.api:suspects org.eclipse.mat.api:top_components -vmargs -Xmx10g
+          done
+          mkdir -p core/build/heapdump-reports
+          mv core/build/heapdump/*_Leak_Suspects.zip core/build/heapdump/*_Top_Components.zip core/build/heapdump-reports/
+
+      - name: Upload the heap dump analysis
+        if: ${{ failure() && hashFiles('core/build/heapdump-reports/*.zip') != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: core-heap-analysis
+          path: core/build/heapdump-reports/*.zip
+          retention-days: 3
+
       - name: Upload backend test reports
         if: ${{ !cancelled() }}
         continue-on-error: true
@@ -198,7 +219,6 @@ jobs:
           name: backend-tests
           path: |
             core/build/test-results/test/*.xml
-            core/build/test-results/test/oom-histogram-*.txt
             sources/build/test-results/test/*.xml
             api/build/test-results/test/*.xml
             worker/build/test-results/test/*.xml
