@@ -1,0 +1,107 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": ["./.oxlintrc.json"],
+  "plugins": ["react", "typescript", "oxc", "jsx-a11y", "import"],
+  "jsPlugins": ["@shadcn/lint"],
+  "rules": {
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "shadcn/no-raw-colors": "error",
+    "shadcn/no-unknown-classes": [
+      "error",
+      {
+        "allow": ["aui-*", "brand-loader", "brand-loader__*"]
+      }
+    ],
+    "shadcn/no-inline-styles": "error",
+    "shadcn/require-static-classes": "error",
+    "shadcn/no-arbitrary-values": [
+      "error",
+      {
+        "allow": [
+          "*-[calc(*)]",
+          "*-[var(*)]",
+          "*-(--*)",
+          "*-[min(*)]",
+          "*-[max(*)]",
+          "*-[clamp(*)]"
+        ]
+      }
+    ],
+    "shadcn/no-restyle": [
+      "error",
+      {
+        "allow": ["layout"],
+        "contracts": [
+          {
+            "pattern": "^(Table|TableHeader|TableBody|TableFooter|TableRow|TableHead|TableCell|TableCaption|Input|Textarea|Select|SelectTrigger|NativeSelect|Button|IconButton|PopoverContent|Skeleton|CollapsibleTrigger)$",
+            "allow": [
+              "layout",
+              "p",
+              "px",
+              "py",
+              "pt",
+              "pr",
+              "pb",
+              "pl",
+              "ps",
+              "pe",
+              "text-alignment",
+              "text-overflow",
+              "whitespace",
+              "break",
+              "line-clamp",
+              "vertical-align"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/components/ui/**/*.tsx"],
+      "rules": {
+        "shadcn/no-restyle": "off",
+        "shadcn/no-arbitrary-values": "off"
+      }
+    },
+    {
+      "files": [
+        "src/features/sources/google-drive/google-drive-icon.tsx",
+        "src/features/sources/sharepoint/sharepoint-icon.tsx",
+        "src/components/assistant-ui/elements/logos.tsx",
+        "src/components/brand-loader.tsx",
+        "src/components/brand.tsx"
+      ],
+      "rules": {
+        "shadcn/no-raw-colors": "off",
+        "shadcn/no-arbitrary-values": "off",
+        "shadcn/no-inline-styles": "off"
+      }
+    },
+    {
+      "files": [
+        "src/components/ui/progress.tsx",
+        "src/components/ui/chart.tsx",
+        "src/components/assistant-ui/elements/conversation-search.tsx",
+        "src/components/assistant-ui/elements/mermaid-diagram.tsx",
+        "src/components/assistant-ui/elements/surfaces.tsx",
+        "src/features/agents/admin-agents-page.tsx",
+        "src/features/chat/research/chat-research-view.tsx",
+        "src/features/library/image-cropper.tsx",
+        "src/features/library/storage-meter.tsx",
+        "src/features/meetings/meeting-transcript.tsx",
+        "src/features/preview/csv-view.tsx",
+        "src/features/preview/image-view.tsx",
+        "src/features/preview/pdf-view.tsx",
+        "src/features/preview/preview-surface.tsx",
+        "src/features/usage/ai-costs-page.tsx",
+        "src/features/usage/my-usage-page.tsx",
+        "src/features/voice/chat-dictation-controls.tsx"
+      ],
+      "rules": {
+        "shadcn/no-inline-styles": "off"
+      }
+    }
+  ]
+}

@@ -14,6 +14,7 @@
     "build": "vite build && node scripts/assert-font-assets.mjs && node scripts/assert-bundle-budget.mjs && tsc -b",
     "check:routes": "node scripts/assert-generated-stable.mjs src/routeTree.gen.ts -- pnpm build",
     "lint": "oxlint --deny-warnings .",
+    "lint:target": "oxlint -c .oxlintrc.target.json --deny-warnings",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "test:unit": "vitest run",
