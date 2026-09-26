@@ -28,7 +28,7 @@ public class KeycloakIdentityProviderGateway implements IdentityProviderGateway 
     private final Keycloak keycloak;
     private final String realm;
 
-    public KeycloakIdentityProviderGateway(Keycloak keycloak, KeycloakAdminProperties properties) {
+    KeycloakIdentityProviderGateway(Keycloak keycloak, KeycloakAdminProperties properties) {
         this.keycloak = Objects.requireNonNull(keycloak, "keycloak must not be null");
         this.realm = Objects.requireNonNull(properties, "properties must not be null").realm();
     }

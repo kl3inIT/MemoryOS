@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import org.jspecify.annotations.Nullable;
@@ -148,12 +149,13 @@ public final class RestGoogleDriveAccountClient implements GoogleDriveAccountCli
         String nonce = identity.getClaimAsString("nonce");
         String authorizedParty = identity.getClaimAsString("azp");
         String email = identity.getClaimAsString("email");
+        List<String> audience = identity.getAudience();
         if (nonce == null || !equal(expectedNonce, nonce)
                 || !Boolean.TRUE.equals(identity.getClaimAsBoolean("email_verified"))
                 || identity.getExpiresAt() == null || identity.getIssuedAt() == null
                 || identity.getIssuedAt().isAfter(Instant.now().plusSeconds(60))
                 || identity.getSubject() == null || identity.getSubject().isBlank() || email == null || email.isBlank()
-                || (identity.getAudience().size() > 1 && authorizedParty == null)
+                || audience == null || (audience.size() > 1 && authorizedParty == null)
                 || (authorizedParty != null && !oauthClient.clientId().equals(authorizedParty))) throw invalid();
         String accessToken = text(token, "access_token");
         String atHash = identity.getClaimAsString("at_hash");

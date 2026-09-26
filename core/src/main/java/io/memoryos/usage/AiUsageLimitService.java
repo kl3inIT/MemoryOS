@@ -75,17 +75,25 @@ public class AiUsageLimitService {
      */
     @Transactional(readOnly = true)
     public Optional<Breach> check(ActorId actor) {
+        return breach(actor);
+    }
+
+    /**
+     * The check with its refusal: what a chat turn calls, so every caller refuses the same way. The refusal leaves a
+     * caller's transaction usable, since a caller may catch it and carry on.
+     */
+    @Transactional(readOnly = true, noRollbackFor = AiUsageLimitException.class)
+    public void enforce(ActorId actor) {
+        breach(actor).ifPresent(breach -> { throw new AiUsageLimitException(breach, message(breach)); });
+    }
+
+    private Optional<Breach> breach(ActorId actor) {
         TenantId tenant = member(actor);
         if (!anyConfigured(tenant.value())) return Optional.empty();
         for (Weighed weighed : weigh(tenant.value(), actor.value())) {
             if (weighed.breach() != null) return Optional.of(weighed.breach());
         }
         return Optional.empty();
-    }
-
-    /** The check with its refusal: what a chat turn calls, so every caller refuses the same way. */
-    public void enforce(ActorId actor) {
-        check(actor).ifPresent(breach -> { throw new AiUsageLimitException(breach, message(breach)); });
     }
 
     private static String message(Breach breach) {
