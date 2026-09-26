@@ -158,13 +158,8 @@ public class VoiceSynthesisService {
         }
     }
 
-    StreamingSynthesizer streaming(VoiceConnectionService.Connection connection, String key, double speed,
-            Consumer<byte[]> audio, Runnable release) {
-        return streaming(connection, key, speed, audio, release, () -> {});
-    }
-
     /** {@code called} runs before each provider request, so usage is counted only once text reaches the provider. */
-    StreamingSynthesizer streaming(VoiceConnectionService.Connection connection, String key, double speed,
+    private StreamingSynthesizer streaming(VoiceConnectionService.Connection connection, String key, double speed,
             Consumer<byte[]> audio, Runnable release, Runnable called) {
         var provider = provider(connection, key, speed);
         long started = System.nanoTime();

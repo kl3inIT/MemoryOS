@@ -82,6 +82,7 @@ class ChatExportController {
                         .filename(download.filename(), StandardCharsets.UTF_8).build().toString())
                 .contentType(MediaType.parseMediaType("application/zip"))
                 .contentLength(metadata.sizeBytes())
+                // The resource converter closes the stream, and with it the stored object, once the body is written.
                 .body(new InputStreamResource(download.content().inputStream()));
     }
 }

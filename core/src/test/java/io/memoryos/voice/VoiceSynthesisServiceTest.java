@@ -6,10 +6,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.iam.IamAuthorization;
+import io.memoryos.usage.AiUsageRecorder;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -25,6 +30,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.beans.factory.ObjectProvider;
 
 class VoiceSynthesisServiceTest {
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
@@ -124,36 +130,53 @@ class VoiceSynthesisServiceTest {
     }
 
     @Test
-    void streamingSpeechReadsAnswerPartsThroughTheProviderInOrder() throws Exception {
+    void streamingSpeechReadsAnswerPartsThroughTheProviderInOrderAndReturnsItsSlot() throws Exception {
+        var actor = new ActorId(UUID.randomUUID());
+        var reader = reader(actor, mock(AiUsageRecorder.class));
         var audio = new ByteArrayOutputStream();
-        try (var speech = service.streaming(connection(), "voice-secret", 1.5, audio::writeBytes, released::incrementAndGet)) {
+        try (var speech = reader.openStreaming(actor, 1.5, audio::writeBytes)) {
             speech.append("Một.");
             speech.append("Hai.");
             speech.finish().get(10, TimeUnit.SECONDS);
         }
         assertEquals("mp3-1;mp3-2;", audio.toString(UTF_8));
+        assertEquals("Bearer voice-secret", authorization.get());
         assertTrue(bodies.get(0).contains("\"input\":\"Một.\""));
         assertTrue(bodies.get(0).contains("\"speed\":1.5"));
         assertTrue(bodies.get(1).contains("\"input\":\"Hai.\""));
-        assertEquals(1, released.get());
         assertEquals(1, meters.get("memoryos.chat.voice.request").tag("operation", "synthesize").tag("outcome", "succeeded")
                 .timer().count());
+        // Twice the slot count: a slot the finished stream kept would turn the later opens into "busy".
+        for (int attempt = 0; attempt < 16; attempt++) reader.openStreaming(actor, 1.0, _ -> { }).close();
     }
 
     @Test
-    void streamingSpeechReportsProviderCallsOnlyOnceTextIsSent() throws Exception {
-        var calls = new AtomicInteger();
-        try (var unused = service.streaming(connection(), "voice-secret", 1.0, ignored -> {}, released::incrementAndGet,
-                calls::incrementAndGet)) {
+    void streamingSpeechRecordsUsageOnlyOnceTextReachesTheProvider() throws Exception {
+        var actor = new ActorId(UUID.randomUUID());
+        var usage = mock(AiUsageRecorder.class);
+        var reader = reader(actor, usage);
+        try (var unused = reader.openStreaming(actor, 1.0, _ -> { })) {
             // Closed before any answer text: the provider was never called.
         }
-        assertEquals(0, calls.get());
-        try (var speech = service.streaming(connection(), "voice-secret", 1.0, ignored -> {}, released::incrementAndGet,
-                calls::incrementAndGet)) {
+        verify(usage, never()).record(any());
+        try (var speech = reader.openStreaming(actor, 1.0, _ -> { })) {
             speech.append("Một.");
+            speech.append("Hai.");
             speech.finish().get(10, TimeUnit.SECONDS);
         }
-        assertEquals(1, calls.get());
+        verify(usage, times(1)).record(any());
+    }
+
+    /** A reader whose actor resolves to the local provider with a readable key, recording usage into {@code usage}. */
+    @SuppressWarnings("unchecked")
+    private VoiceSynthesisService reader(ActorId actor, AiUsageRecorder usage) {
+        var connections = mock(VoiceConnectionService.class);
+        var tts = connection();
+        Mockito.when(connections.resolve(actor)).thenReturn(new VoiceConnectionService.Access(null, tts));
+        Mockito.when(connections.key(tts)).thenReturn("voice-secret");
+        ObjectProvider<AiUsageRecorder> recorders = mock(ObjectProvider.class);
+        Mockito.when(recorders.getIfAvailable()).thenReturn(usage);
+        return new VoiceSynthesisService(connections, mock(IamAuthorization.class), meters, recorders);
     }
 
     @Test

@@ -305,8 +305,10 @@ public final class ChatModelExecutor {
                         fileContent, setup.actor(), setup.tenant(), setup.assistantMessageId(), setup.fileIds(), fileActive,
                         activity, codeEvents).withSandbox(sandbox)));
             }
-            if (selected.toolCalling() && setup.mcp() != null && !setup.mcp().bindings().isEmpty()) {
-                var mcpTools = new McpTools(setup.mcp(), fileActive,
+            // The turn owns the MCP sessions; ChatTurnService closes them once the run has drained.
+            var mcp = setup.mcp();
+            if (selected.toolCalling() && mcp != null && !mcp.bindings().isEmpty()) {
+                var mcpTools = new McpTools(mcp, fileActive,
                         limits.mcpCallTimeout(), limits.mcpCallCap(), events::accept, activity,
                         guard::availableContextTokens, selected.policy().tokens(), meters);
                 for (var tool : mcpTools.tools()) runner = runner.withTools(List.of(tool));

@@ -44,6 +44,7 @@ class VoiceSynthesisController {
     ResponseEntity<StreamingResponseBody> synthesize(@CurrentActor IdentityContext identity,
             @Valid @RequestBody VoiceSynthesisRequest request) {
         var speech = synthesis.open(identity.actorId(), request.text(), request.speed());
+        // writeTo closes the speech stream, releasing the provider and its slot, whether writing completes or fails.
         StreamingResponseBody body = speech::writeTo;
         return ResponseEntity.ok().contentType(MediaType.parseMediaType(AUDIO_MPEG))
                 .header("X-Accel-Buffering", "no").body(body);
