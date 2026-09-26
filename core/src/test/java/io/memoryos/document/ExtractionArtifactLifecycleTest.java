@@ -1,5 +1,10 @@
 package io.memoryos.document;
 
+import io.memoryos.document.application.DocumentChunkService;
+import io.memoryos.document.application.StructuredDocumentChunker;
+import io.memoryos.document.persistence.JdbcDocumentChunkRepository;
+import io.memoryos.objectstorage.ObjectContent;
+import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.shared.Sha256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -10,12 +15,18 @@ import io.memoryos.TestDatabase;
 import io.memoryos.document.persistence.JdbcDocumentRepository;
 import io.memoryos.document.persistence.JdbcExtractionArtifactRepository;
 import io.memoryos.shared.TenantId;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -58,12 +69,12 @@ class ExtractionArtifactLifecycleTest {
     @Test
     void privateChunksKeepIdentityOnFirstPublicationReloadAndConventionRebuild() {
         var mapper = new ObjectMapper();
-        var chunker = new io.memoryos.document.application.StructuredDocumentChunker(mapper);
-        var storage = org.mockito.Mockito.mock(io.memoryos.objectstorage.ObjectStorage.class);
-        var chunks = new io.memoryos.document.application.DocumentChunkService(
-                new io.memoryos.document.persistence.JdbcDocumentChunkRepository(jdbc, mapper), storage, chunker);
+        var chunker = new StructuredDocumentChunker(mapper);
+        var storage = Mockito.mock(ObjectStorage.class);
+        var chunks = new DocumentChunkService(
+                new JdbcDocumentChunkRepository(jdbc, mapper), storage, chunker);
         String json = "{\"schema\":\"memoryos-extraction-v1\",\"blocks\":[{\"kind\":\"TABLE\",\"table\":{\"cells\":[{\"row\":0,\"column\":0,\"text\":\"Private value\"}]}}]}";
-        byte[] bytes = json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
         UUID artifact = UUID.randomUUID(), file = UUID.randomUUID();
         artifacts.stage(tenant, artifact, "extracted/" + tenant.value() + "/" + artifact,
                 Sha256.hex(json), bytes.length);
@@ -71,24 +82,24 @@ class ExtractionArtifactLifecycleTest {
         var id = transaction.execute(_ -> documents.publish(tenant, null, new DocumentContent("text/csv", "private.csv", "Private value",
                 Map.of("origin", "USER_FILE", "user_file_id", file.toString()), json, artifact), "a".repeat(64)));
         var generation = jdbc.sql("SELECT content_generation FROM documents").query(UUID.class).single();
-        var opened = new java.util.ArrayList<io.memoryos.objectstorage.ObjectContent>();
-        org.mockito.Mockito.when(storage.open(org.mockito.ArgumentMatchers.any())).thenAnswer(_ -> {
-            var content = org.mockito.Mockito.mock(io.memoryos.objectstorage.ObjectContent.class);
-            org.mockito.Mockito.when(content.inputStream()).thenReturn(new java.io.ByteArrayInputStream(bytes));
+        var opened = new ArrayList<ObjectContent>();
+        Mockito.when(storage.open(ArgumentMatchers.any())).thenAnswer(_ -> {
+            var content = Mockito.mock(ObjectContent.class);
+            Mockito.when(content.inputStream()).thenReturn(new ByteArrayInputStream(bytes));
             opened.add(content);
             return content;
         });
         var first = transaction.execute(_ -> chunks.prepare(tenant, id, generation).orElseThrow());
-        assertEquals(file, java.util.Objects.requireNonNull(first).userFileId());
+        assertEquals(file, Objects.requireNonNull(first).userFileId());
         assertEquals(first, transaction.execute(_ -> chunks.prepare(tenant, id, generation).orElseThrow()));
-        org.mockito.Mockito.verify(storage).open(org.mockito.ArgumentMatchers.any());
+        Mockito.verify(storage).open(ArgumentMatchers.any());
         jdbc.sql("UPDATE documents SET chunk_convention='previous-convention' WHERE id=:id")
-                .param("id", java.util.Objects.requireNonNull(id).value()).update();
+                .param("id", Objects.requireNonNull(id).value()).update();
         assertEquals(first, transaction.execute(_ -> chunks.prepare(tenant, id, generation).orElseThrow()));
-        org.mockito.Mockito.verify(storage, org.mockito.Mockito.times(2)).open(org.mockito.ArgumentMatchers.any());
+        Mockito.verify(storage, Mockito.times(2)).open(ArgumentMatchers.any());
         assertEquals(DocumentChunk.CONVENTION, jdbc.sql("SELECT chunk_convention FROM documents").query(String.class).single());
         assertEquals(0, jdbc.sql("SELECT count(*) FROM document_artifact_readers").query(Integer.class).single());
-        opened.forEach(content -> org.mockito.Mockito.verify(content).close());
+        opened.forEach(content -> Mockito.verify(content).close());
         assertEquals(artifact, jdbc.sql("SELECT extraction_artifact_id FROM documents").query(UUID.class).single());
     }
 

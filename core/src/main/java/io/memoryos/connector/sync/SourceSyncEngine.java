@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -230,7 +231,7 @@ public class SourceSyncEngine implements ConnectorSyncPort {
         }));
     }
 
-    private void settle(Work work, java.util.function.Consumer<@Nullable SourcePair> action) {
+    private void settle(Work work, Consumer<@Nullable SourcePair> action) {
         transactions.executeWithoutResult(_ -> action.accept(lock(work)));
     }
 

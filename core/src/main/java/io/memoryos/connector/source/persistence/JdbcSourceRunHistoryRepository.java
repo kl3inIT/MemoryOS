@@ -15,6 +15,7 @@ import io.memoryos.connector.sync.persistence.WorkLeases;
 import io.memoryos.shared.TenantId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.DateTimeException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -213,7 +214,7 @@ public class JdbcSourceRunHistoryRepository {
             String[] fields = position.split("\\|", -1);
             if (fields.length != 2) throw new IllegalArgumentException();
             return new Cursor(Instant.parse(fields[0]), UUID.fromString(fields[1]));
-        } catch (IllegalArgumentException | java.time.DateTimeException exception) {
+        } catch (IllegalArgumentException | DateTimeException exception) {
             throw SourceHistoryCursor.invalid();
         }
     }

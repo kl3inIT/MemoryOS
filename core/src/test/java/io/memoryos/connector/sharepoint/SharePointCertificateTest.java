@@ -3,16 +3,20 @@ package io.memoryos.connector.sharepoint;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.memoryos.connector.SharePointException;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.KeyStore;
+import java.security.MessageDigest;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.Objects;
 import org.junit.jupiter.api.Test;
 
@@ -27,10 +31,10 @@ class SharePointCertificateTest {
             assertTrue(material.notAfter().isAfter(NOW));
             assertNotNull(KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(material.privateKey())));
             var certificate = (X509Certificate) CertificateFactory.getInstance("X.509")
-                    .generateCertificate(new java.io.ByteArrayInputStream(material.certificate()));
+                    .generateCertificate(new ByteArrayInputStream(material.certificate()));
             assertEquals(material.notAfter(), certificate.getNotAfter().toInstant());
-            assertEquals(material.thumbprint(), java.util.HexFormat.of().withUpperCase()
-                    .formatHex(java.security.MessageDigest.getInstance("SHA-1").digest(certificate.getEncoded())));
+            assertEquals(material.thumbprint(), HexFormat.of().withUpperCase()
+                    .formatHex(MessageDigest.getInstance("SHA-1").digest(certificate.getEncoded())));
             assertFalse(material.toString().contains("privateKey"));
         }
     }
@@ -94,7 +98,7 @@ class SharePointCertificateTest {
         combined.load(null, PASSWORD.clone());
         for (String fixture : new String[] {"rsa2048", "rsa1024"}) {
             var source = KeyStore.getInstance("PKCS12");
-            source.load(new java.io.ByteArrayInputStream(fixture(fixture)), PASSWORD.clone());
+            source.load(new ByteArrayInputStream(fixture(fixture)), PASSWORD.clone());
             String alias = Objects.requireNonNull(source.aliases().nextElement());
             combined.setKeyEntry(fixture, source.getKey(alias, PASSWORD.clone()), PASSWORD.clone(),
                     source.getCertificateChain(alias));
@@ -104,7 +108,7 @@ class SharePointCertificateTest {
 
     private static X509Certificate certificateOf(String fixture) throws Exception {
         var store = KeyStore.getInstance("PKCS12");
-        store.load(new java.io.ByteArrayInputStream(fixture(fixture)), PASSWORD.clone());
+        store.load(new ByteArrayInputStream(fixture(fixture)), PASSWORD.clone());
         return (X509Certificate) store.getCertificate(store.aliases().nextElement());
     }
 
@@ -117,7 +121,7 @@ class SharePointCertificateTest {
     private static byte[] fixture(String name) {
         try (var stream = SharePointCertificateTest.class.getResourceAsStream("/sharepoint/" + name + ".pfx.base64")) {
             return Base64.getDecoder().decode(new String(Objects.requireNonNull(stream).readAllBytes(), StandardCharsets.UTF_8).strip());
-        } catch (java.io.IOException exception) {
+        } catch (IOException exception) {
             throw new IllegalStateException("missing certificate fixture " + name, exception);
         }
     }

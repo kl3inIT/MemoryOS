@@ -1,5 +1,6 @@
 package io.memoryos.objectstorage.application;
 
+import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.objectstorage.ObjectStorage;
 import io.memoryos.objectstorage.ObjectStorageException;
@@ -14,6 +15,7 @@ import io.memoryos.objectstorage.ObjectUploadSpecification;
 import io.memoryos.objectstorage.ObjectVerificationToken;
 import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.objectstorage.StoredObjectReference;
+import io.memoryos.objectstorage.UploadConstraints;
 import io.memoryos.objectstorage.VerifiedObject;
 import io.memoryos.objectstorage.UploadAuthorization;
 import io.memoryos.objectstorage.persistence.JdbcObjectUploadRepository;
@@ -22,6 +24,7 @@ import io.memoryos.shared.TenantId;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -78,7 +81,7 @@ public class DefaultObjectUploadService implements ObjectUploadService, ObjectUp
         Instant expiresAt = Instant.now(clock).plus(properties.lifetime());
         StoredObjectId storedObjectId = new StoredObjectId(UUID.randomUUID());
         ObjectUploadId uploadId = new ObjectUploadId(UUID.randomUUID());
-        var key = new io.memoryos.objectstorage.ObjectKey(
+        var key = new ObjectKey(
                 "raw/" + tenantId.value() + "/" + storedObjectId.value()
         );
         transactions.executeWithoutResult(_ -> {
@@ -109,7 +112,7 @@ public class DefaultObjectUploadService implements ObjectUploadService, ObjectUp
         var reference = objects.find(tenantId, row.storedObjectId()).orElseThrow(ObjectUploadException::notFound);
         try {
             var authorization = storage.authorizeUpload(reference.key(),
-                    new io.memoryos.objectstorage.UploadConstraints(reference.metadata().sizeBytes(),
+                    new UploadConstraints(reference.metadata().sizeBytes(),
                             reference.metadata().mediaType(), reference.metadata().checksum()));
             retainUntilAuthorizationExpires(tenantId, uploadId, authorization);
             return new ObjectUploadAuthorization(uploadId, authorization);
@@ -125,7 +128,7 @@ public class DefaultObjectUploadService implements ObjectUploadService, ObjectUp
         if (authorization.expiresAt().isAfter(expiry)) expiry = authorization.expiresAt();
         // PostgreSQL stores microseconds. Round up so a nanosecond-precision signer
         // can never outlive its persisted cleanup reservation through rounding down.
-        Instant retainedUntil = expiry.plusNanos(999).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+        Instant retainedUntil = expiry.plusNanos(999).truncatedTo(ChronoUnit.MICROS);
         if (!Boolean.TRUE.equals(transactions.execute(ignored -> uploads.extendPendingLifetime(tenant, upload, now, retainedUntil)))) {
             throw ObjectUploadException.conflict("object upload is expired or no longer pending");
         }

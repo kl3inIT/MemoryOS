@@ -9,12 +9,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,7 +32,7 @@ class SonioxAsyncTest {
     private final AtomicReference<String> authorization = new AtomicReference<>();
     private final AtomicReference<String> created = new AtomicReference<>();
     private final AtomicReference<String> uploadLength = new AtomicReference<>();
-    private final java.util.concurrent.atomic.AtomicLong uploaded = new java.util.concurrent.atomic.AtomicLong();
+    private final AtomicLong uploaded = new AtomicLong();
     private HttpServer server;
     private String status = "completed";
 
@@ -120,9 +124,9 @@ class SonioxAsyncTest {
      * largest single read it was asked for, so the test fails if anything materialises the recording in memory.
      */
     private static final class GuardedAudio implements AudioSource {
-        final java.util.concurrent.atomic.AtomicInteger opened = new java.util.concurrent.atomic.AtomicInteger();
-        final java.util.concurrent.atomic.AtomicLong served = new java.util.concurrent.atomic.AtomicLong();
-        final java.util.concurrent.atomic.AtomicInteger largestRead = new java.util.concurrent.atomic.AtomicInteger();
+        final AtomicInteger opened = new AtomicInteger();
+        final AtomicLong served = new AtomicLong();
+        final AtomicInteger largestRead = new AtomicInteger();
         private final long size;
 
         GuardedAudio(long size) {
@@ -130,9 +134,9 @@ class SonioxAsyncTest {
         }
 
         @Override
-        public java.io.InputStream open() {
+        public InputStream open() {
             opened.incrementAndGet();
-            return new java.io.InputStream() {
+            return new InputStream() {
                 private long left = size;
 
                 @Override
@@ -148,7 +152,7 @@ class SonioxAsyncTest {
                     largestRead.accumulateAndGet(length, Math::max);
                     if (left == 0) return -1;
                     int count = (int) Math.min(length, left);
-                    java.util.Arrays.fill(buffer, offset, offset + count, (byte) 7);
+                    Arrays.fill(buffer, offset, offset + count, (byte) 7);
                     left -= count;
                     served.addAndGet(count);
                     return count;

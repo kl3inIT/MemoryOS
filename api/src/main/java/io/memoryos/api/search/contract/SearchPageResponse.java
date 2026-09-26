@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 @Schema(name = "SearchPage")
 public record SearchPageResponse(
@@ -45,7 +46,7 @@ public record SearchPageResponse(
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<Section> sections,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<SourceType> sourceTypes,
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<String> authors,
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @org.jspecify.annotations.Nullable String providerUrl) {
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"}) @Nullable String providerUrl) {
         private static Result from(SearchPage.Result result) {
             return new Result(result.documentId(), result.generation(), result.title(), result.mediaType(),
                     result.updatedAt(), result.score(), result.sections().stream().map(Section::from).toList(),

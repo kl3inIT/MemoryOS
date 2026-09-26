@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -48,7 +49,7 @@ class ChatWebPromptsTest {
         var last = guided.getInstructions().getLast().getText();
         assertTrue(last.startsWith("<system-reminder>"));
         assertTrue(last.contains("Always answer with the KPI month."));
-        var now = java.time.Instant.parse("2026-09-17T00:00:00Z");
+        var now = Instant.parse("2026-09-17T00:00:00Z");
         assertTrue(ChatPrompts.resolve(ChatPrompts.DEFAULT_SYSTEM, false, now, null, true).contains("2026-09-17T00:00:00Z"));
         var unaware = ChatPrompts.resolve(ChatPrompts.DEFAULT_SYSTEM, false, now, null, false);
         assertFalse(unaware.contains("CURRENT_DATETIME"));

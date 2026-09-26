@@ -8,11 +8,14 @@ import io.memoryos.document.ExtractedDocument.Page;
 import io.memoryos.document.ExtractedDocument;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -24,7 +27,7 @@ import tools.jackson.databind.ObjectMapper;
 final class DocumentAssembly {
     private static final int MAX_TEXT_CHARACTERS = 2_000_000;
     private static final int MAX_ARTIFACT_BYTES = 33_554_432;
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(DocumentAssembly.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DocumentAssembly.class);
 
     private DocumentAssembly() {}
 
@@ -49,7 +52,7 @@ final class DocumentAssembly {
         }
         String json = mapper.writeValueAsString(new ExtractedDocument(ExtractedDocument.SCHEMA, null, blocks,
                 pages, orientation, financialChecks));
-        if (json.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > MAX_ARTIFACT_BYTES) {
+        if (json.getBytes(StandardCharsets.UTF_8).length > MAX_ARTIFACT_BYTES) {
             throw failure(ExtractionFailure.WRITE_LIMIT);
         }
         return new DocumentContent(mediaType, title, text, metadata, json, null);

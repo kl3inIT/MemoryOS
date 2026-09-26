@@ -1,5 +1,6 @@
 package io.memoryos.chat.web;
 
+import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URI;
@@ -112,7 +113,7 @@ public final class WebHttp implements AutoCloseable {
             return new Response(status, entity.getContentType() == null ? "" : entity.getContentType(), bytes, null);
         });
     }
-    @jakarta.annotation.PreDestroy
+    @PreDestroy
     @Override public void close() throws IOException {
         try { providers.close(); } finally { pages.close(); }
     }

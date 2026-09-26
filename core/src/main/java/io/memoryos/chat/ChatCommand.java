@@ -1,5 +1,7 @@
 package io.memoryos.chat;
 
+import io.memoryos.mcp.McpTurnService;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.List;
 import java.util.HashSet;
@@ -33,13 +35,13 @@ public record ChatCommand(Operation operation, UUID targetMessageId, UUID reques
     public ChatCommand {
         webSearch = webSearch == null ? WebSearchMode.off : webSearch;
         image = image == null ? ImageMode.off : image;
-        if (mcpServerIds != null && mcpServerIds.stream().anyMatch(java.util.Objects::isNull))
+        if (mcpServerIds != null && mcpServerIds.stream().anyMatch(Objects::isNull))
             throw ChatException.invalid("Invalid MCP server identity.");
         mcpServerIds = mcpServerIds == null ? List.of() : List.copyOf(mcpServerIds);
-        if (mcpServerIds.size() > io.memoryos.mcp.McpTurnService.MAX_SERVERS
+        if (mcpServerIds.size() > McpTurnService.MAX_SERVERS
                 || new HashSet<>(mcpServerIds).size() != mcpServerIds.size())
             throw ChatException.invalid("Invalid MCP server selection.");
-        if (fileIds != null && fileIds.stream().anyMatch(java.util.Objects::isNull))
+        if (fileIds != null && fileIds.stream().anyMatch(Objects::isNull))
             throw ChatException.invalid("Invalid file identity.");
         fileIds = fileIds == null ? List.of() : List.copyOf(fileIds);
         if (operation == null || targetMessageId == null || requestId == null || text == null

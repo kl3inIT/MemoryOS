@@ -1,14 +1,17 @@
 package io.memoryos.library;
 
 import io.memoryos.library.persistence.JdbcUserFileRepository;
+import io.memoryos.retrieval.SearchDocument;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.retrieval.DocumentSearchService;
 import io.memoryos.retrieval.SearchHit;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -29,8 +32,8 @@ public class UserFileSearchService {
         authorize(actor, tenant);
         if (readyDocuments.isEmpty()) return Set.of();
         return documents(tenant, actor, candidates(scope, readyDocuments)).entrySet().stream()
-                .filter(entry -> readyDocuments.contains(entry.getValue())).map(java.util.Map.Entry::getKey)
-                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+                .filter(entry -> readyDocuments.contains(entry.getValue())).map(Map.Entry::getKey)
+                .collect(Collectors.toUnmodifiableSet());
     }
     public List<FileHit> search(ActorId actor, TenantId tenant, Set<UUID> allowed, String query) {
         authorize(actor, tenant);
@@ -40,7 +43,7 @@ public class UserFileSearchService {
         authorize(actor, tenant);
         if (hits.isEmpty()) return List.of();
         var current = documents(tenant, actor, candidates(scope, hits.stream().map(SearchHit::documentId)
-                .collect(java.util.stream.Collectors.toUnmodifiableSet())));
+                .collect(Collectors.toUnmodifiableSet())));
         return hits.stream().flatMap(hit -> current.entrySet().stream().filter(entry -> entry.getValue().equals(hit.documentId()))
                 .map(entry -> new FileHit(entry.getKey(), hit))).toList();
     }
@@ -49,13 +52,13 @@ public class UserFileSearchService {
      * result is checked again against what is readable afterwards; that re-check reads only the files the search
      * returned, and is skipped when it returned nothing.
      */
-    private static Set<UUID> candidates(java.util.Map<UUID, UUID> scope, Set<UUID> found) {
-        return scope.entrySet().stream().filter(entry -> found.contains(entry.getValue())).map(java.util.Map.Entry::getKey)
-                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    private static Set<UUID> candidates(Map<UUID, UUID> scope, Set<UUID> found) {
+        return scope.entrySet().stream().filter(entry -> found.contains(entry.getValue())).map(Map.Entry::getKey)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     /** The indexed document of each readable file among {@code ids}, agent grants included. */
-    private java.util.Map<UUID, UUID> documents(TenantId tenant, ActorId actor, Set<UUID> ids) {
+    private Map<UUID, UUID> documents(TenantId tenant, ActorId actor, Set<UUID> ids) {
         return files.documents(tenant, actor, ids, attachments.readableThroughAgents(tenant, actor, ids));
     }
 
@@ -63,7 +66,7 @@ public class UserFileSearchService {
         if (tenants.findActiveTenant(actor).filter(tenant::equals).isEmpty()) throw LibraryException.unavailable();
     }
 
-    public io.memoryos.retrieval.SearchDocument read(ActorId actor, UUID file, UUID generation, int from) {
+    public SearchDocument read(ActorId actor, UUID file, UUID generation, int from) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(LibraryException::unavailable);
         var scope = documents(tenant, actor, Set.of(file));
         var document = scope.get(file);

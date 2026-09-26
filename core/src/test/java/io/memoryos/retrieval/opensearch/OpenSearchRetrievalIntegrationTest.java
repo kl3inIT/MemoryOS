@@ -1,5 +1,15 @@
 package io.memoryos.retrieval.opensearch;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import io.memoryos.connector.SourceSearchMocks;
+import io.memoryos.connector.SourceSearchService;
+import io.memoryos.retrieval.SearchDocumentUnavailableException;
+import io.memoryos.retrieval.SearchIndex;
+import io.memoryos.retrieval.SearchPage;
+import io.memoryos.retrieval.SearchTimings;
+import io.memoryos.retrieval.settings.SearchGeneration;
 import io.memoryos.shared.Sha256;
 import io.memoryos.shared.ActorId;
 
@@ -29,6 +39,8 @@ import io.memoryos.connector.SourceSearchScope;
 import io.memoryos.connector.SourceType;
 import io.memoryos.connector.DocumentAccess;
 import io.memoryos.connector.DocumentSourceMetadata;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
 import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
@@ -37,7 +49,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.metadata.EmptyUsage;
 import org.springframework.ai.embedding.Embedding;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -81,11 +100,11 @@ class OpenSearchRetrievalIntegrationTest {
             return new EmbeddingResponse(values, new EmbeddingResponseMetadata("text-embedding-3-large", new EmptyUsage()));
         });
         try (var transport = config.searchTransport(properties)) {
-            var gateway = org.mockito.Mockito.spy(new OpenSearchGateway(config.searchClient(transport), mapper));
-            var sourceSearch = mock(io.memoryos.connector.SourceSearchService.class);
+            var gateway = Mockito.spy(new OpenSearchGateway(config.searchClient(transport), mapper));
+            var sourceSearch = mock(SourceSearchService.class);
             var index = new OpenSearchIndexService(gateway, generations(properties, new ValidatedEmbeddingService(model, properties.model(), 3072, 32, 2)),
                     properties, mapper, documents, sourceSearch,
-                    new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(), io.micrometer.observation.ObservationRegistry.NOOP));
+                    new SearchTimings(new SimpleMeterRegistry(), ObservationRegistry.NOOP));
             var tenant = new TenantId(UUID.randomUUID());
             var actor = new ActorId(UUID.randomUUID());
             var leave = document(tenant, "HR-2026 Nghỉ phép", "Annual vacation policy provides 12 leave days.");
@@ -98,27 +117,27 @@ class OpenSearchRetrievalIntegrationTest {
                     Instant.parse("2026-01-01T00:00:00Z"), Instant.parse("2026-09-07T00:00:00Z"), List.of("Alice"));
             var remote = new DocumentSourceMetadata(driveSource, UUID.randomUUID(), SourceType.GOOGLE_DRIVE,
                     Instant.parse("2026-02-01T00:00:00Z"), Instant.parse("2026-09-10T00:00:00Z"), List.of("Bob"));
-            var origins = new java.util.concurrent.atomic.AtomicReference<>(List.of(uploaded, remote));
+            var origins = new AtomicReference<>(List.of(uploaded, remote));
             when(sourceSearch.indexMetadata(any(), any(), any())).thenAnswer(call ->
                     leave.documentId().equals(call.getArgument(1)) ? origins.get() : List.of());
-            var accessOf = new java.util.concurrent.ConcurrentHashMap<DocumentId, DocumentAccess>();
+            var accessOf = new ConcurrentHashMap<DocumentId, DocumentAccess>();
             when(sourceSearch.indexAccess(any(), any(DocumentId.class))).thenAnswer(call ->
                     accessOf.getOrDefault(call.<DocumentId>getArgument(1), new DocumentAccess(true, Set.of())));
-            io.memoryos.connector.SourceSearchMocks.answerPagesFromSingleDocuments(sourceSearch);
+            SourceSearchMocks.answerPagesFromSingleDocuments(sourceSearch);
             // Before the first write the index does not exist: searches find nothing and a document window is unavailable.
             assertTrue(index.search(tenant, "vacation policy", List.of(), null, Set.of()).isEmpty());
-            assertThrows(io.memoryos.retrieval.SearchDocumentUnavailableException.class,
+            assertThrows(SearchDocumentUnavailableException.class,
                     () -> index.document(tenant, leave.documentId().value(), leave.generation(), 0, 5));
-            verify(gateway, org.mockito.Mockito.never()).exists(any());
+            verify(gateway, Mockito.never()).exists(any());
             index.index(leave);
             index.index(unrelated);
             index.index(privateFile);
             // The index was verified by the first write; later writes send only the vector lookup, the bulk and the count.
             clearInvocations(gateway);
             index.index(unrelated);
-            verify(gateway, org.mockito.Mockito.never()).exists(any());
-            verify(gateway, org.mockito.Mockito.never()).json(any(), any(), any(), any());
-            assertEquals(3, org.mockito.Mockito.mockingDetails(gateway).getInvocations().size());
+            verify(gateway, Mockito.never()).exists(any());
+            verify(gateway, Mockito.never()).json(any(), any(), any(), any());
+            assertEquals(3, Mockito.mockingDetails(gateway).getInvocations().size());
             assertTrue(index.contains(new DocumentIndexState(tenant,privateFile.documentId(),privateFile.generation(),1,true)));
             assertTrue(index.search(tenant,"vacation policy",List.of(), null, Set.of()).stream()
                     .noneMatch(hit -> hit.documentId().equals(privateFile.documentId().value())),
@@ -144,15 +163,15 @@ class OpenSearchRetrievalIntegrationTest {
             var neverIndexed = new DocumentIndexState(tenant, new DocumentId(UUID.randomUUID()), UUID.randomUUID(), 1, true);
             var shorter = new DocumentIndexState(tenant, unrelated.documentId(), unrelated.generation(), 2, true);
             clearInvocations(gateway, sourceSearch);
-            assertEquals(Map.of(leave.documentId(), io.memoryos.retrieval.SearchIndex.Projection.CURRENT,
-                    restricted.documentId(), io.memoryos.retrieval.SearchIndex.Projection.STALE_FIELDS,
-                    neverIndexed.documentId(), io.memoryos.retrieval.SearchIndex.Projection.INCOMPLETE,
-                    unrelated.documentId(), io.memoryos.retrieval.SearchIndex.Projection.INCOMPLETE),
+            assertEquals(Map.of(leave.documentId(), SearchIndex.Projection.CURRENT,
+                    restricted.documentId(), SearchIndex.Projection.STALE_FIELDS,
+                    neverIndexed.documentId(), SearchIndex.Projection.INCOMPLETE,
+                    unrelated.documentId(), SearchIndex.Projection.INCOMPLETE),
                     index.inspect(List.of(leaveReady, restrictedState, neverIndexed, shorter), index.identity()));
-            assertEquals(1, org.mockito.Mockito.mockingDetails(gateway).getInvocations().size());
-            verify(gateway, org.mockito.Mockito.never()).exists(any());
-            verify(sourceSearch).indexMetadata(org.mockito.ArgumentMatchers.eq(tenant), org.mockito.ArgumentMatchers.anyMap());
-            verify(sourceSearch).indexAccess(org.mockito.ArgumentMatchers.eq(tenant), org.mockito.ArgumentMatchers.anyCollection());
+            assertEquals(1, Mockito.mockingDetails(gateway).getInvocations().size());
+            verify(gateway, Mockito.never()).exists(any());
+            verify(sourceSearch).indexMetadata(ArgumentMatchers.eq(tenant), ArgumentMatchers.anyMap());
+            verify(sourceSearch).indexAccess(ArgumentMatchers.eq(tenant), ArgumentMatchers.anyCollection());
             clearInvocations(model);
             index.updateAccess(tenant, restricted.documentId(), restricted.generation());
             verifyNoInteractions(model);
@@ -180,7 +199,7 @@ class OpenSearchRetrievalIntegrationTest {
             verifyNoInteractions(model);
             assertTrue(index.contains(leaveState));
             var scope = new SourceSearchScope(tenant, actor, Map.of(fileSource, SourceType.FILE, driveSource, SourceType.GOOGLE_DRIVE));
-            var september = new SearchFilters(java.util.Set.of(SourceType.FILE),
+            var september = new SearchFilters(Set.of(SourceType.FILE),
                     new SearchFilters.Interval(Instant.parse("2026-01-01T00:00:00Z"), Instant.parse("2026-01-31T23:59:59Z")),
                     new SearchFilters.Interval(null, Instant.parse("2026-09-08T00:00:00Z")));
             var queries = List.of(new SearchQuery("HR-2026", false, .7), new SearchQuery("HR-2026", true, 1), new SearchQuery("nghỉ", false, 1.3));
@@ -188,19 +207,19 @@ class OpenSearchRetrievalIntegrationTest {
             var batch = index.batch(scope, queries, september, () -> {});
             assertEquals(3, batch.size());
             assertTrue(batch.stream().allMatch(h -> h.size() == 1 && h.getFirst().documentId().equals(leave.documentId().value())));
-            var embedded = org.mockito.ArgumentCaptor.forClass(EmbeddingRequest.class);
+            var embedded = ArgumentCaptor.forClass(EmbeddingRequest.class);
             verify(model).call(embedded.capture());
             assertEquals(List.of("HR-2026", "nghỉ"), embedded.getValue().getInstructions());
-            verify(gateway, org.mockito.Mockito.never()).exists(any());
+            verify(gateway, Mockito.never()).exists(any());
             // One hybrid request per distinct text and no existence check before it.
-            verify(gateway, org.mockito.Mockito.times(2)).jsonOrMissing(org.mockito.ArgumentMatchers.eq("POST"),
-                    org.mockito.ArgumentMatchers.eq("/" + index.identity() + "-read/_search"), any(), any());
-            var wrongSourceDate = new SearchFilters(java.util.Set.of(SourceType.FILE), null,
+            verify(gateway, Mockito.times(2)).jsonOrMissing(ArgumentMatchers.eq("POST"),
+                    ArgumentMatchers.eq("/" + index.identity() + "-read/_search"), any(), any());
+            var wrongSourceDate = new SearchFilters(Set.of(SourceType.FILE), null,
                     new SearchFilters.Interval(Instant.parse("2026-09-09T00:00:00Z"), Instant.parse("2026-09-11T00:00:00Z")));
             assertTrue(index.batch(scope, queries, wrongSourceDate, () -> {}).stream().allMatch(List::isEmpty),
                     "A date on one mapping must not be combined with another mapping's source type; lexical and vector branches both filter");
             var fileOnly = new SourceSearchScope(tenant, actor, Map.of(fileSource, SourceType.FILE));
-            assertTrue(index.batch(fileOnly, queries, new SearchFilters(java.util.Set.of(), null, wrongSourceDate.updated()), () -> {})
+            assertTrue(index.batch(fileOnly, queries, new SearchFilters(Set.of(), null, wrongSourceDate.updated()), () -> {})
                     .stream().allMatch(List::isEmpty), "Inaccessible origins cannot satisfy a time filter");
 
             gateway.json("POST", "/" + index.identity() + "/_update/" + leave.chunkId(0), Map.of("refresh", "true"),
@@ -254,7 +273,7 @@ class OpenSearchRetrievalIntegrationTest {
             index.index(replacement);
             verifyNoInteractions(model);
             // While the replacement is pending the served generation is retained by both cleanup paths.
-            var retained = new java.util.concurrent.atomic.AtomicReference<>(Set.of(leave.generation(), replacement.generation()));
+            var retained = new AtomicReference<>(Set.of(leave.generation(), replacement.generation()));
             when(documents.retainedGenerations(any(), any())).thenAnswer(invocation -> {
                 TenantId requested = invocation.getArgument(0);
                 return requested.equals(tenant) ? Map.of(leave.documentId().value(), retained.get(), unrelated.documentId().value(), Set.of(unrelated.generation()))
@@ -282,10 +301,10 @@ class OpenSearchRetrievalIntegrationTest {
             // The write finds the verified index gone, forgets the verification, creates and verifies it once, and retries.
             clearInvocations(gateway);
             index.index(unrelated);
-            verify(gateway).json(org.mockito.ArgumentMatchers.eq("PUT"), org.mockito.ArgumentMatchers.eq("/" + index.identity()), any(), any());
-            verify(gateway).json(org.mockito.ArgumentMatchers.eq("GET"), org.mockito.ArgumentMatchers.eq("/" + index.identity() + "/_mapping"), any(), any());
+            verify(gateway).json(ArgumentMatchers.eq("PUT"), ArgumentMatchers.eq("/" + index.identity()), any(), any());
+            verify(gateway).json(ArgumentMatchers.eq("GET"), ArgumentMatchers.eq("/" + index.identity() + "/_mapping"), any(), any());
             assertTrue(index.contains(unrelatedState));
-            var chunks = java.util.stream.IntStream.range(0, 25).mapToObj(i -> {
+            var chunks = IntStream.range(0, 25).mapToObj(i -> {
                 String text = "vacation policy section " + i;
                 return new DocumentChunk(i, text, List.of(), i, 0, "[{\"page\":" + i + "}]",
                         Sha256.hex(text), 10);
@@ -296,7 +315,7 @@ class OpenSearchRetrievalIntegrationTest {
             clearInvocations(model);
             var page = index.document(tenant, paged.documentId().value(), paged.generation(), 18, 5);
             assertEquals(25, page.totalChunks());
-            assertEquals(List.of(18, 19, 20, 21, 22), page.passages().stream().map(io.memoryos.retrieval.SearchPage.Passage::ordinal).toList());
+            assertEquals(List.of(18, 19, 20, 21, 22), page.passages().stream().map(SearchPage.Passage::ordinal).toList());
             assertTrue(page.hasMore());
             assertEquals("[{\"page\":18}]", page.passages().getFirst().provenanceJson());
             assertEquals(2, index.document(tenant, paged.documentId().value(), paged.generation(), 23, 20).passages().size());
@@ -305,9 +324,9 @@ class OpenSearchRetrievalIntegrationTest {
             assertEquals("Paged HR", end.title());
             assertTrue(end.passages().isEmpty());
             assertFalse(end.hasMore());
-            assertThrows(io.memoryos.retrieval.SearchDocumentUnavailableException.class,
+            assertThrows(SearchDocumentUnavailableException.class,
                     () -> index.document(foreign.tenantId(), paged.documentId().value(), paged.generation(), 0, 5));
-            assertThrows(io.memoryos.retrieval.SearchDocumentUnavailableException.class,
+            assertThrows(SearchDocumentUnavailableException.class,
                     () -> index.document(tenant, paged.documentId().value(), UUID.randomUUID(), 0, 5));
             verifyNoInteractions(model);
             // Short keyword queries use the same hybrid path: neither lexical-only nor semantic-only hits disappear.
@@ -318,7 +337,7 @@ class OpenSearchRetrievalIntegrationTest {
 
             // More chunks than one query batch: access refresh and delete work by chunk ID and never issue
             // *_by_query requests, whose continuation needs scroll permissions the service role lacks.
-            var largeChunks = java.util.stream.IntStream.range(0, 1100).mapToObj(i -> {
+            var largeChunks = IntStream.range(0, 1100).mapToObj(i -> {
                 String text = "large vacation section " + i;
                 return new DocumentChunk(i, text, List.of(), i, 0, "[]", Sha256.hex(text), 10);
             }).toList();
@@ -335,7 +354,7 @@ class OpenSearchRetrievalIntegrationTest {
             index.delete(tenant, large.documentId());
             assertEquals(0, gateway.json("POST", "/" + index.identity() + "/_count", Map.of(),
                     Map.of("query", Map.of("term", Map.of("document_id", large.documentId().value().toString())))).path("count").asInt(-1));
-            verify(gateway, org.mockito.Mockito.never()).json(any(), org.mockito.ArgumentMatchers.contains("_by_query"), any(), any());
+            verify(gateway, Mockito.never()).json(any(), ArgumentMatchers.contains("_by_query"), any(), any());
         }
     }
 
@@ -347,8 +366,8 @@ class OpenSearchRetrievalIntegrationTest {
                 .70, Duration.ofSeconds(30), "memoryos-meta", 0, "", "");
         var mapper = new ObjectMapper();
         var embeddings = new ValidatedEmbeddingService(mock(EmbeddingModel.class), properties.model(), 8, 32, 2);
-        var events = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
-        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(OpenSearchIndexService.class);
+        var events = new ListAppender<ILoggingEvent>();
+        var logger = (Logger) LoggerFactory.getLogger(OpenSearchIndexService.class);
         events.start();
         logger.addAppender(events);
         try (var transport = config.searchTransport(properties)) {
@@ -361,7 +380,7 @@ class OpenSearchRetrievalIntegrationTest {
                                     "method", Map.of("name", "hnsw", "engine", "faiss", "space_type", "cosinesimil"))))));
             var seeded = generation(properties, legacy, "text-embedding-3-small", 8, "");
             var index = new OpenSearchIndexService(gateway, SearchGenerations.fixed(seeded, embeddings, properties), properties, mapper,
-                    mock(DocumentChunkPort.class), mock(io.memoryos.connector.SourceSearchService.class), timings());
+                    mock(DocumentChunkPort.class), mock(SourceSearchService.class), timings());
             index.verifyOnStartup();
             var meta = gateway.json("GET", "/" + legacy + "/_mapping", Map.of(), null).path(legacy).path("mappings").path("_meta");
             assertEquals(legacy, meta.path("identity").asString());
@@ -376,7 +395,7 @@ class OpenSearchRetrievalIntegrationTest {
                     generation(properties, legacy, "Qwen/Qwen3-Embedding-0.6B", 8, ""),
                     generation(properties, legacy, "text-embedding-3-small", 16, ""))) {
                 var mismatched = new OpenSearchIndexService(gateway, SearchGenerations.fixed(wrong, embeddings, properties), properties,
-                        mapper, mock(DocumentChunkPort.class), mock(io.memoryos.connector.SourceSearchService.class), timings());
+                        mapper, mock(DocumentChunkPort.class), mock(SourceSearchService.class), timings());
                 events.list.clear();
                 assertThrows(SearchUnavailableException.class, mismatched::ensureIndex);
                 assertTrue(logged(events, "search.index.generation_mismatch"), wrong.toString());
@@ -387,12 +406,12 @@ class OpenSearchRetrievalIntegrationTest {
 
             // A generation created after seeding names its index by its own ID and records everything that decides vectors.
             var id = UUID.randomUUID();
-            var future = new io.memoryos.retrieval.settings.SearchGeneration(id, UUID.randomUUID(), UUID.randomUUID(),
+            var future = new SearchGeneration(id, UUID.randomUUID(), UUID.randomUUID(),
                     "Qwen/Qwen3-Embedding-0.6B", 8, "Instruct: Given a question, retrieve passages that answer it\nQuery: ", "", .7,
-                    DocumentChunk.CONVENTION, io.memoryos.retrieval.settings.SearchGeneration.identityFor("memoryos-meta", id),
-                    io.memoryos.retrieval.settings.SearchGeneration.Status.FUTURE, false, Instant.now(), null, null);
+                    DocumentChunk.CONVENTION, SearchGeneration.identityFor("memoryos-meta", id),
+                    SearchGeneration.Status.FUTURE, false, Instant.now(), null, null);
             new OpenSearchIndexService(gateway, SearchGenerations.fixed(future, embeddings, properties), properties, mapper,
-                    mock(DocumentChunkPort.class), mock(io.memoryos.connector.SourceSearchService.class), timings()).ensureIndex();
+                    mock(DocumentChunkPort.class), mock(SourceSearchService.class), timings()).ensureIndex();
             assertEquals("memoryos-meta-" + id, future.identity());
             var created = gateway.json("GET", "/" + future.identity() + "/_mapping", Map.of(), null).path(future.identity())
                     .path("mappings").path("_meta");
@@ -404,16 +423,16 @@ class OpenSearchRetrievalIntegrationTest {
         }
     }
 
-    private static boolean logged(ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> events, String name) {
+    private static boolean logged(ListAppender<ILoggingEvent> events, String name) {
         return events.list.stream().anyMatch(event -> event.getKeyValuePairs() != null && event.getKeyValuePairs().stream()
                 .anyMatch(pair -> "event".equals(pair.key) && name.equals(pair.value)));
     }
 
-    private static io.memoryos.retrieval.settings.SearchGeneration generation(SearchProperties properties, String identity,
+    private static SearchGeneration generation(SearchProperties properties, String identity,
             String model, int dimensions, String documentPrefix) {
-        return new io.memoryos.retrieval.settings.SearchGeneration(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), model,
+        return new SearchGeneration(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), model,
                 dimensions, "", documentPrefix, properties.minimumSemanticScore(), DocumentChunk.CONVENTION, identity,
-                io.memoryos.retrieval.settings.SearchGeneration.Status.PRESENT, false, Instant.now(), Instant.now(), null);
+                SearchGeneration.Status.PRESENT, false, Instant.now(), Instant.now(), null);
     }
 
     private static SearchGenerations generations(SearchProperties properties, ValidatedEmbeddingService embeddings) {
@@ -421,9 +440,9 @@ class OpenSearchRetrievalIntegrationTest {
                 properties.dimensions(), ""), embeddings, properties);
     }
 
-    private static io.memoryos.retrieval.SearchTimings timings() {
-        return new io.memoryos.retrieval.SearchTimings(new io.micrometer.core.instrument.simple.SimpleMeterRegistry(),
-                io.micrometer.observation.ObservationRegistry.NOOP);
+    private static SearchTimings timings() {
+        return new SearchTimings(new SimpleMeterRegistry(),
+                ObservationRegistry.NOOP);
     }
 
     private DocumentChunkSet document(TenantId tenant, String title, String text) {

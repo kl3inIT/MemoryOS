@@ -14,14 +14,18 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,7 +45,7 @@ public class AiUsageLimitService {
     private final Clock clock;
     private final Map<UUID, Cached> configured = new ConcurrentHashMap<>();
 
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     public AiUsageLimitService(IamAuthorization authorization, AiUsageLimitRepository limits, AuditTrail audit) {
         this(authorization, limits, audit, Clock.systemUTC());
     }
@@ -91,7 +95,7 @@ public class AiUsageLimitService {
             case PERSON -> "you";
         };
         return "The AI budget for " + whose + " is spent. It frees again on "
-                + java.time.format.DateTimeFormatter.ISO_INSTANT.format(breach.resetsAt()) + ".";
+                + DateTimeFormatter.ISO_INSTANT.format(breach.resetsAt()) + ".";
     }
 
     /** The budget that binds this person, for the banner on their own usage page; the tightest one is shown. */
@@ -178,7 +182,7 @@ public class AiUsageLimitService {
      * days leave the window and what remains is under budget. Waiting until then cannot immediately trip again.
      */
     private static Instant freesAt(List<DaySpend> spend, LocalDate today, AiUsageLimit limit,
-                                   java.util.function.Function<DaySpend, BigDecimal> measure, BigDecimal budget) {
+                                   Function<DaySpend, BigDecimal> measure, BigDecimal budget) {
         BigDecimal remaining = spend.stream().map(measure).reduce(BigDecimal.ZERO, BigDecimal::add);
         for (DaySpend day : spend) {
             remaining = remaining.subtract(measure.apply(day));
@@ -230,7 +234,7 @@ public class AiUsageLimitService {
     public AiUsageLimit update(ActorId manager, UUID id, AiUsageLimit changes) {
         TenantId tenant = manage(manager);
         AiUsageLimit before = limits.find(tenant.value(), id).orElseThrow(AiCostException::limitNotFound);
-        if (changes.scope() != before.scope() || !java.util.Objects.equals(changes.groupId(), before.groupId()))
+        if (changes.scope() != before.scope() || !Objects.equals(changes.groupId(), before.groupId()))
             throw AiCostException.invalid("A limit keeps who it applies to; remove it and set a new one instead.");
         AiUsageLimit after = new AiUsageLimit(id, before.scope(), before.groupId(), before.groupName(),
                 changes.tokenBudget(), changes.costBudgetUsd(), changes.periodDays(), changes.enabled());

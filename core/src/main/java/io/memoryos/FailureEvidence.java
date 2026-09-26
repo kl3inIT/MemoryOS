@@ -1,5 +1,7 @@
 package io.memoryos;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
@@ -37,8 +39,8 @@ public final class FailureEvidence {
     /** Bounded technical detail: exception class + message + stack frames. */
     public static @Nullable String detail(@Nullable Throwable exception) {
         if (exception == null) return null;
-        var trace = new java.io.StringWriter();
-        exception.printStackTrace(new java.io.PrintWriter(trace));
+        var trace = new StringWriter();
+        exception.printStackTrace(new PrintWriter(trace));
         String text = trace.toString();
         return text.length() <= ERROR_DETAIL_LIMIT ? text : text.substring(0, ERROR_DETAIL_LIMIT);
     }

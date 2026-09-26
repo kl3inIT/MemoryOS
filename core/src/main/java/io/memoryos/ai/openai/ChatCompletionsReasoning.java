@@ -25,7 +25,7 @@ final class ChatCompletionsReasoning implements ChatModel, ModelTurns {
 
     @Override public ChatResponse call(Prompt prompt) { return delegate.call(prompt); }
     @Override public Flux<ChatResponse> stream(Prompt prompt) { return delegate.stream(prompt); }
-    @Override public ChatOptions getDefaultOptions() { return delegate.getDefaultOptions(); }
+    @Override public ChatOptions getOptions() { return delegate.getOptions(); }
     @Override public boolean nativeWebSearch() { return false; }
     @Override public ChatModel forTurn(Turn turn) { return new PerTurn(turn); }
 
@@ -37,7 +37,7 @@ final class ChatCompletionsReasoning implements ChatModel, ModelTurns {
         }
 
         @Override public ChatResponse call(Prompt prompt) { return delegate.call(prompt); }
-        @Override public ChatOptions getDefaultOptions() { return delegate.getDefaultOptions(); }
+        @Override public ChatOptions getOptions() { return delegate.getOptions(); }
 
         @Override
         public Flux<ChatResponse> stream(Prompt prompt) {

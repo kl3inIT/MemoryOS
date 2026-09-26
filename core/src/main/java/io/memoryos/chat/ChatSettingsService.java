@@ -28,14 +28,14 @@ public class ChatSettingsService {
     }
 
     /** Deep research is enabled while an administrator has not saved settings, as Onyx reads an unset value. */
-    public record View(boolean deepResearchEnabled, io.memoryos.chat.ChatHistoryVisibility chatHistoryVisibility,
+    public record View(boolean deepResearchEnabled, ChatHistoryVisibility chatHistoryVisibility,
                        long revision) {}
 
     @Transactional(readOnly = true)
     public View read(ActorId actor) {
         var tenant = tenants.findActiveTenant(actor).orElseThrow(ChatException::unavailable).value();
         return settings.findById(tenant).map(ChatSettingsService::view)
-                .orElse(new View(true, io.memoryos.chat.ChatHistoryVisibility.NORMAL, 0));
+                .orElse(new View(true, ChatHistoryVisibility.NORMAL, 0));
     }
 
     @Transactional
@@ -64,7 +64,7 @@ public class ChatSettingsService {
 
     /** Who in the organization may read other people's conversations, and how much of them (MEM-125). */
     @Transactional
-    public View saveHistoryVisibility(ActorId actor, io.memoryos.chat.ChatHistoryVisibility visibility, long revision) {
+    public View saveHistoryVisibility(ActorId actor, ChatHistoryVisibility visibility, long revision) {
         var entity = writable(actor, revision);
         entity.chatHistoryVisibility(visibility.name());
         var saved = settings.saveAndFlush(entity);
@@ -74,14 +74,14 @@ public class ChatSettingsService {
 
     /** The Tenant's setting, read without any capability: the history reads themselves are what is guarded. */
     @Transactional(readOnly = true)
-    public io.memoryos.chat.ChatHistoryVisibility historyVisibility(TenantId tenant) {
+    public ChatHistoryVisibility historyVisibility(TenantId tenant) {
         return settings.findById(tenant.value())
-                .map(entity -> io.memoryos.chat.ChatHistoryVisibility.valueOf(entity.chatHistoryVisibility()))
-                .orElse(io.memoryos.chat.ChatHistoryVisibility.NORMAL);
+                .map(entity -> ChatHistoryVisibility.valueOf(entity.chatHistoryVisibility()))
+                .orElse(ChatHistoryVisibility.NORMAL);
     }
 
     private static View view(ChatSettingsEntity entity) {
         return new View(entity.deepResearchEnabled(),
-                io.memoryos.chat.ChatHistoryVisibility.valueOf(entity.chatHistoryVisibility()), entity.revision());
+                ChatHistoryVisibility.valueOf(entity.chatHistoryVisibility()), entity.revision());
     }
 }

@@ -15,6 +15,7 @@ import io.memoryos.shared.TenantId;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -147,7 +148,7 @@ public class DefaultChatSessionService implements ChatSessionService {
         var target = chats.message(sessionId, messageId).orElseThrow(ChatException::unavailable);
         if (target.parentMessageId() == null) throw ChatException.invalid("Select a message version.");
         var parent = chats.message(sessionId, target.parentMessageId()).orElseThrow(ChatException::unavailable);
-        if (!chats.onSelectedBranch(session, parent.id()) || !java.util.Objects.equals(parent.latestChildMessageId(), expectedChildId))
+        if (!chats.onSelectedBranch(session, parent.id()) || !Objects.equals(parent.latestChildMessageId(), expectedChildId))
             throw ChatException.conflict();
         chats.selectChild(sessionId, parent.id(), target.id());
     }

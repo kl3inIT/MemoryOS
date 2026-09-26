@@ -13,11 +13,14 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import java.net.URI;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import org.springframework.context.ApplicationEventPublisher;
 import org.jspecify.annotations.NonNull;
@@ -493,14 +496,14 @@ public class ModelCatalogService {
 
     private void record(UUID tenant, ActorId actor, AuditAction action, String type, Object id,
                         @Nullable String label,
-                        java.util.function.UnaryOperator<AuditRecord.Builder> details) {
+                        UnaryOperator<AuditRecord.Builder> details) {
         audit.record(details.apply(AuditRecord.of(action, new TenantId(tenant)).actor(actor)
                 .resource(type, id, label)).build());
     }
 
     /** What a provider change is judged by: where data goes and who may reach it. The key itself is never recorded. */
-    private static java.util.Map<String, Object> providerFacts(LlmProvider provider) {
-        var facts = new java.util.LinkedHashMap<String, Object>();
+    private static Map<String, Object> providerFacts(LlmProvider provider) {
+        var facts = new LinkedHashMap<String, Object>();
         facts.put("name", provider.name());
         facts.put("baseUrl", provider.baseUrl());
         facts.put("dataBoundary", provider.dataBoundary().name());
@@ -510,12 +513,12 @@ public class ModelCatalogService {
         return facts;
     }
 
-    private java.util.@Nullable Map<String, Object> modelFacts(UUID tenant, @Nullable UUID modelId) {
+    private @Nullable Map<String, Object> modelFacts(UUID tenant, @Nullable UUID modelId) {
         if (modelId == null) return null;
         var model = catalog.model(tenant, modelId).orElse(null);
-        if (model == null) return java.util.Map.of("id", modelId.toString());
+        if (model == null) return Map.of("id", modelId.toString());
         var provider = catalog.provider(tenant, model.providerId()).orElse(null);
-        var facts = new java.util.LinkedHashMap<String, Object>();
+        var facts = new LinkedHashMap<String, Object>();
         facts.put("model", model.displayName());
         if (provider != null) {
             facts.put("provider", provider.name());

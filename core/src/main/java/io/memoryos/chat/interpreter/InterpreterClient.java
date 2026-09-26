@@ -1,5 +1,10 @@
 package io.memoryos.chat.interpreter;
 
+import jakarta.annotation.PreDestroy;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import org.apache.hc.core5.http.HttpEntity;
 import org.springframework.modulith.NamedInterface;
 import java.io.IOException;
 import java.io.InputStream;
@@ -164,7 +169,7 @@ public class InterpreterClient implements AutoCloseable {
             requireSuccess(response.getCode(), response.getEntity());
             var entity = response.getEntity();
             if (entity == null) throw new IOException("Interpreter returned no stream");
-            try (var reader = new java.io.BufferedReader(new java.io.InputStreamReader(entity.getContent(), StandardCharsets.UTF_8))) {
+            try (var reader = new BufferedReader(new InputStreamReader(entity.getContent(), StandardCharsets.UTF_8))) {
                 return consume(reader, listener);
             } catch (IOException | RuntimeException failure) {
                 request.cancel(); // Abandoning the body kills the container; never leave the slot held.
@@ -174,7 +179,7 @@ public class InterpreterClient implements AutoCloseable {
     }
 
     /** Reads {@code event:}/{@code data:} frames until the terminal {@code result}, accumulating output as Onyx does. */
-    private static Execution consume(java.io.BufferedReader reader, OutputListener listener) throws IOException {
+    private static Execution consume(BufferedReader reader, OutputListener listener) throws IOException {
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
         String event = "";
@@ -221,7 +226,7 @@ public class InterpreterClient implements AutoCloseable {
      * One SSE line, refusing one longer than {@link #JSON_LIMIT}. {@code BufferedReader.readLine} would buffer an
      * unterminated line of any length first, so the limit has to be enforced while reading.
      */
-    private static @Nullable String readLine(java.io.Reader reader) throws IOException {
+    private static @Nullable String readLine(Reader reader) throws IOException {
         var line = new StringBuilder();
         for (int character; (character = reader.read()) != -1; ) {
             if (character == '\n') return line.toString();
@@ -297,7 +302,7 @@ public class InterpreterClient implements AutoCloseable {
         throw new IOException(detail);
     }
 
-    private static void requireSuccess(int status, org.apache.hc.core5.http.@Nullable HttpEntity entity) throws IOException {
+    private static void requireSuccess(int status, @Nullable HttpEntity entity) throws IOException {
         if (status >= 200 && status < 300) return;
         byte[] body = new byte[0];
         if (entity != null) try (var stream = entity.getContent()) { body = stream.readNBytes(ERROR_BODY_BYTES); }
@@ -314,6 +319,6 @@ public class InterpreterClient implements AutoCloseable {
         return new String(fileId.getBytes(StandardCharsets.US_ASCII), StandardCharsets.US_ASCII);
     }
 
-    @jakarta.annotation.PreDestroy
+    @PreDestroy
     @Override public void close() throws IOException { client.close(); }
 }

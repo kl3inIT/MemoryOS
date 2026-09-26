@@ -22,6 +22,7 @@ import io.memoryos.voice.BatchTranscriptionService;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -83,7 +84,7 @@ class MeetingRecordingRetirementTest {
 
         assertEquals(2, recordings.retireHeld());
 
-        assertEquals(java.util.Set.of(transcribedUpload, failedUpload), java.util.Set.copyOf(uploads.retired));
+        assertEquals(Set.of(transcribedUpload, failedUpload), Set.copyOf(uploads.retired));
         assertTrue(meetings.audioUpload(tenant, transcribed).isEmpty());
         assertTrue(meetings.audioUpload(tenant, failed).isEmpty());
         assertEquals(waitingUpload, meetings.audioUpload(tenant, waiting).orElseThrow(),

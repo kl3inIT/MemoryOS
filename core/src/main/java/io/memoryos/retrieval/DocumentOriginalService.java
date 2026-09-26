@@ -17,7 +17,13 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -82,15 +88,15 @@ public class DocumentOriginalService {
      * Stored originals of any media type for Documents a Chat actor may cite, keyed by Document id, so run_python can
      * stage the file behind a search hit as Onyx does. Unreadable, ineligible and oversized originals are absent.
      */
-    public java.util.Map<UUID, StoredObjectReference> citationOriginals(ActorId actor, java.util.Collection<UUID> ids) {
+    public Map<UUID, StoredObjectReference> citationOriginals(ActorId actor, Collection<UUID> ids) {
         var tenant = tenants.findActiveTenant(actor).orElse(null);
-        if (tenant == null || ids.isEmpty()) return java.util.Map.of();
+        if (tenant == null || ids.isEmpty()) return Map.of();
         var readable = access.readableDocuments(actor, List.copyOf(ids));
-        var result = new java.util.LinkedHashMap<UUID, StoredObjectReference>();
+        var result = new LinkedHashMap<UUID, StoredObjectReference>();
         sources.originals(tenant, actor, readable).forEach((id, reference) -> {
             if (reference.metadata().sizeBytes() <= MAX_BYTES) result.put(id, reference);
         });
-        return java.util.Map.copyOf(result);
+        return Map.copyOf(result);
     }
 
     /** The whole original of any media type, with the Chat citation authority, rechecked after the object is opened. */
@@ -112,17 +118,17 @@ public class DocumentOriginalService {
      * The sheets of a workbook original, read under Search authority. A workbook is served as text per sheet
      * rather than as bytes, because the app ships no client-side workbook parser.
      */
-    public java.util.List<SpreadsheetPreview.Sheet> searchWorkbook(ActorId actor, UUID id, UUID generation) {
+    public List<SpreadsheetPreview.Sheet> searchWorkbook(ActorId actor, UUID id, UUID generation) {
         return sheets(searchOriginal(actor, id, generation, null));
     }
 
     /** The same sheets under the Chat citation authority. */
-    public java.util.List<SpreadsheetPreview.Sheet> citationWorkbook(ActorId actor, UUID id, UUID generation) {
+    public List<SpreadsheetPreview.Sheet> citationWorkbook(ActorId actor, UUID id, UUID generation) {
         return sheets(citationOriginal(actor, id, generation, null));
     }
 
     /** Reads an authorized original as a workbook, and closes the object whether or not it is one. */
-    private static java.util.List<SpreadsheetPreview.Sheet> sheets(Original original) {
+    private static List<SpreadsheetPreview.Sheet> sheets(Original original) {
         try (var open = original) {
             if (!WORKBOOK.equals(baseType(open.reference()))) throw new SearchDocumentUnavailableException();
             return SpreadsheetPreview.parse(open.inputStream());
@@ -173,8 +179,8 @@ public class DocumentOriginalService {
         }
     }
 
-    private java.util.Optional<StoredObjectReference> lookup(TenantId tenant, ActorId actor, UUID id) {
-        return java.util.Optional.ofNullable(sources.originals(tenant, actor, java.util.Set.of(id)).get(id));
+    private Optional<StoredObjectReference> lookup(TenantId tenant, ActorId actor, UUID id) {
+        return Optional.ofNullable(sources.originals(tenant, actor, Set.of(id)).get(id));
     }
 
     private static boolean declaresPdf(StoredObjectReference reference) {
@@ -185,7 +191,7 @@ public class DocumentOriginalService {
     private static String baseType(StoredObjectReference reference) {
         var declared = reference.metadata().mediaType();
         int parameters = declared.indexOf(';');
-        return (parameters < 0 ? declared : declared.substring(0, parameters)).strip().toLowerCase(java.util.Locale.ROOT);
+        return (parameters < 0 ? declared : declared.substring(0, parameters)).strip().toLowerCase(Locale.ROOT);
     }
 
     private record Opened(@Nullable ByteRange range, InputStream input, Runnable closer) {

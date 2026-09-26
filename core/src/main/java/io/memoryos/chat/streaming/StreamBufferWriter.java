@@ -1,10 +1,15 @@
 package io.memoryos.chat.streaming;
 
+import io.memoryos.chat.ChatCodeEvent;
 import io.memoryos.chat.ChatException;
 import io.memoryos.chat.ChatImageEvent;
 import io.memoryos.chat.ChatResearchEvent;
 import io.memoryos.chat.ChatToolEvent;
 import io.memoryos.chat.ChatMessage.Status;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Objects;
+import org.springframework.dao.DataAccessException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
@@ -58,7 +63,7 @@ public final class StreamBufferWriter {
     private final ChatStreamProperties limits;
     private final LongSupplier millis;
     private final ConcurrentHashMap<UUID, Stream> streams = new ConcurrentHashMap<>();
-    private final Map<UUID, Integer> readersPerRun = new java.util.HashMap<>();
+    private final Map<UUID, Integer> readersPerRun = new HashMap<>();
     private int readers;
 
     public StreamBufferWriter(StringRedisTemplate redis, ChatStreamProperties limits) {
@@ -74,7 +79,7 @@ public final class StreamBufferWriter {
     public record Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                         @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
                         @Nullable ChatImageEvent image, boolean hasArtifacts, @Nullable ChatResearchEvent research,
-                        @Nullable String parentToolCallId, io.memoryos.chat.@Nullable ChatCodeEvent code) {
+                        @Nullable String parentToolCallId, @Nullable ChatCodeEvent code) {
         public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
                      @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool,
                      @Nullable ChatImageEvent image, boolean hasArtifacts, @Nullable ChatResearchEvent research,
@@ -158,7 +163,7 @@ public final class StreamBufferWriter {
         var stream = require(id);
         synchronized (stream) {
             if (stream.done) return;
-            if (!stream.pendingType.equals(type) || !java.util.Objects.equals(stream.pendingKey, key)) {
+            if (!stream.pendingType.equals(type) || !Objects.equals(stream.pendingKey, key)) {
                 chunk(stream);
                 stream.pendingType = type;
                 stream.pendingKey = key;
@@ -211,7 +216,7 @@ public final class StreamBufferWriter {
         }
     }
 
-    public void code(UUID id, io.memoryos.chat.ChatCodeEvent event) {
+    public void code(UUID id, ChatCodeEvent event) {
         var stream = require(id);
         synchronized (stream) {
             if (stream.done) return;
@@ -239,7 +244,7 @@ public final class StreamBufferWriter {
         long last;
         // Unreadable replay is reported by the reader as a reset, so the browser falls back to history.
         try { last = lastSequence(id); }
-        catch (org.springframework.dao.DataAccessException unavailable) { last = after; }
+        catch (DataAccessException unavailable) { last = after; }
         if (after > last) throw ChatException.invalid("Stream cursor is ahead of this reply.");
         synchronized (readersPerRun) {
             if (readers >= limits.maxReaders() || readersPerRun.getOrDefault(id, 0) >= limits.readersPerRun())
@@ -268,14 +273,17 @@ public final class StreamBufferWriter {
     }
 
     /** Session deletion; a Redis failure leaves the keys to their TTL. */
-    public void discard(java.util.Collection<UUID> ids) {
+    public void discard(Collection<UUID> ids) {
         for (var id : ids) {
             var stream = streams.remove(id);
             if (stream != null) synchronized (stream) { stream.done = true; stream.queue.clear(); }
         }
         if (ids.isEmpty()) return;
         try { redis.delete(ids.stream().map(StreamBufferWriter::key).toList()); }
-        catch (RuntimeException failure) { LOG.warn("Chat stream deletion unavailable ({})", failure.getClass().getSimpleName()); }
+        catch (RuntimeException failure) {
+            LOG.atWarn().addKeyValue("event", "chat.stream.delete_failed")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat stream deletion unavailable");
+        }
     }
 
     static String key(UUID id) {
@@ -306,7 +314,7 @@ public final class StreamBufferWriter {
             case "research-plan" -> new Event(stream.id, sequence, stream.pendingType, null, null, null, null, null, false,
                     ChatResearchEvent.plan(text), null);
             case "intermediate-report" -> new Event(stream.id, sequence, stream.pendingType, null, null, null, null, null, false,
-                    ChatResearchEvent.report(java.util.Objects.requireNonNull(stream.pendingKey), text), null);
+                    ChatResearchEvent.report(Objects.requireNonNull(stream.pendingKey), text), null);
             default -> new Event(stream.id, sequence, stream.pendingType, text, null, null, null, null, false, null, stream.pendingKey);
         });
     }
@@ -320,7 +328,8 @@ public final class StreamBufferWriter {
         if (stream.bytes + bytes > limits.runBytes()) {
             stream.truncated = true;
             stream.queue.addLast(new Entry(event.sequence(), TRUNCATED, null));
-            LOG.warn("Chat stream for reply {} exceeded {} bytes; replay is truncated", stream.id, limits.runBytes());
+            LOG.atWarn().addKeyValue("event", "chat.stream.truncated").addKeyValue("message_id", stream.id)
+                    .addKeyValue("limit_bytes", limits.runBytes()).log("Chat stream exceeded its bound; replay is truncated");
             return;
         }
         stream.bytes += bytes;
@@ -347,12 +356,13 @@ public final class StreamBufferWriter {
                     writes++;
                     written.notifyAll();
                 }
-                if (stream.failing) LOG.info("Chat stream writes to Redis resumed for reply {}", stream.id);
+                if (stream.failing) LOG.atInfo().addKeyValue("event", "chat.stream.write_resumed").addKeyValue("message_id", stream.id)
+                        .log("Chat stream writes to Redis resumed");
                 stream.failing = false;
             } catch (RuntimeException failure) {
                 // A timed-out pipeline may have been applied: entries Redis already holds are dropped, the rest retried.
-                if (!stream.failing) LOG.warn("Chat stream write to Redis failed for reply {} ({}); retrying",
-                        stream.id, failure.getClass().getSimpleName());
+                if (!stream.failing) LOG.atWarn().addKeyValue("event", "chat.stream.write_failed").addKeyValue("message_id", stream.id)
+                        .addKeyValue("error_type", failure.getClass().getName()).log("Chat stream write to Redis failed; retrying");
                 stream.failing = true;
                 try {
                     var last = redis.opsForStream().reverseRange(key, Range.unbounded(), Limit.limit().count(1));
@@ -431,9 +441,10 @@ public final class StreamBufferWriter {
                 synchronized (written) { seen = writes; }
                 Batch batch;
                 try { batch = next(); }
-                catch (org.springframework.dao.DataAccessException unavailable) {
+                catch (DataAccessException unavailable) {
                     // As Onyx's resume endpoint without a buffer: the browser reads history and polls while RUNNING.
-                    LOG.warn("Chat stream replay unavailable for reply {} ({})", id, unavailable.getClass().getSimpleName());
+                    LOG.atWarn().addKeyValue("event", "chat.stream.replay_unavailable").addKeyValue("message_id", id)
+                            .addKeyValue("error_type", unavailable.getClass().getName()).log("Chat stream replay unavailable");
                     return end("BUFFER_MISSING");
                 }
                 if (batch != null) return batch;
@@ -481,7 +492,7 @@ public final class StreamBufferWriter {
 
         private boolean exists() {
             try { return Boolean.TRUE.equals(redis.hasKey(key(id))); }
-            catch (org.springframework.dao.DataAccessException unavailable) { return false; }
+            catch (DataAccessException unavailable) { return false; }
         }
 
         private Batch end(String reason) {

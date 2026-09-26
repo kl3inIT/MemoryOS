@@ -4,7 +4,7 @@ Date: 2026-09-25
 
 ## Status
 
-Accepted; implemented 2026-09-25 in phase 3 (`docs/increments/active/phase3-dedup-hot-paths`). Supersedes the consequence in [ADR 0015](0015-capability-module-map.md) that `shared` "must not grow into a common utilities package"; the rest of ADR 0015's shared-kernel section stands.
+Accepted; implemented 2026-09-25 in phase 3 ([`docs/increments/completed/phase3-dedup-hot-paths`](../increments/completed/phase3-dedup-hot-paths/design.md)). Supersedes the consequence in [ADR 0015](0015-capability-module-map.md) that `shared` "must not grow into a common utilities package"; the rest of ADR 0015's shared-kernel section stands.
 
 ## Context
 

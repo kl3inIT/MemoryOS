@@ -6,6 +6,7 @@ import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
 import io.memoryos.document.StructuredContent;
 import java.io.InputStream;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -46,7 +47,7 @@ final class NativeSnapshot {
             }
             checkTree(snapshot, 0, new long[3]);
             return snapshot;
-        } catch (tools.jackson.core.JacksonException exception) {
+        } catch (JacksonException exception) {
             throw StructuredContent.failure(ExtractionFailure.MALFORMED);
         }
     }

@@ -1,6 +1,8 @@
 package io.memoryos.audit;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -109,12 +111,12 @@ public enum AuditAction {
     public Set<String> fields() { return fields; }
 
     /** A stored event's action, or empty when a row predates it; a reader never fails over an unknown value. */
-    public static java.util.Optional<AuditAction> of(String value) {
-        return java.util.Optional.ofNullable(BY_VALUE.get(value));
+    public static Optional<AuditAction> of(String value) {
+        return Optional.ofNullable(BY_VALUE.get(value));
     }
 
     private static Map<String, AuditAction> buildIndex() {
-        var index = new java.util.HashMap<String, AuditAction>();
+        var index = new HashMap<String, AuditAction>();
         for (AuditAction action : values()) {
             if (index.put(action.value, action) != null)
                 throw new IllegalStateException("Duplicate audit action " + action.value);

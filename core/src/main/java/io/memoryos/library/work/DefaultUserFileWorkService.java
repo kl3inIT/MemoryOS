@@ -14,6 +14,7 @@ import io.memoryos.objectstorage.ObjectUploadService;
 import io.memoryos.objectstorage.ObjectWriteService;
 import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.objectstorage.StoredObjectRegistry;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,7 +48,7 @@ public class DefaultUserFileWorkService implements UserFileWorkPort {
         tenants.lockActiveMembership(claim.owner()).filter(membership -> membership.tenantId().equals(claim.tenantId()))
                 .orElseThrow(LibraryException::unavailable);
         if (!work.lockCurrent(claim)) return false;
-        var metadata = new java.util.HashMap<>(content.metadata());
+        var metadata = new HashMap<>(content.metadata());
         metadata.put("origin", "USER_FILE");
         metadata.put("user_file_id", claim.fileId().toString());
         metadata.put("owner_actor_id", claim.owner().value().toString());

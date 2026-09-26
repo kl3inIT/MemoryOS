@@ -11,7 +11,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.zaxxer.hikari.HikariDataSource;
+import io.memoryos.connector.SourceOperationId;
+import io.memoryos.connector.SourceOperationStatus;
+import io.memoryos.connector.SourceSummary;
+import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository;
+import io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository;
+import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
+import io.memoryos.iam.GroupIdentity;
+import io.memoryos.objectstorage.ObjectWriteService;
 import java.util.ArrayList;
+import java.util.Base64;
 import org.junit.jupiter.api.AfterEach;
 import io.memoryos.TestDatabase;
 import io.memoryos.connector.ConnectorCleanupPort;
@@ -94,6 +103,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -160,7 +170,7 @@ class PostgresSourceLifecycleTest {
         var sourceRepository = new JdbcSourceRepository(jdbcClient, event -> { });
         var sourceDocuments = new JdbcSourceDocumentRepository(jdbcClient);
         attempts = new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments,
-                org.mockito.Mockito.mock(io.memoryos.connector.sync.ProviderAuthorityService.class));
+                Mockito.mock(ProviderAuthorityService.class));
         var documents = new JdbcDocumentRepository(jdbcClient, objectMapper, _ -> { });
         sourceUploads = new JdbcSourceUploadRepository(jdbcClient);
         objectStorage = new InMemoryObjectStorage();
@@ -195,7 +205,7 @@ class PostgresSourceLifecycleTest {
                         objectUploads,
                         storedObjects,
                         new JdbcSourceItemRepository(jdbcClient),
-                        org.mockito.Mockito.mock(io.memoryos.objectstorage.ObjectWriteService.class)
+                        Mockito.mock(ObjectWriteService.class)
                 ),
                 ConnectorCleanupPort.class,
                 transactionManager
@@ -288,7 +298,7 @@ class PostgresSourceLifecycleTest {
                 scope + "+294277-01-01T00:00:00Z|" + UUID.randomUUID(),
                 scope + Instant.MAX + "|" + UUID.randomUUID(),
                 scope + "2026-01-01T00:00:00Z|invalid-id")) {
-            String cursor = java.util.Base64.getUrlEncoder().withoutPadding()
+            String cursor = Base64.getUrlEncoder().withoutPadding()
                     .encodeToString(position.getBytes(StandardCharsets.UTF_8));
             assertEquals("SOURCE_INVALID_REQUEST", assertThrows(SourceException.class,
                     () -> service.listItems(owner, sourceId, cursor, 1)).code());
@@ -359,7 +369,7 @@ class PostgresSourceLifecycleTest {
         assertThrows(IamException.class, () -> service.replaceSourceGroups(manager, shared.id(), List.of(a)));
         assertThrows(IamException.class, () -> service.replaceSourceGroups(manager, shared.id(), List.of(adminGroupId(), b)));
         service.replaceSourceGroups(manager, shared.id(), List.of(b));
-        assertThat(service.listSourceGroups(owner, shared.id())).extracting(io.memoryos.iam.GroupIdentity::id).containsExactly(b);
+        assertThat(service.listSourceGroups(owner, shared.id())).extracting(GroupIdentity::id).containsExactly(b);
         assertTrue(service.getSource(manager, shared.id()).permissions().edit());
         assertThrows(IamException.class, () -> service.updateSourceAccess(manager, shared.id(), SourceAccess.PUBLIC));
 
@@ -409,7 +419,7 @@ class PostgresSourceLifecycleTest {
         assertEquals("Renamed", service.renameSource(manager, source.id(), "Renamed").name());
         service.replaceSourceGroups(manager, source.id(), List.of(managed));
         assertThat(service.listSourceGroups(manager, source.id()))
-                .extracting(io.memoryos.iam.GroupIdentity::id).containsExactly(managed);
+                .extracting(GroupIdentity::id).containsExactly(managed);
         assertThrows(SourceException.class, () -> service.deleteSource(manager, source.id()));
         service.replaceSourceGroups(manager, source.id(), List.of());
         assertThat(service.listSourceGroups(manager, source.id())).isEmpty();
@@ -437,7 +447,7 @@ class PostgresSourceLifecycleTest {
         var work = cleanup.claim(delivery.tenantId(), delivery.operationId(), delivery.deliveryId()).orElseThrow();
         assertTrue(cleanup.execute(work));
         assertThrows(SourceException.class, () -> service.getSource(manager, own.id()));
-        assertEquals(io.memoryos.connector.SourceOperationStatus.SUCCEEDED, service.getOperation(manager, deletion.id()).status());
+        assertEquals(SourceOperationStatus.SUCCEEDED, service.getOperation(manager, deletion.id()).status());
         assertEquals(deletion.id(), service.deleteSource(manager, own.id()).id());
         assertThrows(SourceException.class, () -> service.getOperation(stranger, deletion.id()));
         jdbcClient.sql("UPDATE iam_group_memberships SET is_manager=FALSE WHERE tenant_id=:tenant AND actor_id=:actor")
@@ -451,7 +461,7 @@ class PostgresSourceLifecycleTest {
         GroupId group = new GroupId(UUID.randomUUID());
         ActorId manager = addScopedManager(group);
         ActorId stranger = addScopedManager(new GroupId(UUID.randomUUID()));
-        var operation = new io.memoryos.connector.SourceOperationId(UUID.randomUUID());
+        var operation = new SourceOperationId(UUID.randomUUID());
         jdbcClient.sql("""
                 INSERT INTO google_drive_selection_operations (
                     id, tenant_id, source_id, actor_id, request_id, request_hash,
@@ -516,7 +526,7 @@ class PostgresSourceLifecycleTest {
         );
         service.replaceSourceGroups(manager, managed.id(), List.of(managedGroupId));
         assertThat(service.listSourceGroupOptions(manager, "", 0, 25).items())
-                .extracting(io.memoryos.iam.GroupIdentity::id).containsExactly(managedGroupId);
+                .extracting(GroupIdentity::id).containsExactly(managedGroupId);
 
         // Moving the Source to another manager's Group leaves its recorded manager in place: they keep the catalog
         // row and their operations, while reading its documents still needs membership they no longer have.
@@ -525,7 +535,7 @@ class PostgresSourceLifecycleTest {
                 managed.id(),
                 List.of(foreignGroupId)
         );
-        assertThat(service.listSources(manager)).extracting(io.memoryos.connector.SourceSummary::id)
+        assertThat(service.listSources(manager)).extracting(SourceSummary::id)
                 .containsExactly(managed.id());
         assertTrue(service.getSource(manager, managed.id()).permissions().edit());
 
@@ -558,7 +568,7 @@ class PostgresSourceLifecycleTest {
                     () -> service.removeGroupSource(coManager, sharedGroup, sourceId)).code());
         }
         assertThat(service.listSourceGroups(owner, managed.id()))
-                .extracting(io.memoryos.iam.GroupIdentity::id)
+                .extracting(GroupIdentity::id)
                 .containsExactlyInAnyOrder(sharedGroup, foreignGroup);
 
         // The responsible manager detaches their own Source from a Group they manage, and only from that Group.
@@ -569,14 +579,14 @@ class PostgresSourceLifecycleTest {
                 () -> service.removeGroupSource(responsible, sharedGroup, unmanaged.id())).code());
         service.removeGroupSource(responsible, sharedGroup, managed.id());
         assertThat(service.listSourceGroups(owner, managed.id()))
-                .extracting(io.memoryos.iam.GroupIdentity::id).containsExactly(foreignGroup);
+                .extracting(GroupIdentity::id).containsExactly(foreignGroup);
         assertEquals("SOURCE_NOT_FOUND", assertThrows(SourceException.class,
                 () -> service.removeGroupSource(responsible, sharedGroup, managed.id())).code());
 
         // What the responsible manager detached, they can attach again.
         service.replaceSourceGroups(responsible, managed.id(), List.of(sharedGroup, foreignGroup));
         assertThat(service.listSourceGroups(owner, managed.id()))
-                .extracting(io.memoryos.iam.GroupIdentity::id)
+                .extracting(GroupIdentity::id)
                 .containsExactlyInAnyOrder(sharedGroup, foreignGroup);
 
         // Global Source management detaches any Source from any Group.
@@ -587,7 +597,7 @@ class PostgresSourceLifecycleTest {
         service.removeGroupSource(owner, foreignGroup, managed.id());
         assertThat(service.listSourceGroups(owner, unmanaged.id())).isEmpty();
         assertThat(service.listSourceGroups(owner, managed.id()))
-                .extracting(io.memoryos.iam.GroupIdentity::id).containsExactly(sharedGroup);
+                .extracting(GroupIdentity::id).containsExactly(sharedGroup);
     }
 
     @Test
@@ -914,7 +924,7 @@ class PostgresSourceLifecycleTest {
     @Test
     void successfulReindexClearsOnlyRecoveredItemFailures() throws Exception {
         SourceId sourceId = service.createFileSource(owner, "Recovery", List.of(), null).id();
-        var uploads = new java.util.ArrayList<SourceUploadReceipt>();
+        var uploads = new ArrayList<SourceUploadReceipt>();
         String[] failures = {"SOURCE_EXTRACTION_MALFORMED", "SOURCE_EXTRACTION_TIMEOUT"};
         for (int index = 0; index < failures.length; index++) {
             uploads.add(upload(owner, sourceId, "item-" + index + ".txt",
@@ -1301,7 +1311,7 @@ class PostgresSourceLifecycleTest {
                 sourceRepository,
                 new JdbcSourceItemRepository(jdbcClient),
                 new JdbcIndexAttemptRepository(jdbcClient, sourceRepository, sourceDocuments,
-                        org.mockito.Mockito.mock(io.memoryos.connector.sync.ProviderAuthorityService.class)),
+                        Mockito.mock(ProviderAuthorityService.class)),
                 sourceDocuments,
                 new JdbcSourceQueryRepository(jdbcClient),
                 new JdbcSourceOperationQueryRepository(jdbcClient),
@@ -1317,13 +1327,13 @@ class PostgresSourceLifecycleTest {
                         new GroupProjectionRepository(jdbcClient)
                 ),
                 transactionManager,
-                new io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository(jdbcClient),
-                new io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSyncRepository(jdbcClient,
-                        new io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository(jdbcClient)),
-                new io.memoryos.connector.googledrive.persistence.JdbcGoogleDriveSelectionRepository(jdbcClient),
-                org.mockito.Mockito.mock(io.memoryos.connector.googledrive.GoogleDriveConnectionService.class),
-                new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbcClient), new IamLockRepository(jdbcClient)), sourceRepository, new DefaultGroupScopeService(new GroupInvariantRepository(jdbcClient), new GroupProjectionRepository(jdbcClient)), io.memoryos.TestDatabase.noAudit())
-        , io.memoryos.TestDatabase.noAudit());
+                new JdbcSourceSyncRepository(jdbcClient),
+                new JdbcGoogleDriveSyncRepository(jdbcClient,
+                        new JdbcSourceSyncRepository(jdbcClient)),
+                new JdbcGoogleDriveSelectionRepository(jdbcClient),
+                Mockito.mock(GoogleDriveConnectionService.class),
+                new SourceAccessPolicy(new DefaultIamAuthorization(new IamAuthorizationRepository(jdbcClient), new IamLockRepository(jdbcClient)), sourceRepository, new DefaultGroupScopeService(new GroupInvariantRepository(jdbcClient), new GroupProjectionRepository(jdbcClient)), TestDatabase.noAudit())
+        , TestDatabase.noAudit());
         return TestDatabase.transactionalProxy(target, SourceManagementService.class, transactionManager);
     }
 

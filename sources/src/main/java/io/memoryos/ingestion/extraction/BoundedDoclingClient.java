@@ -12,16 +12,24 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.memoryos.document.ExtractionFailure;
 import java.io.IOException;
+import java.net.ConnectException;
+import java.net.SocketException;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.core.JsonParser;
 import tools.jackson.databind.DeserializationContext;
 import tools.jackson.databind.JsonNode;
@@ -30,9 +38,9 @@ import tools.jackson.databind.annotation.JsonDeserialize;
 import tools.jackson.databind.json.JsonMapper;
 
 /** Official SDK operations with a bounded response transport; no response/body logging. */
-@org.jspecify.annotations.NullMarked
+@NullMarked
 final class BoundedDoclingClient extends DoclingServeClient implements AutoCloseable {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(BoundedDoclingClient.class);
+    private static final Logger LOG = LoggerFactory.getLogger(BoundedDoclingClient.class);
     private static final Duration HTTP_TIMEOUT = Duration.ofMinutes(2);
     private static final Pattern TASK_ID = Pattern.compile("[A-Za-z0-9_-]{1,128}");
     private final JsonMapper mapper = JsonMapper.builder().addMixIn(ErrorItem.class, ErrorMapping.class).build();
@@ -107,8 +115,8 @@ final class BoundedDoclingClient extends DoclingServeClient implements AutoClose
                             int code = e.getStatusCode();
                             boolean transientRead = code == 408 || code == 429 || (code >= 500 && code <= 599)
                                     || e.getCause() instanceof HttpTimeoutException
-                                    || e.getCause() instanceof java.net.ConnectException
-                                    || e.getCause() instanceof java.net.SocketException;
+                                    || e.getCause() instanceof ConnectException
+                                    || e.getCause() instanceof SocketException;
                             if (Thread.currentThread().isInterrupted() || !transientRead) throw e;
                             // Retry only status reads for this task, never submission or single-use results.
                         }
@@ -143,13 +151,13 @@ final class BoundedDoclingClient extends DoclingServeClient implements AutoClose
     @Override protected <T> T readValue(String json, Class<T> type) { return mapper.readValue(json, type); }
     @Override protected <T> String writeValueAsString(T value) { return mapper.writeValueAsString(value); }
 
-    CanonicalResponse convertFile(java.nio.file.Path file, String extension,
+    CanonicalResponse convertFile(Path file, String extension,
                                   DoclingProperties properties, boolean ocr) throws IOException {
-        String boundary = "memoryos-" + java.util.UUID.randomUUID();
+        String boundary = "memoryos-" + UUID.randomUUID();
         StringBuilder fields = new StringBuilder();
         // Serialize the SDK options once; multipart and JSON use the same names, values and defaults.
         mapper.valueToTree(properties.options(ocr)).properties().forEach(option -> {
-            var values = option.getValue().isArray() ? option.getValue() : java.util.List.of(option.getValue());
+            var values = option.getValue().isArray() ? option.getValue() : List.of(option.getValue());
             for (var value : values) fields.append("--").append(boundary).append("\r\nContent-Disposition: form-data; name=\"")
                     .append(option.getKey()).append("\"\r\n\r\n").append(value.asString()).append("\r\n");
         });
@@ -157,7 +165,7 @@ final class BoundedDoclingClient extends DoclingServeClient implements AutoClose
                 .append(extension).append("\"\r\nContent-Type: application/octet-stream\r\n\r\n");
         var body = HttpRequest.BodyPublishers.concat(HttpRequest.BodyPublishers.ofString(fields.toString()),
                 HttpRequest.BodyPublishers.ofFile(file), HttpRequest.BodyPublishers.ofString("\r\n--" + boundary + "--\r\n"));
-        var endpoint = java.net.URI.create(properties.endpoint().toString().replaceAll("/+$", "") + "/v1/convert/file");
+        var endpoint = URI.create(properties.endpoint().toString().replaceAll("/+$", "") + "/v1/convert/file");
         var request = HttpRequest.newBuilder(endpoint).timeout(properties.timeout().plusSeconds(15))
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary).header("Accept", "application/json").POST(body).build();
         return execute(request, CanonicalResponse.class);
@@ -208,7 +216,7 @@ final class BoundedDoclingClient extends DoclingServeClient implements AutoClose
             taskTimeout = client.taskTimeout;
             accessKey = client.apiKey;
         }
-        @Override public Builder apiKey(@org.jspecify.annotations.Nullable String key) {
+        @Override public Builder apiKey(@Nullable String key) {
             super.apiKey(key);
             accessKey = key == null ? "" : key;
             return this;

@@ -7,10 +7,14 @@ import io.memoryos.ai.ModelSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -135,7 +139,7 @@ class OpenAiCancellationTest {
                         Map.of(), null, TokenizerProfiles.HOSTED), readTimeout);
     }
 
-    private static void readRequest(java.io.InputStream input) throws java.io.IOException {
+    private static void readRequest(InputStream input) throws IOException {
         var header = new ByteArrayOutputStream();
         int state = 0;
         while (state < 4) {
@@ -146,7 +150,7 @@ class OpenAiCancellationTest {
             state = value == "\r\n\r\n".charAt(state) ? state + 1 : value == '\r' ? 1 : 0;
         }
         int length = header.toString(StandardCharsets.US_ASCII).lines()
-                .filter(line -> line.toLowerCase(java.util.Locale.ROOT).startsWith("content-length:"))
+                .filter(line -> line.toLowerCase(Locale.ROOT).startsWith("content-length:"))
                 .mapToInt(line -> Integer.parseInt(line.substring(line.indexOf(':') + 1).trim())).findFirst().orElseThrow();
         assertEquals(length, input.readNBytes(length).length);
     }
@@ -157,7 +161,7 @@ class OpenAiCancellationTest {
 
     private record Peer(CompletableFuture<Void> ready, CompletableFuture<Integer> eof) {}
 
-    private static Peer peer(ServerSocket server, ExecutorService executor, boolean sendContent) throws java.net.SocketException {
+    private static Peer peer(ServerSocket server, ExecutorService executor, boolean sendContent) throws SocketException {
         server.setSoTimeout(15000);
         var ready = new CompletableFuture<Void>();
         var eof = new CompletableFuture<Integer>();
@@ -175,7 +179,7 @@ class OpenAiCancellationTest {
                     state = value == "\r\n\r\n".charAt(state) ? state + 1 : value == '\r' ? 1 : 0;
                 }
                 int length = header.toString(StandardCharsets.US_ASCII).lines()
-                        .filter(line -> line.toLowerCase(java.util.Locale.ROOT).startsWith("content-length:"))
+                        .filter(line -> line.toLowerCase(Locale.ROOT).startsWith("content-length:"))
                         .mapToInt(line -> Integer.parseInt(line.substring(line.indexOf(':') + 1).trim())).findFirst().orElseThrow();
                 assertEquals(length, input.readNBytes(length).length);
                 if (sendContent) {

@@ -18,22 +18,36 @@ import io.memoryos.document.ExtractedDocument.Table;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.ConnectException;
+import java.net.UnknownHostException;
+import java.net.http.HttpConnectTimeoutException;
+import java.net.http.HttpTimeoutException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
+import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
 import org.apache.tika.Tika;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 public final class DoclingSourceContentExtractor implements AutoCloseable {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(DoclingSourceContentExtractor.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DoclingSourceContentExtractor.class);
     /** Detection holds no per-call state, so one facade serves every document. */
     private static final Tika TIKA = new Tika();
     private static final Map<String, String> FORMATS = Map.of(
@@ -44,7 +58,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
     // or answering with something that is not a usable conversion. The native reader can stand in
     // for those. A failure that belongs to the document itself (encrypted, over a size or page
     // limit) is not in this set, because another reader would refuse the same document.
-    private static final Set<ExtractionFailure> FALLBACK_ON = java.util.EnumSet.of(
+    private static final Set<ExtractionFailure> FALLBACK_ON = EnumSet.of(
             ExtractionFailure.CONNECTION_FAILED, ExtractionFailure.TIMEOUT,
             ExtractionFailure.INTERNAL, ExtractionFailure.MALFORMED);
     // A PDF with a text layer carries hundreds of characters on a page. A scan carries none, or a
@@ -106,9 +120,9 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
         if (bytes.length < 1 || bytes.length > ObjectUploadSpecification.MAX_SIZE_BYTES) throw failure(ExtractionFailure.WRITE_LIMIT);
         PdfLayout layout = null;
         if ("application/pdf".equals(mediaType)) {
-            try (var pdf = org.apache.pdfbox.Loader.loadPDF(bytes)) {
+            try (var pdf = Loader.loadPDF(bytes)) {
                 layout = admit(pdf);
-            } catch (org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException e) {
+            } catch (InvalidPasswordException e) {
                 throw failure(ExtractionFailure.ENCRYPTED);
             } catch (IOException e) { throw failure(ExtractionFailure.MALFORMED); }
         }
@@ -122,7 +136,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
             if (!Set.of("text/plain", "text/markdown", "text/x-markdown").contains(mediaType)) {
                 throw failure(ExtractionFailure.UNSUPPORTED);
             }
-            return nativeReader.extract(new java.io.ByteArrayInputStream(bytes), bytes.length, filename, input);
+            return nativeReader.extract(new ByteArrayInputStream(bytes), bytes.length, filename, input);
         }
         if (!(client instanceof BoundedDoclingClient bounded)) throw failure(ExtractionFailure.UNSUPPORTED);
         // FileSource sends bounded bytes, never an arbitrary URL or provider credential.
@@ -141,7 +155,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
             serviceFailure = requestFailure(e);
         }
         return fallBack(serviceFailure, mediaType, pages,
-                () -> nativeReader.extract(new java.io.ByteArrayInputStream(bytes), bytes.length, filename, input));
+                () -> nativeReader.extract(new ByteArrayInputStream(bytes), bytes.length, filename, input));
     }
 
     /**
@@ -149,25 +163,25 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
      * whether the text layer is thin enough to call the document a scan. Density is measured only
      * when PaddleOCR-VL is there to read a scan; it is the same threshold a native fallback must meet.
      */
-    private PdfLayout admit(org.apache.pdfbox.pdmodel.PDDocument pdf) throws ExtractionException, IOException {
+    private PdfLayout admit(PDDocument pdf) throws ExtractionException, IOException {
         if (pdf.isEncrypted()) throw failure(ExtractionFailure.ENCRYPTED);
         if (pdf.getNumberOfPages() > properties.maxPages()) throw failure(ExtractionFailure.WRITE_LIMIT);
         return PdfLayout.of(pdf, paddle != null);
     }
 
     /** Disk-backed multipart prevents a 250 MiB file becoming several base64/JSON heap copies. */
-    public DocumentContent extractChatFile(java.nio.file.Path file, String filename, String mediaType) throws ExtractionException {
+    public DocumentContent extractChatFile(Path file, String filename, String mediaType) throws ExtractionException {
         if (!(client instanceof BoundedDoclingClient bounded) || !usesDocling(mediaType)) throw failure(ExtractionFailure.UNSUPPORTED);
         PdfLayout layout = null;
         try {
-            long size = java.nio.file.Files.size(file);
+            long size = Files.size(file);
             if (size < 1 || size > 262_144_000) throw failure(ExtractionFailure.WRITE_LIMIT);
             if ("application/pdf".equals(mediaType)) {
-                try (var pdf = org.apache.pdfbox.Loader.loadPDF(file.toFile())) {
+                try (var pdf = Loader.loadPDF(file.toFile())) {
                     layout = admit(pdf);
                 }
             }
-        } catch (org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException encrypted) { throw failure(ExtractionFailure.ENCRYPTED); }
+        } catch (InvalidPasswordException encrypted) { throw failure(ExtractionFailure.ENCRYPTED); }
         catch (IOException invalid) { throw failure(ExtractionFailure.MALFORMED); }
         if (paddle != null && layout != null && layout.scanned()) {
             return paddle.extract(PaddleOcrVlClient.Input.of(file), layout, filename, mediaType, 262_144_000);
@@ -191,7 +205,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
      * A Chat image read by PaddleOCR-VL. A photograph without text returns null, so the attachment
      * keeps its ordinary image description; a failure of the service still fails the attachment.
      */
-    public @Nullable DocumentContent readChatImage(java.nio.file.Path file, String filename, String mediaType)
+    public @Nullable DocumentContent readChatImage(Path file, String filename, String mediaType)
             throws ExtractionException {
         if (paddle == null || !readsImage(mediaType)) throw failure(ExtractionFailure.UNSUPPORTED);
         return paddle.read(PaddleOcrVlClient.Input.of(file), null, filename, mediaType, 262_144_000);
@@ -232,7 +246,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
                     .log("Native text too thin to stand in for Docling; the document needs OCR");
             throw docling;
         }
-        var metadata = new java.util.HashMap<>(content.metadata());
+        var metadata = new HashMap<>(content.metadata());
         metadata.put("parser", "tika");
         metadata.put("fallback_from", "docling");
         metadata.put("fallback_reason", docling.failure().name());
@@ -274,13 +288,13 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
                     externalFailure = true;
                     if (sdk.getStatusCode() > 0) httpStatus = sdk.getStatusCode();
                 }
-                if (root instanceof java.net.http.HttpConnectTimeoutException
-                        || root instanceof java.net.ConnectException || root instanceof java.net.UnknownHostException) {
+                if (root instanceof HttpConnectTimeoutException
+                        || root instanceof ConnectException || root instanceof UnknownHostException) {
                     reason = ExtractionFailure.CONNECTION_FAILED;
                     externalFailure = true;
                     break;
                 }
-                if (root instanceof java.net.http.HttpTimeoutException || root instanceof InterruptedException) {
+                if (root instanceof HttpTimeoutException || root instanceof InterruptedException) {
                     reason = ExtractionFailure.TIMEOUT;
                     externalFailure = true;
                     break;

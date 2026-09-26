@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.UnaryOperator;
 import org.jspecify.annotations.NullMarked;
@@ -39,7 +40,7 @@ public class ModelGuard implements ChatModel {
     private final AtomicInteger accounted = new AtomicInteger();
     private final AtomicInteger synchronousCalls = new AtomicInteger();
     private final AtomicInteger synchronousAccounted = new AtomicInteger();
-    private final java.util.concurrent.atomic.AtomicLong cacheRead = new java.util.concurrent.atomic.AtomicLong();
+    private final AtomicLong cacheRead = new AtomicLong();
     private final int inputLimit;
     private volatile int lastStreamInput;
     private @Nullable Scheduler scheduler;
@@ -72,7 +73,7 @@ public class ModelGuard implements ChatModel {
     public void checkActive() {
         checkActive.run();
         if (budget.earlyTerminationPolicy().shouldTerminate(process) != null)
-            throw new IllegalStateException("CHAT_BUDGET_EXCEEDED");
+            throw TurnFailure.BUDGET_EXCEEDED.exception();
     }
 
     public boolean usageKnown() {
@@ -161,13 +162,13 @@ public class ModelGuard implements ChatModel {
                             if (reason != null && !reason.isBlank())
                                 finished.set(true);
                             if ("length".equalsIgnoreCase(reason) && !response.getResult().getOutput().getToolCalls().isEmpty())
-                                throw new IllegalStateException("CHAT_INCOMPLETE_RESPONSE");
+                                throw TurnFailure.INCOMPLETE_RESPONSE.exception();
                             if (lastCycle && !response.getResult().getOutput().getToolCalls().isEmpty())
-                                throw new IllegalStateException("CHAT_LAST_CYCLE_TOOL_CALL");
+                                throw TurnFailure.LAST_CYCLE_TOOL_CALL.exception();
                         }
                     })
                     .concatWith(Flux.defer(() -> finished.get() ? Flux.<ChatResponse>empty()
-                            : Flux.error(new IllegalStateException("CHAT_INCOMPLETE_RESPONSE"))))
+                            : Flux.error(TurnFailure.INCOMPLETE_RESPONSE.exception())))
                     .doOnComplete(record).doOnError(ignored -> record.run()).doOnCancel(record);
         });
     }
@@ -200,7 +201,7 @@ public class ModelGuard implements ChatModel {
 
     private synchronized StreamAdmission admitStream(Prompt original) {
         int cycle = calls.get() + 1;
-        if (cycle > cycles) throw new IllegalStateException("CHAT_CYCLE_LIMIT");
+        if (cycle > cycles) throw TurnFailure.CYCLE_LIMIT.exception();
         boolean lastCycle = cycle == cycles && !researchPrompts;
         var guided = researchPrompts ? original : guide(original, lastCycle);
         var request = policy.options().apply(toolChoice.apply(lastCycle ? finalRequest.apply(guided) : guided));
@@ -212,7 +213,7 @@ public class ModelGuard implements ChatModel {
     }
 
     private synchronized ModelAdmissionLedger.Reservation admitHelper(int input) {
-        if (synchronousCalls.get() >= synchronousLimit) throw new IllegalStateException("CHAT_CYCLE_LIMIT");
+        if (synchronousCalls.get() >= synchronousLimit) throw TurnFailure.CYCLE_LIMIT.exception();
         var reservation = reserve(input);
         synchronousCalls.incrementAndGet();
         return reservation;

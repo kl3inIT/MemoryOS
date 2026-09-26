@@ -8,7 +8,9 @@ import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectKey;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -222,10 +224,10 @@ public class JdbcLibraryRepository {
     private record Row(LibraryFile file, long totalCount, long totalBytes) {}
 
     /** What one person's library holds, in total and per category; the same rows the listing shows. */
-    public record Usage(long totalBytes, long fileCount, java.util.Map<LibraryFile.Category, Long> byCategory) {}
+    public record Usage(long totalBytes, long fileCount, Map<LibraryFile.Category, Long> byCategory) {}
 
     public Usage usage(TenantId tenant, ActorId actor) {
-        var byCategory = new java.util.EnumMap<LibraryFile.Category, Long>(LibraryFile.Category.class);
+        var byCategory = new EnumMap<LibraryFile.Category, Long>(LibraryFile.Category.class);
         long[] totals = new long[2];
         bind(jdbc.sql("""
                 SELECT category, COALESCE(SUM(size_bytes), 0) AS bytes, count(*) AS files
@@ -239,7 +241,7 @@ public class JdbcLibraryRepository {
                     totals[1] += row.getLong("files");
                     return true;
                 }).list();
-        return new Usage(totals[0], totals[1], java.util.Map.copyOf(byCategory));
+        return new Usage(totals[0], totals[1], Map.copyOf(byCategory));
     }
 
     /** The stored bytes of an artifact the caller may copy into an upload. */

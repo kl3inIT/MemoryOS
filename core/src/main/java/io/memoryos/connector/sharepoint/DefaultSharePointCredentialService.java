@@ -18,6 +18,7 @@ import io.memoryos.shared.TenantId;
 import io.memoryos.shared.ActorId;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -204,8 +205,8 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
         try {
             return SharePointAuthentication.certificate(SharePointCertificate.read(pkcs12, password, clock.instant()));
         } finally {
-            java.util.Arrays.fill(pkcs12, (byte) 0);
-            java.util.Arrays.fill(password, '\0');
+            Arrays.fill(pkcs12, (byte) 0);
+            Arrays.fill(password, '\0');
         }
     }
 

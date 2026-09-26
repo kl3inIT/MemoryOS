@@ -10,11 +10,20 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
+import io.memoryos.usage.AiUsage;
+import io.memoryos.usage.AiUsageFlow;
+import io.memoryos.usage.AiUsageRecorder;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.springframework.ai.chat.metadata.DefaultUsage;
 import org.springframework.ai.chat.metadata.EmptyUsage;
 import org.springframework.ai.embedding.Embedding;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.embedding.EmbeddingRequest;
 import org.springframework.ai.embedding.EmbeddingResponse;
 import org.springframework.ai.embedding.EmbeddingResponseMetadata;
 
@@ -40,22 +49,22 @@ class ValidatedEmbeddingServiceTest {
 
     @Test
     void recordsReportedTokensForAKnownCallerOnlyAndPricesThemWhenConfigured() {
-        var recorder = mock(io.memoryos.usage.AiUsageRecorder.class);
+        var recorder = mock(AiUsageRecorder.class);
         var priced = new ValidatedEmbeddingService(model, "text-embedding-3-large", 3, 32, 2, recorder, "api.openai.com", 0.13, "", "");
-        var tenant = java.util.UUID.randomUUID();
+        var tenant = UUID.randomUUID();
         when(model.call(any())).thenReturn(new EmbeddingResponse(List.of(new Embedding(new float[]{1, 0, 0}, 0)),
-                new EmbeddingResponseMetadata("text-embedding-3-large", new org.springframework.ai.chat.metadata.DefaultUsage(1000, 0))));
-        priced.query("quy định", new ValidatedEmbeddingService.Caller(tenant, null, io.memoryos.usage.AiUsageFlow.EMBEDDING_INDEXING));
+                new EmbeddingResponseMetadata("text-embedding-3-large", new DefaultUsage(1000, 0))));
+        priced.query("quy định", new ValidatedEmbeddingService.Caller(tenant, null, AiUsageFlow.EMBEDDING_INDEXING));
         priced.query("không ghi");
-        var captured = org.mockito.ArgumentCaptor.forClass(io.memoryos.usage.AiUsage.class);
-        org.mockito.Mockito.verify(recorder).record(captured.capture());
+        var captured = ArgumentCaptor.forClass(AiUsage.class);
+        Mockito.verify(recorder).record(captured.capture());
         assertEquals(1000, captured.getValue().inputTokens());
         assertEquals(0.00013, captured.getValue().cost(), 1e-12);
-        assertEquals(io.memoryos.usage.AiUsageFlow.EMBEDDING_INDEXING, captured.getValue().flow());
+        assertEquals(AiUsageFlow.EMBEDDING_INDEXING, captured.getValue().flow());
         assertNull(captured.getValue().actor());
         when(model.call(any())).thenReturn(response("text-embedding-3-large", new Embedding(new float[]{1, 0, 0}, 0)));
-        priced.query("không có usage", new ValidatedEmbeddingService.Caller(tenant, tenant, io.memoryos.usage.AiUsageFlow.EMBEDDING_QUERY));
-        org.mockito.Mockito.verify(recorder, org.mockito.Mockito.times(2)).record(captured.capture());
+        priced.query("không có usage", new ValidatedEmbeddingService.Caller(tenant, tenant, AiUsageFlow.EMBEDDING_QUERY));
+        Mockito.verify(recorder, Mockito.times(2)).record(captured.capture());
         assertNull(captured.getValue().cost());
         assertEquals(0, captured.getValue().inputTokens());
     }
@@ -83,11 +92,11 @@ class ValidatedEmbeddingServiceTest {
         String instruction = "Instruct: Given a question, retrieve passages that answer it\nQuery: ";
         var qwen = new ValidatedEmbeddingService(model, "Qwen/Qwen3-Embedding-0.6B", 3, 32, 2, null, "serving", null,
                 instruction, "");
-        var sent = new java.util.ArrayList<List<String>>();
+        var sent = new ArrayList<List<String>>();
         when(model.call(any())).thenAnswer(call -> {
-            org.springframework.ai.embedding.EmbeddingRequest request = call.getArgument(0);
+            EmbeddingRequest request = call.getArgument(0);
             sent.add(List.copyOf(request.getInstructions()));
-            var values = new java.util.ArrayList<Embedding>();
+            var values = new ArrayList<Embedding>();
             for (int i = 0; i < request.getInstructions().size(); i++) values.add(new Embedding(new float[]{1, 0, 0}, i));
             return new EmbeddingResponse(values, new EmbeddingResponseMetadata("Qwen/Qwen3-Embedding-0.6B", new EmptyUsage()));
         });

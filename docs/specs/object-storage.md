@@ -18,7 +18,7 @@ Every initiated browser upload creates one `STAGED` `StoredObject` and one gener
 
 Upload states are `PENDING`, `VERIFYING`, `VERIFIED`, `ADOPTED`, `DISCARDED`, `CLEANING`, and `EXPIRED`. Verification uses a token and lease, performs provider inspection outside a database transaction, and compares the actual key-bound size, media type, and SHA-256 with durable declared metadata. Adoption or discard requires the current verification token and an unexpired adoption deadline. A completed adoption is capability-owned and never selected by generic abandoned-upload cleanup.
 
-The browser-upload lifecycle is only for bytes a browser PUTs. Bytes the server already holds always go through the tracked server-write lifecycle below, including a file library copy, which a consumer of uploads references by its stored object rather than by an upload ([library copies](../increments/active/library-copy-server-write/design.md)).
+The browser-upload lifecycle is only for bytes a browser PUTs. Bytes the server already holds always go through the tracked server-write lifecycle below, including a file library copy, which a consumer of uploads references by its stored object rather than by an upload ([library copies](../increments/completed/library-copy-server-write/design.md)).
 
 Expected missing or mismatched uploaded content returns `OBJECT_UPLOAD_INTEGRITY_MISMATCH`. Provider availability or authorization failures return `OBJECT_UPLOAD_STORAGE_UNAVAILABLE` at the upload application boundary. Wrong-tenant identifiers are indistinguishable from absent uploads. A finalized owning-capability endpoint persists its capability receipt, so replay after a lost response returns the same result without adopting twice.
 

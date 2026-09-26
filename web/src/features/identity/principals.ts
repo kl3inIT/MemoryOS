@@ -8,11 +8,6 @@ export const personSchema = z.object({
   name: z.string().nullish(),
   email: z.string().nullish(),
 });
-/** The active members and ordinary Groups a search for principals returns. */
-export const principalOptionsSchema = z.object({
-  people: z.array(personSchema),
-  groups: z.array(namedRefSchema),
-});
 export type Person = z.infer<typeof personSchema>;
 export type NamedRef = z.infer<typeof namedRefSchema>;
 

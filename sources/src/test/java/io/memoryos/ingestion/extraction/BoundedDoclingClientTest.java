@@ -2,40 +2,58 @@ package io.memoryos.ingestion.extraction;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import ai.docling.serve.api.convert.request.ConvertDocumentRequest;
+import ai.docling.serve.api.convert.request.options.OcrEngine;
+import ai.docling.serve.api.convert.request.source.FileSource;
+import ai.docling.serve.api.convert.request.target.InBodyTarget;
 import ai.docling.serve.client.DoclingServeClientException;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.memoryos.connector.SourceInputDescriptor;
+import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Base64;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import tools.jackson.databind.ObjectMapper;
 
 class BoundedDoclingClientTest {
     private static final String TEST_API_KEY = "loopback-test-api-key";
-    @org.junit.jupiter.api.io.TempDir java.nio.file.Path temporary;
+    @TempDir Path temporary;
 
     @Test
     void sourceAndMultipartUseIdenticalSdkOptionsAndPrivateAuthentication() throws Exception {
-        var requests = new java.util.concurrent.LinkedBlockingQueue<Captured>();
-        var mapper = new tools.jackson.databind.ObjectMapper();
+        var requests = new LinkedBlockingQueue<Captured>();
+        var mapper = new ObjectMapper();
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/v1/convert/", exchange -> {
             try (exchange) {
                 requests.add(new Captured(exchange.getRequestURI().getPath(), exchange.getRequestHeaders().getFirst("X-Api-Key"),
-                        new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)));
+                        new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)));
                 byte[] response = (exchange.getRequestURI().getPath().endsWith("/async")
                         ? "{\"task_id\":\"options-task\",\"task_status\":\"success\"}"
                         : "{\"status\":\"success\",\"document\":{\"filename\":\"document.pdf\",\"text_content\":\"hello\"},\"errors\":[]}")
-                        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                        .getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().add("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, response.length);
                 exchange.getResponseBody().write(response);
@@ -45,17 +63,17 @@ class BoundedDoclingClientTest {
                 respond(exchange, 200, "{\"status\":\"success\",\"document\":{\"filename\":\"document.pdf\",\"text_content\":\"hello\"},\"errors\":[]}"));
         server.start();
         var properties = new DoclingProperties(URI.create("http://127.0.0.1:" + server.getAddress().getPort()), null,
-                Duration.ofSeconds(5), 200, ai.docling.serve.api.convert.request.options.OcrEngine.TESSERACT,
-                java.util.List.of("vie", "eng"), true, "test-private-key");
-        var file = temporary.resolve("file.pdf"); java.nio.file.Files.writeString(file, "test file content");
+                Duration.ofSeconds(5), 200, OcrEngine.TESSERACT,
+                List.of("vie", "eng"), true, "test-private-key");
+        var file = temporary.resolve("file.pdf"); Files.writeString(file, "test file content");
         try (var client = BoundedDoclingClient.create(properties)) {
-            client.convertDocument(ai.docling.serve.api.convert.request.ConvertDocumentRequest.builder()
-                    .source(ai.docling.serve.api.convert.request.source.FileSource.builder().filename("document.pdf")
-                            .base64String(java.util.Base64.getEncoder().encodeToString(java.nio.file.Files.readAllBytes(file))).build())
-                    .options(properties.options(true)).target(ai.docling.serve.api.convert.request.target.InBodyTarget.builder().build()).build());
+            client.convertDocument(ConvertDocumentRequest.builder()
+                    .source(FileSource.builder().filename("document.pdf")
+                            .base64String(Base64.getEncoder().encodeToString(Files.readAllBytes(file))).build())
+                    .options(properties.options(true)).target(InBodyTarget.builder().build()).build());
             client.convertFile(file, ".pdf", properties, true);
-            var source = java.util.Objects.requireNonNull(requests.poll(5, java.util.concurrent.TimeUnit.SECONDS));
-            var multipart = java.util.Objects.requireNonNull(requests.poll(5, java.util.concurrent.TimeUnit.SECONDS));
+            var source = Objects.requireNonNull(requests.poll(5, TimeUnit.SECONDS));
+            var multipart = Objects.requireNonNull(requests.poll(5, TimeUnit.SECONDS));
             assertEquals("/v1/convert/source/async", source.path()); assertEquals("/v1/convert/file", multipart.path());
             assertEquals("test-private-key", source.key()); assertEquals(source.key(), multipart.key());
             var options = mapper.readTree(source.body()).path("options");
@@ -64,7 +82,7 @@ class BoundedDoclingClientTest {
             assertTrue(options.path("force_ocr").asBoolean());
             assertFalse(options.path("abort_on_error").asBoolean());
             options.properties().forEach(option -> {
-                var values = option.getValue().isArray() ? option.getValue() : java.util.List.of(option.getValue());
+                var values = option.getValue().isArray() ? option.getValue() : List.of(option.getValue());
                 for (var value : values) assertTrue(multipart.body().contains("name=\"" + option.getKey() + "\"\r\n\r\n" + value.asString() + "\r\n"), option.getKey());
             });
             assertTrue(multipart.body().contains("test file content"));
@@ -154,14 +172,14 @@ class BoundedDoclingClientTest {
                 byte[] block = new byte[65536];
                 for (int i = 0; i < 1024; i++) exchange.getResponseBody().write(block);
                 exchange.getResponseBody().write(0);
-            } catch (java.io.IOException ignored) {
+            } catch (IOException ignored) {
                 // Client cancellation is the expected result of the bounded body handler.
             }
         });
         server.start();
         try (var client = client(server, null)) {
             var error = assertThrows(DoclingServeClientException.class, client::health);
-            assertInstanceOf(java.io.IOException.class, error.getCause());
+            assertInstanceOf(IOException.class, error.getCause());
         } finally { server.stop(0); }
     }
 
@@ -248,7 +266,7 @@ class BoundedDoclingClientTest {
 
     @Test
     void interruptionStopsObservationWithoutSubmittingAgain() throws Exception {
-        var submitted = new java.util.concurrent.CountDownLatch(1);
+        var submitted = new CountDownLatch(1);
         var submissions = new AtomicInteger();
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/v1/convert/source/async", exchange -> {
@@ -259,7 +277,7 @@ class BoundedDoclingClientTest {
         });
         server.start();
         try (var extractor = extractor(server)) {
-            var outcome = new java.util.concurrent.CompletableFuture<ExtractionException>();
+            var outcome = new CompletableFuture<ExtractionException>();
             var observer = Thread.ofVirtual().start(() -> {
                 try {
                     extractPdf(extractor);
@@ -273,9 +291,9 @@ class BoundedDoclingClientTest {
                 } catch (Exception e) { outcome.completeExceptionally(e); }
             });
             try {
-                assertTrue(submitted.await(10, java.util.concurrent.TimeUnit.SECONDS));
+                assertTrue(submitted.await(10, TimeUnit.SECONDS));
                 observer.interrupt();
-                assertEquals(ExtractionFailure.TIMEOUT, outcome.get(10, java.util.concurrent.TimeUnit.SECONDS).failure());
+                assertEquals(ExtractionFailure.TIMEOUT, outcome.get(10, TimeUnit.SECONDS).failure());
                 assertEquals(1, submissions.get());
             } finally {
                 observer.interrupt();
@@ -290,9 +308,9 @@ class BoundedDoclingClientTest {
                 Duration.ofSeconds(5), 200, null, null, false, TEST_API_KEY), new ObjectMapper());
     }
 
-    private io.memoryos.document.DocumentContent extractPdf(DoclingSourceContentExtractor extractor) throws Exception {
-        try (var pdf = new org.apache.pdfbox.pdmodel.PDDocument(); var out = new java.io.ByteArrayOutputStream()) {
-            pdf.addPage(new org.apache.pdfbox.pdmodel.PDPage());
+    private DocumentContent extractPdf(DoclingSourceContentExtractor extractor) throws Exception {
+        try (var pdf = new PDDocument(); var out = new ByteArrayOutputStream()) {
+            pdf.addPage(new PDPage());
             pdf.save(out);
             return extractor.extract(out.toByteArray(), "file.pdf", "application/pdf", SourceInputDescriptor.binary());
         }

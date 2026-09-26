@@ -66,6 +66,11 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         self.assertLess(finish.index('"$(cat "$state/pending")" == "$release"'), finish.index("verify_runtime"))
         self.assertLess(finish.index("verify_runtime"), finish.index('rm -- "$state/pending"'))
 
+    def test_a_failure_reports_its_line_and_command(self):
+        # The trap is set before the first assertion so no refusal is silent.
+        self.assertIn("set -Eeuo pipefail\n"
+                      "trap 'echo \"deploy.sh: failed at line $LINENO: $BASH_COMMAND\" >&2' ERR\n", SCRIPT)
+
     def test_environment_selects_configuration_instead_of_being_hardcoded(self):
         # One script serves both environments; forking it would let the two drift apart.
         self.assertIn('environment=${3:?staging or production}', SCRIPT)
@@ -142,7 +147,9 @@ class StagingDeploymentPolicyTest(unittest.TestCase):
         # Compose rejects a hyphen in an environment key.
         self.assertIn("key=${component//-/_}", publish)
         self.assertIn("images=(api worker web interpreter interpreter-executor keycloak)", SCRIPT)
-        self.assertIn('[[ $(wc -l < "$tx/images.env") == 7 ]]', SCRIPT)
+        # images.env holds one line per image plus the release; the count follows the list.
+        self.assertIn('[[ $(wc -l < "$tx/images.env") == $(( ${#images[@]} + 1 )) ]]', SCRIPT)
+        self.assertNotIn('== 7 ]]', SCRIPT)
         deploy = SCRIPT.split('if [[ "$mode" == deploy ]]', 1)[1].split('elif [[ "$mode" == rollback ]]', 1)[0]
         # The executor is not a Compose service: pull it with the job-scoped credentials before reserving.
         self.assertLess(deploy.index("docker login ghcr.io"), deploy.index("docker pull --quiet"))
@@ -430,7 +437,15 @@ else:
     def test_an_unknown_environment_is_refused_before_any_runtime_call(self):
         result = self.operate("finish", environment="prod")
         self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Unknown environment: prod", result.stderr)
         self.assertEqual(self.docker_calls(), [])
+
+    def test_an_unexpected_failure_names_its_line_and_command(self):
+        # A failing Docker call is not one of the named assertions; the ERR trap still says where it stopped.
+        self.set_runtime(unhealthy="web")
+        result = self.operate("finish")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertRegex(result.stderr, r"deploy\.sh: failed at line [0-9]+: ")
         self.assertTrue(self.pending.exists())
 
     def docker_calls(self):

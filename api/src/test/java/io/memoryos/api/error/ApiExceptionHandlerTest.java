@@ -7,11 +7,19 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import io.memoryos.BusinessException;
 import io.memoryos.FailureCategory;
 
+import jakarta.validation.Validation;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Size;
 import java.net.URI;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.core.MethodParameter;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.validation.beanvalidation.SpringValidatorAdapter;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import tools.jackson.databind.ObjectMapper;
 
 class ApiExceptionHandlerTest {
 
@@ -20,15 +28,15 @@ class ApiExceptionHandlerTest {
     @Test
     void validationProjectsOnlyStableCodesAndSafeConstraintParameters() throws Exception {
         var input = new ValidationInput("x", "private-invalid-email");
-        var errors = new org.springframework.validation.BeanPropertyBindingResult(input, "input");
-        try (var factory = jakarta.validation.Validation.buildDefaultValidatorFactory()) {
-            new org.springframework.validation.beanvalidation.SpringValidatorAdapter(factory.getValidator()).validate(input, errors);
+        var errors = new BeanPropertyBindingResult(input, "input");
+        try (var factory = Validation.buildDefaultValidatorFactory()) {
+            new SpringValidatorAdapter(factory.getValidator()).validate(input, errors);
         }
-        var parameter = new org.springframework.core.MethodParameter(
+        var parameter = new MethodParameter(
                 ApiExceptionHandlerTest.class.getDeclaredMethod("validationEndpoint", ValidationInput.class), 0);
-        var problem = handler.handleRequestValidation(new org.springframework.web.bind.MethodArgumentNotValidException(parameter, errors));
+        var problem = handler.handleRequestValidation(new MethodArgumentNotValidException(parameter, errors));
         assertNotNull(problem.getProperties());
-        var json = new tools.jackson.databind.ObjectMapper().valueToTree(problem.getProperties().get("errors"));
+        var json = new ObjectMapper().valueToTree(problem.getProperties().get("errors"));
         assertEquals("EMAIL", json.get(0).path("code").asString());
         assertEquals("SIZE", json.get(1).path("code").asString());
         assertEquals(2, json.get(1).path("params").path("min").asInt());
@@ -37,8 +45,8 @@ class ApiExceptionHandlerTest {
         assertFalse(json.toString().contains("rejectedValue"));
     }
 
-    private record ValidationInput(@jakarta.validation.constraints.Size(min = 2, max = 80) String name,
-                                   @jakarta.validation.constraints.Email String email) {}
+    private record ValidationInput(@Size(min = 2, max = 80) String name,
+                                   @Email String email) {}
 
     @SuppressWarnings("unused") // MethodParameter fixture, not a runtime endpoint.
     private static void validationEndpoint(ValidationInput input) {}

@@ -89,7 +89,9 @@ public class UsageReportService {
                 this::build,
                 (claim, failure) -> {
                     // The report reads only the Tenant's own ledger, so its stack trace is safe to keep for diagnosis.
-                    LOG.warn("Usage report {} failed on attempt {}", claim.id(), claim.attempts(), failure);
+                    LOG.atWarn().addKeyValue("event", "usage.report.failed").addKeyValue("report_id", claim.id())
+                            .addKeyValue("attempt", claim.attempts()).addKeyValue("error_type", failure.getClass().getName())
+                            .log("Usage report failed");
                     reports.markFailed(claim.tenant(), claim.id(), claim.attempts(), MAX_ATTEMPTS,
                             "The report could not be generated.");
                 }));
@@ -110,7 +112,8 @@ public class UsageReportService {
                 throw new LeaseLost();
             }));
         } catch (LeaseLost ignored) {
-            LOG.warn("Usage report {} lease lapsed before it was stored", claim.id());
+            LOG.atWarn().addKeyValue("event", "usage.report.lease_lost").addKeyValue("report_id", claim.id())
+                    .log("Usage report lease lapsed before it was stored");
         } finally {
             if (!adopted) writes.discard(tenant, staged);
         }
@@ -145,7 +148,8 @@ public class UsageReportService {
             try {
                 pdf = UsageReportPdf.render(builder.build(members));
             } catch (RuntimeException e) {
-                LOG.error("Usage report {} PDF could not be rendered; the ZIP ships without it", claim.id(), e);
+                LOG.atError().addKeyValue("event", "usage.report.pdf_failed").addKeyValue("report_id", claim.id())
+                        .addKeyValue("error_type", e.getClass().getName()).log("Usage report PDF could not be rendered; the ZIP ships without it");
             }
             if (pdf != null) {
                 zip.putNextEntry(new ZipEntry("usage_report.pdf"));
@@ -163,7 +167,7 @@ public class UsageReportService {
         return "usage-report_" + from + "_" + to + ".zip";
     }
 
-    private java.util.UUID manager(ActorId reader) {
+    private UUID manager(ActorId reader) {
         return authorization.require(reader, IamCapability.MODELS_MANAGE, false).tenantId().value();
     }
 

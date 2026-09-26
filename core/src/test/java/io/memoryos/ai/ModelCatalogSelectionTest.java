@@ -1,5 +1,7 @@
 package io.memoryos.ai;
 
+import io.memoryos.chat.ChatSession;
+import io.memoryos.chat.ChatTurnOptions;
 import io.memoryos.chat.PersonaModelDefault;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -9,12 +11,16 @@ import io.memoryos.chat.ChatModelAccess;
 import io.memoryos.chat.persona.persistence.JdbcAgentModelRepository;
 import io.memoryos.chat.session.persistence.JdbcChatRepository;
 import io.memoryos.ai.persistence.ModelCatalogRepository;
+import io.memoryos.iam.Authority;
 import io.memoryos.iam.GroupScopeService;
+import io.memoryos.iam.IamAccess;
 import io.memoryos.iam.IamAuthorization;
+import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import io.memoryos.iam.TenantMembership;
+import java.time.Instant;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 
@@ -82,7 +88,7 @@ class ModelCatalogSelectionTest {
 
     @Test void aSendSelectsWithTheAgentItAlreadyReadWithoutReadingItOrTheCapabilitiesAgain() {
         var fixture = new Fixture();
-        var agent = new JdbcChatRepository.Persona("", "other", io.memoryos.chat.ChatTurnOptions.DEFAULT, "9",
+        var agent = new JdbcChatRepository.Persona("", "other", ChatTurnOptions.DEFAULT, "9",
                 fixture.otherId, List.of(), Set.of(), null, false);
         clearInvocations(fixture.authorization);
 
@@ -159,10 +165,10 @@ class ModelCatalogSelectionTest {
             when(catalog.model(tenant, defaultId)).thenReturn(Optional.of(defaultModel));
             when(catalog.provider(tenant, provider.id())).thenReturn(Optional.of(provider));
             naming(null);
-            when(chats.findOwned(new TenantId(tenant), actor, session, false)).thenReturn(Optional.of(new io.memoryos.chat.ChatSession(
-                    session, persona, UUID.randomUUID(), "Chat", java.time.Instant.now(), java.time.Instant.now(), null)));
+            when(chats.findOwned(new TenantId(tenant), actor, session, false)).thenReturn(Optional.of(new ChatSession(
+                    session, persona, UUID.randomUUID(), "Chat", Instant.now(), Instant.now(), null)));
             when(chats.persona(session, true, false)).thenReturn(new JdbcChatRepository.Persona("", "luna",
-                    io.memoryos.chat.ChatTurnOptions.DEFAULT, "7", null, List.of(), Set.of(), null, false));
+                    ChatTurnOptions.DEFAULT, "7", null, List.of(), Set.of(), null, false));
             when(agents.personaModel(tenant, actor.value(), false, persona)).thenReturn(new PersonaModelDefault(persona, null, 1));
             service = new ModelCatalogService(catalog, mock(AgentDirectory.class), event -> {}, tenants, authorization, adapters,
                     mock(ProviderCredentials.class), mock(GroupScopeService.class), mock(AuditTrail.class));
@@ -178,9 +184,9 @@ class ModelCatalogSelectionTest {
             when(catalog.flowDefaults(tenant)).thenReturn(List.of(value));
         }
         void manage() {
-            var access = new io.memoryos.iam.IamAccess(new TenantId(tenant), io.memoryos.iam.Authority.GLOBAL);
-            when(authorization.require(actor, io.memoryos.iam.IamCapability.MODELS_MANAGE, false)).thenReturn(access);
-            when(authorization.lockAndRequireExclusive(actor, io.memoryos.iam.IamCapability.MODELS_MANAGE)).thenReturn(access);
+            var access = new IamAccess(new TenantId(tenant), Authority.GLOBAL);
+            when(authorization.require(actor, IamCapability.MODELS_MANAGE, false)).thenReturn(access);
+            when(authorization.lockAndRequireExclusive(actor, IamCapability.MODELS_MANAGE)).thenReturn(access);
         }
         void preferPersona() {
             when(agents.personaModel(tenant, actor.value(), false, persona)).thenReturn(new PersonaModelDefault(persona, otherId, 1));

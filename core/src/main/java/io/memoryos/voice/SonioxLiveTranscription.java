@@ -16,6 +16,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -27,7 +29,7 @@ import tools.jackson.databind.ObjectMapper;
  * stream's times so the recording clock stays continuous. Audio and text are never logged.
  */
 final class SonioxLiveTranscription implements LiveTranscription {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(SonioxLiveTranscription.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SonioxLiveTranscription.class);
     static final Duration REPLAY = Duration.ofSeconds(5);
     static final List<Duration> BACKOFF = List.of(Duration.ofSeconds(2), Duration.ofSeconds(5), Duration.ofSeconds(10),
             Duration.ofSeconds(20), Duration.ofSeconds(30));
@@ -239,10 +241,12 @@ final class SonioxLiveTranscription implements LiveTranscription {
             if (finishing) {
                 finished.complete(null);
             } else if (attempt >= backoff.size()) {
-                LOG.warn("Soniox stream gave up after {} attempts ({})", attempt, reason);
+                LOG.atWarn().addKeyValue("event", "voice.soniox.stream_abandoned").addKeyValue("attempts", attempt)
+                        .addKeyValue("reason", reason).log("Soniox stream gave up");
                 listener.failed();
             } else {
-                LOG.warn("Soniox stream failed ({}); reconnecting, attempt {}", reason, attempt + 1);
+                LOG.atWarn().addKeyValue("event", "voice.soniox.stream_reconnecting").addKeyValue("attempt", attempt + 1)
+                        .addKeyValue("reason", reason).log("Soniox stream failed; reconnecting");
                 int reconnectGeneration = generation;
                 TIMERS.schedule(() -> reconnect(reconnectGeneration), backoff.get(attempt++).toMillis(),
                         TimeUnit.MILLISECONDS);

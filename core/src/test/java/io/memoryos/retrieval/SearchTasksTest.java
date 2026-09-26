@@ -2,7 +2,9 @@ package io.memoryos.retrieval;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.IOException;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -71,9 +73,9 @@ class SearchTasksTest {
 
     @Test
     void checkedSearchFailuresRetainTheirCause() {
-        var cause = new java.io.IOException("fixture detail");
+        var cause = new IOException("fixture detail");
         var failure = assertThrows(SearchUnavailableException.class,
-                () -> SearchTasks.run(java.util.List.of(() -> { throw cause; }), () -> {}));
+                () -> SearchTasks.run(List.of(() -> { throw cause; }), () -> {}));
         assertSame(cause, failure.getCause());
         var timedFailure = assertThrows(SearchUnavailableException.class,
                 () -> SearchTasks.timed(() -> { throw cause; }, Duration.ofSeconds(3), () -> {}));

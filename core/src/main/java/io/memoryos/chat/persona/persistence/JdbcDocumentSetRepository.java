@@ -2,6 +2,8 @@ package io.memoryos.chat.persona.persistence;
 
 import io.memoryos.chat.AgentPerson;
 import io.memoryos.chat.AgentRef;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -191,7 +193,7 @@ public class JdbcDocumentSetRepository {
                         """).param("tenant", tenant).param("id", id).param("revision", revision).update() == 1;
     }
 
-    private Row row(java.sql.ResultSet row, int ignored) throws java.sql.SQLException {
+    private Row row(ResultSet row, int ignored) throws SQLException {
         var deleted = row.getTimestamp("deleted_at");
         return new Row(row.getObject("id", UUID.class), row.getObject("owner_actor_id", UUID.class), row.getLong("revision"), row.getString("name"),
                 row.getString("description"), row.getBoolean("is_public"), row.getTimestamp("created_at").toInstant(), row.getTimestamp("updated_at").toInstant(),

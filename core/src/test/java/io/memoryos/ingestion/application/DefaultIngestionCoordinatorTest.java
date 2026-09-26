@@ -45,6 +45,7 @@ import org.jspecify.annotations.NullMarked;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -115,7 +116,7 @@ class DefaultIngestionCoordinatorTest {
         assertOutcome("INGESTION", "FAILED");
         assertWait("INGESTION", 1);
         verify(indexing).fail(eq(work), eq("SOURCE_EXTRACTION_" + failure.name()), eq("test failure"), any());
-        verify(indexing, Mockito.never()).retry(any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), any());
+        verify(indexing, Mockito.never()).retry(any(), any(), any(), any(), ArgumentMatchers.anyInt(), any());
         verify(content).close();
         verify(renewal).cancel(false);
     }

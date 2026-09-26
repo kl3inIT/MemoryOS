@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
@@ -32,6 +34,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Service
 public class BatchTranscriptionService {
+    private static final Logger LOG = LoggerFactory.getLogger(BatchTranscriptionService.class);
     /**
      * One recording at a time per process. The file is streamed, not held, but a provider call keeps a connection and
      * a worker thread busy for as long as a five-hour recording takes to come back.
@@ -205,8 +208,8 @@ public class BatchTranscriptionService {
                     connection.provider().name(), connection.sttModel(), connection.id(), null, null, 1, 0, 0, 0, 0,
                     seconds, null, Instant.now()));
         } catch (RuntimeException failure) {
-            org.slf4j.LoggerFactory.getLogger(BatchTranscriptionService.class)
-                    .warn("Recording usage not recorded ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "voice.recording.usage_not_recorded")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Recording usage not recorded");
         }
     }
 

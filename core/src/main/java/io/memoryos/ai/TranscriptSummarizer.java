@@ -6,9 +6,13 @@ import io.memoryos.usage.AiUsageFlow;
 import io.memoryos.usage.AiUsageRecorder;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
@@ -27,7 +31,7 @@ public class TranscriptSummarizer {
     static final int MAX_INPUT_CHARS = 120_000;
     /** A table of contents longer than this is a transcript again. */
     static final int MAX_TOPICS = 30;
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(TranscriptSummarizer.class);
+    private static final Logger LOG = LoggerFactory.getLogger(TranscriptSummarizer.class);
 
     private final ModelResolver models;
     private final ModelCalls calls;
@@ -132,11 +136,11 @@ public class TranscriptSummarizer {
                         blankToNull(action.due()), blankToNull(action.quote()), within(action.line(), lines)))
                 .toList();
         // A topic that cannot be traced to a line cannot be jumped to, and two on the same line are one.
-        var seen = new java.util.HashSet<Integer>();
+        var seen = new HashSet<Integer>();
         var topics = (summary.topics() == null ? List.<TranscriptSummary.Topic>of() : summary.topics()).stream()
                 .filter(topic -> topic.title() != null && !topic.title().isBlank())
                 .filter(topic -> within(topic.line(), lines) > 0 && seen.add(topic.line()))
-                .sorted(java.util.Comparator.comparingInt(TranscriptSummary.Topic::line))
+                .sorted(Comparator.comparingInt(TranscriptSummary.Topic::line))
                 .limit(MAX_TOPICS)
                 .map(topic -> new TranscriptSummary.Topic(topic.title().strip(), topic.line()))
                 .toList();
@@ -163,7 +167,8 @@ public class TranscriptSummarizer {
                     accounting.output() == null ? 0 : accounting.output(), accounting.cacheRead(),
                     accounting.cost(), Instant.now()));
         } catch (RuntimeException failure) {
-            LOG.warn("Minutes usage not recorded ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "meeting.minutes.usage_not_recorded")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Minutes usage not recorded");
         }
     }
 }

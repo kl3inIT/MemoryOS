@@ -2,6 +2,9 @@ package io.memoryos.ai;
 
 import java.time.Duration;
 import io.memoryos.shared.ActorId;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -53,7 +56,7 @@ public final class ModelResolver {
      * publishes come first; the installed catalog fills the rest by name. The stored credential is read in its own
      * transaction; the provider call follows it.
      */
-    public java.util.List<ReportedModelSpec> reportedModels(ActorId actor, UUID providerId) {
+    public List<ReportedModelSpec> reportedModels(ActorId actor, UUID providerId) {
         return reportedModels(catalog.providerConnection(actor, providerId));
     }
 
@@ -61,23 +64,24 @@ public final class ModelResolver {
      * The same listing for a connection the administrator is still editing, so the provider form fills its model list
      * before the provider exists, as Onyx's provider form does. The caller authorizes the connection.
      */
-    public java.util.List<ReportedModelSpec> reportedModels(ModelCatalogService.ProviderConnection connection) {
+    public List<ReportedModelSpec> reportedModels(ModelCatalogService.ProviderConnection connection) {
         var adapter = adapters.require(connection.adapterType());
         try {
             var reported = adapter.reportedModels(
                             new ProviderAdapter.Connection(connection.baseUrl(), connection.credential()),
                             providerReadTimeout);
-            var seen = new java.util.HashSet<String>();
+            var seen = new HashSet<String>();
             return reported.stream()
                     .filter(model -> !model.modelName().isBlank() && model.modelName().length() <= 200)
                     .filter(model -> seen.add(model.modelName()))
-                    .sorted(java.util.Comparator.comparing(ProviderAdapter.ReportedModel::modelName))
+                    .sorted(Comparator.comparing(ProviderAdapter.ReportedModel::modelName))
                     .limit(1000)
                     .map(model -> spec(model, adapter.knownModels()))
                     .toList();
         } catch (AiException expected) { throw expected; }
         catch (RuntimeException failure) {
-            LOG.warn("Provider model listing failed ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "ai.provider.model_listing_failed")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Provider model listing failed");
             throw AiException.providerUnavailable();
         }
     }
@@ -94,14 +98,15 @@ public final class ModelResolver {
                     providerReadTimeout).size();
         } catch (AiException expected) { throw expected; }
         catch (RuntimeException failure) {
-            LOG.warn("Provider connection check failed ({})", failure.getClass().getSimpleName());
+            LOG.atWarn().addKeyValue("event", "ai.provider.connection_check_failed")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Provider connection check failed");
             throw AiException.providerUnreachable();
         }
     }
 
     public static final int FALLBACK_CONTEXT_WINDOW = 32_000;
 
-    public static ReportedModelSpec spec(ProviderAdapter.ReportedModel reported, java.util.List<ProviderAdapter.KnownModel> known) {
+    public static ReportedModelSpec spec(ProviderAdapter.ReportedModel reported, List<ProviderAdapter.KnownModel> known) {
         var catalogModel = findKnown(reported.modelName(), known);
         Integer context = valid(reported.contextWindow(), 256, 10_000_000);
         Integer output = reported.maxOutputTokens();
@@ -133,7 +138,7 @@ public final class ModelResolver {
     }
 
     /** Catalog names are bare (gpt-5-mini); endpoints may prefix them (models/gemini-2.5-pro, openai/gpt-5-mini). */
-    public static ProviderAdapter.@Nullable KnownModel findKnown(String reported, java.util.List<ProviderAdapter.KnownModel> known) {
+    public static ProviderAdapter.@Nullable KnownModel findKnown(String reported, List<ProviderAdapter.KnownModel> known) {
         String name = reported.startsWith("models/") ? reported.substring("models/".length()) : reported;
         for (var candidate : new String[] {name, name.substring(name.lastIndexOf('/') + 1)})
             for (var model : known) if (model.modelName().equals(candidate)) return model;
@@ -163,7 +168,9 @@ public final class ModelResolver {
                 return adapter.create(new ProviderAdapter.Connection(provider.baseUrl(), key), model.modelName(), model.settings(), providerReadTimeout);
             } catch (AiException expected) { throw expected; }
             catch (RuntimeException failure) {
-                LOG.warn("Chat model {} client initialization failed ({})", model.id(), failure.getClass().getSimpleName());
+                LOG.atWarn().addKeyValue("event", "ai.model.client_initialization_failed")
+                        .addKeyValue("model_configuration_id", model.id())
+                        .addKeyValue("error_type", failure.getClass().getName()).log("Chat model client initialization failed");
                 throw AiException.providerUnavailable();
             }
         });

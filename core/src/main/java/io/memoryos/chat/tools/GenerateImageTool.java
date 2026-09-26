@@ -1,5 +1,6 @@
 package io.memoryos.chat.tools;
 
+import io.memoryos.chat.ChatException;
 import io.memoryos.shared.ActorId;
 
 import com.embabel.agent.api.annotation.LlmTool;
@@ -62,7 +63,7 @@ public final class GenerateImageTool {
             events.accept(new ChatImageEvent(toolCallId, ChatImageEvent.Stage.COMPLETED, id, result.mediaType(), result.revisedPrompt()));
             return "Image generated and shown to the user (image_id=" + id + ")."
                     + (result.revisedPrompt() == null ? "" : " The prompt was refined to: " + result.revisedPrompt());
-        } catch (io.memoryos.chat.ChatException refused) {
+        } catch (ChatException refused) {
             active.run();
             if (!"CHAT_STORAGE_FULL".equals(refused.code())) throw refused;
             events.accept(new ChatImageEvent(toolCallId, ChatImageEvent.Stage.FAILED, null, null, null));

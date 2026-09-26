@@ -1,8 +1,14 @@
 package io.memoryos.chat.research;
 
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Deep research prompts ported verbatim from Onyx {@code 160f9b143}: {@code backend/onyx/prompts/deep_research/
@@ -365,14 +371,14 @@ public final class ResearchPrompts {
     public static final String USER_LANGUAGE_PROMPT = "## Language\nThe user's interface language is {language}. Reply in {language}. If the user explicitly asks for another language, use that one.\n";
     public static final String QUERY_LANGUAGE_PROMPT = "## Language\nReply in the language the user writes in.\n";
 
-    private static final java.time.format.DateTimeFormatter DAY = java.time.format.DateTimeFormatter.ofPattern("EEEE MMMM dd, yyyy", java.util.Locale.ENGLISH);
+    private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("EEEE MMMM dd, yyyy", Locale.ENGLISH);
     private static final Map<String, String> LANGUAGE_NAMES = Map.of("vi", "Vietnamese");
 
     /**
      * Onyx {@code build_language_section}: an account language other than English names the reply language. MemoryOS
      * offers English and Vietnamese; Onyx has no Vietnamese, so its name is the only addition.
      */
-    public static String languageSection(@org.jspecify.annotations.Nullable String uiLanguage) {
+    public static String languageSection(@Nullable String uiLanguage) {
         String name = uiLanguage == null ? null : LANGUAGE_NAMES.get(uiLanguage);
         return name == null ? QUERY_LANGUAGE_PROMPT : USER_LANGUAGE_PROMPT.replace("{language}", name);
     }
@@ -383,12 +389,12 @@ public final class ResearchPrompts {
     }
 
     /** Onyx {@code get_current_llm_day_time(full_sentence=False)}: server-local day, as {@code datetime.now()}. */
-    public static String currentDatetime(java.time.ZonedDateTime now) {
+    public static String currentDatetime(ZonedDateTime now) {
         return DAY.format(now);
     }
 
     /** Onyx {@code generate_tools_description}. */
-    public static String toolList(java.util.List<String> names) {
+    public static String toolList(List<String> names) {
         if (names.isEmpty()) return "";
         if (names.size() == 1) return names.getFirst();
         if (names.size() == 2) return names.get(0) + " and " + names.get(1);
@@ -412,7 +418,7 @@ public final class ResearchPrompts {
             String value = all.get(matcher.group(1));
             if (value == null) throw new IllegalArgumentException("Missing research prompt value " + matcher.group(1));
             // Values are inserted literally; an inserted plan or task is never re-read as a template.
-            matcher.appendReplacement(output, java.util.regex.Matcher.quoteReplacement(value));
+            matcher.appendReplacement(output, Matcher.quoteReplacement(value));
         }
         matcher.appendTail(output);
         return text(output.toString());

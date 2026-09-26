@@ -25,6 +25,7 @@ import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationStatus;
 import io.memoryos.connector.SourceOperationType;
 import io.memoryos.connector.SourceOperationView;
+import io.memoryos.connector.sharepoint.DefaultSharePointSourceService;
 import io.memoryos.iam.IamException;
 import io.memoryos.iam.IamFailureReason;
 import io.memoryos.shared.ActorId;
@@ -85,7 +86,7 @@ class SharePointSourceApiTest {
 
     // The selection processor needs the concrete service, so the mock replaces that bean rather than the port.
     @MockitoBean
-    private io.memoryos.connector.sharepoint.DefaultSharePointSourceService sources;
+    private DefaultSharePointSourceService sources;
 
     private ActorAuthenticationToken owner;
 
@@ -126,7 +127,7 @@ class SharePointSourceApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createBody()))
                 .andExpect(status().isAccepted())
-                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(header().string("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate"))
                 .andExpect(jsonPath("$.sourceId").value(SOURCE.toString()))
                 .andExpect(jsonPath("$.operation.type").value("VALIDATE_SHAREPOINT_SELECTION"));
     }

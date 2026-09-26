@@ -12,6 +12,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.zaxxer.hikari.HikariDataSource;
+import io.memoryos.StatementCounter;
 import io.memoryos.TestDatabase;
 import io.memoryos.library.UserFileProperties;
 import io.memoryos.chat.session.ChatTurnPersistence;
@@ -47,6 +48,7 @@ import io.memoryos.objectstorage.application.ObjectUploadProperties;
 import io.memoryos.objectstorage.persistence.JdbcObjectWriteRepository;
 import io.memoryos.objectstorage.persistence.JdbcStoredObjectRepository;
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
@@ -59,6 +61,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.data.repository.core.support.RepositoryComposition;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
@@ -90,12 +93,12 @@ class ChatLifecycleIntegrationTest {
     private TenantId tenant;
     private ActorId owner;
     private ActorId other;
-    private io.memoryos.StatementCounter statements;
+    private StatementCounter statements;
 
     @BeforeEach
     void setup() throws Exception {
         database = TestDatabase.freshPostgres();
-        statements = new io.memoryos.StatementCounter(database);
+        statements = new StatementCounter(database);
         jdbc = JdbcClient.create(statements);
         jpa = TestDatabase.jpa(statements);
         var storage = mock(ObjectStorage.class);
@@ -113,7 +116,7 @@ class ChatLifecycleIntegrationTest {
             return new ObjectContent() {
                 private final ByteArrayInputStream input = new ByteArrayInputStream(bytes);
                 @Override public ObjectMetadata metadata() { return described; }
-                @Override public java.io.InputStream inputStream() { return input; }
+                @Override public InputStream inputStream() { return input; }
                 @Override public void close() {}
             };
         });
@@ -129,13 +132,13 @@ class ChatLifecycleIntegrationTest {
                 new LibraryStorageProperties(0), new JdbcLibraryRepository(jdbc));
         var files = new UserFileService(tenants, new JdbcUserFileRepository(jdbc), new ChatFileAttachments(new JdbcChatFileAttachmentRepository(jdbc)),
                 mock(ObjectUploadService.class), new UserFileProperties(104857600, 262144000), quotas,
-                new LibraryTrashProperties(java.time.Duration.ZERO), jpa.transactionManager());
+                new LibraryTrashProperties(Duration.ZERO), jpa.transactionManager());
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(jpa.transactionManager());
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
         var factory = new ProxyFactory(new ChatTurnPersistence(tenants, authorization, repository,
                 files, new ActorLanguageService(jpa.repository(JpaActorRepository.class,
-                        org.springframework.data.repository.core.support.RepositoryComposition.RepositoryFragments
+                        RepositoryComposition.RepositoryFragments
                                 .just(new ActorRefreshImpl(jpa.entityManager()))), tenants),
                 new JdbcImageArtifactRepository(jdbc)));
         factory.setProxyTargetClass(true);
@@ -146,8 +149,8 @@ class ChatLifecycleIntegrationTest {
                 new ObjectUploadProperties(Duration.ofMinutes(15), Duration.ofSeconds(30), Duration.ofMinutes(5),
                         Duration.ofMinutes(1), 16), jpa.transactionManager());
         interpreter = new InterpreterService(new JdbcInterpreterRepository(jdbc), new InterpreterProperties(null, null),
-                authorization, tenants, writes, storage, quotas, new LibraryTrashProperties(java.time.Duration.ZERO),
-                jpa.transactionManager(), io.memoryos.TestDatabase.noAudit());
+                authorization, tenants, writes, storage, quotas, new LibraryTrashProperties(Duration.ZERO),
+                jpa.transactionManager(), TestDatabase.noAudit());
         // Constructed directly: the service owns its own transaction template, which is what the copy relies on.
         branches = new ChatBranchService(tenants, repository, new JdbcChatArtifactRepository(jdbc), storage, writes,
                 jpa.transactionManager());

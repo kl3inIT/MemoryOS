@@ -4,6 +4,8 @@ import io.memoryos.document.ExtractedDocument.Block;
 import io.memoryos.document.ExtractedDocument.Kind;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -25,7 +27,7 @@ public final class StructuredContent {
     private final JsonNode source;
     private final List<Block> blocks = new ArrayList<>();
     private final StringBuilder text = new StringBuilder();
-    private final long deadline = System.nanoTime() + java.time.Duration.ofSeconds(120).toNanos();
+    private final long deadline = System.nanoTime() + Duration.ofSeconds(120).toNanos();
     private int cells;
 
     /** {@code input} describes where the content came from, and is recorded as the document's source. */
@@ -70,7 +72,7 @@ public final class StructuredContent {
         byte[] encoded = mapper.writeValueAsBytes(new ExtractedDocument(ExtractedDocument.SCHEMA, source, blocks,
                 List.of(), null, null));
         if (encoded.length > MAX_BYTES) throw failure(ExtractionFailure.WRITE_LIMIT);
-        String json = new String(encoded, java.nio.charset.StandardCharsets.UTF_8);
+        String json = new String(encoded, StandardCharsets.UTF_8);
         return new DocumentContent(mediaType, title, text.toString().strip(),
                 Map.of("parser", parser, "parser_configuration", ExtractedDocument.SCHEMA + ";offline;formulas=inert"), json, null);
     }

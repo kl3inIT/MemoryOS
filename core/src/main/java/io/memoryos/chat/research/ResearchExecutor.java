@@ -1,5 +1,6 @@
 package io.memoryos.chat.research;
 
+import io.memoryos.ai.TurnFailure;
 import static io.memoryos.chat.research.ResearchPrompts.*;
 
 import io.memoryos.chat.research.ResearchTelemetry.AgentOutcome;
@@ -34,6 +35,7 @@ import io.memoryos.chat.execution.StreamingLlmService;
 import io.memoryos.retrieval.SearchTasks;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -180,7 +182,7 @@ public final class ResearchExecutor {
                     var calls = toolCalls(infer(guard, limits.orchestratorMaxTokens(), true, turn.setup().binding().requiredTools(),
                             request, tools, ignored -> {}, turn.checkActive()));
                     if (calls.isEmpty()) {
-                        if (cycle == 0) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
+                        if (cycle == 0) throw TurnFailure.EMPTY_RESPONSE.exception();
                         break;
                     }
                     ToolCall report = null;
@@ -223,7 +225,7 @@ public final class ResearchExecutor {
             var message = infer(guard, turn.answerTokens(), true, UnaryOperator.identity(), request,
                     List.of(control(GENERATE_PLAN_TOOL_NAME, GENERATE_PLAN_TOOL_DESCRIPTION, Tool.InputSchema.empty())), question::append, turn.checkActive());
             if (!toolCalls(message).isEmpty()) return false;
-            if (question.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
+            if (question.isEmpty()) throw TurnFailure.EMPTY_RESPONSE.exception();
             turn.events().accept(ChatResearchEvent.clarification());
             turn.output().accept(question.toString());
             return true;
@@ -239,7 +241,7 @@ public final class ResearchExecutor {
                 plan.append(part);
                 chunks(part, ChatActivity.MAX_REASONING).forEach(chunk -> turn.events().accept(ChatResearchEvent.plan(chunk)));
             }, turn.checkActive());
-            if (plan.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
+            if (plan.isEmpty()) throw TurnFailure.EMPTY_RESPONSE.exception();
             return plan.toString();
         }
 
@@ -253,7 +255,7 @@ public final class ResearchExecutor {
                 report.append(part);
                 turn.output().accept(part);
             }, turn.checkActive());
-            if (report.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
+            if (report.isEmpty()) throw TurnFailure.EMPTY_RESPONSE.exception();
         }
 
         /** Runs one cycle's research agents in parallel; a failed agent yields an empty result, as Onyx returns None. */
@@ -277,7 +279,8 @@ public final class ResearchExecutor {
                                 limits.agentTimeout(), turn.checkActive());
                         telemetry.agent(AgentOutcome.COMPLETED);
                     } catch (SearchTasks.HelperTimeoutException timeout) {
-                        LOG.warn("Research agent timed out after {}", limits.agentTimeout());
+                        LOG.atWarn().addKeyValue("event", "chat.research.agent_timed_out")
+                                .addKeyValue("timeout_ms", limits.agentTimeout().toMillis()).log("Research agent timed out");
                         telemetry.agent(AgentOutcome.TIMEOUT);
                         result = new AgentResult(RESEARCH_AGENT_TIMEOUT_MESSAGE, null);
                     } catch (CancellationException stopped) {
@@ -285,7 +288,8 @@ public final class ResearchExecutor {
                     } catch (RuntimeException failure) {
                         turn.checkActive().run();
                         // Provider and tool failures can carry private content; log the type only.
-                        LOG.warn("Research agent failed ({})", failure.getClass().getSimpleName());
+                        LOG.atWarn().addKeyValue("event", "chat.research.agent_failed")
+                                .addKeyValue("error_type", failure.getClass().getName()).log("Research agent failed");
                         telemetry.agent(AgentOutcome.FAILED);
                         result = null;
                     }
@@ -333,7 +337,7 @@ public final class ResearchExecutor {
             turn.drains().accept(toolset.drained());
             try {
                 var byName = new LinkedHashMap<String, Tool>();
-                toolset.tools().stream().sorted(java.util.Comparator.comparingInt(tool -> order(tool.getDefinition().getName())))
+                toolset.tools().stream().sorted(Comparator.comparingInt(tool -> order(tool.getDefinition().getName())))
                         .forEach(tool -> byName.put(tool.getDefinition().getName(), tool));
                 var names = List.copyOf(byName.keySet());
                 var offered = new ArrayList<Tool>(byName.values());
@@ -435,7 +439,7 @@ public final class ResearchExecutor {
                 report.append(part);
                 chunks(part, ChatActivity.MAX_REASONING).forEach(chunk -> turn.events().accept(ChatResearchEvent.report(parent, chunk)));
             }, turn.checkActive());
-            if (report.isEmpty()) throw new IllegalStateException("CHAT_EMPTY_RESPONSE");
+            if (report.isEmpty()) throw TurnFailure.EMPTY_RESPONSE.exception();
             return report.toString();
         }
 
@@ -470,7 +474,7 @@ public final class ResearchExecutor {
             }).blockLast();
             checkActive.run();
             var done = complete.get();
-            if (done == null) throw new IllegalStateException("CHAT_INCOMPLETE_RESPONSE");
+            if (done == null) throw TurnFailure.INCOMPLETE_RESPONSE.exception();
             return done.getMessage();
         }
 
