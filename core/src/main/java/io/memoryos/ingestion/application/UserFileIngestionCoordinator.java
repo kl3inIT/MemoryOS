@@ -1,5 +1,6 @@
 package io.memoryos.ingestion.application;
 
+import io.memoryos.FailureEvidence;
 import io.memoryos.document.DocumentContent;
 import io.memoryos.document.ExtractionArtifactPort;
 import io.memoryos.document.ExtractionException;
@@ -11,6 +12,7 @@ import io.memoryos.library.UserFileWorkPort;
 import io.memoryos.objectstorage.ObjectStorage;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class UserFileIngestionCoordinator implements IngestionCoordinator {
     private final UserFileWorkPort files;
@@ -31,7 +33,7 @@ public class UserFileIngestionCoordinator implements IngestionCoordinator {
     }
 
     private Outcome process(UserFileWork work) {
-        var lost = new java.util.concurrent.atomic.AtomicBoolean();
+        var lost = new AtomicBoolean();
         var renewal = leases.scheduleAtFixedRate(() -> {
             try { if (!files.renew(work)) lost.set(true); }
             catch (RuntimeException failure) { lost.set(true); }
@@ -50,12 +52,12 @@ public class UserFileIngestionCoordinator implements IngestionCoordinator {
         } catch (ExtractionException exception) {
             if (lost.get()) return Outcome.SKIPPED;
             files.failed(work, "FILE_EXTRACTION_" + exception.failure().name(),
-                    exception.getMessage(), io.memoryos.FailureEvidence.detail(exception));
+                    exception.getMessage(), FailureEvidence.detail(exception));
             return Outcome.FAILED;
         } catch (Exception exception) {
             if (lost.get()) return Outcome.SKIPPED;
             // Provider messages may contain file data; expose only a stable failure code.
-            files.failed(work, "FILE_PROCESSING_FAILED", null, io.memoryos.FailureEvidence.detail(exception));
+            files.failed(work, "FILE_PROCESSING_FAILED", null, FailureEvidence.detail(exception));
             return Outcome.FAILED;
         } finally {
             renewal.cancel(false);

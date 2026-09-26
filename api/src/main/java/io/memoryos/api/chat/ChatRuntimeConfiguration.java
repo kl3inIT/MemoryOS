@@ -1,15 +1,21 @@
 package io.memoryos.api.chat;
 
+import com.embabel.agent.api.common.Asyncer;
 import com.embabel.agent.api.common.ExecutingOperationContext;
 import com.embabel.agent.core.AgentProcessRepository;
+import com.embabel.agent.spi.support.ExecutorAsyncer;
 import io.memoryos.ai.ModelCalls;
 import io.memoryos.chat.ChatExecutionProperties;
 import io.memoryos.chat.ChatTurnService;
 import io.memoryos.chat.streaming.StreamBufferWriter;
+import io.memoryos.meeting.MeetingMinutesService;
+import io.memoryos.meeting.MeetingRecordingService;
+import io.memoryos.retrieval.SearchTasks;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -24,13 +30,13 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 @EnableScheduling
 class ChatRuntimeConfiguration {
     @Bean
-    @org.springframework.context.annotation.Primary
-    com.embabel.agent.api.common.Asyncer chatNativeAsyncer(
+    @Primary
+    Asyncer chatNativeAsyncer(
             @Qualifier("chatTaskExecutor") SimpleAsyncTaskExecutor executor) {
         // Keep native context propagation, typed binding and usage accounting. Attach actual native
         // tasks to the helper deadline because canceling a CompletableFuture does not stop its IO.
-        return new com.embabel.agent.spi.support.ExecutorAsyncer(
-                command -> io.memoryos.retrieval.SearchTasks.executeNative(executor, command));
+        return new ExecutorAsyncer(
+                command -> SearchTasks.executeNative(executor, command));
     }
 
     /** Single model calls outside conversations, bounded by the same deployment budgets as a Chat turn. */
@@ -50,7 +56,7 @@ class ChatRuntimeConfiguration {
      * in this application. The claim leases one meeting per replica, so running several API replicas is safe.
      */
     @Bean
-    MeetingMinutes meetingMinutes(io.memoryos.meeting.MeetingMinutesService minutes) {
+    MeetingMinutes meetingMinutes(MeetingMinutesService minutes) {
         return new MeetingMinutes(minutes);
     }
 
@@ -78,19 +84,19 @@ class ChatRuntimeConfiguration {
     }
 
     @Bean
-    MeetingRecordings meetingRecordings(io.memoryos.meeting.MeetingRecordingService recordings) {
+    MeetingRecordings meetingRecordings(MeetingRecordingService recordings) {
         return new MeetingRecordings(recordings);
     }
 
     /** Uploaded recordings, on the meetings' scheduler beside the minutes. */
-    record MeetingRecordings(io.memoryos.meeting.MeetingRecordingService recordings) {
+    record MeetingRecordings(MeetingRecordingService recordings) {
         @Scheduled(fixedDelayString = "${memoryos.meeting.recording-interval:5s}", scheduler = "meetingMinutesScheduler")
         public void transcribe() {
             for (int done = 0; done < 2 && recordings.transcribeNext(); done++) { /* drain */ }
         }
     }
 
-    record MeetingMinutes(io.memoryos.meeting.MeetingMinutesService minutes) {
+    record MeetingMinutes(MeetingMinutesService minutes) {
         @Scheduled(fixedDelayString = "${memoryos.meeting.minutes-interval:5s}", scheduler = "meetingMinutesScheduler")
         public void write() {
             // A few per pass, so one replica draining a backlog still leaves room for the chat maintenance ticks.

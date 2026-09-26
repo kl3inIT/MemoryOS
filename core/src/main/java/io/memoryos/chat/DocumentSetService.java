@@ -12,6 +12,7 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.iam.TenantAccessResolver;
 import io.memoryos.shared.TenantId;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -141,7 +142,7 @@ public class DocumentSetService implements SourceCollectionScopeResolver {
     private List<View> views(TenantId tenant, ActorId actor, boolean manage, Collection<UUID> ids) {
         if (ids.isEmpty()) return List.of();
         var access = sets.access(tenant.value(), actor.value(), manage, ids);
-        var result = new java.util.ArrayList<View>();
+        var result = new ArrayList<View>();
         Set<UUID> selectable = null;
         for (UUID id : ids) {
             var row = sets.read(tenant.value(), id);

@@ -1,4 +1,4 @@
-import { ApiError } from "@/lib/api";
+import { problemOf } from "@/lib/api";
 import { i18n } from "@/i18n/index";
 import {
   changeChatLibraryFile,
@@ -146,14 +146,9 @@ export function groupByDate(items: readonly LibraryFile[], now = new Date()): Li
  * instead of showing the generic conflict message.
  */
 export function refusedBy(error: unknown): string[] {
-  if (!(error instanceof ApiError) || !error.cause || typeof error.cause !== "object") return [];
-  const usedBy = (error.cause as { usedBy?: unknown }).usedBy;
+  const usedBy = problemOf(error)?.usedBy;
   if (!Array.isArray(usedBy)) return [];
-  return usedBy.flatMap((usage) =>
-    usage && typeof usage === "object" && typeof (usage as { name?: unknown }).name === "string"
-      ? [(usage as { name: string }).name]
-      : [],
-  );
+  return usedBy.flatMap((usage) => (typeof usage?.name === "string" ? [usage.name] : []));
 }
 
 /** What holds an upload, for the label and for the refusal the delete route returns. */

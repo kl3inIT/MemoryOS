@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.*;
 
+import ai.docling.serve.api.convert.response.ResponseType;
 import ai.docling.serve.client.DoclingServeClientException;
 import io.memoryos.connector.SourceInputDescriptor;
 import io.memoryos.document.DocumentContent;
@@ -12,8 +13,12 @@ import io.memoryos.document.ExtractionException;
 import io.memoryos.document.ExtractionFailure;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.net.ConnectException;
+import java.net.http.HttpTimeoutException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -50,7 +55,7 @@ class DoclingFallbackTest {
 
     @Test
     void aWordDocumentIsReadNativelyWhenDoclingTimesOut() throws Exception {
-        docling(new DoclingServeClientException(new java.net.http.HttpTimeoutException("slow")));
+        docling(new DoclingServeClientException(new HttpTimeoutException("slow")));
         try (var extractor = extractor()) {
             var result = extract(extractor, docx(), "minutes.docx");
             assertTrue(result.normalizedText().contains("Doanh thu hop nhat"));
@@ -61,8 +66,8 @@ class DoclingFallbackTest {
     @Test
     void aPresentationIsReadNativelyWhenDoclingAnswersWithSomethingUnusable() throws Exception {
         when(client.convertDocument(any())).thenReturn(new BoundedDoclingClient.CanonicalResponse(
-                new ObjectMapper().createObjectNode(), java.util.List.of(), "partial_success",
-                ai.docling.serve.api.convert.response.ResponseType.IN_BODY));
+                new ObjectMapper().createObjectNode(), List.of(), "partial_success",
+                ResponseType.IN_BODY));
         try (var extractor = extractor()) {
             var result = extract(extractor, pptx(), "deck.pptx");
             assertTrue(result.normalizedText().contains("Doanh thu hop nhat"));
@@ -96,7 +101,7 @@ class DoclingFallbackTest {
 
     @Test
     void aChatAttachmentFallsBackThroughTheBoundedSpool() throws Exception {
-        when(client.convertFile(any(), any(), any(), anyBoolean())).thenThrow(new java.io.IOException("connection reset"));
+        when(client.convertFile(any(), any(), any(), anyBoolean())).thenThrow(new IOException("connection reset"));
         Path file = temporary.resolve("attachment.docx");
         Files.write(file, docx());
         try (var extractor = extractor()) {
@@ -114,8 +119,8 @@ class DoclingFallbackTest {
                  "texts":[{"label":"text","text":"Doanh thu","prov":[]}],"pages":{}}
                 """);
         when(client.convertDocument(any())).thenReturn(new BoundedDoclingClient.CanonicalResponse(
-                new ObjectMapper().createObjectNode().set("json_content", document), java.util.List.of(), "success",
-                ai.docling.serve.api.convert.response.ResponseType.IN_BODY));
+                new ObjectMapper().createObjectNode().set("json_content", document), List.of(), "success",
+                ResponseType.IN_BODY));
         try (var extractor = extractor()) {
             var result = extract(extractor, textPdf(1, 1), "report.pdf");
             assertEquals("docling", result.metadata().get("parser"));
@@ -134,7 +139,7 @@ class DoclingFallbackTest {
     }
 
     private static DoclingServeClientException unreachable() {
-        return new DoclingServeClientException(new java.net.ConnectException("refused"));
+        return new DoclingServeClientException(new ConnectException("refused"));
     }
 
     private DoclingSourceContentExtractor extractor() {

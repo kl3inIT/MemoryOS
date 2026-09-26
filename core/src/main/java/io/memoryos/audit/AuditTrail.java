@@ -3,15 +3,26 @@ package io.memoryos.audit;
 import io.memoryos.audit.persistence.JdbcAuditEventRepository;
 import io.memoryos.shared.ActorId;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.spi.LoggingEventBuilder;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -32,22 +43,22 @@ public class AuditTrail {
     private final JdbcAuditEventRepository events;
     private final AuditRequestContext requestContext;
     private final MeterRegistry meters;
-    private final org.springframework.transaction.support.TransactionTemplate separate;
+    private final TransactionTemplate separate;
 
     /** The API supplies the request it is serving; the Worker has none, and records the trace alone. */
-    @org.springframework.beans.factory.annotation.Autowired
-    public AuditTrail(JdbcAuditEventRepository events, org.springframework.beans.factory.ObjectProvider<AuditRequestContext> requestContext,
-                      MeterRegistry meters, org.springframework.transaction.PlatformTransactionManager transactions) {
+    @Autowired
+    public AuditTrail(JdbcAuditEventRepository events, ObjectProvider<AuditRequestContext> requestContext,
+                      MeterRegistry meters, PlatformTransactionManager transactions) {
         this(events, requestContext.getIfAvailable(() -> AuditRequestContext.TRACE_ONLY), meters, transactions);
     }
 
     public AuditTrail(JdbcAuditEventRepository events, AuditRequestContext requestContext, MeterRegistry meters,
-                      org.springframework.transaction.PlatformTransactionManager transactions) {
+                      PlatformTransactionManager transactions) {
         this.events = events;
         this.requestContext = requestContext;
         this.meters = meters;
-        this.separate = new org.springframework.transaction.support.TransactionTemplate(transactions);
-        this.separate.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.separate = new TransactionTemplate(transactions);
+        this.separate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /**
@@ -58,9 +69,9 @@ public class AuditTrail {
     public void recordSeparately(AuditRecord event) {
         // A refusal is usually raised while its transaction holds the Tenant lock, which the event's own insert
         // would wait on for its foreign key: write it once that transaction has ended, whichever way it ended.
-        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
-            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
-                    new org.springframework.transaction.support.TransactionSynchronization() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
                         @Override
                         public void afterCompletion(int status) { writeSeparately(event); }
                     });
@@ -74,7 +85,7 @@ public class AuditTrail {
             separate.executeWithoutResult(ignored -> record(event));
         } catch (RuntimeException failure) {
             meters.counter("memoryos.audit.write.failures", "action", event.action().value()).increment();
-            LOG.error("Audit event {} could not be stored", event.action().value(), failure);
+            logFailure("audit.event.store_failed", event.action().value(), failure, "Audit event could not be stored");
         }
     }
 
@@ -103,19 +114,20 @@ public class AuditTrail {
         } catch (RuntimeException failure) {
             // The stream is evidence of what was recorded, not proof that nothing else happened: a gap shows up here.
             meters.counter("memoryos.audit.write.failures", "action", event.action().value()).increment();
-            LOG.error("Audit event {} could not be stored; the change it records still committed", event.action().value(),
-                    failure);
+            logFailure("audit.event.store_failed", event.action().value(), failure,
+                    "Audit event could not be stored; the change it records still committed");
             try {
                 events.rollbackToSavepoint();
             } catch (RuntimeException lost) {
-                LOG.error("Audit savepoint could not be released; the caller's transaction may fail", lost);
+                logFailure("audit.savepoint.rollback_failed", null, lost,
+                        "Audit savepoint could not be released; the caller's transaction may fail");
             }
         }
         emit(id, at, event, actorLabel, details);
     }
 
     /** A person as the record names them: display name and e-mail as they are now, so the row keeps them later. */
-    public record Person(String label, @org.jspecify.annotations.Nullable String email) {}
+    public record Person(String label, @Nullable String email) {}
 
     /**
      * Who {@code actor} is, for a record that names them. Read in the caller's transaction, so it sees a person the
@@ -127,7 +139,7 @@ public class AuditTrail {
     }
 
     /** One JSON line per event, on a logger named for its class, as Onyx emits for a SIEM. */
-    private void emit(UUID id, Instant at, AuditRecord event, @org.jspecify.annotations.Nullable String actorLabel,
+    private void emit(UUID id, Instant at, AuditRecord event, @Nullable String actorLabel,
                       String details) {
         try {
             var line = new LinkedHashMap<String, Object>();
@@ -136,7 +148,7 @@ public class AuditTrail {
             line.put("ts", at.toString());
             line.put("action", event.action().value());
             line.put("ocsf_class", event.action().eventClass().ocsfClassId());
-            line.put("outcome", event.outcome().name().toLowerCase(java.util.Locale.ROOT));
+            line.put("outcome", event.outcome().name().toLowerCase(Locale.ROOT));
             line.put("tenant_id", event.tenant().value().toString());
             line.put("actor_id", event.actor() == null ? null : event.actor().value().toString());
             line.put("actor", actorLabel);
@@ -158,5 +170,22 @@ public class AuditTrail {
             if (value != null) declared.put(field, value);
         });
         return JSON.writeValueAsString(declared);
+    }
+
+    /** Logs a failed audit write by type and, when the database gave one, its SQLState; never the driver's message. */
+    private static void logFailure(String name, @Nullable String action, Throwable failure, String message) {
+        LoggingEventBuilder log = LOG.atError().addKeyValue("event", name)
+                .addKeyValue("error_type", failure.getClass().getName());
+        if (action != null) log = log.addKeyValue("action", action);
+        String state = sqlState(failure);
+        if (state != null) log = log.addKeyValue("error_code", state);
+        log.log(message);
+    }
+
+    /** The SQLState of the failure, a bounded code; the driver's message may quote the values it refused. */
+    private static @Nullable String sqlState(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause())
+            if (cause instanceof SQLException sql) return sql.getSQLState();
+        return null;
     }
 }

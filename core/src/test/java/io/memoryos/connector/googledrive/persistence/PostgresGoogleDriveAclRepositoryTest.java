@@ -16,12 +16,14 @@ import io.memoryos.connector.GoogleDriveProvider.Permission;
 import io.memoryos.connector.GoogleDriveProvider.PermissionDetail;
 import io.memoryos.connector.GoogleDriveSourceService.Root;
 import io.memoryos.connector.GoogleDriveSourceService.ScopeMode;
+import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceRunTrigger;
 import io.memoryos.connector.source.persistence.JdbcSourceDocumentRepository;
 import io.memoryos.connector.source.persistence.JdbcSourceRepository;
 import io.memoryos.connector.sync.persistence.JdbcSourceSyncRepository;
+import io.memoryos.connector.sync.persistence.SyncTarget;
 import io.memoryos.document.DocumentId;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
@@ -55,7 +57,7 @@ class PostgresGoogleDriveAclRepositoryTest {
     private JdbcGoogleDriveSourceRepository drive;
     private JdbcGoogleDriveCredentialRepository credentials;
     private JdbcGoogleDriveAclRepository acls;
-    private final ActorId owner = new ActorId(java.util.UUID.randomUUID());
+    private final ActorId owner = new ActorId(UUID.randomUUID());
     private Fixture fixture;
 
     @BeforeEach
@@ -359,7 +361,7 @@ class PostgresGoogleDriveAclRepositoryTest {
     }
 
     private Fixture source(TenantId tenant) {
-        var pair = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Drive ACL fixture", io.memoryos.connector.SourceAccess.PRIVATE, owner)));
+        var pair = Objects.requireNonNull(tx.execute(_ -> sources.createFileSource(tenant, owner, "Drive ACL fixture", SourceAccess.PRIVATE, owner)));
         var credential = credential(tenant);
         jdbc.sql("UPDATE connectors SET connector_type = 'GOOGLE_DRIVE' WHERE tenant_id = :tenant AND id = :connector")
                 .param("tenant", tenant.value()).param("connector", pair.connectorId()).update();
@@ -384,7 +386,7 @@ class PostgresGoogleDriveAclRepositoryTest {
 
     private Work work(TenantId tenant, SourceId source) {
         return Objects.requireNonNull(tx.execute(_ -> {
-            var operation = sync.enqueue(io.memoryos.connector.sync.persistence.SyncTarget.GOOGLE_DRIVE, tenant, source, 1, SourceRunTrigger.MANUAL, null);
+            var operation = sync.enqueue(SyncTarget.GOOGLE_DRIVE, tenant, source, 1, SourceRunTrigger.MANUAL, null);
             UUID delivery = UUID.randomUUID();
             jdbc.sql("UPDATE source_sync_attempts SET delivery_id = :delivery WHERE tenant_id = :tenant AND id = :operation")
                     .param("delivery", delivery).param("tenant", tenant.value()).param("operation", operation.id().value()).update();

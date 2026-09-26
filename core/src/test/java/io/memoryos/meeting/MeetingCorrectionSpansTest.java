@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -30,7 +31,7 @@ class MeetingCorrectionSpansTest {
     @Test
     void aMarkOnPartOfAWordCoversTheWholeWord() {
         // Soniox scored "ở" of "Mở" and "Tr" of "Trực" on staging.
-        var line = new Meeting.Utterance(java.util.UUID.randomUUID(), Meeting.Track.MIC, "1", 0, 1000,
+        var line = new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.MIC, "1", 0, 1000,
                 "Mở cửa, trực tiếp 51 này.", 0.5,
                 List.of(new Meeting.Span(1, 2, 0.37), new Meeting.Span(8, 10, 0.3), new Meeting.Span(10, 12, 0.5),
                         new Meeting.Span(19, 20, 0.25)));

@@ -5,16 +5,19 @@ import static io.memoryos.connector.GoogleDriveProviderException.Failure.*;
 import io.memoryos.connector.GoogleDriveLinkReader;
 import io.memoryos.connector.GoogleDriveProvider.AcquiredContent;
 import io.memoryos.connector.GoogleDriveProviderException;
+import io.memoryos.connector.SourceInputFormat;
 import io.memoryos.document.ExtractionException;
 import io.memoryos.document.StructuredContent;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Writer;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -22,9 +25,14 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.contentstream.operator.Operator;
+import org.apache.pdfbox.cos.COSBase;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
 import org.apache.pdfbox.pdmodel.interactive.action.PDActionURI;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.pdfbox.text.TextPosition;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -36,7 +44,7 @@ public final class OfflineGoogleDriveLinkReader implements GoogleDriveLinkReader
 
     @Override public List<Link> read(AcquiredContent input) {
         var links = new Links();
-        boolean nativeInput = input.descriptor().format() != io.memoryos.connector.SourceInputFormat.BINARY;
+        boolean nativeInput = input.descriptor().format() != SourceInputFormat.BINARY;
         if (input.bytes().length == 0) throw failure(MALFORMED);
         if (input.bytes().length > (nativeInput ? StructuredContent.MAX_BYTES : ObjectUploadSpecification.MAX_SIZE_BYTES)) throw failure(LIMIT_EXCEEDED);
         try {
@@ -55,7 +63,7 @@ public final class OfflineGoogleDriveLinkReader implements GoogleDriveLinkReader
                 case UNSUPPORTED, ENCRYPTED -> UNSUPPORTED;
                 default -> MALFORMED;
             });
-        } catch (org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException exception) {
+        } catch (InvalidPasswordException exception) {
             throw failure(UNSUPPORTED);
         } catch (IOException | RuntimeException exception) {
             throw failure(MALFORMED);
@@ -219,17 +227,17 @@ public final class OfflineGoogleDriveLinkReader implements GoogleDriveLinkReader
                 private final StringBuilder pageText = new StringBuilder();
                 private int glyphCharacters;
                 private int renderedCharacters;
-                @Override protected void processOperator(org.apache.pdfbox.contentstream.operator.Operator operator,
-                        List<org.apache.pdfbox.cos.COSBase> operands) throws IOException {
+                @Override protected void processOperator(Operator operator,
+                        List<COSBase> operands) throws IOException {
                     links.checkTime();
                     super.processOperator(operator, operands);
                 }
-                @Override protected void processTextPosition(org.apache.pdfbox.text.TextPosition position) {
+                @Override protected void processTextPosition(TextPosition position) {
                     links.checkTime();
                     if ((glyphCharacters += position.getUnicode().length()) > StructuredContent.MAX_TEXT) throw failure(LIMIT_EXCEEDED);
                     super.processTextPosition(position);
                 }
-                @Override protected void writeString(String text, List<org.apache.pdfbox.text.TextPosition> positions) {
+                @Override protected void writeString(String text, List<TextPosition> positions) {
                     append(text);
                 }
                 @Override protected void writeWordSeparator() { append(" "); }
@@ -239,12 +247,12 @@ public final class OfflineGoogleDriveLinkReader implements GoogleDriveLinkReader
                     if ((renderedCharacters += text.length()) > StructuredContent.MAX_TEXT) throw failure(LIMIT_EXCEEDED);
                     pageText.append(text);
                 }
-                @Override protected void endPage(org.apache.pdfbox.pdmodel.PDPage page) {
+                @Override protected void endPage(PDPage page) {
                     links.text(pageText.toString(), "Page " + getCurrentPageNo());
                     pageText.setLength(0);
                 }
             };
-            stripper.writeText(document, java.io.Writer.nullWriter());
+            stripper.writeText(document, Writer.nullWriter());
             int number = 0;
             for (var page : document.getPages()) {
                 String location = "Page " + ++number;
@@ -266,7 +274,7 @@ public final class OfflineGoogleDriveLinkReader implements GoogleDriveLinkReader
     static final class Links {
         private static final Pattern URL = Pattern.compile("https://[^\\s\\p{Cntrl}<>\\\"'`\\[\\]{}]+", Pattern.CASE_INSENSITIVE);
         private final LinkedHashSet<Link> values = new LinkedHashSet<>();
-        private final long deadline = System.nanoTime() + java.time.Duration.ofSeconds(120).toNanos();
+        private final long deadline = System.nanoTime() + Duration.ofSeconds(120).toNanos();
         private long characters;
 
         void text(String text, String location) {

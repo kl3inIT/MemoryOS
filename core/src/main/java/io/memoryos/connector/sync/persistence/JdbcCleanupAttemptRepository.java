@@ -1,8 +1,10 @@
 package io.memoryos.connector.sync.persistence;
 
 import io.memoryos.connector.CleanupWork;
+import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceItemId;
 import io.memoryos.connector.SourceOperationId;
+import io.memoryos.connector.SourceOperationType;
 import io.memoryos.shared.TenantId;
 
 import java.time.Duration;
@@ -217,8 +219,8 @@ public class JdbcCleanupAttemptRepository {
                 .query((resultSet, ignored) -> new CleanupWork(
                         new SourceOperationId(resultSet.getObject("id", UUID.class)),
                         new TenantId(resultSet.getObject("tenant_id", UUID.class)),
-                        io.memoryos.connector.SourceOperationType.valueOf(resultSet.getString("operation")),
-                        new io.memoryos.connector.SourceId(resultSet.getObject("target_pair_id", UUID.class)),
+                        SourceOperationType.valueOf(resultSet.getString("operation")),
+                        new SourceId(resultSet.getObject("target_pair_id", UUID.class)),
                         optionalItemId(resultSet.getObject("target_item_id", UUID.class)),
                         token,
                         WorkLeases.initialQueueWait(resultSet)

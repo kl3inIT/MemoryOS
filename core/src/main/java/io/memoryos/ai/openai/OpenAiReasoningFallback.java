@@ -85,7 +85,8 @@ final class OpenAiReasoningFallback implements ChatModel {
         String effort = options.getReasoningEffort();
         String replacement = replacementFor(failure, effort);
         if (replacement == null || replacement.equals(effort)) return null;
-        LOG.warn("Provider rejected reasoning effort {}; retrying once with {}.", effort, replacement);
+        LOG.atWarn().addKeyValue("event", "ai.reasoning_effort.rejected").addKeyValue("reasoning_effort", effort)
+                .addKeyValue("replacement", replacement).log("Provider rejected the reasoning effort; retrying once");
         return new Prompt(prompt.getInstructions(), options.mutate().reasoningEffort(replacement).build());
     }
 

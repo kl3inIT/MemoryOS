@@ -43,7 +43,7 @@ public final class ModelCalls {
             int output = selected.outputAtMost(maxOutputTokens);
             var guard = new ModelGuard(metadata.getChatModel(), process, metadata,
                     new Budget(costCap, Integer.MAX_VALUE, tokenCap), 1,
-                    () -> { if (!Instant.now().isBefore(deadline)) throw new IllegalStateException("CHAT_DEADLINE"); },
+                    () -> { if (!Instant.now().isBefore(deadline)) throw TurnFailure.DEADLINE.exception(); },
                     selected.policy(), selected.contextWindow() - output, selected.finalRequest());
             guard.outputLimit(output);
             admitted = guard;

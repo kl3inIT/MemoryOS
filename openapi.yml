@@ -14482,6 +14482,57 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ApiProblem"
+  /api/identity/principals:
+    get:
+      tags:
+      - Identity
+      summary: Search the active members and ordinary Groups of the caller's Tenant
+        to share something with
+      description: Open to every active member of the Tenant. Returns at most `size`
+        people and `size` Groups whose name (or a person's e-mail) contains the search
+        text; each consumer rechecks what it is given.
+      operationId: searchPrincipals
+      parameters:
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          minLength: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+          maximum: 50
+          minimum: 1
+      responses:
+        "200":
+          description: Matching people and Groups
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrincipalOptions"
+        "400":
+          description: Invalid principal search
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: No accepted authentication is present
+        "403":
+          description: The actor is not an active member of the Tenant
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+      security:
+      - browserSession: []
+      - bearerAuth: []
   /api/identity/me:
     get:
       tags:
@@ -15672,61 +15723,6 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/PersonaView"
-      security:
-      - bearerAuth: []
-      - browserSession: []
-  /api/chat/persona-share-options:
-    get:
-      tags:
-      - Chat
-      summary: Search active members and ordinary Groups to share an agent with
-      operationId: listChatPersonaShareOptions
-      parameters:
-      - name: q
-        in: query
-        required: false
-        schema:
-          type: string
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          format: int32
-          default: 20
-      responses:
-        "400":
-          description: Invalid chat request
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "403":
-          description: Tenant membership or CSRF requirement not met
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "404":
-          description: Chat resource not accessible
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "409":
-          description: Conversation is running or revision has changed
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ApiProblem"
-        "401":
-          description: Authentication required
-        "200":
-          description: Successful chat operation
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AgentShareOptions"
       security:
       - bearerAuth: []
       - browserSession: []
@@ -20747,10 +20743,10 @@ components:
           type: string
           format: uuid
         projectId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
       required:
       - personaId
     ReasoningSelection:
@@ -20767,10 +20763,10 @@ components:
       type: object
       properties:
         projectId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
     PersonaSelection:
       type: object
       properties:
@@ -20783,9 +20779,9 @@ components:
       type: object
       properties:
         positive:
-          oneOf:
-          - type: boolean
-          - type: "null"
+          type:
+          - boolean
+          - "null"
         comment:
           type: string
         reason:
@@ -20811,10 +20807,10 @@ components:
           type: string
           format: uuid
         expectedChildId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
       required:
       - messageId
     ChatRetentionInput:
@@ -20849,9 +20845,9 @@ components:
           - REPLACE
           - REMOVE
         value:
-          oneOf:
-          - type: string
-          - type: "null"
+          type:
+          - string
+          - "null"
       required:
       - action
     ProviderInput:
@@ -21426,10 +21422,10 @@ components:
           type: string
           format: uuid
         modelConfigurationId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
         revision:
           type: integer
           format: int64
@@ -21670,10 +21666,10 @@ components:
       type: object
       properties:
         modelConfigurationId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
         revision:
           type: integer
           format: int64
@@ -23864,15 +23860,15 @@ components:
           maxLength: 200
           minLength: 0
         personaId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
         projectId:
-          oneOf:
-          - type: string
-            format: uuid
-          - type: "null"
+          type:
+          - string
+          - "null"
+          format: uuid
         temporary:
           type: boolean
           description: "Leave no history: listed nowhere, deleted with its uploads\
@@ -24180,9 +24176,9 @@ components:
         reachable:
           type: boolean
         failureCode:
-          oneOf:
-          - type: string
-          - type: "null"
+          type:
+          - string
+          - "null"
       required:
       - failureCode
       - reachable
@@ -25178,9 +25174,9 @@ components:
           items:
             $ref: "#/components/schemas/SourceItem"
         nextCursor:
-          oneOf:
-          - type: string
-          - type: "null"
+          type:
+          - string
+          - "null"
         totalItems:
           type: integer
           format: int64
@@ -25750,6 +25746,52 @@ components:
       - continueUrl
       - expiresAt
       - tenantDisplayName
+    PrincipalGroup:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
+    PrincipalOptions:
+      type: object
+      additionalProperties: false
+      properties:
+        people:
+          type: array
+          items:
+            $ref: "#/components/schemas/PrincipalPerson"
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/PrincipalGroup"
+      required:
+      - groups
+      - people
+    PrincipalPerson:
+      type: object
+      additionalProperties: false
+      properties:
+        actorId:
+          type: string
+          format: uuid
+        name:
+          type:
+          - string
+          - "null"
+        email:
+          type:
+          - string
+          - "null"
+      required:
+      - actorId
+      - email
+      - name
     CurrentIdentity:
       type: object
       additionalProperties: false
@@ -27104,17 +27146,6 @@ components:
           - FILE
           - GOOGLE_DRIVE
           - SHAREPOINT
-    AgentShareOptions:
-      type: object
-      properties:
-        people:
-          type: array
-          items:
-            $ref: "#/components/schemas/AgentPerson"
-        groups:
-          type: array
-          items:
-            $ref: "#/components/schemas/AgentRef"
     ChatPersona:
       type: object
       properties:
@@ -27134,9 +27165,9 @@ components:
           items:
             $ref: "#/components/schemas/ChatPersona"
         nextCursor:
-          oneOf:
-          - type: string
-          - type: "null"
+          type:
+          - string
+          - "null"
       required:
       - items
       - nextCursor
@@ -27829,6 +27860,49 @@ components:
             - field
             - message
             - params
+        scope:
+          type: string
+          description: "AI_USAGE_LIMIT_EXCEEDED only: the budget that is spent."
+          enum:
+          - TENANT
+          - GROUP
+          - PERSON
+        group:
+          type: string
+          description: "AI_USAGE_LIMIT_EXCEEDED only: the Group whose budget is spent,\
+            \ for a Group budget."
+        resetsAt:
+          type: string
+          format: date-time
+          description: "AI_USAGE_LIMIT_EXCEEDED only: when the spent budget frees."
+        retryAfterSeconds:
+          type: integer
+          format: int64
+          description: "AI_USAGE_LIMIT_EXCEEDED only: seconds until the budget frees;\
+            \ equals the Retry-After header."
+          minimum: 1
+        usedBy:
+          type: array
+          description: "CHAT_FILE_IN_USE only: the Projects and agents that attach\
+            \ the file."
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              kind:
+                type: string
+                enum:
+                - AGENT
+                - PROJECT
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+            required:
+            - id
+            - kind
+            - name
       required:
       - detail
       - instance

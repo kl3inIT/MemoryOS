@@ -5,19 +5,33 @@ import io.memoryos.document.ExtractionFailure;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.io.SequenceInputStream;
 import java.io.UncheckedIOException;
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.net.http.HttpClient;
+import java.net.http.HttpConnectTimeoutException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -40,7 +54,7 @@ final class PaddleOcrVlClient implements AutoCloseable {
      * transport already has, and stays above the 32 MiB artifact the answer becomes.
      */
     static final int MAX_RESPONSE_BYTES = 67_108_864;
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PaddleOcrVlClient.class);
+    private static final Logger LOG = LoggerFactory.getLogger(PaddleOcrVlClient.class);
     private static final Pattern LOG_ID = Pattern.compile("[A-Za-z0-9_-]{1,128}");
     private final URI endpoint;
     private final Duration timeout;
@@ -68,10 +82,10 @@ final class PaddleOcrVlClient implements AutoCloseable {
             };
         }
 
-        static Input of(java.nio.file.Path file) {
+        static Input of(Path file) {
             return new Input() {
-                @Override public long size() throws IOException { return java.nio.file.Files.size(file); }
-                @Override public InputStream open() throws IOException { return java.nio.file.Files.newInputStream(file); }
+                @Override public long size() throws IOException { return Files.size(file); }
+                @Override public InputStream open() throws IOException { return Files.newInputStream(file); }
             };
         }
     }
@@ -82,11 +96,11 @@ final class PaddleOcrVlClient implements AutoCloseable {
 
     PaddleOcrVlClient(PaddleOcrVlProperties properties, ObjectMapper mapper, int maxResponseBytes) {
         this.maxResponseBytes = maxResponseBytes;
-        this.endpoint = URI.create(java.util.Objects.requireNonNull(properties.endpoint(), "endpoint").toString()
+        this.endpoint = URI.create(Objects.requireNonNull(properties.endpoint(), "endpoint").toString()
                 .replaceAll("/+$", "") + "/layout-parsing");
         this.timeout = properties.timeout();
         this.mapper = mapper;
-        this.permits = new Semaphore(java.util.Objects.requireNonNull(properties.maxConcurrentRequests()), true);
+        this.permits = new Semaphore(Objects.requireNonNull(properties.maxConcurrentRequests()), true);
     }
 
     /** @return the envelope's {@code result.layoutParsingResults}, one element per page */
@@ -112,7 +126,7 @@ final class PaddleOcrVlClient implements AutoCloseable {
             long length = prefix.length + Base64Stream.encodedLength(input.size()) + suffix.length;
             var body = HttpRequest.BodyPublishers.fromPublisher(HttpRequest.BodyPublishers.ofInputStream(() -> {
                 try {
-                    return new SequenceInputStream(java.util.Collections.enumeration(List.of(
+                    return new SequenceInputStream(Collections.enumeration(List.of(
                             new ByteArrayInputStream(prefix), new Base64Stream(input.open()), new ByteArrayInputStream(suffix))));
                 } catch (IOException unreadable) {
                     throw new UncheckedIOException(unreadable);
@@ -127,11 +141,11 @@ final class PaddleOcrVlClient implements AutoCloseable {
             // The request timeout ends with the response headers. A server that then stalls mid-body
             // would hold the worker for ever, so the same deadline, counted from sending, closes
             // the body; a read that fails after it has passed is a timeout, not a transport fault.
-            var expired = new java.util.concurrent.atomic.AtomicBoolean();
+            var expired = new AtomicBoolean();
             try (var stream = response.body()) {
                 if (status >= 300) throw new StatusFailure(status);
                 long remaining = timeout.toNanos() - (System.nanoTime() - started);
-                java.util.concurrent.CompletableFuture.delayedExecutor(Math.max(0, remaining), TimeUnit.NANOSECONDS)
+                CompletableFuture.delayedExecutor(Math.max(0, remaining), TimeUnit.NANOSECONDS)
                         .execute(() -> {
                             expired.set(true);
                             try {
@@ -191,12 +205,12 @@ final class PaddleOcrVlClient implements AutoCloseable {
     private static ExtractionFailure transportFailure(Throwable error) {
         Throwable cause = error;
         for (int depth = 0; cause != null && depth < 16; depth++, cause = cause.getCause()) {
-            if (cause instanceof java.net.http.HttpConnectTimeoutException || cause instanceof java.net.ConnectException
-                    || cause instanceof java.net.UnknownHostException || cause instanceof java.net.NoRouteToHostException) {
+            if (cause instanceof HttpConnectTimeoutException || cause instanceof ConnectException
+                    || cause instanceof UnknownHostException || cause instanceof NoRouteToHostException) {
                 return ExtractionFailure.CONNECTION_FAILED;
             }
-            if (cause instanceof java.net.http.HttpTimeoutException || cause instanceof InterruptedException
-                    || cause instanceof java.io.InterruptedIOException) {
+            if (cause instanceof HttpTimeoutException || cause instanceof InterruptedException
+                    || cause instanceof InterruptedIOException) {
                 return ExtractionFailure.TIMEOUT;
             }
         }
@@ -246,7 +260,7 @@ final class PaddleOcrVlClient implements AutoCloseable {
         }
 
         @Override public int read(byte[] target, int offset, int length) throws IOException {
-            java.util.Objects.checkFromIndexSize(offset, length, target.length);
+            Objects.checkFromIndexSize(offset, length, target.length);
             if (length == 0) return 0;
             if (!fill()) return -1;
             int count = Math.min(length, encoded.length - position);

@@ -11,6 +11,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import io.memoryos.retrieval.SearchUnavailableException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,14 +29,15 @@ import org.opensearch.client.opensearch.OpenSearchClient;
 import org.opensearch.client.opensearch.generic.Body;
 import org.opensearch.client.opensearch.generic.OpenSearchGenericClient;
 import org.opensearch.client.opensearch.generic.Response;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.ObjectMapper;
 
 class OpenSearchGatewayTest {
     private final OpenSearchClient client = mock(OpenSearchClient.class);
     private final OpenSearchGenericClient generic = mock(OpenSearchGenericClient.class);
     private final OpenSearchGateway gateway = new OpenSearchGateway(client, new ObjectMapper());
-    private final ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> events = new ch.qos.logback.core.read.ListAppender<>();
-    private final ch.qos.logback.classic.Logger logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(OpenSearchGateway.class);
+    private final ListAppender<ILoggingEvent> events = new ListAppender<>();
+    private final Logger logger = (Logger) LoggerFactory.getLogger(OpenSearchGateway.class);
 
     @BeforeEach
     void captureLogs() { events.start(); logger.addAppender(events); }
@@ -52,7 +57,7 @@ class OpenSearchGatewayTest {
         assertEquals("/memoryos-x/_update/{id}:3", fields.get("path"));
         assertEquals("503", fields.get("status"));
         assertEquals("status", fields.get("error_type"));
-        assertEquals(ch.qos.logback.classic.Level.WARN, events.list.getFirst().getLevel());
+        assertEquals(Level.WARN, events.list.getFirst().getLevel());
         assertFalse(events.list.getFirst().getFormattedMessage().contains("private"));
         assertFalse(fields.values().stream().anyMatch(value -> value.contains("private")));
         verify(response).close();

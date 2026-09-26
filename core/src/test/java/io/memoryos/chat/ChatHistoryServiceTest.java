@@ -13,6 +13,7 @@ import io.memoryos.iam.IamAccess;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -20,14 +21,17 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.support.JdbcTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** Reading other people's conversations: who may, how much of them, and what is left out (MEM-125). */
 @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
 class ChatHistoryServiceTest {
     private HikariDataSource dataSource;
     private JdbcClient jdbc;
-    private org.springframework.transaction.support.TransactionTemplate tx;
+    private TransactionTemplate tx;
     private ChatHistoryService history;
     private ChatSettingsService settings;
     private UUID tenant;
@@ -38,8 +42,8 @@ class ChatHistoryServiceTest {
     @BeforeEach void setup() throws Exception {
         dataSource = TestDatabase.freshPostgres();
         jdbc = JdbcClient.create(dataSource);
-        tx = new org.springframework.transaction.support.TransactionTemplate(
-                new org.springframework.jdbc.support.JdbcTransactionManager(dataSource));
+        tx = new TransactionTemplate(
+                new JdbcTransactionManager(dataSource));
         tenant = UUID.randomUUID();
         jdbc.sql("INSERT INTO tenants(id,slug,display_name,status,bootstrap_reference) VALUES(:id,:slug,'History','ACTIVE',:reference)")
                 .param("id", tenant).param("slug", tenant.toString()).param("reference", tenant.toString()).update();
@@ -160,7 +164,7 @@ class ChatHistoryServiceTest {
 
     private IamAuthorization authorization() {
         var authorization = mock(IamAuthorization.class);
-        when(authorization.require(any(), any(), org.mockito.ArgumentMatchers.anyBoolean()))
+        when(authorization.require(any(), any(), ArgumentMatchers.anyBoolean()))
                 .thenReturn(new IamAccess(new TenantId(tenant), Authority.GLOBAL));
         return authorization;
     }
@@ -221,11 +225,11 @@ class ChatHistoryServiceTest {
                                CASE WHEN :role = 'ASSISTANT' THEN CURRENT_TIMESTAMP END,
                                CAST(COALESCE(:sources,'[]') AS jsonb),:request,:answeredBy)
                         """)
-                .param("id", id).param("session", session).param("parent", parent, java.sql.Types.OTHER)
-                .param("role", role).param("content", content).param("model", model, java.sql.Types.VARCHAR)
-                .param("sources", sources, java.sql.Types.VARCHAR)
-                .param("request", request, java.sql.Types.OTHER)
-                .param("answeredBy", answeredBy, java.sql.Types.OTHER).update();
+                .param("id", id).param("session", session).param("parent", parent, Types.OTHER)
+                .param("role", role).param("content", content).param("model", model, Types.VARCHAR)
+                .param("sources", sources, Types.VARCHAR)
+                .param("request", request, Types.OTHER)
+                .param("answeredBy", answeredBy, Types.OTHER).update();
     }
 
     private void rate(UUID session, boolean positive) {

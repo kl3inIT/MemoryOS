@@ -5,6 +5,7 @@ import io.memoryos.library.LibraryArchiveItem;
 import io.memoryos.library.LibraryArchiveStatus;
 import io.memoryos.library.LibraryFile;
 import io.memoryos.shared.ActorId;
+import io.memoryos.shared.LeasedJob;
 import io.memoryos.shared.TenantId;
 import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.StoredObjectId;
@@ -12,6 +13,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,7 +33,7 @@ public class JdbcLibraryArchiveRepository {
     public JdbcLibraryArchiveRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
     public record Claim(UUID id, UUID tenant, UUID owner, List<LibraryArchiveItem> requested, int attempts)
-            implements io.memoryos.shared.LeasedJob.Claim {}
+            implements LeasedJob.Claim {}
 
     public record Expired(TenantId tenant, UUID id, StoredObjectId object, ObjectKey key, UUID token) {}
 
@@ -181,7 +183,7 @@ public class JdbcLibraryArchiveRepository {
     }
 
     private static List<LibraryArchiveItem> requested(String json) {
-        var files = new java.util.ArrayList<LibraryArchiveItem>();
+        var files = new ArrayList<LibraryArchiveItem>();
         JSON.readTree(json).forEach(file -> files.add(new LibraryArchiveItem(
                 LibraryFile.Source.valueOf(file.path("source").asString()),
                 UUID.fromString(file.path("id").asString()))));
@@ -196,7 +198,7 @@ public class JdbcLibraryArchiveRepository {
     }
 
     private static List<String> strings(String json) {
-        var values = new java.util.ArrayList<String>();
+        var values = new ArrayList<String>();
         JSON.readTree(json).forEach(value -> values.add(value.asString()));
         return List.copyOf(values);
     }

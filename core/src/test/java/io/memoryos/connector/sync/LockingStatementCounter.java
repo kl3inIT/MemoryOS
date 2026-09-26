@@ -2,6 +2,7 @@ package io.memoryos.connector.sync;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.util.Locale;
@@ -51,7 +52,7 @@ public final class LockingStatementCounter {
     }
 
     private interface After {
-        Object apply(java.lang.reflect.Method method, Object[] args, Object result);
+        Object apply(Method method, Object[] args, Object result);
     }
 
     private static InvocationHandler forward(Object target, After after) {

@@ -11,6 +11,8 @@ import io.memoryos.objectstorage.ObjectKey;
 import io.memoryos.objectstorage.ObjectMetadata;
 import io.memoryos.shared.TenantId;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -179,7 +181,7 @@ public class JdbcSourceUploadRepository {
                 .update();
     }
 
-    private static AdoptedObject adoptedObject(java.sql.ResultSet resultSet) throws java.sql.SQLException {
+    private static AdoptedObject adoptedObject(ResultSet resultSet) throws SQLException {
         return new AdoptedObject(
                 new ObjectUploadId(resultSet.getObject("object_upload_id", UUID.class)),
                 new StoredObjectReference(

@@ -25,9 +25,9 @@ public interface SourceManagementService {
 
     SourceSummary getSource(ActorId actorId, SourceId sourceId);
 
-    SourceItemPage listItems(ActorId actorId, SourceId sourceId, @org.jspecify.annotations.Nullable String cursor, int size);
+    SourceItemPage listItems(ActorId actorId, SourceId sourceId, @Nullable String cursor, int size);
 
-    SourceOperationPage listIndexAttempts(ActorId actorId, SourceId sourceId, @org.jspecify.annotations.Nullable String cursor, int limit);
+    SourceOperationPage listIndexAttempts(ActorId actorId, SourceId sourceId, @Nullable String cursor, int limit);
 
     List<GroupIdentity> listSourceGroups(ActorId actorId, SourceId sourceId);
 

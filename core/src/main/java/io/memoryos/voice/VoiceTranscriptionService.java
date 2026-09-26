@@ -9,27 +9,38 @@ import io.memoryos.BusinessException;
 import io.memoryos.iam.IamAuthorization;
 import io.memoryos.iam.IamCapability;
 import io.memoryos.shared.ActorId;
+import io.memoryos.usage.AiUsage;
+import io.memoryos.usage.AiUsageFlow;
+import io.memoryos.usage.AiUsageRecorder;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.audio.transcription.AudioTranscriptionPrompt;
 import org.springframework.ai.openai.OpenAiAudioTranscriptionModel;
 import org.springframework.ai.openai.OpenAiAudioTranscriptionOptions;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.stereotype.Service;
 
 /** Speech-to-text sessions for voice input. Provider requests run on each session's worker, outside transactions. */
 @Service
 public class VoiceTranscriptionService {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(VoiceTranscriptionService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(VoiceTranscriptionService.class);
     /** Onyx limit per connection: about fourteen minutes of 24 kHz PCM16 audio. */
     public static final int MAX_RECORDING_BYTES = 25 * 1024 * 1024;
     private static final Duration PROVIDER_TIMEOUT = Duration.ofSeconds(60);
@@ -47,11 +58,11 @@ public class VoiceTranscriptionService {
     private final Semaphore sessions = new Semaphore(MAX_SESSIONS);
     private final Set<ActorId> active = ConcurrentHashMap.newKeySet();
 
-    private io.memoryos.usage.@org.jspecify.annotations.Nullable AiUsageRecorder usage;
+    private @Nullable AiUsageRecorder usage;
 
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     public VoiceTranscriptionService(VoiceConnectionService connections, IamAuthorization authorization, MeterRegistry meters,
-                                     org.springframework.beans.factory.ObjectProvider<io.memoryos.usage.AiUsageRecorder> usage) {
+                                     ObjectProvider<AiUsageRecorder> usage) {
         this(connections, authorization, meters);
         this.usage = usage.getIfAvailable();
     }
@@ -111,22 +122,23 @@ public class VoiceTranscriptionService {
     private TranscriptionSession metered(TranscriptionSession session, VoiceConnectionService.Connection connection, ActorId actor) {
         if (usage == null) return session;
         var recorder = usage;
-        var bytes = new java.util.concurrent.atomic.AtomicLong();
-        var recorded = new java.util.concurrent.atomic.AtomicBoolean();
+        var bytes = new AtomicLong();
+        var recorded = new AtomicBoolean();
         return new TranscriptionSession() {
             @Override public void append(byte[] pcm) { session.append(pcm); bytes.addAndGet(pcm.length); }
-            @Override public java.util.concurrent.CompletableFuture<String> finish() { return session.finish(); }
+            @Override public CompletableFuture<String> finish() { return session.finish(); }
             @Override public void close() {
                 try { session.close(); }
                 finally {
                     // PCM16 mono at 24 kHz is 48,000 bytes per second.
                     if (bytes.get() > 0 && recorded.compareAndSet(false, true)) {
                         try {
-                            recorder.record(new io.memoryos.usage.AiUsage(connection.tenantId(), actor.value(),
-                                    io.memoryos.usage.AiUsageFlow.SPEECH_TO_TEXT, connection.provider().name(), connection.sttModel(),
-                                    connection.id(), null, null, 1, 0, 0, 0, 0, bytes.get() / 48_000.0, null, java.time.Instant.now()));
+                            recorder.record(new AiUsage(connection.tenantId(), actor.value(),
+                                    AiUsageFlow.SPEECH_TO_TEXT, connection.provider().name(), connection.sttModel(),
+                                    connection.id(), null, null, 1, 0, 0, 0, 0, bytes.get() / 48_000.0, null, Instant.now()));
                         } catch (RuntimeException failure) {
-                            LOG.warn("Voice usage not recorded ({})", failure.getClass().getSimpleName());
+                            LOG.atWarn().addKeyValue("event", "voice.transcription.usage_not_recorded")
+                                    .addKeyValue("error_type", failure.getClass().getName()).log("Voice usage not recorded");
                         }
                     }
                 }

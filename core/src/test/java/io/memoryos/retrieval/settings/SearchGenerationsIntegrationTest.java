@@ -22,6 +22,7 @@ import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -142,7 +143,7 @@ class SearchGenerationsIntegrationTest {
         var process = generations(properties);
         process.refreshEvery(Duration.ZERO);
         assertEquals(present.id(), process.present().generation().id(), "Search and PRESENT indexing keep their generation");
-        assertEquals(java.util.List.of(present.identity()), process.identities());
+        assertEquals(List.of(present.identity()), process.identities());
         assertTrue(process.future().isEmpty());
         assertTrue(process.active(future.identity()).isEmpty(), "No work is written to the FUTURE meanwhile");
         assertTrue(process.active(present.identity()).isPresent());
@@ -150,7 +151,7 @@ class SearchGenerationsIntegrationTest {
         // The key becomes readable without any change to the generations' version; the next refresh picks it up.
         jdbc.sql("UPDATE embedding_provider SET credential=NULL WHERE id=:id").param("id", provider.id()).update();
         assertEquals(id, process.future().orElseThrow().generation().id());
-        assertEquals(java.util.List.of(present.identity(), future.identity()), process.identities());
+        assertEquals(List.of(present.identity(), future.identity()), process.identities());
     }
 
     @Test

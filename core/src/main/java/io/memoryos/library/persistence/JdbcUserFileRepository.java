@@ -1,5 +1,6 @@
 package io.memoryos.library.persistence;
 
+import io.memoryos.connector.SourceOperationTraceContext;
 import io.memoryos.library.UserFile;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
@@ -12,9 +13,15 @@ import io.memoryos.objectstorage.StoredObjectId;
 import io.memoryos.objectstorage.StoredObjectReference;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Duration;
+import java.util.AbstractMap;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -65,7 +72,7 @@ public class JdbcUserFileRepository {
     }
 
     /** The READY files among {@code ids} that the actor owns, in one query; unknown ids are absent. */
-    public List<Row> owned(TenantId tenant, ActorId actor, java.util.Set<UUID> ids) {
+    public List<Row> owned(TenantId tenant, ActorId actor, Set<UUID> ids) {
         if (ids.isEmpty()) return List.of();
         return jdbc.sql("SELECT * FROM chat_user_file WHERE tenant_id=:tenant AND owner_actor_id=:actor"
                         + " AND id IN (:ids) AND status='READY'")
@@ -138,15 +145,15 @@ public class JdbcUserFileRepository {
                 .param("key", key.value()).param("type", mediaType).update() == 1;
     }
 
-    public java.util.Map<UUID, UUID> documents(TenantId tenant, ActorId actor, java.util.Set<UUID> ids,
+    public Map<UUID, UUID> documents(TenantId tenant, ActorId actor, Set<UUID> ids,
                                                Collection<UUID> viaAgents) {
-        if (ids.isEmpty()) return java.util.Map.of();
-        var result = new java.util.LinkedHashMap<UUID, UUID>();
+        if (ids.isEmpty()) return Map.of();
+        var result = new LinkedHashMap<UUID, UUID>();
         jdbc.sql("SELECT f.id,f.document_id FROM chat_user_file f WHERE f.tenant_id=:tenant AND f.id IN (:ids) AND f.status='READY' AND f.document_id IS NOT NULL AND " + READABLE)
                 .param("tenant", tenant.value()).param("actor", actor.value()).param("ids", ids)
                 .param("viaAgents", granted(viaAgents))
                 .query((row, ignored) -> { result.put(row.getObject("id", UUID.class), row.getObject("document_id", UUID.class)); return true; }).list();
-        return java.util.Map.copyOf(result);
+        return Map.copyOf(result);
     }
 
     public Optional<TextWindow> plaintext(TenantId tenant, ActorId actor, UUID id, Collection<UUID> viaAgents,
@@ -161,10 +168,10 @@ public class JdbcUserFileRepository {
     }
 
     /** The opening {@code count} characters of each readable READY file among {@code ids}, in one query. */
-    public java.util.Map<UUID, TextWindow> plaintexts(TenantId tenant, ActorId actor, Collection<UUID> ids,
+    public Map<UUID, TextWindow> plaintexts(TenantId tenant, ActorId actor, Collection<UUID> ids,
                                                      Collection<UUID> viaAgents, int count) {
-        if (ids.isEmpty()) return java.util.Map.of();
-        var found = new java.util.HashMap<UUID, TextWindow>();
+        if (ids.isEmpty()) return Map.of();
+        var found = new HashMap<UUID, TextWindow>();
         jdbc.sql("""
                 SELECT f.id, substring(plaintext FROM 1 FOR :count) AS text, length(plaintext) AS total
                 FROM chat_user_file f WHERE f.tenant_id=:tenant AND f.id IN (:ids)
@@ -227,7 +234,7 @@ public class JdbcUserFileRepository {
     }
 
     public void enqueue(TenantId tenant, UUID id, String action) {
-        var origin = io.memoryos.connector.SourceOperationTraceContext.current();
+        var origin = SourceOperationTraceContext.current();
         jdbc.sql("""
                 INSERT INTO chat_file_work(id,tenant_id,file_id,action,origin_trace_id,origin_span_id)
                 VALUES(:id,:tenant,:file,:action,:trace,:span)
@@ -246,7 +253,7 @@ public class JdbcUserFileRepository {
      * when {@code trashFor} has passed, so the owner can restore it until then. An upload that never finished
      * uploading has nothing to release and is closed immediately.
      */
-    public void delete(TenantId tenant, UUID id, boolean uploading, java.time.Duration trashFor) {
+    public void delete(TenantId tenant, UUID id, boolean uploading, Duration trashFor) {
         jdbc.sql("""
                 UPDATE chat_file_work SET status='CANCELLED',claim_token=NULL,lease_expires_at=NULL,
                     dispatch_token=NULL,dispatch_lease_expires_at=NULL,completed_at=CURRENT_TIMESTAMP
@@ -308,7 +315,7 @@ public class JdbcUserFileRepository {
                       AND w.status IN ('NOT_STARTED','IN_PROGRESS'))
                 ORDER BY purge_after LIMIT :limit FOR UPDATE SKIP LOCKED
                 """).param("limit", limit)
-                .query((row, ignored) -> new java.util.AbstractMap.SimpleEntry<>(
+                .query((row, ignored) -> new AbstractMap.SimpleEntry<>(
                         new TenantId(row.getObject("tenant_id", UUID.class)), row.getObject("id", UUID.class)))
                 .list();
         due.forEach(entry -> enqueue(entry.getKey(), entry.getValue(), "DELETE"));
@@ -357,7 +364,7 @@ public class JdbcUserFileRepository {
                 WHERE temporary_session_id = :session AND status NOT IN ('DELETING', 'DELETED')
                 RETURNING id, tenant_id
                 """).param("session", session)
-                .query((row, ignored) -> new java.util.AbstractMap.SimpleEntry<>(
+                .query((row, ignored) -> new AbstractMap.SimpleEntry<>(
                         row.getObject("id", UUID.class), row.getObject("tenant_id", UUID.class)))
                 .list();
         for (var file : released) {

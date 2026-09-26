@@ -20,7 +20,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import tools.jackson.databind.ObjectMapper;
 
 class OpenAiRealtimeTranscriberTest {
@@ -40,12 +42,12 @@ class OpenAiRealtimeTranscriberTest {
             sent.add(call.getArgument(0));
             return CompletableFuture.completedFuture(socket);
         });
-        when(socket.sendClose(org.mockito.ArgumentMatchers.anyInt(), anyString()))
+        when(socket.sendClose(ArgumentMatchers.anyInt(), anyString()))
                 .thenReturn(CompletableFuture.completedFuture(socket));
         when(socket.isOutputClosed()).thenReturn(false);
     }
 
-    private OpenAiRealtimeTranscriber session(java.util.function.Function<byte[], String> batch) {
+    private OpenAiRealtimeTranscriber session(Function<byte[], String> batch) {
         return OpenAiRealtimeTranscriber.open("https://api.openai.com/v1", "voice-secret", "vi", "actor-id",
                 batch, transcripts::add, released::incrementAndGet, meters, (target, auth, safety, listener) -> {
                     uri.set(target);

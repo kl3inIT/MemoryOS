@@ -1,5 +1,7 @@
 package io.memoryos.ai.openai;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.memoryos.ai.ModelPricing;
 import io.memoryos.ai.AiException;
 import com.embabel.agent.openai.CapabilityAwareOpenAiOptionsConverter;
@@ -13,10 +15,19 @@ import io.memoryos.ai.ModelSettings;
 import io.memoryos.ai.ModelBinding;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
@@ -85,14 +96,14 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
         ModelCatalogService.validateEndpoint(connection.baseUrl());
         if (connection.credential().isBlank()) throw AiException.invalid("Enter the provider API key.");
         // A configured endpoint must not redirect this credential elsewhere, and its body is bounded.
-        try (var client = java.net.http.HttpClient.newBuilder()
-                .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
+        try (var client = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.NEVER)
                 .connectTimeout(timeout).build()) {
-            var request = java.net.http.HttpRequest.newBuilder(
-                            java.net.URI.create(connection.baseUrl().replaceAll("/+$", "") + "/models"))
+            var request = HttpRequest.newBuilder(
+                            URI.create(connection.baseUrl().replaceAll("/+$", "") + "/models"))
                     .timeout(timeout).header("Accept", "application/json")
                     .header("Authorization", "Bearer " + connection.credential()).GET().build();
-            var response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofInputStream());
+            var response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
             int status = response.statusCode();
             if (status == 401 || status == 403) throw AiException.providerCredentialRejected();
             if (status >= 500) throw AiException.providerUnreachable();
@@ -100,14 +111,14 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
             byte[] body;
             try (var stream = response.body()) { body = stream.readNBytes(MAX_MODEL_LIST_BYTES + 1); }
             if (body.length == 0 || body.length > MAX_MODEL_LIST_BYTES) throw AiException.providerIncompatible();
-            com.fasterxml.jackson.databind.JsonNode data;
+            JsonNode data;
             try {
-                data = new com.fasterxml.jackson.databind.ObjectMapper().readTree(body).path("data");
-            } catch (java.io.IOException notJson) {
+                data = new ObjectMapper().readTree(body).path("data");
+            } catch (IOException notJson) {
                 throw AiException.providerIncompatible();
             }
             if (!data.isArray()) throw AiException.providerIncompatible();
-            var models = new java.util.ArrayList<ReportedModel>();
+            var models = new ArrayList<ReportedModel>();
             for (var item : data) {
                 String id = item.path("id").asText("");
                 if (!id.isBlank()) models.add(reported(id, item));
@@ -122,7 +133,7 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
             throw AiException.providerUnreachable();
         } catch (AiException expected) {
             throw expected;
-        } catch (java.io.IOException | RuntimeException failure) {
+        } catch (IOException | RuntimeException failure) {
             // Connection refused, DNS or timeout; the provider payload may carry account detail and is never echoed.
             throw AiException.providerUnreachable();
         }
@@ -136,7 +147,7 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
      * ({@code max_context_length}, {@code capabilities}), Anthropic ({@code max_input_tokens}, {@code max_tokens}) and
      * Gemini ({@code inputTokenLimit}, {@code outputTokenLimit}). Anything absent stays null.
      */
-    static ReportedModel reported(String id, com.fasterxml.jackson.databind.JsonNode item) {
+    static ReportedModel reported(String id, JsonNode item) {
         Integer context = firstInt(item, "context_length", "max_model_len", "context_window", "max_context_length",
                 "max_input_tokens", "input_token_limit", "inputTokenLimit");
         if (context == null) context = firstInt(item.path("top_provider"), "context_length");
@@ -164,7 +175,7 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
      * OpenRouter prices per token as decimal strings ({@code prompt}, {@code completion}); Together per million tokens
      * ({@code input}, {@code output}). -1 or a missing value means variable or unpublished.
      */
-    private static ModelSettings.@org.jspecify.annotations.Nullable Pricing pricing(com.fasterxml.jackson.databind.JsonNode pricing) {
+    private static ModelSettings.@Nullable Pricing pricing(JsonNode pricing) {
         Double prompt = perToken(pricing.path("prompt"));
         Double completion = perToken(pricing.path("completion"));
         if (prompt != null && completion != null)
@@ -175,14 +186,14 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
     }
 
     /** xAI prices in US cents per 100 million tokens. */
-    private static ModelSettings.@org.jspecify.annotations.Nullable Pricing xaiPricing(com.fasterxml.jackson.databind.JsonNode item) {
+    private static ModelSettings.@Nullable Pricing xaiPricing(JsonNode item) {
         Double prompt = perToken(item.path("prompt_text_token_price"));
         Double completion = perToken(item.path("completion_text_token_price"));
         return prompt == null || completion == null ? null
                 : new ModelSettings.Pricing(round(prompt / 10_000), round(completion / 10_000));
     }
 
-    private static @org.jspecify.annotations.Nullable Double perToken(com.fasterxml.jackson.databind.JsonNode node) {
+    private static @Nullable Double perToken(JsonNode node) {
         if (!node.isTextual() && !node.isNumber()) return null;
         try {
             double value = Double.parseDouble(node.asText());
@@ -193,10 +204,10 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
     }
 
     private static double round(double value) {
-        return java.math.BigDecimal.valueOf(value).setScale(6, java.math.RoundingMode.HALF_UP).doubleValue();
+        return BigDecimal.valueOf(value).setScale(6, RoundingMode.HALF_UP).doubleValue();
     }
 
-    private static @org.jspecify.annotations.Nullable Integer firstInt(com.fasterxml.jackson.databind.JsonNode node, String... fields) {
+    private static @Nullable Integer firstInt(JsonNode node, String... fields) {
         for (String field : fields) {
             var value = node.path(field);
             if (value.canConvertToInt() && value.asInt() > 0) return value.asInt();
@@ -204,11 +215,11 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
         return null;
     }
 
-    private static @org.jspecify.annotations.Nullable Boolean flag(com.fasterxml.jackson.databind.JsonNode node, String field) {
+    private static @Nullable Boolean flag(JsonNode node, String field) {
         return node.path(field).isBoolean() ? Boolean.valueOf(node.path(field).asBoolean()) : null;
     }
 
-    private static boolean contains(com.fasterxml.jackson.databind.JsonNode array, String value) {
+    private static boolean contains(JsonNode array, String value) {
         for (var element : array) if (value.equals(element.asText())) return true;
         return false;
     }
@@ -280,7 +291,7 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
 
     /** Onyx {@code is_true_openai_model}: the OpenAI API host, not a compatible gateway reusing this adapter. */
     static boolean servedByOpenAi(String baseUrl) {
-        try { return "api.openai.com".equalsIgnoreCase(java.net.URI.create(baseUrl).getHost()); }
+        try { return "api.openai.com".equalsIgnoreCase(URI.create(baseUrl).getHost()); }
         catch (IllegalArgumentException invalid) { return false; }
     }
 

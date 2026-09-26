@@ -1,5 +1,7 @@
 package io.memoryos.ai.openai;
 
+import com.openai.client.OpenAIClientAsync;
+import io.memoryos.ai.TurnFailureException;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -16,6 +18,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -41,7 +44,7 @@ class OpenAiResponsesChatModelTest {
     private final List<String> bodies = new CopyOnWriteArrayList<>();
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private HttpServer server;
-    private com.openai.client.OpenAIClientAsync client;
+    private OpenAIClientAsync client;
 
     @BeforeEach
     void start() throws Exception {
@@ -229,10 +232,10 @@ class OpenAiResponsesChatModelTest {
                 "error", Map.of("code", "server_error", "message", "raw provider detail"))))));
         var model = turnModel(new ChatEvidence(), new ArrayList<>(), false);
 
-        var failure = assertThrows(IllegalStateException.class,
+        var failure = assertThrows(TurnFailureException.class,
                 () -> model.stream(new Prompt(List.of(new UserMessage("Hi")), options(true))).collectList().block());
 
-        assertEquals("CHAT_INCOMPLETE_RESPONSE", failure.getMessage());
+        assertEquals("CHAT_INCOMPLETE_RESPONSE", failure.code());
     }
 
     @Test
@@ -267,10 +270,10 @@ class OpenAiResponsesChatModelTest {
                 "output", List.of(cut))))));
         var model = turnModel(new ChatEvidence(), new ArrayList<>(), true);
 
-        var failure = assertThrows(IllegalStateException.class,
+        var failure = assertThrows(TurnFailureException.class,
                 () -> model.stream(new Prompt(List.of(new UserMessage("Báo cáo")), options(true))).collectList().block());
 
-        assertEquals("CHAT_MODEL_OUTPUT_LIMIT", failure.getMessage());
+        assertEquals("CHAT_MODEL_OUTPUT_LIMIT", failure.code());
     }
 
     @Test
@@ -314,7 +317,7 @@ class OpenAiResponsesChatModelTest {
     }
 
     private static String event(String type, Map<String, Object> fields) {
-        var payload = new java.util.LinkedHashMap<String, Object>(fields);
+        var payload = new LinkedHashMap<String, Object>(fields);
         payload.put("type", type);
         return "event: " + type + "\ndata: " + JSON.writeValueAsString(payload) + "\n\n";
     }

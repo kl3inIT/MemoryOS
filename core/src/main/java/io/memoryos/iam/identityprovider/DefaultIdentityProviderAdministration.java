@@ -19,6 +19,7 @@ import io.memoryos.iam.DiscoveredOidcProvider;
 import io.memoryos.iam.keycloak.OidcDiscoveryClient;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -162,7 +163,7 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
 
     /** What decides who can sign in through a provider; its client secret is never recorded. */
     private static Map<String, Object> facts(String alias, String issuer, boolean jitAllowed) {
-        var facts = new java.util.LinkedHashMap<String, Object>();
+        var facts = new LinkedHashMap<String, Object>();
         facts.put("alias", alias);
         facts.put("issuer", issuer);
         facts.put("jitAllowed", jitAllowed);

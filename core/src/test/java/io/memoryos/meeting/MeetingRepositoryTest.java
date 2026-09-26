@@ -3,10 +3,13 @@ package io.memoryos.meeting;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.zaxxer.hikari.HikariDataSource;
+import io.memoryos.StatementCounter;
 import io.memoryos.TestDatabase;
 import io.memoryos.meeting.persistence.MeetingRepository;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -103,13 +106,13 @@ class MeetingRepositoryTest {
     }
 
     @Test void aTranscribedRecordingItsMinutesAndItsSharesAreWrittenInAFixedNumberOfStatements() {
-        var counted = new io.memoryos.StatementCounter(dataSource);
+        var counted = new StatementCounter(dataSource);
         var batched = new MeetingRepository(JdbcClient.create(counted));
         UUID id = meeting();
         batched.reserveAudio(tenant, id, UUID.randomUUID(), "hop.m4a", "audio/mp4", 1024, null);
         assertTrue(batched.queueAudio(tenant, id, "raw/hop.m4a"));
         var claim = batched.claimAudio(Duration.ofMinutes(10), MAX).orElseThrow();
-        var lines = new java.util.ArrayList<Meeting.Utterance>();
+        var lines = new ArrayList<Meeting.Utterance>();
         for (int i = 0; i < 300; i++)
             lines.add(new Meeting.Utterance(UUID.randomUUID(), Meeting.Track.MIC, Integer.toString(i % 3 + 1), i * 1000L,
                     i * 1000L + 900, "Câu số " + i, 0.25 + i % 3 * 0.25, List.of(new Meeting.Span(0, 3, 0.4))));
@@ -158,7 +161,7 @@ class MeetingRepositoryTest {
         counted.reset();
         batched.insertCorrections(tenant, id, run, offers);
         assertEquals(1, counted.statements().size());
-        assertEquals(java.util.Set.copyOf(offers), java.util.Set.copyOf(batched.corrections(tenant, id)));
+        assertEquals(Set.copyOf(offers), Set.copyOf(batched.corrections(tenant, id)));
     }
 
     @Test void aMeetingHasUtterancesOnlyOnceSomebodySpoke() {

@@ -9,21 +9,25 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.context.properties.bind.Bindable;
+import org.springframework.boot.context.properties.bind.Binder;
+import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 
 class DoclingPropertiesTest {
     @Test
     void bindsPrivateOcrConfigurationWithoutExposingTheKey() {
-        var source = new org.springframework.boot.context.properties.source.MapConfigurationPropertySource(java.util.Map.of(
+        var source = new MapConfigurationPropertySource(Map.of(
                 "memoryos.extraction.docling.endpoint", "http://ocr.internal:5001",
                 "memoryos.extraction.docling.api-key", "test-private-key",
                 "memoryos.extraction.docling.ocr-engine", "TESSERACT",
                 "memoryos.extraction.docling.ocr-languages", "vie,eng",
                 "memoryos.extraction.docling.force-ocr", "true"));
-        var bound = new org.springframework.boot.context.properties.bind.Binder(source)
-                .bind("memoryos.extraction.docling", org.springframework.boot.context.properties.bind.Bindable.of(DoclingProperties.class)).get();
-        assertEquals(ai.docling.serve.api.convert.request.options.OcrEngine.TESSERACT, bound.ocrEngine());
-        assertEquals(java.util.List.of("vie", "eng"), bound.ocrLanguages());
+        var bound = new Binder(source)
+                .bind("memoryos.extraction.docling", Bindable.of(DoclingProperties.class)).get();
+        assertEquals(OcrEngine.TESSERACT, bound.ocrEngine());
+        assertEquals(List.of("vie", "eng"), bound.ocrLanguages());
         assertTrue(bound.forceOcr());
         assertEquals("test-private-key", bound.apiKey());
         assertFalse(bound.toString().contains(bound.apiKey()));

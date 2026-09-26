@@ -1,5 +1,6 @@
 package io.memoryos.api.source;
 
+import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.source.contract.GroupSourcesResponse;
 import io.memoryos.connector.SourceId;
 import io.memoryos.connector.SourceManagementService;
@@ -7,14 +8,12 @@ import io.memoryos.iam.GroupId;
 import io.memoryos.iam.IdentityContext;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -38,7 +37,7 @@ final class GroupSourceController {
     @Operation(operationId = "listGroupSources", summary = "List sources associated with one group")
     @GetMapping
     GroupSourcesResponse listGroupSources(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID groupId
     ) {
         return GroupSourcesResponse.from(sources.listGroupSources(
@@ -57,7 +56,7 @@ final class GroupSourceController {
     @PostMapping("/{sourceId}/remove")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void removeGroupSource(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identityContext,
+            @CurrentActor IdentityContext identityContext,
             @PathVariable UUID groupId,
             @PathVariable UUID sourceId
     ) {

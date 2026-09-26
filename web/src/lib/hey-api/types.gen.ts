@@ -2592,6 +2592,22 @@ export type CurrentInvitation = {
     continueUrl: string;
 };
 
+export type PrincipalGroup = {
+    id: string;
+    name: string;
+};
+
+export type PrincipalOptions = {
+    people: Array<PrincipalPerson>;
+    groups: Array<PrincipalGroup>;
+};
+
+export type PrincipalPerson = {
+    actorId: string;
+    name: string | null;
+    email: string | null;
+};
+
 export type CurrentIdentity = {
     /**
      * Stable internal MemoryOS actor identifier.
@@ -3058,11 +3074,6 @@ export type SourceOption = {
     type?: 'FILE' | 'GOOGLE_DRIVE' | 'SHAREPOINT';
 };
 
-export type AgentShareOptions = {
-    people?: Array<AgentPerson>;
-    groups?: Array<AgentRef>;
-};
-
 export type ChatPersona = {
     id: string;
     name: string;
@@ -3374,6 +3385,30 @@ export type ApiProblem = {
             min?: number;
             max?: number;
         };
+    }>;
+    /**
+     * AI_USAGE_LIMIT_EXCEEDED only: the budget that is spent.
+     */
+    scope?: 'TENANT' | 'GROUP' | 'PERSON';
+    /**
+     * AI_USAGE_LIMIT_EXCEEDED only: the Group whose budget is spent, for a Group budget.
+     */
+    group?: string;
+    /**
+     * AI_USAGE_LIMIT_EXCEEDED only: when the spent budget frees.
+     */
+    resetsAt?: string;
+    /**
+     * AI_USAGE_LIMIT_EXCEEDED only: seconds until the budget frees; equals the Retry-After header.
+     */
+    retryAfterSeconds?: number;
+    /**
+     * CHAT_FILE_IN_USE only: the Projects and agents that attach the file.
+     */
+    usedBy?: Array<{
+        kind: 'AGENT' | 'PROJECT';
+        id: string;
+        name: string;
     }>;
 };
 
@@ -13605,6 +13640,42 @@ export type GetCurrentInvitationResponses = {
 
 export type GetCurrentInvitationResponse = GetCurrentInvitationResponses[keyof GetCurrentInvitationResponses];
 
+export type SearchPrincipalsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        size?: number;
+    };
+    url: '/api/identity/principals';
+};
+
+export type SearchPrincipalsErrors = {
+    /**
+     * Invalid principal search
+     */
+    400: ApiProblem;
+    /**
+     * No accepted authentication is present
+     */
+    401: unknown;
+    /**
+     * The actor is not an active member of the Tenant
+     */
+    403: ApiProblem;
+};
+
+export type SearchPrincipalsError = SearchPrincipalsErrors[keyof SearchPrincipalsErrors];
+
+export type SearchPrincipalsResponses = {
+    /**
+     * Matching people and Groups
+     */
+    200: PrincipalOptions;
+};
+
+export type SearchPrincipalsResponse = SearchPrincipalsResponses[keyof SearchPrincipalsResponses];
+
 export type GetCurrentIdentityData = {
     body?: never;
     path?: never;
@@ -14552,50 +14623,6 @@ export type ListChatPersonasForAdministrationResponses = {
 };
 
 export type ListChatPersonasForAdministrationResponse = ListChatPersonasForAdministrationResponses[keyof ListChatPersonasForAdministrationResponses];
-
-export type ListChatPersonaShareOptionsData = {
-    body?: never;
-    path?: never;
-    query?: {
-        q?: string;
-        limit?: number;
-    };
-    url: '/api/chat/persona-share-options';
-};
-
-export type ListChatPersonaShareOptionsErrors = {
-    /**
-     * Invalid chat request
-     */
-    400: ApiProblem;
-    /**
-     * Authentication required
-     */
-    401: unknown;
-    /**
-     * Tenant membership or CSRF requirement not met
-     */
-    403: ApiProblem;
-    /**
-     * Chat resource not accessible
-     */
-    404: ApiProblem;
-    /**
-     * Conversation is running or revision has changed
-     */
-    409: ApiProblem;
-};
-
-export type ListChatPersonaShareOptionsError = ListChatPersonaShareOptionsErrors[keyof ListChatPersonaShareOptionsErrors];
-
-export type ListChatPersonaShareOptionsResponses = {
-    /**
-     * Successful chat operation
-     */
-    200: AgentShareOptions;
-};
-
-export type ListChatPersonaShareOptionsResponse = ListChatPersonaShareOptionsResponses[keyof ListChatPersonaShareOptionsResponses];
 
 export type ListAvailableChatModelsData = {
     body?: never;

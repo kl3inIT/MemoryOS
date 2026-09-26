@@ -1,5 +1,6 @@
 package io.memoryos.meeting;
 
+import java.nio.charset.StandardCharsets;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
@@ -52,7 +53,7 @@ public final class MeetingMinutesMarkdown {
         // Said plainly, so a reader of the file knows the full wording lives somewhere else.
         out.append("---\n\nBiên bản này do MemoryOS viết từ bản ghi cuộc họp. Transcript đầy đủ ở trang cuộc họp.\n");
         String text = out.length() > MAX_CHARS ? out.substring(0, MAX_CHARS) : out.toString();
-        return text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return text.getBytes(StandardCharsets.UTF_8);
     }
 
     private static void item(StringBuilder out, Meeting.MinutesItem item) {

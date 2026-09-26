@@ -1,5 +1,6 @@
 package io.memoryos.api.source;
 
+import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.source.contract.RenameSharePointCredentialRequest;
 import io.memoryos.api.source.contract.SharePointCredentialRequest;
 import io.memoryos.api.source.contract.SharePointCredentialResponse;
@@ -8,11 +9,10 @@ import io.memoryos.connector.CredentialId;
 import io.memoryos.connector.SharePointCredentialService;
 import io.memoryos.connector.SharePointException;
 import io.memoryos.connector.SharePointProvider;
+import io.memoryos.connector.SourceException;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,11 +22,9 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -43,12 +41,12 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Credentials")
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
-@ApiResponse(responseCode = "400", description = "Invalid SharePoint credential", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "400", description = "Invalid SharePoint credential")
 @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content)
-@ApiResponse(responseCode = "403", description = "Management authority or CSRF required", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "404", description = "SharePoint credential unavailable", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "409", description = "SharePoint credential changed", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "503", description = "Microsoft did not answer", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "403", description = "Management authority or CSRF required")
+@ApiResponse(responseCode = "404", description = "SharePoint credential unavailable")
+@ApiResponse(responseCode = "409", description = "SharePoint credential changed")
+@ApiResponse(responseCode = "503", description = "Microsoft did not answer")
 final class SharePointCredentialController {
     private final SharePointCredentialService credentials;
 
@@ -60,8 +58,8 @@ final class SharePointCredentialController {
     @ApiResponse(responseCode = "200", description = "SharePoint credentials", useReturnTypeSchema = true)
     @GetMapping
     ResponseEntity<List<SharePointCredentialResponse>> list(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+            @CurrentActor IdentityContext identity) {
+        return ResponseEntity.ok()
                 .body(credentials.list(identity.actorId()).stream().map(SharePointCredentialResponse::from).toList());
     }
 
@@ -70,11 +68,11 @@ final class SharePointCredentialController {
     @ApiResponse(responseCode = "201", description = "Stored SharePoint credential", useReturnTypeSchema = true)
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<SharePointCredentialResponse> create(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @CurrentActor IdentityContext identity,
             @Valid @RequestBody SharePointCredentialRequest body) {
         try (var draft = draft(body)) {
             var credentialId = credentials.create(identity.actorId(), draft);
-            return ResponseEntity.status(HttpStatus.CREATED).cacheControl(CacheControl.noStore())
+            return ResponseEntity.status(HttpStatus.CREATED)
                     .body(find(identity, credentialId));
         }
     }
@@ -84,14 +82,14 @@ final class SharePointCredentialController {
     @ApiResponse(responseCode = "200", description = "Updated SharePoint credential", useReturnTypeSchema = true)
     @PutMapping(value = "/{credentialId}/authentication", consumes = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<SharePointCredentialResponse> replaceAuthentication(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @CurrentActor IdentityContext identity,
             @PathVariable UUID credentialId, @RequestHeader("If-Match") String ifMatch,
             @Valid @RequestBody SharePointCredentialRequest body) {
         try (var draft = draft(body)) {
             credentials.replaceAuthentication(identity.actorId(), new CredentialId(credentialId),
                     GoogleDriveSourceController.revision(ifMatch), draft);
         }
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        return ResponseEntity.ok()
                 .body(find(identity, new CredentialId(credentialId)));
     }
 
@@ -99,12 +97,12 @@ final class SharePointCredentialController {
     @ApiResponse(responseCode = "204", description = "SharePoint credential renamed", content = @Content)
     @PutMapping(value = "/{credentialId}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    ResponseEntity<Void> rename(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ResponseEntity<Void> rename(@CurrentActor IdentityContext identity,
             @PathVariable UUID credentialId, @RequestHeader("If-Match") String ifMatch,
             @Valid @RequestBody RenameSharePointCredentialRequest body) {
         credentials.rename(identity.actorId(), new CredentialId(credentialId),
                 GoogleDriveSourceController.revision(ifMatch), body.name());
-        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(operationId = "testSharePointCredential",
@@ -112,8 +110,8 @@ final class SharePointCredentialController {
     @ApiResponse(responseCode = "200", description = "SharePoint credential works", useReturnTypeSchema = true)
     @PostMapping("/{credentialId}/test")
     ResponseEntity<SharePointCredentialTestResponse> test(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity, @PathVariable UUID credentialId) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+            @CurrentActor IdentityContext identity, @PathVariable UUID credentialId) {
+        return ResponseEntity.ok()
                 .body(SharePointCredentialTestResponse.from(credentials.test(identity.actorId(), new CredentialId(credentialId))));
     }
 
@@ -121,17 +119,17 @@ final class SharePointCredentialController {
     @ApiResponse(responseCode = "204", description = "SharePoint credential deleted", content = @Content)
     @DeleteMapping("/{credentialId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    ResponseEntity<Void> delete(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ResponseEntity<Void> delete(@CurrentActor IdentityContext identity,
             @PathVariable UUID credentialId, @RequestHeader("If-Match") String ifMatch) {
         credentials.delete(identity.actorId(), new CredentialId(credentialId), GoogleDriveSourceController.revision(ifMatch));
-        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+        return ResponseEntity.noContent().build();
     }
 
     private SharePointCredentialResponse find(IdentityContext identity, CredentialId credentialId) {
         return credentials.list(identity.actorId()).stream()
                 .filter(view -> view.id().equals(credentialId)).findFirst()
                 .map(SharePointCredentialResponse::from)
-                .orElseThrow(io.memoryos.connector.SourceException::notFound);
+                .orElseThrow(SourceException::notFound);
     }
 
     private static UUID identifier(String value) {

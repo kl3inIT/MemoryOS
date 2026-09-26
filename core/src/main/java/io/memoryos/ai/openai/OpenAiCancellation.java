@@ -20,7 +20,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.HttpUrl;
 import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -170,11 +177,11 @@ public final class OpenAiCancellation implements AutoCloseable {
 
     /** The SDK future ends at headers; the response must retain Call.cancel() until its body closes. */
     private static final class Transport implements HttpClient {
-        private static final okhttp3.RequestBody EMPTY_BODY = okhttp3.RequestBody.create(new byte[0], null);
-        private final okhttp3.OkHttpClient client;
+        private static final RequestBody EMPTY_BODY = RequestBody.create(new byte[0], null);
+        private final OkHttpClient client;
 
         Transport(Timeout timeout) {
-            client = new okhttp3.OkHttpClient.Builder().retryOnConnectionFailure(false)
+            client = new OkHttpClient.Builder().retryOnConnectionFailure(false)
                     .connectTimeout(timeout.connect()).readTimeout(timeout.read())
                     .writeTimeout(timeout.write()).callTimeout(timeout.request()).build();
             client.dispatcher().setMaxRequestsPerHost(client.dispatcher().getMaxRequests());
@@ -198,35 +205,35 @@ public final class OpenAiCancellation implements AutoCloseable {
                 if (failure instanceof CancellationException) call.cancel();
                 if (request.body() != null) request.body().close();
             });
-            call.enqueue(new okhttp3.Callback() {
-                @Override public void onResponse(okhttp3.Call receivedCall, okhttp3.Response received) {
+            call.enqueue(new Callback() {
+                @Override public void onResponse(Call receivedCall, Response received) {
                     var response = response(receivedCall, received);
                     // Cancellation can win while response headers are arriving.
                     if (!result.complete(response)) response.close();
                 }
-                @Override public void onFailure(okhttp3.Call receivedCall, IOException failure) {
+                @Override public void onFailure(Call receivedCall, IOException failure) {
                     result.completeExceptionally(new OpenAIIoException("Request failed", failure));
                 }
             });
             return result;
         }
 
-        private okhttp3.Call newCall(HttpRequest request, RequestOptions options) {
+        private Call newCall(HttpRequest request, RequestOptions options) {
             var effective = client;
             var timeout = options.getTimeout();
             if (timeout != null) {
                 effective = client.newBuilder().connectTimeout(timeout.connect()).readTimeout(timeout.read())
                         .writeTimeout(timeout.write()).callTimeout(timeout.request()).build();
             }
-            var url = okhttp3.HttpUrl.get(request.baseUrl()).newBuilder();
+            var url = HttpUrl.get(request.baseUrl()).newBuilder();
             request.pathSegments().forEach(url::addPathSegment);
             for (String name : request.queryParams().keys())
                 for (String value : request.queryParams().values(name)) url.addQueryParameter(name, value);
-            okhttp3.RequestBody body = null;
+            RequestBody body = null;
             var source = request.body();
             if (source != null) {
                 var type = source.contentType() == null ? null : MediaType.get(source.contentType());
-                body = new okhttp3.RequestBody() {
+                body = new RequestBody() {
                     @Override public @Nullable MediaType contentType() { return type; }
                     @Override public long contentLength() { return source.contentLength(); }
                     @Override public boolean isOneShot() { return !source.repeatable(); }
@@ -235,7 +242,7 @@ public final class OpenAiCancellation implements AutoCloseable {
             } else if (switch (request.method()) { case POST, PUT, PATCH -> true; default -> false; }) {
                 body = EMPTY_BODY;
             }
-            var wire = new okhttp3.Request.Builder().url(url.build()).method(request.method().name(), body);
+            var wire = new Request.Builder().url(url.build()).method(request.method().name(), body);
             for (String name : request.headers().names())
                 for (String value : request.headers().values(name)) wire.addHeader(name, value);
             if (!request.headers().names().contains("X-Stainless-Read-Timeout") && effective.readTimeoutMillis() != 0)
@@ -245,7 +252,7 @@ public final class OpenAiCancellation implements AutoCloseable {
             return effective.newCall(wire.build());
         }
 
-        private static HttpResponse response(okhttp3.Call call, okhttp3.Response received) {
+        private static HttpResponse response(Call call, Response received) {
             var builder = Headers.builder();
             for (int index = 0; index < received.headers().size(); index++)
                 builder.put(received.headers().name(index), received.headers().value(index));

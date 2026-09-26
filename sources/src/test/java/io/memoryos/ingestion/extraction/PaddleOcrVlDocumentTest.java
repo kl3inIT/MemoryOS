@@ -13,10 +13,13 @@ import io.memoryos.document.ExtractionFailure;
 import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -199,8 +202,8 @@ class PaddleOcrVlDocumentTest {
     void eachFrameOfAMultiPageImageIsAPageWithoutABox() throws Exception {
         var blocks = PaddleOcrVlDocument.blocks(results("sideways-and-upright-page.json"), List.of());
 
-        assertEquals(java.util.Set.of(1, 2), blocks.stream().map(block -> block.locations().getFirst().pageNo())
-                .collect(java.util.stream.Collectors.toSet()));
+        assertEquals(Set.of(1, 2), blocks.stream().map(block -> block.locations().getFirst().pageNo())
+                .collect(Collectors.toSet()));
         assertTrue(blocks.stream().allMatch(block -> block.locations().getFirst().bbox() == null));
     }
 
@@ -344,7 +347,7 @@ class PaddleOcrVlDocumentTest {
         assertEquals(height, page.height(), 0.01);
     }
 
-    private static void assertFailure(ExtractionFailure expected, org.junit.jupiter.api.function.Executable executable) {
+    private static void assertFailure(ExtractionFailure expected, Executable executable) {
         assertEquals(expected, assertThrows(ExtractionException.class, executable).failure());
     }
 

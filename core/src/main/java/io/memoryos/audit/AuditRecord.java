@@ -1,5 +1,6 @@
 package io.memoryos.audit;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -33,7 +34,7 @@ public record AuditRecord(
         Objects.requireNonNull(outcome, "outcome must not be null");
         Objects.requireNonNull(tenant, "tenant must not be null");
         // A declared field may be absent for this event (a member with no e-mail); nulls are dropped when stored.
-        details = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(details));
+        details = Collections.unmodifiableMap(new LinkedHashMap<>(details));
     }
 
     public static Builder of(AuditAction action, TenantId tenant) {

@@ -36,19 +36,24 @@ import io.memoryos.objectstorage.StoredObjectReference;
 import io.memoryos.retrieval.DocumentOriginalService.ByteRange;
 import io.memoryos.retrieval.opensearch.OpenSearchIndexService;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 
 class DocumentOriginalServiceTest {
     private static final String XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-    private static final byte[] PDF = "%PDF-1.4\n%fixture".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+    private static final byte[] PDF = "%PDF-1.4\n%fixture".getBytes(StandardCharsets.US_ASCII);
 
     private final TenantAccessResolver tenants = mock(TenantAccessResolver.class);
     private final IamAuthorization authorization = mock(IamAuthorization.class);
@@ -72,7 +77,7 @@ class DocumentOriginalServiceTest {
         when(search.identity()).thenReturn("index");
         when(access.canRead(actor, new DocumentId(document))).thenReturn(true);
         when(documents.isCurrent(tenant, new DocumentId(document), generation, "index")).thenReturn(true);
-        when(sources.originals(tenant, actor, java.util.Set.of(document))).thenReturn(java.util.Map.of(document, reference));
+        when(sources.originals(tenant, actor, Set.of(document))).thenReturn(Map.of(document, reference));
         when(storage.inspect(reference.key())).thenReturn(reference.metadata());
     }
 
@@ -85,7 +90,7 @@ class DocumentOriginalServiceTest {
             assertArrayEquals(PDF, pdf.inputStream().readAllBytes());
         }
         assertTrue(closed.get());
-        verify(authorization, never()).require(any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
+        verify(authorization, never()).require(any(), any(), ArgumentMatchers.anyBoolean());
     }
 
     @Test
@@ -94,14 +99,14 @@ class DocumentOriginalServiceTest {
         var sheet = new StoredObjectReference(new StoredObjectId(UUID.randomUUID()), new ObjectKey("raw/tenant/sheet"),
                 "sales.xlsx", new ObjectMetadata(4, "application/vnd.ms-excel", new ContentSha256("d".repeat(64))));
         when(access.readableDocuments(actor, List.of(document, hidden, large))).thenReturn(Set.of(document, large));
-        when(sources.originals(tenant, actor, java.util.Set.of(document, large))).thenReturn(java.util.Map.of(
+        when(sources.originals(tenant, actor, Set.of(document, large))).thenReturn(Map.of(
                 document, sheet, large, reference(DocumentOriginalService.MAX_BYTES + 1)));
 
-        assertEquals(java.util.Map.of(document, sheet),
-                service.citationOriginals(actor, java.util.List.of(document, hidden, large)));
+        assertEquals(Map.of(document, sheet),
+                service.citationOriginals(actor, List.of(document, hidden, large)));
 
         // A non-PDF original has no magic to check; the stored size is still verified on open.
-        when(sources.originals(tenant, actor, java.util.Set.of(document))).thenReturn(java.util.Map.of(document, sheet));
+        when(sources.originals(tenant, actor, Set.of(document))).thenReturn(Map.of(document, sheet));
         when(storage.inspect(sheet.key())).thenReturn(sheet.metadata());
         byte[] bytes = {1, 2, 3, 4};
         when(storage.open(sheet.key())).thenReturn(content(sheet.metadata(), bytes, new AtomicBoolean()));
@@ -115,18 +120,18 @@ class DocumentOriginalServiceTest {
         byte[] xlsx = workbook();
         var book = new StoredObjectReference(new StoredObjectId(UUID.randomUUID()), new ObjectKey("raw/tenant/book"),
                 "bao-cao.xlsx", new ObjectMetadata(xlsx.length, XLSX, new ContentSha256("b".repeat(64))));
-        when(sources.originals(tenant, actor, java.util.Set.of(document))).thenReturn(java.util.Map.of(document, book));
+        when(sources.originals(tenant, actor, Set.of(document))).thenReturn(Map.of(document, book));
         var closed = new AtomicBoolean();
         when(storage.open(book.key())).thenReturn(content(book.metadata(), xlsx, closed));
 
-        assertEquals(java.util.List.of(new SpreadsheetPreview.Sheet("Doanh thu", "Hà Nội,3\n", false)),
+        assertEquals(List.of(new SpreadsheetPreview.Sheet("Doanh thu", "Hà Nội,3\n", false)),
                 service.searchWorkbook(actor, document, generation));
         assertTrue(closed.get());
         verify(authorization, times(2)).require(actor, IamCapability.SEARCH_READ, false);
 
         // A Document of another type is not readable as a workbook, and its object does not stay open.
         var refused = new AtomicBoolean();
-        when(sources.originals(tenant, actor, java.util.Set.of(document))).thenReturn(java.util.Map.of(document, reference));
+        when(sources.originals(tenant, actor, Set.of(document))).thenReturn(Map.of(document, reference));
         when(storage.open(reference.key())).thenReturn(content(reference.metadata(), PDF, refused));
         assertThrows(SearchDocumentUnavailableException.class, () -> service.citationWorkbook(actor, document, generation));
         assertTrue(refused.get());
@@ -134,8 +139,8 @@ class DocumentOriginalServiceTest {
 
     /** One sheet with one row, enough to prove the bytes reached the reader unchanged. */
     private static byte[] workbook() throws Exception {
-        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook();
-                var out = new java.io.ByteArrayOutputStream()) {
+        try (var workbook = new XSSFWorkbook();
+                var out = new ByteArrayOutputStream()) {
             var row = workbook.createSheet("Doanh thu").createRow(0);
             row.createCell(0).setCellValue("Hà Nội");
             row.createCell(1).setCellValue(3);
@@ -158,7 +163,7 @@ class DocumentOriginalServiceTest {
         assertThrows(SearchDocumentUnavailableException.class, () -> service.citationOriginal(actor, document, generation, null));
         assertTrue(closed.get());
 
-        var html = "<html>".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        var html = "<html>".getBytes(StandardCharsets.US_ASCII);
         var htmlClosed = new AtomicBoolean();
         when(storage.open(reference.key())).thenReturn(content(reference.metadata(), html, htmlClosed));
         assertThrows(SearchDocumentUnavailableException.class, () -> service.citationOriginal(actor, document, generation, null));
@@ -179,10 +184,10 @@ class DocumentOriginalServiceTest {
 
     @Test
     void rejectsMissingOrOversizedOriginalsBeforeOpeningStorage() {
-        when(sources.originals(tenant, actor, java.util.Set.of(document))).thenReturn(java.util.Map.of());
+        when(sources.originals(tenant, actor, Set.of(document))).thenReturn(Map.of());
         assertThrows(SearchDocumentUnavailableException.class, () -> service.citationOriginal(actor, document, generation, null));
-        when(sources.originals(tenant, actor, java.util.Set.of(document)))
-                .thenReturn(java.util.Map.of(document, reference(DocumentOriginalService.MAX_BYTES + 1)));
+        when(sources.originals(tenant, actor, Set.of(document)))
+                .thenReturn(Map.of(document, reference(DocumentOriginalService.MAX_BYTES + 1)));
         assertThrows(SearchDocumentUnavailableException.class, () -> service.citationOriginal(actor, document, generation, null));
         verify(storage, never()).open(any());
     }
@@ -208,7 +213,7 @@ class DocumentOriginalServiceTest {
             assertArrayEquals(Arrays.copyOfRange(PDF, 0, 3), pdf.inputStream().readAllBytes());
         }
 
-        var html = "<html>%fixture...".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        var html = "<html>%fixture...".getBytes(StandardCharsets.US_ASCII);
         var closed = new AtomicBoolean();
         when(storage.openRange(reference.key(), 0, 9)).thenReturn(new FakeRange(0, 9, PDF.length, html, closed));
         assertThrows(SearchDocumentUnavailableException.class,

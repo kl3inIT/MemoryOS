@@ -11,11 +11,13 @@ import io.memoryos.retrieval.SearchUnavailableException;
 import io.memoryos.retrieval.embedding.OpenAiCompatibleEmbeddings;
 import io.memoryos.retrieval.embedding.ValidatedEmbeddingService;
 import io.micrometer.observation.ObservationRegistry;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
@@ -70,7 +72,7 @@ class SpringAiEmbeddingHttpTest {
         var mapper = new ObjectMapper();
         var calls = new AtomicInteger();
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.setExecutor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor());
+        server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         server.createContext("/v1/embeddings", exchange -> {
             try {
                 exchange.getRequestBody().readAllBytes();
@@ -83,7 +85,7 @@ class SpringAiEmbeddingHttpTest {
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, response.length);
                 exchange.getResponseBody().write(response);
-            } catch (InterruptedException | java.io.IOException ignored) {
+            } catch (InterruptedException | IOException ignored) {
                 // The client gave up on the stalled attempt.
             } finally { exchange.close(); }
         });

@@ -1,5 +1,8 @@
 package io.memoryos.connector.sync.persistence;
 
+import io.memoryos.FailureEvidence;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -98,7 +101,7 @@ public final class WorkLeases {
         return updated == 1 ? Optional.of(load.apply(operationId, token)) : Optional.empty();
     }
 
-    public static @Nullable Duration initialQueueWait(java.sql.ResultSet row) throws java.sql.SQLException {
+    public static @Nullable Duration initialQueueWait(ResultSet row) throws SQLException {
         return row.getInt("processing_attempts") == 1
                 ? Duration.between(row.getTimestamp("created_at").toInstant(), row.getTimestamp("started_at").toInstant())
                 : null;
@@ -242,11 +245,11 @@ public final class WorkLeases {
     }
 
     public static @Nullable String safeErrorMessage(@Nullable String value) {
-        return io.memoryos.FailureEvidence.safeErrorMessage(value);
+        return FailureEvidence.safeErrorMessage(value);
     }
 
     public static @Nullable String safeErrorDetail(@Nullable String value) {
-        return io.memoryos.FailureEvidence.safeErrorDetail(value);
+        return FailureEvidence.safeErrorDetail(value);
     }
 
     public static OffsetDateTime sqlTime(Instant instant) {

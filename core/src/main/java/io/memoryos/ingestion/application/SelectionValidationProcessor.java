@@ -6,6 +6,7 @@ import io.memoryos.connector.SourceSelectionProcessor;
 import io.memoryos.ingestion.IngestionCoordinator.Outcome;
 import io.memoryos.ingestion.OperationDelivery;
 import io.memoryos.ingestion.OperationWorkload;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.LoggerFactory;
@@ -19,7 +20,7 @@ public final class SelectionValidationProcessor {
 
     public SelectionValidationProcessor(GoogleDriveSelectionProcessor driveSelections,
             SharePointSelectionProcessor sharePointSelections, ScheduledExecutorService scheduler,
-            io.micrometer.core.instrument.MeterRegistry registry) {
+            MeterRegistry registry) {
         this.driveSelections = driveSelections;
         this.sharePointSelections = sharePointSelections;
         this.scheduler = scheduler;

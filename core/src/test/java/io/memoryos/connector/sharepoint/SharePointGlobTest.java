@@ -6,6 +6,7 @@ import io.memoryos.connector.SharePointException;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 class SharePointGlobTest {
 
@@ -50,7 +51,7 @@ class SharePointGlobTest {
         assertInvalid(() -> SharePointGlob.all(many));
     }
 
-    private static void assertInvalid(org.junit.jupiter.api.function.Executable call) {
+    private static void assertInvalid(Executable call) {
         assertEquals("SOURCE_SHAREPOINT_EXCLUSION_INVALID",
                 assertThrows(SharePointException.class, call).code());
     }

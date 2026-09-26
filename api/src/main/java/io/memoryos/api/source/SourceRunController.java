@@ -1,5 +1,6 @@
 package io.memoryos.api.source;
 
+import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.source.contract.SourceRunErrorPageResponse;
 import io.memoryos.api.source.contract.SourceRunPageResponse;
 import io.memoryos.api.source.contract.SourceRunResponse;
@@ -9,7 +10,6 @@ import io.memoryos.connector.SourceRunStatus;
 import io.memoryos.connector.SourceRunTrigger;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
@@ -20,7 +20,6 @@ import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,7 +39,7 @@ final class SourceRunController {
     @Operation(operationId = "listSourceRuns", summary = "List source synchronization runs and independent activity summaries")
     @GetMapping
     SourceRunPageResponse list(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @CurrentActor IdentityContext identity,
             @PathVariable UUID sourceId,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(defaultValue = "25") @Min(1) @Max(100) int size,
@@ -57,7 +56,7 @@ final class SourceRunController {
     @Operation(operationId = "getSourceRun", summary = "Get acquisition and owned indexing outcomes for one source run")
     @GetMapping("/{runId}")
     SourceRunResponse get(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @CurrentActor IdentityContext identity,
             @PathVariable UUID sourceId, @PathVariable UUID runId
     ) {
         return SourceRunResponse.from(history.get(identity.actorId(), new SourceId(sourceId), runId));
@@ -66,7 +65,7 @@ final class SourceRunController {
     @Operation(operationId = "listSourceRunErrors", summary = "List retained safe run and file errors")
     @GetMapping("/{runId}/errors")
     SourceRunErrorPageResponse errors(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @CurrentActor IdentityContext identity,
             @PathVariable UUID sourceId, @PathVariable UUID runId,
             @RequestParam(required = false) @Nullable String cursor,
             @RequestParam(defaultValue = "25") @Min(1) @Max(100) int size

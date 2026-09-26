@@ -2,7 +2,9 @@ package io.memoryos.ai;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.Nullable;
 
 /** Public extension point: register a bean per protocol; keep SDK options out of the executor. */
 public interface ProviderAdapter {
@@ -66,12 +68,12 @@ public interface ProviderAdapter {
      * A model an endpoint reports. Every field but the name is what the endpoint published, or null; a published
      * capability flag is authoritative only when true or explicitly false.
      */
-    record ReportedModel(String modelName, @org.jspecify.annotations.Nullable Integer contextWindow,
-                         @org.jspecify.annotations.Nullable Integer maxOutputTokens,
-                         @org.jspecify.annotations.Nullable Boolean toolCalling,
-                         @org.jspecify.annotations.Nullable Boolean vision,
-                         @org.jspecify.annotations.Nullable Boolean reasoning,
-                         ModelSettings.@org.jspecify.annotations.Nullable Pricing pricing) {
+    record ReportedModel(String modelName, @Nullable Integer contextWindow,
+                         @Nullable Integer maxOutputTokens,
+                         @Nullable Boolean toolCalling,
+                         @Nullable Boolean vision,
+                         @Nullable Boolean reasoning,
+                         ModelSettings.@Nullable Pricing pricing) {
         public ReportedModel {
             if (modelName == null) throw new IllegalArgumentException("Invalid reported model");
         }
@@ -100,8 +102,8 @@ public interface ProviderAdapter {
         private final Runnable cleanup;
         private final AtomicBoolean closed = new AtomicBoolean();
         public Client(ModelBinding binding, Runnable cleanup) {
-            this.binding = java.util.Objects.requireNonNull(binding);
-            this.cleanup = java.util.Objects.requireNonNull(cleanup);
+            this.binding = Objects.requireNonNull(binding);
+            this.cleanup = Objects.requireNonNull(cleanup);
         }
         public ModelBinding binding() { return binding; }
         @Override public void close() { if (closed.compareAndSet(false, true)) cleanup.run(); }

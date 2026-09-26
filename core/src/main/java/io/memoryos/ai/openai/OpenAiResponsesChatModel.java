@@ -1,5 +1,7 @@
 package io.memoryos.ai.openai;
 
+import com.openai.models.responses.Response;
+import io.memoryos.ai.TurnFailure;
 import com.openai.client.OpenAIClientAsync;
 import com.openai.core.JsonValue;
 import com.openai.core.ObjectMappers;
@@ -20,10 +22,14 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -37,8 +43,10 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.tool.ToolCallback;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * OpenAI Responses API for Chat turns. As Onyx, every streamed turn of a model served by OpenAI itself uses it
@@ -47,11 +55,11 @@ import reactor.core.publisher.FluxSink;
  * streams keep the Chat Completions delegate. Synchronous helpers always do. Requests are stateless ({@code store=false}); output items
  * needed by the next tool cycle ride in assistant message properties.
  */
-@org.jspecify.annotations.NullMarked
+@NullMarked
 final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
-    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(OpenAiResponsesChatModel.class);
+    private static final Logger LOG = LoggerFactory.getLogger(OpenAiResponsesChatModel.class);
     static final String OUTPUT_ITEMS = "memoryos.openai.responses.output";
-    private static final tools.jackson.databind.ObjectMapper JSON = new tools.jackson.databind.ObjectMapper();
+    private static final ObjectMapper JSON = new ObjectMapper();
     private final ChatModel completions;
     private final OpenAIClientAsync client;
     private final boolean reasoning;
@@ -100,12 +108,12 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
         var active = turn != null ? turn : new Turn(Listener.NONE, false, () -> {});
         boolean web = webSearch && active.webSearch();
         if (!web && !summaries && !always) return completions.stream(prompt);
-        if (!(prompt.getOptions() instanceof OpenAiChatOptions options)) return Flux.error(new IllegalArgumentException("CHAT_UNSUPPORTED_OPTIONS"));
+        if (!(prompt.getOptions() instanceof OpenAiChatOptions options)) return Flux.error(TurnFailure.UNSUPPORTED_OPTIONS.exception());
         // The final-cycle policy removes every tool callback; hosted search is a tool as well.
         boolean tools = options.getToolCallbacks() != null && !options.getToolCallbacks().isEmpty();
         ResponseCreateParams params;
         try { params = request(prompt, options, tools, web); }
-        catch (RuntimeException invalid) { return Flux.error(new IllegalArgumentException("CHAT_UNSUPPORTED_OPTIONS")); }
+        catch (RuntimeException invalid) { return Flux.error(TurnFailure.UNSUPPORTED_OPTIONS.exception()); }
         return Flux.create(sink -> {
             var state = new StreamState(active, sink);
             AsyncStreamResponse<ResponseStreamEvent> stream = client.responses().createStreaming(params);
@@ -115,8 +123,8 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
                     try { state.accept(event); } catch (RuntimeException failure) { sink.error(failure); }
                 }
                 @Override public void onComplete(Optional<Throwable> error) {
-                    if (error.isPresent()) sink.error(new IllegalStateException("CHAT_PROVIDER_UNAVAILABLE"));
-                    else if (!state.finished) sink.error(new IllegalStateException("CHAT_INCOMPLETE_RESPONSE"));
+                    if (error.isPresent()) sink.error(TurnFailure.PROVIDER_UNAVAILABLE.exception());
+                    else if (!state.finished) sink.error(TurnFailure.INCOMPLETE_RESPONSE.exception());
                 }
             });
         }, FluxSink.OverflowStrategy.BUFFER);
@@ -144,7 +152,7 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
         if (reasoning) builder.include(List.of(ResponseIncludable.REASONING_ENCRYPTED_CONTENT));
         if (tools) {
             var declared = new ArrayList<Tool>();
-            for (var callback : java.util.Objects.requireNonNullElse(options.getToolCallbacks(), List.<org.springframework.ai.tool.ToolCallback>of())) {
+            for (var callback : Objects.requireNonNullElse(options.getToolCallbacks(), List.<ToolCallback>of())) {
                 var definition = callback.getToolDefinition();
                 var function = new LinkedHashMap<String, Object>();
                 function.put("type", "function");
@@ -254,14 +262,15 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
                 var response = incomplete.response();
                 String reason = response.incompleteDetails().flatMap(details -> details.reason())
                         .map(value -> value.asString()).orElse("unknown");
-                LOG.warn("OpenAI response {} ended incomplete: {}", response.id(), reason);
+                LOG.atWarn().addKeyValue("event", "ai.openai.response_incomplete").addKeyValue("response_id", response.id())
+                        .addKeyValue("reason", reason).log("OpenAI response ended incomplete");
                 // As Onyx, an answer that produced nothing before the model's output limit reports that reason.
                 if ("max_output_tokens".equals(reason) && !streamedText && !hasCompletedCall(response))
-                    throw new IllegalStateException("CHAT_MODEL_OUTPUT_LIMIT");
+                    throw TurnFailure.MODEL_OUTPUT_LIMIT.exception();
                 finish(response, "max_output_tokens".equals(reason) ? "length" : reason);
             });
             if (event.failed().isPresent() || event.error().isPresent())
-                throw new IllegalStateException("CHAT_INCOMPLETE_RESPONSE");
+                throw TurnFailure.INCOMPLETE_RESPONSE.exception();
         }
 
         private void start(String itemId) {
@@ -322,17 +331,17 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
             }
         }
 
-        private static boolean hasCompletedCall(com.openai.models.responses.Response response) {
+        private static boolean hasCompletedCall(Response response) {
             return response.output().stream().anyMatch(item -> item.functionCall()
                     .flatMap(call -> call.status()).map(status -> status.asString()).filter("completed"::equals).isPresent());
         }
 
-        private void complete(com.openai.models.responses.Response response) {
+        private void complete(Response response) {
             finish(response, null);
         }
 
         /** {@code incompleteReason} is null for a completed response; an incomplete one never runs a cut-off tool call. */
-        private void finish(com.openai.models.responses.Response response, @Nullable String incompleteReason) {
+        private void finish(Response response, @Nullable String incompleteReason) {
             var mapper = ObjectMappers.jsonMapper();
             var calls = new ArrayList<AssistantMessage.ToolCall>();
             var echoed = new ArrayList<>();

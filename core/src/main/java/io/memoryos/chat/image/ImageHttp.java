@@ -1,5 +1,6 @@
 package io.memoryos.chat.image;
 
+import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -76,6 +77,6 @@ public final class ImageHttp implements AutoCloseable {
             return new Response(status, bytes);
         });
     }
-    @jakarta.annotation.PreDestroy
+    @PreDestroy
     @Override public void close() throws IOException { client.close(); }
 }

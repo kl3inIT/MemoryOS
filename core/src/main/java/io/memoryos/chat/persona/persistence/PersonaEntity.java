@@ -9,6 +9,9 @@ import jakarta.persistence.CollectionTable;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OrderColumn;
+import java.util.Objects;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.jspecify.annotations.Nullable;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,7 +38,7 @@ public class PersonaEntity {
     @ElementCollection @CollectionTable(name = "persona_source", joinColumns = @JoinColumn(name = "persona_id"))
     @Column(name = "source_id", nullable = false)
     private List<UUID> sourceIds = new ArrayList<>();
-    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "file_ids", nullable = false, columnDefinition = "jsonb")
     private List<UUID> fileIds = new ArrayList<>();
     @Column(name = "is_public", nullable = false) private boolean isPublic;
@@ -68,7 +71,7 @@ public class PersonaEntity {
         this.taskPrompt = settings.taskPrompt();
         this.starterPrompts.clear(); this.starterPrompts.addAll(settings.starters());
         this.sourceIds.clear(); this.sourceIds.addAll(settings.sources());
-        if (!java.util.Objects.equals(this.modelConfigurationId, settings.modelId())) modelRevision++;
+        if (!Objects.equals(this.modelConfigurationId, settings.modelId())) modelRevision++;
         this.modelConfigurationId = settings.modelId();
         this.contextTokenLimit = settings.contextLimit(); this.outputTokenLimit = settings.outputLimit();
         this.iconName = settings.iconName(); this.avatarFileId = settings.avatarFileId();

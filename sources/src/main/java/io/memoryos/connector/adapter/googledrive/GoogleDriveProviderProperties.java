@@ -1,17 +1,24 @@
 package io.memoryos.connector.adapter.googledrive;
 
+import io.memoryos.connector.GoogleDriveProviderException;
 import io.memoryos.objectstorage.ObjectUploadSpecification;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/**
+ * Every {@code memoryos.google-drive.*} provider setting, bound once for the Drive provider and the account consent.
+ * {@code redirectUri} is set only where the API serves the consent callback.
+ */
 @ConfigurationProperties("memoryos.google-drive")
 public record GoogleDriveProviderProperties(
         URI tokenUri, URI driveApiBaseUrl,
         URI sheetsApiBaseUrl, URI docsApiBaseUrl, URI adminApiBaseUrl, Duration connectTimeout,
         Duration requestTimeout, Duration acquisitionTimeout, int pageSize,
-        int maxRequests, int maxTabs, int maxCells, int maxBinaryBytes, int maxSnapshotBytes) {
+        int maxRequests, int maxTabs, int maxCells, int maxBinaryBytes, int maxSnapshotBytes,
+        @Nullable URI redirectUri, URI authorizationUri, URI revocationUri, URI jwkSetUri, URI issuerUri) {
     public GoogleDriveProviderProperties {
         tokenUri = tokenUri == null ? URI.create("https://oauth2.googleapis.com/token") : tokenUri;
         driveApiBaseUrl = driveApiBaseUrl == null ? URI.create("https://www.googleapis.com/drive/v3") : driveApiBaseUrl;
@@ -27,6 +34,10 @@ public record GoogleDriveProviderProperties(
         maxCells = maxCells == 0 ? 200_000 : maxCells;
         maxBinaryBytes = maxBinaryBytes == 0 ? Math.toIntExact(ObjectUploadSpecification.MAX_SIZE_BYTES) : maxBinaryBytes;
         maxSnapshotBytes = maxSnapshotBytes == 0 ? 33_554_432 : maxSnapshotBytes;
+        authorizationUri = authorizationUri == null ? URI.create("https://accounts.google.com/o/oauth2/v2/auth") : authorizationUri;
+        revocationUri = revocationUri == null ? URI.create("https://oauth2.googleapis.com/revoke") : revocationUri;
+        jwkSetUri = jwkSetUri == null ? URI.create("https://www.googleapis.com/oauth2/v3/certs") : jwkSetUri;
+        issuerUri = issuerUri == null ? URI.create("https://accounts.google.com") : issuerUri;
     }
 
     // Validation is operation-local: absent Google settings must not prevent FILE startup.
@@ -38,8 +49,8 @@ public record GoogleDriveProviderProperties(
                 || maxTabs < 1 || maxTabs > 100 || maxCells < 1 || maxCells > 200_000
                 || maxBinaryBytes < 1 || maxBinaryBytes > ObjectUploadSpecification.MAX_SIZE_BYTES
                 || maxSnapshotBytes < 1 || maxSnapshotBytes > 33_554_432) {
-            throw new io.memoryos.connector.GoogleDriveProviderException(
-                    io.memoryos.connector.GoogleDriveProviderException.Failure.UNAVAILABLE);
+            throw new GoogleDriveProviderException(
+                    GoogleDriveProviderException.Failure.UNAVAILABLE);
         }
     }
 

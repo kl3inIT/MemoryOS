@@ -23,6 +23,8 @@ final class McpClientMetadataController {
 
     @GetMapping(value = McpOAuthProperties.CLIENT_METADATA_PATH, produces = MediaType.APPLICATION_JSON_VALUE)
     ResponseEntity<Map<String, Object>> document() {
+        // Deliberate override of the security default: the public client metadata document is fetched by
+        // authorization servers and holds no secret, so shared caches may keep it for an hour.
         return ResponseEntity.ok().cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePublic())
                 .body(oauth.clientMetadataDocument());
     }

@@ -20,11 +20,18 @@ import java.util.zip.ZipOutputStream;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
+import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.interactive.action.PDActionURI;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink;
+import org.apache.poi.common.usermodel.HyperlinkType;
+import org.apache.poi.xslf.usermodel.XMLSlideShow;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 class OfflineGoogleDriveLinkReaderTest {
@@ -124,23 +131,23 @@ class OfflineGoogleDriveLinkReaderTest {
     @Test
     void poiGeneratedOfficePackagesResolveActualHyperlinkRelationships() throws Exception {
         var bytes = new ByteArrayOutputStream();
-        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook()) {
+        try (var workbook = new XSSFWorkbook()) {
             var cell = workbook.createSheet("Budget").createRow(2).createCell(1);
             cell.setCellValue("Friendly label");
-            var hyperlink = workbook.getCreationHelper().createHyperlink(org.apache.poi.common.usermodel.HyperlinkType.URL);
+            var hyperlink = workbook.getCreationHelper().createHyperlink(HyperlinkType.URL);
             hyperlink.setAddress(DOC);
             cell.setHyperlink(hyperlink);
             workbook.write(bytes);
         }
         assertEquals(List.of(new Link(DOC, "Budget!B3")), reader.read(binary(bytes.toByteArray(), XLSX)));
         bytes.reset();
-        try (var document = new org.apache.poi.xwpf.usermodel.XWPFDocument()) {
+        try (var document = new XWPFDocument()) {
             document.createParagraph().createHyperlinkRun(DOC).setText("Friendly label");
             document.write(bytes);
         }
         assertEquals(List.of(new Link(DOC, "Document, paragraph 1")), reader.read(binary(bytes.toByteArray(), DOCX)));
         bytes.reset();
-        try (var slides = new org.apache.poi.xslf.usermodel.XMLSlideShow()) {
+        try (var slides = new XMLSlideShow()) {
             slides.createSlide().createTextBox().setText("Friendly label").createHyperlink().setAddress(DOC);
             slides.write(bytes);
         }
@@ -181,8 +188,8 @@ class OfflineGoogleDriveLinkReaderTest {
         var bytes = new ByteArrayOutputStream();
         try (var document = new PDDocument()) {
             document.addPage(new PDPage());
-            document.protect(new org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy(
-                    "owner-password", "reader-password", new org.apache.pdfbox.pdmodel.encryption.AccessPermission()));
+            document.protect(new StandardProtectionPolicy(
+                    "owner-password", "reader-password", new AccessPermission()));
             document.save(bytes);
         }
         assertFailure(UNSUPPORTED, binary(bytes.toByteArray(), "application/pdf"));
@@ -246,7 +253,7 @@ class OfflineGoogleDriveLinkReaderTest {
         assertFailure(MALFORMED, binary(zip(parts), XLSX));
     }
 
-    private AcquiredContent nativeContent(tools.jackson.databind.JsonNode content, SourceInputFormat format) {
+    private AcquiredContent nativeContent(JsonNode content, SourceInputFormat format) {
         var file = new FileMetadata("source1", "Source", "application/json", "v1", null, null, false, List.of(), null, null);
         return new AcquiredContent("Source", "application/json", mapper.writeValueAsBytes(NativeSnapshot.envelope(mapper, file, format.name(), content)),
                 new SourceInputDescriptor(format, "source1", "v1", null));

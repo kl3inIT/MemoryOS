@@ -278,7 +278,7 @@ public class DocumentSearchService {
             }
         }
         var ranked = representatives.entrySet().stream().sorted(Comparator
-                .<java.util.Map.Entry<String, SearchHit>>comparingDouble(e -> scores.get(e.getKey())).reversed()
+                .<Map.Entry<String, SearchHit>>comparingDouble(e -> scores.get(e.getKey())).reversed()
                 .thenComparingInt(e -> firstRank.get(e.getKey())).thenComparingInt(e -> firstQuery.get(e.getKey())))
                 .map(entry -> {
             var hit = entry.getValue();

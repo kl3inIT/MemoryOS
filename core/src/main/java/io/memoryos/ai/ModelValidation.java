@@ -1,6 +1,9 @@
 package io.memoryos.ai;
 
 import com.embabel.common.ai.model.LlmOptions;
+import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.beans.factory.annotation.Value;
 import io.memoryos.shared.ActorId;
 import java.time.Duration;
@@ -19,9 +22,9 @@ public final class ModelValidation {
     private final int maxOutputTokens;
     private final Semaphore permits = new Semaphore(2);
     /** Declared so the provider validates tools beside this entry's options; tool_choice=none keeps it uncalled. */
-    private static final org.springframework.ai.tool.ToolCallback PROBE_TOOL = new org.springframework.ai.tool.ToolCallback() {
-        @Override public org.springframework.ai.tool.definition.ToolDefinition getToolDefinition() {
-            return org.springframework.ai.tool.definition.ToolDefinition.builder().name("connection_probe")
+    private static final ToolCallback PROBE_TOOL = new ToolCallback() {
+        @Override public ToolDefinition getToolDefinition() {
+            return ToolDefinition.builder().name("connection_probe")
                     .description("Never called; present only to validate tool support.")
                     .inputSchema("{\"type\":\"object\",\"properties\":{}}").build();
         }
@@ -44,7 +47,7 @@ public final class ModelValidation {
                 // A model that declares tool calling is only usable if the provider accepts tools next to
                 // this entry's reasoning options, which some model families reject; probe that combination
                 // here so the rejection reaches the administrator instead of the first tool-bearing turn.
-                if (binding.toolCalling() && options instanceof org.springframework.ai.openai.OpenAiChatOptions openAi)
+                if (binding.toolCalling() && options instanceof OpenAiChatOptions openAi)
                     options = openAi.mutate().toolCallbacks(List.of(PROBE_TOOL)).toolChoice("none").build();
                 var prompt = binding.policy().request(binding.finalRequest().apply(
                         new Prompt(List.of(new UserMessage("Reply OK.")), options)),

@@ -1,15 +1,15 @@
 package io.memoryos.api.chat;
 
+import io.memoryos.api.security.CurrentActor;
 import io.memoryos.api.chat.contract.ChatExportResponse;
 import io.memoryos.chat.ChatExportService;
 import io.memoryos.iam.IdentityContext;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.core.io.InputStreamResource;
@@ -18,7 +18,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,11 +34,11 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Chat")
 @SecurityRequirement(name = "browserSession")
 @SecurityRequirement(name = "bearerAuth")
-@ApiResponse(responseCode = "400", description = "Invalid export request", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "400", description = "Invalid export request")
 @ApiResponse(responseCode = "401", description = "Authentication required", content = @Content)
-@ApiResponse(responseCode = "403", description = "CSRF required", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "404", description = "No such export", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
-@ApiResponse(responseCode = "409", description = "An export is already being prepared", content = @Content(mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE, schema = @Schema(ref = "#/components/schemas/ApiProblem")))
+@ApiResponse(responseCode = "403", description = "CSRF required")
+@ApiResponse(responseCode = "404", description = "No such export")
+@ApiResponse(responseCode = "409", description = "An export is already being prepared")
 class ChatExportController {
     private final ChatExportService exports;
 
@@ -50,21 +49,21 @@ class ChatExportController {
     @Operation(operationId = "requestChatExport",
             summary = "Ask for a ZIP of the caller's own conversations and files")
     @ApiResponse(responseCode = "202", description = "The export being prepared", useReturnTypeSchema = true)
-    ChatExportResponse request(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+    ChatExportResponse request(@CurrentActor IdentityContext identity) {
         return ChatExportResponse.from(exports.request(identity.actorId()));
     }
 
     @GetMapping
     @Operation(operationId = "listChatExports", summary = "The caller's exports that are still worth offering")
     @ApiResponse(responseCode = "200", description = "Exports", useReturnTypeSchema = true)
-    List<ChatExportResponse> list(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity) {
+    List<ChatExportResponse> list(@CurrentActor IdentityContext identity) {
         return exports.list(identity.actorId()).stream().map(ChatExportResponse::from).toList();
     }
 
     @GetMapping("/{exportId}")
     @Operation(operationId = "getChatExport", summary = "How far one export has got")
     @ApiResponse(responseCode = "200", description = "The export", useReturnTypeSchema = true)
-    ChatExportResponse get(@Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+    ChatExportResponse get(@CurrentActor IdentityContext identity,
             @PathVariable UUID exportId) {
         return ChatExportResponse.from(exports.get(identity.actorId(), exportId));
     }
@@ -74,16 +73,16 @@ class ChatExportController {
     @ApiResponse(responseCode = "200", description = "The ZIP",
             content = @Content(mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE))
     ResponseEntity<InputStreamResource> content(
-            @Parameter(hidden = true) @AuthenticationPrincipal IdentityContext identity,
+            @CurrentActor IdentityContext identity,
             @PathVariable UUID exportId) {
         var download = exports.open(identity.actorId(), exportId);
         var metadata = download.content().metadata();
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
-                        .filename(download.filename(), java.nio.charset.StandardCharsets.UTF_8).build().toString())
+                        .filename(download.filename(), StandardCharsets.UTF_8).build().toString())
                 .contentType(MediaType.parseMediaType("application/zip"))
                 .contentLength(metadata.sizeBytes())
-                .cacheControl(org.springframework.http.CacheControl.noStore())
+                
                 .body(new InputStreamResource(download.content().inputStream()));
     }
 }

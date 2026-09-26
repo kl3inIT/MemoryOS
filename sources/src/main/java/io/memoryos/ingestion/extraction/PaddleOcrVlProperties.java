@@ -2,6 +2,7 @@ package io.memoryos.ingestion.extraction;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.ConstructorBinding;
@@ -31,7 +32,7 @@ public record PaddleOcrVlProperties(@Nullable URI endpoint, Duration timeout, in
         maxPages = maxPages == 0 ? 200 : maxPages;
         maxConcurrentRequests = maxConcurrentRequests == null ? 2 : maxConcurrentRequests;
         revision = revision == null || revision.isBlank() ? DEFAULT_REVISION : revision.strip();
-        if ((endpoint != null && (!java.util.Set.of("http", "https").contains(endpoint.getScheme())
+        if ((endpoint != null && (!Set.of("http", "https").contains(endpoint.getScheme())
                 || endpoint.getHost() == null || endpoint.getUserInfo() != null
                 || endpoint.getQuery() != null || endpoint.getFragment() != null))
                 || timeout.isNegative() || timeout.isZero() || timeout.compareTo(Duration.ofHours(1)) > 0
