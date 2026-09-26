@@ -1,0 +1,22 @@
+/* Registered so the hi/lo bounds can transition: state changes cross-fade per dot. */
+@property --aui-dot-matrix-hi {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --aui-dot-matrix-lo {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0.15;
+}
+
+@keyframes aui-dot-matrix-blink {
+  0%,
+  100% {
+    opacity: var(--aui-dot-matrix-hi, 1);
+  }
+  50% {
+    opacity: var(--aui-dot-matrix-lo, 0.15);
+  }
+}

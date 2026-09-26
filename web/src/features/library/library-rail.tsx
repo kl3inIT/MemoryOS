@@ -106,7 +106,7 @@ function StorageCard({ usage, onShowLargest }: { usage: LibraryUsage; onShowLarg
             aria-label={ui("Dung lượng đã dùng")}
             className={cn(
               "mt-2",
-              nearlyFull && "[&_[data-slot=progress-indicator]]:bg-status-danger-emphasis-surface",
+              nearlyFull && "[&_[data-slot=progress-indicator]]:bg-status-danger-emphasis",
             )}
           />
           <p

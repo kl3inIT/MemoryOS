@@ -52,7 +52,7 @@ export function LibraryDropZone({
       {over && (
         <p
           role="status"
-          className="pointer-events-none absolute inset-x-0 top-2 mx-auto w-fit rounded-full bg-surface-accent px-4 py-1 text-sm text-content-on-accent"
+          className="pointer-events-none absolute inset-x-0 top-2 mx-auto w-fit rounded-full bg-primary px-4 py-1 text-sm text-primary-foreground"
         >
           {ui("Thả tệp vào đây để tải lên")}
         </p>
@@ -133,7 +133,7 @@ export function LibraryUploadTray({
                 <span
                   className={cn(
                     "block text-xs",
-                    upload.state === "failed" ? "text-content-danger" : "text-content-muted",
+                    upload.state === "failed" ? "text-status-danger-content" : "text-content-muted",
                   )}
                 >
                   {upload.state === "done"

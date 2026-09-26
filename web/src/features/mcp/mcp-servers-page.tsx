@@ -141,7 +141,7 @@ export function McpServersPage() {
                   <McpServerMark slug={server.slug} />
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-main-ui-body-strong text-content-primary">
+                      <h3 className="font-main-ui-action text-content-primary">
                         {server.name}
                       </h3>
                       <StatusBadge tone={status.tone}>{ui(status.label)}</StatusBadge>
@@ -353,7 +353,7 @@ function McpToolList({ serverId }: { serverId: string }) {
   return (
     <div className="mt-4 flex flex-col gap-3 border-t border-border-subtle pt-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 className="font-main-ui-body-strong text-content-primary">{ui("Công cụ")}</h4>
+        <h4 className="font-main-ui-action text-content-primary">{ui("Công cụ")}</h4>
         <div className="flex gap-2">
           <Button prominence="secondary" size="sm" onClick={() => toggleAll.mutate(true)}>
             {ui("Bật tất cả")}
