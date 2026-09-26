@@ -4,7 +4,7 @@ Status: Accepted, implementation started 2026-09-17. Supersedes the in-memory re
 
 ## Context
 
-Chat replay lived in API heap. A Deep research turn runs for minutes; on staging (2026-09-16) the browser showed "Đang kết nối lại câu trả lời…" for most of a 3 min 51 s turn because its recovery gave up after silent connections and polled history, which shows no progress. The owner asked to move the buffer to Redis as Onyx `160f9b143` does (`stream_buffer.py`, `resume_stream`). MEM-26 had waited for a named producer and consumer; this is that use case. The increment is [MEM-26](../increments/active/mem-26-chat-stream-redis/design.md).
+Chat replay lived in API heap. A Deep research turn runs for minutes; on staging (2026-09-16) the browser showed "Đang kết nối lại câu trả lời…" for most of a 3 min 51 s turn because its recovery gave up after silent connections and polled history, which shows no progress. The owner asked to move the buffer to Redis as Onyx `160f9b143` does (`stream_buffer.py`, `resume_stream`). MEM-26 had waited for a named producer and consumer; this is that use case. The increment is [MEM-26](../increments/completed/mem-26-chat-stream-redis/design.md).
 
 ## Decision
 

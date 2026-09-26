@@ -18,7 +18,7 @@ Three further problems sit behind that one, and a viewer that only serves bytes 
   `web/src/features/library/file-preview-modal.tsx` (787 lines) and `file-preview.ts` render images,
   PDF, CSV, XLSX, DOCX, code, text and Markdown for owner-private chat files, with an Onyx-derived kind
   classifier, an RFC 4180 CSV reader and `sanitizeDocxHtml`. Writing a second set of viewers for Documents
-  would violate [component and library reuse](../../conventions.md#component-and-library-reuse) and leave two
+  would violate [component and library reuse](../../../conventions.md#component-and-library-reuse) and leave two
   implementations to drift apart.
 - **The dialog is not built for reading.** It is fixed at 56rem × 48rem whatever the file, has no download
   action, no toolbar outside the PDF view, one loading line instead of a skeleton, one red card for every

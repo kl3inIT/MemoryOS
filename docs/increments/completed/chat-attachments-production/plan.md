@@ -13,7 +13,7 @@ Người dùng yêu cầu sửa tiếp CI/CD trong cùng turn. Run PR `346678474
 
 ## Publication được duyệt — 2026-09-12
 
-Người dùng đã duyệt chia commit và mở một PR review vào main. Dùng branch trong checkout hiện tại, không tạo worktree. Chỉ publish MEM-81 và quy tắc component/library reuse đã được yêu cầu; loại `infrastructure/deployment/ocr/` và `docs/increments/active/mem-79-rancher-ocr/`. Không merge, deploy hoặc cập nhật/đóng Linear trong phạm vi này.
+Người dùng đã duyệt chia commit và mở một PR review vào main. Dùng branch trong checkout hiện tại, không tạo worktree. Chỉ publish MEM-81 và quy tắc component/library reuse đã được yêu cầu; loại `infrastructure/deployment/ocr/` và `docs/increments/superseded/mem-79-rancher-ocr/`. Không merge, deploy hoặc cập nhật/đóng Linear trong phạm vi này.
 
 Thứ tự commit theo dependency thực: (1) storage purpose/bounds và migration nền UserFile; (2) core/API/worker attachment flow, parser reuse, context/vision/citations và regression liên quan; (3) frontend attachment components, generated client và UI tests; (4) opt-in resource harness và bằng chứng live vision/resource; (5) canonical specs/test matrices, reuse convention và increment records. Core/API/worker thay constructor/contract cùng nhau nên không chia theo thư mục thành các commit thiếu wiring.
 

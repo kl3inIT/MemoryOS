@@ -14,7 +14,7 @@
 | Handled extraction/cleanup failures produce ERROR processing spans while retaining database retry and Redis ACK semantics | `DefaultIngestionCoordinatorTest`, `RedisStreamWorkerTracingTest` |
 | Keycloak token and admin requests reject redirects without forwarding credentials | `test_configure_grafana_sso.py` exercises HTTP 301/302/303/307/308 against two loopback servers; runs in CI |
 | PostgreSQL origin survives Redis rediscovery and processing of a real FILE | `WorkerFileProcessingIntegrationTest` |
-| Nullable trace columns migrate on PostgreSQL | `SchedulerSchemaMigrationTest`, existing source lifecycle tests |
+| Nullable trace columns migrate on PostgreSQL | Existing source lifecycle tests and `WorkerFileProcessingIntegrationTest`, which apply the full Flyway chain |
 | Pinned backend images accept configurations and transport three signals | Image validators and local Compose smoke evidence in the active increment |
 | Grafana role gate accepts inspector and rejects ordinary user | Real Keycloak Authorization Code + PKCE local smoke evidence in the active increment |
 | HTTPS proxy, deployed owner authorization, retention/capacity | Mandatory staging acceptance in the observability runbook; record runtime results in Linear after rollout |

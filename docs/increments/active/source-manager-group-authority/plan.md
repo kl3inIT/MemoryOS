@@ -1,13 +1,13 @@
 # Plan
 
 - [x] Trace the Group detail failure to the client-side `edit` check and the association-derived scoped write rule.
-- [x] Record the accepted authority model in [ADR 0011](../../decisions/0011-source-manager-group-attachment-authority.md).
+- [x] Record the accepted authority model in [ADR 0011](../../../decisions/0011-source-manager-group-attachment-authority.md).
 - [x] Core: `manager_actor_id` migration with backfill, manager-based `SourceScopeSql`, delta-checked `replaceSourceGroups`, Group-authorized `removeGroupSource`, `assignSourceManager`, and creation without a Group.
 - [x] API: `POST /api/sources/{sourceId}/manager`, `managerActorId` on `SourceSummary`, `removableSourceIds`, refreshed `openapi.yml`.
 - [x] Web: removal through the Group command, optional groups at creation, the unattached-Source warning, and the administrator appointment section.
 - [x] Update the Connector spec and matrix, README, ARCHITECTURE, roadmap and AGENTS.md.
 - [x] Run the core, API and web gates for the changed surfaces.
-- [x] Owner decision 2026-09-21: only the Source's manager detaches it from a Group; record [ADR 0013](../../decisions/0013-only-the-source-manager-detaches-sources.md), guard `removeGroupSource` and `removableSourceIds` with the scoped write rule, lock and explain other managers' Sources on Group detail.
+- [x] Owner decision 2026-09-21: only the Source's manager detaches it from a Group; record [ADR 0013](../../../decisions/0013-only-the-source-manager-detaches-sources.md), guard `removeGroupSource` and `removableSourceIds` with the scoped write rule, lock and explain other managers' Sources on Group detail.
 - [x] Fix Group detail Source-section mounting: a scoped Source capability from another Group no longer requests the rejected association projection or presents a false load error.
 - [ ] Owner acceptance on staging, including the reported Group detail removal and a second manager of the same Group being unable to detach another manager's Source.
 - [ ] Decide whether appointing a new manager should pause Google Drive synchronization until the new manager reconnects their own Google grant (open gap in the design).
