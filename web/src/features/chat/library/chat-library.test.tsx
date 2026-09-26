@@ -231,7 +231,10 @@ it("asks Chat about the file being previewed, with the file attached to the ques
   globalThis.URL.revokeObjectURL = vi.fn();
   const created: unknown[] = [];
   server.use(
-    handleDownloadChatFile({ body: new Blob(["png"], { type: "image/png" }) }),
+    // A jsdom Blob would reach MSW as text, so the bytes are given as a string.
+    handleDownloadChatFile(
+      () => new HttpResponse("png", { headers: { "Content-Type": "image/png" } }),
+    ),
     handleListAvailableChatModels({ body: [] }),
     handleGetChatVoiceAvailability({ body: { sttAvailable: false, ttsAvailable: false } }),
     handleCreateChatSession(async ({ request }) => {

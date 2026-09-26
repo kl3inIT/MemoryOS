@@ -1,21 +1,47 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ErrorState } from "@/components/assistant-ui/elements/error-state";
 import { useQuery } from "@tanstack/react-query";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useFileSrc } from "@/hooks/use-attachment-src";
-import { downloadChatFile, getChatFile, readChatFileText } from "@/lib/hey-api/sdk.gen";
-import { chatFileSchema } from "@/features/library/files";
+import {
+  downloadChatFileOptions,
+  getChatFileOptions,
+  readChatFileTextOptions,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import type { ChatFileResponse, ChatFileTextResponse } from "@/lib/hey-api/types.gen";
 
-const textWindow = z.object({
-  text: z.string(),
-  offset: z.number().int(),
-  nextOffset: z.number().int(),
-  totalCharacters: z.number().int(),
-});
+/** Characters one reader window asks for. */
+const WINDOW = 16000;
+/** Images larger than this are offered for download only. */
+const IMAGE_PREVIEW_LIMIT = 20 * 1024 * 1024;
+const previewableImages = ["image/png", "image/jpeg", "image/webp"];
+
+/** A stored file's metadata as the reader uses it; the published contract marks its fields optional. */
+function readerFileOf({
+  id,
+  filename = "",
+  mediaType = "",
+  sizeBytes = 0,
+  status,
+}: ChatFileResponse) {
+  if (id === undefined) throw new TypeError("A file carries its id.");
+  return { id, filename, mediaType, sizeBytes, status };
+}
+
+/** One window of a file's extracted text, with the server's Unicode cursor. */
+function textWindowOf({
+  text = "",
+  offset = 0,
+  nextOffset = 0,
+  totalCharacters = 0,
+}: ChatFileTextResponse) {
+  return { text, offset, nextOffset, totalCharacters };
+}
+
+// Private content is read fresh each time and leaves the cache with the reader.
+const privateRead = { gcTime: 0, staleTime: 0, retry: false } as const;
 
 /** Mounted only while the owner opens a file. No private content persists in the query cache. */
 export function ChatFileReader({
@@ -28,61 +54,48 @@ export function ChatFileReader({
   citationCount?: number;
 }) {
   const ui = useAppTranslation();
-
   const { t } = useTranslation("chatStatus");
   const { t: reader, i18n } = useTranslation("reader");
   const number = new Intl.NumberFormat(i18n.resolvedLanguage);
-  const { actorId, authorizationVersion } = useApplicationSession();
   const [offset, setOffset] = useState(initialOffset);
   const [imageFailed, setImageFailed] = useState(false);
   const metadata = useQuery({
-    queryKey: ["chat-file-reader", actorId, authorizationVersion, fileId],
-    gcTime: 0,
-    staleTime: 0,
-    retry: false,
-    queryFn: async ({ signal }) =>
-      chatFileSchema.parse((await getChatFile({ path: { fileId }, signal })).data),
+    ...getChatFileOptions({ path: { fileId } }),
+    ...privateRead,
+    select: readerFileOf,
   });
   const file = metadata.data;
   const ready = !metadata.isError && file?.status === "READY";
-  const image = ready && ["image/png", "image/jpeg", "image/webp"].includes(file.mediaType);
-  const content = useQuery({
-    queryKey: ["chat-file-reader-content", actorId, authorizationVersion, fileId, offset, image],
-    enabled: ready,
-    gcTime: 0,
-    staleTime: 0,
-    retry: false,
-    queryFn: async ({ signal }) => {
-      if (image) {
-        if (file.sizeBytes > 20 * 1024 * 1024) throw new Error("Image exceeds preview limit");
-        const { data } = await downloadChatFile({
-          path: { fileId },
-          parseAs: "blob",
-          signal,
-        });
-        if (!(data instanceof Blob) || data.size !== file.sizeBytes)
-          throw new Error("Invalid file content");
-        return { image: new File([data], file.filename, { type: file.mediaType }) };
-      }
-      return {
-        text: textWindow.parse(
-          (
-            await readChatFileText({
-              path: { fileId },
-              query: { offset, count: 16000 },
-              signal,
-            })
-          ).data,
-        ),
-      };
+  const image = ready && previewableImages.includes(file.mediaType);
+  const tooLarge = image && file.sizeBytes > IMAGE_PREVIEW_LIMIT;
+  // Stable per file, so the image and its object URL are built once per download.
+  const asImage = useCallback(
+    (data: unknown) => {
+      if (!file || !(data instanceof Blob) || data.size !== file.sizeBytes)
+        throw new Error("Invalid file content");
+      return new File([data], file.filename, { type: file.mediaType });
     },
+    [file],
+  );
+  const picture = useQuery({
+    ...downloadChatFileOptions({ path: { fileId }, parseAs: "blob" }),
+    ...privateRead,
+    enabled: image && !tooLarge,
+    select: asImage,
   });
-  const src = useFileSrc(ready ? content.data?.image : undefined);
-  const window = ready ? content.data?.text : undefined;
-  const failed = metadata.isError || (file && !ready) || content.isError || imageFailed;
+  const text = useQuery({
+    ...readChatFileTextOptions({ path: { fileId }, query: { offset, count: WINDOW } }),
+    ...privateRead,
+    enabled: ready && !image,
+    select: textWindowOf,
+  });
+  const content = image ? picture : text;
+  const src = useFileSrc(image ? picture.data : undefined);
+  const window = ready && !image ? text.data : undefined;
+  const failed = metadata.isError || (file && !ready) || tooLarge || content.isError || imageFailed;
   return (
-    <div className="space-y-3">
-      {(metadata.isPending || (ready && content.isPending)) && (
+    <div className="flex flex-col gap-3">
+      {(metadata.isPending || (ready && !tooLarge && content.isPending)) && (
         <p role="status">{reader("reading")}</p>
       )}
       {failed && <ErrorState title={t("fileUnavailable")} detail={t("fileUnavailableDetail")} />}
@@ -90,13 +103,13 @@ export function ChatFileReader({
         <img
           src={src}
           alt={file?.filename ?? reader("image")}
-          className="max-h-[60dvh] max-w-full rounded-lg object-contain"
+          className="max-h-128 max-w-full rounded-lg object-contain"
           onError={() => setImageFailed(true)}
         />
       )}
       {!failed && window && (
         <>
-          <pre className="max-h-[55dvh] overflow-y-auto rounded-lg bg-surface-sunken p-3 text-sm whitespace-pre-wrap break-words">
+          <pre className="max-h-120 overflow-y-auto rounded-lg bg-surface-sunken p-3 text-sm whitespace-pre-wrap break-words">
             {citationCount && offset === initialOffset ? (
               <>
                 <mark className="bg-status-info-surface text-content-primary">
@@ -131,7 +144,7 @@ export function ChatFileReader({
               size="sm"
               prominence="secondary"
               disabled={offset === 0}
-              onClick={() => setOffset(Math.max(0, offset - 16000))}
+              onClick={() => setOffset(Math.max(0, offset - WINDOW))}
             >
               {reader("previous")}
             </Button>
