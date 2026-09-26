@@ -54,6 +54,11 @@ public record StreamingLlmService(SpringAiLlmService delegate) implements LlmSer
         return delegate.createMessageStreamer(options);
     }
 
+    /**
+     * The catalog admits only streaming models, so this answers from that fact. Embabel's own check sends a real
+     * streamed "Say 'test'" request, cached per model instance; this service wraps a fresh guard every turn, so the
+     * probe would run on every turn and spend a cycle and a budget reservation of the turn.
+     */
     @Override
     public boolean supportsStreaming() {
         return true;

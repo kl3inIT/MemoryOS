@@ -97,7 +97,6 @@ const formSchema = z.object({
   context: z.string(),
   output: z.string(),
   replaceBase: z.boolean(),
-  datetimeAware: z.boolean(),
 });
 type AgentForm = z.infer<typeof formSchema>;
 
@@ -122,7 +121,6 @@ function initialForm(agent?: Persona): AgentForm {
     context: agent?.contextTokenLimit?.toString() ?? "",
     output: agent?.outputTokenLimit?.toString() ?? "",
     replaceBase: agent?.replaceBaseSystemPrompt ?? false,
-    datetimeAware: agent?.datetimeAware ?? true,
   };
 }
 
@@ -325,7 +323,6 @@ function AgentEditor({ agent }: { agent?: Persona }) {
       avatarFileId: form.avatarFileId ?? undefined,
       labelIds: form.labelIds,
       replaceBaseSystemPrompt: form.replaceBase,
-      datetimeAware: form.datetimeAware,
       knowledgeCutoff: form.cutoff ? `${form.cutoff}T00:00:00Z` : undefined,
     };
     try {
@@ -764,8 +761,8 @@ function AgentEditor({ agent }: { agent?: Persona }) {
                 }
               />
             </SettingRows>
-            <SettingRows>
-              {!agent?.builtin && (
+            {!agent?.builtin && (
+              <SettingRows>
                 <SettingRow
                   htmlFor="agent-replace-base"
                   title={ui("Thay hướng dẫn hệ thống mặc định")}
@@ -780,20 +777,8 @@ function AgentEditor({ agent }: { agent?: Persona }) {
                     />
                   }
                 />
-              )}
-              <SettingRow
-                htmlFor="agent-datetime"
-                title={ui("Cho trợ lý biết ngày hiện tại")}
-                description={ui("Hữu ích khi câu hỏi nói đến tháng này hoặc quý trước.")}
-                control={
-                  <Switch
-                    id="agent-datetime"
-                    checked={form.datetimeAware}
-                    onCheckedChange={(datetimeAware) => set({ datetimeAware })}
-                  />
-                }
-              />
-            </SettingRows>
+              </SettingRows>
+            )}
           </EditorSection>
         </fieldset>
 

@@ -1458,7 +1458,6 @@ export const vietnameseUi: Record<string, string> = {
   "Chỉ dùng tài liệu cập nhật từ ngày": "Only use documents updated since",
   "Chỉ người được mời": "Only invited people",
   "Chia sẻ {{v1}}": "Share {{v1}}",
-  "Cho trợ lý biết ngày hiện tại": "Tell the agent today's date",
   "Chọn trợ lý hiển thị và nổi bật cho cả tổ chức, khôi phục trợ lý đã xóa và giao trợ lý chưa có chủ sở hữu.":
     "Choose which agents are listed and featured for the organization, restore deleted agents and assign agents without an owner.",
   "Chủ sở hữu": "Owner",
@@ -1488,8 +1487,6 @@ export const vietnameseUi: Record<string, string> = {
   "Ghim vào thanh bên": "Pin to sidebar",
   "Hiển thị": "Listing",
   "Hiện trợ lý đã xóa": "Show deleted agents",
-  "Hữu ích khi câu hỏi nói đến tháng này hoặc quý trước.":
-    "Useful when questions mention this month or last quarter.",
   "Khôi phục": "Restore",
   "Không có trợ lý phù hợp": "No matching agents",
   "Không dùng công cụ": "No tools",
