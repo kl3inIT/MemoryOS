@@ -5,6 +5,7 @@ import {
   createRoute,
   createRouter,
   RouterProvider,
+  stripSearchParams,
 } from "@tanstack/react-router";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -14,6 +15,7 @@ import { i18n } from "@/i18n/index";
 import { ApiError } from "@/lib/api";
 import type { ChatLibraryFile } from "@/lib/hey-api/types.gen";
 import { LibraryPage } from "./library-page";
+import { librarySearchDefaults, librarySearchSchema } from "./library-search";
 
 const listChatLibrary = vi.hoisted(() => vi.fn());
 const deleteChatFile = vi.hoisted(() => vi.fn());
@@ -116,7 +118,11 @@ const upload = file({
   deletable: false,
 });
 
-async function show(items: ChatLibraryFile[] = [file(), upload], hasMore = false) {
+async function show(
+  items: ChatLibraryFile[] = [file(), upload],
+  hasMore = false,
+  path = "/library",
+) {
   const first = items[0];
   listChatLibrary.mockResolvedValue({
     data: {
@@ -127,9 +133,12 @@ async function show(items: ChatLibraryFile[] = [file(), upload], hasMore = false
     },
   });
   const rootRoute = createRootRoute();
+  const authenticatedRoute = createRoute({ getParentRoute: () => rootRoute, id: "_authenticated" });
   const route = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/library",
+    getParentRoute: () => authenticatedRoute,
+    path: "library",
+    validateSearch: librarySearchSchema,
+    search: { middlewares: [stripSearchParams(librarySearchDefaults)] },
     component: () => <LibraryPage />,
   });
   // The original conversation of a file is a link, so the page can navigate to one.
@@ -139,8 +148,8 @@ async function show(items: ChatLibraryFile[] = [file(), upload], hasMore = false
     component: () => null,
   });
   const router = createRouter({
-    routeTree: rootRoute.addChildren([route, chatRoute]),
-    history: createMemoryHistory({ initialEntries: ["/library"] }),
+    routeTree: rootRoute.addChildren([authenticatedRoute.addChildren([route]), chatRoute]),
+    history: createMemoryHistory({ initialEntries: [path] }),
   });
   await router.load();
   render(
@@ -222,6 +231,23 @@ it("sends the filters, the search and the sort to the server", async () => {
         }),
       }),
     ),
+  );
+});
+
+it("opens the list the address names and keeps a changed order in it, leaving defaults out", async () => {
+  const router = await show([file(), upload], false, "/library?category=IMAGE&view=ready");
+  const user = userEvent.setup();
+  expect(listChatLibrary).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      query: expect.objectContaining({ categories: ["IMAGE"], offset: 0 }),
+    }),
+  );
+
+  await user.click(screen.getByRole("combobox", { name: "Sắp xếp" }));
+  await user.click(await screen.findByRole("option", { name: "Dung lượng giảm dần" }));
+
+  await waitFor(() =>
+    expect(router.state.location.search).toEqual({ category: ["IMAGE"], sort: "LARGEST" }),
   );
 });
 
