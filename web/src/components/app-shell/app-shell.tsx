@@ -306,15 +306,6 @@ function SidebarContents({
                   {ui("Mô hình")}
                 </SidebarTab>
                 <SidebarTab
-                  to="/admin/search-settings"
-                  icon={<ScanSearch className="size-4" />}
-                  selected={adminPage === "searchSettings"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  {ui("Cấu hình tìm kiếm")}
-                </SidebarTab>
-                <SidebarTab
                   to="/admin/web-search"
                   icon={<Globe className="size-4" />}
                   selected={adminPage === "web"}
@@ -352,63 +343,78 @@ function SidebarContents({
                 </SidebarTab>
               </SidebarSection>
             ) : null}
-            {canManageAgents ? (
-              <SidebarSection title={ui("Trợ lý")} collapsed={collapsed}>
-                <SidebarTab
-                  to="/admin/agents"
-                  icon={<Bot className="size-4" />}
-                  selected={adminPage === "agents"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  {ui("Quản lý trợ lý")}
-                </SidebarTab>
+            {canManageAgents || canManageMcp ? (
+              <SidebarSection title={ui("Trợ lý và công cụ")} collapsed={collapsed}>
+                {canManageAgents ? (
+                  <SidebarTab
+                    to="/admin/agents"
+                    icon={<Bot className="size-4" />}
+                    selected={adminPage === "agents"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    {ui("Quản lý trợ lý")}
+                  </SidebarTab>
+                ) : null}
+                {canManageMcp ? (
+                  <SidebarTab
+                    to="/admin/mcp"
+                    icon={<Blocks className="size-4" />}
+                    selected={adminPage === "mcp"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    {ui("Máy chủ MCP")}
+                  </SidebarTab>
+                ) : null}
               </SidebarSection>
             ) : null}
-            {canManageMcp ? (
-              <SidebarSection title={ui("Connectors")} collapsed={collapsed}>
-                <SidebarTab
-                  to="/admin/mcp"
-                  icon={<Blocks className="size-4" />}
-                  selected={adminPage === "mcp"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  {ui("Máy chủ MCP")}
-                </SidebarTab>
-              </SidebarSection>
-            ) : null}
-            {canReadSources ? (
+            {canReadSources || canManageModels ? (
               <SidebarSection title={ui("Documents & Knowledge")} collapsed={collapsed}>
-                <SidebarTab
-                  to="/admin"
-                  // Without this the router marks the Sources tab current on every page under /admin.
-                  activeOptions={{ exact: true }}
-                  icon={<Plug className="size-4" />}
-                  selected={adminPage === "sources"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  {ui("Existing sources")}
-                </SidebarTab>
-                <SidebarTab
-                  to="/admin/sources/new"
-                  icon={<CloudUpload className="size-4" />}
-                  selected={adminPage === "addSource"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  {ui("Add a source")}
-                </SidebarTab>
-                <SidebarTab
-                  to="/admin/document-sets"
-                  icon={<Library className="size-4" />}
-                  selected={adminPage === "documentSets"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  {ui("Bộ tài liệu")}
-                </SidebarTab>
+                {canReadSources ? (
+                  <>
+                    <SidebarTab
+                      to="/admin"
+                      // Without this the router marks the Sources tab current on every page under /admin.
+                      activeOptions={{ exact: true }}
+                      icon={<Plug className="size-4" />}
+                      selected={adminPage === "sources"}
+                      collapsed={collapsed}
+                      onClick={onNavigate}
+                    >
+                      {ui("Existing sources")}
+                    </SidebarTab>
+                    <SidebarTab
+                      to="/admin/sources/new"
+                      icon={<CloudUpload className="size-4" />}
+                      selected={adminPage === "addSource"}
+                      collapsed={collapsed}
+                      onClick={onNavigate}
+                    >
+                      {ui("Add a source")}
+                    </SidebarTab>
+                    <SidebarTab
+                      to="/admin/document-sets"
+                      icon={<Library className="size-4" />}
+                      selected={adminPage === "documentSets"}
+                      collapsed={collapsed}
+                      onClick={onNavigate}
+                    >
+                      {ui("Bộ tài liệu")}
+                    </SidebarTab>
+                  </>
+                ) : null}
+                {canManageModels ? (
+                  <SidebarTab
+                    to="/admin/search-settings"
+                    icon={<ScanSearch className="size-4" />}
+                    selected={adminPage === "searchSettings"}
+                    collapsed={collapsed}
+                    onClick={onNavigate}
+                  >
+                    {ui("Cấu hình tìm kiếm")}
+                  </SidebarTab>
+                ) : null}
               </SidebarSection>
             ) : null}
             {canManageUsers || canReadGroups || canManageProviders ? (
