@@ -58,7 +58,6 @@ function agent(overrides: Record<string, unknown>) {
     listed: true,
     featured: false,
     replaceBaseSystemPrompt: false,
-    datetimeAware: true,
     pinned: false,
     ...overrides,
   };

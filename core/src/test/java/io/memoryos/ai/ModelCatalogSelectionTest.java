@@ -89,7 +89,7 @@ class ModelCatalogSelectionTest {
     @Test void aSendSelectsWithTheAgentItAlreadyReadWithoutReadingItOrTheCapabilitiesAgain() {
         var fixture = new Fixture();
         var agent = new JdbcChatRepository.Persona("", "other", ChatTurnOptions.DEFAULT, "9",
-                fixture.otherId, List.of(), Set.of(), null, false);
+                fixture.otherId, List.of(), Set.of(), null);
         clearInvocations(fixture.authorization);
 
         var selected = fixture.access.select(fixture.actor, fixture.session, null, agent, false);
@@ -168,7 +168,7 @@ class ModelCatalogSelectionTest {
             when(chats.findOwned(new TenantId(tenant), actor, session, false)).thenReturn(Optional.of(new ChatSession(
                     session, persona, UUID.randomUUID(), "Chat", Instant.now(), Instant.now(), null)));
             when(chats.persona(session, true, false)).thenReturn(new JdbcChatRepository.Persona("", "luna",
-                    ChatTurnOptions.DEFAULT, "7", null, List.of(), Set.of(), null, false));
+                    ChatTurnOptions.DEFAULT, "7", null, List.of(), Set.of(), null));
             when(agents.personaModel(tenant, actor.value(), false, persona)).thenReturn(new PersonaModelDefault(persona, null, 1));
             service = new ModelCatalogService(catalog, mock(AgentDirectory.class), event -> {}, tenants, authorization, adapters,
                     mock(ProviderCredentials.class), mock(GroupScopeService.class), mock(AuditTrail.class));

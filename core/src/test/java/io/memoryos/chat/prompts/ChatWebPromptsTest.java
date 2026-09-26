@@ -44,16 +44,17 @@ class ChatWebPromptsTest {
         }).toList();
         return new Prompt(messages, OpenAiChatOptions.builder().toolCallbacks(callbacks).build());
     }
-    @Test void agentTaskPromptIsTheFinalReminderAndDateAwarenessIsOptional() {
+    @Test void agentTaskPromptIsTheFinalReminderAndTheDateAppearsOnce() {
         var guided = ChatPrompts.forInference(prompt(Set.of(), null), false, false, true, "Always answer with the KPI month.");
         var last = guided.getInstructions().getLast().getText();
         assertTrue(last.startsWith("<system-reminder>"));
         assertTrue(last.contains("Always answer with the KPI month."));
         var now = Instant.parse("2026-09-17T00:00:00Z");
-        assertTrue(ChatPrompts.resolve(ChatPrompts.DEFAULT_SYSTEM, false, now, null, true).contains("2026-09-17T00:00:00Z"));
-        var unaware = ChatPrompts.resolve(ChatPrompts.DEFAULT_SYSTEM, false, now, null, false);
-        assertFalse(unaware.contains("CURRENT_DATETIME"));
-        assertFalse(unaware.contains("The current date is"));
+        var standard = ChatPrompts.resolve(ChatPrompts.DEFAULT_SYSTEM, false, now, null);
+        assertEquals(1, standard.split("2026-09-17T00:00:00Z", -1).length - 1);
+        assertFalse(standard.contains("CURRENT_DATETIME"));
+        var custom = ChatPrompts.resolve("You answer HR questions.", false, now, null);
+        assertTrue(custom.endsWith("Additional Information:\n\t- The current date is 2026-09-17T00:00:00Z."));
     }
 
     @Test void webOnlyDoesNotAdvertiseInternalSearchAndPreservesOriginalPrompt() {

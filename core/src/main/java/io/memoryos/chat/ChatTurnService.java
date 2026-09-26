@@ -1,6 +1,5 @@
 package io.memoryos.chat;
 
-import com.embabel.common.ai.prompt.CurrentDate;
 import com.embabel.common.ai.prompt.PromptContributor;
 import io.memoryos.ai.TurnFailure;
 import io.memoryos.ai.TurnFailureException;
@@ -235,9 +234,8 @@ public final class ChatTurnService implements AutoCloseable {
                 if (agent.inProject()) throw ChatException.researchUnavailable();
                 if (!binding.toolCalling() || binding.contextWindow() < minimum) throw ChatException.researchModelUnsupported();
             }
-            String contribution = Stream.concat(
-                    Stream.of(new CurrentDate().contribution()),
-                    binding.service().getPromptContributors().stream().map(PromptContributor::contribution))
+            // The date is written once, by ChatPrompts.resolve; Embabel's CurrentDate would repeat it.
+            String contribution = binding.service().getPromptContributors().stream().map(PromptContributor::contribution)
                     .filter(value -> !value.isBlank()).collect(Collectors.joining("\n----\n"));
             var webAccess = new WebConnectionService.Access(null, null);
             if (command.webSearch() != WebSearchMode.off) {

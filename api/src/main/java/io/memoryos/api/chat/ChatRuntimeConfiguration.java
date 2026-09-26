@@ -13,6 +13,7 @@ import io.memoryos.meeting.MeetingRecordingService;
 import io.memoryos.retrieval.SearchTasks;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -42,8 +43,9 @@ class ChatRuntimeConfiguration {
     /** Single model calls outside conversations, bounded by the same deployment budgets as a Chat turn. */
     @Bean
     ModelCalls modelCalls(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository repository,
-                          ChatExecutionProperties limits) {
-        return new ModelCalls(contexts, repository, limits.costCap(), limits.tokenCap());
+                          ChatExecutionProperties limits,
+                          @Value("${embabel.agent.platform.llm-operations.data-binding.max-attempts:10}") int attempts) {
+        return new ModelCalls(contexts, repository, limits.costCap(), limits.tokenCap(), attempts);
     }
 
     @Bean

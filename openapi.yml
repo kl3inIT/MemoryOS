@@ -21174,8 +21174,6 @@ components:
             format: uuid
         replaceBaseSystemPrompt:
           type: boolean
-        datetimeAware:
-          type: boolean
         knowledgeCutoff:
           type: string
           format: date-time
@@ -21364,8 +21362,6 @@ components:
           type: integer
           format: int32
         replaceBaseSystemPrompt:
-          type: boolean
-        datetimeAware:
           type: boolean
         knowledgeCutoff:
           type: string
