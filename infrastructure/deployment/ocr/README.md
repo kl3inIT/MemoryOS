@@ -3,7 +3,7 @@
 The deployment targets namespace `jmix-ocr` in Rancher project `local:p-vs2td`
 (Jmix team). Its requests and limits are both 8 CPU / 16 GiB, with one replica
 and a Recreate update strategy. Existing project workloads keep their images,
-replicas and storage. See the [deployment record](../../../docs/increments/active/mem-79-rancher-ocr/plan.md)
+replicas and storage. See the [deployment record](../../../docs/increments/superseded/mem-79-rancher-ocr/plan.md)
 for the actual rollout state; checked-in manifests do not establish deployment.
 
 ## Image and request contract

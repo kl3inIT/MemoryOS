@@ -5,7 +5,7 @@
 // exec = Savico Executive (all five Savico Sources); finance, legal, hr, governance, ir = one
 // department Group each; tasco = Benchmark - Tasco (46 Tasco documents); outsider = Basic only.
 // hr also reads Tasco, because the Tasco Source keeps its older Savico - HROD association.
-// See docs/increments/active/mem-141-rag-benchmark/corpus-findings.md.
+// See docs/increments/completed/mem-141-rag-benchmark/corpus-findings.md.
 {"id": "lookup-001", "question": "Doanh thu thuần về bán hàng và cung cấp dịch vụ hợp nhất quý 1 năm 2026 của Savico là bao nhiêu?", "category": "lookup", "actor": "exec", "gold_document_ids": ["0bdd71f0-bbc3-48f2-879b-caf1b1a3777f"], "gold_answer": "6.445.238.783.576 đồng (quý 1 năm trước: 5.547.507.569.647 đồng).", "as_of": "2026-03-31", "notes": "Báo cáo kết quả hoạt động kinh doanh hợp nhất, mã số 10."}
 {"id": "lookup-002", "question": "Lợi nhuận sau thuế thu nhập doanh nghiệp hợp nhất quý 1 năm 2026 của Savico là bao nhiêu?", "category": "lookup", "actor": "exec", "gold_document_ids": ["0bdd71f0-bbc3-48f2-879b-caf1b1a3777f"], "gold_answer": "33.603.838.142 đồng (quý 1 năm trước: 31.796.925.110 đồng).", "as_of": "2026-03-31", "notes": "Mã số 60 trên báo cáo kết quả kinh doanh hợp nhất."}
 {"id": "lookup-003", "question": "Lợi nhuận sau thuế của công ty mẹ trong quý 1 năm 2026 là bao nhiêu?", "category": "lookup", "actor": "exec", "gold_document_ids": ["0bdd71f0-bbc3-48f2-879b-caf1b1a3777f"], "gold_answer": "24.239.544.735 đồng (quý 1 năm trước: 10.931.411.166 đồng).", "as_of": "2026-03-31", "notes": "Mã số 61; phân biệt với mã số 60 và 62."}

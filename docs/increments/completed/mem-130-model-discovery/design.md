@@ -1,6 +1,6 @@
 # MEM-130 — Model discovery and correct catalog specs
 
-[MEM-130](https://linear.app/memory-os/issue/MEM-130) · related [MEM-77](../../active/mem-77-provider-backend/design.md)
+[MEM-130](https://linear.app/memory-os/issue/MEM-130) · related [MEM-77](../mem-77-provider-backend/design.md)
 
 ## Problem
 

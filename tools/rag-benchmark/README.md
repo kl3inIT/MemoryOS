@@ -4,7 +4,7 @@ Measures what a retrieval or Chat change did: whether search still finds the rig
 and answers from them, whether it declines when the corpus cannot answer, and whether a Group-scoped document ever
 reaches an actor who may not read it.
 
-Design and delivery order: [MEM-141](../../docs/increments/active/mem-141-rag-benchmark/design.md).
+Design and delivery order: [MEM-141](../../docs/increments/completed/mem-141-rag-benchmark/design.md).
 
 ## Setup
 

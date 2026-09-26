@@ -5,7 +5,7 @@ name: memoryos-serving
 # embedding service also requires a key generated on this node. A port is published on the node's
 # private address only, and the memoryos-serving-firewall unit admits the application node alone in
 # DOCKER-USER, because ufw cannot filter a port Docker publishes. See
-# docs/increments/active/mem-192-ocr-gpu/design.md and docs/increments/active/mem-135-embedding-settings/design.md.
+# docs/increments/completed/mem-192-ocr-gpu/design.md and docs/increments/active/mem-135-embedding-settings/design.md.
 
 x-service-defaults: &service-defaults
   restart: unless-stopped

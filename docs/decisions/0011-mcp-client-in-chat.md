@@ -4,7 +4,7 @@ Status: Accepted, implementation started 2026-09-15. Supersedes only the sentenc
 
 ## Context
 
-Chat tools are written one by one (`web_search`, `open_url`, image generation, knowledge search, `run_python`). Ingestion copies content ahead of time and cannot answer live state, structured queries or sources that must be read with the asking User's own permissions. The owner chose to port Onyx `40eb240df`'s MCP client ("MCP actions") without reducing its behavior, accepted first against the official Google Drive MCP server. The increment is [MEM-112](../increments/active/mem-112-chat-mcp-client/design.md).
+Chat tools are written one by one (`web_search`, `open_url`, image generation, knowledge search, `run_python`). Ingestion copies content ahead of time and cannot answer live state, structured queries or sources that must be read with the asking User's own permissions. The owner chose to port Onyx `40eb240df`'s MCP client ("MCP actions") without reducing its behavior, accepted first against the official Google Drive MCP server. The increment is [MEM-112](../increments/completed/mem-112-chat-mcp-client/design.md).
 
 ## Decision
 

@@ -1,8 +1,8 @@
 # Provider/model architecture — MEM-11 baseline và MEM-77
 
-Chốt thiết kế ngày 2026-09-09. Tài liệu này giữ reference architecture xuyên backend và UI. Backend catalog, quyền, organization BYOK, selection và adapter contract được triển khai trong [increment backend](../../active/mem-77-provider-backend/design.md); [Chat model spec](../../../specs/chat-models.md) sở hữu contract đã có. UI selector/admin chưa triển khai; Đức Anh mở rộng adapter local và kiểm endpoint thật trên nền backend này.
+Chốt thiết kế ngày 2026-09-09. Tài liệu này giữ reference architecture xuyên backend và UI. Backend catalog, quyền, organization BYOK, selection và adapter contract được triển khai trong [increment backend](../mem-77-provider-backend/design.md); [Chat model spec](../../../specs/chat-models.md) sở hữu contract đã có. UI selector/admin chưa triển khai; Đức Anh mở rộng adapter local và kiểm endpoint thật trên nền backend này.
 
-Phases 2.1–2.4 đã merge vào main qua PR #86. Backend provider/model foundation đang trên `feat/mem-77-provider-backend`; không coi đó là code đã merge hoặc local provider đã nghiệm thu. [Handoff](../../active/mem-77-provider-backend/adapter-handoff.md) chỉ rõ extension point và phần kiểm chứng còn thuộc adapter mới.
+Phases 2.1–2.4 đã merge vào main qua PR #86. Backend provider/model foundation đang trên `feat/mem-77-provider-backend`; không coi đó là code đã merge hoặc local provider đã nghiệm thu. [Handoff](../mem-77-provider-backend/adapter-handoff.md) chỉ rõ extension point và phần kiểm chứng còn thuộc adapter mới.
 
 ## Ownership và điểm nối
 
