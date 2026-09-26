@@ -1,19 +1,14 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it } from "vitest";
 import { AssistantRuntimeProvider, useLocalRuntime } from "@assistant-ui/react";
 import { i18n } from "@/i18n/index";
+import { HttpResponse } from "msw";
+import { handleCopyChatLibraryFile, handleGetChatFile } from "@/lib/hey-api/msw.gen";
 import type { ChatLibraryFile } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { ChatAttachmentStaging, ChatComposerAttachments } from "./chat-attachment-staging";
 import { useChatAttachmentStaging } from "./chat-attachment-staging-context";
-
-const copyChatLibraryFile = vi.hoisted(() => vi.fn());
-const getChatFile = vi.hoisted(() => vi.fn());
-
-vi.mock("@/lib/hey-api/sdk.gen", () => ({
-  copyChatLibraryFile: (...args: unknown[]) => copyChatLibraryFile(...args),
-  getChatFile: (...args: unknown[]) => getChatFile(...args),
-}));
 
 const copyId = "55555555-5555-4555-8555-555555555555";
 const generated: ChatLibraryFile = {
@@ -59,23 +54,25 @@ function Harness() {
 
 beforeEach(async () => {
   await i18n.changeLanguage("vi");
-  vi.clearAllMocks();
 });
 afterEach(cleanup);
 
 it("waits for a library copy on the composer and turns it into an attachment", async () => {
   const user = userEvent.setup();
-  const copy = Promise.withResolvers<unknown>();
-  copyChatLibraryFile.mockReturnValue(copy.promise);
-  getChatFile.mockResolvedValue({
-    data: {
-      id: copyId,
-      filename: generated.filename,
-      mediaType: "image/png",
-      sizeBytes: 2048,
-      status: "READY",
-    },
-  });
+  const copy = Promise.withResolvers<void>();
+  const copied = {
+    id: copyId,
+    filename: generated.filename,
+    mediaType: "image/png",
+    sizeBytes: 2048,
+  };
+  server.use(
+    handleCopyChatLibraryFile(async () => {
+      await copy.promise;
+      return HttpResponse.json({ ...copied, status: "PROCESSING" });
+    }),
+    handleGetChatFile({ body: { ...copied, status: "READY" } }),
+  );
   render(<Harness />);
 
   await user.click(screen.getByRole("button", { name: "Chọn tệp" }));
@@ -83,15 +80,7 @@ it("waits for a library copy on the composer and turns it into an attachment", a
   expect(await screen.findByText(generated.filename)).toBeInTheDocument();
   expect(screen.getByText("Đang chuẩn bị…")).toBeInTheDocument();
 
-  copy.resolve({
-    data: {
-      id: copyId,
-      filename: generated.filename,
-      mediaType: "image/png",
-      sizeBytes: 2048,
-      status: "PROCESSING",
-    },
-  });
+  copy.resolve();
 
   expect(
     await screen.findByRole("button", { name: `Tệp đính kèm: ${generated.filename}` }),
@@ -101,7 +90,7 @@ it("waits for a library copy on the composer and turns it into an attachment", a
 
 it("keeps a failed copy on the composer until it is taken off", async () => {
   const user = userEvent.setup();
-  copyChatLibraryFile.mockRejectedValue(new Error("gone"));
+  server.use(handleCopyChatLibraryFile(() => HttpResponse.json({}, { status: 404 })));
   render(<Harness />);
 
   await user.click(screen.getByRole("button", { name: "Chọn tệp" }));

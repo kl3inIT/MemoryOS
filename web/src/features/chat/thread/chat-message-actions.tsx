@@ -1,15 +1,18 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useContext, useRef, useState, type ReactNode } from "react";
+import { use, useRef, useState, type ReactNode } from "react";
 import { useAuiState } from "@assistant-ui/react";
 import { Pencil } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconButton } from "@/components/ui/icon-button";
 import { EditMessage } from "@/components/assistant-ui/elements/edit-message";
 import { MessageBranches } from "@/components/assistant-ui/elements/message-branches";
 import { MessageActions, type Reaction } from "@/components/assistant-ui/elements/message-actions";
 import { FeedbackDialog } from "@/components/assistant-ui/elements/feedback-dialog";
 import { useTranslation } from "react-i18next";
-import { setChatFeedback, removeChatFeedback } from "@/lib/hey-api/sdk.gen";
+import {
+  removeChatFeedbackMutation,
+  setChatFeedbackMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import { ChatEditingContext } from "./chat-editing-context";
 import { FormDialog } from "@/components/composites/form-dialog";
 import { actionErrorText } from "@/lib/action-errors";
@@ -19,6 +22,23 @@ import { ChatFilePicker } from "@/features/library/file-picker";
 import { ChatBranchAction } from "./chat-branch-action";
 import { ChatRegenerateMenu } from "./chat-regenerate-menu";
 
+type MessagePart = ReturnType<typeof useMessage>["parts"][number];
+
+function useMessage() {
+  return useAuiState((state) => state.message);
+}
+
+/** The library file a message part refers to, for parts that carry one. */
+function fileIdOf(part: MessagePart | { type: string; data?: unknown; image?: unknown }) {
+  const reference =
+    part.type === "file" && "data" in part
+      ? part.data
+      : part.type === "image" && "image" in part
+        ? part.image
+        : undefined;
+  return typeof reference === "string" ? fileIdFromReference(reference) : undefined;
+}
+
 export function ChatUserMessageContent({
   children,
   readOnly,
@@ -27,28 +47,48 @@ export function ChatUserMessageContent({
   readOnly: boolean;
 }) {
   const ui = useAppTranslation();
-
-  const editing = useContext(ChatEditingContext);
-  const message = useAuiState((state) => state.message);
+  const editing = use(ChatEditingContext);
+  const message = useMessage();
   const [editor, setEditor] = useState(false);
   const [text, setText] = useState("");
   const [fileIds, setFileIds] = useState<string[]>([]);
-  const [error, setError] = useState<string>();
-  const [saving, setSaving] = useState(false);
   const request = useRef(crypto.randomUUID());
-  const inFlight = useRef(false);
+  const save = useMutation({
+    mutationFn: () => editing!.edit(message.id, text, request.current, fileIds),
+    onSuccess: () => setEditor(false),
+  });
   const available =
     !readOnly &&
     !!editing?.sessionId &&
     editing.branches.some((entry) => entry.id === message.id && entry.parentMessageId);
+  function openEditor() {
+    setFileIds(
+      [
+        ...message.parts,
+        ...(message.attachments ?? []).flatMap((attachment) => attachment.content ?? []),
+      ].flatMap((part) => {
+        const id = fileIdOf(part);
+        return id ? [id] : [];
+      }),
+    );
+    setText(
+      message.parts
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join(""),
+    );
+    request.current = crypto.randomUUID();
+    save.reset();
+    setEditor(true);
+  }
   return (
     <>
       {editor && editing && available ? (
         <EditMessage
           value={text}
-          pending={saving}
+          pending={save.isPending}
           saveDisabled={editing.busy}
-          error={error ? ui(error) : undefined}
+          error={save.isError ? ui(actionErrorText(save.error)) : undefined}
           hasAttachments={fileIds.length > 0}
           onValueChange={(value) => {
             setText(value);
@@ -56,26 +96,16 @@ export function ChatUserMessageContent({
           }}
           onCancel={() => {
             setEditor(false);
-            setError(undefined);
+            save.reset();
           }}
           onSave={() => {
-            if (inFlight.current || editing.busy) return;
-            inFlight.current = true;
-            setSaving(true);
-            setError(undefined);
-            void editing
-              .edit(message.id, text, request.current, fileIds)
-              .then(() => setEditor(false))
-              .catch((cause: unknown) => setError(actionErrorText(cause)))
-              .finally(() => {
-                inFlight.current = false;
-                setSaving(false);
-              });
+            if (save.isPending || editing.busy) return;
+            save.mutate();
           }}
         >
           <ChatFilePicker
             selected={fileIds}
-            disabled={saving || editing.busy}
+            disabled={save.isPending || editing.busy}
             onSelect={(ids) => {
               setFileIds(ids);
               request.current = crypto.randomUUID();
@@ -83,7 +113,7 @@ export function ChatUserMessageContent({
           />
         </EditMessage>
       ) : (
-        <div className="max-w-[90%] rounded-2xl bg-surface-sunken px-4 py-3 whitespace-pre-wrap [overflow-wrap:anywhere]">
+        <div className="max-w-9/10 rounded-2xl bg-surface-sunken px-4 py-3 whitespace-pre-wrap wrap-anywhere">
           {children}
         </div>
       )}
@@ -95,72 +125,44 @@ export function ChatUserMessageContent({
             size="sm"
             prominence="internal"
             disabled={editing.busy}
-            onClick={() => {
-              setFileIds(
-                [
-                  ...message.parts,
-                  ...(message.attachments ?? []).flatMap((attachment) => attachment.content ?? []),
-                ]
-                  .map((part) => {
-                    const reference =
-                      part.type === "file"
-                        ? part.data
-                        : part.type === "image"
-                          ? part.image
-                          : undefined;
-                    return typeof reference === "string"
-                      ? fileIdFromReference(reference)
-                      : undefined;
-                  })
-                  .filter((id): id is string => !!id),
-              );
-              setText(
-                message.parts
-                  .filter((part) => part.type === "text")
-                  .map((part) => part.text)
-                  .join(""),
-              );
-              request.current = crypto.randomUUID();
-              setError(undefined);
-              setEditor(true);
-            }}
+            onClick={openEditor}
           >
             <Pencil />
           </IconButton>
-          <ChatMessageActions role="user" />
+          <ChatMessageActions author="user" />
         </div>
       )}
     </>
   );
 }
 
-export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
+export function ChatMessageActions({ author }: { author: "user" | "assistant" }) {
   const ui = useAppTranslation();
-
-  const editing = useContext(ChatEditingContext);
-  const message = useAuiState((state) => state.message);
+  const editing = use(ChatEditingContext);
+  const message = useMessage();
   const [rating, setRating] = useState<Reaction>(null);
-  const [removing, setRemoving] = useState(false);
-  const [error, setError] = useState<string>();
-  const removeBusy = useRef(false);
   const regenerateRequest = useRef(crypto.randomUUID());
   // A retry with the same model replays its request; another model is a new command.
   const modelRequest = useRef<{ model?: string; id?: string }>({});
   const cache = useQueryClient();
+  const removeFeedback = useMutation({
+    ...removeChatFeedbackMutation(),
+    onSuccess: (_removed, { path }) => invalidateChatVersions(cache, path.sessionId),
+  });
   if (!editing?.sessionId) return null;
   const sessionId = editing.sessionId;
   const node = editing.branches.find((entry) => entry.id === message.id);
   if (!node?.parentMessageId) return null;
-  const siblings = editing.branches.filter(
-    (entry) => entry.parentMessageId === node.parentMessageId,
-  );
+  const parentMessageId = node.parentMessageId;
+  const siblings = editing.branches.filter((entry) => entry.parentMessageId === parentMessageId);
   const index = siblings.findIndex((entry) => entry.id === message.id);
   const feedback = editing.feedback.find((entry) => entry.assistantMessageId === message.id);
   const content = message.parts.some((part) => part.type === "text" && part.text.trim());
+  const disabled = editing.busy || removeFeedback.isPending;
   return (
     <>
       <MessageBranches
-        label={role === "user" ? ui("Phiên bản câu hỏi") : ui("Phiên bản câu trả lời")}
+        label={author === "user" ? ui("Phiên bản câu hỏi") : ui("Phiên bản câu trả lời")}
         count={siblings.length}
         index={index}
         disabled={editing.busy}
@@ -168,52 +170,44 @@ export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
           void editing.branch(siblings[next]!.id, message.id).catch(() => {});
         }}
       />
-      {role === "assistant" && (
+      {author === "assistant" && (
         <MessageActions
           feedbackAvailable={content}
           reaction={
             feedback?.positive === true ? "up" : feedback?.positive === false ? "down" : null
           }
-          disabled={editing.busy || removing}
+          disabled={disabled}
           onRegenerate={() => {
             void editing
-              .regenerate(node.parentMessageId!, regenerateRequest.current)
+              .regenerate(parentMessageId, regenerateRequest.current)
               .then(() => {
                 regenerateRequest.current = crypto.randomUUID();
               })
               .catch(() => {});
           }}
           onReactionChange={(next) => {
-            setError(undefined);
+            removeFeedback.reset();
             if (next) {
               setRating(next);
               return;
             }
-            if (removeBusy.current) return;
-            removeBusy.current = true;
-            setRemoving(true);
-            void removeChatFeedback({
+            if (removeFeedback.isPending) return;
+            removeFeedback.mutate({
               path: { sessionId, assistantMessageId: message.id },
               signal: AbortSignal.timeout(30000),
-            })
-              .then(() => invalidateChatVersions(cache, sessionId))
-              .catch((cause: unknown) => setError(actionErrorText(cause)))
-              .finally(() => {
-                removeBusy.current = false;
-                setRemoving(false);
-              });
+            });
           }}
         />
       )}
-      {role === "assistant" && (
+      {author === "assistant" && (
         <ChatRegenerateMenu
           sessionId={sessionId}
-          disabled={editing.busy || removing}
+          disabled={disabled}
           onSelect={(modelId) => {
             if (modelRequest.current.model !== modelId)
               modelRequest.current = { model: modelId, id: crypto.randomUUID() };
             void editing
-              .regenerate(node.parentMessageId!, modelRequest.current.id!, modelId)
+              .regenerate(parentMessageId, modelRequest.current.id!, modelId)
               .then(() => {
                 modelRequest.current = {};
               })
@@ -225,11 +219,11 @@ export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
         sessionId={sessionId}
         messageId={message.id}
         originTitle={editing.sessionTitle}
-        disabled={editing.busy || removing}
+        disabled={disabled}
       />
-      {error && (
+      {removeFeedback.isError && (
         <p role="alert" className="text-xs">
-          {ui(error)}
+          {ui(actionErrorText(removeFeedback.error))}
         </p>
       )}
       {rating && (
@@ -263,6 +257,10 @@ function FeedbackEditor({
   const cache = useQueryClient();
   const [comment, setComment] = useState(feedback?.comment ?? "");
   const [reason, setReason] = useState(feedback?.reason ?? "");
+  const save = useMutation({
+    ...setChatFeedbackMutation(),
+    onSuccess: () => invalidateChatVersions(cache, sessionId),
+  });
   const reasons: { id: string; label: string }[] = REASONS.map((id) => ({ id, label: t(id) }));
   if (reason && !reasons.some((entry) => entry.id === reason))
     reasons.push({ id: reason, label: reason });
@@ -276,12 +274,11 @@ function FeedbackEditor({
       description={t("description")}
       submitLabel={t("send")}
       onSubmit={async () => {
-        await setChatFeedback({
+        await save.mutateAsync({
           path: { sessionId, assistantMessageId: messageId },
           body: { positive, comment, reason },
           signal: AbortSignal.timeout(30000),
         });
-        await invalidateChatVersions(cache, sessionId);
       }}
     >
       <FeedbackDialog

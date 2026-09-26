@@ -30,7 +30,7 @@ export function ChatComposerQuote() {
       className="flex items-start gap-2 rounded-xl bg-surface-sunken px-3 py-2 text-sm text-content-secondary"
     >
       <TextQuote className="mt-0.5 size-4 shrink-0" />
-      <ComposerPrimitive.QuoteText className="line-clamp-2 min-w-0 flex-1 [overflow-wrap:anywhere]" />
+      <ComposerPrimitive.QuoteText className="line-clamp-2 min-w-0 flex-1 wrap-anywhere" />
       <ComposerPrimitive.QuoteDismiss asChild>
         <IconButton size="sm" prominence="internal" aria-label={ui("Bỏ trích dẫn")}>
           <X />
