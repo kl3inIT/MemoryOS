@@ -33,3 +33,15 @@ groups:
         labels: {severity: warning}
         annotations:
           summary: Application requests are waiting for a database connection
+      - alert: MemoryOSModelErrors
+        expr: sum by (gen_ai_request_model) (rate(gen_ai_client_operation_milliseconds_count{error!="none"}[10m])) / clamp_min(sum by (gen_ai_request_model) (rate(gen_ai_client_operation_milliseconds_count[10m])), 0.001) > 0.2
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: More than a fifth of calls to one model are failing; check its provider
+      - alert: MemoryOSChatTurnsFailing
+        expr: sum(rate(memoryos_chat_turn_milliseconds_count{status="failed"}[15m])) / clamp_min(sum(rate(memoryos_chat_turn_milliseconds_count[15m])), 0.001) > 0.1
+        for: 15m
+        labels: {severity: warning}
+        annotations:
+          summary: More than a tenth of Chat turns are failing

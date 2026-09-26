@@ -11,10 +11,11 @@ management:
       export:
         enabled: false
 ---
+# Every deployed environment exports telemetry to its own stack; MEMORYOS_ENVIRONMENT names it.
 spring:
   config:
     activate:
-      on-profile: staging
+      on-profile: "staging | production"
 logging:
   structured:
     format:
@@ -22,7 +23,7 @@ logging:
     json:
       add:
         service_name: ${spring.application.name}
-        environment: staging
+        environment: ${MEMORYOS_ENVIRONMENT:local}
         release: ${MEMORYOS_RELEASE:unknown}
       stacktrace:
         max-length: 8192
@@ -36,7 +37,7 @@ management:
     resource-attributes:
       service.name: ${spring.application.name}
       service.version: ${MEMORYOS_RELEASE:unknown}
-      deployment.environment.name: staging
+      deployment.environment.name: ${MEMORYOS_ENVIRONMENT:local}
     tracing:
       export:
         max-queue-size: 2048
@@ -75,15 +76,55 @@ management:
         resource-attributes:
           service.name: ${spring.application.name}
           service.version: ${MEMORYOS_RELEASE:unknown}
-          deployment.environment.name: staging
+          deployment.environment.name: ${MEMORYOS_ENVIRONMENT:local}
   metrics:
     distribution:
+      # Every timer a dashboard takes a percentile of; each range bounds its bucket count.
       percentiles-histogram:
         http.server.requests: true
         memoryos.redis.operation.processing: true
+        gen_ai.client.operation: true
+        memoryos.chat.turn: true
+        memoryos.chat.turn.first.text: true
+        memoryos.chat.guardrail.check: true
+        memoryos.chat.web.request: true
+        memoryos.chat.image.request: true
+        memoryos.chat.voice.request: true
+        memoryos.chat.mcp.call: true
+        memoryos.chat.research.phase.duration: true
+        memoryos.search.query.duration: true
+        memoryos.search.stage.duration: true
+        memoryos.search.index.duration: true
+        memoryos.operation.initial.queue.wait: true
       minimum-expected-value:
         http.server.requests: 5ms
         memoryos.redis.operation.processing: 5ms
+        gen_ai.client.operation: 50ms
+        memoryos.chat.turn: 100ms
+        memoryos.chat.turn.first.text: 50ms
+        memoryos.chat.guardrail.check: 10ms
+        memoryos.chat.web.request: 10ms
+        memoryos.chat.image.request: 100ms
+        memoryos.chat.voice.request: 10ms
+        memoryos.chat.mcp.call: 10ms
+        memoryos.chat.research.phase.duration: 100ms
+        memoryos.search.query.duration: 5ms
+        memoryos.search.stage.duration: 1ms
+        memoryos.search.index.duration: 5ms
+        memoryos.operation.initial.queue.wait: 5ms
       maximum-expected-value:
         http.server.requests: 120s
         memoryos.redis.operation.processing: 120s
+        gen_ai.client.operation: 300s
+        memoryos.chat.turn: 600s
+        memoryos.chat.turn.first.text: 120s
+        memoryos.chat.guardrail.check: 30s
+        memoryos.chat.web.request: 120s
+        memoryos.chat.image.request: 300s
+        memoryos.chat.voice.request: 120s
+        memoryos.chat.mcp.call: 120s
+        memoryos.chat.research.phase.duration: 900s
+        memoryos.search.query.duration: 30s
+        memoryos.search.stage.duration: 30s
+        memoryos.search.index.duration: 120s
+        memoryos.operation.initial.queue.wait: 3600s

@@ -30,6 +30,7 @@ import io.memoryos.chat.streaming.StreamBufferWriter;
 import io.memoryos.chat.streaming.TestRedis;
 import io.memoryos.shared.ActorId;
 import io.memoryos.shared.TenantId;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -50,6 +51,7 @@ class ChatGroundedTurnTest {
     private final ChatModelSelector models = mock(ChatModelSelector.class);
     private final ChatSettingsService settings = mock(ChatSettingsService.class);
     private final ChatGuardrailCheck guardrails = mock(ChatGuardrailCheck.class);
+    private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final ModelClients.Lease lease = mock(ModelClients.Lease.class);
     private final ChatExecutionProperties limits = new ChatExecutionProperties(1, Duration.ofMinutes(30), Duration.ofSeconds(60),
             Duration.ofSeconds(60), 6, 1024, 32000, 10000, null, null, 10, Duration.ofSeconds(60));
@@ -86,7 +88,8 @@ class ChatGroundedTurnTest {
     }
 
     private ChatTurnService service(AtomicReference<Runnable> queued) {
-        return new ChatTurnService(persistence, model, limits, queued::set, streams, models, null, null, settings, null, null, null, guardrails);
+        return new ChatTurnService(persistence, model, limits, queued::set, streams, models, null, null, settings, null, null, null, guardrails,
+                new ChatTurnMetrics(meters));
     }
 
     private static final ChatSettingsService.TurnPolicy GROUNDED = new ChatSettingsService.TurnPolicy(true, false, ChatGuardrails.NONE);
@@ -115,6 +118,11 @@ class ChatGroundedTurnTest {
             service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
             queued.get().run();
             verifyStored("Tài liệu của tổ chức chưa có thông tin để trả lời câu hỏi này.", ChatMessage.NO_EVIDENCE);
+            // The dashboard counts the refusal by reason, and the refusal is the first text the person saw.
+            assertEquals(1, meters.get("memoryos.chat.turn").tags("status", "completed", "refusal", "no_evidence", "grounded", "true",
+                    "failure", "none", "research", "false").timer().count());
+            assertEquals(1, meters.get("memoryos.chat.turn.first.text").tag("grounded", "true").timer().count());
+            assertEquals(1, meters.get("memoryos.chat.guardrail.check").tag("kind", "question").timer().count());
         }
     }
 
@@ -146,6 +154,8 @@ class ChatGroundedTurnTest {
             verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
             verify(guardrails).recordBlock(any(), any(), any());
             verifyStored("Trợ lý không trả lời câu hỏi về lãnh tụ.", ChatMessage.BLOCKED_TOPIC);
+            assertEquals(1, meters.get("memoryos.chat.turn").tag("refusal", "blocked_topic").timer().count());
+            assertEquals(1, meters.get("memoryos.chat.guardrail.check").tag("kind", "blocked").timer().count());
         }
     }
 
