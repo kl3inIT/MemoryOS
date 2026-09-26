@@ -122,6 +122,8 @@ export function VoiceProviderDialog({
         }
         onSubmit={() => void form.handleSubmit()}
         saving={submitting}
+        submitLabel={connection ? undefined : ui("Kết nối")}
+        pendingLabel={ui("Đang kiểm tra khóa…")}
         busy={busy}
         onTest={
           connection

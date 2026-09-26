@@ -170,7 +170,7 @@ describe("Voice administration", () => {
     const dialog = await screen.findByRole("dialog", { name: "Connect OpenAI" });
     expect(within(dialog).getByLabelText("Transcription model")).toHaveValue("whisper-1");
     await user.type(within(dialog).getByLabelText("API key"), "synthetic-key");
-    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await user.click(within(dialog).getByRole("button", { name: "Connect" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(sent.saved).toHaveLength(1);
@@ -249,7 +249,7 @@ describe("Voice administration", () => {
     expect(within(dialog).getByLabelText("Speech model")).toHaveValue("tts-1");
     expect(within(dialog).getByLabelText("Voice")).toHaveValue("alloy");
     await user.type(within(dialog).getByLabelText("API key"), "synthetic-key");
-    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await user.click(within(dialog).getByRole("button", { name: "Connect" }));
 
     expect(await within(dialog).findByRole("alert")).toHaveTextContent(
       "The voice provider could not be reached or rejected the key. Check the address, key and model, then try again.",

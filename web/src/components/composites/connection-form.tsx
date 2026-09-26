@@ -136,6 +136,8 @@ export function ConnectionForm({
   onSubmit,
   saving,
   saveDisabled = false,
+  submitLabel,
+  pendingLabel,
   onTest,
   testDisabled = false,
   tested,
@@ -152,6 +154,10 @@ export function ConnectionForm({
   onSubmit: () => void;
   saving: boolean;
   saveDisabled?: boolean;
+  /** The submit action's name; Save by default. */
+  submitLabel?: string;
+  /** What the submit action says while it runs, such as a key being checked. */
+  pendingLabel?: string;
   /** Tests the connection; without it no test is offered. */
   onTest?: () => void;
   testDisabled?: boolean;
@@ -209,7 +215,7 @@ export function ConnectionForm({
           {ui("Đóng")}
         </Button>
         <Button type="submit" pending={saving} disabled={busy || saveDisabled}>
-          {ui("Lưu")}
+          {saving && pendingLabel ? pendingLabel : (submitLabel ?? ui("Lưu"))}
         </Button>
       </DialogFooter>
     </form>
