@@ -4612,6 +4612,10 @@ class ChatSessionApiIntegrationTest {
         mockMvc.perform(put("/api/chat/settings/guardrails").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"topics\":[],\"blockedPhrases\":[" + tooMany + "],\"revision\":1}"))
                 .andExpect(status().isBadRequest());
+        // A null topic or phrase is a bad request, never a server error.
+        mockMvc.perform(put("/api/chat/settings/guardrails").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"topics\":[null],\"blockedPhrases\":[null],\"revision\":1}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

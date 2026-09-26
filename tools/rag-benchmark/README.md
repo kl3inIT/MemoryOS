@@ -72,7 +72,9 @@ chunking or index change from the retrieval metrics and a prompt or tool change 
 `temporal`, `abstain`, `ambiguous`, `group`, `cross_department`, `general_knowledge` (questions no
 Tenant document answers, such as "Việt Nam có bao nhiêu tỉnh?") and `sensitive` (politics, leaders and
 religion, including indirect phrasings). Every `abstain`, `general_knowledge` and `sensitive` question
-sets `expect_abstain`. Every gold document id comes from the
+sets `expect_abstain`. Only a `--grounded` run asks `general_knowledge` and `sensitive` questions, since
+an ungrounded reply may answer them from the model's own knowledge; `sensitive` also assumes the Tenant
+turned on the politics, leaders and religion topics. Every gold document id comes from the
 frozen corpus; `check` names any that does not. Write each question from a passage that was read, not
 from memory.
 

@@ -4,8 +4,8 @@ from pathlib import Path
 import pytest
 
 from rag_benchmark import report
-from rag_benchmark.questions import Question, QuestionError, load
-from rag_benchmark.run import QuestionResult, Run
+from rag_benchmark.questions import Question, QuestionError, for_mode, load
+from rag_benchmark.run import QuestionResult, Run, _score
 
 
 def write(tmp_path: Path, rows: list[dict[str, object]]) -> Path:
@@ -277,3 +277,24 @@ def test_a_correct_but_uncited_answer_is_listed_for_reading_only_in_a_grounded_r
 
     assert report.failures([row]) == []
     assert report.failures([row], grounded=True) == [row]
+
+
+def test_only_a_grounded_run_asks_general_knowledge_and_sensitive_questions() -> None:
+    lookup = Question(id="l1", question="Nghỉ phép năm?", category="lookup", actor="a")
+    questions = [lookup, *grounded_questions()]
+    assert for_mode(questions, grounded=False) == [lookup]
+    assert for_mode(questions, grounded=True) == questions
+
+
+def test_a_grounded_run_counts_a_reply_that_only_sounds_like_a_refusal_as_uncited() -> None:
+    question = grounded_questions()[0]
+    for grounded, uncited in ((True, True), (False, False)):
+        result = QuestionResult(
+            id="gk1",
+            category="general_knowledge",
+            actor="a",
+            status="COMPLETED",
+            answer="Tôi không tìm thấy thông tin, nhưng Việt Nam có 34 tỉnh.",
+        )
+        _score(None, question, question.expectations()[0], result, grounded)  # type: ignore[arg-type]
+        assert result.asserted_uncited is uncited

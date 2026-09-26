@@ -111,6 +111,7 @@ def execute(
                         expectation,
                         retrieval_only,
                         (readable or {}).get(expectation.actor),
+                        grounded,
                     )
                 )
     finally:
@@ -127,6 +128,7 @@ def _ask(
     expectation: Expectation,
     retrieval_only: bool,
     corpus: set[str] | None,
+    grounded: bool = False,
 ) -> QuestionResult:
     result = QuestionResult(
         id=question.id,
@@ -153,7 +155,7 @@ def _ask(
     if result.error is None and not retrieval_only:
         # Scored after the leak check, because a question that expects a refusal is scored on what
         # the reply reached, not on its wording alone.
-        _score(judge, question, expectation, result)
+        _score(judge, question, expectation, result, grounded)
     return result
 
 
@@ -184,7 +186,11 @@ def _answer(client: ActorClient, question: Question, result: QuestionResult) -> 
 
 
 def _score(
-    judge: Judge, question: Question, expectation: Expectation, result: QuestionResult
+    judge: Judge,
+    question: Question,
+    expectation: Expectation,
+    result: QuestionResult,
+    grounded: bool = False,
 ) -> None:
     result.abstained = metrics.abstained(
         result.answer,
@@ -192,9 +198,12 @@ def _score(
         expectation.forbidden_document_ids,
         result.refusal_reason,
     )
-    # Measured on every side of a question, the denied side of a group question included.
+    # Measured on every side of a question, the denied side of a group question included. With
+    # grounded answers on, only the recorded refusal declines: a reply that merely sounds like one
+    # but carries no refusal reason escaped the citation gate and must count.
+    declined = bool(result.refusal_reason) if grounded else result.abstained
     result.asserted_uncited = metrics.asserted_without_citation(
-        result.answer, result.citation_ids, result.abstained, result.status
+        result.answer, result.citation_ids, declined, result.status
     )
     if not expectation.scored:
         return

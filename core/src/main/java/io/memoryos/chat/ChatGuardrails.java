@@ -2,6 +2,7 @@ package io.memoryos.chat;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.text.Normalizer;
 import java.util.Locale;
 import org.jspecify.annotations.Nullable;
 
@@ -83,9 +84,14 @@ public record ChatGuardrails(List<TopicSetting> topics, List<String> blockedPhra
 
     /** The first blocked phrase the text contains, ignoring case, as Spring AI {@code SafeGuardAdvisor} matches words. */
     public @Nullable String blockedPhraseIn(String text) {
-        String lower = text.toLowerCase(Locale.ROOT);
-        for (String phrase : blockedPhrases) if (lower.contains(phrase.toLowerCase(Locale.ROOT))) return phrase;
+        String folded = fold(text);
+        for (String phrase : blockedPhrases) if (folded.contains(fold(phrase))) return phrase;
         return null;
+    }
+
+    /** Vietnamese accents arrive both precomposed and decomposed; compare both sides in NFC, ignoring case. */
+    static String fold(String text) {
+        return Normalizer.normalize(text, Normalizer.Form.NFC).toLowerCase(Locale.ROOT);
     }
 
     public int longestPhrase() { return blockedPhrases.stream().mapToInt(String::length).max().orElse(0); }
@@ -94,8 +100,8 @@ public record ChatGuardrails(List<TopicSetting> topics, List<String> blockedPhra
     public static ChatGuardrails of(List<TopicSetting> topics, List<String> phrases, @Nullable String phraseMessage) {
         var cleaned = new ArrayList<String>();
         for (String phrase : phrases) {
-            String value = phrase == null ? "" : phrase.strip();
-            if (value.isEmpty() || cleaned.stream().anyMatch(existing -> existing.equalsIgnoreCase(value))) continue;
+            String value = phrase == null ? "" : Normalizer.normalize(phrase.strip(), Normalizer.Form.NFC);
+            if (value.isEmpty() || cleaned.stream().anyMatch(existing -> fold(existing).equals(fold(value)))) continue;
             if (value.length() > MAX_PHRASE_LENGTH) throw ChatException.invalid("A blocked phrase is too long.");
             cleaned.add(value);
         }

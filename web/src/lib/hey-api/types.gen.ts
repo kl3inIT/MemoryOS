@@ -692,7 +692,7 @@ export type ChatGuardrailTopic = {
 export type ChatGuardrailsRequest = {
     topics: Array<ChatGuardrailTopic>;
     /**
-     * Exact phrases no question or answer may contain; at most 20
+     * Exact phrases no question or answer may contain; at most 20 of at most 100 characters
      */
     blockedPhrases: Array<string>;
     /**

@@ -330,6 +330,9 @@ function GuardrailsSection() {
       setDraft(undefined);
     } catch (failed) {
       setError(presentProblem(failed, "mutation").message);
+      // A conflict means another manager saved first; the draft stays and the next save carries
+      // the current revision.
+      await guardrails.refetch();
     } finally {
       setPending(false);
     }

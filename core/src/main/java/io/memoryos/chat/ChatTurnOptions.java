@@ -19,7 +19,7 @@ import org.jspecify.annotations.Nullable;
  * @param sampling        creativity and reasoning level settled for this turn ({@link ModelSampling#NONE}: use the
  *                        model configuration as it stands)
  * @param grounded        MEM-195: the turn answers from the organization's documents only, because the Tenant or the
- *                        agent says so; it always searches, whatever the agent's search tool setting
+ *                        agent says so; it searches whatever the agent's search tool setting ({@link #searches()})
  */
 public record ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds, boolean sourcesRestricted,
                               @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit,
@@ -48,11 +48,14 @@ public record ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds, boole
                 knowledgeCutoff, taskPrompt, codeInterpreter, value, grounded);
     }
 
-    /** The same restrictions, answering from documents only; such a turn always searches. */
+    /** The same restrictions, answering from documents only or not; the agent's own search setting is kept. */
     public ChatTurnOptions withGrounded(boolean value) {
-        return new ChatTurnOptions(searchEnabled || value, sourceIds, sourcesRestricted, contextTokenLimit, outputTokenLimit,
+        return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, contextTokenLimit, outputTokenLimit,
                 knowledgeCutoff, taskPrompt, codeInterpreter, sampling, value);
     }
+
+    /** Whether the turn offers {@code search_knowledge}: the agent allows it, or the turn is grounded. */
+    public boolean searches() { return searchEnabled || grounded; }
 
     /** The Sources a turn may search, or {@code null} when the agent restricts nothing. */
     public @Nullable List<UUID> sourceAllowlist() { return sourcesRestricted ? sourceIds : null; }

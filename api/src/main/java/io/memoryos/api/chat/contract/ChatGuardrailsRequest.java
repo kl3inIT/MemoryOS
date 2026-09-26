@@ -10,8 +10,8 @@ import org.jspecify.annotations.Nullable;
 
 @Schema(name = "ChatGuardrailsRequest")
 public record ChatGuardrailsRequest(
-        @NotNull @Size(max = 10) List<@Valid ChatGuardrailTopic> topics,
-        @Schema(description = "Exact phrases no question or answer may contain; at most 20")
-        @NotNull @Size(max = 40) List<String> blockedPhrases,
+        @NotNull @Size(max = 10) List<@NotNull @Valid ChatGuardrailTopic> topics,
+        @Schema(description = "Exact phrases no question or answer may contain; at most 20 of at most 100 characters")
+        @NotNull @Size(max = 20) List<@NotNull @Size(max = 100) String> blockedPhrases,
         @Schema(description = "What the person is told when a blocked phrase matches") @Size(max = 500) @Nullable String blockedPhraseMessage,
         @Min(0) long revision) {}

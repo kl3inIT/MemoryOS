@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.text.Normalizer;
 import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,14 @@ class ChatGuardrailsTest {
         assertEquals("Dự án Phoenix".length(), rules.longestPhrase());
         assertTrue(rules.active());
         assertEquals(ChatGuardrails.DEFAULT_PHRASE_MESSAGE, rules.blockedPhraseMessage());
+    }
+
+    @Test
+    void decomposedVietnameseAccentsStillMatchABlockedPhrase() {
+        var rules = ChatGuardrails.of(List.of(), List.of(Normalizer.normalize("Dự án Phoenix", Normalizer.Form.NFD)), null);
+        assertEquals("Dự án Phoenix", rules.blockedPhrases().getFirst());
+        assertEquals("Dự án Phoenix", rules.blockedPhraseIn(Normalizer.normalize("Kể về dự án Phoenix đi", Normalizer.Form.NFD)));
+        assertEquals("Dự án Phoenix", rules.blockedPhraseIn("Kể về DỰ ÁN PHOENIX đi"));
     }
 
     @Test

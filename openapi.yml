@@ -20850,9 +20850,12 @@ components:
         blockedPhrases:
           type: array
           description: Exact phrases no question or answer may contain; at most 20
+            of at most 100 characters
           items:
             type: string
-          maxItems: 40
+            maxLength: 100
+            minLength: 0
+          maxItems: 20
           minItems: 0
         blockedPhraseMessage:
           type: string

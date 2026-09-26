@@ -69,7 +69,8 @@ class ChatGroundedTurnTest {
         when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(call -> new ChatTurnPersistence.TerminalOutcome(call.getArgument(2), call.getArgument(4)));
         when(persistence.existing(any(), any(), any(ChatCommand.class))).thenReturn(Optional.empty());
-        var grounded = ChatTurnOptions.DEFAULT.withGrounded(true);
+        // The agent itself does not search; grounded mode adds the search tool only while it applies.
+        var grounded = new ChatTurnOptions(false, List.of(), null, null).withGrounded(true);
         when(persistence.agent(any(), any())).thenReturn(new ChatTurnPersistence.SessionAgent(new JdbcChatRepository.Persona(
                 "", "gpt-5-mini", grounded, "0", null, List.of(), Set.of("search", "web_search"), null), false, false, false));
         when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any())).thenReturn(pair);
@@ -131,6 +132,7 @@ class ChatGroundedTurnTest {
             var setup = ArgumentCaptor.forClass(ChatTurnSetup.class);
             verify(model).execute(setup.capture(), any(), any(), any(), any(), any(), any(), any(), any());
             assertEquals(true, setup.getValue().options().grounded());
+            assertEquals(true, setup.getValue().options().searches());
         }
     }
 
@@ -159,6 +161,7 @@ class ChatGroundedTurnTest {
             var setup = ArgumentCaptor.forClass(ChatTurnSetup.class);
             verify(model).execute(setup.capture(), any(), any(), any(), any(), any(), any(), any(), any());
             assertFalse(setup.getValue().options().grounded());
+            assertFalse(setup.getValue().options().searches(), "a greeting does not widen the agent's tools");
         }
     }
 

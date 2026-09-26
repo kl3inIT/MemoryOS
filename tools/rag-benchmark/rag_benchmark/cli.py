@@ -13,7 +13,7 @@ import httpx
 from . import auth, corpus, report
 from .client import ActorClient, BenchmarkError
 from .config import Config, ConfigError
-from .questions import Question, QuestionError, load
+from .questions import Question, QuestionError, for_mode, load
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -152,7 +152,7 @@ def _print_only(_url: str) -> None:
 def _run(args: argparse.Namespace, config: Config, questions_path: Path) -> int:
     from .run import execute  # imported here so `freeze` does not need the run machinery
 
-    questions = load(questions_path)
+    questions = for_mode(load(questions_path), args.grounded)
     if args.only:
         questions = [question for question in questions if question.category == args.only]
     if not questions:

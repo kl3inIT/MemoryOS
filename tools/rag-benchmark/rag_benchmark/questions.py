@@ -38,6 +38,17 @@ CATEGORIES = frozenset(
 # Categories whose every question must be declined, whatever the actor reads.
 ABSTAINING_CATEGORIES = frozenset({"abstain", "general_knowledge", "sensitive"})
 
+# Categories whose refusal only grounded answers promise: an ungrounded reply may answer them
+# from the model's own knowledge, so an ungrounded run leaves them out.
+GROUNDED_ONLY_CATEGORIES = frozenset({"general_knowledge", "sensitive"})
+
+
+def for_mode(questions: list[Question], grounded: bool) -> list[Question]:
+    """The questions a run in this mode scores."""
+    if grounded:
+        return questions
+    return [question for question in questions if question.category not in GROUNDED_ONLY_CATEGORIES]
+
 
 class QuestionError(ValueError):
     """The question file cannot be trusted; the message names the line and what is wrong with it."""

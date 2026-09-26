@@ -396,7 +396,9 @@ public class JdbcChatRepository {
             WHERE s.id=:session AND s.deleted_at IS NULL AND p.deleted_at IS NULL AND
             """ + AgentAccessSql.USES.replace(":actor", "s.owner_actor_id");
 
-    private static final String REVISION = "concat_ws(':',p.id,p.revision,p.model_revision,pr.id,pr.revision)";
+    /** The Tenant's Chat settings are part of it because the turn reads grounded answers from them (MEM-195). */
+    private static final String REVISION = "concat_ws(':',p.id,p.revision,p.model_revision,pr.id,pr.revision,"
+            + "(SELECT cs.revision FROM chat_settings cs WHERE cs.tenant_id = p.tenant_id))";
 
     /**
      * Everything a turn takes from its agent, in one statement: tools, MCP servers and the Sources it searches are
