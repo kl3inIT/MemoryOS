@@ -36,7 +36,7 @@ export function ChatGeneratedFiles() {
         .map((file) => (
           <Suspense
             key={`chart:${file.id}`}
-            fallback={<Skeleton className="mt-3 aspect-video w-full max-w-2xl rounded-xl" />}
+            fallback={<Skeleton className="mt-3 aspect-video w-full max-w-2xl" />}
           >
             <ChatChartCard file={file} />
           </Suspense>

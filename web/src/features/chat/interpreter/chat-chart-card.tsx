@@ -21,9 +21,8 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { getChatFileArtifactChart } from "@/lib/hey-api/sdk.gen";
+import { getChatFileArtifactChartOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { barRows, parseChart, pointRows, type SimpleChart } from "./chat-chart";
 import { fileArtifactUrl } from "@/features/library/content-urls";
 import { type GeneratedFile } from "./chat-code";
@@ -40,21 +39,12 @@ function color(index: number): string {
  */
 export function ChatChartCard({ file }: { file: GeneratedFile }) {
   const ui = useAppTranslation();
-  const { actorId, authorizationVersion } = useApplicationSession();
   const [view, setView] = useState<"interactive" | "static">("interactive");
   const chart = useQuery({
-    queryKey: ["chat-generated-chart", actorId, authorizationVersion, file.id],
+    ...getChatFileArtifactChartOptions({ path: { artifactId: file.id } }),
     staleTime: Infinity,
     retry: false,
-    queryFn: async ({ signal }) =>
-      parseChart(
-        (
-          await getChatFileArtifactChart({
-            path: { artifactId: file.id },
-            signal,
-          })
-        ).data,
-      ) ?? null,
+    select: (data) => parseChart(data) ?? null,
   });
   const drawable = chart.data ?? undefined;
   const title =

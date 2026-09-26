@@ -1,60 +1,43 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SquareTerminal } from "lucide-react";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { SettingsLayout, PageHeader } from "@/components/composites/settings-layout";
+import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
-  getChatInterpreterHealth,
-  getChatInterpreterSettings,
-  updateChatInterpreterSettings,
-} from "@/lib/hey-api/sdk.gen";
-import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
+  getChatInterpreterHealthOptions,
+  getChatInterpreterSettingsOptions,
+  getChatInterpreterSettingsQueryKey,
+  updateChatInterpreterSettingsMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
-
-const notice =
-  "rounded-xl border border-border-default bg-surface-sunken px-4 py-3 text-sm text-content-secondary";
 
 /** Onyx admin Code Interpreter page: one Tenant switch and a live service health check. */
 export function ChatInterpreterSettings() {
   const ui = useAppTranslation();
-  const session = useApplicationSession();
-  const manager = session.capabilities.includes("MODELS_MANAGE");
+  const manager = useApplicationSession().capabilities.includes("MODELS_MANAGE");
   const problemMessage = useProblemMessage();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<ErrorMessage>();
+  const cache = useQueryClient();
   const settings = useQuery({
-    queryKey: ["chat-interpreter", session.actorId, session.authorizationVersion],
+    ...getChatInterpreterSettingsOptions(),
     enabled: manager,
-    queryFn: async ({ signal }) => (await getChatInterpreterSettings({ signal })).data,
     retry: false,
   });
   const health = useQuery({
-    queryKey: ["chat-interpreter-health", session.actorId, session.authorizationVersion],
+    ...getChatInterpreterHealthOptions(),
     enabled: manager && settings.data?.configured === true,
-    queryFn: async ({ signal }) => (await getChatInterpreterHealth({ signal })).data,
     retry: false,
   });
-
-  async function toggle(enabled: boolean) {
-    if (!settings.data) return;
-    setPending(true);
-    setError(undefined);
-    try {
-      await updateChatInterpreterSettings({
-        body: { enabled, revision: settings.data.revision },
-      });
-      await settings.refetch();
-    } catch (failed) {
-      setError(presentProblem(failed, "mutation", {}).message);
-      await settings.refetch();
-    } finally {
-      setPending(false);
-    }
-  }
+  const update = useMutation({
+    ...updateChatInterpreterSettingsMutation(),
+    // A rejected change also reloads, so the switch shows the stored state.
+    onSettled: () => cache.invalidateQueries({ queryKey: getChatInterpreterSettingsQueryKey() }),
+  });
 
   if (!manager)
     return (
@@ -72,30 +55,41 @@ export function ChatInterpreterSettings() {
         )}
       />
       {settings.isError ? (
-        <div role="alert">
-          <p>{ui("Không tải được cài đặt Code Interpreter.")}</p>
-          <Button onClick={() => void settings.refetch()}>{ui("Tải lại")}</Button>
-        </div>
+        <Alert variant="destructive">
+          <AlertTitle>{ui("Không tải được cài đặt Code Interpreter.")}</AlertTitle>
+          <div>
+            <Button onClick={() => void settings.refetch()}>{ui("Tải lại")}</Button>
+          </div>
+        </Alert>
       ) : settings.isPending ? (
         <p role="status">{ui("Đang tải…")}</p>
       ) : !settings.data.configured ? (
-        <p className={notice}>{ui("Máy chủ này chưa cấu hình dịch vụ Code Interpreter.")}</p>
+        <Alert role="note">
+          <AlertDescription>
+            {ui("Máy chủ này chưa cấu hình dịch vụ Code Interpreter.")}
+          </AlertDescription>
+        </Alert>
       ) : (
-        <section aria-label={ui("Code Interpreter")} className="space-y-4">
-          <label className="flex items-center justify-between gap-4 rounded-xl border border-border-default px-4 py-3">
-            <span className="space-y-1">
-              <span className="block font-medium">{ui("Bật Code Interpreter")}</span>
-              <span className="block text-sm text-content-muted">
-                {ui("Mô hình hỗ trợ công cụ sẽ có công cụ run_python khi dịch vụ hoạt động.")}
-              </span>
-            </span>
-            <Switch
-              checked={settings.data.enabled}
-              disabled={pending}
-              onCheckedChange={(checked) => void toggle(checked)}
-              aria-label={ui("Bật Code Interpreter")}
-            />
-          </label>
+        <section aria-label={ui("Code Interpreter")} className="flex flex-col gap-4">
+          <FieldLabel htmlFor="code-interpreter-enabled">
+            <Field orientation="horizontal">
+              <FieldContent>
+                <span>{ui("Bật Code Interpreter")}</span>
+                <FieldDescription>
+                  {ui("Mô hình hỗ trợ công cụ sẽ có công cụ run_python khi dịch vụ hoạt động.")}
+                </FieldDescription>
+              </FieldContent>
+              <Switch
+                id="code-interpreter-enabled"
+                checked={settings.data.enabled}
+                disabled={update.isPending}
+                onCheckedChange={(enabled) =>
+                  update.mutate({ body: { enabled, revision: settings.data.revision } })
+                }
+                aria-label={ui("Bật Code Interpreter")}
+              />
+            </Field>
+          </FieldLabel>
           <div className="flex flex-wrap items-center gap-3">
             {health.isPending ? (
               <StatusBadge tone="neutral">{ui("Đang kiểm tra dịch vụ…")}</StatusBadge>
@@ -115,7 +109,13 @@ export function ChatInterpreterSettings() {
               {ui("Kiểm tra lại")}
             </Button>
           </div>
-          {error ? <p role="alert">{problemMessage(error)}</p> : null}
+          {update.error ? (
+            <Alert variant="destructive">
+              <AlertTitle>
+                {problemMessage(presentProblem(update.error, "mutation", {}).message)}
+              </AlertTitle>
+            </Alert>
+          ) : null}
         </section>
       )}
     </SettingsLayout>
