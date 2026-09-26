@@ -4,7 +4,7 @@ import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { Check, Copy } from "lucide-react";
 import { z } from "zod";
-import { useAppForm } from "@/components/form/app-form";
+import { useAppForm, setServerErrors } from "@/components/form/app-form";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -103,12 +103,8 @@ export function IdentityProviderDialog({
     validationLogic: revalidateLogic(),
     validators: {
       onDynamic: schema,
-      // A new attempt clears the previous attempt's server errors.
-      // TODO(INFRA): remove once useAppForm clears submit errors itself.
-      onSubmit: () => undefined,
     },
     onSubmit: async ({ value, formApi }) => {
-      formApi.setErrorMap({ onSubmit: { form: undefined, fields: {} } });
       const alias = value.alias.trim();
       const issuerUrl = value.issuerUrl.trim();
       const common = {
@@ -134,16 +130,14 @@ export function IdentityProviderDialog({
           });
       } catch (cause) {
         const problem = presentProblem(cause, "mutation", identityProviderMessages);
-        formApi.setErrorMap({
-          onSubmit: {
-            form: problemMessage(problem.message),
-            fields: Object.fromEntries(
-              Object.entries(problem.fields).map(([name, message]) => [
-                name,
-                { message: problemMessage(message) },
-              ]),
-            ),
-          },
+        setServerErrors(formApi, {
+          form: problemMessage(problem.message),
+          fields: Object.fromEntries(
+            Object.entries(problem.fields).map(([name, message]) => [
+              name,
+              { message: problemMessage(message) },
+            ]),
+          ),
         });
         return;
       }

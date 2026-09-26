@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   columnVisibilityFeature,
+  rowSortingFeature,
   createColumnHelper,
   tableFeatures,
   useTable,
@@ -98,5 +99,29 @@ describe("DataTable", () => {
 
     const empty = screen.getByText("No runs").closest("td");
     expect(empty).toHaveAttribute("colspan", "3");
+  });
+
+  it("names the sorted column's direction for assistive technology", () => {
+    const sortable = tableFeatures({ rowSortingFeature, columnMeta: {} as DataTableColumnMeta });
+    const sortColumn = createColumnHelper<typeof sortable, Run>();
+    function Sorted() {
+      const table = useTable({
+        features: sortable,
+        columns: sortColumn.columns([
+          sortColumn.accessor("name", { header: "Name" }),
+          sortColumn.accessor("kind", { header: "Kind" }),
+        ]),
+        data: runs,
+        manualSorting: true,
+        state: { sorting: [{ id: "name", desc: true }] },
+      });
+      return <DataTable table={table} label="Runs" />;
+    }
+    render(<Sorted />);
+    expect(screen.getByRole("columnheader", { name: "Name" })).toHaveAttribute(
+      "aria-sort",
+      "descending",
+    );
+    expect(screen.getByRole("columnheader", { name: "Kind" })).not.toHaveAttribute("aria-sort");
   });
 });

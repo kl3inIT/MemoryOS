@@ -5,7 +5,7 @@ import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Users } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { z } from "zod";
-import { useAppForm } from "@/components/form/app-form";
+import { useAppForm, setServerErrors } from "@/components/form/app-form";
 import { PageHeader } from "@/components/composites/settings-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,19 +29,13 @@ export function CreateGroupPage() {
       onDynamic: z.object({
         name: zCreateGroupRequest.shape.name.trim().min(1, ui("Enter a group name.")),
       }),
-      // A new attempt clears the previous attempt's server errors.
-      // TODO(INFRA): remove once useAppForm clears submit errors itself.
-      onSubmit: () => undefined,
     },
     onSubmit: async ({ value, formApi }) => {
-      formApi.setErrorMap({ onSubmit: { form: undefined, fields: {} } });
       let groupId: string;
       try {
         groupId = (await createGroup.mutateAsync({ body: { name: value.name.trim() } })).id;
       } catch (cause) {
-        formApi.setErrorMap({
-          onSubmit: { form: ui(groupMutationError(cause, "create")), fields: {} },
-        });
+        setServerErrors(formApi, { form: ui(groupMutationError(cause, "create")), fields: {} });
         return;
       }
       await queryClient.invalidateQueries();

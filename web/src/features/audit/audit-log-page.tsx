@@ -25,7 +25,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { TablePagination } from "@/components/ui/table-pagination";
-import { cursorTablePaging, useCursorPaging } from "@/features/sources/shared/use-cursor-paging";
+import { cursorTablePaging, useCursorPaging } from "@/components/data-table/use-cursor-paging";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { formatUiDate } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";

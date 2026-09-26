@@ -87,6 +87,10 @@ export function DataTable<TFeatures extends TableFeatures, TData extends RowData
                 <TableHead
                   key={header.id}
                   colSpan={header.colSpan}
+                  aria-sort={ariaSort(
+                    (table.options.state as { sorting?: SortEntry[] } | undefined)?.sorting,
+                    header.column.id,
+                  )}
                   className={
                     metaOf(header.column.columnDef.meta)?.align === "end"
                       ? "px-4 text-right"
@@ -140,4 +144,13 @@ export function DataTable<TFeatures extends TableFeatures, TData extends RowData
       {footer}
     </div>
   );
+}
+
+/** The sorted column's direction for assistive technology; paging and sorting are manual, so the table state names it. */
+type SortEntry = { id: string; desc: boolean };
+
+function ariaSort(sorting: readonly SortEntry[] | undefined, columnId: string) {
+  const sorted = sorting?.find((entry) => entry.id === columnId);
+  if (!sorted) return undefined;
+  return sorted.desc ? "descending" : "ascending";
 }

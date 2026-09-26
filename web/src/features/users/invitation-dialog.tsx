@@ -3,7 +3,7 @@ import { revalidateLogic } from "@tanstack/react-form";
 import { Copy, Link2 } from "lucide-react";
 import { useState, type RefObject } from "react";
 import { z } from "zod";
-import { useAppForm } from "@/components/form/app-form";
+import { setServerErrors, useAppForm } from "@/components/form/app-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -100,21 +100,18 @@ function InvitationForm({
           .min(1, ui("Enter an email address."))
           .pipe(z.email(problemMessage({ key: "email" })).max(254)),
       }),
-      // A new attempt clears the previous attempt's server errors.
-      // TODO(INFRA): remove once useAppForm clears submit errors itself.
-      onSubmit: () => undefined,
     },
     onSubmit: async ({ value, formApi }) => {
-      formApi.setErrorMap({ onSubmit: { form: undefined, fields: {} } });
       try {
         await onCreate(value.email.trim());
       } catch (cause) {
         const message = problemMessage(invitationError(cause));
-        formApi.setErrorMap({
-          onSubmit: presentProblem(cause, "mutation").fields.email
-            ? { form: undefined, fields: { email: { message } } }
+        setServerErrors(
+          formApi,
+          presentProblem(cause, "mutation").fields.email
+            ? { fields: { email: { message } } }
             : { form: message, fields: {} },
-        });
+        );
       }
     },
   });
