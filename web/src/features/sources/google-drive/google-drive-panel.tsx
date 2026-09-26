@@ -22,21 +22,15 @@ import {
   listSourcesQueryKey,
   listGoogleDriveCredentialsOptions,
   listGoogleDriveCredentialsQueryKey,
-  synchronizeGoogleDriveSourceMutation,
   updateGoogleDrivePauseMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import type {
-  GetGoogleDriveConfigurationResponse,
-  SourceOperation,
-  SourceSummary,
-} from "@/lib/hey-api/types.gen";
+import type { GetGoogleDriveConfigurationResponse, SourceSummary } from "@/lib/hey-api/types.gen";
 import { googleDriveConfigurationConnected } from "./google-drive-credential";
-import { waitForSourceOperation } from "@/features/sources/shared/source-operations";
-import { sourceOperationNotice } from "@/features/sources/shared/source-operation-notice";
 import { reconcileGoogleDriveConfiguration } from "./google-drive-selection";
 import { GoogleDriveConnectionSection } from "./google-drive-connection-section";
 import { GoogleDriveSelectionPanel } from "./google-drive-selection-panel";
 import { GoogleDriveSyncInterval } from "./google-drive-sync-interval";
+import { useGoogleDriveSynchronization } from "./use-google-drive-synchronization";
 import { sourceMutationError, sourceStatusMessage } from "@/features/sources/shared/source-errors";
 import { SourceSummaryCard } from "@/features/sources/shared/source-summary-card";
 import { can } from "@/lib/resource-permissions";
@@ -48,13 +42,6 @@ type DriveAction =
   | "save-interval"
   | "reload-interval"
   | "pause";
-
-const synchronizationTitles = {
-  succeeded: "Synchronization complete",
-  superseded: "Synchronization superseded",
-  cancelled: "Synchronization cancelled",
-  failed: "Synchronization failed",
-};
 
 export function GoogleDrivePanel({
   source,
@@ -122,7 +109,6 @@ export function GoogleDrivePanel({
     (credential?.actions.includes("replace_oauth_client") ?? false);
   const canRevoke =
     canListCredentials && !credentials.isError && (credential?.actions.includes("revoke") ?? false);
-  const synchronize = useMutation(synchronizeGoogleDriveSourceMutation());
   const updatePause = useMutation({ ...updateGoogleDrivePauseMutation(), retry: false });
   const [editingSelection, setEditingSelection] = useState(false);
   const [selectionBusy, setSelectionBusy] = useState(false);
@@ -130,11 +116,9 @@ export function GoogleDrivePanel({
   const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState<AppCopy | null>(null);
   const actionLock = useRef(false);
-  const synchronizationController = useRef<AbortController | null>(null);
   const actionController = useRef<AbortController | null>(null);
   const refreshController = useRef<AbortController | null>(null);
   const credentialRefreshController = useRef<AbortController | null>(null);
-  const [observingSynchronization, setObservingSynchronization] = useState(false);
   const busy = activeAction !== null || leaving;
   const configuration = configurationQuery.data;
   const canPause = can(source, "edit");
@@ -143,6 +127,11 @@ export function GoogleDrivePanel({
   const connected = googleDriveConfigurationConnected(configuration);
   const serviceAccount = configuration?.credentialAuthMethod === "SERVICE_ACCOUNT";
   const hasSelectionChanges = editingSelection;
+  const synchronization = useGoogleDriveSynchronization({
+    source,
+    resetKey: `${source.id}:${session.actorId}:${session.authorizationVersion}:${capabilities}:${configuration?.credentialId}:${configuration?.credentialRevision}`,
+    refresh,
+  });
 
   const resourceKey = `${source.id}:${session.actorId}:${session.authorizationVersion}:${session.capabilities.join(",")}:${session.scopedCapabilities.join(",")}`;
   const [previousAuthority, setPreviousAuthority] = useState({ resourceKey, canConfigure });
@@ -164,19 +153,8 @@ export function GoogleDrivePanel({
 
   useLayoutEffect(() => {
     actionController.current?.abort();
-    synchronizationController.current?.abort();
-    synchronizationController.current = null;
-    const restore = () => {
-      setLeaving(false);
-      if (synchronizationController.current?.signal.aborted) {
-        synchronizationController.current = null;
-        setObservingSynchronization(false);
-      }
-    };
-    const clear = () => {
-      actionController.current?.abort();
-      synchronizationController.current?.abort();
-    };
+    const restore = () => setLeaving(false);
+    const clear = () => actionController.current?.abort();
     window.addEventListener("pageshow", restore);
     window.addEventListener("pagehide", clear);
     return () => {
@@ -347,72 +325,8 @@ export function GoogleDrivePanel({
   }
 
   async function sync() {
-    if (!connected || hasSelectionChanges || stale || synchronizationController.current) return;
-    const controller = new AbortController();
-    synchronizationController.current = controller;
-    setObservingSynchronization(true);
-    let operation: SourceOperation;
-    try {
-      operation = await synchronize.mutateAsync({
-        path: { sourceId: source.id },
-        signal: controller.signal,
-      });
-      controller.signal.throwIfAborted();
-    } catch (cause) {
-      if (synchronizationController.current === controller)
-        synchronizationController.current = null;
-      if (!synchronizationController.current) setObservingSynchronization(false);
-      if (controller.signal.aborted) return;
-      throw cause;
-    }
-    notify({ tone: "info", title: "Synchronization requested", description: source.name });
-    void observeSynchronization(operation, controller);
-    await refresh();
-  }
-
-  async function observeSynchronization(operation: SourceOperation, controller: AbortController) {
-    try {
-      const completed = await waitForSourceOperation(operation, controller.signal);
-      const failureKind = completed.errorCode ?? "SOURCE_SYNC_FAILED";
-      if (completed.status === "FAILED" && isSystemSynchronizationFailure(failureKind))
-        captureWorkflowFailure(new Error("Google Drive synchronization failed"), {
-          workflow: "google-drive-sync",
-          stage: "operation-complete",
-          failureKind,
-        });
-      notify(
-        sourceOperationNotice(completed, {
-          subject: source.name,
-          titles: synchronizationTitles,
-          succeeded: appText(
-            "{{v1}}: selected content is synchronized. Indexing may still be running.",
-            { v1: source.name },
-          ),
-          failureCode: "SOURCE_SYNC_FAILED",
-          failureSubject: false,
-        }),
-      );
-      await refresh();
-    } catch (cause) {
-      if (!controller.signal.aborted) {
-        captureWorkflowFailure(cause, {
-          workflow: "google-drive-sync",
-          stage: "operation-status",
-          failureKind: "status-unavailable",
-        });
-        notify({
-          tone: "error",
-          title: "Synchronization status unavailable",
-          description: appText(
-            "Synchronization may still be running. Refresh the source to check its status.",
-          ),
-        });
-      }
-    } finally {
-      if (synchronizationController.current === controller)
-        synchronizationController.current = null;
-      if (!synchronizationController.current) setObservingSynchronization(false);
-    }
+    if (!connected || hasSelectionChanges || stale) return;
+    await synchronization.sync();
   }
 
   if (!configuration) {
@@ -488,7 +402,7 @@ export function GoogleDrivePanel({
                       configuration.pendingWork ||
                       source.pendingWork
                     }
-                    pending={activeAction === "sync" || observingSynchronization}
+                    pending={activeAction === "sync" || synchronization.observing}
                     onClick={() => run("sync", sync)}
                   >
                     <Play /> {ui("Synchronize now")}
@@ -613,15 +527,5 @@ export function GoogleDrivePanel({
         {content}
       </TabsContent>
     </section>
-  );
-}
-
-function isSystemSynchronizationFailure(errorCode: string) {
-  return (
-    errorCode.startsWith("SOURCE_STORAGE_") ||
-    errorCode === "SOURCE_ACQUISITION_INTERNAL" ||
-    errorCode === "SOURCE_GOOGLE_INTERNAL" ||
-    errorCode === "SOURCE_GOOGLE_INCOMPLETE" ||
-    errorCode === "SOURCE_SYNC_ITEM_FAILURES_EXCEEDED"
   );
 }
