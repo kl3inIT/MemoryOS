@@ -63,7 +63,7 @@ export function LibrarySettingsButton({
                 <AlertTitle>{ui("Không tải được dung lượng đã dùng.")}</AlertTitle>
               </Alert>
             )}
-            {!usage && !usageFailed && <Skeleton className="h-40 w-full rounded-xl" />}
+            {!usage && !usageFailed && <Skeleton className="h-40 w-full" />}
             {usage && (
               <StorageMeter
                 usage={usage}

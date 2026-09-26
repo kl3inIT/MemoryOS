@@ -1,4 +1,5 @@
 import { Fragment, useRef, useState, type ReactNode } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
   Download,
@@ -35,7 +36,7 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia } from "@/co
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
-import { retryChatFile } from "@/lib/hey-api/sdk.gen";
+import { retryChatFileMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { fileSize } from "@/lib/file-size";
 import { downloadUrl } from "./file-preview";
 import {
@@ -168,9 +169,9 @@ function FileGroup({
   return (
     <section aria-label={label}>
       {showLabel && (
-        <div className="mb-1.5 flex items-center gap-2 px-[13px]">
+        <div className="mb-1.5 flex items-center gap-2 px-3.25">
           {onSelectDay ? (
-            <label className="flex cursor-pointer items-center gap-2">
+            <>
               <Checkbox
                 aria-label={ui("Chọn tất cả {{day}}", { day: label })}
                 checked={chosen === 0 ? false : chosen === files.length ? true : "indeterminate"}
@@ -179,7 +180,7 @@ function FileGroup({
               <h2 className="font-secondary-body text-content-muted first-letter:uppercase">
                 {label}
               </h2>
-            </label>
+            </>
           ) : (
             <h2 className="font-secondary-body text-content-muted first-letter:uppercase">
               {label}
@@ -202,7 +203,7 @@ function FileGroup({
           ))}
         </ul>
       ) : (
-        <ul role="list" className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2">
           {files.map((file) => (
             <li key={file.id}>
               <LibraryRow
@@ -235,50 +236,56 @@ function LibraryRow({
 }) {
   const ui = useAppTranslation();
   return (
-    <Item
-      variant="outline"
+    // The row's state is drawn around the Item, which owns its own border: a pointer over the row, an open
+    // menu (which takes the pointer off the row but still acts on its file) and, strongest, a chosen row.
+    <div
       className={cn(
-        "transition-colors hover:border-border-default hover:bg-surface-subtle",
-        // An open menu takes the pointer off the row, so the row keeps saying which file the menu acts on.
-        "has-[[data-state=open]]:border-border-default has-[[data-state=open]]:bg-surface-subtle",
-        // A chosen row is read at a glance while the eye scans the list, so its edge is the strong one.
-        selected && "border-border-strong bg-surface-subtle ring-1 ring-border-strong",
+        "rounded-lg transition-colors hover:bg-surface-subtle has-[[data-state=open]]:bg-surface-subtle",
+        selected && "bg-surface-subtle ring-1 ring-border-strong",
       )}
     >
-      <Checkbox
-        aria-label={ui("Chọn {{name}}", { name: file.filename })}
-        checked={selected}
-        onCheckedChange={() => onSelect(file)}
-      />
-      {/* One box whatever the file is: a picture fills it, anything else centres its icon in it, so the
+      <Item variant="outline">
+        <Checkbox
+          aria-label={ui("Chọn {{name}}", { name: file.filename })}
+          checked={selected}
+          onCheckedChange={() => onSelect(file)}
+        />
+        {/* One box whatever the file is: a picture fills it, anything else centres its icon in it, so the
           names below each other start at the same place. */}
-      <ItemMedia variant="image" className="bg-surface-sunken">
-        <LibraryThumbnail file={file} className="size-full object-cover" />
-      </ItemMedia>
-      <ItemContent className="min-w-0">
-        <button
-          type="button"
-          className="flex min-w-0 items-center gap-2 rounded-sm text-left font-main-ui-action outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40"
-          onClick={() => actions.onPreview(file)}
-        >
-          <span className="truncate">{file.filename}</span>
-          {file.favorite && (
-            <Star
-              role="img"
-              className="size-3.5 shrink-0 fill-current text-status-warning-content"
-              aria-label={ui("Yêu thích")}
-            />
-          )}
-        </button>
-        <ItemDescription className="flex flex-wrap items-center gap-x-1.5">
-          <RowMeta file={file} view={view} />
-        </ItemDescription>
-        <FileUsage file={file} onRemove={actions.onRemoveFromProject} />
-      </ItemContent>
-      <ItemActions className="opacity-100 transition-opacity md:opacity-0 md:group-hover/item:opacity-100 md:group-focus-within/item:opacity-100 md:has-[[data-state=open]]:opacity-100">
-        <RowActionButtons file={file} view={view} actions={actions} />
-      </ItemActions>
-    </Item>
+        <ItemMedia variant="image">
+          <span className="flex size-full items-center justify-center bg-surface-sunken">
+            <LibraryThumbnail file={file} className="size-full object-cover" />
+          </span>
+        </ItemMedia>
+        <ItemContent className="min-w-0">
+          <button
+            type="button"
+            className="flex min-w-0 items-center gap-2 rounded-sm text-left font-main-ui-action outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40"
+            onClick={() => actions.onPreview(file)}
+          >
+            <span className="truncate">{file.filename}</span>
+            {file.favorite && (
+              <Star
+                role="img"
+                className="size-3.5 shrink-0 fill-current text-status-warning-content"
+                aria-label={ui("Yêu thích")}
+              />
+            )}
+          </button>
+          <ItemDescription>
+            <span className="flex flex-wrap items-center gap-x-1.5">
+              <RowMeta file={file} view={view} />
+            </span>
+          </ItemDescription>
+          <FileUsage file={file} onRemove={actions.onRemoveFromProject} />
+        </ItemContent>
+        <ItemActions>
+          <div className="opacity-100 transition-opacity md:opacity-0 md:group-hover/item:opacity-100 md:group-focus-within/item:opacity-100 md:has-[[data-state=open]]:opacity-100">
+            <RowActionButtons file={file} view={view} actions={actions} />
+          </div>
+        </ItemActions>
+      </Item>
+    </div>
   );
 }
 
@@ -566,7 +573,7 @@ function TrashActions({
         </IconButton>
       ) : (
         <Button size="sm" prominence="internal" onClick={() => void onRestore()}>
-          <Undo2 className="size-4" aria-hidden="true" />
+          <Undo2 data-icon="inline-start" />
           {ui("Khôi phục")}
         </Button>
       )}
@@ -606,19 +613,10 @@ function PendingActions({
   compact?: boolean;
 }) {
   const ui = useAppTranslation();
-  const [busy, setBusy] = useState(false);
-  const retry = async () => {
-    setBusy(true);
-    try {
-      await retryChatFile({
-        path: { fileId: file.id },
-        signal: AbortSignal.timeout(30000),
-      });
-      await onRetried();
-    } finally {
-      setBusy(false);
-    }
-  };
+  const retry = useMutation({ ...retryChatFileMutation(), onSuccess: onRetried });
+  const busy = retry.isPending;
+  const start = () =>
+    retry.mutate({ path: { fileId: file.id }, signal: AbortSignal.timeout(30_000) });
   return (
     <div className="flex shrink-0 items-center gap-0.5">
       {file.status === "FAILED" &&
@@ -629,13 +627,13 @@ function PendingActions({
             prominence="internal"
             pending={busy}
             aria-label={ui("Thử lại {{name}}", { name: file.filename })}
-            onClick={() => void retry()}
+            onClick={start}
           >
             <RotateCcw />
           </IconButton>
         ) : (
-          <Button size="sm" prominence="internal" pending={busy} onClick={() => void retry()}>
-            <RotateCcw className="size-4" aria-hidden="true" />
+          <Button size="sm" prominence="internal" pending={busy} onClick={start}>
+            <RotateCcw data-icon="inline-start" />
             {ui("Thử lại")}
           </Button>
         ))}
@@ -661,8 +659,9 @@ export function FileUsage({
   onRemove?: (file: LibraryFile, project: { id: string; name: string }) => Promise<void>;
 }) {
   const ui = useAppTranslation();
-  const [pending, setPending] = useState<string>();
-  const [failed, setFailed] = useState(false);
+  const removal = useMutation({
+    mutationFn: (project: { id: string; name: string }) => onRemove!(file, project),
+  });
   if (file.usedBy.length === 0) return null;
   return (
     <span className="mt-0.5 flex flex-wrap items-center gap-x-2 font-secondary-body text-content-muted">
@@ -674,24 +673,14 @@ export function FileUsage({
             <button
               key={usage.id}
               type="button"
-              disabled={pending !== undefined}
+              disabled={removal.isPending}
               className="underline hover:text-content-primary disabled:opacity-50"
-              onClick={async () => {
-                setPending(usage.id);
-                setFailed(false);
-                try {
-                  await onRemove(file, usage);
-                } catch {
-                  setFailed(true);
-                } finally {
-                  setPending(undefined);
-                }
-              }}
+              onClick={() => removal.mutate(usage)}
             >
               {ui("Gỡ khỏi {{name}}", { name: usage.name })}
             </button>
           ))}
-      {failed && (
+      {removal.isError && (
         <span role="alert" className="text-status-danger-content">
           {ui("Không gỡ được. Hãy thử lại.")}
         </span>

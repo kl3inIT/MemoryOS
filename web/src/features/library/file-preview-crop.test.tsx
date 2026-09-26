@@ -3,30 +3,31 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
 import { i18n } from "@/i18n/index";
+import { handleGetChatImageArtifact } from "@/lib/hey-api/msw.gen";
+import { server } from "@/test/msw";
 import { ChatFilePreviewModal } from "./file-preview-modal";
 import type { PreviewTarget } from "./file-preview";
 
-const getChatImageArtifact = vi.hoisted(() => vi.fn());
-const renderCrop = vi.hoisted(() => vi.fn());
+/** Every generated image the preview read, by id. */
+let readImages: string[] = [];
+const png = () =>
+  server.use(
+    handleGetChatImageArtifact(({ params }) => {
+      readImages.push(params.artifactId);
+      return new HttpResponse(new Blob(["png"], { type: "image/png" }), {
+        headers: { "Content-Type": "image/png" },
+      });
+    }),
+  );
 
-vi.mock("@/lib/hey-api/sdk.gen", () => ({
-  getChatImageArtifact: (...args: unknown[]) => getChatImageArtifact(...args),
-  getChatFileArtifact: vi.fn(),
-  downloadChatFile: vi.fn(),
-  getChatFileArtifactPdfPreview: vi.fn(),
-  previewChatFileArtifactSpreadsheet: vi.fn(),
-  previewChatFileSpreadsheet: vi.fn(),
-}));
+const renderCrop = vi.hoisted(() => vi.fn());
 
 // Canvas encoding is the browser's; the crop the modal asks for is what this test is about.
 vi.mock("./image-crop", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./image-crop")>()),
   renderCrop: (...args: unknown[]) => renderCrop(...args),
-}));
-
-vi.mock("@/features/identity/application-session-context", () => ({
-  useApplicationSession: () => ({ actorId: "actor", authorizationVersion: 1, capabilities: [] }),
 }));
 
 const target: PreviewTarget = {
@@ -52,7 +53,8 @@ const shownBox = { left: 100, top: 50, width: 200, height: 100 };
 beforeEach(async () => {
   await i18n.changeLanguage("vi");
   vi.clearAllMocks();
-  getChatImageArtifact.mockResolvedValue({ data: new Blob(["png"], { type: "image/png" }) });
+  readImages = [];
+  png();
   renderCrop.mockResolvedValue(new Blob(["cropped"], { type: "image/png" }));
   globalThis.URL.createObjectURL = vi.fn(() => "blob:preview");
   globalThis.URL.revokeObjectURL = vi.fn();

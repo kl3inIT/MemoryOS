@@ -1,26 +1,26 @@
 import { DocumentKindIcon } from "@/features/documents/document-source-icon";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { CircleAlert, LoaderCircle, Paperclip, SearchX, Trash2, Upload } from "lucide-react";
+import { CircleAlert, Paperclip, SearchX, Trash2, Upload } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { FormDialog } from "@/components/composites/form-dialog";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useApplicationSession } from "@/features/identity/application-session-context";
+import { Spinner } from "@/components/ui/spinner";
 import {
-  listChatFiles,
-  getChatFile,
-  retryChatFile,
-  deleteChatFile,
-  finalizeChatFileUpload,
-} from "@/lib/hey-api/sdk.gen";
+  deleteChatFileMutation,
+  finalizeChatFileUploadMutation,
+  getChatFileOptions,
+  listChatFilesOptions,
+  listChatFilesQueryKey,
+  retryChatFileMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import { isNotFound } from "@/lib/api";
-import { chatFileSchema, uploadChatFile, chatAttachmentProblem, type ChatFile } from "./files";
+import { chatAttachmentProblem, chatFileOf, uploadChatFile, type ChatFile } from "./files";
 import { useProblemMessage } from "@/lib/use-problem-message";
-import type { ErrorMessage } from "@/lib/problem-presentation";
 
 export function ChatFilePicker({
   trigger,
@@ -50,7 +50,7 @@ export function ChatFilePicker({
               aria-label={ui("Đính kèm tệp")}
               title={ui("Đính kèm tệp")}
             >
-              <Paperclip className="size-4" />
+              <Paperclip />
             </IconButton>
           )}
         </PopoverTrigger>
@@ -129,26 +129,73 @@ function fileStatusLabel(file: ChatFile, ui: ReturnType<typeof useAppTranslation
 function FileStatusIcon({ file }: { file: ChatFile }) {
   const ui = useAppTranslation();
   const label = fileStatusLabel(file, ui);
-  const common = "size-4 shrink-0";
   if (!label)
     return (
-      <DocumentKindIcon mediaType={file.mediaType} filename={file.filename} className={common} />
+      <DocumentKindIcon
+        mediaType={file.mediaType}
+        filename={file.filename}
+        className="size-4 shrink-0"
+      />
     );
   const icon =
     file.status === "PROCESSING" || file.status === "UPLOADING" ? (
-      <LoaderCircle aria-hidden="true" className={`${common} animate-spin text-content-muted`} />
+      <span className="shrink-0 text-content-muted">
+        <Spinner />
+      </span>
     ) : file.status === "FAILED" ? (
-      <CircleAlert aria-hidden="true" className={`${common} text-status-danger-content`} />
+      <CircleAlert aria-hidden="true" className="size-4 shrink-0 text-status-danger-content" />
     ) : file.status === "READY" ? (
-      <SearchX aria-hidden="true" className={`${common} text-content-muted`} />
+      <SearchX aria-hidden="true" className="size-4 shrink-0 text-content-muted" />
     ) : (
-      <Trash2 aria-hidden="true" className={`${common} text-content-muted`} />
+      <Trash2 aria-hidden="true" className="size-4 shrink-0 text-content-muted" />
     );
   return (
     <span role="img" aria-label={label} title={label} className="inline-flex">
       {icon}
     </span>
   );
+}
+
+/** How many recent files one page holds. */
+const recentPage = 30;
+/** How many files one message may carry. */
+const selectionLimit = 20;
+
+/**
+ * The caller's recent uploads, one page at a time, with every selected file that is not on that page read on
+ * its own: the selection must show what it holds, and a file that is gone is named so it can be dropped.
+ */
+function useRecentFiles(offset: number, selected: readonly string[]) {
+  const recent = useQuery({
+    ...listChatFilesOptions({ query: { offset, limit: recentPage } }),
+    select: (views) => views.map(chatFileOf),
+    refetchInterval: (query) =>
+      query.state.data?.some((file) => file.status === "PROCESSING") ? 1500 : false,
+  });
+  const missing = recent.data
+    ? selected.filter((id) => !recent.data.some((file) => file.id === id))
+    : [];
+  const others = useQueries({
+    queries: missing.map((fileId) => ({
+      ...getChatFileOptions({ path: { fileId } }),
+      select: chatFileOf,
+      retry: false,
+    })),
+  });
+  const failure = others.find((other) => other.isError && !isNotFound(other.error));
+  return {
+    entries: [
+      ...others.flatMap((other) => (other.data ? [other.data] : [])).reverse(),
+      ...(recent.data ?? []),
+    ],
+    /** How many files the page itself held, which says whether another page follows. */
+    pageSize: recent.data?.length ?? 0,
+    unavailable: missing.filter((_, index) => isNotFound(others[index]?.error)),
+    isPending: recent.isPending || others.some((other) => other.isPending),
+    isError: recent.isError || failure !== undefined,
+    loaded: recent.isSuccess,
+    refetch: () => recent.refetch(),
+  };
 }
 
 /** `uploadAction` replaces the built-in server upload row; `null` hides it. */
@@ -171,62 +218,54 @@ export function ChatFilePickerContent({
   uploadAction?: ReactNode;
 }) {
   const ui = useAppTranslation();
-
-  const { actorId, authorizationVersion } = useApplicationSession();
-  const [offset, setOffset] = useState(0);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<string | ErrorMessage>();
+  const cache = useQueryClient();
   const problemMessage = useProblemMessage();
-  const [acting, setActing] = useState(false);
-  const actingRef = useRef(false);
+  const [offset, setOffset] = useState(0);
+  const files = useRecentFiles(offset, selected);
+  const refresh = () => cache.invalidateQueries({ queryKey: listChatFilesQueryKey() });
+  const [progress, setProgress] = useState(0);
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => controller.current?.abort(), []);
-  const files = useQuery({
-    queryKey: ["chat-files", actorId, authorizationVersion, offset, selected],
-    queryFn: async ({ signal }) => {
-      const recent = chatFileSchema
-        .array()
-        .parse((await listChatFiles({ query: { offset, limit: 30 }, signal })).data);
-      const pageSize = recent.length;
-      const unavailable: string[] = [];
-      for (const id of selected.filter((id) => !recent.some((file) => file.id === id))) {
-        try {
-          const { data } = await getChatFile({ path: { fileId: id }, signal });
-          recent.unshift(chatFileSchema.parse(data));
-        } catch (error) {
-          if (!isNotFound(error)) throw error;
-          unavailable.push(id);
-        }
+  const upload = useMutation({
+    mutationFn: async (file: File) => {
+      controller.current?.abort();
+      const running = new AbortController();
+      controller.current = running;
+      setProgress(0);
+      try {
+        return await uploadChatFile(
+          file,
+          crypto.randomUUID(),
+          AbortSignal.any([running.signal, AbortSignal.timeout(30 * 60_000)]),
+          setProgress,
+        );
+      } catch (cause) {
+        // An upload replaced by the next one, or left behind with the picker, is not a failure to show.
+        if (running.signal.aborted) return undefined;
+        throw cause;
       }
-      return { entries: recent, pageSize, unavailable };
     },
-    refetchInterval: (query) =>
-      query.state.data?.entries.some((file) => file.status === "PROCESSING") ? 1500 : false,
+    onSuccess: refresh,
   });
-  async function action(run: () => Promise<unknown>) {
-    if (actingRef.current) return;
-    actingRef.current = true;
-    setActing(true);
-    setError(undefined);
-    try {
-      await run();
-      await files.refetch();
-    } catch {
-      setError("Không thực hiện được. Hãy làm mới trạng thái tệp rồi thử lại.");
-    } finally {
-      actingRef.current = false;
-      setActing(false);
-    }
-  }
+  const retry = useMutation({ ...retryChatFileMutation(), onSuccess: refresh });
+  const finalize = useMutation({ ...finalizeChatFileUploadMutation(), onSuccess: refresh });
+  const remove = useMutation({ ...deleteChatFileMutation(), onSuccess: refresh });
+  const acting = retry.isPending || finalize.isPending;
+  const actionFailed = retry.isError || finalize.isError;
+  const uploadError = upload.isError ? chatAttachmentProblem(upload.error) : undefined;
+
   function select(ids: string[]) {
     onSelect(
       ids,
-      ids.flatMap((id) => files.data?.entries.find((entry) => entry.id === id) ?? []),
+      ids.flatMap((id) => files.entries.find((entry) => entry.id === id) ?? []),
     );
   }
+  const shown = compact ? files.entries.slice(0, 3) : files.entries;
   return (
-    <fieldset disabled={disabled || uploading || acting} className="min-w-0 space-y-3">
+    <fieldset
+      disabled={disabled || upload.isPending || acting}
+      className="flex min-w-0 flex-col gap-3"
+    >
       {uploadAction !== undefined ? (
         uploadAction
       ) : (
@@ -239,40 +278,23 @@ export function ChatFilePickerContent({
             onChange={(event) => {
               const file = event.target.files?.[0];
               event.target.value = "";
-              if (!file) return;
-              controller.current?.abort();
-              const upload = new AbortController();
-              controller.current = upload;
-              setUploading(true);
-              setError(undefined);
-              setProgress(0);
-              void uploadChatFile(
-                file,
-                crypto.randomUUID(),
-                AbortSignal.any([upload.signal, AbortSignal.timeout(30 * 60_000)]),
-                setProgress,
-              )
-                .then(() => files.refetch())
-                .catch((cause: unknown) => {
-                  if (!upload.signal.aborted) setError(chatAttachmentProblem(cause));
-                })
-                .finally(() => {
-                  if (!upload.signal.aborted) setUploading(false);
-                });
+              if (file) upload.mutate(file);
             }}
           />
         </label>
       )}
-      {uploading && (
+      {upload.isPending && (
         <p role="status">
           {ui("Đang tải lên:")} {progress}%
         </p>
       )}
-      {(error || files.isError) && (
+      {(uploadError || actionFailed || files.isError) && (
         <p role="alert">
-          {typeof error === "object"
-            ? problemMessage(error)
-            : ui(error ?? "Không tải được danh sách tệp.")}
+          {uploadError
+            ? problemMessage(uploadError)
+            : actionFailed
+              ? ui("Không thực hiện được. Hãy làm mới trạng thái tệp rồi thử lại.")
+              : ui("Không tải được danh sách tệp.")}
         </p>
       )}
       {!compact && (
@@ -289,11 +311,11 @@ export function ChatFilePickerContent({
           {ui("Đang tải tệp…")}
         </p>
       )}
-      {files.data?.entries.length === 0 && (
+      {files.loaded && files.entries.length === 0 && (
         <p className="px-2 text-sm text-content-muted">{ui("Chưa có tệp nào.")}</p>
       )}
-      <div className="max-h-64 space-y-2 overflow-y-auto">
-        {files.data?.unavailable.map((id) => (
+      <div className="flex max-h-64 flex-col gap-2 overflow-y-auto">
+        {files.unavailable.map((id) => (
           <div key={id} className="text-sm">
             {ui("Tệp không còn khả dụng (")}
             {id})
@@ -307,97 +329,22 @@ export function ChatFilePickerContent({
             </Button>
           </div>
         ))}
-        {(compact ? files.data?.entries.slice(0, 3) : files.data?.entries)?.map((file) => (
-          <div key={file.id} className="flex flex-wrap items-center gap-2 text-sm">
-            <label className="flex min-w-0 flex-1 items-center gap-2">
-              <Checkbox
-                checked={selected.includes(file.id)}
-                disabled={
-                  !selected.includes(file.id) && (file.status !== "READY" || selected.length >= 20)
-                }
-                onCheckedChange={(event) => {
-                  const ids =
-                    event === true
-                      ? [...selected, file.id]
-                      : selected.filter((id) => id !== file.id);
-                  select(ids);
-                }}
-              />
-              <FileStatusIcon file={file} />
-              <span className="truncate" title={file.filename}>
-                {file.filename}
-              </span>
-            </label>
-            {/* Failures stay readable where they can be acted on; touch screens have no tooltip. */}
-            {!compact && file.status === "FAILED" && (
-              <span className="text-xs text-status-danger-content">
-                {fileStatusLabel(file, ui)}
-              </span>
-            )}
-            {!compact && file.status === "FAILED" && file.errorCode !== "UPLOAD_EXPIRED" && (
-              <Button
-                type="button"
-                size="sm"
-                prominence="internal"
-                onClick={() =>
-                  void action(() =>
-                    retryChatFile({
-                      path: { fileId: file.id },
-                    }),
-                  )
-                }
-              >
-                {ui("Thử lại")}
-              </Button>
-            )}
-            {!compact && file.status === "UPLOADING" && (
-              <Button
-                type="button"
-                size="sm"
-                prominence="internal"
-                onClick={() =>
-                  void action(() =>
-                    finalizeChatFileUpload({
-                      path: { fileId: file.id },
-                    }),
-                  )
-                }
-              >
-                {ui("Xác nhận tải lên")}
-              </Button>
-            )}
-            {!compact && (
-              <ConfirmDialog
-                trigger={
-                  <IconButton
-                    type="button"
-                    size="sm"
-                    prominence="internal"
-                    disabled={selected.includes(file.id)}
-                    aria-label={ui("Xóa {{v1}}", { v1: file.filename })}
-                    title={ui("Xóa {{v1}}", { v1: file.filename })}
-                  >
-                    <Trash2 />
-                  </IconButton>
-                }
-                title={ui("Xóa tệp {{v1}}?", { v1: file.filename })}
-                description={ui(
-                  "Nội dung tệp sẽ không còn đọc được, kể cả trong hội thoại cũ. Tên tệp trong lịch sử vẫn được giữ.",
-                )}
-                confirmLabel={ui("Xóa tệp")}
-                pendingLabel={ui("Đang xóa…")}
-                errorMessage={() =>
-                  "Không xóa được. Nếu tệp đang gắn với trợ lý/dự án, hãy gỡ và lưu trước khi xóa."
-                }
-                onConfirm={async () => {
-                  await deleteChatFile({
-                    path: { fileId: file.id },
-                  });
-                  await files.refetch();
-                }}
-              />
-            )}
-          </div>
+        {shown.map((file) => (
+          <RecentFileRow
+            key={file.id}
+            file={file}
+            compact={compact}
+            selected={selected.includes(file.id)}
+            full={selected.length >= selectionLimit}
+            onToggle={(pick) =>
+              select(pick ? [...selected, file.id] : selected.filter((id) => id !== file.id))
+            }
+            onRetry={() => retry.mutate({ path: { fileId: file.id } })}
+            onFinalize={() => finalize.mutate({ path: { fileId: file.id } })}
+            onDelete={async () => {
+              await remove.mutateAsync({ path: { fileId: file.id } });
+            }}
+          />
         ))}
       </div>
       {compact ? (
@@ -411,7 +358,7 @@ export function ChatFilePickerContent({
             size="sm"
             prominence="internal"
             disabled={offset === 0}
-            onClick={() => setOffset(Math.max(0, offset - 30))}
+            onClick={() => setOffset(Math.max(0, offset - recentPage))}
           >
             {ui("Trước")}
           </Button>
@@ -419,13 +366,92 @@ export function ChatFilePickerContent({
             type="button"
             size="sm"
             prominence="internal"
-            disabled={(files.data?.pageSize ?? 0) < 30 || offset >= 9990}
-            onClick={() => setOffset(offset + 30)}
+            disabled={files.pageSize < recentPage || offset >= 9990}
+            onClick={() => setOffset(offset + recentPage)}
           >
             {ui("Tiếp")}
           </Button>
         </div>
       )}
     </fieldset>
+  );
+}
+
+/** One recent file: chosen with its checkbox, and in the full list retried, confirmed or deleted in place. */
+function RecentFileRow({
+  file,
+  compact,
+  selected,
+  full,
+  onToggle,
+  onRetry,
+  onFinalize,
+  onDelete,
+}: {
+  file: ChatFile;
+  compact: boolean;
+  selected: boolean;
+  /** The message already carries as many files as it may. */
+  full: boolean;
+  onToggle: (pick: boolean) => void;
+  onRetry: () => void;
+  onFinalize: () => void;
+  onDelete: () => Promise<void>;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <label className="flex min-w-0 flex-1 items-center gap-2">
+        <Checkbox
+          checked={selected}
+          disabled={!selected && (file.status !== "READY" || full)}
+          onCheckedChange={(checked) => onToggle(checked === true)}
+        />
+        <FileStatusIcon file={file} />
+        <span className="truncate" title={file.filename}>
+          {file.filename}
+        </span>
+      </label>
+      {/* Failures stay readable where they can be acted on; touch screens have no tooltip. */}
+      {!compact && file.status === "FAILED" && (
+        <span className="text-xs text-status-danger-content">{fileStatusLabel(file, ui)}</span>
+      )}
+      {!compact && file.status === "FAILED" && file.errorCode !== "UPLOAD_EXPIRED" && (
+        <Button type="button" size="sm" prominence="internal" onClick={onRetry}>
+          {ui("Thử lại")}
+        </Button>
+      )}
+      {!compact && file.status === "UPLOADING" && (
+        <Button type="button" size="sm" prominence="internal" onClick={onFinalize}>
+          {ui("Xác nhận tải lên")}
+        </Button>
+      )}
+      {!compact && (
+        <ConfirmDialog
+          trigger={
+            <IconButton
+              type="button"
+              size="sm"
+              prominence="internal"
+              disabled={selected}
+              aria-label={ui("Xóa {{v1}}", { v1: file.filename })}
+              title={ui("Xóa {{v1}}", { v1: file.filename })}
+            >
+              <Trash2 />
+            </IconButton>
+          }
+          title={ui("Xóa tệp {{v1}}?", { v1: file.filename })}
+          description={ui(
+            "Nội dung tệp sẽ không còn đọc được, kể cả trong hội thoại cũ. Tên tệp trong lịch sử vẫn được giữ.",
+          )}
+          confirmLabel={ui("Xóa tệp")}
+          pendingLabel={ui("Đang xóa…")}
+          errorMessage={() =>
+            "Không xóa được. Nếu tệp đang gắn với trợ lý/dự án, hãy gỡ và lưu trước khi xóa."
+          }
+          onConfirm={onDelete}
+        />
+      )}
+    </div>
   );
 }

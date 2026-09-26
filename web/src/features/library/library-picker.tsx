@@ -1,4 +1,4 @@
-import { useDeferredValue, useState } from "react";
+import { useState } from "react";
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import { Check, FileText, Search, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -12,11 +12,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DocumentKindIcon } from "@/features/documents/document-source-icon";
-import { useApplicationSession } from "@/features/identity/application-session-context";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { listChatLibraryInfiniteOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
@@ -24,9 +26,7 @@ import { FormDialog } from "@/components/composites/form-dialog";
 import { fileSize } from "@/lib/file-size";
 import { LibraryCategoryFilter } from "./library-toolbar";
 import {
-  chatLibraryKey,
   libraryThumbnailUrl,
-  loadLibrary,
   LIBRARY_PAGE_SIZE,
   type LibraryCategory,
   type LibraryFile,
@@ -89,23 +89,23 @@ function PickerBody({
   onAttach: (files: LibraryFile[]) => void;
 }) {
   const ui = useAppTranslation();
-  const { actorId, authorizationVersion } = useApplicationSession();
   const [search, setSearch] = useState("");
-  const query = useDeferredValue(search.trim());
+  const query = useDebouncedValue(search.trim(), 250);
   const [source, setSource] = useState<"ALL" | LibrarySource>("ALL");
   const [categories, setCategories] = useState<LibraryCategory[]>([]);
   const [chosen, setChosen] = useState<LibraryFile[]>([]);
   const remaining = Math.max(0, 20 - selected.length - preparing);
 
-  const filter = {
-    query,
-    sources: source === "ALL" ? [] : [source],
-    categories,
-    sort: "NEWEST" as const,
-  };
   const pages = useInfiniteQuery({
-    queryKey: [...chatLibraryKey, actorId, authorizationVersion, "picker", filter],
-    queryFn: ({ pageParam, signal }) => loadLibrary(filter, pageParam, signal),
+    ...listChatLibraryInfiniteOptions({
+      query: {
+        query,
+        sources: source === "ALL" ? [] : [source],
+        categories,
+        sort: "NEWEST",
+        limit: LIBRARY_PAGE_SIZE,
+      },
+    }),
     initialPageParam: 0,
     getNextPageParam: (last, all) => (last.hasMore ? all.length * LIBRARY_PAGE_SIZE : undefined),
     // A filter or a search keeps the list that is being read on screen until the next one arrives, so the
@@ -133,18 +133,18 @@ function PickerBody({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted" />
-          <Input
+        <InputGroup className="min-w-0 flex-1">
+          <InputGroupAddon>
+            <Search />
+          </InputGroupAddon>
+          <InputGroupInput
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={ui("Tìm theo tên tệp")}
             aria-label={ui("Tìm theo tên tệp")}
             maxLength={200}
-            className="pl-9"
-            autoFocus
           />
-        </div>
+        </InputGroup>
         <LibraryCategoryFilter categories={categories} onCategories={setCategories} />
         <Tabs value={source} onValueChange={(value) => setSource(value as typeof source)}>
           <TabsList aria-label={ui("Nguồn tệp")}>
@@ -174,7 +174,7 @@ function PickerBody({
           >
             {[0, 1, 2, 3, 4].map((row) => (
               <div key={row} className="flex items-center gap-3">
-                <Skeleton className="size-9 shrink-0 rounded-md" />
+                <Skeleton className="size-9 shrink-0" />
                 <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                   <Skeleton className="h-3.5 w-1/2" />
                   <Skeleton className="h-3 w-1/3" />
@@ -184,20 +184,24 @@ function PickerBody({
           </div>
         )}
         {pages.isError && (
-          <p role="alert" className="p-4 text-sm">
-            {ui("Không tải được thư viện.")}{" "}
-            <Button
-              type="button"
-              size="sm"
-              prominence="internal"
-              onClick={() => void pages.refetch()}
-            >
-              {ui("Thử lại")}
-            </Button>
-          </p>
+          <div className="p-3">
+            <Alert variant="destructive">
+              <AlertTitle>{ui("Không tải được thư viện.")}</AlertTitle>
+              <AlertDescription>
+                <Button
+                  type="button"
+                  size="sm"
+                  prominence="internal"
+                  onClick={() => void pages.refetch()}
+                >
+                  {ui("Thử lại")}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </div>
         )}
         {pages.isSuccess && files.length === 0 && (
-          <Empty className="py-8">
+          <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <FileText />

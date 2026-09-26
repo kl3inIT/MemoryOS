@@ -68,7 +68,7 @@ export function LibraryUploadButton({ onFiles }: { onFiles: (files: File[]) => v
   return (
     <>
       <Button size="sm" prominence="secondary" onClick={() => input.current?.click()}>
-        <Upload className="size-4" aria-hidden="true" />
+        <Upload data-icon="inline-start" />
         {ui("Tải lên")}
       </Button>
       <input

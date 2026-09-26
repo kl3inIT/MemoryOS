@@ -7,6 +7,7 @@ import {
   finalizeChatFileUpload,
 } from "@/lib/hey-api/sdk.gen";
 import { putAuthorizedObject, sha256 } from "@/lib/direct-upload";
+import type { ChatFileResponse } from "@/lib/hey-api/types.gen";
 import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
 
 class AttachmentFailure extends Error {
@@ -35,6 +36,33 @@ export const chatFileSchema = z.object({
   searchReady: z.boolean().optional(),
 });
 export type ChatFile = z.infer<typeof chatFileSchema>;
+
+/**
+ * An upload as the API sends it. The published contract marks every field of `ChatFileResponse` optional,
+ * although the API always sends the file's identity, name, type, size and status; the view is narrowed once
+ * here instead of at every use.
+ */
+export function chatFileOf({
+  id,
+  filename = "",
+  mediaType = "application/octet-stream",
+  sizeBytes = 0,
+  status,
+  errorCode,
+  searchReady,
+}: ChatFileResponse): ChatFile {
+  if (id === undefined || status === undefined)
+    throw new TypeError("A chat file view carries its id and status.");
+  return {
+    id,
+    filename,
+    mediaType,
+    sizeBytes,
+    status,
+    ...(errorCode === undefined ? {} : { errorCode }),
+    ...(searchReady === undefined ? {} : { searchReady }),
+  };
+}
 export const fileReference = (id: string) => `memoryos-file:${id}`;
 export function fileIdFromReference(value: string): string | undefined {
   const id = value.startsWith("memoryos-file:") ? value.slice(14) : "";

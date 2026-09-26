@@ -14,7 +14,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
-import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
@@ -82,30 +87,29 @@ export function LibraryToolbar({
   const activeFilters = state.sources.length + state.categories.length;
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative min-w-56 flex-1">
-        <Search
-          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
-          aria-hidden="true"
-        />
-        <Input
+      <InputGroup className="min-w-56 flex-1">
+        <InputGroupAddon>
+          <Search />
+        </InputGroupAddon>
+        <InputGroupInput
           value={state.search}
           onChange={(event) => handlers.onSearch(event.target.value)}
           placeholder={searching ? ui("Tìm trong nội dung tệp") : ui("Tìm theo tên tệp")}
           aria-label={searching ? ui("Tìm trong nội dung tệp") : ui("Tìm theo tên tệp")}
           maxLength={200}
-          className={cn("pl-9", state.search.length > 0 && "pr-9")}
         />
         {state.search.length > 0 && (
-          <button
-            type="button"
-            aria-label={ui("Xoá từ khoá tìm kiếm")}
-            onClick={() => handlers.onSearch("")}
-            className="absolute top-1/2 right-2 grid size-6 -translate-y-1/2 place-items-center rounded-md text-content-muted outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
-          >
-            <X className="size-4" aria-hidden="true" />
-          </button>
+          <InputGroupAddon align="inline-end">
+            <InputGroupButton
+              size="icon-xs"
+              aria-label={ui("Xoá từ khoá tìm kiếm")}
+              onClick={() => handlers.onSearch("")}
+            >
+              <X />
+            </InputGroupButton>
+          </InputGroupAddon>
         )}
-      </div>
+      </InputGroup>
       <ToggleGroup
         type="single"
         size="sm"
@@ -123,13 +127,9 @@ export function LibraryToolbar({
       <Popover>
         <PopoverTrigger asChild>
           <Button size="sm" prominence="secondary">
-            <ListFilter className="size-4" aria-hidden="true" />
+            <ListFilter data-icon="inline-start" />
             {ui("Bộ lọc")}
-            {activeFilters > 0 && (
-              <Badge variant="secondary" className="tabular-nums">
-                {activeFilters}
-              </Badge>
-            )}
+            {activeFilters > 0 && <Badge variant="secondary">{activeFilters}</Badge>}
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-72">
@@ -145,10 +145,10 @@ export function LibraryToolbar({
         onValueChange={(value) => value && handlers.onLayout(value as LibraryLayout)}
       >
         <ToggleGroupItem value="list" size="sm" aria-label={ui("Dạng danh sách")}>
-          <List className="size-4" aria-hidden="true" />
+          <List />
         </ToggleGroupItem>
         <ToggleGroupItem value="grid" size="sm" aria-label={ui("Dạng lưới")}>
-          <LayoutGrid className="size-4" aria-hidden="true" />
+          <LayoutGrid />
         </ToggleGroupItem>
       </ToggleGroup>
     </div>
@@ -401,28 +401,28 @@ export function LibrarySelectionBar({
         {trash ? (
           <>
             <Button size="sm" prominence="secondary" onClick={onRestore}>
-              <Undo2 className="size-4" aria-hidden="true" />
+              <Undo2 data-icon="inline-start" />
               {ui("Khôi phục")}
             </Button>
             <Button size="sm" tone="danger" prominence="secondary" onClick={onPurge}>
-              <Trash2 className="size-4" aria-hidden="true" />
+              <Trash2 data-icon="inline-start" />
               {ui("Xoá vĩnh viễn")}
             </Button>
           </>
         ) : (
           <>
             <Button size="sm" prominence="secondary" pending={packing} onClick={onDownload}>
-              <Download className="size-4" aria-hidden="true" />
+              <Download data-icon="inline-start" />
               {ui("Tải về ZIP")}
             </Button>
             {onAddToProject && (
               <Button size="sm" prominence="secondary" onClick={onAddToProject}>
-                <FolderPlus className="size-4" aria-hidden="true" />
+                <FolderPlus data-icon="inline-start" />
                 {ui("Thêm vào dự án")}
               </Button>
             )}
             <Button size="sm" tone="danger" prominence="secondary" onClick={onDelete}>
-              <Trash2 className="size-4" aria-hidden="true" />
+              <Trash2 data-icon="inline-start" />
               {ui("Xoá")}
             </Button>
           </>
@@ -460,13 +460,9 @@ export function LibraryCategoryFilter({
     <Popover>
       <PopoverTrigger asChild>
         <Button size={size} prominence="secondary">
-          <ListFilter className="size-4" aria-hidden="true" />
+          <ListFilter data-icon="inline-start" />
           {ui("Loại tệp")}
-          {categories.length > 0 && (
-            <Badge variant="secondary" className="tabular-nums">
-              {categories.length}
-            </Badge>
-          )}
+          {categories.length > 0 && <Badge variant="secondary">{categories.length}</Badge>}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64">
