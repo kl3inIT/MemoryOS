@@ -1,20 +1,39 @@
-import { render, screen, cleanup } from "@testing-library/react";
+import { render as renderElement, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { handleGetChatWebAvailability } from "@/lib/hey-api/msw.gen";
+import { server } from "@/test/msw";
 import { ChatWebModes, ChatWebToggle } from "./chat-web-options";
 import { sourceSchema } from "@/features/chat/sources/chat-evidence";
 
-const state = vi.hoisted(() => ({
+const state = {
   availability: {
     searchAvailable: true,
     automaticModelIds: ["a", "b"],
     nativeModelIds: [] as string[],
     inheritedModelId: "a",
   },
-}));
-vi.mock("@tanstack/react-query", () => ({
-  useQuery: () => ({ data: state.availability, isPending: false, isError: false }),
-}));
+};
+
+/** Renders with the availability the test set, answered once it is read. */
+async function render(element: ReactElement) {
+  server.use(handleGetChatWebAvailability({ body: structuredClone(state.availability) }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const view = renderElement(<QueryClientProvider client={client}>{element}</QueryClientProvider>);
+  await vi.waitFor(() =>
+    expect(client.getQueryCache().find({ queryKey: [], exact: false })?.state.status).toBe(
+      "success",
+    ),
+  );
+  return {
+    ...view,
+    rerender: (next: ReactElement) =>
+      view.rerender(<QueryClientProvider client={client}>{next}</QueryClientProvider>),
+  };
+}
+
 vi.mock("@/features/identity/application-session-context", () => ({
   useApplicationSession: () => ({ actorId: "actor", authorizationVersion: 1, capabilities: [] }),
 }));
@@ -38,8 +57,8 @@ beforeEach(() => {
 it("keeps Web off when no search connection is configured", async () => {
   state.availability.searchAvailable = false;
   const change = vi.fn();
-  render(<ChatWebModes value="off" onChange={change} onDone={vi.fn()} onBack={vi.fn()} />);
-  expect(screen.getByText("No search engine connected.")).toBeInTheDocument();
+  await render(<ChatWebModes value="off" onChange={change} onDone={vi.fn()} onBack={vi.fn()} />);
+  expect(await screen.findByText("No search engine connected.")).toBeInTheDocument();
   const auto = screen.getByRole("radio", { name: "Use Web automatically" });
   expect(auto).toBeDisabled();
   await userEvent.click(auto);
@@ -52,7 +71,7 @@ it("lets a declared native-search model use Web without an external connection",
   try {
     const change = vi.fn();
     const done = vi.fn();
-    render(
+    await render(
       <ChatWebModes
         value="off"
         modelId="native"
@@ -74,7 +93,7 @@ it("lets a declared native-search model use Web without an external connection",
 
 it("offers Web to a tool-capable model only, never guessing from its name", async () => {
   const change = vi.fn();
-  const { unmount } = render(
+  const { unmount } = await render(
     <ChatWebModes value="off" modelId="c" onChange={change} onDone={vi.fn()} onBack={vi.fn()} />,
   );
   expect(screen.getByRole("radio", { name: "Use Web automatically" })).toBeDisabled();
@@ -82,7 +101,7 @@ it("offers Web to a tool-capable model only, never guessing from its name", asyn
   await userEvent.click(screen.getByRole("radio", { name: "Use Web automatically" }));
   expect(change).not.toHaveBeenCalled();
   unmount();
-  render(
+  await render(
     <ChatWebModes value="off" modelId="b" onChange={change} onDone={vi.fn()} onBack={vi.fn()} />,
   );
   await userEvent.click(screen.getByRole("radio", { name: "Use Web automatically" }));
@@ -119,7 +138,7 @@ it("enabling Web from the menu row allows a search without forcing one, and keep
   const change = vi.fn();
   const configure = vi.fn();
   const done = vi.fn();
-  const { rerender } = render(
+  const { rerender } = await render(
     <ChatWebToggle value="off" onChange={change} onDone={done} onConfigure={configure} />,
   );
   const toggle = screen.getByRole("button", { name: "Web search" });

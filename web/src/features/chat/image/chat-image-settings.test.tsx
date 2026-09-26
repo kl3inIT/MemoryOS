@@ -1,24 +1,26 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { HttpResponse } from "msw";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n/index";
+import {
+  handleListChatImageConnections,
+  handleListChatImageProviders,
+  handleSaveChatImageConnection,
+  handleSelectChatImageProvider,
+  handleTestChatImageConnection,
+} from "@/lib/hey-api/msw.gen";
 import type { ImageConnectionResponse, ImageProviderResponse } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { ChatImageSettings } from "./chat-image-settings";
 
+type Call = { path: { provider: string }; body: Record<string, unknown> };
+/** The requests each write received, as the SDK call that sent it: its provider path and its body. */
 const listChatImageProviders = vi.fn();
-const listChatImageConnections = vi.fn();
-const saveChatImageConnection = vi.fn();
-const selectChatImageProvider = vi.fn();
-const testChatImageConnection = vi.fn();
-
-vi.mock("@/lib/hey-api/sdk.gen", () => ({
-  listChatImageProviders: (...a: unknown[]) => listChatImageProviders(...a),
-  listChatImageConnections: (...a: unknown[]) => listChatImageConnections(...a),
-  saveChatImageConnection: (...a: unknown[]) => saveChatImageConnection(...a),
-  selectChatImageProvider: (...a: unknown[]) => selectChatImageProvider(...a),
-  testChatImageConnection: (...a: unknown[]) => testChatImageConnection(...a),
-}));
+const saveChatImageConnection = vi.fn<(call: Call) => void>();
+const selectChatImageProvider = vi.fn<(call: { body: Record<string, unknown> }) => void>();
+const testChatImageConnection = vi.fn<(call: Call) => void>();
 
 const session = vi.hoisted(() => ({ capabilities: ["MODELS_MANAGE"] }));
 vi.mock("@/features/identity/application-session-context", () => ({
@@ -92,8 +94,32 @@ function show(
   providers: ImageProviderResponse[] = catalog,
   connections: ImageConnectionResponse[] = [],
 ) {
-  listChatImageProviders.mockResolvedValue({ data: providers });
-  listChatImageConnections.mockResolvedValue({ data: connections });
+  server.use(
+    handleListChatImageProviders(() => {
+      listChatImageProviders();
+      return HttpResponse.json(providers);
+    }),
+    handleListChatImageConnections({ body: connections }),
+    handleSelectChatImageProvider(async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      selectChatImageProvider({ body: { provider: body.provider } });
+      return new HttpResponse(null, { status: 204 });
+    }),
+    handleSaveChatImageConnection(async ({ request, params }) => {
+      saveChatImageConnection({
+        path: { provider: String(params.provider) },
+        body: (await request.json()) as Record<string, unknown>,
+      });
+      return HttpResponse.json(connections[0] ?? connection());
+    }),
+    handleTestChatImageConnection(async ({ request, params }) => {
+      testChatImageConnection({
+        path: { provider: String(params.provider) },
+        body: (await request.json()) as Record<string, unknown>,
+      });
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
   const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queries}>
@@ -128,31 +154,29 @@ it("shows disconnected providers with a connect action and no in-use provider", 
 });
 
 it("marks a configured provider connected and lets it become the active one", async () => {
-  selectChatImageProvider.mockResolvedValue({ data: {} });
   show(catalog, [connection()]);
   expect(await screen.findByText("Đã kết nối")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Đặt làm mặc định" }));
-  expect(selectChatImageProvider).toHaveBeenCalledWith(
-    expect.objectContaining({ body: { provider: "OPENAI_IMAGE" } }),
+  await waitFor(() =>
+    expect(selectChatImageProvider).toHaveBeenCalledWith({ body: { provider: "OPENAI_IMAGE" } }),
   );
 });
 
 it("shows the in-use provider in the banner and turns generation off", async () => {
-  selectChatImageProvider.mockResolvedValue({ data: {} });
   show(catalog, [connection({ active: true })]);
   const banner = await screen.findAllByText("Đang dùng");
   expect(banner.length).toBeGreaterThanOrEqual(2);
   await userEvent.click(screen.getByRole("button", { name: "Tắt tạo ảnh" }));
-  expect(selectChatImageProvider).toHaveBeenCalledWith(
-    expect.objectContaining({ body: { provider: undefined } }),
+  await waitFor(() =>
+    expect(selectChatImageProvider).toHaveBeenCalledWith({ body: { provider: undefined } }),
   );
 });
 
 it("saves a catalog model and keeps the stored key when none is typed", async () => {
-  saveChatImageConnection.mockResolvedValue({ data: {} });
   show(catalog, [connection()]);
   await userEvent.click(await screen.findByRole("button", { name: "Cấu hình" }));
   await userEvent.click(await screen.findByRole("button", { name: "Lưu" }));
+  await waitFor(() => expect(saveChatImageConnection).toHaveBeenCalled());
   expect(saveChatImageConnection).toHaveBeenCalledWith(
     expect.objectContaining({
       path: { provider: "OPENAI_IMAGE" },
@@ -167,13 +191,13 @@ it("saves a catalog model and keeps the stored key when none is typed", async ()
 });
 
 it("replaces the key and accepts a manually entered model", async () => {
-  saveChatImageConnection.mockResolvedValue({ data: {} });
   show(catalog, [connection()]);
   await userEvent.click(await screen.findByRole("button", { name: "Cấu hình" }));
   await userEvent.click(await screen.findByRole("radio", { name: "Mô hình khác…" }));
   await userEvent.type(screen.getByLabelText("Tên mô hình"), "custom-model");
   await userEvent.type(screen.getByLabelText("Khóa API"), "sk-new");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+  await waitFor(() => expect(saveChatImageConnection).toHaveBeenCalled());
   expect(saveChatImageConnection).toHaveBeenCalledWith(
     expect.objectContaining({
       body: expect.objectContaining({
@@ -208,7 +232,6 @@ it("requires an account id for providers that declare an endpoint", async () => 
 });
 
 it("shows a stored cloudflare endpoint as its account id", async () => {
-  saveChatImageConnection.mockResolvedValue({ data: {} });
   show(catalog, [
     connection({
       provider: "CLOUDFLARE_WORKERS_AI",
@@ -220,6 +243,7 @@ it("shows a stored cloudflare endpoint as its account id", async () => {
   const field = await screen.findByLabelText("Account ID");
   expect(field).toHaveValue("b73a9841898f88f7cc2b731d7776f265");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+  await waitFor(() => expect(saveChatImageConnection).toHaveBeenCalled());
   expect(saveChatImageConnection).toHaveBeenCalledWith(
     expect.objectContaining({
       path: { provider: "CLOUDFLARE_WORKERS_AI" },
@@ -231,10 +255,10 @@ it("shows a stored cloudflare endpoint as its account id", async () => {
 });
 
 it("tests a configured connection and reports success", async () => {
-  testChatImageConnection.mockResolvedValue({ data: {} });
   show(catalog, [connection()]);
   await userEvent.click(await screen.findByRole("button", { name: "Cấu hình" }));
   await userEvent.click(await screen.findByRole("button", { name: "Kiểm tra kết nối" }));
+  await waitFor(() => expect(testChatImageConnection).toHaveBeenCalled());
   expect(testChatImageConnection).toHaveBeenCalledWith(
     expect.objectContaining({
       path: { provider: "OPENAI_IMAGE" },
@@ -249,12 +273,12 @@ it("tests a configured connection and reports success", async () => {
 });
 
 it("tests unsaved values before the first save", async () => {
-  testChatImageConnection.mockResolvedValue({ data: {} });
   show(catalog, []);
   await userEvent.click((await screen.findAllByRole("button", { name: "Kết nối" }))[0]);
   expect(await screen.findByRole("button", { name: "Kiểm tra kết nối" })).toBeDisabled();
   await userEvent.type(screen.getByLabelText("Khóa API"), "sk-new");
   await userEvent.click(screen.getByRole("button", { name: "Kiểm tra kết nối" }));
+  await waitFor(() => expect(testChatImageConnection).toHaveBeenCalled());
   expect(testChatImageConnection).toHaveBeenCalledWith(
     expect.objectContaining({
       path: { provider: "OPENAI_IMAGE" },
@@ -265,8 +289,6 @@ it("tests unsaved values before the first save", async () => {
 });
 
 it("disconnects the active provider after choosing a replacement", async () => {
-  selectChatImageProvider.mockResolvedValue({ data: {} });
-  saveChatImageConnection.mockResolvedValue({ data: {} });
   const active = connection({ active: true });
   const other = connection({
     provider: "CLOUDFLARE_WORKERS_AI",
@@ -283,9 +305,12 @@ it("disconnects the active provider after choosing a replacement", async () => {
   ).toBeInTheDocument();
   await userEvent.click(screen.getByRole("radio", { name: "Cloudflare Workers AI" }));
   await userEvent.click(screen.getByRole("button", { name: "Ngắt kết nối" }));
-  expect(selectChatImageProvider).toHaveBeenCalledWith(
-    expect.objectContaining({ body: { provider: "CLOUDFLARE_WORKERS_AI" } }),
+  await waitFor(() =>
+    expect(selectChatImageProvider).toHaveBeenCalledWith({
+      body: { provider: "CLOUDFLARE_WORKERS_AI" },
+    }),
   );
+  await waitFor(() => expect(saveChatImageConnection).toHaveBeenCalled());
   expect(saveChatImageConnection).toHaveBeenCalledWith(
     expect.objectContaining({
       path: { provider: "OPENAI_IMAGE" },
