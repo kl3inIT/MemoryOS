@@ -1,4 +1,5 @@
 allowBuilds:
+  msw: false
   "@sentry/cli": true
 minimumReleaseAgeExclude:
   - "@tanstack/react-router@1.170.31"

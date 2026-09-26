@@ -79,8 +79,7 @@ export function GoogleDriveCredentialDialog(props: CredentialDialogProps) {
       >
         <header className="flex shrink-0 items-center gap-3 px-6 py-4">
           <KeyRound className="size-5 shrink-0 text-content-secondary" aria-hidden="true" />
-          {/* tailwind-merge cannot match font-heading-h3 against DialogTitle's defaults, so equal sizes displace them. */}
-          <DialogTitle className="min-w-0 flex-1 font-heading-h3 text-lg leading-7 font-semibold">
+          <DialogTitle className="min-w-0 flex-1">
             {replacingKey
               ? ui("Replace a service account key")
               : reconnecting
