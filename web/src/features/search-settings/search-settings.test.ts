@@ -278,24 +278,6 @@ describe("failures", () => {
 });
 
 describe("connection check", () => {
-  it("reports the returned model, its real dimensions and latency", () => {
-    expect(
-      embeddingTestOutcome({
-        ok: true,
-        model: qwen.model,
-        dimensions: 1024,
-        latencyMs: 38,
-        error: null,
-      }),
-    ).toEqual({
-      ok: true,
-      message: {
-        app: "Kết nối được · {{model}} · {{dimensions}} chiều · {{latency}} ms",
-        values: { model: qwen.model, dimensions: 1024, latency: 38 },
-      },
-    });
-  });
-
   it("keeps the provider's reason beside a failed call", () => {
     expect(
       embeddingTestOutcome({

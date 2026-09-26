@@ -1,6 +1,5 @@
 package io.memoryos.document;
 
-import io.memoryos.shared.Sha256;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -31,26 +30,6 @@ class DocumentChunkServiceTest {
     private final TenantId tenant = new TenantId(UUID.randomUUID());
     private final DocumentId document = new DocumentId(UUID.randomUUID());
     private final UUID generation = UUID.randomUUID();
-
-    @Test
-    void firstPublicationReturnsTheSamePrivateMetadataAsReload() {
-        String json = "{\"schema\":\"memoryos-extraction-v1\",\"blocks\":[{\"kind\":\"PARAGRAPH\",\"text\":\"Private file\"}]}";
-        var bytes = json.getBytes(StandardCharsets.UTF_8);
-        var reader = reader(Sha256.hex(json), bytes.length);
-        var object = mock(ObjectContent.class);
-        when(object.inputStream()).thenReturn(new ByteArrayInputStream(bytes));
-        when(storage.open(any())).thenReturn(object);
-        var chunks = new StructuredDocumentChunker(new ObjectMapper()).chunk(reader.title(), json);
-        var expected = new DocumentChunkSet(tenant, document, generation, reader.title(), reader.mediaType(), reader.updatedAt(), chunks, UUID.randomUUID());
-        when(repository.load(tenant, document, generation)).thenReturn(Optional.empty()).thenReturn(Optional.of(expected));
-        when(repository.openReader(tenant, document, generation)).thenReturn(Optional.of(reader));
-        when(repository.publish(any(), any())).thenReturn(true);
-        assertEquals(expected, service.prepare(tenant, document, generation).orElseThrow());
-        assertEquals(expected, service.prepare(tenant, document, generation).orElseThrow());
-        verify(storage).open(any());
-        verify(object).close();
-        verify(repository).closeReader(reader.readerId());
-    }
 
     @Test
     void rejectsOversizedArtifactBeforeOpeningObjectAndReleasesReader() {

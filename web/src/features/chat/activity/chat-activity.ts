@@ -113,7 +113,7 @@ export const toolProgressSchema = z.object({
   failure: failureSchema.nullable().catch(null),
 });
 /** Non-sensitive marker; the UI shows its own localized failure copy. */
-export const TOOL_FAILED = "TOOL_FAILED";
+const TOOL_FAILED = "TOOL_FAILED";
 
 const emptyProgress = (): ToolProgress => ({
   stage: "STARTED",

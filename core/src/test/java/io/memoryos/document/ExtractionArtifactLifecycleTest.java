@@ -71,9 +71,11 @@ class ExtractionArtifactLifecycleTest {
         var id = transaction.execute(_ -> documents.publish(tenant, null, new DocumentContent("text/csv", "private.csv", "Private value",
                 Map.of("origin", "USER_FILE", "user_file_id", file.toString()), json, artifact), "a".repeat(64)));
         var generation = jdbc.sql("SELECT content_generation FROM documents").query(UUID.class).single();
+        var opened = new java.util.ArrayList<io.memoryos.objectstorage.ObjectContent>();
         org.mockito.Mockito.when(storage.open(org.mockito.ArgumentMatchers.any())).thenAnswer(_ -> {
             var content = org.mockito.Mockito.mock(io.memoryos.objectstorage.ObjectContent.class);
             org.mockito.Mockito.when(content.inputStream()).thenReturn(new java.io.ByteArrayInputStream(bytes));
+            opened.add(content);
             return content;
         });
         var first = transaction.execute(_ -> chunks.prepare(tenant, id, generation).orElseThrow());
@@ -86,6 +88,7 @@ class ExtractionArtifactLifecycleTest {
         org.mockito.Mockito.verify(storage, org.mockito.Mockito.times(2)).open(org.mockito.ArgumentMatchers.any());
         assertEquals(DocumentChunk.CONVENTION, jdbc.sql("SELECT chunk_convention FROM documents").query(String.class).single());
         assertEquals(0, jdbc.sql("SELECT count(*) FROM document_artifact_readers").query(Integer.class).single());
+        opened.forEach(content -> org.mockito.Mockito.verify(content).close());
         assertEquals(artifact, jdbc.sql("SELECT extraction_artifact_id FROM documents").query(UUID.class).single());
     }
 

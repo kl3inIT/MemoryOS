@@ -1,10 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  FINAL_TIMEOUT_MS,
-  openTranscriptionSocket,
-  transcriptionUrl,
-  VoiceStreamError,
-} from "./transcribe-socket";
+import { FINAL_TIMEOUT_MS, openTranscriptionSocket, VoiceStreamError } from "./transcribe-socket";
 
 class FakeSocket {
   readyState = 0;
@@ -39,16 +34,19 @@ class FakeSocket {
   }
 }
 
-function connect() {
+function connect({
+  language = "vi",
+  location = { origin: "https://memoryos.example", protocol: "https:" },
+}: { language?: string; location?: Pick<Location, "origin" | "protocol"> } = {}) {
   let socket: FakeSocket | undefined;
   const onInterim = vi.fn();
   const onFailure = vi.fn();
   const opening = openTranscriptionSocket({
     ticket: "ticket-value",
-    language: "vi",
+    language,
     onInterim,
     onFailure,
-    location: { origin: "https://memoryos.example", protocol: "https:" },
+    location,
     createSocket: (url) => (socket = new FakeSocket(url)) as unknown as WebSocket,
   });
   return { opening, socket: () => socket!, onInterim, onFailure };
@@ -60,12 +58,12 @@ describe("voice transcription socket", () => {
   });
 
   it("connects to the same-origin secure stream with the ticket and language", () => {
+    expect(connect({ language: "en" }).socket().url).toBe(
+      "wss://memoryos.example/api/chat/voice/transcribe/stream?ticket=ticket-value&language=en",
+    );
     expect(
-      transcriptionUrl("abc", "en", { origin: "https://memoryos.example", protocol: "https:" }),
-    ).toBe("wss://memoryos.example/api/chat/voice/transcribe/stream?ticket=abc&language=en");
-    expect(
-      transcriptionUrl("abc", "vi", { origin: "http://127.0.0.1:8080", protocol: "http:" }),
-    ).toBe("ws://127.0.0.1:8080/api/chat/voice/transcribe/stream?ticket=abc&language=vi");
+      connect({ location: { origin: "http://127.0.0.1:8080", protocol: "http:" } }).socket().url,
+    ).toBe("ws://127.0.0.1:8080/api/chat/voice/transcribe/stream?ticket=ticket-value&language=vi");
   });
 
   it("streams interim text and resolves the final transcript after end", async () => {

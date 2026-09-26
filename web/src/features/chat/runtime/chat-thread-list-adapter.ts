@@ -31,7 +31,7 @@ export type ChatThreadCustom = Pick<
   | "temporary"
 >;
 
-export function threadMetadata(session: ChatSession): RemoteThreadMetadata {
+function threadMetadata(session: ChatSession): RemoteThreadMetadata {
   const custom: ChatThreadCustom = {
     personaId: session.personaId,
     rootMessageId: session.rootMessageId,

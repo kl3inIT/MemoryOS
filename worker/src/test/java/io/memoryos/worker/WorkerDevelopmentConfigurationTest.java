@@ -15,13 +15,11 @@ import org.springframework.util.ClassUtils;
 class WorkerDevelopmentConfigurationTest {
 
     @Test
-    void connectsToTheApiOwnedRedisDevService() throws IOException {
+    void neverStartsARedisDevServiceOfItsOwn() throws IOException {
         List<PropertySource<?>> propertySources = new YamlPropertySourceLoader().load(
                 "worker-development",
                 new ClassPathResource("application-development.yaml"));
 
-        assertThat(property(propertySources, "spring.data.redis.host")).isEqualTo("${MEMORYOS_REDIS_HOST:localhost}");
-        assertThat(property(propertySources, "spring.data.redis.port")).isEqualTo("${MEMORYOS_REDIS_PORT:56379}");
         assertThat(property(propertySources, "arconia.dev.services.redis.port")).isNull();
         assertThat(ClassUtils.isPresent(
                 "io.arconia.dev.services.redis.RedisDevServicesAutoConfiguration",

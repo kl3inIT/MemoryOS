@@ -61,7 +61,7 @@ export type MeetingSocketOptions = {
   createSocket?: (url: string) => WebSocket;
 };
 
-export function meetingStreamUrl(
+function meetingStreamUrl(
   options: Pick<MeetingSocketOptions, "meetingId" | "track" | "offsetMs" | "ticket">,
   location: Pick<Location, "origin" | "protocol"> = window.location,
 ) {
