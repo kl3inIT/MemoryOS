@@ -6,6 +6,7 @@ import {
   initiateChatFileUpload,
   finalizeChatFileUpload,
 } from "@/lib/hey-api/sdk.gen";
+import { ApiError } from "@/lib/api";
 import { putAuthorizedObject, sha256 } from "@/lib/direct-upload";
 import type { ChatFileResponse } from "@/lib/hey-api/types.gen";
 import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
@@ -75,7 +76,10 @@ async function retryLostResponse<T>(send: () => Promise<T>, signal: AbortSignal)
   try {
     return await send();
   } catch (error) {
-    if (!(error instanceof TypeError) || signal.aborted) throw error;
+    // The client wraps a network failure in ApiError without a status; a response with a status is final.
+    const lost =
+      error instanceof TypeError || (error instanceof ApiError && error.status === undefined);
+    if (!lost || signal.aborted) throw error;
     return send();
   }
 }

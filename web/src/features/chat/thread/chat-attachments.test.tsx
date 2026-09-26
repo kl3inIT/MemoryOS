@@ -241,7 +241,7 @@ describe("Chat attachments with assistant-ui runtime", () => {
   // Fails today: the API client reports a lost response as an ApiError caused by the fetch TypeError, and
   // `retryLostResponse` in features/library/files.ts retries only a bare TypeError, so a lost response is never
   // retried. Drop `.fails` once the library recognises the wrapped network error.
-  it.fails("reuses request and file identities after lost initiate/finalize responses without uploading twice", async () => {
+  it("reuses request and file identities after lost initiate/finalize responses without uploading twice", async () => {
     replies.initiate.push(() => HttpResponse.error());
     replies.finalize.push(() => HttpResponse.error());
     const requestId = crypto.randomUUID();

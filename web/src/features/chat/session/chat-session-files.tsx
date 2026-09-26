@@ -54,7 +54,7 @@ import { fileIdFromReference } from "@/features/library/files";
 import { ChatFilePreviewModal } from "@/features/library/file-preview-modal";
 import { downloadUrl, type PreviewTarget } from "@/features/library/file-preview";
 import {
-  chatLibraryKey,
+  invalidateLibrary,
   deleteLibraryFile,
   LIBRARY_PAGE_SIZE,
   libraryPreviewTarget,
@@ -108,7 +108,7 @@ function useSessionFiles(
   const refreshLibrary = () =>
     Promise.all([
       cache.invalidateQueries({ queryKey: listChatLibraryQueryKey() }),
-      cache.invalidateQueries({ queryKey: chatLibraryKey }),
+      invalidateLibrary(cache),
     ]);
 
   // The thread's run is an external system: a finished turn may have produced files.

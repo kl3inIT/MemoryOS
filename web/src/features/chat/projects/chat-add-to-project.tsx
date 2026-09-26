@@ -8,7 +8,7 @@ import { TextButton } from "@/components/ui/text-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { createChatProjectMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { FormDialog } from "@/components/composites/form-dialog";
-import { chatLibraryKey, type LibraryFile } from "@/features/library/library";
+import { invalidateLibrary, type LibraryFile } from "@/features/library/library";
 import { addToProject, ProjectFull, PROJECT_FILE_LIMIT } from "./chat-project-files";
 import { invalidateProjects, projectOf, projectsOptions, type Project } from "./chat-projects-api";
 
@@ -41,7 +41,7 @@ export function ChatAddToProjectDialog({
     mutationFn: ({ project, added }: { project: Project; added: readonly LibraryFile[] }) =>
       addToProject(project.id, added, AbortSignal.timeout(120_000)),
     // Generated files are copied into uploads first, so the library changes even when the Project is full.
-    onSettled: () => cache.invalidateQueries({ queryKey: chatLibraryKey }),
+    onSettled: () => invalidateLibrary(cache),
     onSuccess: (_, { project }) => invalidateProjects(cache, project.id),
   });
   const chosen = projects.data?.find((project) => project.id === projectId) ?? projects.data?.[0];
