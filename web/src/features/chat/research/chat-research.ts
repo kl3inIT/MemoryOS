@@ -18,7 +18,7 @@ const agentSchema = z.object({
   citations: z.array(citationSchema).default([]),
   activity: activitySchema,
 });
-export const researchSchema = z
+const researchSchema = z
   .object({
     clarification: z.boolean().default(false),
     plan: z.string().nullable().default(null),
@@ -44,7 +44,7 @@ export const researchCitationsEventSchema = z.object({
 export type ResearchAgent = z.infer<typeof agentSchema>;
 /** What the research part renders: the plan and every research agent with its own steps and report. */
 export type ResearchState = { plan: string; agents: ResearchAgent[] };
-export type ResearchStep = ChatActivity["steps"][number];
+type ResearchStep = ChatActivity["steps"][number];
 
 /** An intermediate report uses its agent's citation numbers; the answer's sources use the merged numbers. */
 export function mergedReport(agent: Pick<ResearchAgent, "report" | "citations">) {

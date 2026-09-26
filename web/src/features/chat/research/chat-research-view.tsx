@@ -122,8 +122,8 @@ function AgentPanel({ agent, running }: { agent: ResearchAgent; running: boolean
   const report = mergedReport(agent);
   const thoughts = agent.activity.reasoning.map((segment) => segment.text).join("\n\n");
   return (
-    <div className="mt-2 min-w-0 space-y-2">
-      {agent.task && <p className="text-content-primary [overflow-wrap:anywhere]">{agent.task}</p>}
+    <div className="mt-2 flex min-w-0 flex-col gap-2">
+      {agent.task && <p className="text-content-primary wrap-anywhere">{agent.task}</p>}
       {agent.durationMs !== null && (
         <p className="text-xs text-content-muted">
           {ui("Đã chạy {{duration}}", { duration: spokenDuration(agent.durationMs) })}
@@ -205,9 +205,8 @@ function ResearchMarkdown({
         ref={body}
         style={clamped ? { maxHeight: collapsedHeight } : undefined}
         className={cn(
-          "min-w-0 text-sm [overflow-wrap:anywhere] [&_.aui-md]:text-sm [&_.aui-md]:leading-6 [&_.aui-md]:text-content-secondary",
-          clamped &&
-            "overflow-hidden [mask-image:linear-gradient(to_bottom,black_55%,transparent)]",
+          "min-w-0 text-sm wrap-anywhere [&_.aui-md]:text-sm [&_.aui-md]:leading-6 [&_.aui-md]:text-content-secondary",
+          clamped && "overflow-hidden mask-b-from-55%",
         )}
       >
         <TextMessagePartProvider text={text} isRunning={running}>
