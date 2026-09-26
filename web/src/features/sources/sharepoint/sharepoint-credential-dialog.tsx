@@ -111,21 +111,24 @@ function CredentialForm({
     .regex(GUID, ui("Supply the Directory (tenant) ID and Application (client) ID as GUIDs."));
   const form = useAppForm({
     defaultValues: {
-      name: replacing?.name ?? "",
+      credentialName: replacing?.name ?? "",
       directoryId: replacing?.directoryId ?? "",
       clientId: replacing?.clientId ?? "",
     },
     validationLogic: revalidateLogic(),
     validators: {
-      onDynamic: zSharePointCredentialRequest
-        .pick({ name: true })
-        .extend({ directoryId: guid, clientId: guid }),
+      onDynamic: zSharePointCredentialRequest.pick({ directoryId: true, clientId: true }).extend({
+        // The field id is its name, so it is distinct from the credential rename beside it.
+        credentialName: zSharePointCredentialRequest.shape.name,
+        directoryId: guid,
+        clientId: guid,
+      }),
     },
     onSubmit: ({ value }) => save(value),
   });
   const saving = useStore(form.store, (state) => state.isSubmitting);
   // Save waits for a name and the secret or keystore, and names what is missing by staying disabled.
-  const named = useStore(form.store, (state) => Boolean(state.values.name.trim()));
+  const named = useStore(form.store, (state) => Boolean(state.values.credentialName.trim()));
   const busy = saving || stepBusy;
 
   useLayoutEffect(() => {
@@ -142,8 +145,8 @@ function CredentialForm({
     return () => onBusyChange(false);
   }, [saving, onBusyChange]);
 
-  async function save(value: { name: string; directoryId: string; clientId: string }) {
-    if (stepBusy || !value.name.trim() || !authenticationReady) return;
+  async function save(value: { credentialName: string; directoryId: string; clientId: string }) {
+    if (stepBusy || !value.credentialName.trim() || !authenticationReady) return;
     // A direct call, not a mutation: the secret or keystore is read here and never enters React Query.
     const authentication = credentialInput.current?.take();
     if (!authentication) {
@@ -157,7 +160,7 @@ function CredentialForm({
     setError(null);
     try {
       const body = {
-        name: value.name.trim(),
+        name: value.credentialName.trim(),
         directoryId: value.directoryId.trim(),
         clientId: value.clientId.trim(),
         cloud: "GLOBAL" as const,
@@ -214,7 +217,7 @@ function CredentialForm({
           <SharePointEntraGuide />
         </aside>
         <FieldGroup className="min-w-0 lg:col-span-3">
-          <form.AppField name="name">
+          <form.AppField name="credentialName">
             {(field) => (
               <field.TextField
                 label={ui("Credential name")}

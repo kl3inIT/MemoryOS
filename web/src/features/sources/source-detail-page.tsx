@@ -41,14 +41,14 @@ function SourceDetailContent({ sourceId }: { sourceId: string }) {
   const queryClient = useQueryClient();
   const backLinkRef = useRef<HTMLAnchorElement>(null);
   const actionsTrigger = useRef<HTMLButtonElement>(null);
-  const [requestedDialog, setSourceDialog] = useState<SourceMetadataField | "delete" | null>(null);
-  // A dialog the actor lost the right to use closes.
-  const sourceDialog =
-    (requestedDialog === "name" && !permissions.edit) ||
-    (requestedDialog === "access" && !permissions.changeAccess) ||
-    (requestedDialog === "delete" && !permissions.delete)
-      ? null
-      : requestedDialog;
+  const [sourceDialog, setSourceDialog] = useState<SourceMetadataField | "delete" | null>(null);
+  // A dialog the actor lost the right to use closes, and stays closed if the right returns.
+  if (
+    (sourceDialog === "name" && !permissions.edit) ||
+    (sourceDialog === "access" && !permissions.changeAccess) ||
+    (sourceDialog === "delete" && !permissions.delete)
+  )
+    setSourceDialog(null);
   const provider = findSourceProvider(source?.type);
   const ProviderIcon = provider?.icon ?? FileText;
   const blocked = detail.busy || source?.status === "DELETING";

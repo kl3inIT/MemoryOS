@@ -11,7 +11,7 @@ export function SourceSectionTabs({ sections }: { sections: readonly SourceSecti
       <TabsList
         variant="line"
         aria-label={ui("Source sections")}
-        className="flex-wrap justify-start"
+        className="h-auto flex-wrap justify-start group-data-horizontal/tabs:h-auto"
       >
         {sections.map(({ value, label }) => (
           <TabsTrigger key={value} value={value} className="flex-none">
