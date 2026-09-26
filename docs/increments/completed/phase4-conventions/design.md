@@ -2,7 +2,7 @@
 
 ## Requirement
 
-Owner decision 2026-09-25 (group 4 of [owner-decisions.md](../audit-quality-fixes/owner-decisions.md) plus the listed follow-ups); best practice even where contracts change; one pull request.
+Owner decision 2026-09-25 (group 4 of [owner-decisions.md](../../active/audit-quality-fixes/owner-decisions.md) plus the listed follow-ups); best practice even where contracts change; one pull request.
 
 ## Decisions
 

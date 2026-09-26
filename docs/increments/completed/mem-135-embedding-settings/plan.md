@@ -6,7 +6,7 @@ Thứ tự đi từ cái chặn production trước. Mỗi phase là một PR ri
 
 Làm song song với Phase B, vì hai phase không phụ thuộc nhau.
 
-1. **Chuẩn bị máy**: xong ngày 2026-09-23, dùng chung với [MEM-192](../mem-192-ocr-gpu/plan.md). Driver, Docker, NVIDIA Container Toolkit và ufw ghi ở [runbook](../../../runbooks/ci-cd.md#serving-node). Cổng TEI được chain `DOCKER-USER` của MEM-192 giới hạn cho `172.24.244.120`; ufw không lọc được cổng Docker publish.
+1. **Chuẩn bị máy**: xong ngày 2026-09-23, dùng chung với [MEM-192](../../active/mem-192-ocr-gpu/plan.md). Driver, Docker, NVIDIA Container Toolkit và ufw ghi ở [runbook](../../../runbooks/ci-cd.md#serving-node). Cổng TEI được chain `DOCKER-USER` của MEM-192 giới hạn cho `172.24.244.120`; ufw không lọc được cổng Docker publish.
 
 2. **Dịch vụ embedding**
    * [x] TEI là service `tei` trong `compose.serving.yaml` của repo, dùng chung với PaddleOCR-VL của MEM-192. API key là file `/apps/memoryos-serving/secrets/tei/api-key.txt` sinh tại chỗ, mode 0600; `deploy-serving.sh` từ chối rollout khi thiếu file (2026-09-24).
@@ -26,7 +26,7 @@ Làm song song với Phase B, vì hai phase không phụ thuộc nhau.
      * đo nhanh độ trễ một lô 32 đoạn.
    * **Kiểm tra VRAM:** đo `nvidia-smi` khi chạy, dự kiến dưới 3 GB. Ghi lại để chừa chỗ cho Docling GPU.
 
-3. **Ghi lại:** số đo VRAM và RAM vào bảng ngân sách trong [design MEM-192](../mem-192-ocr-gpu/design.md#ngân-sách-node-serving). Dịch vụ trên `serving` được deploy bằng workflow production, không do người vận hành tự quản: image Docling do repo build nên phải đi qua release.
+3. **Ghi lại:** số đo VRAM và RAM vào bảng ngân sách trong [design MEM-192](../../active/mem-192-ocr-gpu/design.md#ngân-sách-node-serving). Dịch vụ trên `serving` được deploy bằng workflow production, không do người vận hành tự quản: image Docling do repo build nên phải đi qua release.
 
 ## Phase B — Bước 1: thế hệ cấu hình và khoá lệch (repo)
 

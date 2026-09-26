@@ -1,6 +1,6 @@
 # MEM-135 — Cấu hình embedding trên trang quản trị, dựng lại index ở nền
 
-Linear: [MEM-135](https://linear.app/memory-os/issue/MEM-135). Liên quan: [MEM-171](../mem-171-production-deployment/design.md) (production), [MEM-141](../mem-141-rag-benchmark/design.md) (benchmark), [MEM-134](https://linear.app/memory-os/issue/MEM-134) (cổng dữ liệu ra ngoài), [MEM-66](../mem-66-vllm-cpu-gateway-research/design.md) (model tự chạy, đang tạm dừng).
+Linear: [MEM-135](https://linear.app/memory-os/issue/MEM-135). Liên quan: [MEM-171](../../active/mem-171-production-deployment/design.md) (production), [MEM-141](../../active/mem-141-rag-benchmark/design.md) (benchmark), [MEM-134](https://linear.app/memory-os/issue/MEM-134) (cổng dữ liệu ra ngoài), [MEM-66](../../active/mem-66-vllm-cpu-gateway-research/design.md) (model tự chạy, đang tạm dừng).
 
 ## Kết quả mong muốn
 
@@ -146,7 +146,7 @@ Schema:
   | Thời gian khởi động | 183 s | 213 s |
 
   **Chọn TEI**: độ trễ câu hỏi thấp hơn một nửa và RAM ít hơn ba lần trên node 15 GiB đã có hai service PaddleOCR-VL. Tốc độ nạp của TEI thấp hơn nhưng vẫn đủ: chỉ dựng lại index mới cần tốc độ đó, và nó chạy ở nền. Cả hai đều nói `/v1/embeddings`, nên đổi sang vLLM sau này chỉ là đổi endpoint của provider.
-* **Nơi chạy:** GPU RTX 4090 của node `serving`, dùng chung với OCR của [MEM-192](../mem-192-ocr-gpu/design.md) qua một file `compose.serving.yaml`. Chỉ mở trên mạng riêng tới node `application`.
+* **Nơi chạy:** GPU RTX 4090 của node `serving`, dùng chung với OCR của [MEM-192](../../active/mem-192-ocr-gpu/design.md) qua một file `compose.serving.yaml`. Chỉ mở trên mạng riêng tới node `application`.
 * **Lên 4B sau này:** đổi trên trang quản trị, cùng TEI; không cần release.
 
 ## Phạm vi
@@ -166,7 +166,7 @@ Schema:
 * Chuyển tức thì (`INSTANT`).
 * Một model riêng cho từng Tenant.
 * Cổng dữ liệu ra ngoài (MEM-134): nhãn Nội bộ/Bên ngoài chỉ để hiển thị.
-* Docling GPU và OCR: dựng cùng node nhưng thuộc [MEM-192](../mem-192-ocr-gpu/design.md).
+* Docling GPU và OCR: dựng cùng node nhưng thuộc [MEM-192](../../active/mem-192-ocr-gpu/design.md).
 
 ## Điều kiện chấp nhận
 

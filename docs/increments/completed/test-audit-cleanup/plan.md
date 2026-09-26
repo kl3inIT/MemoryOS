@@ -5,7 +5,7 @@
 - [x] Backend: add the boundary assertions first (undated OpenSearch window, `COMPLETED_WITH_ERRORS` operation status, object close in the artifact lifecycle), then remove the weaker tests, the unused constructor and the spike harness.
 - [x] Tooling: drop the tautological interpreter version test; replace copied dataset counts with the category floor.
 - [x] Matrices: `docs/tests/chat.md`, `connector.md`, `document.md` and the undated-documents plan point at the remaining owners.
-- [ ] CI green on the pull request, including the Docker-backed OpenSearch, PostgreSQL and API suites.
+- [x] CI green on the pull request, including the Docker-backed OpenSearch, PostgreSQL and API suites (PR #376 merged).
 
 ## Verification
 

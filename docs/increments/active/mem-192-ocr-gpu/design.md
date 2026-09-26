@@ -1,6 +1,6 @@
 # MEM-192 — OCR chạy GPU trên node `serving`
 
-Linear: [MEM-192](https://linear.app/memory-os/issue/MEM-192). Liên quan: [MEM-171](../mem-171-production-deployment/design.md) (production), [MEM-135](../mem-135-embedding-settings/design.md) (embedding trên cùng GPU), [MEM-193](https://linear.app/memory-os/issue/MEM-193) (model chat trên cùng GPU), [MEM-191](../mem-191-extraction-fallback/design.md) (rơi về bộ đọc gốc), [MEM-79](../mem-79-rancher-ocr/design.md) (service OCR trên cụm dev).
+Linear: [MEM-192](https://linear.app/memory-os/issue/MEM-192). Liên quan: [MEM-171](../mem-171-production-deployment/design.md) (production), [MEM-135](../../completed/mem-135-embedding-settings/design.md) (embedding trên cùng GPU), [MEM-193](https://linear.app/memory-os/issue/MEM-193) (model chat trên cùng GPU), [MEM-191](../mem-191-extraction-fallback/design.md) (rơi về bộ đọc gốc), [MEM-79](../mem-79-rancher-ocr/design.md) (service OCR trên cụm dev).
 
 ## Kết quả mong muốn
 

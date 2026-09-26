@@ -1,6 +1,6 @@
 # MEM-26 — Chat reply stream replay in Redis
 
-Linear: [MEM-26](https://linear.app/memory-os/issue/MEM-26) "Add resumable tenant-authorized live updates". Related: [MEM-101 Deep research](../mem-101-deep-research/design.md).
+Linear: [MEM-26](https://linear.app/memory-os/issue/MEM-26) "Add resumable tenant-authorized live updates". Related: [MEM-101 Deep research](../../completed/mem-101-deep-research/design.md).
 
 ## Why now
 

@@ -1,6 +1,6 @@
 # MEM-192 — Kế hoạch
 
-Thứ tự đi cùng [MEM-135](../mem-135-embedding-settings/plan.md): hai increment dùng chung node `serving` và phải xong trước khi nạp bộ tài liệu Tasco, để mỗi tài liệu chỉ OCR một lần và embed một lần.
+Thứ tự đi cùng [MEM-135](../../completed/mem-135-embedding-settings/plan.md): hai increment dùng chung node `serving` và phải xong trước khi nạp bộ tài liệu Tasco, để mỗi tài liệu chỉ OCR một lần và embed một lần.
 
 ## Phase 1 — Chuẩn bị node `serving` (dùng chung với MEM-135 Phase A.1)
 

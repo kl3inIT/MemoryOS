@@ -201,11 +201,11 @@ Ba thứ không ai ghi lại, và script không tự làm, nên đều làm hỏ
 ## Còn mở
 
 * Docling: chọn node và dựng thành stack riêng ([MEM-79](https://linear.app/memory-os/issue/MEM-79)).
-* Node `serving` chỉ mới nhận backup: có RTX 4090 nhưng chưa cài driver, chưa có Docker. Kế hoạch dựng embedding trên đó nằm ở [MEM-135](../mem-135-embedding-settings/plan.md).
+* Node `serving` chỉ mới nhận backup: có RTX 4090 nhưng chưa cài driver, chưa có Docker. Kế hoạch dựng embedding trên đó nằm ở [MEM-135](../../completed/mem-135-embedding-settings/plan.md).
 * Nơi sao lưu thứ hai ngoài nhà cung cấp này, và cảnh báo khi một đêm không có bản sao lưu.
 * Mật khẩu yếu trên ba bề mặt quản trị ([MEM-189](https://linear.app/memory-os/issue/MEM-189)).
 * Gia hạn chứng chỉ Search khi không có Dashboards ([MEM-190](https://linear.app/memory-os/issue/MEM-190)).
-* Model embedding theo từng index và trang quản trị để đổi model, trước khi có dữ liệu khách hàng thật ([MEM-135](../mem-135-embedding-settings/design.md)).
+* Model embedding theo từng index và trang quản trị để đổi model, trước khi có dữ liệu khách hàng thật ([MEM-135](../../completed/mem-135-embedding-settings/design.md)).
 * Phase 1.7: đóng chính sách schema giai đoạn đầu. Từ lúc này production giữ dữ liệu thật.
 
 ## Phase 2 — Lần promote đầu tiên
