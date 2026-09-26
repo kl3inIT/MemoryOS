@@ -1,7 +1,7 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { CloudUpload } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
@@ -15,6 +15,9 @@ export function SourceCatalogPage() {
 
   const navigate = useNavigate({ from: "/admin/sources/new/" });
   const [searchQuery, setSearchQuery] = useState("");
+  const search = useRef<HTMLInputElement>(null);
+  // The catalog is a search first: the field takes focus as the page opens.
+  useEffect(() => search.current?.focus(), []);
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const matchingProviders = sourceProviders.filter(
     (provider) =>
@@ -37,13 +40,12 @@ export function SourceCatalogPage() {
       />
 
       <Input
+        ref={search}
         type="search"
         size="sm"
         value={searchQuery}
-        autoFocus
         placeholder={ui("Search sources")}
         aria-label={ui("Search sources")}
-        className="bg-surface-sunken"
         onChange={(event) => setSearchQuery(event.target.value)}
         onKeyDown={(event) => {
           if (event.key !== "Enter") return;

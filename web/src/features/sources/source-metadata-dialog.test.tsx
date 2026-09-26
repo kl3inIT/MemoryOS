@@ -1,20 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRef } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import type * as Sdk from "@/lib/hey-api/sdk.gen";
+import { HttpResponse } from "msw";
+import { describe, expect, it, vi } from "vitest";
+import { handleRenameSource, handleUpdateSourceAccess } from "@/lib/hey-api/msw.gen";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { type SourceMetadataField, SourceMetadataDialog } from "./source-metadata-dialog";
-
-const renameSourceMock = vi.hoisted(() => vi.fn());
-const updateSourceAccessMock = vi.hoisted(() => vi.fn());
-
-vi.mock("@/lib/hey-api/sdk.gen", async (importOriginal) => ({
-  ...(await importOriginal<typeof Sdk>()),
-  renameSource: renameSourceMock,
-  updateSourceAccess: updateSourceAccessMock,
-}));
 
 const SOURCE: SourceSummary = {
   id: "0d1c4a4e-5b0e-4a53-9d1e-2f6f0b8f7a11",
@@ -56,14 +49,16 @@ function renderDialog(field: SourceMetadataField, source: Partial<SourceSummary>
   return { onClose, onSaved };
 }
 
-afterEach(() => {
-  vi.clearAllMocks();
-});
-
 describe("SourceMetadataDialog", () => {
   it("saves a trimmed new name, then closes and refreshes", async () => {
     const user = userEvent.setup();
-    renameSourceMock.mockResolvedValue({ data: { ...SOURCE, name: "Policies" } });
+    const renamed: unknown[] = [];
+    server.use(
+      handleRenameSource(async ({ request }) => {
+        renamed.push(await request.json());
+        return HttpResponse.json({ ...SOURCE, name: "Policies" });
+      }),
+    );
     const { onClose, onSaved } = renderDialog("name");
 
     const dialog = screen.getByRole("dialog", { name: "Rename source" });
@@ -74,10 +69,8 @@ describe("SourceMetadataDialog", () => {
     await user.type(name, "  Policies ");
     await user.click(save);
 
-    expect(renameSourceMock).toHaveBeenCalledWith(
-      expect.objectContaining({ path: { sourceId: SOURCE.id }, body: { name: "Policies" } }),
-    );
-    expect(onClose).toHaveBeenCalledOnce();
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    expect(renamed).toEqual([{ name: "Policies" }]);
     expect(onSaved).toHaveBeenCalledOnce();
   });
 
@@ -106,8 +99,18 @@ describe("SourceMetadataDialog", () => {
 
   it("saves the chosen access and keeps the dialog open with the error when saving fails", async () => {
     const user = userEvent.setup();
-    updateSourceAccessMock.mockRejectedValueOnce(new Error("offline"));
-    updateSourceAccessMock.mockResolvedValueOnce({ data: { ...SOURCE, access: "PRIVATE" } });
+    const requested: unknown[] = [];
+    server.use(
+      handleUpdateSourceAccess(async ({ request }) => {
+        requested.push(await request.json());
+        return requested.length === 1
+          ? HttpResponse.json(
+              { type: "about:blank", title: "Unavailable", status: 503 },
+              { status: 503 },
+            )
+          : HttpResponse.json({ ...SOURCE, access: "PRIVATE" });
+      }),
+    );
     const { onClose } = renderDialog("access");
 
     const dialog = screen.getByRole("dialog", { name: "Change visibility" });
@@ -121,9 +124,7 @@ describe("SourceMetadataDialog", () => {
     expect(onClose).not.toHaveBeenCalled();
 
     await user.click(save);
-    expect(updateSourceAccessMock).toHaveBeenLastCalledWith(
-      expect.objectContaining({ path: { sourceId: SOURCE.id }, body: { access: "PRIVATE" } }),
-    );
-    expect(onClose).toHaveBeenCalledOnce();
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    expect(requested).toEqual([{ access: "PRIVATE" }, { access: "PRIVATE" }]);
   });
 });
