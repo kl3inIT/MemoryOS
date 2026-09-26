@@ -36,8 +36,8 @@ Claude Code reads the same repository guide through [`CLAUDE.md`](CLAUDE.md); pr
 
 | Module | Responsibility |
 | --- | --- |
-| `core` | Capability implementations: `iam`, `objectstorage`, `connector`, `document`, `ingestion`, `retrieval`, `chat`, `mcp`, `usage` and `meeting`. IAM owns identity, Tenant membership, invitations, Users, Groups and authorization |
-| `sources` | Shared integration bundle: Google Drive and SharePoint acquisition and offline Sheets/Docs snapshots (`io.memoryos.connector.adapter`); XLSX/CSV readers, Docling PDF/DOCX/PPTX and bounded Tika TXT/Markdown (`io.memoryos.ingestion.extraction`) |
+| `core` | Capability implementations: `iam`, `objectstorage`, `connector`, `document`, `ingestion`, `retrieval`, `chat`, `library`, `ai`, `voice`, `mcp`, `usage`, `meeting` and `audit`, over the `shared` kernel. IAM owns identity, Tenant membership, invitations, Users, Groups and authorization |
+| `sources` | Shared integration bundle: Google Drive and SharePoint acquisition and offline Sheets/Docs snapshots (`io.memoryos.connector.adapter`); XLSX/CSV readers, PaddleOCR-VL for scans and images, Docling PDF/DOCX/PPTX with a bounded Tika fallback, and bounded Tika TXT/Markdown (`io.memoryos.ingestion.extraction`) |
 | `api` | Spring Boot HTTP, validation, migration and security composition root; Chat runs here on virtual threads |
 | `worker` | Source synchronization, extraction, Search projection and cleanup over Redis Streams |
 | `interpreter` | The `run_python` service and its disposable executors ([how it works](interpreter/HOW_IT_WORKS.md)) |
@@ -71,7 +71,7 @@ pnpm test:e2e
 
 The Gradle gate compiles every server module, runs capability and HTTP integration tests, verifies the Spring Modulith
 and ArchUnit boundaries and starts both composition roots. The frontend gate regenerates the OpenAPI client, rejects
-generated drift, lints, checks formatting and TypeScript, runs unit tests and builds the production bundle; Playwright
+generated drift, lints, checks formatting and TypeScript, runs unit tests and builds the production bundle within its size budget; Playwright
 exercises the observable browser states.
 
 The landing page (`https://vadan.app`, deployed separately; see the [landing runbook](docs/runbooks/landing.md)):
@@ -99,11 +99,12 @@ endpoints.
 
 ## Deployment
 
-API and worker images build from [`Dockerfile`](Dockerfile) and inject the selected Infisical environment before Spring
-Boot starts; the browser image builds from [`web/Dockerfile`](web/Dockerfile). A deployment is composed from
+API and worker images build from [`Dockerfile`](Dockerfile) and read their secrets from files mounted by Compose (every
+`MEMORYOS_<NAME>_FILE` becomes `MEMORYOS_<NAME>`) before Spring Boot starts; the browser image builds from [`web/Dockerfile`](web/Dockerfile). A deployment is composed from
 [`compose.base.yaml`](infrastructure/deployment/compose.base.yaml) plus a staging or production overlay: the base owns
-PostgreSQL, private MinIO with its bucket bootstrap, the Keycloak runtime shared with OrgMemory, API, worker and web.
-API and worker hold distinct file-mounted MinIO credentials. Staging adds Mailpit, TLS Redis, read-only pgweb and Redis
+PostgreSQL, private MinIO with its bucket bootstrap, the Keycloak runtime shared with OrgMemory, TLS Redis, Docling, the
+code interpreter, API, worker and web.
+API and worker hold distinct file-mounted MinIO credentials. Staging adds Mailpit, read-only pgweb and Redis
 Insight behind SSO proxies and an owner-only MinIO Console; production adds no inspection surface.
 
 Staging runs at `https://memoryos.72-62-193-33.nip.io`. The configured object-storage origin routes directly to MinIO
@@ -125,7 +126,7 @@ invalidates existing Spring Sessions, so browser users sign in again after that 
 - [Production-first persistence](docs/guidelines/persistence.md)
 - [Testing and verification](docs/guidelines/testing.md)
 - [CI and staging delivery](docs/runbooks/ci-cd.md)
-- [ADR 0003: evidence-driven audit boundary](docs/decisions/0003-defer-audit-until-evidence-consumer.md)
+- [ADR 0013: server-authored audit evidence](docs/decisions/0013-server-authored-audit-evidence.md)
 
 Project skills live in `.skills/`; the entries under `.agents/skills/`, `.claude/skills/` and `.omp/skills/` are
 committed symbolic links to them, so edit the canonical files. On Windows, enable Developer Mode or use an elevated
