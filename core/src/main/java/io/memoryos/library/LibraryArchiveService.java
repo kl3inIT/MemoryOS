@@ -122,7 +122,7 @@ public class LibraryArchiveService {
                 () -> archives.failAbandoned(MAX_ATTEMPTS),
                 () -> archives.claim(LEASE, MAX_ATTEMPTS),
                 this::pack,
-                (claim, failure) -> archives.markFailed(claim.tenant(), claim.id(), claim.attempts(), MAX_ATTEMPTS,
+                (claim, _) -> archives.markFailed(claim.tenant(), claim.id(), claim.attempts(), MAX_ATTEMPTS,
                         "The archive could not be packed.")));
     }
 

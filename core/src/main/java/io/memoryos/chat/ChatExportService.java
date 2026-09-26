@@ -124,7 +124,7 @@ public class ChatExportService {
                 () -> exports.failAbandoned(MAX_ATTEMPTS),
                 () -> exports.claim(LEASE, MAX_ATTEMPTS),
                 this::pack,
-                (claim, failure) -> exports.markFailed(claim.tenant(), claim.id(), claim.attempts(), MAX_ATTEMPTS,
+                (claim, _) -> exports.markFailed(claim.tenant(), claim.id(), claim.attempts(), MAX_ATTEMPTS,
                         "The export could not be packed.")));
     }
 

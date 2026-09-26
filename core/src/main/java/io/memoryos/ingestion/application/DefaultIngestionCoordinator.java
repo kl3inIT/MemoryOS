@@ -132,7 +132,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                     throw new IllegalStateException("stored object metadata changed after adoption");
                 }
                 failureStage = "SOURCE_EXTRACTION";
-                logIndexStage(work, failureStage, started);
+                logIndexStage(failureStage, started);
                 content = extractor.extract(
                         objectContent.inputStream(),
                         expected.sizeBytes(),
@@ -141,10 +141,10 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
                 );
             }
             failureStage = "SOURCE_STORAGE_WRITE";
-            logIndexStage(work, failureStage, started);
+            logIndexStage(failureStage, started);
             var staged = artifacts.stage(work.tenantId(), content);
             failureStage = "SOURCE_PUBLICATION";
-            logIndexStage(work, failureStage, started);
+            logIndexStage(failureStage, started);
             transactions.executeWithoutResult(ignored -> {
                 var documentId = documents.publish(
                         work.tenantId(),
@@ -203,7 +203,7 @@ public class DefaultIngestionCoordinator implements IngestionCoordinator {
         }
     }
 
-    private static void logIndexStage(IndexWork work, String stage, long started) {
+    private static void logIndexStage(String stage, long started) {
         LOGGER.atInfo().addKeyValue("event", "ingestion.stage.started")
                 .addKeyValue("stage", stage)
                 .addKeyValue("elapsed_ms", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))

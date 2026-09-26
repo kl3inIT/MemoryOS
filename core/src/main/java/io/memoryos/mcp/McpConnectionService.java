@@ -64,7 +64,7 @@ public class McpConnectionService {
     public record ConnectionView(UUID id, String slug, String name, @Nullable String description, String url,
                                  McpAuthType authType, McpAuthPerformer authPerformer, McpServerStatus status,
                                  McpConnectionState state, List<ClientOption> oauthClients, long enabledToolCount,
-                                 /** When the User's own credential last changed, including a token refresh. */
+                                 // When the User's own credential last changed, including a token refresh.
                                  @Nullable Instant credentialUpdatedAt, long revision) {}
 
     /** Servers the User may use, each with their own connection state. */
@@ -121,7 +121,7 @@ public class McpConnectionService {
             oauth.disconnectUser(actor, serverId);
             return;
         }
-        transactions.executeWithoutResult(status -> {
+        transactions.executeWithoutResult(_ -> {
             UUID tenant = authorization.lockAndRequire(actor, IamCapability.CHAT_WRITE, false).tenantId().value();
             accessibleServer(tenant, serverId, actor);
             credentials.findByTenantIdAndServerIdAndOwnerActorId(tenant, serverId, actor.value())
@@ -162,6 +162,6 @@ public class McpConnectionService {
     }
 
     private <T> T inTransaction(Supplier<T> work) {
-        return Objects.requireNonNull(transactions.execute(status -> work.get()));
+        return Objects.requireNonNull(transactions.execute(_ -> work.get()));
     }
 }

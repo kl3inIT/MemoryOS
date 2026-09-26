@@ -3,6 +3,7 @@ package io.memoryos.ingestion.extraction;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Set;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.ConstructorBinding;
@@ -58,5 +59,5 @@ public record PaddleOcrVlProperties(@Nullable URI endpoint, Duration timeout, in
                 + ";tableText=sparse-offsets-v1;financialChecks=cash-flow-income-v2";
     }
 
-    @Override public String toString() { return "PaddleOcrVlProperties[configured=" + configured() + "]"; }
+    @Override public @NonNull String toString() { return "PaddleOcrVlProperties[configured=" + configured() + "]"; }
 }

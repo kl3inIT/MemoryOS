@@ -2,6 +2,7 @@ package io.memoryos.retrieval.embedding;
 
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Duration;
+import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.document.MetadataMode;
@@ -12,6 +13,7 @@ import org.springframework.ai.openai.OpenAiEmbeddingModel;
 import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 
 /** The one embedding protocol: OpenAI-compatible {@code /v1/embeddings}, which OpenAI, TEI, vLLM and Ollama speak. */
+@NullMarked
 public final class OpenAiCompatibleEmbeddings {
     /**
      * Sent as the bearer token to a provider an administrator saved without a key (Ollama, LM Studio, an internal TEI

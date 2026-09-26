@@ -257,7 +257,7 @@ public final class UsageReportPdf {
         double ceiling = Math.max(step * 4, step * Math.ceil(max / step));
         int ticks = (int) Math.round(ceiling / step);
         for (int i = 0; i <= ticks; i++) {
-            float y = (float) (bottom + (top - bottom) * i / ticks);
+            float y = bottom + (top - bottom) * i / ticks;
             page.stroke(left, y, right, y, HAIRLINE, 0.5f);
             String tick = money ? axisMoney(step * i) : count(Math.round(step * i));
             page.text(left - 6 - page.width(tick, page.regular, 7), y - 2.5f, page.regular, 7, BODY, tick);
@@ -464,7 +464,7 @@ public final class UsageReportPdf {
         }
 
         /** Cuts a value that would overflow its column, with an ellipsis, rather than overprinting the next one. */
-        String fit(String value, PDType0Font font, float size, float max) throws IOException {
+        String fit(String value, PDType0Font font, float size, float max) {
             if (width(value, font, size) <= max) return value;
             String cut = value;
             while (!cut.isEmpty() && width(cut + "…", font, size) > max) cut = cut.substring(0, cut.length() - 1);

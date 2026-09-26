@@ -288,7 +288,7 @@ public class McpOAuthService {
         });
         var tokens = protocol.exchangeCode(exchange.tokenEndpoint(), exchange.client(), code, properties.redirectUri(),
                 verifier, exchange.resource());
-        transactions.executeWithoutResult(status -> {
+        transactions.executeWithoutResult(_ -> {
             UUID owner = pending.ownerActorId();
             UUID tenant = owner == null ? write(actor)
                     : authorization.lockAndRequire(actor, IamCapability.CHAT_WRITE, false).tenantId().value();
@@ -315,7 +315,7 @@ public class McpOAuthService {
 
     /** Removes the User's own connection; the server status reports the shared connection only, so it is untouched. */
     public void disconnectUser(ActorId actor, UUID serverId) {
-        Revocation revocation = transactions.execute(status -> {
+        Revocation revocation = transactions.execute(_ -> {
             UUID tenant = authorization.lockAndRequire(actor, IamCapability.CHAT_WRITE, false).tenantId().value();
             if (!access.accessible(tenant, serverId, actor.value())) throw McpException.notFound();
             var credential = credentials.findByTenantIdAndServerIdAndOwnerActorId(tenant, serverId, actor.value()).orElse(null);
@@ -334,7 +334,7 @@ public class McpOAuthService {
      * hide an authorization decision behind a flag.
      */
     public void disconnectAdministrator(ActorId actor, UUID serverId) {
-        Revocation revocation = transactions.execute(status -> {
+        Revocation revocation = transactions.execute(_ -> {
             UUID tenant = write(actor);
             var server = oauthServer(tenant, serverId);
             var credential = credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(tenant, serverId).orElse(null);
@@ -434,14 +434,14 @@ public class McpOAuthService {
 
     /** A newer, active and fresh token written by a concurrent refresh, or null. */
     private @Nullable String winnerToken(UUID tenantId, TokenSnapshot snapshot) {
-        return transactions.execute(status -> credentials.findById(snapshot.credentialId())
+        return transactions.execute(_ -> credentials.findById(snapshot.credentialId())
                 .filter(credential -> credential.tenantId().equals(tenantId) && credential.revision() != snapshot.revision()
                         && credential.status() == McpCredentialStatus.ACTIVE && fresh(credential.accessExpiresAt()))
                 .map(credential -> open(credential).get(ACCESS_TOKEN)).orElse(null));
     }
 
     private void requireReauthorization(UUID tenantId, UUID serverId, TokenSnapshot snapshot) {
-        transactions.executeWithoutResult(status -> credentials.findById(snapshot.credentialId())
+        transactions.executeWithoutResult(_ -> credentials.findById(snapshot.credentialId())
                 .filter(credential -> credential.tenantId().equals(tenantId) && credential.revision() == snapshot.revision())
                 .ifPresent(credential -> {
                     Instant now = Instant.now();
@@ -546,11 +546,12 @@ public class McpOAuthService {
     private @Nullable Revocation revocation(UUID tenant, UUID serverId, McpCredentialEntity credential) {
         if (credential.oauthClientId() == null) return null;
         var client = clients.findByTenantIdAndServerIdAndId(tenant, serverId, credential.oauthClientId()).orElse(null);
-        if (client == null || client.revocationEndpoint() == null) return null;
+        String endpoint = client == null ? null : client.revocationEndpoint();
+        if (client == null || endpoint == null) return null;
         try {
             var payload = open(credential);
             String token = payload.getOrDefault(REFRESH_TOKEN, payload.get(ACCESS_TOKEN));
-            return token == null ? null : new Revocation(URI.create(client.revocationEndpoint()), protocolClient(client), token);
+            return token == null ? null : new Revocation(URI.create(endpoint), protocolClient(client), token);
         } catch (McpException unreadable) {
             return null;
         }
@@ -580,7 +581,7 @@ public class McpOAuthService {
     }
 
     private <T> T inTransaction(Supplier<T> work) {
-        return Objects.requireNonNull(transactions.execute(status -> work.get()));
+        return Objects.requireNonNull(transactions.execute(_ -> work.get()));
     }
 
     private UUID read(ActorId actor) {

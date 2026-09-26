@@ -106,7 +106,7 @@ final class PaddleOcrVlClient implements AutoCloseable {
     /** @return the envelope's {@code result.layoutParsingResults}, one element per page */
     JsonNode parse(Input input, FileType type) throws ExtractionException {
         long queued = System.nanoTime();
-        long started = queued;
+        long started;
         int status = -1;
         long waited = 0;
         boolean permitted = false;

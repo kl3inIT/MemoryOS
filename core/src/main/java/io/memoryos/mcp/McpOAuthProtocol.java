@@ -241,7 +241,7 @@ public final class McpOAuthProtocol {
                 try {
                     metadata = endpoint(parameters.get("resource_metadata"), false);
                 } catch (McpException ignored) {
-                    metadata = null;
+                    // An unusable metadata address is treated as absent.
                 }
             }
             return new Challenge(metadata, parameters.get("scope"));

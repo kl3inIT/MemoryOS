@@ -110,7 +110,7 @@ public final class SpreadsheetPreview {
         @Override public void startRow(int rowNum) {
             row.setLength(0);
             // A row the sheet never stored still takes its line, so a cited row index addresses the same line here.
-            for (int absent = nextRow; absent < rowNum; absent++) row.append('\n');
+            row.repeat('\n', Math.max(0, rowNum - nextRow));
             column = 0;
         }
 
@@ -127,7 +127,7 @@ public final class SpreadsheetPreview {
         @Override public void cell(@Nullable String reference, @Nullable String value, @Nullable XSSFComment comment) {
             int index = reference == null ? column : Math.max(column, new CellReference(reference).getCol());
             // Missing cells before this one are empty columns.
-            row.append(",".repeat(index - column + (column > 0 ? 1 : 0)));
+            row.repeat(',', index - column + (column > 0 ? 1 : 0));
             row.append(quote(value == null ? "" : value));
             column = index + 1;
         }

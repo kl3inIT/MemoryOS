@@ -415,10 +415,6 @@ public class OpenSearchIndexService implements SearchIndex {
         return actor == null ? null : new ValidatedEmbeddingService.Caller(tenant.value(), actor.value(), AiUsageFlow.EMBEDDING_QUERY);
     }
 
-    public List<SearchHit> searchFiles(TenantId tenant, String query, Map<UUID, UUID> generations, Map<UUID, UUID> files) {
-        return searchFiles(tenant, null, query, generations, files);
-    }
-
     public List<SearchHit> searchFiles(TenantId tenant, @Nullable ActorId actor, String query, Map<UUID, UUID> generations, Map<UUID, UUID> files) {
         var active = this.generations.present();
         if (generations.isEmpty() || files.isEmpty()) return List.of();

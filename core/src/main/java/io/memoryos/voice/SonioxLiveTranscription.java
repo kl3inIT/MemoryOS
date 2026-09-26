@@ -141,7 +141,7 @@ final class SonioxLiveTranscription implements LiveTranscription {
         byte[] frame = pcm.clone();
         retained.addLast(frame);
         retainedBytes += frame.length;
-        while (retainedBytes - retained.peekFirst().length >= REPLAY_BYTES) retainedBytes -= retained.removeFirst().length;
+        while (retainedBytes - retained.getFirst().length >= REPLAY_BYTES) retainedBytes -= retained.removeFirst().length;
         sentBytes += frame.length;
         // While reconnecting, only the retained tail survives; it is replayed into the new stream.
         if (socket != null) send(frame);
@@ -164,7 +164,7 @@ final class SonioxLiveTranscription implements LiveTranscription {
                     .thenCompose(ignored -> live.sendBinary(ByteBuffer.allocate(0), true));
         }
         return finished.orTimeout(FINISH_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)
-                .exceptionally(timeout -> {
+                .exceptionally(_ -> {
                     synchronized (this) {
                         flush();
                     }
