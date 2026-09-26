@@ -8,33 +8,18 @@ import {
   RouterProvider,
 } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
-import type { DocumentSet } from "@/features/document-sets/document-sets-api";
-import type * as ChatPersonasApi from "@/features/chat/chat-personas-api";
-import type * as DocumentSetsApi from "./document-sets-api";
-import type * as ChatSdk from "@/lib/hey-api/sdk.gen";
+import {
+  handleDeleteDocumentSet,
+  handleListChatPersonaSources,
+  handleListDocumentSets,
+} from "@/lib/hey-api/msw.gen";
+import type { View } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { DocumentSetsPage } from "./document-sets-page";
-
-const loadDocumentSetsMock = vi.hoisted(() => vi.fn());
-const loadPersonaSourcesMock = vi.hoisted(() => vi.fn());
-const deleteDocumentSetMock = vi.hoisted(() => vi.fn());
-
-vi.mock("@/features/document-sets/document-sets-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof DocumentSetsApi>()),
-  loadDocumentSets: loadDocumentSetsMock,
-}));
-
-vi.mock("@/features/chat/chat-personas-api", async (importOriginal) => ({
-  ...(await importOriginal<typeof ChatPersonasApi>()),
-  loadPersonaSources: loadPersonaSourcesMock,
-}));
-
-vi.mock("@/lib/hey-api/sdk.gen", async (importOriginal) => ({
-  ...(await importOriginal<typeof ChatSdk>()),
-  deleteDocumentSet: deleteDocumentSetMock,
-}));
 
 const OWNER_SESSION: ApplicationSession = {
   actorId: "0f2f5e6e-4e6c-4d55-9c07-6b0b1d4b39a4",
@@ -49,7 +34,7 @@ function source(index: number) {
   return { id: `00000000-0000-4000-8000-00000000000${index}`, name: `Source ${index}` };
 }
 
-function documentSet(overrides: Partial<DocumentSet> = {}): DocumentSet {
+function documentSet(overrides: Partial<View> = {}): View {
   return {
     id: "6f7dfd15-4a1e-4d7e-bd4a-1ee4b3a4f2f1",
     revision: 3,
@@ -89,53 +74,96 @@ async function renderPage() {
   );
 }
 
-beforeEach(() => {
-  loadPersonaSourcesMock.mockResolvedValue([]);
-  deleteDocumentSetMock.mockResolvedValue({ data: undefined });
-});
+const bodyRows = async () =>
+  within(await screen.findByRole("table", { name: "Document Sets table" }))
+    .getAllByRole("row")
+    .slice(1);
 
-afterEach(() => {
-  loadDocumentSetsMock.mockReset();
-  loadPersonaSourcesMock.mockReset();
-  deleteDocumentSetMock.mockReset();
+beforeEach(() => {
+  server.use(handleListChatPersonaSources({ body: [] }));
 });
 
 describe("DocumentSetsPage", () => {
   it("names every Source it may show and counts the ones the viewer cannot read", async () => {
-    loadDocumentSetsMock.mockResolvedValue([
-      documentSet({ sources: [1, 2, 3, 4, 5].map(source), hiddenSources: 2 }),
-    ]);
+    server.use(
+      handleListDocumentSets({
+        body: [documentSet({ sources: [1, 2, 3, 4, 5].map(source), hiddenSources: 2 })],
+      }),
+    );
     await renderPage();
 
-    const row = within(await screen.findByRole("table")).getAllByRole("row")[1];
-    expect(within(row).getByText("Source 1")).toBeVisible();
-    expect(within(row).getByText("Source 5")).toBeVisible();
+    const [row] = await bodyRows();
+    expect(within(row!).getByText("Source 1")).toBeVisible();
+    expect(within(row!).getByText("Source 5")).toBeVisible();
     // Sources the viewer cannot select are never named, only counted.
-    expect(within(row).getByText("+2 Sources you cannot read")).toBeVisible();
+    expect(within(row!).getByText("+2 Sources you cannot read")).toBeVisible();
   });
 
   it("shows public, shared and private access for each set", async () => {
-    loadDocumentSetsMock.mockResolvedValue([
-      documentSet({ id: "11111111-1111-4111-8111-111111111111", name: "A", isPublic: true }),
-      documentSet({
-        id: "22222222-2222-4222-8222-222222222222",
-        name: "B",
-        groupShares: [{ id: "33333333-3333-4333-8333-333333333333", name: "Finance" }],
+    server.use(
+      handleListDocumentSets({
+        body: [
+          documentSet({ id: "11111111-1111-4111-8111-111111111111", name: "A", isPublic: true }),
+          documentSet({
+            id: "22222222-2222-4222-8222-222222222222",
+            name: "B",
+            groupShares: [{ id: "33333333-3333-4333-8333-333333333333", name: "Finance" }],
+          }),
+          documentSet({ id: "44444444-4444-4444-8444-444444444444", name: "C" }),
+        ],
       }),
-      documentSet({ id: "44444444-4444-4444-8444-444444444444", name: "C" }),
-    ]);
+    );
     await renderPage();
 
-    const rows = within(await screen.findByRole("table"))
-      .getAllByRole("row")
-      .slice(1);
-    expect(within(rows[0]).getByText("Public")).toBeVisible();
-    expect(within(rows[1]).getByText("Shared")).toBeVisible();
-    expect(within(rows[2]).getByText("Private")).toBeVisible();
+    const rows = await bodyRows();
+    expect(within(rows[0]!).getByText("Public")).toBeVisible();
+    expect(within(rows[1]!).getByText("Shared")).toBeVisible();
+    expect(within(rows[2]!).getByText("Private")).toBeVisible();
+  });
+
+  it("pages through the sets on the server, one page at a time", async () => {
+    const requested: (string | null)[] = [];
+    server.use(
+      handleListDocumentSets(({ request }) => {
+        const query = new URL(request.url).searchParams;
+        requested.push(`${query.get("offset")}/${query.get("limit")}`);
+        const offset = Number(query.get("offset"));
+        // A full page plus one row tells the table that a next page exists.
+        const count = offset === 0 ? 51 : 1;
+        return HttpResponse.json(
+          Array.from({ length: count }, (_, index) =>
+            documentSet({
+              id: `00000000-0000-4000-8000-${String(offset + index).padStart(12, "0")}`,
+              name: `Set ${offset + index}`,
+            }),
+          ),
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    await renderPage();
+
+    expect(await bodyRows()).toHaveLength(50);
+    await user.click(screen.getByRole("button", { name: "Next" }));
+
+    await waitFor(() => expect(screen.getByText("Set 50")).toBeVisible());
+    expect(await bodyRows()).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    expect(requested).toEqual(["0/51", "50/51"]);
   });
 
   it("deletes a set at its current revision after the confirmation", async () => {
-    loadDocumentSetsMock.mockResolvedValue([documentSet()]);
+    let deleted: { id: string | undefined; revision: string | null } | undefined;
+    server.use(
+      handleListDocumentSets({ body: [documentSet()] }),
+      handleDeleteDocumentSet(({ request, params }) => {
+        deleted = {
+          id: params.documentSetId,
+          revision: new URL(request.url).searchParams.get("revision"),
+        };
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
     const user = userEvent.setup();
     await renderPage();
 
@@ -148,22 +176,23 @@ describe("DocumentSetsPage", () => {
     await user.click(screen.getByRole("button", { name: "Delete Document Set" }));
 
     await waitFor(() =>
-      expect(deleteDocumentSetMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          path: { documentSetId: "6f7dfd15-4a1e-4d7e-bd4a-1ee4b3a4f2f1" },
-          query: { revision: 3 },
-        }),
-      ),
+      expect(deleted).toEqual({ id: "6f7dfd15-4a1e-4d7e-bd4a-1ee4b3a4f2f1", revision: "3" }),
     );
   });
 
   it("offers no editing controls on a set the viewer may only use", async () => {
-    loadDocumentSetsMock.mockResolvedValue([
-      documentSet({ permissions: { edit: false, share: false, delete: false, manage: false } }),
-    ]);
+    server.use(
+      handleListDocumentSets({
+        body: [
+          documentSet({
+            permissions: { edit: false, share: false, delete: false, manage: false },
+          }),
+        ],
+      }),
+    );
     await renderPage();
 
-    expect(await screen.findByRole("table")).toBeVisible();
+    expect(await bodyRows()).toHaveLength(1);
     expect(screen.queryByRole("link", { name: "Edit Finance" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete Finance" })).not.toBeInTheDocument();
   });
