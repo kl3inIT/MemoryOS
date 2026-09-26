@@ -1,15 +1,21 @@
+import { lazy, Suspense } from "react";
 import { useAuiState } from "@assistant-ui/react";
 import { useChatFilePanel } from "@/features/chat/thread/chat-panel-context";
 import { DownloadIcon } from "lucide-react";
 import { File as FileDisplay } from "@/components/assistant-ui/elements/file";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { ChatChartCard } from "./chat-chart-card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { fileSize } from "@/lib/file-size";
 import { fileArtifactUrl } from "@/features/library/content-urls";
 import { type GeneratedFile } from "./chat-code";
 
 const emptyFiles: GeneratedFile[] = [];
+
+// Recharts is only needed once an answer carries a chart, so the card and its charting code load then.
+const ChatChartCard = lazy(() =>
+  import("./chat-chart-card").then((module) => ({ default: module.ChatChartCard })),
+);
 
 /**
  * The files run_python produced, below the answer, composed from the assistant-ui File element. Its own download
@@ -28,7 +34,12 @@ export function ChatGeneratedFiles() {
       {files
         .filter((file) => file.chart && !file.deleted)
         .map((file) => (
-          <ChatChartCard key={`chart:${file.id}`} file={file} />
+          <Suspense
+            key={`chart:${file.id}`}
+            fallback={<Skeleton className="mt-3 aspect-video w-full max-w-2xl rounded-xl" />}
+          >
+            <ChatChartCard file={file} />
+          </Suspense>
         ))}
       <ul className="mt-3 flex flex-wrap gap-2" data-slot="generated-files">
         {files.map((file) =>

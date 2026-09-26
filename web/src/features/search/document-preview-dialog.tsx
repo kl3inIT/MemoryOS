@@ -3,7 +3,7 @@ import { Dialog } from "radix-ui";
 import { lazy, Suspense, useCallback, useState, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
-import type { CitationConfidence } from "@/features/preview/original-view";
+import type { CitationConfidence } from "@/features/preview/file-preview";
 import { previewKind, previewSize } from "@/features/preview/preview-kind";
 import { PreviewCanvas, PreviewSkeleton } from "@/features/preview/preview-surface";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -206,7 +206,7 @@ export function DocumentPreviewDialog({
                     rows={places.map((place) =>
                       place.row === undefined ? undefined : { sheet: place.sheet, row: place.row },
                     )}
-                    citations={reading.citations}
+                    texts={reading.citations}
                     sections={reading.sections}
                     active={reading.activeMatchIndex}
                     onPlaced={onPlaced}
