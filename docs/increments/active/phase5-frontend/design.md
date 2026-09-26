@@ -13,6 +13,7 @@ Owner decision 2026-09-26: fix every item of the frontend audit (the phase 5 lis
 - **Performance.** The meeting page subscribes to the recorder only where a value is shown and virtualizes the transcript. pdf.js, docx and chart code load lazily everywhere. Searches debounce the request, not only the render. Polling stops when nothing is running.
 - **One preview.** Library, Search and Chat render files through one `preview/` component; Chat stops importing Search.
 - **Data layer.** Queries and mutations use the generated `*Options`/`*QueryKey`/`*Mutation` factories; unit tests mock HTTP with MSW instead of mocking the generated SDK module.
+- **Tables.** Tables with sorting, row selection or paging use TanStack Table through the shadcn Data Table pattern; paging and sorting stay server-side. Static tables stay plain `Table`.
 - **Forms.** Forms use the shadcn `Field` primitives (`FieldGroup`, `Field`, `FieldLabel`, `FieldDescription`, `FieldError`) with label, description and error wired to the control. No form library: forms are small, server validation arrives as `ApiProblem`, and the shadcn skill does not require one.
 - **React 19 and TypeScript.** `<Context value>`/`use()`, `ref` as a prop; `noUncheckedIndexedAccess` on.
 - **Security headers and hygiene.** The dot-matrix animation moves out of an inline `<style>` the CSP blocks; nginx adds `Permissions-Policy`; unused dependencies go; knip and a bundle budget run in `pnpm check`; oxfmt sorts Tailwind classes; axe runs in the existing Playwright specs.
