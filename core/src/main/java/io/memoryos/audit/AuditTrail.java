@@ -82,7 +82,7 @@ public class AuditTrail {
 
     private void writeSeparately(AuditRecord event) {
         try {
-            separate.executeWithoutResult(ignored -> record(event));
+            separate.executeWithoutResult(ignored -> write(event));
         } catch (RuntimeException failure) {
             meters.counter("memoryos.audit.write.failures", "action", event.action().value()).increment();
             logFailure("audit.event.store_failed", event.action().value(), failure, "Audit event could not be stored");
@@ -95,6 +95,11 @@ public class AuditTrail {
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void record(AuditRecord event) {
+        write(event);
+    }
+
+    /** Writes the event in the transaction the caller holds: the proxied {@link #record} or the separate template. */
+    private void write(AuditRecord event) {
         var at = Instant.now();
         UUID id = UUID.randomUUID();
         String details = details(event);
