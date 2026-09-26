@@ -31,13 +31,16 @@ describe("detail page composites", () => {
   it("leads back to the list and names the resource once as a heading and once as the trail's end", async () => {
     await renderInRouter(
       <DetailHeader
-        parent={{ label: "Nhóm", to: "/admin/groups" }}
+        parent={{ label: "Nhóm", to: "/admin/groups", search: { page: 0, size: 20 } }}
         title="Kế toán"
         description="12 thành viên"
         actions={<Button>Lưu</Button>}
       />,
     );
-    expect(screen.getByRole("link", { name: "Nhóm" })).toHaveAttribute("href", "/admin/groups");
+    expect(screen.getByRole("link", { name: "Nhóm" })).toHaveAttribute(
+      "href",
+      "/admin/groups?page=0&size=20",
+    );
     expect(screen.getByRole("heading", { name: "Kế toán" })).toBeVisible();
     // The trail ends on the current page: marked as current and not navigable.
     const current = screen.getByRole("link", { name: "Kế toán" });

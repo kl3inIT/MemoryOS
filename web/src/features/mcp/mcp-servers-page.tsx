@@ -36,7 +36,7 @@ export function McpServersPage() {
   const problem = useProblemMessage();
   const message = (failure: unknown) => problem(presentProblem(failure, "mutation").message);
   const client = useQueryClient();
-  const outcome = useSearch({ strict: false }) as { mcp?: string; serverId?: string };
+  const outcome = useSearch({ from: "/_authenticated/admin/mcp" });
   const [editing, setEditing] = useState<McpServerView | "new" | null>(null);
   const [removing, setRemoving] = useState<McpServerView | null>(null);
   const [opened, setOpened] = useState<string | null>(outcome.serverId ?? null);
