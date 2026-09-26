@@ -46,7 +46,7 @@ Run from the repository root with `pnpm --dir web <script>`, or inside `web/`.
 - Raw palette classes, hex colours or opacity as a disabled state.
 - Rendering `AppShell` in a page, or adding an administration page without a row in `admin-pages.ts`.
 - Keeping filter state in component state when it belongs in the URL, or reading search params without `validateSearch`.
-- Polling on a fixed interval when nothing runs, or disabling a control on a background refetch.
+- Polling fast when nothing runs, or disabling a control on a background refetch.
 - An inline `<style>` element, which the CSP drops.
 - An eager import of a viewer, chart or grammar, which grows the initial load.
 - Passing `throwOnError` or the CSRF header at a call site, or reading `result.error`.
