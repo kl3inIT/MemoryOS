@@ -1,6 +1,5 @@
 package io.memoryos.api.chat.contract;
 
-import io.memoryos.chat.ChatPreferences;
 import io.memoryos.ai.ReasoningEffort;
 import io.memoryos.chat.ChatPreferencesService;
 import io.swagger.v3.oas.annotations.media.Schema;

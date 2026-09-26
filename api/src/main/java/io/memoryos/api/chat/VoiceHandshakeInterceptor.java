@@ -6,6 +6,7 @@ import io.memoryos.shared.ActorId;
 import io.memoryos.iam.IdentityContext;
 import java.util.Map;
 import java.util.function.Consumer;
+import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
@@ -20,6 +21,7 @@ import org.springframework.web.socket.server.HandshakeInterceptor;
  * needs. Spring's default origin check keeps the handshake same-origin; the API security chain has already required a
  * session.
  */
+@NullMarked
 final class VoiceHandshakeInterceptor implements HandshakeInterceptor {
     static final String ACTOR = "memoryos.voice.actor";
     static final String LANGUAGE = "memoryos.voice.language";
@@ -38,22 +40,22 @@ final class VoiceHandshakeInterceptor implements HandshakeInterceptor {
                                    Map<String, Object> attributes) {
         if (!(request instanceof ServletServerHttpRequest servlet)
                 || !(servlet.getPrincipal() instanceof Authentication authentication)
-                || !(authentication.getPrincipal() instanceof IdentityContext identity)) {
+                || !(authentication.getPrincipal() instanceof IdentityContext(var actor))) {
             response.setStatusCode(HttpStatus.UNAUTHORIZED);
             return false;
         }
         var query = servlet.getServletRequest();
-        if (!tickets.consume(query.getParameter("ticket"), identity.actorId(), purpose)) {
+        if (!tickets.consume(query.getParameter("ticket"), actor, purpose)) {
             response.setStatusCode(HttpStatus.FORBIDDEN);
             return false;
         }
         try {
-            requireAccess.accept(identity.actorId());
+            requireAccess.accept(actor);
         } catch (BusinessException denied) {
             response.setStatusCode(HttpStatus.FORBIDDEN);
             return false;
         }
-        attributes.put(ACTOR, identity.actorId());
+        attributes.put(ACTOR, actor);
         String language = query.getParameter("language");
         if (language != null) attributes.put(LANGUAGE, language);
         return true;

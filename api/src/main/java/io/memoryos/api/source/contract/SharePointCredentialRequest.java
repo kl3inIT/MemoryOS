@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -24,5 +25,5 @@ public record SharePointCredentialRequest(
         @Schema(description = "Base64 PKCS#12 keystore, required for CERTIFICATE") @Size(max = 24_000) @Nullable String certificate,
         @Schema(description = "PKCS#12 password") @Size(max = 256) @Nullable String certificatePassword) {
 
-    @Override public String toString() { return "SharePointCredentialRequest[redacted]"; }
+    @Override public @NonNull String toString() { return "SharePointCredentialRequest[redacted]"; }
 }

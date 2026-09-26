@@ -82,7 +82,6 @@ class ChatExportController {
                         .filename(download.filename(), StandardCharsets.UTF_8).build().toString())
                 .contentType(MediaType.parseMediaType("application/zip"))
                 .contentLength(metadata.sizeBytes())
-                
                 .body(new InputStreamResource(download.content().inputStream()));
     }
 }

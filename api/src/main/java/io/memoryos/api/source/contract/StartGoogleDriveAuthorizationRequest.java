@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.util.UUID;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 @Schema(name = "StartGoogleDriveAuthorizationRequest", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
@@ -13,5 +14,5 @@ public record StartGoogleDriveAuthorizationRequest(
         @Nullable UUID credentialId,
         @Positive @Nullable Long expectedCredentialRevision,
         @Size(max = 16384) @Nullable String oauthClientJson) {
-    @Override public String toString() { return "StartGoogleDriveAuthorizationRequest[redacted]"; }
+    @Override public @NonNull String toString() { return "StartGoogleDriveAuthorizationRequest[redacted]"; }
 }

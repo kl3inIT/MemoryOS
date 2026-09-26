@@ -16,6 +16,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.UUID;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
@@ -73,7 +74,7 @@ public record GoogleDriveAuthorizationSessionState(UUID actorId, UUID tenantId, 
         var session = request.getSession(false);
         if (session == null || !(session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY) instanceof SecurityContext context)
                 || context.getAuthentication() == null || !context.getAuthentication().isAuthenticated()) return false;
-        return context.getAuthentication().getPrincipal() instanceof IdentityContext identity && identity.actorId().value().equals(actorId);
+        return context.getAuthentication().getPrincipal() instanceof IdentityContext(var actor) && actor.value().equals(actorId);
     }
 
     private static String random() {
@@ -81,5 +82,5 @@ public record GoogleDriveAuthorizationSessionState(UUID actorId, UUID tenantId, 
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
-    @Override public String toString() { return "GoogleDriveAuthorizationSessionState[redacted]"; }
+    @Override public @NonNull String toString() { return "GoogleDriveAuthorizationSessionState[redacted]"; }
 }

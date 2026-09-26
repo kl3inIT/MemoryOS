@@ -15,6 +15,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Component;
@@ -34,6 +35,7 @@ import tools.jackson.databind.ObjectMapper;
  * Audio and transcript text are never logged.
  */
 @Component
+@NullMarked
 class MeetingStreamWebSocketHandler extends AbstractWebSocketHandler implements DisposableBean {
     static final String PATH = "/api/meeting-stream";
     static final int MAX_BINARY_FRAME = 64 * 1024;
@@ -65,7 +67,8 @@ class MeetingStreamWebSocketHandler extends AbstractWebSocketHandler implements 
         private final MeetingService.TrackSession track;
         private final AtomicBoolean ending = new AtomicBoolean();
         volatile long lastAudioNanos = System.nanoTime();
-        private volatile long silentChecks;
+        /** Counted only on the single watchdog thread. */
+        private long silentChecks;
         private @Nullable ScheduledFuture<?> check;
 
         Live(WebSocketSession socket, MeetingService.TrackSession track) {
@@ -173,7 +176,7 @@ class MeetingStreamWebSocketHandler extends AbstractWebSocketHandler implements 
             return;
         }
         if (!live.ending.compareAndSet(false, true)) return;
-        live.track.finish().whenComplete((ignored, failure) -> {
+        live.track.finish().whenComplete((_, _) -> {
             write(live.socket, message("finished"));
             close(live.socket, CloseStatus.NORMAL);
         });

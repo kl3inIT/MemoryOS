@@ -8,6 +8,7 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Type;
+import org.jspecify.annotations.NullMarked;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpInputMessage;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.RequestBodyAdviceAdapter;
 
 @ControllerAdvice(assignableTypes=GoogleDriveSourceController.class)
+@NullMarked
 final class GoogleDriveSelectionBodyAdvice extends RequestBodyAdviceAdapter {
     private final GoogleDriveSourceService sources;
     GoogleDriveSelectionBodyAdvice(GoogleDriveSourceService sources) { this.sources=sources; }

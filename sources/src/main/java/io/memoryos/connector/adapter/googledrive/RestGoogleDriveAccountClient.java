@@ -181,7 +181,7 @@ public final class RestGoogleDriveAccountClient implements GoogleDriveAccountCli
             var form = new LinkedMultiValueMap<String, String>();
             form.add("token", new String(refreshToken, StandardCharsets.UTF_8));
             client.post().uri(endpoint(properties.revocationUri())).contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body(form).exchange((request, response) -> null);
+                    .body(form).exchange((_, _) -> null);
         } catch (RuntimeException ignored) {
             // The local disconnect has committed. Remote revocation cannot restore local authority.
         } finally { Arrays.fill(refreshToken, (byte) 0); }
@@ -211,7 +211,7 @@ public final class RestGoogleDriveAccountClient implements GoogleDriveAccountCli
     }
 
     private JsonNode json(RestClient.RequestHeadersSpec<?> request) {
-        return request.exchange((sent, response) -> {
+        return request.exchange((_, response) -> {
             if (!response.getStatusCode().is2xxSuccessful()) throw invalid();
             byte[] bytes = response.getBody().readNBytes(MAX_RESPONSE_BYTES + 1);
             try {
