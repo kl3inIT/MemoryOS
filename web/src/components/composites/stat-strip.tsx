@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 /** Shared stat typography, also for stats that must live in a table cell. */
 export const statLabelClass = "font-secondary-body text-content-secondary";
 export const statValueClass = "font-heading-h3 tabular-nums text-content-primary";
-export const statHintClass = "font-secondary-body tabular-nums text-content-muted";
+const statHintClass = "font-secondary-body tabular-nums text-content-muted";
 
 // A last tile left alone in a two-column row spans it, so the strip never shows an empty cell.
 const columnClasses = {
@@ -49,7 +49,7 @@ export function StatStrip({
 }
 
 /** How a figure moved against the period before it. The direction carries the meaning, never colour alone. */
-export type StatTrend = { direction: "up" | "down" | "flat"; label: string };
+type StatTrend = { direction: "up" | "down" | "flat"; label: string };
 
 type StatTileProps = {
   label: ReactNode;

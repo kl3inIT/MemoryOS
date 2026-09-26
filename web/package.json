@@ -8,13 +8,13 @@
     "check:api": "node scripts/assert-generated-stable.mjs src/lib/hey-api -- pnpm generate:api",
     "check:ci": "node scripts/assert-playwright-image.ts",
     "check:i18n": "node scripts/i18n-audit.mjs --check",
+    "check:knip": "knip",
     "dev": "pnpm generate:api && vite",
     "dev:e2e": "pnpm generate:api && node scripts/start-e2e-server.ts",
     "typecheck": "tsc -b",
     "build": "vite build && node scripts/assert-font-assets.mjs && node scripts/assert-bundle-budget.mjs && tsc -b",
     "check:routes": "node scripts/assert-generated-stable.mjs src/routeTree.gen.ts src/lib/cn-tables.ts -- pnpm build",
     "lint": "oxlint --deny-warnings .",
-    "lint:target": "oxlint -c .oxlintrc.target.json --deny-warnings",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "test:unit": "vitest run",
@@ -23,7 +23,7 @@
     "test:staging": "playwright test --config playwright.staging.config.ts --grep-invert @preflight",
     "test:staging:preflight": "playwright test --config playwright.staging.config.ts --grep @preflight",
     "preview": "vite preview",
-    "check": "pnpm check:api && pnpm check:ci && pnpm check:i18n && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test:unit && pnpm check:routes"
+    "check": "pnpm check:api && pnpm check:ci && pnpm check:i18n && pnpm check:knip && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test:unit && pnpm check:routes"
   },
   "dependencies": {
     "@ai-sdk/react": "4.0.117",

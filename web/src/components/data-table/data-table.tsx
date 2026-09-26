@@ -32,7 +32,7 @@ export type DataTableColumnMeta = {
  * the selected one (drawn selected and exposed as `aria-selected`). A row with a click handler is
  * only a larger pointer target; a control inside the row stays the keyboard's way to the action.
  */
-export type DataTableRowProps = Omit<ComponentProps<"tr">, "children" | "className" | "style"> & {
+type DataTableRowProps = Omit<ComponentProps<"tr">, "children" | "className" | "style"> & {
   selected?: boolean;
 } & { [attribute: `data-${string}`]: string | undefined };
 

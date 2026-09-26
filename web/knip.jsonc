@@ -1,0 +1,13 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "entry": ["src/routes/**/*.tsx", "scripts/**/*.{ts,mjs}", "tests/**/*.ts"],
+  "project": ["src/**/*.{ts,tsx,css}", "scripts/**/*.{ts,mjs}", "tests/**/*.ts"],
+  // The generated client, and the vendored shadcn primitives kept whole even where unused.
+  "ignore": ["src/lib/hey-api/**", "src/components/ui/**"],
+  "ignoreDependencies": ["@base-ui/react", "react-day-picker"],
+  "ignoreIssues": {
+    // assistant-ui registry elements keep their upstream export surface (every part, prop type and helper), so a
+    // registry update stays a plain diff; unused files and dependencies there are still reported.
+    "src/components/assistant-ui/elements/**": ["exports", "types"],
+  },
+}

@@ -13,12 +13,10 @@ import {
   deleteChatFile,
   deleteChatFileArtifact,
   deleteChatImageArtifact,
-  listChatLibrary,
 } from "@/lib/hey-api/sdk.gen";
 import type {
   ChatLibraryContentMatch,
   ChatLibraryFile,
-  ChatLibraryPage,
   SearchChatLibraryContentData,
 } from "@/lib/hey-api/types.gen";
 import type { Options } from "@/lib/hey-api/sdk.gen";
@@ -37,7 +35,7 @@ export type ContentMatch = ChatLibraryContentMatch;
  * The prefix of the library queries Chat still builds by hand (a conversation's own files). The library's own
  * reads use the generated keys; {@link invalidateLibrary} refreshes both.
  */
-export const chatLibraryKey = ["chat-library"] as const;
+const chatLibraryKey = ["chat-library"] as const;
 /** Every category a file can fall into, in the order the filters and the storage page show them. */
 export const LIBRARY_CATEGORIES = [
   "DOCUMENT",
@@ -88,17 +86,6 @@ export function libraryOptions(
   limit: number = LIBRARY_PAGE_SIZE,
 ) {
   return listChatLibraryOptions({ query: libraryQuery(filter, offset, limit) });
-}
-
-/** One page of the library, for a caller that builds its own query. */
-export async function loadLibrary(
-  filter: LibraryFilter,
-  offset: number,
-  signal: AbortSignal,
-  limit: number = LIBRARY_PAGE_SIZE,
-): Promise<ChatLibraryPage> {
-  const { data } = await listChatLibrary({ query: libraryQuery(filter, offset, limit), signal });
-  return data;
 }
 
 /**

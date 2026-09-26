@@ -4,8 +4,6 @@
 import { englishUi } from "./app-translations.vi.ts";
 import { vietnameseUi } from "./app-translations.en.ts";
 
-export { englishUi, vietnameseUi };
-
 const unchanged = [
   "Account ID",
   "Google Sheets",

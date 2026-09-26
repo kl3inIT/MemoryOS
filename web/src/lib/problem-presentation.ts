@@ -1,8 +1,8 @@
 import { ApiError, problemCode, problemOf } from "./api";
 import type { en } from "@/i18n/en";
 
-export type ErrorKey = keyof typeof en.errors;
-export type ProblemKind =
+type ErrorKey = keyof typeof en.errors;
+type ProblemKind =
   | "unauthenticated"
   | "forbidden"
   | "validation"

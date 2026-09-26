@@ -41,9 +41,9 @@ import { ChatHistorySearch } from "@/features/chat/session/chat-history-search";
 import { ChatNavigation } from "@/features/chat/session/chat-navigation";
 import { MeetingsTab } from "@/features/meetings/meetings-tab";
 
-export type AppShellArea = "app" | "admin" | "settings";
+type AppShellArea = "app" | "admin" | "settings";
 /** Personal settings tabs, as Onyx Settings (MEM-145). */
-export type SettingsPage = "general" | "chat" | "storage" | "connections" | "usage";
+type SettingsPage = "general" | "chat" | "storage" | "connections" | "usage";
 
 type SettingsEntry = { id: SettingsPage; to: LinkProps["to"]; label: AppText; icon: LucideIcon };
 

@@ -163,7 +163,7 @@ export function personasOptions(view: AgentView = "ALL") {
 }
 
 /** Every Source the actor can give an agent or a Document Set. */
-export function loadPersonaSources(signal: AbortSignal) {
+function loadPersonaSources(signal: AbortSignal) {
   return allPages(async (offset) =>
     (await listChatPersonaSources({ query: { offset, limit: 100 }, signal })).data.flatMap(
       personaSourceOf,

@@ -1,10 +1,66 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
+  "plugins": ["react", "typescript", "oxc", "jsx-a11y", "import"],
+  "jsPlugins": ["@shadcn/lint"],
   "ignorePatterns": ["src/lib/hey-api/**", "src/routeTree.gen.ts", "src/lib/cn-tables.ts"],
   "rules": {
     "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+    "react/only-export-components": ["warn", { "allowConstantExport": true }],
+    // Off by owner decision (phase 5 frontend).
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "shadcn/no-raw-colors": "error",
+    "shadcn/no-unknown-classes": [
+      "error",
+      {
+        "allow": ["aui-*", "brand-loader", "brand-loader__*"]
+      }
+    ],
+    "shadcn/no-inline-styles": "error",
+    "shadcn/require-static-classes": "error",
+    "shadcn/no-arbitrary-values": [
+      "error",
+      {
+        "allow": [
+          "*-[calc(*)]",
+          "*-[var(*)]",
+          "*-(--*)",
+          "*-[min(*)]",
+          "*-[max(*)]",
+          "*-[clamp(*)]"
+        ]
+      }
+    ],
+    "shadcn/no-restyle": [
+      "error",
+      {
+        // `aui-*` are the assistant-ui registry's styling hooks: marker classes with no declarations.
+        "allow": ["layout", "aui-*"],
+        "contracts": [
+          {
+            "pattern": "^(Table|TableHeader|TableBody|TableFooter|TableRow|TableHead|TableCell|TableCaption|Input|Textarea|Select|SelectTrigger|NativeSelect|Button|IconButton|PopoverContent|Skeleton|CollapsibleTrigger)$",
+            "allow": [
+              "layout",
+              "p",
+              "px",
+              "py",
+              "pt",
+              "pr",
+              "pb",
+              "pl",
+              "ps",
+              "pe",
+              "text-alignment",
+              "text-overflow",
+              "whitespace",
+              "break",
+              "line-clamp",
+              "vertical-align"
+            ]
+          },
+          { "pattern": "^SettingsLayout$", "allow": ["layout", "gap", "pt"] }
+        ]
+      }
+    ]
   },
   "overrides": [
     {
@@ -23,6 +79,69 @@
       "files": ["src/components/ui/**/*.tsx", "src/components/assistant-ui/elements/**/*.tsx"],
       "rules": {
         "react/only-export-components": "off"
+      }
+    },
+    {
+      // The `cn` Vite plugin (class-merge tables) shares its name with the class helper; its options are not classes.
+      "files": ["vite.config.ts"],
+      "rules": { "shadcn/no-unknown-classes": "off" }
+    },
+    {
+      // The vendored primitives and their variant tables (action-styles.ts) are the design system itself: they define
+      // the token plumbing (`[--action-surface:var(...)]`) that product code consumes, compose one primitive's cva
+      // variants into another's className, and restyle the primitives they wrap by design.
+      "files": ["src/components/ui/**/*.{ts,tsx}"],
+      "rules": {
+        "shadcn/no-restyle": "off",
+        "shadcn/no-arbitrary-values": "off",
+        "shadcn/require-static-classes": "off"
+      }
+    },
+    {
+      // Upstream shadcn InputGroupAddon: a pointer shortcut that focuses the group's input; keyboard users reach the
+      // input directly, so the addon needs no key handler of its own.
+      "files": ["src/components/ui/input-group.tsx"],
+      "rules": {
+        "jsx-a11y/click-events-have-key-events": "off",
+        "jsx-a11y/no-noninteractive-element-interactions": "off"
+      }
+    },
+    {
+      "files": [
+        "src/features/sources/google-drive/google-drive-icon.tsx",
+        "src/features/sources/sharepoint/sharepoint-icon.tsx",
+        "src/components/assistant-ui/elements/logos.tsx",
+        "src/components/brand-loader.tsx",
+        "src/components/brand.tsx"
+      ],
+      "rules": {
+        "shadcn/no-raw-colors": "off",
+        "shadcn/no-arbitrary-values": "off",
+        "shadcn/no-inline-styles": "off"
+      }
+    },
+    {
+      "files": [
+        "src/components/ui/progress.tsx",
+        "src/components/ui/chart.tsx",
+        "src/components/assistant-ui/elements/conversation-search.tsx",
+        "src/components/assistant-ui/elements/mermaid-diagram.tsx",
+        "src/components/assistant-ui/elements/surfaces.tsx",
+        "src/features/agents/admin-agents-page.tsx",
+        "src/features/chat/research/chat-research-view.tsx",
+        "src/features/library/image-cropper.tsx",
+        "src/features/library/storage-meter.tsx",
+        "src/features/meetings/meeting-transcript.tsx",
+        "src/features/preview/csv-view.tsx",
+        "src/features/preview/image-view.tsx",
+        "src/features/preview/pdf-view.tsx",
+        "src/features/preview/preview-surface.tsx",
+        "src/features/usage/ai-costs-page.tsx",
+        "src/features/usage/my-usage-page.tsx",
+        "src/features/voice/chat-dictation-controls.tsx"
+      ],
+      "rules": {
+        "shadcn/no-inline-styles": "off"
       }
     }
   ]
