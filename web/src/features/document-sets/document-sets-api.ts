@@ -57,7 +57,7 @@ export function documentSetOf({
 export type DocumentSet = ReturnType<typeof documentSetOf>;
 
 /** Query key of the complete set list that Agents and Search read through {@link loadDocumentSets}. */
-export const documentSetsKey = ["document-sets"] as const;
+const documentSetsKey = ["document-sets"] as const;
 
 /** Every Document Set the actor can use, for pickers that need the whole list. */
 export function loadDocumentSets(signal: AbortSignal) {

@@ -9,7 +9,7 @@ import { useProblemMessage } from "@/lib/use-problem-message";
  * (`field.TextField`, `field.CheckboxField`) and `form.AppForm` the form-level parts
  * (`form.SubmitButton`, `form.FormError`).
  */
-export const { useAppForm, withForm } = createFormHook({
+export const { useAppForm } = createFormHook({
   fieldContext,
   formContext,
   fieldComponents: { TextField, CheckboxField },

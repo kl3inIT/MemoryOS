@@ -1,8 +1,9 @@
 import { createFormHookContexts } from "@tanstack/react-form";
 
 /** The contexts the shared field and form components read; `useAppForm` provides them. */
-export const { fieldContext, formContext, useFieldContext, useFormContext } =
-  createFormHookContexts();
+const contexts = createFormHookContexts();
+export const { fieldContext, formContext, useFormContext } = contexts;
+const { useFieldContext } = contexts;
 
 /** Validation errors as `FieldError` lists them: zod issues and server messages alike. */
 function messagesOf(errors: unknown[]) {
