@@ -4,7 +4,7 @@ import type {
 } from "@/lib/hey-api/types.gen";
 import { appText } from "@/i18n/app-text";
 
-export const MAX_GOOGLE_DRIVE_LINK_LENGTH = 2048;
+const MAX_GOOGLE_DRIVE_LINK_LENGTH = 2048;
 
 export function parseGoogleDriveLinks(value: string) {
   return value

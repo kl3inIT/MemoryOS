@@ -4,7 +4,7 @@ import { useAppForm } from "@/components/form/app-form";
 import { zCreateSharePointSourceRequest } from "@/lib/hey-api/zod.gen";
 import { emptySharePointScopeDraft, type SharePointScopeDraft } from "./sharepoint-scope";
 
-export type SharePointSourceValues = {
+type SharePointSourceValues = {
   sourceName: string;
   access: "PUBLIC" | "PRIVATE";
   groupIds: ReadonlySet<string>;

@@ -5,7 +5,7 @@ import type { GetGoogleDriveConfigurationResponse, SourceSummary } from "@/lib/h
 import { zCreateGoogleDriveSourceRequest } from "@/lib/hey-api/zod.gen";
 
 /** What the person has entered for the new Source so far; it outlives a step back. */
-export type GoogleDriveSourceDraft = {
+type GoogleDriveSourceDraft = {
   sourceName: string;
   access: SourceSummary["access"];
   groupIds: ReadonlySet<string>;

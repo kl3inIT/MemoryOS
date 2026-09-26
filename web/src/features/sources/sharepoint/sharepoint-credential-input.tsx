@@ -22,12 +22,12 @@ import {
 } from "@/components/ui/input-group";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-export const MAX_SHAREPOINT_KEYSTORE_BYTES = 16 * 1024;
-export const MAX_SHAREPOINT_SECRET_LENGTH = 256;
+const MAX_SHAREPOINT_KEYSTORE_BYTES = 16 * 1024;
+const MAX_SHAREPOINT_SECRET_LENGTH = 256;
 
 export type SharePointAuthMethod = "CLIENT_SECRET" | "CERTIFICATE";
 
-export type SharePointAuthentication =
+type SharePointAuthentication =
   | { authMethod: "CLIENT_SECRET"; clientSecret: string }
   | { authMethod: "CERTIFICATE"; certificate: string; certificatePassword: string };
 
