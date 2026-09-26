@@ -1,12 +1,13 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { describe, expect, it, vi } from "vitest";
+import { handleListUsageReports, handleRequestUsageReport } from "@/lib/hey-api/msw.gen";
 import type { UsageReport } from "@/lib/hey-api/types.gen";
 import { createMemoryOsQueryClient } from "@/lib/query-client";
+import { server } from "@/test/msw";
 import { UsageReports } from "./usage-reports";
-
-afterEach(() => vi.unstubAllGlobals());
 
 const report = (overrides: Partial<UsageReport>): UsageReport => ({
   id: "3f0c1a9e-0000-4000-8000-000000000001",
@@ -24,17 +25,15 @@ const report = (overrides: Partial<UsageReport>): UsageReport => ({
 
 function mount(list: UsageReport[] | "error") {
   const posted: unknown[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (request: Request) => {
-      if (request.method === "POST") {
-        posted.push(await request.json());
-        return Response.json(report({ status: "PENDING" }), { status: 202 });
-      }
-      // A refusal is not retried, so the failure shows at once.
-      if (list === "error") return new Response(null, { status: 403 });
-      return Response.json(list);
+  server.use(
+    handleRequestUsageReport(async ({ request }) => {
+      posted.push(await request.json());
+      return HttpResponse.json(report({ status: "PENDING" }), { status: 202 });
     }),
+    // A refusal is not retried, so the failure shows at once.
+    list === "error"
+      ? handleListUsageReports(() => new HttpResponse(null, { status: 403 }))
+      : handleListUsageReports({ body: list }),
   );
   render(
     <QueryClientProvider client={createMemoryOsQueryClient()}>

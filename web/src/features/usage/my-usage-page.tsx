@@ -1,11 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
-import { Activity, ChartColumn, CircleDollarSign, Gauge, Layers } from "lucide-react";
+import { Activity, ChartColumn, CircleAlert, CircleDollarSign, Gauge, Layers } from "lucide-react";
+import { EmptyState } from "@/components/composites/empty-state";
 import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { ModelLogo } from "@/features/models/model-logo";
 import { DailyChart } from "./daily-chart";
+import { ShareBar } from "./ai-costs-page";
 import { appText, type AppCopy } from "@/i18n/app-text";
 import { formatUiDate, uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -14,7 +25,7 @@ import {
   getMyAiUsageStandingOptions,
   listAvailableChatModelsOptions,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import type { AiUsageStanding, AvailableModel } from "@/lib/hey-api/types.gen";
+import type { AiCostRow, AiUsageStanding, AvailableModel } from "@/lib/hey-api/types.gen";
 import { change, count, money, period, previousPeriod, scopeLabels } from "./ai-costs";
 
 /** The model's own price under its name: input and output per million tokens, as the prices table showed them. */
@@ -59,48 +70,52 @@ function Budget({ standing }: { standing: AiUsageStanding }) {
       ? standing.groupName
       : ui(scopeLabels[standing.scope]);
   return (
-    <section
-      aria-label={ui("Spending limit")}
-      className="flex max-w-2xl flex-col gap-2 rounded-md border border-border-subtle bg-surface-raised p-4"
-    >
-      <p className="font-main-ui-action text-content-primary">
-        {ui(appText("Budget: {{whose}}", { whose }))}
-      </p>
-      <p className="font-secondary-body text-content-secondary tabular-nums">
-        {standing.tokenBudget
-          ? ui(
-              appText("{{used}} / {{budget}} token", {
-                used: count(standing.tokensUsed),
-                budget: count(standing.tokenBudget),
-              }),
-            )
-          : null}
-        {standing.tokenBudget && standing.costBudgetUsd ? " · " : null}
-        {standing.costBudgetUsd
-          ? ui(
-              appText("{{used}} of {{budget}}", {
-                used: money(standing.costUsed),
-                budget: money(standing.costBudgetUsd),
-              }),
-            )
-          : null}
-      </p>
-      <Progress className="h-1.5" value={Math.round(used * 100)} aria-hidden="true" />
-      <p className="font-secondary-body text-content-muted">
-        {used >= 1
-          ? ui(
-              appText("The budget is spent. It frees again on {{when}}.", {
-                when: formatUiDate(standing.resetsAt, { dateStyle: "medium", timeStyle: "short" }),
-              }),
-            )
-          : ui(
-              appText("Counted over {{days}} days. It frees again on {{when}}.", {
-                days: standing.periodDays,
-                when: formatUiDate(standing.resetsAt, { dateStyle: "medium" }),
-              }),
-            )}
-      </p>
-    </section>
+    <Card size="sm" role="region" aria-label={ui("Spending limit")} className="max-w-2xl">
+      <CardContent>
+        <div className="flex flex-col gap-2">
+          <p className="font-main-ui-action text-content-primary">
+            {ui(appText("Budget: {{whose}}", { whose }))}
+          </p>
+          <p className="font-secondary-body text-content-secondary tabular-nums">
+            {standing.tokenBudget
+              ? ui(
+                  appText("{{used}} / {{budget}} token", {
+                    used: count(standing.tokensUsed),
+                    budget: count(standing.tokenBudget),
+                  }),
+                )
+              : null}
+            {standing.tokenBudget && standing.costBudgetUsd ? " · " : null}
+            {standing.costBudgetUsd
+              ? ui(
+                  appText("{{used}} of {{budget}}", {
+                    used: money(standing.costUsed),
+                    budget: money(standing.costBudgetUsd),
+                  }),
+                )
+              : null}
+          </p>
+          <Progress className="h-1.5" value={Math.round(used * 100)} aria-hidden="true" />
+          <p className="font-secondary-body text-content-muted">
+            {used >= 1
+              ? ui(
+                  appText("The budget is spent. It frees again on {{when}}.", {
+                    when: formatUiDate(standing.resetsAt, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    }),
+                  }),
+                )
+              : ui(
+                  appText("Counted over {{days}} days. It frees again on {{when}}.", {
+                    days: standing.periodDays,
+                    when: formatUiDate(standing.resetsAt, { dateStyle: "medium" }),
+                  }),
+                )}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -121,8 +136,6 @@ export function MyUsagePage() {
   const summary = usage.data?.summary;
   const spend = change(summary?.cost, before.data?.summary.cost);
   const used = (summary?.calls ?? 0) > 0;
-  // As Onyx, each model's bar is proportional to the priciest model of the period.
-  const top = Math.max(0, ...(usage.data?.models ?? []).map((row) => row.cost));
 
   return (
     <SettingsLayout>
@@ -143,15 +156,17 @@ export function MyUsagePage() {
       {standing.data ? <Budget standing={standing.data} /> : null}
 
       {usage.isError ? (
-        <div role="alert" className="flex max-w-2xl flex-col items-start gap-2">
-          <p className="font-main-ui-action text-content-primary">{ui("Couldn't load usage")}</p>
-          <p className="text-content-muted">
-            {ui("Something went wrong fetching your usage. Try again in a moment.")}
-          </p>
-          <Button prominence="secondary" onClick={() => void usage.refetch()}>
-            {ui("Try again")}
-          </Button>
-        </div>
+        <EmptyState
+          role="alert"
+          icon={<CircleAlert />}
+          title={ui("Couldn't load usage")}
+          detail={ui("Something went wrong fetching your usage. Try again in a moment.")}
+          action={
+            <Button prominence="secondary" onClick={() => void usage.refetch()}>
+              {ui("Try again")}
+            </Button>
+          }
+        />
       ) : (
         <StatStrip columns={4}>
           <StatTile
@@ -209,9 +224,11 @@ export function MyUsagePage() {
           <h2 id="daily-heading" className="font-heading-h3 text-content-primary">
             {ui("Daily spend")}
           </h2>
-          <div className="rounded-2xl border border-border-subtle bg-surface-raised p-4">
-            <DailyChart days={usage.data.daily} split="MODEL" range={range} />
-          </div>
+          <Card>
+            <CardContent>
+              <DailyChart days={usage.data.daily} split="MODEL" range={range} />
+            </CardContent>
+          </Card>
         </section>
       )}
 
@@ -221,75 +238,17 @@ export function MyUsagePage() {
             {ui("By model")}
           </h2>
           {used ? (
-            <div className="relative overflow-x-auto rounded-2xl border border-border-subtle bg-surface-raised">
-              <table
-                aria-labelledby="by-model-heading"
-                className="w-full min-w-md font-main-ui-body tabular-nums"
-              >
-                <thead className="font-secondary-body text-content-muted">
-                  <tr className="border-b border-border-subtle">
-                    <th className="px-4 py-2 text-left font-normal">{ui("Model")}</th>
-                    <th className="px-4 py-2 text-right font-normal whitespace-nowrap">
-                      {ui("Requests")}
-                    </th>
-                    <th className="px-4 py-2 text-right font-normal">{ui("Total tokens")}</th>
-                    <th className="px-4 py-2 text-right font-normal whitespace-nowrap">
-                      {ui("Cost")}
-                    </th>
-                    <th className="hidden w-32 px-4 py-2 sm:table-cell">
-                      <span className="sr-only">{ui("Share of spend")}</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {usage.data.models.map((row) => (
-                    <tr key={row.key} className="border-b border-border-subtle last:border-0">
-                      <td className="px-4 py-2.5">
-                        <span className="flex min-w-0 items-center gap-2">
-                          <ModelLogo modelName={row.label} />
-                          <span className="min-w-0 break-all">{row.label}</span>
-                        </span>
-                        {price(models.data, row.label, ui)}
-                      </td>
-                      <td className="px-4 py-2.5 text-right">{count(row.calls)}</td>
-                      <td className="px-4 py-2.5 text-right">
-                        {row.inputTokens + row.outputTokens > 0
-                          ? count(row.inputTokens + row.outputTokens)
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-right">
-                        {row.unknownCostCalls === row.calls ? (
-                          <span className="text-status-warning-content">
-                            {ui("Prices unavailable")}
-                          </span>
-                        ) : (
-                          money(row.cost)
-                        )}
-                      </td>
-                      <td className="hidden py-2.5 pr-4 sm:table-cell">
-                        <div className="h-2 rounded-full bg-surface-sunken" aria-hidden="true">
-                          <div
-                            className="h-2 rounded-full bg-chart-1"
-                            style={{
-                              width: `${top > 0 ? Math.max(2, (row.cost / top) * 100) : 0}%`,
-                            }}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Card size="sm">
+              <CardContent>
+                <ModelUsageTable rows={usage.data.models} models={models.data} />
+              </CardContent>
+            </Card>
           ) : (
-            <div className="rounded-2xl border border-border-subtle bg-surface-raised p-4">
-              <p className="font-main-ui-action text-content-primary">
-                {ui("No usage recorded yet")}
-              </p>
-              <p className="text-content-muted">
-                {ui("Your model usage and costs will show up here once you start chatting.")}
-              </p>
-            </div>
+            <EmptyState
+              icon={<ChartColumn />}
+              title={ui("No usage recorded yet")}
+              detail={ui("Your model usage and costs will show up here once you start chatting.")}
+            />
           )}
         </section>
       )}
@@ -300,5 +259,66 @@ export function MyUsagePage() {
         )}
       </p>
     </SettingsLayout>
+  );
+}
+
+/** Tokens, requests and cost per model this period, each with the price the member pays for it. */
+function ModelUsageTable({
+  rows,
+  models,
+}: {
+  rows: AiCostRow[];
+  models: AvailableModel[] | undefined;
+}) {
+  const ui = useAppTranslation();
+  // As Onyx, each model's bar is proportional to the priciest model of the period.
+  const top = Math.max(0, ...rows.map((row) => row.cost));
+  return (
+    <Table aria-labelledby="by-model-heading" className="min-w-md">
+      <TableHeader>
+        <TableRow>
+          <TableHead>{ui("Model")}</TableHead>
+          <TableHead className="text-right whitespace-nowrap">{ui("Requests")}</TableHead>
+          <TableHead className="text-right">{ui("Total tokens")}</TableHead>
+          <TableHead className="text-right whitespace-nowrap">{ui("Cost")}</TableHead>
+          <TableHead className="hidden w-32 sm:table-cell">
+            <span className="sr-only">{ui("Share of spend")}</span>
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((row) => (
+          <TableRow key={row.key}>
+            <TableCell>
+              <span className="flex min-w-0 items-center gap-2">
+                <ModelLogo modelName={row.label} />
+                <span className="min-w-0 break-all">{row.label}</span>
+              </span>
+              {price(models, row.label, ui)}
+            </TableCell>
+            <TableCell className="text-right">
+              <span className="tabular-nums">{count(row.calls)}</span>
+            </TableCell>
+            <TableCell className="text-right">
+              <span className="tabular-nums">
+                {row.inputTokens + row.outputTokens > 0
+                  ? count(row.inputTokens + row.outputTokens)
+                  : "—"}
+              </span>
+            </TableCell>
+            <TableCell className="text-right">
+              {row.unknownCostCalls === row.calls ? (
+                <span className="text-status-warning-content">{ui("Prices unavailable")}</span>
+              ) : (
+                <span className="tabular-nums">{money(row.cost)}</span>
+              )}
+            </TableCell>
+            <TableCell className="hidden sm:table-cell">
+              <ShareBar percent={top > 0 ? (row.cost / top) * 100 : 0} />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }

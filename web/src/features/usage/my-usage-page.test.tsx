@@ -1,11 +1,17 @@
 import { render, screen, within } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { describe, expect, it } from "vitest";
+import {
+  handleGetMyAiCosts,
+  handleGetMyAiUsageStanding,
+  handleListAvailableChatModels,
+} from "@/lib/hey-api/msw.gen";
+import type { AiUsageStanding, AvailableModel } from "@/lib/hey-api/types.gen";
 import { createMemoryOsQueryClient } from "@/lib/query-client";
+import { server } from "@/test/msw";
 import { seriesColor } from "./ai-costs";
 import { MyUsagePage } from "./my-usage-page";
-
-afterEach(() => vi.unstubAllGlobals());
 
 const summary = (calls: number) => ({
   cost: calls ? 3.12 : 0,
@@ -29,7 +35,7 @@ const row = (label: string, calls: number, cost: number, unknown = 0) => ({
   outputTokens: unknown === calls ? 0 : 200_000,
   cost,
 });
-const models = [
+const models: AvailableModel[] = [
   {
     id: "luna",
     providerId: "p",
@@ -56,23 +62,21 @@ const models = [
   },
 ];
 
-function mount(calls: number, standing: unknown = null) {
+function mount(calls: number, standing: AiUsageStanding | null = null) {
   const requested: string[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (request: Request) => {
+  server.use(
+    handleGetMyAiUsageStanding(() => HttpResponse.json(standing)),
+    handleGetMyAiCosts(({ request }) => {
       requested.push(new URL(request.url).pathname);
-      if (request.url.includes("/api/ai-costs/limits/mine")) return Response.json(standing);
-      if (request.url.includes("/api/ai-costs/mine"))
-        return Response.json({
-          summary: summary(calls),
-          daily: [],
-          models: calls ? [row("gpt-5.6-luna", 409, 3.12), row("gpt-image-1", 3, 0, 3)] : [],
-          flows: [],
-          providers: [],
-        });
-      return Response.json(models);
+      return HttpResponse.json({
+        summary: summary(calls),
+        daily: [],
+        models: calls ? [row("gpt-5.6-luna", 409, 3.12), row("gpt-image-1", 3, 0, 3)] : [],
+        flows: [],
+        providers: [],
+      });
     }),
+    handleListAvailableChatModels({ body: models }),
   );
   render(
     <QueryClientProvider client={createMemoryOsQueryClient()}>
@@ -102,10 +106,8 @@ describe("personal usage", () => {
   it("shows the budget that binds the member, and when it frees, once one is set", async () => {
     mount(1, {
       scope: "PERSON",
-      groupName: null,
       tokenBudget: 1000,
       tokensUsed: 900,
-      costBudgetUsd: null,
       costUsed: 0,
       periodDays: 30,
       resetsAt: "2026-10-01T00:00:00Z",

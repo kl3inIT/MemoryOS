@@ -74,9 +74,7 @@ export function DailyChart({
           }
         />
         <ChartLegend
-          content={
-            <ChartLegendContent className="flex-wrap gap-x-4 gap-y-1 [&>div]:whitespace-nowrap" />
-          }
+          content={<ChartLegendContent className="flex-wrap [&>div]:whitespace-nowrap" />}
         />
         {series.map((_, index) => (
           <Bar

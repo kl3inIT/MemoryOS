@@ -1,7 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
-import { listMcpConnections } from "@/lib/hey-api/sdk.gen";
-
-export const mcpConnectionsKey = ["mcp", "connections"] as const;
+import { useQuery, type QueryClient } from "@tanstack/react-query";
+import {
+  listMcpConnectionsOptions,
+  listMcpConnectionsQueryKey,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 
 /**
  * The server slug and tool of a model-facing MCP tool name, `mcp_<slug>_<tool>`. The slug has no underscore, so the
@@ -14,9 +15,10 @@ export function parseMcpToolName(name: string): { slug: string; tool: string } |
 
 /** The MCP servers the signed-in User may use, with their own connection state. */
 export function useMcpConnections() {
-  return useQuery({
-    queryKey: mcpConnectionsKey,
-    queryFn: async () => (await listMcpConnections()).data ?? [],
-    staleTime: 30_000,
-  });
+  return useQuery({ ...listMcpConnectionsOptions(), staleTime: 30_000 });
+}
+
+/** Refreshes the signed-in User's connections after one of them changes. */
+export function invalidateMcpConnections(cache: QueryClient) {
+  return cache.invalidateQueries({ queryKey: listMcpConnectionsQueryKey() });
 }

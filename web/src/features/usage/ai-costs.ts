@@ -3,7 +3,7 @@ import { uiLocale } from "@/i18n/format";
 import type { AiCostDay, AiCostRow, ListAiCostBreakdownData } from "@/lib/hey-api/types.gen";
 
 export type Dimension = ListAiCostBreakdownData["query"]["by"];
-export type Flow = NonNullable<ListAiCostBreakdownData["query"]["flow"]>;
+type Flow = NonNullable<ListAiCostBreakdownData["query"]["flow"]>;
 export type PeriodId = "7d" | "30d" | "month" | "lastMonth";
 export type Period = { id: PeriodId; from: string; to: string };
 
@@ -63,7 +63,7 @@ export const scopeLabels: Record<"TENANT" | "GROUP" | "PERSON", AppCopy> = {
   PERSON: "Each person",
 };
 
-export const flowLabels: Record<Flow, AppCopy> = {
+const flowLabels: Record<Flow, AppCopy> = {
   CHAT: "Chat",
   CHAT_NAMING: "Conversation naming",
   DEEP_RESEARCH: "Deep research",
@@ -119,7 +119,7 @@ export function rowLabel(dimension: Dimension, row: AiCostRow): AppCopy | string
   return row.label;
 }
 
-export const boundarySeries = ["EXTERNAL", "INTERNAL", "NONE"] as const;
+const boundarySeries = ["EXTERNAL", "INTERNAL", "NONE"] as const;
 
 /**
  * Series colour by meaning, never by position: a boundary keeps its hue whatever else is shown, and "Other" and

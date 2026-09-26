@@ -1,17 +1,18 @@
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Blocks } from "lucide-react";
+import { EmptyState } from "@/components/composites/empty-state";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { mcpConnectionsKey, useMcpConnections } from "@/features/mcp/mcp-connections";
-import { ConnectAction, McpApiKeyDialog } from "@/features/mcp/mcp-connect-actions";
+import { invalidateMcpConnections, useMcpConnections } from "./mcp-connections";
+import { ConnectAction, McpApiKeyDialog } from "./mcp-connect-actions";
 import { connectionStatus, needsUserAction } from "./mcp-status";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { disconnectMcpConnection } from "@/lib/hey-api/sdk.gen";
+import { disconnectMcpConnectionMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { McpConnection } from "@/lib/hey-api/types.gen";
 
 /**
@@ -22,6 +23,10 @@ export function ConnectionsSettingsPage() {
   const ui = useAppTranslation();
   const cache = useQueryClient();
   const connections = useMcpConnections();
+  const disconnect = useMutation({
+    ...disconnectMcpConnectionMutation(),
+    onSuccess: () => invalidateMcpConnections(cache),
+  });
   const [apiKeyFor, setApiKeyFor] = useState<McpConnection | null>(null);
   const list = connections.data ?? [];
   return (
@@ -34,9 +39,7 @@ export function ConnectionsSettingsPage() {
         )}
       />
       {connections.isSuccess && list.length === 0 ? (
-        <p className="max-w-2xl text-content-muted">
-          {ui("No connectors set up for your organization.")}
-        </p>
+        <EmptyState icon={<Blocks />} title={ui("No connectors set up for your organization.")} />
       ) : (
         <SettingRows className="max-w-2xl">
           {list.map((connection) => {
@@ -79,10 +82,7 @@ export function ConnectionsSettingsPage() {
                       pendingLabel={ui("Disconnecting…")}
                       confirmTone="danger"
                       onConfirm={async () => {
-                        await disconnectMcpConnection({
-                          path: { serverId: connection.id },
-                        });
-                        await cache.invalidateQueries({ queryKey: mcpConnectionsKey });
+                        await disconnect.mutateAsync({ path: { serverId: connection.id } });
                       }}
                     />
                   ) : null

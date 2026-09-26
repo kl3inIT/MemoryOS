@@ -30,9 +30,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { cn } from "@/lib/utils";
 import {
   getAiCostDetailOptions,
   getAiCostSummaryOptions,
@@ -105,66 +114,73 @@ export function AiCostsPage() {
       )}
 
       <Card className="min-w-0">
-        <CardContent className="min-w-0 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-heading-h3">{ui("Daily spend")}</h2>
-            <Tabs value={split} onValueChange={(value) => setSplit(value as "BOUNDARY" | "MODEL")}>
-              <TabsList>
-                <TabsTrigger value="BOUNDARY">{ui("Internal and External")}</TabsTrigger>
-                <TabsTrigger value="MODEL">{ui("By model")}</TabsTrigger>
-              </TabsList>
-            </Tabs>
+        <CardContent className="min-w-0">
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-heading-h3">{ui("Daily spend")}</h2>
+              <Tabs
+                value={split}
+                onValueChange={(value) => setSplit(value as "BOUNDARY" | "MODEL")}
+              >
+                <TabsList>
+                  <TabsTrigger value="BOUNDARY">{ui("Internal and External")}</TabsTrigger>
+                  <TabsTrigger value="MODEL">{ui("By model")}</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            {days.data ? (
+              <DailyChart days={days.data} split={split} range={range} />
+            ) : days.isError ? (
+              <p role="alert">
+                {ui("Something went wrong fetching your usage. Try again in a moment.")}
+              </p>
+            ) : (
+              <p role="status">{ui("Loading daily costs…")}</p>
+            )}
           </div>
-          {days.data ? (
-            <DailyChart days={days.data} split={split} range={range} />
-          ) : days.isError ? (
-            <p role="alert">
-              {ui("Something went wrong fetching your usage. Try again in a moment.")}
-            </p>
-          ) : (
-            <p role="status">{ui("Loading daily costs…")}</p>
-          )}
         </CardContent>
       </Card>
 
       <Card className="min-w-0">
-        <CardContent className="min-w-0 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-heading-h3">{ui("Breakdown")}</h2>
-            <Tabs
-              value={dimension}
-              onValueChange={(value) => setDimension(value as Dimension)}
-              className="max-w-full min-w-0 overflow-x-auto"
-            >
-              <TabsList>
-                {dimensions.map((value) => (
-                  <TabsTrigger key={value} value={value}>
-                    {ui(dimensionLabels[value])}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+        <CardContent className="min-w-0">
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-heading-h3">{ui("Breakdown")}</h2>
+              <Tabs
+                value={dimension}
+                onValueChange={(value) => setDimension(value as Dimension)}
+                className="max-w-full min-w-0 overflow-x-auto"
+              >
+                <TabsList>
+                  {dimensions.map((value) => (
+                    <TabsTrigger key={value} value={value}>
+                      {ui(dimensionLabels[value])}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            </div>
+            {dimension === "GROUP" && (
+              <p className="font-secondary-body text-content-muted">
+                {ui(
+                  "A person counts in every Group they belong to, so Group totals can exceed the total.",
+                )}
+              </p>
+            )}
+            {rows.data ? (
+              <Breakdown
+                dimension={dimension}
+                rows={rows.data}
+                onSelect={dimension === "ACTOR" ? setPerson : undefined}
+              />
+            ) : rows.isError ? (
+              <p role="alert">
+                {ui("Something went wrong fetching your usage. Try again in a moment.")}
+              </p>
+            ) : (
+              <p role="status">{ui("Loading breakdown…")}</p>
+            )}
           </div>
-          {dimension === "GROUP" && (
-            <p className="font-secondary-body text-content-muted">
-              {ui(
-                "A person counts in every Group they belong to, so Group totals can exceed the total.",
-              )}
-            </p>
-          )}
-          {rows.data ? (
-            <Breakdown
-              dimension={dimension}
-              rows={rows.data}
-              onSelect={dimension === "ACTOR" ? setPerson : undefined}
-            />
-          ) : rows.isError ? (
-            <p role="alert">
-              {ui("Something went wrong fetching your usage. Try again in a moment.")}
-            </p>
-          ) : (
-            <p role="status">{ui("Loading breakdown…")}</p>
-          )}
         </CardContent>
       </Card>
 
@@ -283,85 +299,78 @@ function Breakdown({
   if (!rows.length) return <p role="status">{ui("No usage recorded for this period.")}</p>;
   const top = Math.max(...rows.map((row) => row.cost), 0);
   return (
-    // Relative: the screen-reader-only header label must stay inside the scroll area on narrow screens.
-    <div className="relative overflow-x-auto">
-      <table className={compact ? "w-full text-left" : "w-full text-left sm:min-w-[40rem]"}>
-        <thead className="font-secondary-body text-content-muted">
-          <tr>
-            <th className="py-2 pr-3 font-normal">{ui(columnLabels[dimension])}</th>
-            <th className="px-3 py-2 text-right font-normal whitespace-nowrap">{ui("Requests")}</th>
-            {!compact && (
-              <th className="hidden px-3 py-2 text-right font-normal sm:table-cell">
-                {ui("Total tokens")}
-              </th>
-            )}
-            <th className="px-3 py-2 text-right font-normal whitespace-nowrap">{ui("Cost")}</th>
-            {!compact && (
-              <th className="hidden w-40 py-2 pl-3 font-normal sm:table-cell">
-                <span className="sr-only">{ui("Share of cost")}</span>
-              </th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const label = rowLabel(dimension, row);
-            const name = typeof label === "string" ? label : ui(label);
-            const detail =
-              dimension === "PROVIDER" && row.detail
-                ? ui(row.detail === "INTERNAL" ? "Internal" : "External")
-                : row.detail;
-            return (
-              <tr key={row.key} className="border-t border-border-subtle">
-                <td className="py-2 pr-3">
-                  {onSelect ? (
-                    <button
-                      type="button"
-                      className="text-left hover:underline"
-                      onClick={() => onSelect(row)}
-                      aria-label={ui(appText("View AI costs of {{name}}", { name }))}
-                    >
-                      {name}
-                    </button>
-                  ) : (
-                    name
-                  )}
-                  {detail && dimension !== "ACTOR" && (
-                    <span className="block font-secondary-body text-content-muted">{detail}</span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums">{count(row.calls)}</td>
-                {!compact && (
-                  <td className="hidden px-3 py-2 text-right tabular-nums sm:table-cell">
-                    {count(row.inputTokens + row.outputTokens)}
-                  </td>
+    <Table className={cn("text-left", !compact && "sm:min-w-160")}>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="pr-3 pl-0">{ui(columnLabels[dimension])}</TableHead>
+          <TableHead className="px-3 text-right whitespace-nowrap">{ui("Requests")}</TableHead>
+          {!compact && (
+            <TableHead className="hidden px-3 text-right sm:table-cell">
+              {ui("Total tokens")}
+            </TableHead>
+          )}
+          <TableHead className="px-3 text-right whitespace-nowrap">{ui("Cost")}</TableHead>
+          {!compact && (
+            <TableHead className="hidden w-40 pr-0 pl-3 sm:table-cell">
+              <span className="sr-only">{ui("Share of cost")}</span>
+            </TableHead>
+          )}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((row) => {
+          const label = rowLabel(dimension, row);
+          const name = typeof label === "string" ? label : ui(label);
+          const detail =
+            dimension === "PROVIDER" && row.detail
+              ? ui(row.detail === "INTERNAL" ? "Internal" : "External")
+              : row.detail;
+          const share = top > 0 ? (row.cost / top) * 100 : 0;
+          return (
+            <TableRow key={row.key}>
+              <TableCell className="pr-3 pl-0">
+                {onSelect ? (
+                  <button
+                    type="button"
+                    className="text-left hover:underline"
+                    onClick={() => onSelect(row)}
+                    aria-label={ui(appText("View AI costs of {{name}}", { name }))}
+                  >
+                    {name}
+                  </button>
+                ) : (
+                  name
                 )}
-                <td className="px-3 py-2 text-right tabular-nums">
-                  {money(row.cost)}
-                  {row.unknownCostCalls > 0 && (
-                    <span className="block font-secondary-body text-status-warning-content">
-                      {ui(
-                        appText("Prices unavailable ({{count}})", { count: row.unknownCostCalls }),
-                      )}
-                    </span>
-                  )}
-                </td>
-                {!compact && (
-                  <td className="hidden py-2 pl-3 sm:table-cell">
-                    <div className="h-2 rounded-full bg-surface-sunken" aria-hidden="true">
-                      <div
-                        className="h-2 rounded-full bg-chart-1"
-                        style={{ width: `${top > 0 ? Math.max(2, (row.cost / top) * 100) : 0}%` }}
-                      />
-                    </div>
-                  </td>
+                {detail && dimension !== "ACTOR" && (
+                  <span className="block font-secondary-body text-content-muted">{detail}</span>
                 )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+              </TableCell>
+              <TableCell className="px-3 text-right">
+                <span className="tabular-nums">{count(row.calls)}</span>
+              </TableCell>
+              {!compact && (
+                <TableCell className="hidden px-3 text-right sm:table-cell">
+                  <span className="tabular-nums">{count(row.inputTokens + row.outputTokens)}</span>
+                </TableCell>
+              )}
+              <TableCell className="px-3 text-right">
+                <span className="tabular-nums">{money(row.cost)}</span>
+                {row.unknownCostCalls > 0 && (
+                  <span className="block font-secondary-body text-status-warning-content">
+                    {ui(appText("Prices unavailable ({{count}})", { count: row.unknownCostCalls }))}
+                  </span>
+                )}
+              </TableCell>
+              {!compact && (
+                <TableCell className="hidden pr-0 pl-3 sm:table-cell">
+                  <ShareBar percent={share} />
+                </TableCell>
+              )}
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 }
 
@@ -396,7 +405,7 @@ function PersonDialog({
             {[person?.detail, ui(periodLabels[range.id])].filter(Boolean).join(" · ")}
           </DialogDescription>
         </DialogHeader>
-        <div className="min-w-0 space-y-6">
+        <div className="flex min-w-0 flex-col gap-6">
           {detail.data ? (
             <>
               <Summary value={detail.data.summary} compact />
@@ -416,7 +425,7 @@ function PersonDialog({
           ) : (
             <p role="status">{ui("Loading AI costs…")}</p>
           )}
-          <Button prominence="secondary" onClick={onClose}>
+          <Button prominence="secondary" className="self-start" onClick={onClose}>
             {ui("Done")}
           </Button>
         </div>
@@ -435,9 +444,27 @@ function Section({
   rows: AiCostRow[];
 }) {
   return (
-    <section className="space-y-2">
+    <section className="flex flex-col gap-2">
       <h3 className="font-main-ui-action">{title}</h3>
       <Breakdown dimension={dimension} rows={rows} compact />
     </section>
+  );
+}
+
+/** A row's share of the largest row, drawn as a bar and read as a percentage. */
+export function ShareBar({ percent }: { percent: number }) {
+  const ui = useAppTranslation();
+  return (
+    <>
+      <span className="sr-only">
+        {ui(appText("{{percent}}%", { percent: Math.round(percent) }))}
+      </span>
+      <div className="h-2 rounded-full bg-surface-sunken" aria-hidden="true">
+        <div
+          className="h-2 rounded-full bg-chart-1"
+          style={{ width: `${percent > 0 ? Math.max(2, percent) : 0}%` }}
+        />
+      </div>
+    </>
   );
 }

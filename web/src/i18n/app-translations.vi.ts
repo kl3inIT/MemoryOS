@@ -1881,6 +1881,8 @@ Object.assign(englishUi, {
   "Feedback: {{comment}}": "Đánh giá: {{comment}}",
   "Spending limit": "Hạn mức chi tiêu",
   "Spending limits": "Hạn mức chi tiêu",
+  Spent: "Đã hết",
+  "Nearly spent": "Sắp hết",
   "Budget: {{whose}}": "Hạn mức: {{whose}}",
   "The budget is spent. It frees again on {{when}}.": "Đã dùng hết hạn mức. Mở lại vào {{when}}.",
   "Counted over {{days}} days. It frees again on {{when}}.":
@@ -2303,6 +2305,8 @@ Object.assign(englishUi, {
   "New providers are manager-only. Access associations are preserved on edit; selecting a default never grants access.":
     "Nhà cung cấp mới chỉ dành cho quản lý. Liên kết quyền truy cập được giữ khi sửa; chọn mặc định không cấp quyền truy cập.",
   "Provider name": "Tên nhà cung cấp",
+  "Enter a provider name.": "Nhập tên nhà cung cấp.",
+  "Enter the endpoint URL.": "Nhập URL endpoint.",
   Protocol: "Giao thức",
   "OpenAI-compatible": "Chuẩn OpenAI",
   "{{adapter}} (unavailable)": "{{adapter}} (không khả dụng)",

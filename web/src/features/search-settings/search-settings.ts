@@ -1,6 +1,11 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { appText, type AppCopy, type AppText } from "@/i18n/app-text";
+import { uiLocale } from "@/i18n/format";
 import { ApiError } from "@/lib/api";
+import {
+  getSearchSettingsQueryKey,
+  listEmbeddingProvidersQueryKey,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import type {
   EmbeddingModelPresetResponse,
   SearchGenerationRequest,
@@ -17,10 +22,16 @@ export type ModelPreset = EmbeddingModelPresetResponse;
 /** Every read on this page changes together: providers carry `inUse`, generations carry provider names. */
 export async function refreshSearchSettings(client: QueryClient) {
   await Promise.all(
-    ["getSearchSettings", "listEmbeddingProviders"].map((id) =>
-      client.invalidateQueries({ queryKey: [{ _id: id }] }, { throwOnError: true }),
+    [getSearchSettingsQueryKey(), listEmbeddingProvidersQueryKey()].map((queryKey) =>
+      client.invalidateQueries({ queryKey }, { throwOnError: true }),
     ),
   );
+}
+
+/** Whole numbers in the interface language, such as document counts and dimensions. */
+export function useCount() {
+  const format = new Intl.NumberFormat(uiLocale());
+  return (value: number) => format.format(value);
 }
 
 /** How often the page rereads the settings while a future generation is being built. */
@@ -193,7 +204,7 @@ export function searchSettingsError(cause: unknown, operation: SearchOperation):
 }
 
 /** The server's own explanation, shown after our copy and never used as a translation key. */
-export function problemDetail(cause: unknown): string | undefined {
+function problemDetail(cause: unknown): string | undefined {
   if (!(cause instanceof ApiError)) return undefined;
   const problem = cause.cause;
   if (!problem || typeof problem !== "object" || !("detail" in problem)) return undefined;

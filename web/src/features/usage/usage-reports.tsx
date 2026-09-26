@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleAlert, Download, FileArchive, FileDown, LoaderCircle } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { CircleAlert, Download, FileArchive, FileDown } from "lucide-react";
+import { useEffect, useState } from "react";
 import { EmptyState } from "@/components/composites/empty-state";
 import { SectionHeader } from "@/components/composites/section-header";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { IconButton } from "@/components/ui/icon-button";
+import { Spinner } from "@/components/ui/spinner";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { formatUiDate } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -61,7 +64,20 @@ export function UsageReports() {
 
   const list = reports.data ?? [];
   const pending = list.some(isOpen);
-  useReadyAnnouncement(list, () => setAnnouncement(ui("Usage report ready.")));
+  // Announces a report that finished while this page was open, not the ones already there when it loaded.
+  const [seen, setSeen] = useState<{ data?: UsageReport[]; open?: Set<string> }>({});
+  if (reports.data && reports.data !== seen.data) {
+    const previous = seen.open;
+    if (
+      previous &&
+      reports.data.some((report) => report.status === "READY" && previous.has(report.id))
+    )
+      setAnnouncement(ui("Usage report ready."));
+    setSeen({
+      data: reports.data,
+      open: new Set(reports.data.filter(isOpen).map((report) => report.id)),
+    });
+  }
   const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
   const shown = list.slice(PAGE_SIZE * (page - 1), PAGE_SIZE * page);
 
@@ -77,24 +93,24 @@ export function UsageReports() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button prominence="secondary" disabled={request.isPending || pending}>
-                <FileDown aria-hidden="true" />
+                <FileDown data-icon="inline-start" aria-hidden="true" />
                 {pending ? ui("Generating…") : ui("Generate report")}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-auto min-w-48">
-              {periods.map((id) => (
-                <DropdownMenuItem
-                  key={id}
-                  onSelect={() => {
-                    const range = period(id);
-                    request.mutate({
-                      body: { from: range.from, to: range.to },
-                    });
-                  }}
-                >
-                  {ui(periodLabels[id])}
-                </DropdownMenuItem>
-              ))}
+              <DropdownMenuGroup>
+                {periods.map((id) => (
+                  <DropdownMenuItem
+                    key={id}
+                    onSelect={() => {
+                      const range = period(id);
+                      request.mutate({ body: { from: range.from, to: range.to } });
+                    }}
+                  >
+                    {ui(periodLabels[id])}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         }
@@ -104,9 +120,11 @@ export function UsageReports() {
         {announcement}
       </p>
       {request.isError && (
-        <p role="alert" className="font-secondary-body text-status-danger-content">
-          {ui("Failed to start report generation. Try again in a moment.")}
-        </p>
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>
+            {ui("Failed to start report generation. Try again in a moment.")}
+          </AlertDescription>
+        </Alert>
       )}
 
       {reports.isPending ? (
@@ -125,11 +143,10 @@ export function UsageReports() {
           }
         />
       ) : list.length === 0 ? (
-        <SettingRows className="border-dashed">
-          <p className="px-4 py-4 font-secondary-body text-content-muted">
-            {ui("No reports yet. Pick a period and generate your first one.")}
-          </p>
-        </SettingRows>
+        <EmptyState
+          icon={<FileArchive />}
+          title={ui("No reports yet. Pick a period and generate your first one.")}
+        />
       ) : (
         <>
           <SettingRows>
@@ -161,7 +178,7 @@ function ReportRow({ report }: { report: UsageReport }) {
   if (isOpen(report))
     return (
       <SettingRow
-        icon={<LoaderCircle className="animate-spin motion-reduce:animate-none" />}
+        icon={<Spinner aria-hidden="true" />}
         title={ui("Preparing report…")}
         description={
           slow
@@ -233,15 +250,4 @@ function useSlow(report: UsageReport) {
     return () => clearTimeout(timer);
   }, [report, slow]);
   return slow;
-}
-
-/** Announces a report that finished while this page was open, not the ones already there when it loaded. */
-function useReadyAnnouncement(list: UsageReport[], announce: () => void) {
-  const open = useRef<Set<string> | null>(null);
-  useEffect(() => {
-    const previous = open.current;
-    open.current = new Set(list.filter(isOpen).map((report) => report.id));
-    if (previous && list.some((report) => report.status === "READY" && previous.has(report.id)))
-      announce();
-  }, [list, announce]);
 }
