@@ -92,7 +92,7 @@ export function periodStart(period: AuditPeriod, now = Date.now()) {
 }
 
 /** Readable names for the declared detail fields; a field this build does not know shows its name. */
-export const fieldLabels: Record<string, AppCopy> = {
+const fieldLabels: Record<string, AppCopy> = {
   adapter: "Adapter",
   added: "Added",
   admission: "Admission",
