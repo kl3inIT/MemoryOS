@@ -1,6 +1,6 @@
 import { Check, ChevronDown, ChevronRight, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ModelLogo } from "./model-logo";
 import { appText } from "@/i18n/app-text";
@@ -102,21 +102,19 @@ export function ModelPicker({
           />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[min(24rem,calc(100vw-2rem))] gap-1 p-2">
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-content-muted"
-            aria-hidden="true"
-          />
-          <Input
-            autoFocus
+      <PopoverContent align="end" className="w-[min(24rem,calc(100vw-2rem))] p-2">
+        {/* The popover focuses the search on opening, as its first focusable control. */}
+        <InputGroup>
+          <InputGroupAddon>
+            <Search aria-hidden="true" />
+          </InputGroupAddon>
+          <InputGroupInput
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={ui("Search models…")}
             aria-label={ui("Search models")}
-            className="pl-8"
           />
-        </div>
+        </InputGroup>
         <div className="max-h-72 overflow-y-auto">
           {emptyLabel && !query.trim() && (
             <button

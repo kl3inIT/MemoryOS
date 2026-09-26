@@ -2301,6 +2301,8 @@ Object.assign(englishUi, {
   "New providers are manager-only. Access associations are preserved on edit; selecting a default never grants access.":
     "Nhà cung cấp mới chỉ dành cho quản lý. Liên kết quyền truy cập được giữ khi sửa; chọn mặc định không cấp quyền truy cập.",
   "Provider name": "Tên nhà cung cấp",
+  "Enter a provider name.": "Nhập tên nhà cung cấp.",
+  "Enter the endpoint URL.": "Nhập URL endpoint.",
   Protocol: "Giao thức",
   "OpenAI-compatible": "Chuẩn OpenAI",
   "{{adapter}} (unavailable)": "{{adapter}} (không khả dụng)",

@@ -1,8 +1,17 @@
 import { Globe, ShieldCheck } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+  FieldTitle,
+} from "@/components/ui/field";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { ManagedProvider } from "./model-catalog";
 
@@ -11,29 +20,44 @@ export type DataBoundary = ManagedProvider["dataBoundary"];
 /** Where a provider sits relative to the organization's data, as its administrator stated it. */
 export function DataBoundaryTag({ boundary }: { boundary: DataBoundary }) {
   const ui = useAppTranslation();
-  // Where data goes is state, so it takes the status roles, always with its icon and label.
+  // Where data goes is state, so it takes the status tones, always with its icon and label.
   return boundary === "INTERNAL" ? (
-    <Badge
-      variant="outline"
-      className="border-status-success-border bg-status-success-faint text-status-success-content"
-    >
+    <StatusBadge tone="success">
       <ShieldCheck aria-hidden="true" />
       {ui("Internal")}
-    </Badge>
+    </StatusBadge>
   ) : (
-    <Badge
-      variant="outline"
-      className="border-status-info-border bg-status-info-faint text-status-info-content"
-    >
+    <StatusBadge tone="info">
       <Globe aria-hidden="true" />
       {ui("External")}
-    </Badge>
+    </StatusBadge>
   );
 }
 
-/** Bordered radio choice shared by the provider editor's option groups. */
-export const radioCard =
-  "flex cursor-pointer items-start gap-3 rounded-xl border border-border-default px-3 py-2.5 has-[[data-state=checked]]:border-border-strong has-[[data-state=checked]]:bg-surface-sunken";
+/** One bordered choice of a radio group: the whole card is the radio's label. */
+export function RadioCard({
+  id,
+  value,
+  title,
+  description,
+}: {
+  id: string;
+  value: string;
+  title: ReactNode;
+  description?: ReactNode;
+}) {
+  return (
+    <FieldLabel htmlFor={id}>
+      <Field orientation="horizontal">
+        <RadioGroupItem id={id} value={value} />
+        <FieldContent>
+          <FieldTitle>{title}</FieldTitle>
+          {description ? <FieldDescription>{description}</FieldDescription> : null}
+        </FieldContent>
+      </Field>
+    </FieldLabel>
+  );
+}
 
 export function DataBoundaryField({
   value,
@@ -44,25 +68,10 @@ export function DataBoundaryField({
 }) {
   const ui = useAppTranslation();
   const [confirming, setConfirming] = useState(false);
-  const options = [
-    {
-      value: "EXTERNAL",
-      title: ui("External"),
-      description: ui(
-        "Data leaves the organization's infrastructure, for example a standard OpenAI or Anthropic API.",
-      ),
-    },
-    {
-      value: "INTERNAL",
-      title: ui("Internal"),
-      description: ui(
-        "A self-hosted server, or an enterprise agreement that commits to no retention and no training.",
-      ),
-    },
-  ] as const;
+  const id = useId();
   return (
-    <fieldset className="space-y-2">
-      <legend className="font-main-ui-action">{ui("Data boundary")}</legend>
+    <FieldSet>
+      <FieldLegend variant="label">{ui("Data boundary")}</FieldLegend>
       <RadioGroup
         value={value}
         onValueChange={(next) => {
@@ -70,21 +79,26 @@ export function DataBoundaryField({
           else onChange(next as DataBoundary);
         }}
       >
-        {options.map((option) => (
-          <label key={option.value} className={radioCard}>
-            <RadioGroupItem value={option.value} className="mt-0.5" />
-            <span className="min-w-0 flex-1">
-              <span className="block font-main-ui-body font-medium">{option.title}</span>
-              <span className="block font-secondary-body text-content-muted">
-                {option.description}
-              </span>
-            </span>
-          </label>
-        ))}
+        <RadioCard
+          id={`${id}-external`}
+          value="EXTERNAL"
+          title={ui("External")}
+          description={ui(
+            "Data leaves the organization's infrastructure, for example a standard OpenAI or Anthropic API.",
+          )}
+        />
+        <RadioCard
+          id={`${id}-internal`}
+          value="INTERNAL"
+          title={ui("Internal")}
+          description={ui(
+            "A self-hosted server, or an enterprise agreement that commits to no retention and no training.",
+          )}
+        />
       </RadioGroup>
-      <p className="font-secondary-body text-content-muted">
+      <FieldDescription>
         {ui("This label is recorded and shown only; it does not block any request yet.")}
-      </p>
+      </FieldDescription>
       {confirming && (
         <ConfirmDialog
           open
@@ -104,6 +118,6 @@ export function DataBoundaryField({
           }}
         />
       )}
-    </fieldset>
+    </FieldSet>
   );
 }
