@@ -22,7 +22,7 @@ export type SpeechSocketOptions = {
   createSocket?: (url: string) => WebSocket;
 };
 
-export function speechSocketUrl(
+function speechSocketUrl(
   ticket: string,
   location: Pick<Location, "origin" | "protocol"> = window.location,
 ) {

@@ -9,7 +9,6 @@ import {
   patchMeeting,
   transcribersKey,
   withAddedMinutesItem,
-  withCorrection,
   withMinutesItem,
   withoutMinutesItem,
   withSpeaker,
@@ -245,10 +244,18 @@ describe("folding one correction", () => {
   });
 
   it("puts a word written by hand after the corrections already made", () => {
+    const cache = new QueryClient();
+    const cached = meeting();
+    cache.setQueryData(meetingKey(cached.id), cached);
+    cache.setQueryData(correctionsKey(cached.id), [correction("c1")]);
+
+    foldCorrection(cache, cached.id, {
+      utterance: rewritten,
+      correction: correction("c9", { status: "ACCEPTED" }),
+    });
+
     expect(
-      withCorrection([correction("c1")], correction("c9", { status: "ACCEPTED" })).map(
-        (item) => item.id,
-      ),
+      cache.getQueryData<MeetingCorrection[]>(correctionsKey(cached.id))?.map((item) => item.id),
     ).toEqual(["c1", "c9"]);
   });
 

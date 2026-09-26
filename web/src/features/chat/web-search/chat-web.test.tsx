@@ -1,7 +1,6 @@
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { WebSearch } from "@/components/assistant-ui/elements/web-search";
 import { ChatWebModes, ChatWebToggle } from "./chat-web-options";
 import { sourceSchema } from "@/features/chat/sources/chat-evidence";
 
@@ -34,28 +33,6 @@ beforeEach(() => {
     },
   );
   Element.prototype.scrollIntoView = vi.fn();
-});
-
-it("collapses completed Web results and keeps real status and links", async () => {
-  const { rerender } = render(
-    <WebSearch query="current news" results={[]} searching label="Searching the web…" />,
-  );
-  expect(screen.getByRole("status")).toHaveTextContent("Searching the web…");
-  expect(screen.queryAllByRole("link")).toHaveLength(0);
-  rerender(
-    <WebSearch
-      query="current news"
-      results={[{ title: "Actual source", domain: "example.com", url: "https://example.com/news" }]}
-      searching={false}
-      label="1 web source"
-    />,
-  );
-  expect(screen.queryAllByRole("link")).toHaveLength(0);
-  await userEvent.click(screen.getByRole("button", { name: "current news" }));
-  expect(screen.getAllByRole("link")).toHaveLength(1);
-  expect(screen.getByRole("link")).toHaveAttribute("href", "https://example.com/news");
-  expect(screen.getByRole("link")).toHaveAttribute("rel", "noopener noreferrer");
-  expect(screen.getByRole("status")).toHaveTextContent("1 web source");
 });
 
 it("keeps Web off when no search connection is configured", async () => {

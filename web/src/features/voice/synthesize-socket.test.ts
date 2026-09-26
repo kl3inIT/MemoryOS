@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { openSpeechSocket, speechSocketUrl } from "./synthesize-socket";
+import { openSpeechSocket } from "./synthesize-socket";
 
 class FakeSocket {
   readyState = 0;
@@ -61,10 +61,10 @@ async function read(stream: ReadableStream<Uint8Array>) {
 
 describe("read-aloud socket", () => {
   it("opens the same-origin stream with the ticket and sends the speed before any text", async () => {
-    expect(speechSocketUrl("abc", { origin: "https://memoryos.example", protocol: "https:" })).toBe(
-      "wss://memoryos.example/api/chat/voice/synthesize/stream?ticket=abc",
-    );
     const { opening, socket } = connect();
+    expect(socket().url).toBe(
+      "wss://memoryos.example/api/chat/voice/synthesize/stream?ticket=ticket-value",
+    );
     socket().open();
     const speech = await opening;
     expect(socket().binaryType).toBe("arraybuffer");

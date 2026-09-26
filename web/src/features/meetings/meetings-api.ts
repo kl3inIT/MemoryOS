@@ -164,7 +164,7 @@ export function withUtterance(meeting: MeetingDetail, utterance: MeetingUtteranc
 }
 
 /** The proposals with one as the server now has it; a correction written by hand is new and comes last. */
-export function withCorrection(
+function withCorrection(
   corrections: MeetingCorrection[],
   correction: MeetingCorrection,
 ): MeetingCorrection[] {

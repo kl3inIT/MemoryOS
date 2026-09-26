@@ -29,11 +29,6 @@ public class SearchProjectionMaintenance {
     private DocumentIndexState.@Nullable Cursor cursor;
     private final int rebuildWindow;
 
-    public SearchProjectionMaintenance(DocumentChunkPort documents, JdbcSearchWorkRepository work, SearchIndex index,
-            PlatformTransactionManager transactionManager) {
-        this(documents, work, index, transactionManager, 64);
-    }
-
     @Autowired
     public SearchProjectionMaintenance(DocumentChunkPort documents, JdbcSearchWorkRepository work, SearchIndex index,
             PlatformTransactionManager transactionManager, @Value("${memoryos.search.rebuild-window:64}") int rebuildWindow) {
