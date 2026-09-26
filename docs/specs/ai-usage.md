@@ -66,8 +66,8 @@ window of `period_days` whole UTC days, and can be kept but switched off.
 - **Groups.** A Group limit binds every member of that Group, and a person in two capped Groups is bound by the
   tighter one. Onyx instead lets any Group under budget unblock the person.
 - **A refused turn.** `429` with `Retry-After`, and a body naming the scope, the Group where there is one, and
-  `resetsAt`: the instant the trailing window drops under the budget. Refusals are counted in
-  `memoryos.usage.limit.refusals`, not written to the audit stream; at chat volume they would drown it.
+  `resetsAt`: the instant the trailing window drops under the budget. Refusals are not written to the audit
+  stream; at chat volume they would drown it.
 - **Changes are evidence.** Creating, changing and removing a limit is recorded through
   [audit](audit.md) as `ai_limit.create`, `ai_limit.update` and `ai_limit.delete`.
 
