@@ -22,6 +22,8 @@ const ESTIMATED_LINE = 64;
 const OVERSCAN = 8;
 /** How close to the end still counts as reading the end, so new lines keep the view following them. */
 const FOLLOW_SLACK = 48;
+/** Frames a jump waits for its line to render before giving up. */
+const REVEAL_FRAMES = 10;
 
 type Utterance = MeetingDetail["utterances"][number];
 
@@ -111,6 +113,27 @@ export function Transcript({
     hit.scrollIntoView({ block: "center" });
   });
 
+  /**
+   * Brings one line into view in two steps: the list scrolls it into the rendered window, then the line is
+   * scrolled into the page, since the list may sit below the fold and a short list never scrolls itself.
+   */
+  const reveal = useCallback(
+    (index: number, block: "start" | "center") => {
+      const id = shown[index]?.id;
+      if (id === undefined) return;
+      following.current = false;
+      rows.scrollToIndex(index, { align: block });
+      let frames = 0;
+      const settle = () => {
+        const line = document.getElementById(id);
+        if (line) line.scrollIntoView({ block });
+        else if (++frames < REVEAL_FRAMES) requestAnimationFrame(settle);
+      };
+      requestAnimationFrame(settle);
+    },
+    [shown, rows],
+  );
+
   const handled = useRef<number>(undefined);
   useEffect(() => {
     if (!target || handled.current === target.seq) return;
@@ -122,9 +145,8 @@ export function Transcript({
     }
     handled.current = target.seq;
     if (index < 0) return;
-    following.current = false;
-    rows.scrollToIndex(index, { align: "center" });
-  }, [target, shown, starredOnly, rows]);
+    reveal(index, "center");
+  }, [target, shown, starredOnly, reveal]);
 
   /** The file is named after the meeting, so a folder of them reads as a folder of meetings. */
   async function take(format: "DOCX" | "PDF") {
@@ -153,9 +175,7 @@ export function Transcript({
 
   function reach(utterance: Utterance) {
     const index = shown.indexOf(utterance);
-    if (index < 0) return;
-    following.current = false;
-    rows.scrollToIndex(index, { align: "start" });
+    if (index >= 0) reveal(index, "start");
   }
 
   const tools = meeting.utterances.length > 0 && (

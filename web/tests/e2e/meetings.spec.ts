@@ -824,7 +824,7 @@ for (const width of [1440, 390]) {
       .click();
     await page.getByRole("button", { name: "Câu đã đánh dấu (1)" }).click();
     await expect(
-      page.locator('ol[aria-live="polite"]').getByText("Tuần này bên mình phải chốt"),
+      page.getByRole("region", { name: "Transcript" }).getByText("Tuần này bên mình phải chốt"),
     ).toHaveCount(0);
     await page.getByRole("button", { name: "Câu đã đánh dấu (1)" }).click();
 
@@ -877,7 +877,7 @@ for (const width of [1440, 390]) {
     expect(written.body).toEqual({ start: 59, end: 70, text: "Vinaconex 09" });
     await expect(
       page
-        .locator('ol[aria-live="polite"]')
+        .getByRole("region", { name: "Transcript" })
         .getByText("còn thiếu số liệu của Vinaconex 09 và Tower 3."),
     ).toBeVisible();
     // The answer carries the correction, so it joins the applied ones without reading them again.
