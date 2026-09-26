@@ -1,9 +1,16 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { Check, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
-import { DropdownMenu } from "radix-ui";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export type SearchFilterOption = {
   value: string;
@@ -22,6 +29,7 @@ type SearchFilterMenuProps = {
   className?: string;
 };
 
+/** One compact filter: the trigger names the filter and its choice, the menu offers every choice. */
 export function SearchFilterMenu({
   label,
   value,
@@ -35,55 +43,43 @@ export function SearchFilterMenu({
   const selected = options.find((option) => option.value === value) ?? options[0];
 
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
         <Button
           type="button"
           size="sm"
           prominence="tertiary"
           aria-label={ui("{{v1}}: {{v2}}", { v1: label, v2: ui(selected.label) })}
-          className={cn("max-w-full gap-2 px-2.5 data-[state=open]:bg-surface-subtle", className)}
+          className={className}
         >
-          <span className="grid size-4 shrink-0 place-items-center text-content-muted" aria-hidden>
+          <span data-icon="inline-start" className="text-content-muted" aria-hidden>
             {icon}
           </span>
-          <span className="truncate">{ui(selected.label)}</span>
-          <ChevronDown className="size-3.5 shrink-0 text-content-muted" aria-hidden="true" />
+          <span className="max-w-48 truncate">{ui(selected.label)}</span>
+          <ChevronDown data-icon="inline-end" />
         </Button>
-      </DropdownMenu.Trigger>
-
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          align="start"
-          sideOffset={6}
-          collisionPadding={12}
-          className="z-50 min-w-52 rounded-xl border border-border-default bg-surface-overlay p-1.5 shadow-md outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none"
-        >
-          <DropdownMenu.Label className="px-3 py-2 font-secondary-action text-content-muted">
-            {label}
-          </DropdownMenu.Label>
-          <DropdownMenu.RadioGroup value={value} onValueChange={onChange}>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" sideOffset={6} collisionPadding={12} className="min-w-52">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{label}</DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
             {options.map((option) => (
-              <DropdownMenu.RadioItem
+              <DropdownMenuRadioItem
                 key={option.value}
                 value={option.value}
                 disabled={option.disabled}
-                className="relative flex min-h-9 cursor-pointer select-none items-center rounded-lg py-2 pr-3 pl-9 font-main-ui-body text-content-secondary outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-surface-subtle data-[highlighted]:text-content-primary data-[state=checked]:text-content-primary"
               >
-                <DropdownMenu.ItemIndicator className="absolute left-3 grid size-4 place-items-center text-content-primary">
-                  <Check className="size-3.5" aria-hidden="true" />
-                </DropdownMenu.ItemIndicator>
                 {ui(option.label)}
                 {option.count === undefined ? null : (
                   <span className="ml-auto pl-4 font-secondary-action text-content-muted tabular-nums">
                     {option.count}
                   </span>
                 )}
-              </DropdownMenu.RadioItem>
+              </DropdownMenuRadioItem>
             ))}
-          </DropdownMenu.RadioGroup>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

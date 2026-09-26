@@ -108,10 +108,10 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
         <p className="mt-0.5 overflow-hidden py-0.5 font-secondary-body text-content-muted">
           <span className="-ml-4 flex flex-wrap items-center gap-y-0.5">
             {meta.map((entry) => (
-              <span
-                key={entry.key}
-                className="relative inline-flex min-w-0 items-center pl-4 before:absolute before:left-1.5 before:content-['·']"
-              >
+              <span key={entry.key} className="relative inline-flex min-w-0 items-center pl-4">
+                <span aria-hidden="true" className="absolute left-1.5">
+                  ·
+                </span>
                 {entry.node}
               </span>
             ))}
@@ -185,7 +185,7 @@ function Snippet({
         part.highlighted ? (
           <mark
             key={`${partIndex}:${part.text}`}
-            className="rounded-[3px] bg-evidence-highlight-surface font-medium text-content-primary [box-decoration-break:clone]"
+            className="box-decoration-clone rounded-sm bg-evidence-highlight-surface font-medium text-content-primary"
           >
             {part.text}
           </mark>

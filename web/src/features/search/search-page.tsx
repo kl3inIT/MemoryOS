@@ -1,102 +1,23 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { appText, type AppCopy } from "@/i18n/app-text";
-import { useQuery } from "@tanstack/react-query";
-import {
-  Clock3,
-  FileStack,
-  Files,
-  History,
-  LoaderCircle,
-  Mic,
-  Search,
-  SearchX,
-  SlidersHorizontal,
-  TextSearch,
-  X,
-} from "lucide-react";
-import { getRouteApi } from "@tanstack/react-router";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { AppShellHeader } from "@/components/app-shell/app-shell-header";
-import { BrandLoader } from "@/components/brand-loader";
-import { Button } from "@/components/ui/button";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
-import { IconButton } from "@/components/ui/icon-button";
-import { Input } from "@/components/ui/input";
-import { TablePagination } from "@/components/ui/table-pagination";
 import {
   DocumentPreviewDialog,
   type DocumentSelection,
 } from "@/features/documents/document-preview-dialog";
-import { clearRecentSearches, readRecentSearches, rememberRecentSearch } from "./recent-searches";
-import { SearchFilterMenu, type SearchFilterOption } from "./search-filter-menu";
-import { SearchSourceRail, type SearchSourceOption } from "./search-source-rail";
-import { DocumentSourceIcon } from "@/features/documents/document-source-icon";
 import type { DocumentSourceType } from "@/features/documents/document-source-presentation";
-import { sourceProviders } from "@/features/sources/shared/source-provider-catalog";
-import { SearchResultCard } from "./search-result-card";
-import { friendlyMediaType } from "@/features/documents/document-source-presentation";
-import { MAX_SEARCH_PAGES, type SearchPageSearch } from "./search-params";
-import {
-  useApplicationSession,
-  useGlobalCapability,
-} from "@/features/identity/application-session-context";
-import { captureWorkflowFailure } from "@/lib/sentry";
-import { cn } from "@/lib/utils";
-import { searchDocuments } from "@/lib/hey-api/sdk.gen";
 import { matchingProvenance } from "@/features/documents/source-provenance";
-import { useVoiceAvailability } from "@/features/voice/use-voice-availability";
-import { useDictationInput, type DictationStatus } from "@/features/voice/use-dictation-input";
-import type {
-  Result as SearchResult,
-  SearchRequest,
-  Section,
-  SourceFacets,
-} from "@/lib/hey-api/types.gen";
+import { useGlobalCapability } from "@/features/identity/application-session-context";
+import type { Result as SearchResult, Section } from "@/lib/hey-api/types.gen";
+import { cn } from "@/lib/utils";
+import { SearchBox } from "./search-box";
+import { SearchLanding } from "./search-landing";
+import { searchSourceOptions, searchStatus } from "./search-options";
+import { SearchResults } from "./search-results";
+import { SearchSourceRail } from "./search-source-rail";
+import { useDocumentSearch, type DocumentSearch } from "./use-document-search";
 
-const FILE_TYPE_OPTIONS: readonly SearchFilterOption[] = [
-  { value: "all", label: "All file types" },
-  // Same friendly names as the file-type facets and result metadata.
-  { value: "application/pdf", label: "PDF" },
-  {
-    value: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    label: "Word document",
-  },
-  {
-    value: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    label: "PowerPoint presentation",
-  },
-  { value: "text/plain", label: "Text document" },
-  { value: "text/markdown", label: "Markdown" },
-];
-
-const TIME_RANGE_OPTIONS: readonly SearchFilterOption[] = [
-  { value: "all", label: "All time" },
-  { value: "7d", label: "Past 7 days" },
-  { value: "30d", label: "Past 30 days" },
-  { value: "365d", label: "Past year" },
-];
-
-type SearchTimeRange = "all" | "7d" | "30d" | "365d";
-
-const PAGE_SIZE = 10;
-const MAX_PAGES = MAX_SEARCH_PAGES;
-const searchRoute = getRouteApi("/_authenticated/search");
-
-/** A Document Set offered as a filter. */
-export type SearchDocumentSet = { id: string; name: string };
-/**
- * Lists the Document Sets the member may filter by. Document Sets are Chat's; the backend search takes their ids,
- * so the route hands the list in and Search depends on no Chat module.
- */
-export type LoadSearchDocumentSets = (signal: AbortSignal) => Promise<SearchDocumentSet[]>;
-
-export function SearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSearchDocumentSets }) {
+export function SearchPage() {
   const ui = useAppTranslation();
   const canSearch = useGlobalCapability("SEARCH_READ");
   if (!canSearch) {
@@ -114,93 +35,22 @@ export function SearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSearchD
       </>
     );
   }
-  return <AuthorizedSearchPage loadDocumentSets={loadDocumentSets} />;
+  return <AuthorizedSearchPage />;
 }
 
-function AuthorizedSearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSearchDocumentSets }) {
+function AuthorizedSearchPage() {
   const ui = useAppTranslation();
-  const { actorId } = useApplicationSession();
-  const [recentSearches, setRecentSearches] = useState(() => readRecentSearches(actorId));
-  // The submitted question, its filters and the result page live in the address; the box holds what is typed.
-  const search = searchRoute.useSearch();
-  const navigate = searchRoute.useNavigate();
-  const [query, setQuery] = useState(search.q ?? "");
-  const [shownQuery, setShownQuery] = useState(search.q);
-  if (shownQuery !== search.q) {
-    // Back and forward change the submitted question; the box follows it.
-    setShownQuery(search.q);
-    if ((query.trim() || undefined) !== search.q) setQuery(search.q ?? "");
-  }
-  const mediaType = search.type ?? null;
-  const sourceType: DocumentSourceType | null = search.source ?? null;
-  const timeRange: SearchTimeRange = search.time ?? "all";
-  const documentSetId = search.set ?? null;
-  const request = useMemo<SearchRequest | null>(
-    () =>
-      search.q
-        ? {
-            query: search.q,
-            mediaTypes: search.type ? [search.type] : [],
-            sourceTypes: search.source ? [search.source] : [],
-            updatedSince: updatedSinceForTimeRange(search.time ?? "all"),
-            documentSetIds: search.set ? [search.set] : [],
-            page: search.page ?? 0,
-            pageSize: PAGE_SIZE,
-          }
-        : null,
-    [search.q, search.type, search.source, search.time, search.set, search.page],
-  );
-  /** A filter applies to the question on screen from its first page, replacing the entry it refines. */
-  function showSearch(next: (current: SearchPageSearch) => SearchPageSearch, replace: boolean) {
-    void navigate({ search: next, replace, resetScroll: false });
-  }
-  function setFilter(filter: Partial<SearchPageSearch>) {
-    setSelected(null);
-    showSearch((current) => ({ ...current, ...filter, page: undefined }), true);
-  }
+  const search = useDocumentSearch();
+  const { request, result } = search;
   const [selected, setSelected] = useState<DocumentSelection | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const searchFormRef = useRef<HTMLFormElement | null>(null);
   const previousSearchTopRef = useRef<number | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
-  const reportedSearchError = useRef<unknown>(null);
-  // Voice search uses the Tenant's speech-to-text provider through MemoryOS, never browser recognition.
-  const voiceSearchAvailable = useVoiceAvailability().data?.sttAvailable === true;
-  const documentSets = useQuery({
-    queryKey: ["document-sets", actorId],
-    queryFn: ({ signal }) => loadDocumentSets(signal),
-  });
-  const {
-    status: voiceStatus,
-    failure: voiceFailure,
-    listening: isListening,
-    toggle: toggleVoiceSearch,
-  } = useDictationInput({
-    text: query,
-    onText: setQuery,
-    onFinished: () => searchInputRef.current?.focus(),
-  });
   const hasRequest = request !== null;
-  const result = useQuery({
-    queryKey: ["document-search", request],
-    queryFn: async ({ signal }) => {
-      const response = await searchDocuments({
-        body: request!,
-        signal,
-      });
-      return response.data;
-    },
-    enabled: request !== null,
-    retry: false,
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-    // Another page or filter keeps the results on screen, dimmed; a different question starts from the loader.
-    placeholderData: (previous, previousQuery) =>
-      (previousQuery?.queryKey[1] as SearchRequest | null | undefined)?.query === request?.query
-        ? previous
-        : undefined,
-  });
   useLayoutEffect(() => {
+    // The first question moves the box from the middle of the page to its top; the move is animated from where
+    // the box was.
     const previousTop = previousSearchTopRef.current;
     const form = searchFormRef.current;
     previousSearchTopRef.current = null;
@@ -221,52 +71,13 @@ function AuthorizedSearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSear
     return () => animation.cancel();
   }, [hasRequest]);
 
-  useEffect(() => {
-    if (!request || !result.isError || result.error === reportedSearchError.current) return;
-    reportedSearchError.current = result.error;
-    captureWorkflowFailure(result.error, {
-      workflow: "search",
-      stage: "request",
-      failureKind: "api-or-network",
-    });
-  }, [request, result.error, result.isError]);
-
-  function submit(text = query) {
+  function submit(text = search.query) {
     if (!text.trim()) return;
     if (!request) {
       previousSearchTopRef.current = searchFormRef.current?.getBoundingClientRect().top ?? null;
     }
-    setQuery(text);
     setSelected(null);
-    setRecentSearches(rememberRecentSearch(actorId, text));
-    // Asking the question on screen again reads it again instead of adding a history entry.
-    if (text.trim() === search.q && !search.page) void result.refetch();
-    else showSearch((current) => ({ ...current, q: text.trim(), page: undefined }), false);
-  }
-
-  function clearFilters() {
-    setFilter({ type: undefined, source: undefined, time: undefined, set: undefined });
-  }
-
-  function selectSourceType(value: string) {
-    setFilter({ source: value === "all" ? undefined : (value as DocumentSourceType) });
-  }
-
-  function selectMediaType(value: string) {
-    setFilter({ type: value === "all" ? undefined : value });
-  }
-
-  function selectTimeRange(value: string) {
-    setFilter({ time: value === "all" ? undefined : (value as Exclude<SearchTimeRange, "all">) });
-  }
-
-  function selectDocumentSet(value: string) {
-    setFilter({ set: value === "all" ? undefined : value });
-  }
-
-  function showPage(page: number) {
-    setSelected(null);
-    showSearch((current) => ({ ...current, page: page || undefined }), false);
+    search.submit(text);
   }
 
   function openDocument(
@@ -275,10 +86,6 @@ function AuthorizedSearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSear
     trigger: HTMLButtonElement,
   ) {
     if (!item.documentId || !item.generation) return;
-    const activeMatchIndex = Math.max(
-      0,
-      item.sections.findIndex((candidate) => candidate === section),
-    );
     returnFocusRef.current = trigger;
     setSelected({
       documentId: item.documentId,
@@ -292,30 +99,30 @@ function AuthorizedSearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSear
         from: Math.max(0, candidate.matchingOrdinal - 1),
         provenance: matchingProvenance(candidate.provenance, candidate.matchingOrdinal),
       })),
-      activeMatchIndex,
+      activeMatchIndex: Math.max(
+        0,
+        item.sections.findIndex((candidate) => candidate === section),
+      ),
     });
   }
 
-  const isSearchUpdating = result.isFetching;
-  const statusMessage = searchStatus(request, result, isSearchUpdating);
-  const hasFilters = Boolean(mediaType || sourceType || documentSetId || timeRange !== "all");
-  const sourceOptions = searchSourceOptions(result.data?.sourceFacets, sourceType);
-  const documentSetOptions: SearchFilterOption[] = [
-    { value: "all", label: ui("Tất cả bộ tài liệu") },
-    ...(documentSets.data ?? []).map((set) => ({ value: set.id, label: set.name })),
-  ];
-  // Shown for every search so filters never move the search box or the results column.
-  const showSourceFilter = request !== null;
-  const fileTypeOptions = withResultFileTypes(result.data?.results ?? [], mediaType);
-  const showLoadingScreen = result.isPending;
-  const currentPage = request?.page ?? 0;
-  const totalResults = result.data?.totalResults ?? 0;
-  // The total counts readable Documents among bounded candidates; at the bound there may be more.
-  const totalLabel =
-    result.data && totalResults >= result.data.candidateLimit
-      ? `${totalResults}+`
-      : String(totalResults);
-  const totalPages = Math.min(MAX_PAGES, Math.max(1, Math.ceil(totalResults / PAGE_SIZE)));
+  // A filter or another page replaces the document being read.
+  const refine: DocumentSearch = {
+    ...search,
+    setFilter: (filter) => {
+      setSelected(null);
+      search.setFilter(filter);
+    },
+    clearFilters: () => {
+      setSelected(null);
+      search.clearFilters();
+    },
+    showPage: (page) => {
+      setSelected(null);
+      search.showPage(page);
+    },
+  };
+  const sourceOptions = searchSourceOptions(result.data?.sourceFacets, search.sourceType);
 
   return (
     <>
@@ -323,13 +130,12 @@ function AuthorizedSearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSear
       <section
         className={cn(
           "mx-auto w-full max-w-4xl px-5 py-5 sm:px-8 sm:py-7",
-          !request && "flex min-h-full flex-col",
           // The rail adds its own width; the results column keeps the readable measure.
-          request && showSourceFilter && "lg:max-w-[71rem]",
+          request ? "lg:max-w-284" : "flex min-h-full flex-col",
         )}
       >
         <h1 className="sr-only">{ui("Search documents")}</h1>
-        <div className={cn(!request && "my-auto w-full max-w-3xl self-center pb-[10dvh]")}>
+        <div className={cn(!request && "my-auto w-full max-w-3xl self-center pb-16")}>
           {!request ? (
             <header className="mb-6">
               <h2 className="font-heading-h2 text-content-primary">
@@ -337,348 +143,39 @@ function AuthorizedSearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSear
               </h2>
             </header>
           ) : null}
-          <form
-            ref={searchFormRef}
-            onSubmit={(event) => {
-              event.preventDefault();
-              submit();
-            }}
-            className={cn(
-              "rounded-2xl border border-border-default bg-surface-raised transition-[border-color,box-shadow] duration-200 focus-within:border-border-strong motion-reduce:transition-none",
-              request ? "shadow-xs" : "shadow-sm focus-within:shadow-md",
-            )}
-          >
-            <div className="flex min-w-0 items-center gap-0.5 py-1.5 pr-1.5 pl-1">
-              <Input
-                ref={searchInputRef}
-                size="lg"
-                aria-label={ui("Search documents")}
-                value={query}
-                maxLength={1000}
-                placeholder={ui("Search connected sources")}
-                className="min-w-0 flex-1 border-transparent bg-transparent pr-2 pl-3 shadow-none hover:border-transparent focus-visible:border-transparent focus-visible:shadow-none focus-visible:ring-0"
-                onChange={(event) => setQuery(event.target.value)}
-              />
-              {query ? (
-                <button
-                  type="button"
-                  aria-label={ui("Clear search")}
-                  className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-content-muted outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none"
-                  onClick={() => {
-                    setQuery("");
-                    searchInputRef.current?.focus();
-                  }}
-                >
-                  <X className="size-3.5" aria-hidden="true" />
-                </button>
-              ) : null}
-              {voiceSearchAvailable ? (
-                <IconButton
-                  type="button"
-                  size="lg"
-                  prominence="internal"
-                  tone={isListening ? "danger" : "default"}
-                  aria-label={isListening ? ui("Stop voice search") : ui("Search by voice")}
-                  aria-pressed={isListening}
-                  aria-describedby="voice-search-status"
-                  pending={voiceStatus === "starting" || voiceStatus === "finishing"}
-                  title={isListening ? ui("Stop listening") : ui("Search by voice")}
-                  onClick={() => void toggleVoiceSearch()}
-                >
-                  <Mic
-                    className={cn(isListening && "animate-pulse motion-reduce:animate-none")}
-                    aria-hidden="true"
-                  />
-                </IconButton>
-              ) : null}
-              {isSearchUpdating ? (
-                <IconButton
-                  type="button"
-                  size="lg"
-                  aria-label={ui("Search is loading")}
-                  title={ui("Searching documents")}
-                  disabled
-                >
-                  <LoaderCircle
-                    className="animate-spin motion-reduce:animate-none"
-                    aria-hidden="true"
-                  />
-                </IconButton>
-              ) : (
-                <IconButton
-                  type="submit"
-                  size="lg"
-                  aria-label={ui("Search")}
-                  disabled={!query.trim()}
-                >
-                  <Search aria-hidden="true" />
-                </IconButton>
-              )}
-            </div>
-
-            {request ? (
-              <div className="flex animate-in flex-wrap items-center gap-2 border-t border-border-subtle px-2 py-2 duration-200 fade-in slide-in-from-top-1 motion-reduce:animate-none">
-                <span className="inline-flex h-8 items-center gap-2 px-2 font-secondary-action text-content-muted">
-                  <SlidersHorizontal className="size-3.5" aria-hidden="true" />
-                  {ui("Filters")}
-                </span>
-                <SearchFilterMenu
-                  label={ui("Updated")}
-                  value={timeRange}
-                  options={TIME_RANGE_OPTIONS}
-                  icon={<Clock3 className="size-3.5" />}
-                  onChange={selectTimeRange}
-                />
-                <SearchFilterMenu
-                  label={ui("File type")}
-                  value={mediaType ?? "all"}
-                  options={fileTypeOptions}
-                  icon={<FileStack className="size-3.5" />}
-                  onChange={selectMediaType}
-                />
-                <SearchFilterMenu
-                  label={ui("Bộ tài liệu")}
-                  value={documentSetId ?? "all"}
-                  options={documentSetOptions}
-                  icon={<Files className="size-3.5" />}
-                  onChange={selectDocumentSet}
-                />
-                {showSourceFilter ? (
-                  // Large screens use the rail beside the results instead.
-                  <SearchFilterMenu
-                    label={ui("Source")}
-                    value={sourceType ?? "all"}
-                    options={sourceOptions}
-                    icon={<Files className="size-3.5" />}
-                    className="lg:hidden"
-                    onChange={selectSourceType}
-                  />
-                ) : null}
-                {hasFilters ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    prominence="tertiary"
-                    className="ml-auto"
-                    onClick={clearFilters}
-                  >
-                    {ui("Clear filters")}
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
-            {voiceSearchAvailable ? (
-              <p
-                id="voice-search-status"
-                aria-live="polite"
-                className={cn(
-                  "px-4 pb-2 font-secondary-body",
-                  voiceStatus === "idle" && "sr-only",
-                  voiceStatus === "failed"
-                    ? "text-status-danger-content"
-                    : "text-content-secondary",
-                )}
-              >
-                {ui(voiceFailure ?? voiceStatusMessage(voiceStatus))}
-              </p>
-            ) : null}
-          </form>
-
+          <SearchBox
+            search={refine}
+            sourceOptions={sourceOptions}
+            inputRef={searchInputRef}
+            formRef={searchFormRef}
+            onSubmit={() => submit()}
+          />
           {!request ? (
-            <>
-              {/* Preselects the filter for the first search; a query is still required. */}
-              <div role="group" aria-label={ui("File type")} className="mt-4 flex flex-wrap gap-2">
-                {FILE_TYPE_OPTIONS.filter((option) => option.value !== "all").map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    aria-pressed={mediaType === option.value}
-                    className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-border-subtle bg-surface-base pr-3 pl-2 font-secondary-action text-content-secondary outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 aria-pressed:border-content-primary aria-pressed:bg-surface-sunken aria-pressed:text-content-primary motion-reduce:transition-none"
-                    onClick={() => {
-                      setFilter({ type: mediaType === option.value ? undefined : option.value });
-                      searchInputRef.current?.focus();
-                    }}
-                  >
-                    <DocumentSourceIcon mediaType={option.value} size="xs" />
-                    {ui(option.label)}
-                  </button>
-                ))}
-              </div>
-
-              {recentSearches.length ? (
-                <section aria-labelledby="recent-searches-heading" className="mt-8">
-                  <div className="flex items-center justify-between gap-3 pl-2">
-                    <h2
-                      id="recent-searches-heading"
-                      className="font-secondary-action text-content-muted"
-                    >
-                      {ui("Recent searches")}
-                    </h2>
-                    <Button
-                      type="button"
-                      size="sm"
-                      prominence="internal"
-                      onClick={() => {
-                        clearRecentSearches(actorId);
-                        setRecentSearches([]);
-                        searchInputRef.current?.focus();
-                      }}
-                    >
-                      {ui("Clear all")}
-                    </Button>
-                  </div>
-                  <ul className="mt-1">
-                    {recentSearches.map((item) => (
-                      <li key={item}>
-                        <button
-                          type="button"
-                          className="flex min-h-10 w-full cursor-pointer items-center gap-3 rounded-lg px-2 text-left font-main-ui-body text-content-secondary outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none"
-                          onClick={() => submit(item)}
-                        >
-                          <History
-                            className="size-4 shrink-0 text-content-muted"
-                            aria-hidden="true"
-                          />
-                          <span className="min-w-0 truncate">{item}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
-            </>
+            <SearchLanding search={refine} inputRef={searchInputRef} onAsk={submit} />
           ) : null}
         </div>
 
         <p role="status" aria-live="polite" className="sr-only">
-          {ui(statusMessage)}
+          {ui(searchStatus(request, result, result.isFetching))}
         </p>
 
-        <div
-          className={cn(
-            "mt-6",
-            request &&
-              showSourceFilter &&
-              "lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start lg:gap-8",
-          )}
-        >
-          {request && showSourceFilter ? (
+        {/* The rail is shown for every search, so filters never move the search box or the results column. */}
+        <div className={cn("mt-6", request && "lg:flex lg:items-start lg:gap-8")}>
+          {request ? (
             <SearchSourceRail
               options={sourceOptions}
-              value={sourceType ?? "all"}
-              busy={isSearchUpdating}
-              onChange={selectSourceType}
-              className="hidden lg:sticky lg:top-4 lg:block"
+              value={search.sourceType ?? "all"}
+              busy={result.isFetching}
+              onChange={(value) =>
+                refine.setFilter({
+                  source: value === "all" ? undefined : (value as DocumentSourceType),
+                })
+              }
+              className="hidden lg:sticky lg:top-4 lg:block lg:w-52 lg:shrink-0"
             />
           ) : null}
-          <div className="min-w-0" aria-busy={isSearchUpdating}>
-            {!request ? null : showLoadingScreen ? (
-              <div className="flex animate-in justify-center py-12 duration-200 fade-in motion-reduce:animate-none">
-                <BrandLoader label={ui("Searching documents…")} />
-              </div>
-            ) : result.isError ? (
-              <Empty
-                role="alert"
-                className="min-h-72 animate-in duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none"
-              >
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <SearchX aria-hidden="true" />
-                  </EmptyMedia>
-                  <EmptyTitle role="heading" aria-level={2}>
-                    {ui("Search is temporarily unavailable")}
-                  </EmptyTitle>
-                  <EmptyDescription>{ui("Please try again in a moment.")}</EmptyDescription>
-                </EmptyHeader>
-                <Button onClick={() => void result.refetch()}>{ui("Try again")}</Button>
-              </Empty>
-            ) : !result.data?.results.length ? (
-              <Empty className="min-h-72 animate-in duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <SearchX aria-hidden="true" />
-                  </EmptyMedia>
-                  <EmptyTitle role="heading" aria-level={2}>
-                    {ui("No matching documents")}
-                  </EmptyTitle>
-                  <EmptyDescription>
-                    {ui("Try a broader phrase, remove a filter, or check the document code.")}
-                  </EmptyDescription>
-                </EmptyHeader>
-                {hasFilters ? (
-                  <Button prominence="secondary" onClick={clearFilters}>
-                    {ui("Clear filters")}
-                  </Button>
-                ) : null}
-              </Empty>
-            ) : (
-              <div className="min-w-0 animate-in duration-200 fade-in slide-in-from-bottom-1 motion-reduce:animate-none">
-                <section
-                  aria-labelledby="search-results-heading"
-                  className={cn(
-                    "min-w-0 transition-opacity",
-                    result.isPlaceholderData && "opacity-60",
-                  )}
-                >
-                  <header className="flex flex-wrap items-baseline justify-between gap-3 border-b border-border-subtle pb-3">
-                    <h2
-                      id="search-results-heading"
-                      className="font-main-ui-action text-content-primary"
-                    >
-                      {totalLabel === "1"
-                        ? ui("{{count}} result for “{{query}}”", {
-                            count: totalLabel,
-                            query: request.query,
-                          })
-                        : ui("{{count}} results for “{{query}}”", {
-                            count: totalLabel,
-                            query: request.query,
-                          })}
-                    </h2>
-                    {isSearchUpdating ? (
-                      <span className="inline-flex items-center gap-1.5 font-secondary-action text-content-muted">
-                        <LoaderCircle
-                          className="size-3.5 animate-spin motion-reduce:animate-none"
-                          aria-hidden="true"
-                        />
-                        {ui("Updating")}
-                      </span>
-                    ) : null}
-                  </header>
-                  <ol className="divide-y divide-border-subtle">
-                    {result.data.results.map((item) => (
-                      <li key={item.documentId}>
-                        <SearchResultCard
-                          item={item}
-                          query={request.query ?? ""}
-                          onOpen={openDocument}
-                        />
-                      </li>
-                    ))}
-                  </ol>
-                  <TablePagination
-                    label={ui("Search results pages")}
-                    className="px-0"
-                    // A placeholder is still the previous page, so label the page actually shown.
-                    page={result.data.page}
-                    totalPages={totalPages}
-                    summary={ui("Showing {{first}}–{{last}} of {{total}}", {
-                      first: result.data.page * PAGE_SIZE + 1,
-                      last: result.data.page * PAGE_SIZE + result.data.results.length,
-                      total: totalLabel,
-                    })}
-                    previousDisabled={currentPage <= 0 || result.isPlaceholderData}
-                    nextDisabled={
-                      !result.data.hasMore ||
-                      currentPage + 1 >= MAX_PAGES ||
-                      result.isPlaceholderData
-                    }
-                    onPrevious={() => showPage(currentPage - 1)}
-                    onNext={() => showPage(currentPage + 1)}
-                  />
-                </section>
-              </div>
-            )}
+          <div className="min-w-0 lg:flex-1" aria-busy={result.isFetching}>
+            <SearchResults search={refine} onOpen={openDocument} />
           </div>
         </div>
       </section>
@@ -693,81 +190,5 @@ function AuthorizedSearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSear
         />
       ) : null}
     </>
-  );
-}
-
-function voiceStatusMessage(status: DictationStatus) {
-  if (status === "starting") return "Starting the microphone…";
-  if (status === "listening") return "Listening… Speak now, then review your query.";
-  if (status === "finishing") return "Finishing the transcript…";
-  if (status === "failed") return "Voice search stopped unexpectedly. Please try again.";
-  return "Voice search is ready.";
-}
-
-function updatedSinceForTimeRange(timeRange: SearchTimeRange): string | undefined {
-  if (timeRange === "all") return undefined;
-  const days = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 365;
-  const since = new Date();
-  since.setUTCHours(0, 0, 0, 0);
-  since.setUTCDate(since.getUTCDate() - days);
-  return since.toISOString();
-}
-
-/** The fixed filters plus every media type on this page (and the selected one), so every result type is selectable. */
-function withResultFileTypes(
-  results: readonly SearchResult[],
-  selected: string | null | undefined,
-): SearchFilterOption[] {
-  const known = new Set(FILE_TYPE_OPTIONS.map((option) => option.value));
-  const extra = [...new Set([...results.map((item) => item.mediaType), selected])]
-    .filter((value): value is string => !!value && !known.has(value))
-    .map((value) => ({ value, label: friendlyMediaType(value) }));
-  return [...FILE_TYPE_OPTIONS, ...extra];
-}
-
-/** "All sources" and every catalog connector in catalog order; a connector without results cannot be chosen. */
-function searchSourceOptions(
-  facets: SourceFacets | undefined,
-  selected: DocumentSourceType | null,
-): SearchSourceOption[] {
-  const counts = new Map(facets?.types.map((facet) => [facet.type, facet.count]));
-  return [
-    {
-      value: "all",
-      label: "All sources",
-      count: facets?.total ?? 0,
-      icon: <TextSearch className="size-4 text-content-muted" />,
-    },
-    ...sourceProviders.map((provider) => {
-      const Icon = provider.icon;
-      const count = counts.get(provider.type) ?? 0;
-      return {
-        value: provider.type,
-        // Result cards name uploads the same way.
-        label: provider.type === "FILE" ? "Tệp tải lên" : provider.name,
-        count,
-        icon: <Icon className="size-4 text-content-muted" />,
-        disabled: count === 0 && provider.type !== selected,
-      };
-    }),
-  ];
-}
-
-function searchStatus(
-  request: SearchRequest | null,
-  result: {
-    isError: boolean;
-    data?: { results: unknown[] };
-  },
-  isSearching: boolean,
-): AppCopy {
-  if (!request) return "";
-  if (isSearching) return "Searching documents.";
-  if (result.isError) return "Search is temporarily unavailable.";
-  const count = result.data?.results.length ?? 0;
-  if (count === 0) return "No matching documents.";
-  return appText(
-    count === 1 ? "{{count}} result on this page." : "{{count}} results on this page.",
-    { count },
   );
 }

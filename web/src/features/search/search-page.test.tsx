@@ -17,19 +17,40 @@ import { AppShell } from "@/components/app-shell/app-shell";
 import { SearchPage } from "./search-page";
 import { searchPageSearchSchema } from "./search-params";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type * as ChatSdk from "@/lib/hey-api/sdk.gen";
+import { HttpResponse } from "msw";
+import {
+  handleGetChatVoiceAvailability,
+  handleListChatPersonaPins,
+  handleListChatProjects,
+  handleListChatSessions,
+  handleListDocumentSets,
+  handleSearchDocuments,
+} from "@/lib/hey-api/msw.gen";
+import type { View } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 
 const searchDocumentsMock = vi.hoisted(() => vi.fn());
 const voiceAvailabilityMock = vi.hoisted(() => vi.fn());
 const startVoiceDictationMock = vi.hoisted(() => vi.fn());
-const loadDocumentSetsMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/hey-api/sdk.gen", async (importOriginal) => ({
-  ...(await importOriginal<typeof ChatSdk>()),
-  searchDocuments: searchDocumentsMock,
-  listChatSessions: vi.fn().mockResolvedValue({ data: [] }),
-  getChatVoiceAvailability: voiceAvailabilityMock,
-}));
+/** Answers the search with what `searchDocumentsMock` returns for the request body it was sent. */
+function searchBackend() {
+  server.use(
+    handleSearchDocuments(async ({ request }) => {
+      const { data } = await searchDocumentsMock({ body: await request.json() });
+      return HttpResponse.json(data);
+    }),
+    handleGetChatVoiceAvailability(async () =>
+      HttpResponse.json((await voiceAvailabilityMock()).data),
+    ),
+    // The application shell around the page reads the sidebar's conversations, pins and projects.
+    handleListChatSessions({ body: [] }),
+    handleListChatPersonaPins({ body: [] }),
+    handleListChatProjects({ body: [] }),
+  );
+}
+
+const documentSets = (body: View[]) => server.use(handleListDocumentSets({ body }));
 
 vi.mock("@/features/voice/voice-dictation", async (importOriginal) => ({
   ...(await importOriginal<typeof VoiceDictationModule>()),
@@ -81,7 +102,7 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION, pat
       <ApplicationSessionProvider session={session}>
         <ThemeProvider>
           <AppShell>
-            <SearchPage loadDocumentSets={loadDocumentSetsMock} />
+            <SearchPage />
           </AppShell>
         </ThemeProvider>
       </ApplicationSessionProvider>
@@ -102,13 +123,13 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION, pat
 
 beforeEach(() => {
   speechToTextAvailable(false);
-  loadDocumentSetsMock.mockResolvedValue([]);
+  searchBackend();
+  documentSets([]);
 });
 
 afterEach(() => {
   startVoiceDictationMock.mockReset();
   searchDocumentsMock.mockReset();
-  loadDocumentSetsMock.mockReset();
   window.localStorage.clear();
   document.documentElement.classList.remove("dark");
   document.documentElement.style.removeProperty("color-scheme");
@@ -267,7 +288,7 @@ describe("SearchPage", () => {
         ],
       },
     });
-    loadDocumentSetsMock.mockResolvedValue([
+    documentSets([
       {
         id: "d384ef32-9da5-4f80-84f6-b3d01f31aa3e",
         revision: 0,
@@ -515,11 +536,11 @@ describe("SearchPage", () => {
 
     const recent = screen.getByRole("region", { name: "Recent searches" });
     expect(within(recent).queryByText("private")).not.toBeInTheDocument();
-    const pdf = within(screen.getByRole("group", { name: "File type" })).getByRole("button", {
+    const pdf = within(screen.getByRole("radiogroup", { name: "File type" })).getByRole("radio", {
       name: /PDF/,
     });
     await user.click(pdf);
-    expect(pdf).toHaveAttribute("aria-pressed", "true");
+    expect(pdf).toBeChecked();
     // A chip only preselects the filter; searching still needs a query.
     expect(searchDocumentsMock).not.toHaveBeenCalled();
 
