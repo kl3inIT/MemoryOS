@@ -59,7 +59,7 @@ public final class ModelCalls {
             admitted = guard;
             var runner = context.ai().withLlmService(selected.withModel(guard));
             var llm = Objects.requireNonNull(runner.getLlm()).withoutThinking().withMaxTokens(output).withTimeout(timeout);
-            return runner.withLlm(llm).createObject(instructions + "\n\n" + input, shape);
+            return runner.withLlm(llm).createObject(List.of(new SystemMessage(instructions), new UserMessage(input)), shape);
         } finally {
             try { accounting.accept(admitted == null ? ModelAccounting.NONE : ModelAccounting.of(List.of(admitted), process, selected.service())); }
             finally { processes.delete(process); }
