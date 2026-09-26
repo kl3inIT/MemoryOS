@@ -515,6 +515,13 @@ export const englishUi: Record<string, string> = {
   "No identity providers yet.": "Chưa có nhà cung cấp định danh.",
   "Add an upstream OIDC provider to let its members sign in through MemoryOS.":
     "Thêm nhà cung cấp OIDC upstream để thành viên của họ đăng nhập qua MemoryOS.",
+  "Enter an alias.": "Nhập alias.",
+  "Use lowercase letters, digits, dots, dashes or underscores.":
+    "Dùng chữ thường, chữ số, dấu chấm, gạch ngang hoặc gạch dưới.",
+  "Enter a display name.": "Nhập tên hiển thị.",
+  "Enter the issuer URL.": "Nhập issuer URL.",
+  "Enter the client ID.": "Nhập client ID.",
+  "Enter the client secret.": "Nhập client secret.",
 };
 
 Object.assign(englishUi, {

@@ -1,58 +1,162 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useRef, useState, type RefObject } from "react";
+import { revalidateLogic, useStore } from "@tanstack/react-form";
+import { useMutation } from "@tanstack/react-query";
 import { Check, Copy } from "lucide-react";
-import { useProblemMessage } from "@/lib/use-problem-message";
-import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
-import { Dialog } from "radix-ui";
+import { z } from "zod";
+import { useAppForm } from "@/components/form/app-form";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { createIdentityProvider, updateIdentityProvider } from "@/lib/hey-api/sdk.gen";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import {
+  createIdentityProviderMutation,
+  updateIdentityProviderMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { IdentityProviderResponse } from "@/lib/hey-api/types.gen";
+import { zCreateIdentityProviderRequest } from "@/lib/hey-api/zod.gen";
+import { presentProblem } from "@/lib/problem-presentation";
+import { useProblemMessage } from "@/lib/use-problem-message";
 import { identityProviderMessages } from "./identity-provider-errors";
 
 const ALIAS_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
 const SECRET_MASK = "••••••••••••";
 
-type IdentityProviderDialogProps = {
-  open: boolean;
-  provider: IdentityProviderResponse | null;
-  returnFocusRef: RefObject<HTMLElement | null>;
-  fallbackFocusRef: RefObject<HTMLElement | null>;
-  onOpenChange: (open: boolean) => void;
-  onSaved: () => void;
-};
+/** The alias an issuer suggests: its Keycloak realm, or else the first label of its host. */
+function aliasFromIssuer(issuerUrl: string) {
+  try {
+    const url = new URL(issuerUrl);
+    const candidate =
+      url.pathname.match(/\/realms\/([^/]+)/)?.[1] ?? url.hostname.split(".")[0] ?? "";
+    const alias = candidate
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]/g, "-")
+      .replace(/^[^a-z0-9]+/, "");
+    return ALIAS_PATTERN.test(alias) ? alias.slice(0, 128) : "";
+  } catch {
+    return "";
+  }
+}
 
+/** Adds an upstream OIDC provider or edits one. Mounted only while open. */
 export function IdentityProviderDialog({
-  open,
   provider,
   returnFocusRef,
   fallbackFocusRef,
-  onOpenChange,
+  onClose,
   onSaved,
-}: IdentityProviderDialogProps) {
+}: {
+  provider: IdentityProviderResponse | null;
+  returnFocusRef: RefObject<HTMLElement | null>;
+  fallbackFocusRef: RefObject<HTMLElement | null>;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
   const ui = useAppTranslation();
-  const errorMessage = useProblemMessage();
+  const problemMessage = useProblemMessage();
+  const create = useMutation(createIdentityProviderMutation());
+  const update = useMutation(updateIdentityProviderMutation());
+  const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  // The alias follows the issuer until it is typed.
+  const aliasTyped = useRef(false);
   const isEditing = provider !== null;
 
-  const [alias, setAlias] = useState(provider?.alias ?? "");
-  const [aliasTouched, setAliasTouched] = useState(false);
-  const [displayName, setDisplayName] = useState(provider?.displayName ?? "");
-  const [issuerUrl, setIssuerUrl] = useState(provider?.issuer ?? "");
-  const [clientId, setClientId] = useState(provider?.clientId ?? "");
-  const [clientSecret, setClientSecret] = useState(provider ? SECRET_MASK : "");
-  const [enabled, setEnabled] = useState(provider?.enabled ?? true);
-  const [jitAllowed, setJitAllowed] = useState(provider?.jitAllowed ?? false);
-  const [pending, setPending] = useState(false);
-  const [formError, setFormError] = useState<ErrorMessage | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, ErrorMessage>>({});
-  const submitInFlight = useRef(false);
+  const required = (message: string) => z.string().trim().min(1, message);
+  const schema = z.object({
+    alias: required(ui("Enter an alias.")).regex(
+      ALIAS_PATTERN,
+      ui("Use lowercase letters, digits, dots, dashes or underscores."),
+    ),
+    displayName: required(ui("Enter a display name.")),
+    issuerUrl: required(ui("Enter the issuer URL.")),
+    clientId: required(ui("Enter the client ID.")),
+    clientSecret: isEditing
+      ? zCreateIdentityProviderRequest.shape.clientSecret
+      : required(ui("Enter the client secret.")),
+    enabled: z.boolean(),
+    jitAllowed: z.boolean(),
+  });
 
-  const [copied, setCopied] = useState(false);
+  const form = useAppForm({
+    defaultValues: {
+      alias: provider?.alias ?? "",
+      displayName: provider?.displayName ?? "",
+      issuerUrl: provider?.issuer ?? "",
+      clientId: provider?.clientId ?? "",
+      clientSecret: provider ? SECRET_MASK : "",
+      enabled: provider?.enabled ?? true,
+      jitAllowed: provider?.jitAllowed ?? false,
+    },
+    validationLogic: revalidateLogic(),
+    validators: {
+      onDynamic: schema,
+      // A new attempt clears the previous attempt's server errors.
+      // TODO(INFRA): remove once useAppForm clears submit errors itself.
+      onSubmit: () => undefined,
+    },
+    onSubmit: async ({ value, formApi }) => {
+      formApi.setErrorMap({ onSubmit: { form: undefined, fields: {} } });
+      const alias = value.alias.trim();
+      const issuerUrl = value.issuerUrl.trim();
+      const common = {
+        displayName: value.displayName.trim(),
+        clientId: value.clientId.trim(),
+        jitAllowed: value.jitAllowed,
+      };
+      try {
+        if (provider)
+          await update.mutateAsync({
+            path: { alias: provider.alias },
+            body: {
+              ...common,
+              ...(alias !== provider.alias ? { alias } : {}),
+              ...(issuerUrl !== provider.issuer ? { issuerUrl } : {}),
+              ...(value.clientSecret !== SECRET_MASK ? { clientSecret: value.clientSecret } : {}),
+              enabled: value.enabled,
+            },
+          });
+        else
+          await create.mutateAsync({
+            body: { ...common, alias, issuerUrl, clientSecret: value.clientSecret },
+          });
+      } catch (cause) {
+        const problem = presentProblem(cause, "mutation", identityProviderMessages);
+        formApi.setErrorMap({
+          onSubmit: {
+            form: problemMessage(problem.message),
+            fields: Object.fromEntries(
+              Object.entries(problem.fields).map(([name, message]) => [
+                name,
+                { message: problemMessage(message) },
+              ]),
+            ),
+          },
+        });
+        return;
+      }
+      onSaved();
+      onClose();
+    },
+  });
+  const pending = useStore(form.store, (state) => state.isSubmitting);
+  const alias = useStore(form.store, (state) => state.values.alias);
 
-  function redirectUriFor(nextAlias: string) {
+  function redirectUri() {
     if (!provider) return "";
-    const trimmed = nextAlias.trim();
+    const trimmed = alias.trim();
     if (!trimmed || trimmed === provider.alias) return provider.brokerRedirectUri;
     return provider.brokerRedirectUri.replace(
       `/broker/${provider.alias}/endpoint`,
@@ -62,262 +166,196 @@ export function IdentityProviderDialog({
 
   async function copyRedirectUri() {
     try {
-      await navigator.clipboard.writeText(redirectUriFor(alias));
+      await navigator.clipboard.writeText(redirectUri());
+      setCopyFailed(false);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setFormError({ key: "invalid" });
+      setCopyFailed(true);
     }
   }
-
-  function changeOpen(nextOpen: boolean) {
-    onOpenChange(nextOpen);
-  }
-
-  function changeIssuerUrl(value: string) {
-    setIssuerUrl(value);
-    if (aliasTouched) return;
-    try {
-      const url = new URL(value);
-      const candidate =
-        url.pathname.match(/\/realms\/([^/]+)/)?.[1] ?? url.hostname.split(".")[0] ?? "";
-      const alias = candidate
-        .toLowerCase()
-        .replace(/[^a-z0-9._-]/g, "-")
-        .replace(/^[^a-z0-9]+/, "");
-      setAlias(ALIAS_PATTERN.test(alias) ? alias.slice(0, 128) : "");
-    } catch {
-      setAlias("");
-    }
-  }
-
-  async function submit() {
-    if (submitInFlight.current) return;
-    submitInFlight.current = true;
-    setPending(true);
-    setFormError(null);
-    setFieldErrors({});
-    try {
-      if (isEditing) {
-        await updateIdentityProvider({
-          path: { alias: provider.alias },
-          body: {
-            ...(alias.trim() !== provider.alias ? { alias: alias.trim() } : {}),
-            displayName: displayName.trim(),
-            ...(issuerUrl.trim() !== provider.issuer ? { issuerUrl: issuerUrl.trim() } : {}),
-            clientId: clientId.trim(),
-            ...(clientSecret !== SECRET_MASK ? { clientSecret } : {}),
-            enabled,
-            jitAllowed,
-          },
-        });
-      } else {
-        await createIdentityProvider({
-          body: {
-            alias: alias.trim(),
-            displayName: displayName.trim(),
-            issuerUrl: issuerUrl.trim(),
-            clientId: clientId.trim(),
-            clientSecret,
-            jitAllowed,
-          },
-        });
-      }
-      onSaved();
-      changeOpen(false);
-    } catch (error) {
-      const problem = presentProblem(error, "mutation", identityProviderMessages);
-      setFieldErrors(problem.fields);
-      setFormError(problem.message);
-    } finally {
-      submitInFlight.current = false;
-      setPending(false);
-    }
-  }
-  const canSubmit =
-    alias.trim() !== "" &&
-    displayName.trim() !== "" &&
-    issuerUrl.trim() !== "" &&
-    clientId.trim() !== "" &&
-    (isEditing || clientSecret !== "");
 
   return (
-    <Dialog.Root open={open} onOpenChange={changeOpen}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none" />
-        <Dialog.Content
-          className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border-default bg-surface-overlay p-5 shadow-md outline-none sm:p-6"
-          onCloseAutoFocus={(event) => {
-            const target = returnFocusRef.current?.isConnected
-              ? returnFocusRef.current
-              : fallbackFocusRef.current;
-            if (target?.isConnected) {
-              event.preventDefault();
-              target.focus();
-            }
-            returnFocusRef.current = null;
-          }}
-          onEscapeKeyDown={(event) => {
-            if (submitInFlight.current) event.preventDefault();
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !pending) onClose();
+      }}
+    >
+      <DialogContent
+        className="sm:max-w-lg"
+        onCloseAutoFocus={(event) => {
+          const target = returnFocusRef.current?.isConnected
+            ? returnFocusRef.current
+            : fallbackFocusRef.current;
+          if (target?.isConnected) {
+            event.preventDefault();
+            target.focus();
+          }
+          returnFocusRef.current = null;
+        }}
+      >
+        <form
+          noValidate
+          aria-busy={pending}
+          className="flex flex-col gap-6"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
           }}
         >
-          <form
-            aria-busy={pending}
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submit();
-            }}
-          >
-            <Dialog.Title className="font-heading-h3 text-content-primary">
-              {isEditing
+          <DialogHeader>
+            <DialogTitle>
+              {provider
                 ? ui("Edit {{v1}}", { v1: provider.displayName })
                 : ui("Add identity provider")}
-            </Dialog.Title>
-            <Dialog.Description className="sr-only">
-              {isEditing
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {provider
                 ? ui("Update the brokered sign-in configuration. Alias and issuer are fixed.")
                 : ui("Connect an upstream OIDC provider for brokered sign-in.")}
-            </Dialog.Description>
+            </DialogDescription>
+          </DialogHeader>
 
-            <div className="mt-6 grid gap-4">
-              <label className="grid gap-2 font-secondary-action text-content-secondary">
-                {ui("Alias")}
-                <Input
-                  value={alias}
-                  required
+          <FieldGroup>
+            <form.AppField
+              name="alias"
+              listeners={{
+                onChange: () => {
+                  aliasTyped.current = true;
+                },
+              }}
+            >
+              {(field) => (
+                <field.TextField
+                  label={ui("Alias")}
                   maxLength={128}
-                  aria-invalid={Boolean(fieldErrors.alias)}
-                  onChange={(event) => {
-                    setAliasTouched(true);
-                    setAlias(event.target.value);
-                  }}
                   placeholder={ui("tasco")}
                   size="lg"
+                  disabled={pending}
                 />
-              </label>
-
-              <label className="grid gap-2 font-secondary-action text-content-secondary">
-                {ui("Display name")}
-                <Input
-                  value={displayName}
-                  required
+              )}
+            </form.AppField>
+            <form.AppField name="displayName">
+              {(field) => (
+                <field.TextField
+                  label={ui("Display name")}
                   maxLength={200}
-                  aria-invalid={Boolean(fieldErrors.displayName)}
-                  onChange={(event) => setDisplayName(event.target.value)}
                   placeholder={ui("Sign in with Tasco")}
                   size="lg"
+                  disabled={pending}
                 />
-              </label>
-
-              <label className="grid gap-2 font-secondary-action text-content-secondary">
-                {ui("Issuer URL")}
-                <Input
+              )}
+            </form.AppField>
+            <form.AppField
+              name="issuerUrl"
+              listeners={{
+                onChange: ({ value }) => {
+                  if (!aliasTyped.current)
+                    form.setFieldValue("alias", aliasFromIssuer(value), {
+                      dontUpdateMeta: true,
+                      dontRunListeners: true,
+                    });
+                },
+              }}
+            >
+              {(field) => (
+                <field.TextField
+                  label={ui("Issuer URL")}
                   type="url"
-                  value={issuerUrl}
-                  required
                   maxLength={2048}
-                  aria-invalid={Boolean(fieldErrors.issuerUrl)}
-                  onChange={(event) => changeIssuerUrl(event.target.value)}
                   placeholder="https://keycloak.example.com/realms/partner"
                   size="lg"
+                  disabled={pending}
                 />
-              </label>
-
-              <label className="grid gap-2 font-secondary-action text-content-secondary">
-                {ui("Client ID")}
-                <Input
-                  value={clientId}
-                  required
+              )}
+            </form.AppField>
+            <form.AppField name="clientId">
+              {(field) => (
+                <field.TextField
+                  label={ui("Client ID")}
                   maxLength={255}
-                  aria-invalid={Boolean(fieldErrors.clientId)}
-                  onChange={(event) => setClientId(event.target.value)}
                   placeholder={ui("memoryos-broker")}
                   size="lg"
+                  disabled={pending}
                 />
-              </label>
-
-              <label className="grid gap-2 font-secondary-action text-content-secondary">
-                {ui("Client secret")}
-                <Input
+              )}
+            </form.AppField>
+            <form.AppField name="clientSecret">
+              {(field) => (
+                <field.TextField
+                  label={ui("Client secret")}
                   type="password"
-                  value={clientSecret}
-                  required={!isEditing}
                   maxLength={1024}
                   autoComplete="new-password"
-                  aria-invalid={Boolean(fieldErrors.clientSecret)}
-                  onChange={(event) => setClientSecret(event.target.value)}
                   size="lg"
+                  disabled={pending}
                 />
-              </label>
+              )}
+            </form.AppField>
 
-              {isEditing ? (
-                <label className="grid gap-2 font-secondary-action text-content-secondary">
+            {provider ? (
+              <Field data-invalid={copyFailed || undefined}>
+                <FieldLabel htmlFor="identity-provider-redirect-uri">
                   {ui("Redirect URI")}
-                  <div className="relative">
-                    <Input
-                      readOnly
-                      value={redirectUriFor(alias)}
-                      className="w-full pr-10 font-mono text-xs"
-                      onFocus={(event) => event.currentTarget.select()}
-                      size="lg"
-                    />
-                    <button
-                      type="button"
+                </FieldLabel>
+                <InputGroup>
+                  <InputGroupInput
+                    id="identity-provider-redirect-uri"
+                    readOnly
+                    value={redirectUri()}
+                    onFocus={(event) => event.currentTarget.select()}
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupButton
+                      size="icon-xs"
                       aria-label={ui("Copy redirect URI")}
                       title={ui("Copy redirect URI")}
-                      className="absolute top-1/2 right-3 -translate-y-1/2 text-content-muted transition-colors hover:text-content-primary"
                       onClick={() => void copyRedirectUri()}
                     >
-                      {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-                    </button>
-                  </div>
-                </label>
-              ) : null}
-
-              {isEditing ? (
-                <label className="flex items-start gap-2 font-secondary-action text-content-secondary">
-                  <Checkbox
-                    checked={enabled}
-                    onCheckedChange={(event) => setEnabled(event === true)}
-                  />
-                  {ui("Allow sign-in through this provider")}
-                </label>
-              ) : null}
-
-              <label className="flex items-start gap-2 font-secondary-action text-content-secondary">
-                <Checkbox
-                  checked={jitAllowed}
-                  onCheckedChange={(event) => setJitAllowed(event === true)}
-                />
-                {ui("Allow just-in-time admission")}
-              </label>
-            </div>
-
-            {formError ? (
-              <p
-                role="alert"
-                className="mt-4 rounded-lg bg-status-danger-surface px-4 py-3 font-secondary-body text-status-danger-content"
-              >
-                {errorMessage(formError)}
-              </p>
+                      {copied ? <Check /> : <Copy />}
+                    </InputGroupButton>
+                  </InputGroupAddon>
+                </InputGroup>
+                {copyFailed ? (
+                  <FieldError>{ui("Could not copy the redirect URI.")}</FieldError>
+                ) : null}
+              </Field>
             ) : null}
 
-            <div className="mt-7 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button
-                type="button"
-                prominence="secondary"
-                onClick={() => changeOpen(false)}
-                disabled={pending}
-              >
+            {provider ? (
+              <form.AppField name="enabled">
+                {(field) => (
+                  <field.CheckboxField
+                    label={ui("Allow sign-in through this provider")}
+                    disabled={pending}
+                  />
+                )}
+              </form.AppField>
+            ) : null}
+            <form.AppField name="jitAllowed">
+              {(field) => (
+                <field.CheckboxField
+                  label={ui("Allow just-in-time admission")}
+                  disabled={pending}
+                />
+              )}
+            </form.AppField>
+          </FieldGroup>
+
+          <form.AppForm>
+            <form.FormError />
+            <DialogFooter>
+              <Button type="button" prominence="secondary" onClick={onClose} disabled={pending}>
                 {ui("Cancel")}
               </Button>
-              <Button type="submit" pending={pending} disabled={!canSubmit || pending}>
+              <form.SubmitButton>
                 {pending ? ui("Saving…") : isEditing ? ui("Save changes") : ui("Add provider")}
-              </Button>
-            </div>
-          </form>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+              </form.SubmitButton>
+            </DialogFooter>
+          </form.AppForm>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

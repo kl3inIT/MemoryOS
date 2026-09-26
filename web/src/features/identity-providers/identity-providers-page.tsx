@@ -1,16 +1,20 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, KeyRound, Pencil, SearchX, Trash2, WifiOff } from "lucide-react";
 import { useRef, useState } from "react";
+import { EmptyState } from "@/components/composites/empty-state";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TextButton } from "@/components/ui/text-button";
-import { listIdentityProvidersOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { deleteIdentityProvider } from "@/lib/hey-api/sdk.gen";
+import {
+  deleteIdentityProviderMutation,
+  listIdentityProvidersOptions,
+  listIdentityProvidersQueryKey,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { IdentityProviderResponse } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
 import { identityProviderMessages } from "./identity-provider-errors";
@@ -27,10 +31,11 @@ export function IdentityProvidersPage() {
   const [copiedAlias, setCopiedAlias] = useState<string | null>(null);
 
   const providers = useQuery({ ...listIdentityProvidersOptions(), retry: false });
+  const remove = useMutation(deleteIdentityProviderMutation());
 
   async function refresh() {
     headingRef.current?.focus();
-    await queryClient.invalidateQueries({ queryKey: listIdentityProvidersOptions().queryKey });
+    await queryClient.invalidateQueries({ queryKey: listIdentityProvidersQueryKey() });
   }
 
   function openDialog(target: IdentityProviderResponse | null, trigger: HTMLElement) {
@@ -53,9 +58,7 @@ export function IdentityProvidersPage() {
   }
 
   async function removeProvider(provider: IdentityProviderResponse) {
-    await deleteIdentityProvider({
-      path: { alias: provider.alias },
-    });
+    await remove.mutateAsync({ path: { alias: provider.alias } });
     notify({
       title: ui("{{v1}} was removed.", { v1: provider.displayName }),
       tone: "success",
@@ -66,119 +69,111 @@ export function IdentityProvidersPage() {
   const items = providers.data ?? [];
 
   return (
-    <section className="min-h-full px-5 py-12 sm:px-8">
-      <div className="mx-auto w-full max-w-[840px]">
-        <header className="flex items-end justify-between gap-4 border-b border-border-subtle pb-6">
-          <div>
-            <KeyRound className="size-8 text-content-secondary" aria-hidden="true" />
-            <h1
-              ref={headingRef}
-              tabIndex={-1}
-              className="mt-2 text-2xl font-semibold leading-8 text-content-primary outline-none"
-            >
-              {ui("Sign-in providers")}
-            </h1>
-          </div>
-          <Button
-            size="sm"
-            className="shrink-0"
-            onClick={(event) => openDialog(null, event.currentTarget)}
-          >
+    <SettingsLayout>
+      <PageHeader
+        title={ui("Sign-in providers")}
+        titleRef={headingRef}
+        icon={<KeyRound />}
+        iconSize="lg"
+        actions={
+          <Button size="sm" onClick={(event) => openDialog(null, event.currentTarget)}>
             {ui("Add SSO")}
           </Button>
-        </header>
+        }
+      />
 
-        <div className="mt-8" aria-busy={providers.isFetching}>
-          {providers.isPending ? (
-            <div className="flex flex-col gap-3">
-              <Skeleton className="h-24 w-full rounded-2xl" />
-              <Skeleton className="h-24 w-full rounded-2xl" />
-            </div>
-          ) : providers.isError ? (
-            <div className="flex flex-col items-center gap-3 rounded-2xl border border-border-subtle px-6 py-12 text-center">
-              <WifiOff className="size-8 text-content-muted" aria-hidden="true" />
-              <p className="font-main-ui-body text-content-secondary">
-                {ui("Could not load identity providers.")}
-              </p>
-              <TextButton onClick={() => void providers.refetch()}>{ui("Retry")}</TextButton>
-            </div>
-          ) : items.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 rounded-2xl border border-border-subtle px-6 py-12 text-center">
-              <SearchX className="size-8 text-content-muted" aria-hidden="true" />
-              <p className="font-main-ui-body text-content-secondary">
-                {ui("No identity providers yet.")}
-              </p>
-              <p className="max-w-md font-secondary-body text-content-muted">
-                {ui("Add an upstream OIDC provider to let its members sign in through MemoryOS.")}
-              </p>
-            </div>
-          ) : (
-            <ul className="flex flex-col gap-3">
-              {items.map((provider) => (
-                <li key={provider.alias}>
-                  <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-                    <div className="min-w-0 flex-1">
-                      <span className="font-main-ui-body font-medium text-content-primary">
+      <div aria-busy={providers.isFetching}>
+        {providers.isPending ? (
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        ) : providers.isError ? (
+          <EmptyState
+            role="alert"
+            icon={<WifiOff />}
+            title={ui("Could not load identity providers.")}
+            action={
+              <Button size="sm" prominence="secondary" onClick={() => void providers.refetch()}>
+                {ui("Retry")}
+              </Button>
+            }
+          />
+        ) : items.length === 0 ? (
+          <EmptyState
+            icon={<SearchX />}
+            title={ui("No identity providers yet.")}
+            detail={ui(
+              "Add an upstream OIDC provider to let its members sign in through MemoryOS.",
+            )}
+          />
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {items.map((provider) => (
+              <li key={provider.alias}>
+                <Card size="sm">
+                  <CardContent>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                      <span className="min-w-0 flex-1 font-main-ui-action text-content-primary">
                         {provider.displayName}
                       </span>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <IconButton
+                          size="sm"
+                          aria-label={ui("Copy redirect URI")}
+                          title={ui("Copy redirect URI")}
+                          onClick={() => void copyRedirectUri(provider)}
+                        >
+                          {copiedAlias === provider.alias ? <Check /> : <Copy />}
+                        </IconButton>
+                        <IconButton
+                          size="sm"
+                          aria-label={ui("Edit {{v1}}", { v1: provider.displayName })}
+                          title={ui("Edit")}
+                          onClick={(event) => openDialog(provider, event.currentTarget)}
+                        >
+                          <Pencil />
+                        </IconButton>
+                        <ConfirmDialog
+                          title={ui("Remove {{v1}}?", { v1: provider.displayName })}
+                          description={ui(
+                            "Members can no longer sign in through this provider. Existing accounts and sessions are not deleted.",
+                          )}
+                          confirmLabel={ui("Remove provider")}
+                          pendingLabel={ui("Removing…")}
+                          onConfirm={() => removeProvider(provider)}
+                          errorMessage={(error) =>
+                            presentProblem(error, "mutation", identityProviderMessages).message
+                          }
+                          trigger={
+                            <IconButton
+                              size="sm"
+                              tone="danger"
+                              aria-label={ui("Remove {{v1}}", { v1: provider.displayName })}
+                            >
+                              <Trash2 />
+                            </IconButton>
+                          }
+                        />
+                      </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <IconButton
-                        size="sm"
-                        aria-label={ui("Copy redirect URI")}
-                        title={ui("Copy redirect URI")}
-                        onClick={() => void copyRedirectUri(provider)}
-                      >
-                        {copiedAlias === provider.alias ? <Check /> : <Copy />}
-                      </IconButton>
-                      <IconButton
-                        size="sm"
-                        aria-label={ui("Edit {{v1}}", { v1: provider.displayName })}
-                        title={ui("Edit")}
-                        onClick={(event) => openDialog(provider, event.currentTarget)}
-                      >
-                        <Pencil />
-                      </IconButton>
-                      <ConfirmDialog
-                        title={ui("Remove {{v1}}?", { v1: provider.displayName })}
-                        description={ui(
-                          "Members can no longer sign in through this provider. Existing accounts and sessions are not deleted.",
-                        )}
-                        confirmLabel={ui("Remove provider")}
-                        pendingLabel={ui("Removing…")}
-                        onConfirm={() => removeProvider(provider)}
-                        errorMessage={(error) =>
-                          presentProblem(error, "mutation", identityProviderMessages).message
-                        }
-                        trigger={
-                          <IconButton
-                            size="sm"
-                            tone="danger"
-                            aria-label={ui("Remove {{v1}}", { v1: provider.displayName })}
-                          >
-                            <Trash2 />
-                          </IconButton>
-                        }
-                      />
-                    </div>
-                  </Card>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                  </CardContent>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {dialogOpen ? (
         <IdentityProviderDialog
-          open
           provider={editProvider}
           returnFocusRef={dialogFocusRef}
           fallbackFocusRef={headingRef}
-          onOpenChange={setDialogOpen}
+          onClose={() => setDialogOpen(false)}
           onSaved={() => void refresh()}
         />
       ) : null}
-    </section>
+    </SettingsLayout>
   );
 }
