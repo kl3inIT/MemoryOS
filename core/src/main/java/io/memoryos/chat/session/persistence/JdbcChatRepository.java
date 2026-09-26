@@ -29,7 +29,6 @@ import io.memoryos.shared.TenantId;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.time.Instant;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -352,8 +351,8 @@ public class JdbcChatRepository {
      *
      * @param tools          agent tool keys ({@code search}, {@code web_search}, {@code image_generation})
      * @param mcpServerIds   attached MCP servers; null for the builtin agent, which reaches every accessible server
+     * @param reasoningEffort the level pinned on this conversation, which outranks the model configuration
      */
-    /** {@code reasoningEffort} is the level pinned on this conversation, which outranks the model configuration. */
     public record Persona(String instructions, String model, ChatTurnOptions options, String revision,
                           @Nullable UUID modelConfigurationId, List<UUID> fileIds, Set<String> tools,
                           @Nullable List<UUID> mcpServerIds, boolean datetimeAware,
@@ -504,8 +503,8 @@ public class JdbcChatRepository {
 
     /** A conversation that leaves no history cannot be put in a Project or shared; both commands refuse it. */
     public boolean temporary(UUID session) {
-        return Boolean.TRUE.equals(jdbc.sql("SELECT temporary FROM chat_session WHERE id = :session")
-                .param("session", session).query(Boolean.class).optional().orElse(false));
+        return jdbc.sql("SELECT temporary FROM chat_session WHERE id = :session")
+                .param("session", session).query(Boolean.class).optional().orElse(false);
     }
 
     public void moveProject(UUID session, @Nullable UUID project) {

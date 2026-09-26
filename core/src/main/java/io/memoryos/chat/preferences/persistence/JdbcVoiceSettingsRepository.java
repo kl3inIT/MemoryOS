@@ -21,7 +21,7 @@ public class JdbcVoiceSettingsRepository {
                         SELECT auto_send, auto_playback, playback_speed FROM chat_voice_settings
                         WHERE tenant_id = :tenant AND actor_id = :actor""")
                 .param("tenant", tenant).param("actor", actor)
-                .query((row, index) -> new VoiceSettings(row.getBoolean(1), row.getBoolean(2), row.getDouble(3)))
+                .query((row, _) -> new VoiceSettings(row.getBoolean(1), row.getBoolean(2), row.getDouble(3)))
                 .optional();
     }
 
@@ -41,7 +41,7 @@ public class JdbcVoiceSettingsRepository {
                 .param("autoSend", autoSend, Types.BOOLEAN)
                 .param("autoPlayback", autoPlayback, Types.BOOLEAN)
                 .param("playbackSpeed", playbackSpeed, Types.DOUBLE)
-                .query((row, index) -> new VoiceSettings(row.getBoolean(1), row.getBoolean(2), row.getDouble(3)))
+                .query((row, _) -> new VoiceSettings(row.getBoolean(1), row.getBoolean(2), row.getDouble(3)))
                 .single();
     }
 }

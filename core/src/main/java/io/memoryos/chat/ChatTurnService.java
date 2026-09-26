@@ -74,13 +74,6 @@ public final class ChatTurnService implements AutoCloseable {
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
             TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
             @Nullable WebConnectionService web,
-            @Nullable ImageConnectionService images) {
-        this(persistence, model, limits, executor, streams, models, web, images, null);
-    }
-
-    public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
-            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
-            @Nullable WebConnectionService web,
             @Nullable ImageConnectionService images, @Nullable ChatSettingsService settings) {
         this(persistence, model, limits, executor, streams, models, web, images, settings, null);
     }
@@ -395,7 +388,7 @@ public final class ChatTurnService implements AutoCloseable {
                         switch (event) {
                             case ChatToolEvent tool -> streams.tool(run.setup.assistantMessageId(), tool);
                             case ChatReasoningDelta reasoning -> streams.reasoning(run.setup.assistantMessageId(), reasoning.text(), reasoning.parentToolCallId());
-                            case ChatResearchEvent research -> streams.research(run.setup.assistantMessageId(), research);
+                            case ChatResearchEvent researchEvent -> streams.research(run.setup.assistantMessageId(), researchEvent);
                         }
                     }, imageEvent -> streams.image(run.setup.assistantMessageId(), imageEvent),
                     codeEvent -> streams.code(run.setup.assistantMessageId(), codeEvent),
@@ -426,7 +419,8 @@ public final class ChatTurnService implements AutoCloseable {
                     .addKeyValue("error_type", failure.getClass().getName()).log("Chat native cleanup failed");
             try { run.resolved.close(); }
             finally {
-                if (run.setup.mcp() != null) run.setup.mcp().close();
+                var tools = run.setup.mcp();
+                if (tools != null) tools.close();
                 run.drained = true;
                 // Terminal persistence and resource retirement may finish in either order.
                 releaseIfFinished(run);

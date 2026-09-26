@@ -113,7 +113,6 @@ public final class RunPythonTool {
     public synchronized String runPython(@LlmTool.Param(description = "Python source code to execute") @Nullable String code) {
         active.run();
         if (code == null || code.isBlank()) return MISSING_CODE;
-        int timeoutMs = DEFAULT_TIMEOUT_MS;
         String notice = null;
         try {
             var selection = select(code);
@@ -133,7 +132,7 @@ public final class RunPythonTool {
             publish(id -> ChatCodeEvent.running(id, code));
             // Streaming shows output while the code runs, and abandoning the read on Stop frees the service's slot.
             var streamed = new int[1];
-            var execution = client.executeStream(code, timeoutMs, staged, (stream, data) -> {
+            var execution = client.executeStream(code, DEFAULT_TIMEOUT_MS, staged, (stream, data) -> {
                 active.run();
                 int room = ChatCodeEvent.MAX_OUTPUT_CHARACTERS - streamed[0];
                 if (room <= 0 || data.isEmpty()) return;
@@ -154,7 +153,7 @@ public final class RunPythonTool {
                 if (!"file".equals(file.kind()) || file.fileId() == null) continue;
                 if (file.path().startsWith(CHART_DIR)) {
                     var match = CHART_FILE.matcher(file.path().substring(CHART_DIR.length()));
-                    if (match.matches()) chartFiles.computeIfAbsent(Integer.valueOf(match.group(1)), n -> new HashMap<>())
+                    if (match.matches()) chartFiles.computeIfAbsent(Integer.valueOf(match.group(1)), _ -> new HashMap<>())
                             .put(match.group(2), file.fileId());
                     else delete(file.fileId());
                     continue;
@@ -274,7 +273,7 @@ public final class RunPythonTool {
         var others = new ArrayList<Candidate>();
         for (var candidate : candidates)
             (code.contains(candidate.original()) || code.contains(candidate.name()) ? referenced : others).add(candidate);
-        var priority = new ArrayList<Candidate>(referenced.reversed());
+        var priority = new ArrayList<>(referenced.reversed());
         priority.addAll(others.reversed());
         var selected = new ArrayList<Candidate>();
         long bytes = 0;
@@ -335,7 +334,6 @@ public final class RunPythonTool {
         int dot = safe.lastIndexOf('.');
         String base = dot > 0 ? safe.substring(0, dot) : safe;
         String extension = dot > 0 ? safe.substring(dot) : "";
-        if (base.isEmpty()) base = "file";
         return truncateBase(base, Math.max(1, FILENAME_LIMIT - extension.length())) + extension;
     }
 

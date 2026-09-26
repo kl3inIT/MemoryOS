@@ -123,11 +123,6 @@ public class JdbcDocumentSetRepository {
                 .param("tenant", tenant).param("persona", persona).param("set", set).update());
     }
 
-    public List<UUID> personaSets(UUID tenant, UUID persona) {
-        return jdbc.sql("SELECT document_set_id FROM persona_document_set WHERE tenant_id = :tenant AND persona_id = :persona ORDER BY document_set_id")
-                .param("tenant", tenant).param("persona", persona).query(UUID.class).list();
-    }
-
     /** All requested IDs must be usable; an empty set remains a valid, narrowing selection. */
     public Set<UUID> usableSourceIds(UUID tenant, UUID actor, boolean agentsManage, Collection<UUID> sets) {
         if (sets.isEmpty()) return Set.of();
@@ -170,7 +165,7 @@ public class JdbcDocumentSetRepository {
                         WHERE tenant_id = :tenant AND persona_id IN (:personas)
                         ORDER BY persona_id, document_set_id
                         """).param("tenant", tenant).param("personas", personas)
-                .query((row, ignored) -> result.computeIfAbsent(row.getObject("persona_id", UUID.class), key -> new ArrayList<>())
+                .query((row, ignored) -> result.computeIfAbsent(row.getObject("persona_id", UUID.class), _ -> new ArrayList<>())
                         .add(row.getObject("document_set_id", UUID.class))).list();
         return result;
     }

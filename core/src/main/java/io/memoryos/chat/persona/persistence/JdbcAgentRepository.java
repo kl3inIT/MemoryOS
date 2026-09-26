@@ -124,7 +124,7 @@ public class JdbcAgentRepository {
                         WHERE s.tenant_id = :tenant AND s.persona_id IN (:ids)
                         ORDER BY lower(coalesce(profile.display_name, profile.email, '')), s.actor_id
                         """).param("tenant", tenant).param("ids", ids)
-                .query((row, ignored) -> userShares.computeIfAbsent(row.getObject("persona_id", UUID.class), key -> new ArrayList<>())
+                .query((row, ignored) -> userShares.computeIfAbsent(row.getObject("persona_id", UUID.class), _ -> new ArrayList<>())
                         .add(new AgentUserShare(new AgentPerson(row.getObject("actor_id", UUID.class), row.getString("display_name"), row.getString("email")),
                                 AgentPermission.valueOf(row.getString("permission"))))).list();
         var groupShares = new HashMap<UUID, List<AgentGroupShare>>();
@@ -133,7 +133,7 @@ public class JdbcAgentRepository {
                         JOIN iam_groups g ON g.tenant_id = s.tenant_id AND g.id = s.group_id
                         WHERE s.tenant_id = :tenant AND s.persona_id IN (:ids) ORDER BY lower(g.name), g.id
                         """).param("tenant", tenant).param("ids", ids)
-                .query((row, ignored) -> groupShares.computeIfAbsent(row.getObject("persona_id", UUID.class), key -> new ArrayList<>())
+                .query((row, ignored) -> groupShares.computeIfAbsent(row.getObject("persona_id", UUID.class), _ -> new ArrayList<>())
                         .add(new AgentGroupShare(new AgentRef(row.getObject("id", UUID.class), row.getString("name")),
                                 AgentPermission.valueOf(row.getString("permission"))))).list();
         var pinned = Set.copyOf(jdbc.sql("""
@@ -299,7 +299,7 @@ public class JdbcAgentRepository {
     private Map<UUID, List<AgentRef>> refs(String sql, UUID tenant, Collection<UUID> ids) {
         var result = new LinkedHashMap<UUID, List<AgentRef>>();
         jdbc.sql(sql).param("tenant", tenant).param("ids", ids)
-                .query((row, ignored) -> result.computeIfAbsent(row.getObject(1, UUID.class), key -> new ArrayList<>())
+                .query((row, ignored) -> result.computeIfAbsent(row.getObject(1, UUID.class), _ -> new ArrayList<>())
                         .add(new AgentRef(row.getObject(2, UUID.class), row.getString(3)))).list();
         return result;
     }

@@ -99,10 +99,6 @@ public final class StreamBufferWriter {
                      @Nullable Status status, @Nullable String failureCode, @Nullable ChatToolEvent tool) {
             this(assistantMessageId, sequence, type, text, status, failureCode, tool, false);
         }
-        public Event(UUID assistantMessageId, long sequence, String type, @Nullable String text,
-                     @Nullable Status status, @Nullable String failureCode) {
-            this(assistantMessageId, sequence, type, text, status, failureCode, null);
-        }
         public String id() {
             return assistantMessageId + ":" + sequence;
         }
@@ -506,7 +502,7 @@ public final class StreamBufferWriter {
                 if (closed) return;
                 closed = true;
                 readers--;
-                readersPerRun.computeIfPresent(id, (key, count) -> count <= 1 ? null : count - 1);
+                readersPerRun.computeIfPresent(id, (_, count) -> count <= 1 ? null : count - 1);
             }
         }
     }
