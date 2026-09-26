@@ -22,14 +22,7 @@ import {
   updateChatPersonaMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { can } from "@/lib/resource-permissions";
-import {
-  agentRequest,
-  agentValidation,
-  initialValues,
-  readDraft,
-  writeDraft,
-  type AgentValues,
-} from "./agent-form";
+import { agentRequest, agentValidation, initialValues, readDraft, writeDraft } from "./agent-form";
 import { agentDocumentSetsOptions } from "./agent-queries";
 
 /** The choices the editor offers: Sources, Document Sets, models, labels and MCP servers. */
@@ -132,4 +125,3 @@ export function useAgentForm(agent?: Persona) {
 }
 export type AgentFormApi = ReturnType<typeof useAgentForm>["form"];
 export type AgentChoices = ReturnType<typeof useAgentChoices>;
-export type { AgentValues };

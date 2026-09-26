@@ -22,13 +22,13 @@ import { actionErrorText } from "@/lib/action-errors";
 import {
   AgentIconPicker,
   AgentLabelPicker,
-  AgentSourcePicker,
   EditorField,
   EditorSection,
   LoadFailure,
   StarterPromptsField,
   TextareaField,
 } from "./agent-editor-fields";
+import { AgentSourcePicker } from "./agent-source-picker";
 import { toolIcons, useToolNames } from "./agent-tools";
 import type { AgentChoices, AgentFormApi } from "./use-agent-editor";
 

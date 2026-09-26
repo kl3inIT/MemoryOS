@@ -17,7 +17,7 @@ export function useOwnerName() {
       : (agent.owner.group?.name ?? (personLabel(agent.owner.actor) || ui("Chưa có chủ sở hữu")));
 }
 
-export type CatalogFilters = {
+type CatalogFilters = {
   /** The folded search text. */
   query: string;
   labelId: string | undefined;
