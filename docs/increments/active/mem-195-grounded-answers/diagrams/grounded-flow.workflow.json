@@ -1,0 +1,256 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "MEM-195: chỉ trả lời từ tài liệu",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "user",
+      "label": "Người dùng"
+    },
+    {
+      "id": "server",
+      "label": "Server MemoryOS"
+    },
+    {
+      "id": "refuse",
+      "label": "Từ chối",
+      "variant": "exception"
+    },
+    {
+      "id": "record",
+      "label": "Ghi nhận"
+    }
+  ],
+  "groups": [
+    {
+      "id": "checks",
+      "label": "3 trạm kiểm",
+      "lane": "server",
+      "fromCol": 1,
+      "toCol": 4,
+      "variant": "emphasis"
+    }
+  ],
+  "mainPath": [
+    "ask",
+    "classify",
+    "search",
+    "write",
+    "cite",
+    "answer"
+  ],
+  "nodes": [
+    {
+      "id": "ask",
+      "lane": "user",
+      "col": 0,
+      "type": "external",
+      "label": "Câu hỏi",
+      "sublabel": "gõ vào ô chat",
+      "width": 132
+    },
+    {
+      "id": "greet",
+      "lane": "user",
+      "col": 1,
+      "type": "frontend",
+      "label": "Trả lời xã giao",
+      "sublabel": "\"xin chào\"",
+      "width": 132
+    },
+    {
+      "id": "answer",
+      "lane": "user",
+      "col": 5,
+      "type": "frontend",
+      "label": "Câu trả lời",
+      "sublabel": "kèm trích dẫn [1] [2]",
+      "width": 160
+    },
+    {
+      "id": "classify",
+      "lane": "server",
+      "col": 1,
+      "type": "backend",
+      "label": "Trạm 1: Phân loại",
+      "sublabel": "model nhỏ, 1 lần",
+      "width": 160
+    },
+    {
+      "id": "search",
+      "lane": "server",
+      "col": 2,
+      "type": "backend",
+      "label": "Trạm 2: Bắt buộc tìm",
+      "sublabel": "trong tài liệu công ty",
+      "width": 160
+    },
+    {
+      "id": "write",
+      "lane": "server",
+      "col": 3,
+      "type": "backend",
+      "label": "Model viết",
+      "sublabel": "giữ lại, chờ kiểm",
+      "width": 160
+    },
+    {
+      "id": "cite",
+      "lane": "server",
+      "col": 4,
+      "type": "security",
+      "label": "Trạm 3: Kiểm trích dẫn",
+      "sublabel": "nguồn có thật không?",
+      "width": 160
+    },
+    {
+      "id": "blocked",
+      "lane": "refuse",
+      "col": 1,
+      "type": "security",
+      "label": "Chủ đề cấm (PR 2)",
+      "sublabel": "câu thông báo của admin",
+      "width": 160
+    },
+    {
+      "id": "noevidence",
+      "lane": "refuse",
+      "col": 2,
+      "type": "security",
+      "label": "Không có tài liệu",
+      "sublabel": "tài liệu gần nhất + gợi ý",
+      "width": 160
+    },
+    {
+      "id": "uncited",
+      "lane": "refuse",
+      "col": 4,
+      "type": "security",
+      "label": "Thay bằng từ chối",
+      "sublabel": "không có nguồn hợp lệ",
+      "width": 160
+    },
+    {
+      "id": "reason",
+      "lane": "record",
+      "col": 3,
+      "type": "database",
+      "label": "Lý do từ chối",
+      "sublabel": "benchmark + audit",
+      "width": 160
+    }
+  ],
+  "edges": [
+    {
+      "id": "ask-classify",
+      "from": "ask",
+      "to": "classify",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "classify-greet",
+      "from": "classify",
+      "to": "greet",
+      "label": "xã giao",
+      "variant": "default",
+      "role": "branch"
+    },
+    {
+      "id": "classify-search",
+      "from": "classify",
+      "to": "search",
+      "label": "câu hỏi",
+      "variant": "emphasis"
+    },
+    {
+      "id": "classify-blocked",
+      "from": "classify",
+      "to": "blocked",
+      "label": "cấm",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "search-write",
+      "from": "search",
+      "to": "write",
+      "label": "có",
+      "variant": "emphasis"
+    },
+    {
+      "id": "search-noevidence",
+      "from": "search",
+      "to": "noevidence",
+      "label": "không thấy",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "write-cite",
+      "from": "write",
+      "to": "cite",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cite-answer",
+      "from": "cite",
+      "to": "answer",
+      "label": "hợp lệ",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cite-uncited",
+      "from": "cite",
+      "to": "uncited",
+      "label": "không",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "noevidence-reason",
+      "from": "noevidence",
+      "to": "reason",
+      "variant": "dashed"
+    },
+    {
+      "id": "uncited-reason",
+      "from": "uncited",
+      "to": "reason",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "amber",
+      "title": "Admin bật chế độ",
+      "items": [
+        "Cho cả công ty, hoặc từng trợ lý",
+        "Khi bật: tắt Web search",
+        "Người dùng thấy \"Đang đối chiếu nguồn…\""
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "PR 1: chỉ trả lời từ tài liệu",
+      "items": [
+        "Công tắc cho admin, nhãn cạnh ô chat",
+        "Trạm 1 (xã giao / câu hỏi), trạm 2, trạm 3",
+        "Benchmark: không câu nào trả lời mà không có nguồn"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "PR 2: chủ đề cấm",
+      "items": [
+        "Chủ đề cấm và từ bị chặn, theo mẫu Amazon Q",
+        "Chặn hẳn hoặc chỉ trả lời từ nguồn chỉ định",
+        "Áp hoặc miễn theo nhóm; ghi audit người hỏi"
+      ]
+    }
+  ]
+}

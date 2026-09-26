@@ -18,11 +18,13 @@ import org.jspecify.annotations.Nullable;
  * @param codeInterpreter whether the agent allows {@code run_python}
  * @param sampling        creativity and reasoning level settled for this turn ({@link ModelSampling#NONE}: use the
  *                        model configuration as it stands)
+ * @param grounded        MEM-195: the turn answers from the organization's documents only, because the Tenant or the
+ *                        agent says so; it always searches, whatever the agent's search tool setting
  */
 public record ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds, boolean sourcesRestricted,
                               @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit,
                               @Nullable Instant knowledgeCutoff, String taskPrompt, boolean codeInterpreter,
-                              ModelSampling sampling) {
+                              ModelSampling sampling, boolean grounded) {
     public static final ChatTurnOptions DEFAULT = new ChatTurnOptions(true, List.of(), null, null);
     public ChatTurnOptions {
         sourceIds = List.copyOf(sourceIds);
@@ -31,19 +33,25 @@ public record ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds, boole
     }
     public ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds, @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit) {
         this(searchEnabled, sourceIds, false, contextTokenLimit, outputTokenLimit, null, "", true,
-                ModelSampling.NONE);
+                ModelSampling.NONE, false);
     }
     public ChatTurnOptions(boolean searchEnabled, List<UUID> sourceIds, boolean sourcesRestricted,
                            @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit,
                            @Nullable Instant knowledgeCutoff, String taskPrompt, boolean codeInterpreter) {
         this(searchEnabled, sourceIds, sourcesRestricted, contextTokenLimit, outputTokenLimit, knowledgeCutoff,
-                taskPrompt, codeInterpreter, ModelSampling.NONE);
+                taskPrompt, codeInterpreter, ModelSampling.NONE, false);
     }
 
     /** The same restrictions with this turn's creativity and reasoning level. */
     public ChatTurnOptions withSampling(ModelSampling value) {
         return new ChatTurnOptions(searchEnabled, sourceIds, sourcesRestricted, contextTokenLimit, outputTokenLimit,
-                knowledgeCutoff, taskPrompt, codeInterpreter, value);
+                knowledgeCutoff, taskPrompt, codeInterpreter, value, grounded);
+    }
+
+    /** The same restrictions, answering from documents only; such a turn always searches. */
+    public ChatTurnOptions withGrounded(boolean value) {
+        return new ChatTurnOptions(searchEnabled || value, sourceIds, sourcesRestricted, contextTokenLimit, outputTokenLimit,
+                knowledgeCutoff, taskPrompt, codeInterpreter, sampling, value);
     }
 
     /** The Sources a turn may search, or {@code null} when the agent restricts nothing. */

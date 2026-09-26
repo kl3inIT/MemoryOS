@@ -418,10 +418,20 @@ public class ChatTurnPersistence {
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
                           @Nullable Double cost, List<ChatSource> sources, ChatActivity activity,
                           ChatResearch research) {
+        return finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources, activity, research,
+                (String) null);
+    }
+
+    /** {@code refusal} marks a completed answer that declined (MEM-195), or is null. */
+    @Transactional
+    public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
+                          @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
+                          @Nullable Double cost, List<ChatSource> sources, ChatActivity activity,
+                          ChatResearch research, @Nullable String refusal) {
         if (status == null || status == ChatMessage.Status.RUNNING || partial == null || partial.length() > 1000000)
             throw ChatException.invalid("Invalid terminal outcome.");
         var saved = chats.finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources,
-                activity, research);
+                activity, research, refusal);
         return new TerminalOutcome(saved.status(), saved.failureCode());
     }
 
@@ -448,8 +458,8 @@ public class ChatTurnPersistence {
     public TerminalOutcome finishAndRead(UUID session, UUID assistant, ChatMessage.Status status, String partial,
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
                           @Nullable Double cost, List<ChatSource> sources, ChatActivity activity,
-                          ChatResearch research, Usage turnUsage) {
-        var outcome = finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources, activity, research);
+                          ChatResearch research, @Nullable String refusal, Usage turnUsage) {
+        var outcome = finishAndRead(session, assistant, status, partial, failure, model, input, output, cost, sources, activity, research, refusal);
         record(turnUsage);
         return outcome;
     }

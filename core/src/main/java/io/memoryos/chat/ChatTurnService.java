@@ -10,6 +10,8 @@ import io.memoryos.chat.research.ResearchProperties;
 import io.memoryos.chat.session.ChatTurnPersistence;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
+import io.memoryos.chat.grounding.ChatGuardrailCheck;
+import io.memoryos.chat.grounding.CitationGate;
 import io.memoryos.ai.ModelResolver;
 import io.memoryos.ai.ModelFlow;
 import io.memoryos.chat.web.WebConnectionService;
@@ -57,6 +59,7 @@ public final class ChatTurnService implements AutoCloseable {
     private final @Nullable ChatSettingsService settings;
     private final @Nullable ResearchProperties research;
     private final @Nullable McpTurnService mcp;
+    private final @Nullable ChatGuardrailCheck guardrails;
     private final ChatExecutionProperties limits;
     private final TaskExecutor executor;
     private final StreamBufferWriter streams;
@@ -101,6 +104,17 @@ public final class ChatTurnService implements AutoCloseable {
             @Nullable ResearchProperties research,
             @Nullable McpTurnService mcp,
             @Nullable AiUsageLimitService spending) {
+        this(persistence, model, limits, executor, streams, models, web, images, settings, research, mcp, spending, null);
+    }
+
+    public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
+            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
+            @Nullable WebConnectionService web,
+            @Nullable ImageConnectionService images, @Nullable ChatSettingsService settings,
+            @Nullable ResearchProperties research,
+            @Nullable McpTurnService mcp,
+            @Nullable AiUsageLimitService spending, @Nullable ChatGuardrailCheck guardrails) {
+        this.guardrails = guardrails;
         this.spending = spending;
         this.research = research;
         this.persistence = persistence;
@@ -207,6 +221,11 @@ public final class ChatTurnService implements AutoCloseable {
         // Onyx attaches tools to the agent: a command may only use tools the session agent allows.
         var agent = persistence.agent(actor, session);
         var tools = agent.persona();
+        // MEM-195: answers from documents only are refused Deep research and, unless allowed, Web search.
+        var policy = settings == null ? ChatSettingsService.TurnPolicy.NONE : settings.turnPolicy(actor);
+        boolean grounded = tools.options().grounded();
+        if (grounded && command.deepResearch()) throw ChatException.researchUnavailable();
+        if (grounded && command.webSearch() != WebSearchMode.off && !policy.groundedAllowWeb()) throw ChatException.webUnavailable();
         if (command.webSearch() != WebSearchMode.off && !tools.tools().contains("web_search")) throw ChatException.webUnavailable();
         if (command.image() != ImageMode.off && !tools.tools().contains("image_generation")) throw ChatException.providerUnavailable();
         if (tools.mcpServerIds() != null && !tools.mcpServerIds().containsAll(command.mcpServerIds()))
@@ -220,6 +239,7 @@ public final class ChatTurnService implements AutoCloseable {
         try {
             resolved = models.resolve(actor, session, command.modelConfigurationId(), agent);
             var binding = resolved.binding();
+            if (grounded && !binding.toolCalling()) throw ChatException.groundedModelUnsupported();
             if (command.deepResearch()) {
                 // As Onyx: not in Project chats and at least 50,000 input tokens; research agents need tool calling.
                 int minimum = research == null ? 50_000 : research.minimumContextTokens();
@@ -273,7 +293,9 @@ public final class ChatTurnService implements AutoCloseable {
             boolean opensMcp = !command.mcpServerIds().isEmpty() && !command.deepResearch();
             if (opensMcp && (!binding.toolCalling() || mcp == null)) throw ChatException.providerUnavailable();
             if (command.deepResearch()) setup = setup.withResearch(researchState(context, setup));
-            var run = new Active(setup, resolved);
+            // Check 1 fails closed: a turn that needs it is not started without it.
+            if (ChatGuardrailCheck.applies(setup, policy) && guardrails == null) throw ChatException.providerUnavailable();
+            var run = new Active(setup, resolved, policy, question(context), context.uiLanguage());
             streams.open(setup.assistantMessageId());
             active.put(setup.assistantMessageId(), run);
             transferred = true;
@@ -377,11 +399,10 @@ public final class ChatTurnService implements AutoCloseable {
     private void execute(Active run) {
         try {
             run.check();
+            if (!checkGuardrails(run)) return;
             model.execute(run.setup, run::check, run.cancellation.asMono(),
-                    text -> {
-                        run.append(text, limits.maxAnswerCharacters());
-                        streams.append(run.setup.assistantMessageId(), text);
-                    }, accounting -> run.accounting = accounting, event -> {
+                    text -> show(run, run.gate == null ? text : run.gate.accept(text)),
+                    accounting -> run.accounting = accounting, event -> {
                         run.activity(event);
                         switch (event) {
                             case ChatToolEvent tool -> streams.tool(run.setup.assistantMessageId(), tool);
@@ -392,6 +413,7 @@ public final class ChatTurnService implements AutoCloseable {
                     codeEvent -> streams.code(run.setup.assistantMessageId(), codeEvent),
                     draining -> run.draining = draining);
             run.check();
+            if (run.gate != null) settle(run);
             if (run.content.isEmpty()) throw TurnFailure.EMPTY_RESPONSE.exception();
             run.finish(ChatMessage.Status.COMPLETED, null);
         } catch (RuntimeException failure) {
@@ -408,6 +430,83 @@ public final class ChatTurnService implements AutoCloseable {
             finalizeRun(run);
             retireWhenDrained(run);
         }
+    }
+
+    private void show(Active run, String text) {
+        if (text.isEmpty()) return;
+        run.append(text, limits.maxAnswerCharacters());
+        streams.append(run.setup.assistantMessageId(), text);
+    }
+
+    /**
+     * MEM-195 Check 1, before the answer model: a blocked question ends the turn with the Tenant's message; a
+     * conversational message in grounded mode is answered normally. Returns whether the answer model runs.
+     */
+    private boolean checkGuardrails(Active run) {
+        if (guardrails == null || !ChatGuardrailCheck.applies(run.setup, run.policy)) return true;
+        ChatGuardrailCheck.Result result;
+        try {
+            result = guardrails.check(run.setup, run.question, run.policy, accounting -> recordCheck(run, accounting));
+        } catch (CancellationException stopped) {
+            throw stopped;
+        } catch (RuntimeException failure) {
+            // Fail closed: a turn whose question could not be checked is not answered.
+            LOG.atWarn().addKeyValue("event", "chat.guardrail.unavailable").addKeyValue("message_id", run.setup.assistantMessageId())
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat guardrail check unavailable");
+            throw TurnFailure.PROVIDER_UNAVAILABLE.exception();
+        }
+        run.check();
+        if (result.kind() == ChatGuardrailCheck.Kind.BLOCKED) {
+            guardrails.recordBlock(run.setup, result, null);
+            refuse(run, ChatMessage.BLOCKED_TOPIC, Objects.requireNonNull(result.message()));
+            run.finish(ChatMessage.Status.COMPLETED, null);
+            return false;
+        }
+        var options = run.setup.options();
+        if (result.kind() == ChatGuardrailCheck.Kind.CONVERSATIONAL && options.grounded())
+            run.setup = run.setup.withOptions(options.withGrounded(false));
+        boolean grounded = run.setup.options().grounded();
+        var rules = run.policy.guardrails();
+        if (grounded || !rules.blockedPhrases().isEmpty())
+            run.gate = new CitationGate(grounded, id -> id >= 1 && id <= run.sourceCount(), rules::blockedPhraseIn, rules.longestPhrase());
+        return true;
+    }
+
+    /** The end of a gated answer: release what is held, or replace an uncited or blocked answer with its refusal. */
+    private void settle(Active run) {
+        var ending = Objects.requireNonNull(run.gate).finish();
+        switch (ending.outcome()) {
+            case ANSWERED -> show(run, ending.text());
+            case UNCITED -> refuse(run, run.sourceCount() == 0 ? ChatMessage.NO_EVIDENCE : ChatMessage.UNCITED,
+                    ChatRefusals.notInDocuments(run.uiLanguage));
+            case BLOCKED -> {
+                if (guardrails != null) guardrails.recordBlock(run.setup,
+                        new ChatGuardrailCheck.Result(ChatGuardrailCheck.Kind.BLOCKED, null, null, ending.phrase()), null);
+                refuse(run, ChatMessage.BLOCKED_TOPIC, run.policy.guardrails().blockedPhraseMessage());
+            }
+        }
+    }
+
+    /** A refusal replaces the stored answer; the stream shows it after anything already released. */
+    private void refuse(Active run, String reason, String text) {
+        boolean shown = run.refuse(reason, text);
+        streams.append(run.setup.assistantMessageId(), shown ? "\n\n" + text : text);
+    }
+
+    private void recordCheck(Active run, ModelAccounting accounting) {
+        try {
+            persistence.recordUsage(new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(), AiUsageFlow.CHAT,
+                    run.resolved.modelConfigurationId(), run.resolved.provenance(), run.setup.model(), accounting));
+        } catch (RuntimeException failure) {
+            LOG.atWarn().addKeyValue("event", "chat.guardrail.usage_not_recorded")
+                    .addKeyValue("error_type", failure.getClass().getName()).log("Chat guardrail usage not recorded");
+        }
+    }
+
+    /** The text the person wrote in this turn, without attachments: the newest message of the conversation. */
+    private static String question(ChatTurnPersistence.TurnContext context) {
+        return context.newestFirst().stream().filter(message -> message.role() == ChatMessage.Role.USER).findFirst()
+                .map(ChatMessage::content).orElse("");
     }
 
     private void retireWhenDrained(Active run) {
@@ -493,7 +592,7 @@ public final class ChatTurnService implements AutoCloseable {
                     var saved = persistence.finishAndRead(run.setup.sessionId(), run.setup.assistantMessageId(), outcome.status(),
                             outcome.content(), outcome.failure(), run.setup.model(), run.accounting.input(),
                             run.accounting.output(), run.accounting.cost(), outcome.sources(), outcome.activity(), outcome.research(),
-                            new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(),
+                            outcome.refusal(), new ChatTurnPersistence.Usage(run.setup.tenant(), run.setup.actor(),
                                     run.setup.research().enabled() ? AiUsageFlow.DEEP_RESEARCH : AiUsageFlow.CHAT,
                                     run.resolved.modelConfigurationId(), run.resolved.provenance(), run.setup.model(), run.accounting));
                     if (!run.deleted) streams.finish(run.setup.assistantMessageId(), saved.status(), saved.failureCode());
@@ -531,12 +630,18 @@ public final class ChatTurnService implements AutoCloseable {
 
     private enum StopReason { USER, INTERRUPTED }
     private record Outcome(ChatMessage.Status status, String content, String failure, List<ChatSource> sources,
-                           ChatActivity activity, ChatResearch research) {}
+                           ChatActivity activity, ChatResearch research, @Nullable String refusal) {}
 
     private static final class Active {
         // Replaced once, by the sending thread, when MCP tools open after registration and before dispatch.
         volatile ChatTurnSetup setup;
         final ModelResolver.Resolved resolved;
+        final ChatSettingsService.TurnPolicy policy;
+        final String question;
+        final @Nullable String uiLanguage;
+        /** MEM-195: set before the answer model runs, when the turn is grounded or blocks phrases. */
+        volatile @Nullable CitationGate gate;
+        volatile @Nullable String refusal;
         final StringBuilder content = new StringBuilder();
         final List<ChatSource> sources = new ArrayList<>();
         final ChatActivityRecorder recorder = new ChatActivityRecorder();
@@ -555,7 +660,20 @@ public final class ChatTurnService implements AutoCloseable {
         final ReentrantLock finalizing = new ReentrantLock();
         volatile Outcome outcome;
         volatile ModelAccounting accounting = ModelAccounting.NONE;
-        Active(ChatTurnSetup setup, ModelResolver.Resolved resolved) { this.setup = setup; this.resolved = resolved; }
+        Active(ChatTurnSetup setup, ModelResolver.Resolved resolved, ChatSettingsService.TurnPolicy policy, String question,
+               @Nullable String uiLanguage) {
+            this.setup = setup; this.resolved = resolved; this.policy = policy; this.question = question; this.uiLanguage = uiLanguage;
+        }
+        synchronized int sourceCount() { return sources.size(); }
+        /** Replaces the answer with a refusal; returns whether answer text had already been released. */
+        synchronized boolean refuse(String reason, String text) {
+            check();
+            boolean shown = !content.isEmpty();
+            content.setLength(0);
+            content.append(text);
+            refusal = reason;
+            return shown;
+        }
         synchronized void cancel(StopReason reason) {
             if (outcome != null) return;
             stopReason.compareAndSet(null, reason);
@@ -587,10 +705,11 @@ public final class ChatTurnService implements AutoCloseable {
                 // render_gui was removed: no turn creates read-only UI artifacts; stored ones still render from history.
                 var activity = recorder.seal();
                 var research = new ChatResearch(clarification, plan.isEmpty() ? null : plan.toString(), agents.seal());
-                if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources), activity, research);
+                if (stopReason.get() == StopReason.USER) outcome = new Outcome(ChatMessage.Status.CANCELED, content.toString(), null, List.copyOf(sources), activity, research, null);
                 else if (stopReason.get() == StopReason.INTERRUPTED) outcome = new Outcome(ChatMessage.Status.FAILED,
-                        content.toString(), "CHAT_INTERRUPTED", List.copyOf(sources), activity, research);
-                else outcome = new Outcome(status, content.toString(), failure, List.copyOf(sources), activity, research);
+                        content.toString(), "CHAT_INTERRUPTED", List.copyOf(sources), activity, research, null);
+                else outcome = new Outcome(status, content.toString(), failure, List.copyOf(sources), activity, research,
+                        status == ChatMessage.Status.COMPLETED ? refusal : null);
             }
         }
         void check() {

@@ -29,7 +29,11 @@ public record ChatMessageResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) List<GeneratedFileRef> generatedFiles,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED) Research research,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"},
-                description = "Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT; null otherwise") @Nullable String failureCode) {
+                description = "Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT; null otherwise") @Nullable String failureCode,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"},
+                allowableValues = {"no_evidence", "uncited", "blocked_topic"},
+                description = "Why a COMPLETED reply declined instead of answering (answers from documents only, sensitive topics); null otherwise")
+        @Nullable String refusalReason) {
 
     /** A file run_python produced; bytes are served at /api/chat/file-artifacts/{id}/content. */
     public record GeneratedFileRef(@Schema(requiredMode = Schema.RequiredMode.REQUIRED) UUID id,
@@ -84,6 +88,7 @@ public record ChatMessageResponse(
                         .map(agent -> new Agent(agent.toolCallId(), agent.cycle(), agent.tabIndex(), agent.task(), agent.status().name(),
                                 agent.durationMs(), agent.report(), agent.citations().stream()
                                 .map(citation -> new Citation(citation.marker(), citation.citationId())).toList(), agent.activity())).toList()),
-                message.status() == ChatMessage.Status.FAILED ? message.failureCode() : null);
+                message.status() == ChatMessage.Status.FAILED ? message.failureCode() : null,
+                message.status() == ChatMessage.Status.COMPLETED ? message.refusalReason() : null);
     }
 }

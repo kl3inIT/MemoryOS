@@ -47,6 +47,12 @@ public final class ChatException extends BusinessException {
                 "Deep research is not available.");
     }
 
+    /** MEM-195: answers from documents only need a model that can be made to search first. */
+    public static ChatException groundedModelUnsupported() {
+        return new ChatException("CHAT_GROUNDED_MODEL_UNSUPPORTED", FailureCategory.VALIDATION,
+                "The selected model cannot answer from the organization's documents only.");
+    }
+
     /** Web search was requested but this Tenant has no usable Web connection or a tool-capable model. */
     public static ChatException webUnavailable() {
         return new ChatException("CHAT_WEB_UNAVAILABLE", FailureCategory.SERVICE_UNAVAILABLE,
