@@ -1,6 +1,7 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import type { UserGroupOption } from "./user-groups-dialog";
 
 type GroupTagsProps = {
@@ -82,7 +83,7 @@ export function GroupTags({ groups, editable, userLabel, onEdit }: GroupTagsProp
             key={group.id}
             data-group-tag
             variant="secondary"
-            className="max-w-32 shrink-0 border border-border-subtle bg-surface-subtle text-content-secondary"
+            className="max-w-32 shrink-0"
             title={group.systemKey ? ui("{{v1}} · system group", { v1: group.name }) : group.name}
           >
             <span className="truncate">{group.name}</span>
@@ -91,7 +92,7 @@ export function GroupTags({ groups, editable, userLabel, onEdit }: GroupTagsProp
         {!measuring && overflow > 0 ? (
           <Badge
             variant="outline"
-            className="shrink-0 bg-surface-raised text-content-muted"
+            className="shrink-0"
             title={hiddenNames.join(", ")}
             aria-label={ui("{{v1}} more groups: {{v2}}", {
               v1: overflow,
@@ -112,7 +113,7 @@ export function GroupTags({ groups, editable, userLabel, onEdit }: GroupTagsProp
         }}
         type="button"
         aria-label={ui("Edit groups for {{v1}}", { v1: userLabel })}
-        className={`${className} hover:bg-surface-subtle`}
+        className={cn(className, "hover:bg-surface-subtle")}
         onClick={(event) => onEdit(event.currentTarget)}
       >
         {content}

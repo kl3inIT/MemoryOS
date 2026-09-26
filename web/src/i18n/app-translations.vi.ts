@@ -522,6 +522,7 @@ export const englishUi: Record<string, string> = {
   "Enter the issuer URL.": "Nhập issuer URL.",
   "Enter the client ID.": "Nhập client ID.",
   "Enter the client secret.": "Nhập client secret.",
+  "Enter an email address.": "Nhập địa chỉ email.",
 };
 
 Object.assign(englishUi, {

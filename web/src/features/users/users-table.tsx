@@ -2,21 +2,24 @@ import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import type { ErrorMessage } from "@/lib/problem-presentation";
-import { ArrowDown, ArrowUp, ArrowUpDown, LoaderCircle, User } from "lucide-react";
-import { Fragment, useRef, useState, type RefObject } from "react";
+import {
+  createColumnHelper,
+  rowPaginationFeature,
+  rowSortingFeature,
+  tableFeatures,
+  useTable,
+  type SortingState,
+  type Table,
+} from "@tanstack/react-table";
+import { ArrowDown, ArrowUp, ArrowUpDown, User } from "lucide-react";
+import { useRef, useState, type RefObject } from "react";
+import { DataTable, type DataTableColumnMeta } from "@/components/data-table/data-table";
 import { Badge } from "@/components/ui/badge";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { NativeSelect } from "@/components/ui/native-select";
+import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { TablePagination } from "@/components/ui/table-pagination";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { formatInvitationDate } from "@/features/invitations/invitation-presentation";
 import type { UserListItem } from "@/lib/hey-api/types.gen";
 import { GroupTags } from "./group-tags";
@@ -48,11 +51,180 @@ type UsersTableProps = {
   onRevoke: (entry: UserListItem) => Promise<void>;
 };
 
+/** What the row cells need from the page: progress, failures and the row actions. */
+type UsersTableMeta = Pick<
+  UsersTableProps,
+  | "pendingActions"
+  | "rowErrors"
+  | "invitationPending"
+  | "canEditGroups"
+  | "fallbackActionFocusRef"
+  | "onActivate"
+  | "onDeactivate"
+  | "onRotate"
+  | "onRevoke"
+> & {
+  /** A membership change can move the row out of the current view. */
+  membershipChangesView: boolean;
+  openGroupEditor: (entry: UserListItem, returnTarget: HTMLElement | null) => void;
+};
+
 const statusTone: Record<UserListItem["status"], StatusTone> = {
   ACTIVE: "success",
   INACTIVE: "neutral",
   INVITED: "warning",
 };
+
+const pageSizes = [20, 50, 100] as const;
+
+const features = tableFeatures({
+  rowPaginationFeature,
+  rowSortingFeature,
+  columnMeta: {} as DataTableColumnMeta,
+  tableMeta: {} as UsersTableMeta,
+});
+const column = createColumnHelper<typeof features, UserListItem>();
+type UsersTableInstance = Table<typeof features, UserListItem>;
+
+/** The API sorts; the table's sorting state names the sorted field and direction. */
+type SortField = "name" | "email" | "status";
+
+function sortingOf(sort: UsersSort): SortingState {
+  const field = sort.slice(0, sort.lastIndexOf("_")).toLowerCase();
+  return [{ id: field, desc: sort.endsWith("_DESC") }];
+}
+
+function sortOf([first]: SortingState): UsersSort | undefined {
+  return first
+    ? (`${first.id.toUpperCase()}_${first.desc ? "DESC" : "ASC"}` as UsersSort)
+    : undefined;
+}
+
+function rowKey(entry: UserListItem) {
+  return entry.actorId ? `actor:${entry.actorId}` : `invitation:${entry.invitationId}`;
+}
+
+function useRowLabel() {
+  const ui = useAppTranslation();
+  return (entry: UserListItem) =>
+    entry.displayName?.trim() ||
+    entry.email?.trim() ||
+    (entry.actorId ? ui("user {{id}}", { id: entry.actorId }) : ui("this invitation"));
+}
+
+/*
+ * Columns live at module scope, because a cell renderer is a component and a rebuilt list remounts
+ * every cell, dropping an open row menu or confirmation.
+ */
+const columns = column.columns([
+  column.display({
+    id: "name",
+    header: function NameHeader({ table }) {
+      const ui = useAppTranslation();
+      return (
+        <span className="inline-flex items-center gap-0.5">
+          <SortButton table={table} field="name" label={ui("Name")} />
+          <span className="font-secondary-action text-content-muted" aria-hidden="true">
+            /
+          </span>
+          <SortButton table={table} field="email" label={ui("Email")} />
+        </span>
+      );
+    },
+    cell: ({ row }) => <UserIdentity entry={row.original} />,
+  }),
+  column.display({
+    id: "groups",
+    header: function GroupsHeader() {
+      const ui = useAppTranslation();
+      return ui("Groups");
+    },
+    meta: { width: "w-3/10" },
+    cell: function GroupsCell({ row, table }) {
+      const label = useRowLabel();
+      const meta = table.options.meta!;
+      const entry = row.original;
+      return (
+        <GroupTags
+          groups={entry.groups}
+          editable={meta.canEditGroups && Boolean(entry.actorId)}
+          userLabel={label(entry)}
+          onEdit={(target) => meta.openGroupEditor(entry, target)}
+        />
+      );
+    },
+  }),
+  column.display({
+    id: "accountType",
+    header: function AccountTypeHeader() {
+      const ui = useAppTranslation();
+      return ui("Account type");
+    },
+    meta: { width: "w-40" },
+    cell: function AccountTypeCell({ row }) {
+      const ui = useAppTranslation();
+      return row.original.accountType === "STANDARD" ? (
+        <span className="inline-flex items-center gap-1.5 font-main-ui-body text-content-secondary">
+          <User className="size-4 text-content-muted" aria-hidden="true" />
+          {ui("Standard")}
+        </span>
+      ) : (
+        <span
+          aria-label={ui("Account type assigned after invitation acceptance")}
+          className="text-content-muted"
+        >
+          —
+        </span>
+      );
+    },
+  }),
+  column.display({
+    id: "status",
+    header: function StatusHeader({ table }) {
+      const ui = useAppTranslation();
+      return <SortButton table={table} field="status" label={ui("Status")} />;
+    },
+    meta: { width: "w-48" },
+    cell: ({ row, table }) => {
+      const meta = table.options.meta!;
+      const key = rowKey(row.original);
+      return (
+        <UserStatus
+          entry={row.original}
+          pendingAction={meta.pendingActions[key]}
+          error={meta.rowErrors[key]}
+        />
+      );
+    },
+  }),
+  column.display({
+    id: "actions",
+    header: function ActionsHeader() {
+      const ui = useAppTranslation();
+      return <span className="sr-only">{ui("Actions")}</span>;
+    },
+    meta: { width: "w-16", align: "end" },
+    cell: ({ row, table }) => {
+      const meta = table.options.meta!;
+      const entry = row.original;
+      return (
+        <UserRowActions
+          entry={entry}
+          pendingAction={meta.pendingActions[rowKey(entry)]}
+          invitationPending={meta.invitationPending}
+          membershipChangesView={meta.membershipChangesView}
+          canEditGroups={meta.canEditGroups}
+          fallbackFocusRef={meta.fallbackActionFocusRef}
+          onEditGroups={(target) => meta.openGroupEditor(entry, target)}
+          onActivate={meta.onActivate}
+          onDeactivate={meta.onDeactivate}
+          onRotate={meta.onRotate}
+          onRevoke={meta.onRevoke}
+        />
+      );
+    },
+  }),
+]);
 
 export function UsersTable({
   entries,
@@ -77,8 +249,6 @@ export function UsersTable({
   onRevoke,
 }: UsersTableProps) {
   const ui = useAppTranslation();
-
-  const errorMessage = useProblemMessage();
   const firstItem = totalItems === 0 ? 0 : page * size + 1;
   const lastItem = Math.min((page + 1) * size, totalItems);
   const [groupEditorEntry, setGroupEditorEntry] = useState<UserListItem | null>(null);
@@ -97,172 +267,83 @@ export function UsersTable({
     if (target?.isConnected) requestAnimationFrame(() => target.focus());
   }
 
+  const sorting = sortingOf(sort);
+  const pagination = { pageIndex: page, pageSize: size };
+  const table = useTable({
+    features,
+    columns,
+    data: entries,
+    getRowId: rowKey,
+    meta: {
+      pendingActions,
+      rowErrors,
+      invitationPending,
+      canEditGroups,
+      fallbackActionFocusRef,
+      membershipChangesView: Boolean(statusFilter) || sort.startsWith("STATUS_"),
+      openGroupEditor,
+      onActivate,
+      onDeactivate,
+      onRotate,
+      onRevoke,
+    },
+    manualSorting: true,
+    enableMultiSort: false,
+    enableSortingRemoval: false,
+    manualPagination: true,
+    pageCount: totalPages,
+    state: { sorting, pagination },
+    onSortingChange: (updater) => {
+      const next = sortOf(typeof updater === "function" ? updater(sorting) : updater);
+      if (next) onSortChange(next);
+    },
+    onPaginationChange: (updater) =>
+      onPageChange((typeof updater === "function" ? updater(pagination) : updater).pageIndex),
+  });
+
   return (
     <>
-      <div
-        role="region"
-        aria-label={ui("Scrollable users table")}
-        tabIndex={0}
-        className="overflow-x-auto outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-focus-ring/40"
-      >
-        <Table className="w-full min-w-[56rem] table-fixed border-collapse">
-          <TableCaption className="sr-only">{ui("Tenant users")}</TableCaption>
-          <colgroup>
-            <col />
-            <col className="w-[28%]" />
-            <col className="w-[16%]" />
-            <col className="w-[18%]" />
-            <col className="w-16" />
-          </colgroup>
-          <TableHeader className="border-b border-border-subtle bg-surface-subtle text-left">
-            <TableRow>
-              <TableHead
-                scope="col"
-                aria-sort={columnAriaSort(sort, "NAME", "EMAIL")}
-                className="h-11 px-4"
-              >
-                <span className="inline-flex items-center gap-0.5">
-                  <UsersSortButton
-                    field="NAME"
-                    label={ui("Name")}
-                    sort={sort}
-                    onSortChange={onSortChange}
-                  />
-                  <span className="font-secondary-action text-content-muted" aria-hidden="true">
-                    /
-                  </span>
-                  <UsersSortButton
-                    field="EMAIL"
-                    label={ui("Email")}
-                    sort={sort}
-                    onSortChange={onSortChange}
-                  />
-                </span>
-              </TableHead>
-              <StaticColumnHeader>{ui("Groups")}</StaticColumnHeader>
-              <StaticColumnHeader>{ui("Account type")}</StaticColumnHeader>
-              <TableHead
-                scope="col"
-                aria-sort={columnAriaSort(sort, "STATUS")}
-                className="h-11 px-4"
-              >
-                <UsersSortButton
-                  field="STATUS"
-                  label={ui("Status")}
-                  sort={sort}
-                  onSortChange={onSortChange}
-                />
-              </TableHead>
-              <TableHead
-                scope="col"
-                className="sticky right-0 z-10 h-11 w-16 bg-surface-subtle px-2 text-center"
-              >
-                <span className="sr-only">{ui("Actions")}</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody className="divide-y divide-border-subtle">
-            {entries.map((entry) => {
-              const key = entry.actorId
-                ? `actor:${entry.actorId}`
-                : `invitation:${entry.invitationId}`;
-              const pendingAction = pendingActions[key];
-              const error = rowErrors[key];
-              const label =
-                entry.displayName?.trim() ||
-                entry.email?.trim() ||
-                (entry.actorId ? ui("user {{id}}", { id: entry.actorId }) : ui("this invitation"));
-              const editableGroups = canEditGroups && Boolean(entry.actorId);
-              return (
-                <Fragment key={key}>
-                  <TableRow className="group bg-surface-raised align-middle transition-colors hover:bg-surface-subtle">
-                    <TableCell className="h-[4.5rem] px-4 py-3">
-                      <UserIdentity entry={entry} />
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <GroupTags
-                        groups={entry.groups}
-                        editable={editableGroups}
-                        userLabel={label}
-                        onEdit={(target) => openGroupEditor(entry, target)}
-                      />
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      {entry.accountType === "STANDARD" ? (
-                        <span className="inline-flex items-center gap-1.5 font-main-ui-body text-content-secondary">
-                          <User className="size-4 text-content-muted" aria-hidden="true" />
-                          {ui("Standard")}
-                        </span>
-                      ) : (
-                        <span
-                          aria-label={ui("Account type assigned after invitation acceptance")}
-                          className="text-content-muted"
-                        >
-                          —
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <UserStatus entry={entry} pendingAction={pendingAction} />
-                    </TableCell>
-                    <TableCell className="sticky right-0 w-16 bg-surface-raised px-2 py-3 text-center transition-colors group-hover:bg-surface-subtle">
-                      <UserRowActions
-                        entry={entry}
-                        pendingAction={pendingAction}
-                        invitationPending={invitationPending}
-                        membershipChangesView={Boolean(statusFilter) || sort.startsWith("STATUS_")}
-                        canEditGroups={canEditGroups}
-                        fallbackFocusRef={fallbackActionFocusRef}
-                        onEditGroups={(target) => openGroupEditor(entry, target)}
-                        onActivate={onActivate}
-                        onDeactivate={onDeactivate}
-                        onRotate={onRotate}
-                        onRevoke={onRevoke}
-                      />
-                    </TableCell>
-                  </TableRow>
-                  {error ? (
-                    <TableRow className="bg-status-danger-surface/60">
-                      <TableCell
-                        colSpan={5}
-                        className="border-l-2 border-status-danger-content px-4 py-2 font-secondary-body text-status-danger-content"
-                      >
-                        <p role="alert">{errorMessage(error)}</p>
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                </Fragment>
-              );
+      <DataTable
+        table={table}
+        label={ui("Tenant users")}
+        className="min-w-224"
+        footer={
+          <TablePagination
+            label={ui("User pages")}
+            page={page}
+            totalPages={totalPages}
+            summary={ui("Showing {{first}}–{{last}} of {{total}}", {
+              first: firstItem,
+              last: lastItem,
+              total: totalItems,
             })}
-          </TableBody>
-        </Table>
-      </div>
-
-      <TablePagination
-        label={ui("User pages")}
-        page={page}
-        totalPages={totalPages}
-        summary={`Showing ${firstItem}–${lastItem} of ${totalItems}`}
-        previousDisabled={page <= 0}
-        nextDisabled={page + 1 >= totalPages}
-        onPrevious={() => onPageChange(page - 1)}
-        onNext={() => onPageChange(page + 1)}
-      >
-        <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
-          {ui("Rows")}
-          <NativeSelect
-            aria-label={ui("Rows per page")}
-            value={size}
-            size="sm"
-            className="w-auto px-2"
-            onChange={(event) => onSizeChange(Number(event.target.value) as UsersSearch["size"])}
+            previousDisabled={!table.getCanPreviousPage()}
+            nextDisabled={!table.getCanNextPage()}
+            onPrevious={() => table.previousPage()}
+            onNext={() => table.nextPage()}
           >
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </NativeSelect>
-        </label>
-      </TablePagination>
+            <Field orientation="horizontal" className="w-auto">
+              <FieldLabel htmlFor="users-page-size">{ui("Rows")}</FieldLabel>
+              <NativeSelect
+                id="users-page-size"
+                aria-label={ui("Rows per page")}
+                value={size}
+                size="sm"
+                className="w-auto px-2"
+                onChange={(event) =>
+                  onSizeChange(Number(event.target.value) as UsersSearch["size"])
+                }
+              >
+                {pageSizes.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+          </TablePagination>
+        }
+      />
 
       {groupEditorEntry ? (
         <UserGroupsDialog
@@ -273,46 +354,31 @@ export function UsersTable({
           onOpenChange={(open) => {
             if (!open) closeGroupEditor();
           }}
-          onSaved={async () => {
-            await onGroupsSaved();
-          }}
+          onSaved={onGroupsSaved}
         />
       ) : null}
     </>
   );
 }
 
-function StaticColumnHeader({ children }: { children: string }) {
-  return (
-    <TableHead scope="col" className="h-11 px-4 font-secondary-action text-content-secondary">
-      {children}
-    </TableHead>
-  );
-}
-
-type SortField = "NAME" | "EMAIL" | "STATUS";
-
-function UsersSortButton({
+/** Sorts the users by one field; a second press reverses the direction. */
+function SortButton({
+  table,
   field,
   label,
-  sort,
-  onSortChange,
 }: {
+  table: UsersTableInstance;
   field: SortField;
   label: string;
-  sort: UsersSort;
-  onSortChange: (sort: UsersSort) => void;
 }) {
   const ui = useAppTranslation();
-
-  const ascending = `${field}_ASC` as UsersSort;
-  const descending = `${field}_DESC` as UsersSort;
-  const direction = sort === ascending ? "asc" : sort === descending ? "desc" : undefined;
+  const current = table.options.state?.sorting?.[0];
+  const direction = current?.id === field ? (current.desc ? "desc" : "asc") : undefined;
   return (
     <button
       type="button"
       aria-label={ui("Sort by {{v1}}", { v1: label.toLowerCase() })}
-      onClick={() => onSortChange(sort === ascending ? descending : ascending)}
+      onClick={() => table.setSorting([{ id: field, desc: direction === "asc" }])}
       className="inline-flex h-8 items-center gap-1 rounded-md px-1 font-secondary-action text-content-secondary outline-none transition-colors hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
     >
       {label}
@@ -347,7 +413,7 @@ function UserIdentity({ entry }: { entry: UserListItem }) {
           {primary}
         </span>
         {entry.role === "OWNER" ? (
-          <Badge variant="outline" className="shrink-0 bg-surface-raised text-content-secondary">
+          <Badge variant="outline" className="shrink-0">
             {ui("Owner")}
           </Badge>
         ) : null}
@@ -368,11 +434,15 @@ function UserIdentity({ entry }: { entry: UserListItem }) {
 function UserStatus({
   entry,
   pendingAction,
+  error,
 }: {
   entry: UserListItem;
   pendingAction?: UserPendingAction;
+  /** A failed action that has no dialog of its own to show its error, such as a link rotation. */
+  error?: ErrorMessage;
 }) {
   const ui = useAppTranslation();
+  const errorMessage = useProblemMessage();
 
   return (
     <div className="flex min-w-0 flex-col items-start gap-1">
@@ -385,10 +455,7 @@ function UserStatus({
       </StatusBadge>
       {pendingAction ? (
         <span className="inline-flex items-center gap-1 font-secondary-body text-content-muted">
-          <LoaderCircle
-            className="size-3 animate-spin motion-reduce:animate-none"
-            aria-hidden="true"
-          />
+          <Spinner aria-hidden="true" />
           {ui(userActionPendingLabel(pendingAction))}
         </span>
       ) : entry.status === "INVITED" && entry.invitationExpiresAt ? (
@@ -400,12 +467,11 @@ function UserStatus({
           {ui("Expires")} {formatInvitationDate(entry.invitationExpiresAt)}
         </time>
       ) : null}
+      {error ? (
+        <p role="alert" className="font-secondary-body text-status-danger-content">
+          {errorMessage(error)}
+        </p>
+      ) : null}
     </div>
   );
-}
-
-function columnAriaSort(sort: UsersSort, field: SortField, alternateField?: SortField) {
-  const selectedField = sort.slice(0, sort.lastIndexOf("_")) as SortField;
-  if (selectedField !== field && selectedField !== alternateField) return "none" as const;
-  return sort.endsWith("_ASC") ? ("ascending" as const) : ("descending" as const);
 }

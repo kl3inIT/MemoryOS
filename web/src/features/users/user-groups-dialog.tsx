@@ -1,18 +1,30 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
-import { LoaderCircle, Search, UserCog, Users } from "lucide-react";
+import { Search, UserCog, Users } from "lucide-react";
 import { useMemo, useRef, useState, type RefObject } from "react";
-import { useProblemMessage } from "@/lib/use-problem-message";
-import type { ErrorMessage } from "@/lib/problem-presentation";
-import { Dialog } from "radix-ui";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from "@/components/ui/empty";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Spinner } from "@/components/ui/spinner";
+import { TablePagination } from "@/components/ui/table-pagination";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   listGroupsOptions,
   replaceUserGroupsMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { UserListItem } from "@/lib/hey-api/types.gen";
+import { useProblemMessage } from "@/lib/use-problem-message";
 import { membershipActionError } from "./user-action-errors";
 
 export type UserGroupOption = {
@@ -20,6 +32,9 @@ export type UserGroupOption = {
   name: string;
   systemKey: "ADMIN" | "BASIC" | null;
 };
+
+/** The most ordinary Groups one person may belong to. */
+const selectionLimit = 100;
 
 type UserGroupsDialogProps = {
   entry: UserListItem;
@@ -37,7 +52,6 @@ export function UserGroupsDialog({
   onSaved,
 }: UserGroupsDialogProps) {
   const ui = useAppTranslation();
-
   const errorMessage = useProblemMessage();
   const replaceGroups = useMutation(replaceUserGroupsMutation());
   const initialIds = useMemo(
@@ -46,11 +60,11 @@ export function UserGroupsDialog({
   );
   const [selectedIds, setSelectedIds] = useState(() => new Set(initialIds));
   const [searchDraft, setSearchDraft] = useState("");
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(0);
-  const [error, setError] = useState<ErrorMessage | null>(null);
+  const search = useDebouncedValue(searchDraft.trim(), 250);
+  const [paged, setPaged] = useState({ search, page: 0 });
+  // A new search starts again at its first page.
+  const page = paged.search === search ? paged.page : 0;
   const searchRef = useRef<HTMLInputElement>(null);
-  const pendingRef = useRef(false);
   const actorId = entry.actorId;
   const label = entry.displayName?.trim() || entry.email?.trim() || ui("this user");
   const groupOptions = useQuery({
@@ -75,260 +89,201 @@ export function UserGroupsDialog({
   const initialKey = [...initialIds].sort().join("\u0000");
   const selectedKey = [...selectedIds].sort().join("\u0000");
   const dirty = initialKey !== selectedKey;
+  const saving = replaceGroups.isPending;
+  const totalPages = groupOptions.data?.totalPages ?? 0;
 
-  async function save() {
-    if (!actorId || !dirty || pendingRef.current) return;
-    pendingRef.current = true;
-    setError(null);
-    try {
-      await replaceGroups.mutateAsync({
-        path: { actorId },
-        body: { groupIds: [...selectedIds] },
-      });
-      onOpenChange(false);
-      fallbackFocusRef?.current?.focus();
-      await onSaved();
-    } catch (cause) {
-      setError(membershipActionError(cause));
-    } finally {
-      pendingRef.current = false;
-    }
+  function toggle(groupId: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  }
+
+  function save() {
+    if (!actorId || !dirty || saving) return;
+    replaceGroups.mutate(
+      { path: { actorId }, body: { groupIds: [...selectedIds] } },
+      {
+        onSuccess: async () => {
+          onOpenChange(false);
+          fallbackFocusRef?.current?.focus();
+          await onSaved();
+        },
+      },
+    );
   }
 
   return (
-    <Dialog.Root open onOpenChange={(open) => !pendingRef.current && onOpenChange(open)}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none" />
-        <Dialog.Content
-          className="fixed top-1/2 left-1/2 z-50 flex max-h-[min(44rem,calc(100dvh-2rem))] w-[min(38rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border-default bg-surface-overlay shadow-md outline-none"
-          onOpenAutoFocus={(event) => {
-            event.preventDefault();
-            searchRef.current?.focus();
-          }}
-          onCloseAutoFocus={(event) => {
-            const target = restoreFocusRef.current?.isConnected
-              ? restoreFocusRef.current
-              : fallbackFocusRef?.current;
-            if (!target?.isConnected) return;
-            event.preventDefault();
-            target.focus();
-          }}
-          onEscapeKeyDown={(event) => {
-            if (pendingRef.current) event.preventDefault();
-          }}
-          onPointerDownOutside={(event) => {
-            if (pendingRef.current) event.preventDefault();
-          }}
-        >
-          <header className="border-b border-border-subtle px-5 py-5 sm:px-6">
-            <Dialog.Title className="font-heading-h3 text-content-primary">
-              {ui("Edit groups")}
-            </Dialog.Title>
-            <Dialog.Description className="mt-1 font-main-ui-body text-content-secondary">
-              {ui("Choose ordinary group memberships for")} {label}
-              {ui(". System memberships are preserved.")}
-            </Dialog.Description>
-          </header>
+    <Dialog open onOpenChange={(open) => !saving && onOpenChange(open)}>
+      <DialogContent
+        className="sm:max-w-xl"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          searchRef.current?.focus();
+        }}
+        onCloseAutoFocus={(event) => {
+          const target = restoreFocusRef.current?.isConnected
+            ? restoreFocusRef.current
+            : fallbackFocusRef?.current;
+          if (!target?.isConnected) return;
+          event.preventDefault();
+          target.focus();
+        }}
+        onEscapeKeyDown={(event) => {
+          if (saving) event.preventDefault();
+        }}
+        onPointerDownOutside={(event) => {
+          if (saving) event.preventDefault();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>{ui("Edit groups")}</DialogTitle>
+          <DialogDescription>
+            {ui("Choose ordinary group memberships for")} {label}
+            {ui(". System memberships are preserved.")}
+          </DialogDescription>
+        </DialogHeader>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-            {systemGroups.length > 0 ? (
-              <section aria-labelledby="protected-user-groups">
-                <h2
-                  id="protected-user-groups"
-                  className="font-secondary-action text-content-primary"
-                >
-                  {ui("System groups")}
-                </h2>
-                <div className="mt-2 divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle">
-                  {systemGroups.map((group) => (
-                    <div key={group.id} className="flex items-center gap-3 px-4 py-3">
-                      {group.systemKey === "ADMIN" ? (
-                        <UserCog
-                          className="size-4 shrink-0 text-content-muted"
-                          aria-hidden="true"
-                        />
-                      ) : (
-                        <Users className="size-4 shrink-0 text-content-muted" aria-hidden="true" />
-                      )}
-                      <span className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary">
-                        {group.name}
-                      </span>
-                      <span className="font-secondary-body text-content-muted">
-                        {ui("Protected")}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            <section
-              aria-labelledby="ordinary-user-groups"
-              className={systemGroups.length ? "mt-6" : ""}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <h2
-                  id="ordinary-user-groups"
-                  className="font-secondary-action text-content-primary"
-                >
-                  {ui("Ordinary groups")}
-                </h2>
-                <span className="font-secondary-body tabular-nums text-content-muted">
-                  {selectedIds.size} {ui("selected")}
-                </span>
-              </div>
-              <form
-                role="search"
-                className="mt-2 flex gap-2"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  setSearch(searchDraft.trim());
-                  setPage(0);
-                }}
-              >
-                <label className="relative min-w-0 flex-1">
-                  <span className="sr-only">{ui("Search ordinary groups")}</span>
-                  <Search
-                    className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
-                    aria-hidden="true"
-                  />
-                  <Input
-                    ref={searchRef}
-                    type="search"
-                    size="sm"
-                    value={searchDraft}
-                    maxLength={200}
-                    placeholder={ui("Search groups…")}
-                    className="bg-surface-sunken pl-9"
-                    onChange={(event) => setSearchDraft(event.target.value)}
-                  />
-                </label>
-                <Button type="submit" size="sm" prominence="secondary">
-                  {ui("Search")}
-                </Button>
-              </form>
-
-              {groupOptions.isPending ? (
-                <p
-                  role="status"
-                  className="mt-5 flex items-center gap-2 font-main-ui-body text-content-muted"
-                >
-                  <LoaderCircle
-                    className="size-4 animate-spin motion-reduce:animate-none"
-                    aria-hidden="true"
-                  />
-                  {ui("Loading groups")}
-                </p>
-              ) : groupOptions.isError ? (
-                <div className="mt-5 rounded-xl border border-border-subtle p-4">
-                  <p role="alert" className="font-main-ui-body text-content-secondary">
-                    {ui("Groups could not be loaded. Existing memberships have not been changed.")}
-                  </p>
-                  <Button
-                    size="sm"
-                    prominence="secondary"
-                    className="mt-3"
-                    onClick={() => void groupOptions.refetch()}
-                  >
-                    {ui("Try again")}
-                  </Button>
-                </div>
-              ) : ordinaryGroups.length === 0 ? (
-                <div className="mt-5 rounded-xl border border-dashed border-border-default px-4 py-8 text-center">
-                  <Users className="mx-auto size-5 text-content-muted" aria-hidden="true" />
-                  <p className="mt-2 font-main-ui-body text-content-muted">
-                    {search
-                      ? ui("No groups match your search.")
-                      : ui("No ordinary groups are available.")}
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-3 divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle">
-                  {ordinaryGroups.map((group) => {
-                    const checked = selectedIds.has(group.id);
-                    const limitReached = selectedIds.size >= 100 && !checked;
-                    return (
-                      <label
-                        key={group.id}
-                        className={`flex items-center gap-3 px-4 py-3 transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-focus-ring/30 ${limitReached ? "cursor-not-allowed text-content-disabled" : "cursor-pointer hover:bg-surface-subtle"}`}
-                      >
-                        <Checkbox
-                          checked={checked}
-                          disabled={limitReached}
-                          onCheckedChange={() => {
-                            setSelectedIds((current) => {
-                              const next = new Set(current);
-                              if (checked) next.delete(group.id);
-                              else next.add(group.id);
-                              return next;
-                            });
-                          }}
-                        />
-                        <span className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary">
-                          {group.name}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-
-              {groupOptions.data && groupOptions.data.totalPages > 1 ? (
-                <nav
-                  aria-label={ui("User group option pages")}
-                  className="mt-3 flex items-center justify-end gap-2"
-                >
-                  <Button
-                    size="sm"
-                    prominence="secondary"
-                    disabled={page === 0}
-                    onClick={() => setPage(page - 1)}
-                  >
-                    {ui("Previous")}
-                  </Button>
-                  <span className="min-w-24 text-center font-secondary-body tabular-nums text-content-muted">
-                    {ui("Page")} {page + 1} {ui("of")} {groupOptions.data.totalPages}
+        {systemGroups.length > 0 ? (
+          <section aria-labelledby="protected-user-groups" className="flex flex-col gap-2">
+            <h2 id="protected-user-groups" className="font-secondary-action text-content-primary">
+              {ui("System groups")}
+            </h2>
+            <div className="divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle">
+              {systemGroups.map((group) => (
+                <div key={group.id} className="flex items-center gap-3 px-4 py-3">
+                  {group.systemKey === "ADMIN" ? (
+                    <UserCog className="size-4 shrink-0 text-content-muted" aria-hidden="true" />
+                  ) : (
+                    <Users className="size-4 shrink-0 text-content-muted" aria-hidden="true" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary">
+                    {group.name}
                   </span>
-                  <Button
-                    size="sm"
-                    prominence="secondary"
-                    disabled={page + 1 >= groupOptions.data.totalPages}
-                    onClick={() => setPage(page + 1)}
-                  >
-                    {ui("Next")}
-                  </Button>
-                </nav>
-              ) : null}
-            </section>
+                  <span className="font-secondary-body text-content-muted">{ui("Protected")}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
-            {error ? (
-              <p
-                role="alert"
-                className="mt-4 rounded-lg bg-status-danger-surface px-4 py-3 font-secondary-body text-status-danger-content"
-              >
-                {errorMessage(error)}
-              </p>
-            ) : null}
+        <section aria-labelledby="ordinary-user-groups" className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="ordinary-user-groups" className="font-secondary-action text-content-primary">
+              {ui("Ordinary groups")}
+            </h2>
+            <span className="font-secondary-body tabular-nums text-content-muted">
+              {selectedIds.size} {ui("selected")}
+            </span>
           </div>
+          <InputGroup>
+            <InputGroupAddon>
+              <Search aria-hidden="true" />
+            </InputGroupAddon>
+            <InputGroupInput
+              ref={searchRef}
+              type="search"
+              value={searchDraft}
+              maxLength={200}
+              placeholder={ui("Search groups…")}
+              aria-label={ui("Search ordinary groups")}
+              onChange={(event) => setSearchDraft(event.target.value)}
+            />
+          </InputGroup>
 
-          <footer className="flex flex-col-reverse gap-2 border-t border-border-subtle bg-surface-subtle px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
-            <Button
-              prominence="secondary"
-              disabled={replaceGroups.isPending}
-              onClick={() => onOpenChange(false)}
+          {groupOptions.isPending ? (
+            <p
+              role="status"
+              className="flex items-center gap-2 font-main-ui-body text-content-muted"
             >
-              {ui("Cancel")}
-            </Button>
-            <Button
-              pending={replaceGroups.isPending}
-              disabled={!dirty || !actorId}
-              onClick={() => void save()}
-            >
-              {replaceGroups.isPending ? ui("Saving groups…") : ui("Save groups")}
-            </Button>
-          </footer>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+              <Spinner aria-hidden="true" />
+              {ui("Loading groups")}
+            </p>
+          ) : groupOptions.isError ? (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {ui("Groups could not be loaded. Existing memberships have not been changed.")}
+              </AlertDescription>
+              <AlertAction>
+                <Button
+                  size="sm"
+                  prominence="secondary"
+                  onClick={() => void groupOptions.refetch()}
+                >
+                  {ui("Try again")}
+                </Button>
+              </AlertAction>
+            </Alert>
+          ) : ordinaryGroups.length === 0 ? (
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Users />
+                </EmptyMedia>
+                <EmptyDescription>
+                  {search
+                    ? ui("No groups match your search.")
+                    : ui("No ordinary groups are available.")}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <div className="divide-y divide-border-subtle overflow-hidden rounded-xl border border-border-subtle">
+              {ordinaryGroups.map((group) => {
+                const checked = selectedIds.has(group.id);
+                const limitReached = selectedIds.size >= selectionLimit && !checked;
+                const id = `user-group-${group.id}`;
+                return (
+                  <div key={group.id} className="px-4 py-3">
+                    <Field orientation="horizontal" data-disabled={limitReached || undefined}>
+                      <Checkbox
+                        id={id}
+                        checked={checked}
+                        disabled={limitReached}
+                        onCheckedChange={() => toggle(group.id)}
+                      />
+                      <FieldLabel htmlFor={id} className="min-w-0">
+                        <span className="truncate">{group.name}</span>
+                      </FieldLabel>
+                    </Field>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {totalPages > 1 ? (
+            <TablePagination
+              label={ui("User group option pages")}
+              page={page}
+              totalPages={totalPages}
+              previousDisabled={page === 0 || groupOptions.isPlaceholderData}
+              nextDisabled={page + 1 >= totalPages || groupOptions.isPlaceholderData}
+              onPrevious={() => setPaged({ search, page: page - 1 })}
+              onNext={() => setPaged({ search, page: page + 1 })}
+            />
+          ) : null}
+        </section>
+
+        {replaceGroups.isError ? (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {errorMessage(membershipActionError(replaceGroups.error))}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        <DialogFooter>
+          <Button prominence="secondary" disabled={saving} onClick={() => onOpenChange(false)}>
+            {ui("Cancel")}
+          </Button>
+          <Button pending={saving} disabled={!dirty || !actorId} onClick={save}>
+            {saving ? ui("Saving groups…") : ui("Save groups")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
