@@ -4,6 +4,7 @@ import { Slot } from "radix-ui";
 
 import { disableActionChild } from "@/components/ui/action-activation";
 import type { ActionTone } from "@/components/ui/action-styles";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 const textButtonVariants = cva(
@@ -74,7 +75,14 @@ function TextButton({
       disabled={asChild ? undefined : blocked}
       className={cn(textButtonVariants({ tone, size }), className)}
     >
-      {renderedChildren}
+      {pending && !asChild ? (
+        <>
+          <Spinner data-icon="inline-start" aria-hidden="true" />
+          {children}
+        </>
+      ) : (
+        renderedChildren
+      )}
     </Comp>
   );
 }
