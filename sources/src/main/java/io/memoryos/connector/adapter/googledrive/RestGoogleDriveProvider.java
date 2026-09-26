@@ -274,7 +274,7 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
                     + encode("spreadsheetId,properties(title,locale,timeZone),namedRanges,sheets(properties,merges)"), budget);
             if (!file.id().equals(required(structure, "spreadsheetId"))) throw failure(MALFORMED);
             JsonNode sheetNodes = array(structure, "sheets");
-            if (sheetNodes.size() < 1 || sheetNodes.size() > properties.maxTabs()) throw failure(LIMIT_EXCEEDED);
+            if (sheetNodes.isEmpty() || sheetNodes.size() > properties.maxTabs()) throw failure(LIMIT_EXCEEDED);
             long cells = 0;
             long requests = budget.requests + 1; // Leave room for the final Drive version fence.
             for (JsonNode sheet : sheetNodes) {
@@ -435,11 +435,10 @@ public final class RestGoogleDriveProvider implements GoogleDriveProvider, AutoC
             if (!parentNodes.isMissingNode() && !parentNodes.isArray()) throw failure(MALFORMED);
             for (JsonNode parent : parentNodes) parents.add(fileId(parent.asString()));
             String modified = optional(node, "modifiedTime");
-            FileMetadata file = new FileMetadata(fileId(required(node, "id")), required(node, "name"),
+            return new FileMetadata(fileId(required(node, "id")), required(node, "name"),
                     required(node, "mimeType"), required(node, "version"), optional(node, "md5Checksum"),
                     modified == null ? null : Instant.parse(modified), node.path("trashed").asBoolean(false),
                     parents, optional(node, "driveId"), optional(node.path("shortcutDetails"), "targetId"));
-            return file;
         } catch (DateTimeException exception) { throw failure(MALFORMED); }
     }
 

@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 public interface SharePointProvider {
@@ -93,7 +94,7 @@ public interface SharePointProvider {
             if (privateKey != null) Arrays.fill(privateKey, (byte) 0);
         }
 
-        @Override public String toString() { return "SharePointCredential[redacted]"; }
+        @Override public @NonNull String toString() { return "SharePointCredential[redacted]"; }
     }
 
     record RootSite(String siteId, String webUrl, String hostname) {
@@ -156,7 +157,7 @@ public interface SharePointProvider {
             return (eTag == null ? "" : eTag) + ":" + (lastModifiedAt == null ? "" : lastModifiedAt);
         }
 
-        @Override public String toString() { return "DriveItem[" + id + (deleted ? ",deleted]" : "]"); }
+        @Override public @NonNull String toString() { return "DriveItem[" + id + (deleted ? ",deleted]" : "]"); }
     }
 
     record DeltaPage(List<DriveItem> items, @Nullable String nextLink, @Nullable String deltaLink) {
@@ -195,7 +196,7 @@ public interface SharePointProvider {
 
         @Override public byte[] snapshot() { return snapshot.clone(); }
 
-        @Override public String toString() { return "PageContent[" + metadata.pageId() + "]"; }
+        @Override public @NonNull String toString() { return "PageContent[" + metadata.pageId() + "]"; }
     }
 
     record Content(String filename, String mediaType, byte[] bytes) {
@@ -205,6 +206,6 @@ public interface SharePointProvider {
             Objects.requireNonNull(bytes, "bytes");
         }
 
-        @Override public String toString() { return "Content[" + bytes.length + " bytes]"; }
+        @Override public @NonNull String toString() { return "Content[" + bytes.length + " bytes]"; }
     }
 }

@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -277,7 +278,7 @@ public class JdbcSharePointCredentialRepository {
     private record Envelope(byte @Nullable [] secretCiphertext, byte @Nullable [] secretNonce, @Nullable String secretKeyVersion,
             byte @Nullable [] keyCiphertext, byte @Nullable [] keyNonce, @Nullable String keyKeyVersion,
             byte @Nullable [] certificate, @Nullable String thumbprint, @Nullable Instant notAfter) {
-        @Override public String toString() { return "SharePointEnvelope[redacted]"; }
+        @Override public @NonNull String toString() { return "SharePointEnvelope[redacted]"; }
     }
 
     public record Stored(UUID credentialId, String name, UUID directoryId, UUID clientId,
@@ -287,6 +288,6 @@ public class JdbcSharePointCredentialRepository {
             byte @Nullable [] keyCiphertext, byte @Nullable [] keyNonce, @Nullable String keyKeyVersion,
             byte @Nullable [] certificate, @Nullable String thumbprint, @Nullable Instant notAfter,
             @Nullable String tenantHost, @Nullable UUID ownerActorId, boolean usable) {
-        @Override public String toString() { return "StoredSharePointCredential[redacted]"; }
+        @Override public @NonNull String toString() { return "StoredSharePointCredential[redacted]"; }
     }
 }

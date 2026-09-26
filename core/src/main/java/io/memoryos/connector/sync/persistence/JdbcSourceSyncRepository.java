@@ -340,7 +340,7 @@ public class JdbcSourceSyncRepository {
                 .param("code", WorkLeases.safeErrorCode(failure.code()))
                 .param("message", WorkLeases.safeErrorMessage(failure.message()))
                 .param("detail", WorkLeases.safeErrorDetail(failure.detail())).update();
-        return Boolean.TRUE.equals(jdbc.sql("""
+        return jdbc.sql("""
                 WITH changed AS (
                     INSERT INTO source_run_files (tenant_id, run_id, file_id, file_name, outcome)
                     VALUES (:tenant, :id, :file, :name, :outcome)
@@ -358,7 +358,7 @@ public class JdbcSourceSyncRepository {
                 .param("file", failure.fileId())
                 .param("name", failure.fileName() == null ? null : truncate(failure.fileName(), 255))
                 .param("outcome", failure.skipped() ? "SKIPPED" : "FAILED").param("skipped", failure.skipped())
-                .param("floor", ITEM_FAILURE_FLOOR).query(Boolean.class).optional().orElse(false));
+                .param("floor", ITEM_FAILURE_FLOOR).query(Boolean.class).optional().orElse(false);
     }
 
     /**

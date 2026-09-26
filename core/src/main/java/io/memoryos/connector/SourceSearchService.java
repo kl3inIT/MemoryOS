@@ -72,7 +72,6 @@ public class SourceSearchService {
         return Map.copyOf(metadata);
     }
 
-    /** Original PDF object for presentation; callers still check Document eligibility and generation. */
     /** Original source objects of any media type for readable, eligible Documents; callers still check generation. */
     public Map<UUID, StoredObjectReference> originals(TenantId tenant, ActorId actor,
             Set<UUID> documents) {

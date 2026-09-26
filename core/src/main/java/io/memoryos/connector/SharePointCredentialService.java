@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 public interface SharePointCredentialService {
@@ -48,7 +49,7 @@ public interface SharePointCredentialService {
             if (pkcs12Password != null) Arrays.fill(pkcs12Password, '\0');
         }
 
-        @Override public String toString() { return "SharePointDraft[redacted]"; }
+        @Override public @NonNull String toString() { return "SharePointDraft[redacted]"; }
     }
 
     record CredentialView(CredentialId id, String name, UUID directoryId, UUID clientId, String cloud,

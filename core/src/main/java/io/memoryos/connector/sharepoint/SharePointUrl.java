@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -135,5 +136,5 @@ public record SharePointUrl(Kind kind, String host, String sitePath, @Nullable S
         return "https://" + host + path();
     }
 
-    @Override public String toString() { return canonical(); }
+    @Override public @NonNull String toString() { return canonical(); }
 }

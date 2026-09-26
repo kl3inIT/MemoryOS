@@ -26,7 +26,7 @@ public final class GoogleSheetsSourceContentExtractor {
         JsonNode snapshot = NativeSnapshot.read(mapper, content, size, input, "GOOGLE_SHEETS");
         JsonNode spreadsheet = snapshot.path("content");
         JsonNode sheets = spreadsheet.path("sheets");
-        if (!input.providerFileId().equals(spreadsheet.path("spreadsheetId").asString()) || !sheets.isArray()) malformed();
+        if (!spreadsheet.path("spreadsheetId").asString().equals(input.providerFileId()) || !sheets.isArray()) malformed();
         if (sheets.isEmpty() || sheets.size() > StructuredContent.MAX_TABS) limit();
         StructuredContent output = new StructuredContent(mapper, input);
         long represented = 0;

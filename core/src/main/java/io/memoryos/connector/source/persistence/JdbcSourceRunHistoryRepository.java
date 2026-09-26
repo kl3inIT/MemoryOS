@@ -71,12 +71,6 @@ public class JdbcSourceRunHistoryRepository {
 
     public JdbcSourceRunHistoryRepository(JdbcClient jdbc) { this.jdbc = jdbc; }
 
-    public void requireSource(TenantId tenant, SourceId source) {
-        if (!jdbc.sql("SELECT EXISTS (SELECT 1 FROM connector_credential_pairs WHERE tenant_id = :tenant AND id = :source)")
-                .param("tenant", tenant.value()).param("source", source.value()).query(Boolean.class).single())
-            throw SourceException.notFound();
-    }
-
     public SourceRunHistoryService.Page list(TenantId tenant, SourceId source, SourceRunHistoryService.Query query) {
         List<String> statuses = query.statuses().stream().map(SourceRunStatus::name).sorted().toList();
         String scope = scope(tenant, source, "RUN", statuses, query.trigger(), query.from(), query.to());

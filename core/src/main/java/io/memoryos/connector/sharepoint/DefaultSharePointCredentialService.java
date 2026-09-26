@@ -132,7 +132,7 @@ public class DefaultSharePointCredentialService implements SharePointCredentialS
         var access = authorization.require(actorId, IamCapability.SOURCES_MANAGE, true);
         boolean global = access.authority() == Authority.GLOBAL;
         return credentials.list(access.tenantId(), global ? null : actorId).stream().map(view -> {
-            var actions = new ArrayList<String>(List.of("rename", "replace_authentication", "test"));
+            var actions = new ArrayList<>(List.of("rename", "replace_authentication", "test"));
             if (view.sourceCount() == 0) actions.add("delete");
             return new CredentialView(view.id(), view.name(), view.directoryId(), view.clientId(), view.cloud(),
                     view.authMethod(), view.status(), view.certificateThumbprint(), view.certificateNotAfter(),

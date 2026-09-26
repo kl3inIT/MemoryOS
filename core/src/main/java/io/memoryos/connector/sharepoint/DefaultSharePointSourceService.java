@@ -8,7 +8,6 @@ import io.memoryos.connector.SharePointSourceService;
 import io.memoryos.connector.SourceAccess;
 import io.memoryos.connector.SourceException;
 import io.memoryos.connector.SourceId;
-import io.memoryos.connector.SourceOperationId;
 import io.memoryos.connector.SourceOperationView;
 import io.memoryos.connector.SourceRunTrigger;
 import io.memoryos.connector.SourceType;
@@ -315,10 +314,6 @@ public class DefaultSharePointSourceService implements SharePointSourceService {
         for (String pattern : scope.excludedPaths()) builder.append('\u0000').append(pattern);
         for (String value : extra) builder.append('\u0003').append(value);
         return Sha256.hex(builder.toString());
-    }
-
-    SourceOperationView operation(TenantId tenant, SourceOperationId operation) {
-        return selections.find(tenant, operation).orElseThrow(SourceException::notFound);
     }
 
     /** Records a Source change; Drive and SharePoint Sources are created and re-scoped by a request the Worker settles. */

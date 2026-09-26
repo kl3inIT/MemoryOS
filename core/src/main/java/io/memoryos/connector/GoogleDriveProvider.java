@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 public interface GoogleDriveProvider {
@@ -20,7 +21,7 @@ public interface GoogleDriveProvider {
         DirectoryPage groups(String domain, @Nullable String pageToken);
         /** One page of a group's active users, nested groups expanded ({@code includeDerivedMembership}). */
         MemberPage groupMembers(String groupEmail, @Nullable String pageToken);
-        @Nullable byte[] rotatedRefreshToken();
+        byte @Nullable [] rotatedRefreshToken();
         @Override void close();
     }
 
@@ -45,7 +46,7 @@ public interface GoogleDriveProvider {
         @Override public byte[] clientSecret() { return clientSecret.clone(); }
         @Override public byte[] refreshToken() { return refreshToken.clone(); }
         @Override public void close() { Arrays.fill(clientSecret, (byte) 0); Arrays.fill(refreshToken, (byte) 0); }
-        @Override public String toString() { return "OAuthCredential[redacted]"; }
+        @Override public @NonNull String toString() { return "OAuthCredential[redacted]"; }
     }
 
     /** A domain-wide-delegated service account acting as {@code subject}, a user of its Workspace. */
@@ -55,7 +56,7 @@ public interface GoogleDriveProvider {
             if (Objects.requireNonNull(subject, "subject").isBlank()) throw new IllegalArgumentException("subject must not be blank");
         }
         @Override public void close() { key.close(); }
-        @Override public String toString() { return "ServiceAccountCredential[redacted]"; }
+        @Override public @NonNull String toString() { return "ServiceAccountCredential[redacted]"; }
     }
 
     record DirectoryUser(String primaryEmail, boolean admin, boolean suspended) {}
@@ -96,12 +97,12 @@ public interface GoogleDriveProvider {
             }
             permissionDetails = List.copyOf(permissionDetails);
         }
-        @Override public String toString() { return "Permission[redacted]"; }
+        @Override public @NonNull String toString() { return "Permission[redacted]"; }
     }
 
     record PermissionDetail(@Nullable String permissionType, @Nullable String role,
                             @Nullable String inheritedFrom, @Nullable Boolean inherited) {
-        @Override public String toString() { return "PermissionDetail[redacted]"; }
+        @Override public @NonNull String toString() { return "PermissionDetail[redacted]"; }
     }
 
     record AcquiredContent(String filename, String mediaType, byte[] bytes,
@@ -110,6 +111,6 @@ public interface GoogleDriveProvider {
             Objects.requireNonNull(bytes, "bytes");
             Objects.requireNonNull(descriptor, "descriptor");
         }
-        @Override public String toString() { return "AcquiredContent[" + bytes.length + " bytes]"; }
+        @Override public @NonNull String toString() { return "AcquiredContent[" + bytes.length + " bytes]"; }
     }
 }

@@ -4,6 +4,7 @@ import io.memoryos.connector.SharePointException;
 import io.memoryos.connector.SharePointProvider;
 import java.util.Arrays;
 import java.util.Objects;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -52,5 +53,5 @@ public record SharePointAuthentication(SharePointProvider.AuthMethod authMethod,
         if (certificate != null) certificate.close();
     }
 
-    @Override public String toString() { return "SharePointAuthentication[" + authMethod + "]"; }
+    @Override public @NonNull String toString() { return "SharePointAuthentication[" + authMethod + "]"; }
 }

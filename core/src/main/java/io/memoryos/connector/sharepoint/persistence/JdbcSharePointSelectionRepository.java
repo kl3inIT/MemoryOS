@@ -43,7 +43,7 @@ public class JdbcSharePointSelectionRepository {
                 SourceOperationType.VALIDATE_SHAREPOINT_SELECTION);
     }
 
-    public Optional<SourceOperationView> find(TenantId tenant, SourceOperationId operation) {
+    private Optional<SourceOperationView> find(TenantId tenant, SourceOperationId operation) {
         return operations.find(tenant, operation);
     }
 
@@ -55,10 +55,6 @@ public class JdbcSharePointSelectionRepository {
 
     public @Nullable SourceOperationView pending(TenantId tenant, SourceId source) {
         return operations.pending(tenant, source);
-    }
-
-    public void cancelForSource(TenantId tenant, SourceId source) {
-        operations.cancelForSource(tenant, source);
     }
 
     /** Accepts a scope request, superseding whatever was still pending for that Source. */
@@ -181,10 +177,6 @@ public class JdbcSharePointSelectionRepository {
 
     public void finish(Work work, String status, @Nullable String code) {
         operations.finish(work, status, code);
-    }
-
-    public void continueLater(Work work, long elapsed, @Nullable String error) {
-        operations.continueLater(work, elapsed, error);
     }
 
     /** What the accepted request asked for; {@code name} and {@code access} are set only when creating a Source. */

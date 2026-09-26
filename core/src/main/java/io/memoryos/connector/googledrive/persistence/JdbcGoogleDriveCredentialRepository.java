@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.TreeSet;
 import java.util.UUID;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -474,6 +475,6 @@ public class JdbcGoogleDriveCredentialRepository {
             if (serviceAccount()) return usable && keyCiphertext != null && keyNonce != null && keyCipherVersion != null;
             return usable && ciphertext != null && nonce != null && keyVersion != null && oauthClientConfigured();
         }
-        @Override public String toString() { return "StoredGoogleCredential[redacted]"; }
+        @Override public @NonNull String toString() { return "StoredGoogleCredential[redacted]"; }
     }
 }
