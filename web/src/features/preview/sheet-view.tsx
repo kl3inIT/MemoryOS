@@ -27,35 +27,33 @@ export function SheetView({
   if (!sheets.length)
     return <p className="p-4 text-sm text-content-secondary">{ui("Không đọc được bảng tính.")}</p>;
   return (
-    <Tabs
-      value={tab}
-      onValueChange={(chosen) => setPicked({ tab: chosen, citation: active })}
-      className="p-4"
-    >
-      <TabsList className="w-full justify-start overflow-x-auto">
+    <div className="p-4">
+      <Tabs value={tab} onValueChange={(chosen) => setPicked({ tab: chosen, citation: active })}>
+        <TabsList className="w-full justify-start overflow-x-auto">
+          {sheets.map((sheet, index) => (
+            <TabsTrigger
+              key={index}
+              value={String(index)}
+              className="max-w-64 flex-none"
+              title={sheet.name}
+            >
+              <span className="truncate">{sheet.name}</span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
         {sheets.map((sheet, index) => (
-          <TabsTrigger
-            key={index}
-            value={String(index)}
-            className="max-w-64 flex-none"
-            title={sheet.name}
-          >
-            <span className="truncate">{sheet.name}</span>
-          </TabsTrigger>
+          <TabsContent key={index} value={String(index)}>
+            <CsvView
+              csv={sheet.csv}
+              truncated={sheet.truncated}
+              cited={placements
+                .filter((placement) => placement?.sheetIndex === index)
+                .map((placement) => placement!.row)}
+              active={opened?.sheetIndex === index ? opened.row : undefined}
+            />
+          </TabsContent>
         ))}
-      </TabsList>
-      {sheets.map((sheet, index) => (
-        <TabsContent key={index} value={String(index)}>
-          <CsvView
-            csv={sheet.csv}
-            truncated={sheet.truncated}
-            cited={placements
-              .filter((placement) => placement?.sheetIndex === index)
-              .map((placement) => placement!.row)}
-            active={opened?.sheetIndex === index ? opened.row : undefined}
-          />
-        </TabsContent>
-      ))}
-    </Tabs>
+      </Tabs>
+    </div>
   );
 }

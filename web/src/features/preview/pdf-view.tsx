@@ -185,7 +185,7 @@ export function PdfView({
           <PdfThumbnails total={pageCount} current={currentPage} onGo={goToPage} />
         ) : null}
         <PreviewCanvas ref={container} className="pb-16">
-          <div className="w-fit min-w-full space-y-5">
+          <div className="flex w-fit min-w-full flex-col gap-5">
             {Array.from({ length: pageCount ?? 0 }, (_, index) => {
               const pageNumber = index + 1;
               const view = pageViews[pageNumber];
@@ -253,7 +253,7 @@ export function PdfView({
                                   page: pageNumber,
                                 })}
                                 data-slot="pdf-citation-box"
-                                className="absolute scroll-m-12 rounded-[3px] bg-pdf-highlight ring-1 ring-pdf-highlight-border/80"
+                                className="absolute scroll-m-12 rounded-sm bg-pdf-highlight ring-1 ring-pdf-highlight-border/80"
                                 style={rect}
                               />
                             );

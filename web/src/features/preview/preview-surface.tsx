@@ -22,7 +22,7 @@ export function PreviewCanvas({
       ref={ref}
       data-slot="preview-canvas"
       className={cn(
-        "min-h-0 flex-1 overflow-auto overscroll-contain bg-surface-sunken p-4 [scrollbar-gutter:stable] sm:px-5",
+        "min-h-0 flex-1 overflow-auto overscroll-contain bg-surface-sunken p-4 scrollbar-gutter-stable sm:px-5",
         className,
       )}
     >
@@ -47,8 +47,8 @@ export function PreviewSkeleton({ pages = 2, width }: { pages?: number; width?: 
         <Skeleton
           key={index}
           // US Letter portrait, the proportions an unmeasured page borrows everywhere else in the reader.
-          className="aspect-[612/792] w-full rounded-sm"
-          style={width ? { width, flex: "none" } : undefined}
+          className="w-full"
+          style={{ aspectRatio: "612 / 792", ...(width ? { width, flex: "none" } : {}) }}
         />
       ))}
     </div>

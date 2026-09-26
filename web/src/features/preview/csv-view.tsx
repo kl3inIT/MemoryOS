@@ -127,7 +127,7 @@ function Spacer({ height, columns }: { height: number; columns: number }) {
   if (height <= 0) return null;
   return (
     <tr aria-hidden="true">
-      <td colSpan={columns} style={{ height, padding: 0, border: 0 }} />
+      <td aria-hidden="true" colSpan={columns} style={{ height, padding: 0, border: 0 }} />
     </tr>
   );
 }

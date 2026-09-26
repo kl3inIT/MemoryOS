@@ -1,4 +1,4 @@
-import { Loader2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { useEffect, useRef, useState } from "react";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { sanitizeDocxHtml } from "./preview-kind";
@@ -83,7 +83,9 @@ export function DocxView({
     <>
       {state === "rendering" && (
         <div className="flex justify-center p-6" role="status">
-          <Loader2 className="size-8 animate-spin text-content-muted" aria-hidden />
+          <span className="text-content-muted">
+            <Spinner className="size-8" />
+          </span>
         </div>
       )}
       {state === "failed" && (
