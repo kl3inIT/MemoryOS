@@ -5,7 +5,8 @@
  * belongs to one module, stays in that module (ADR 0015, widened by the phase 3 owner decision of 2026-09-25).
  */
 @ApplicationModule(displayName = "Shared kernel", type = ApplicationModule.Type.CLOSED, allowedDependencies = {})
-@org.jspecify.annotations.NullMarked
+@NullMarked
 package io.memoryos.shared;
 
+import org.jspecify.annotations.NullMarked;
 import org.springframework.modulith.ApplicationModule;

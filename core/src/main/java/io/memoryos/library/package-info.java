@@ -5,6 +5,8 @@
  */
 @ApplicationModule(displayName = "File library", type = ApplicationModule.Type.CLOSED,
         allowedDependencies = {"shared", "iam", "objectstorage", "document", "retrieval", "connector"})
+@NullMarked
 package io.memoryos.library;
 
+import org.jspecify.annotations.NullMarked;
 import org.springframework.modulith.ApplicationModule;
