@@ -19,7 +19,7 @@ Tokens live in `web/src/styles/tokens.css` (values, light in `:root`, dark in `.
 | Actions | `action-default-*`, `action-danger-*`, `action-selection*` | Buttons by prominence and state; `action-selection` is the one accent (switch on, selection, links) |
 | Status | `status-{success,warning,danger,info}-{content,surface,border,strong,faint,emphasis,emphasis-border}` | State only: content is text (≥ 4.5:1), surface/faint the tinted background, border the tinted outline, strong icons and dots, emphasis the fill of a white-lettered pill (`content-on-emphasis`) |
 | Charts | `chart-1` … `chart-8`, `chart-neutral` | Data series (below) |
-| Highlights | `highlight-match`, `-active`, `-selection` | Search matches and the current match |
+| Highlights | `highlight-match`, `-active`; `evidence-highlight-surface`/`-border`, `pdf-highlight[-border]` | Search matches and the current match; a cited passage in text and PDF previews |
 | Fixed roles | `surface-document`/`content-document` (white paper for PDF and DOCX previews), `content-on-media`, `surface-on-media[-hover]`, `border-on-media`, `scrim-media-hover` (controls laid over images) | Colours that intentionally do not follow the theme |
 
 MemoryOS keeps its status **content** colours one step darker than Onyx's text steps so status text reaches 4.5:1 on its tinted surface; the other status steps are Onyx's.
