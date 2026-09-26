@@ -1,7 +1,13 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { describe, expect, it, vi } from "vitest";
+import {
+  handleCreateGoogleDriveServiceAccount,
+  handleReplaceGoogleDriveServiceAccount,
+} from "@/lib/hey-api/msw.gen";
 import type { GoogleDriveCredentialResponse } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { GoogleDriveServiceAccountForm } from "./google-drive-service-account-form";
 
 const key = {
@@ -27,22 +33,20 @@ const stored: GoogleDriveCredentialResponse = {
   actions: ["replace_key", "revoke", "delete"],
 };
 
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-});
-
 function jsonFile(content: unknown) {
   return new File([JSON.stringify(content)], "key.json", { type: "application/json" });
 }
 
 function setup(replacing: GoogleDriveCredentialResponse | null = null) {
   const requests: Request[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (request: Request) => {
+  server.use(
+    handleCreateGoogleDriveServiceAccount(({ request }) => {
       requests.push(request.clone());
-      return Response.json(stored, { status: replacing ? 200 : 201 });
+      return HttpResponse.json(stored, { status: 201 });
+    }),
+    handleReplaceGoogleDriveServiceAccount(({ request }) => {
+      requests.push(request.clone());
+      return HttpResponse.json(stored);
     }),
   );
   const onSaved = vi.fn();

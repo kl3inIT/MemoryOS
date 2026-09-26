@@ -69,7 +69,7 @@ export function GoogleDriveLinks({
       {onScopeModeChange ? (
         <FieldSet disabled={disabled}>
           {/* A field label like the rest of the form, not a second heading (Cohere's connector form). */}
-          <FieldLegend variant="label" className="flex items-center gap-1.5">
+          <FieldLegend variant="label">
             {ui("Scope")}
             <HelpPopover label={ui("Scope")}>
               <p>
