@@ -777,8 +777,8 @@ describe("models by task", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Saved model/ }));
     fireEvent.click(screen.getByRole("button", { name: "Save task model" }));
     await waitFor(() => expect(writes).toHaveLength(1));
-    expect(writes[0].searchParams.get("modelConfigurationId")).toBe(model.id);
-    expect(writes[0].searchParams.get("revision")).toBe("1");
+    expect(writes[0]?.searchParams.get("modelConfigurationId")).toBe(model.id);
+    expect(writes[0]?.searchParams.get("revision")).toBe("1");
     expect(await screen.findByText("Task model saved.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Conversation naming model" })).toHaveTextContent(
       "Saved model",

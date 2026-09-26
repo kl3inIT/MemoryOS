@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, assert, beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n/index";
 import {
   handleListChatImageConnections,
@@ -187,7 +187,9 @@ it("saves a catalog model and keeps the stored key when none is typed", async ()
       }),
     }),
   );
-  expect(saveChatImageConnection.mock.calls[0][0].body.credentialValue).toBeUndefined();
+  const [request] = saveChatImageConnection.mock.calls[0] ?? [];
+  assert.isDefined(request);
+  expect(request.body.credentialValue).toBeUndefined();
 });
 
 it("replaces the key and accepts a manually entered model", async () => {
@@ -223,7 +225,8 @@ it("hides deprecated models unless the connection already uses one", async () =>
 
 it("requires an account id for providers that declare an endpoint", async () => {
   show(catalog, []);
-  const card = (await screen.findAllByRole("button", { name: "Kết nối" }))[1];
+  const [, card] = await screen.findAllByRole("button", { name: "Kết nối" });
+  assert.isDefined(card);
   await userEvent.click(card);
   expect(await screen.findByLabelText("Account ID")).toBeInTheDocument();
   expect(
@@ -274,7 +277,9 @@ it("tests a configured connection and reports success", async () => {
 
 it("tests unsaved values before the first save", async () => {
   show(catalog, []);
-  await userEvent.click((await screen.findAllByRole("button", { name: "Kết nối" }))[0]);
+  const [connect] = await screen.findAllByRole("button", { name: "Kết nối" });
+  assert.isDefined(connect);
+  await userEvent.click(connect);
   expect(await screen.findByRole("button", { name: "Kiểm tra kết nối" })).toBeDisabled();
   await userEvent.type(screen.getByLabelText("Khóa API"), "sk-new");
   await userEvent.click(screen.getByRole("button", { name: "Kiểm tra kết nối" }));
@@ -296,7 +301,9 @@ it("disconnects the active provider after choosing a replacement", async () => {
     model: "@cf/black-forest-labs/flux-1-schnell",
   });
   show(catalog, [active, other]);
-  await userEvent.click((await screen.findAllByRole("button", { name: "Cấu hình" }))[0]);
+  const [configure] = await screen.findAllByRole("button", { name: "Cấu hình" });
+  assert.isDefined(configure);
+  await userEvent.click(configure);
   await userEvent.click(await screen.findByRole("button", { name: "Ngắt kết nối" }));
   expect(
     await screen.findByText(

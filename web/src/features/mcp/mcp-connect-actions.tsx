@@ -60,14 +60,15 @@ export function ConnectAction({
   const failure = authorize.isError ? (
     <FieldError>{problem(presentProblem(authorize.error, "mutation").message)}</FieldError>
   ) : null;
-  if (clients.length === 1 || !choosing) {
+  const onlyClient = clients.length === 1 ? clients[0] : undefined;
+  if (onlyClient || !choosing) {
     return (
       <div className="flex flex-col items-end gap-1">
         <Button
           size="sm"
           prominence="secondary"
           pending={authorize.isPending}
-          onClick={() => (clients.length === 1 ? start(clients[0].id) : setChoosing(true))}
+          onClick={() => (onlyClient ? start(onlyClient.id) : setChoosing(true))}
         >
           {ui("Kết nối")}
         </Button>

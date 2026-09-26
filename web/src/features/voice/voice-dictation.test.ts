@@ -31,7 +31,7 @@ describe("voice dictation", () => {
       onFailure: vi.fn(),
       capture: mic.capture,
       connect: async () => ({
-        send: (pcm) => sent.push(new Uint8Array(pcm)[0]),
+        send: (pcm) => sent.push(...new Uint8Array(pcm).subarray(0, 1)),
         finish,
         close,
       }),
@@ -80,6 +80,9 @@ describe("voice dictation", () => {
     expect(socketOptions?.language).toBe("en");
     socketOptions?.onFailure(new VoiceStreamError("VOICE_SESSION_TOO_LONG"));
     expect(mic.stop).toHaveBeenCalled();
-    expect(onFailure.mock.calls[0][0].code).toBe("VOICE_SESSION_TOO_LONG");
+    expect(onFailure).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ code: "VOICE_SESSION_TOO_LONG" }),
+    );
   });
 });

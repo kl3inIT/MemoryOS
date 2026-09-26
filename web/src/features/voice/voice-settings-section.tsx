@@ -110,8 +110,8 @@ export function VoiceSettingsSection() {
                   step={0.1}
                   value={[speed]}
                   disabled={disabled}
-                  onValueChange={([value]) => setSpeedDraft(tenths(value))}
-                  onValueCommit={([value]) => {
+                  onValueChange={([value = speed]) => setSpeedDraft(tenths(value))}
+                  onValueCommit={([value = speed]) => {
                     if (tenths(value) === saved?.playbackSpeed) setSpeedDraft(undefined);
                     else save({ playbackSpeed: tenths(value) });
                   }}

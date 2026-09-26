@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { renderHook, act } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 type Snapshot = { phase: string; error?: string };
 
@@ -50,7 +50,9 @@ describe("meeting session", () => {
     const failure = renderHook(() => useRecordingFailure());
 
     await act(() => startRecording("meeting-1", [], cache));
-    act(() => recorders[0].update({ phase: "failed", error: "MEETING_BUSY" }));
+    const [recorder] = recorders;
+    assert.isDefined(recorder);
+    act(() => recorder.update({ phase: "failed", error: "MEETING_BUSY" }));
 
     expect(active.result.current).toBeUndefined();
     expect(failure.result.current).toEqual({ meetingId: "meeting-1", code: "MEETING_BUSY" });

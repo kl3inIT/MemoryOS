@@ -16,7 +16,7 @@ type SourceMutation =
   | "metadata"
   | "associations";
 
-const statusMessages: Record<string, string> = {
+const statusMessages = {
   OBJECT_UPLOAD_INTEGRITY_MISMATCH:
     "Object storage did not receive the declared file. Start the upload again.",
   OBJECT_UPLOAD_STORAGE_UNAVAILABLE: "Object storage is temporarily unavailable. Retry the upload.",
@@ -187,10 +187,13 @@ const statusMessages: Record<string, string> = {
     "This member cannot manage the Source because they do not manage any group. Assign them as a group manager first.",
   SOURCE_PAUSED: "Canceled by pause. Resume the Source to continue synchronization and indexing.",
   SOURCE_DELETING: "Canceled because the Source is being deleted.",
-};
+} satisfies Record<string, string>;
+
+/** The table read by a code the server sent, which may name no entry. */
+const statusMessageByCode: Readonly<Record<string, string | undefined>> = statusMessages;
 
 function sourceStatusMessage(code: string) {
-  const known = statusMessages[code];
+  const known = statusMessageByCode[code];
   if (known) return known;
   if (isSafeCode(code))
     return appText("Source processing failed. Error reference: {{code}}.", { code });
@@ -211,7 +214,8 @@ function sourceMutationError(error: unknown, mutation: SourceMutation) {
       (isGoogleDriveRevisionConflict(error) || error.status === 428)
     )
       return "The saved selection or discovery changed. Refresh status and try discovering again. Your selection draft is unchanged.";
-    if (code && statusMessages[code]) return statusMessages[code];
+    const known = code ? statusMessageByCode[code] : undefined;
+    if (known) return known;
     if (mutation === "google-drive" || mutation === "google-drive-discovery") {
       if (error.status === 412 || error.status === 428)
         return statusMessages.SOURCE_GOOGLE_REVISION_CONFLICT;

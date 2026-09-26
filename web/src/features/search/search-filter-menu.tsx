@@ -41,6 +41,7 @@ export function SearchFilterMenu({
   const ui = useAppTranslation();
 
   const selected = options.find((option) => option.value === value) ?? options[0];
+  if (!selected) return null;
 
   return (
     <DropdownMenu>

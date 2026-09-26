@@ -97,9 +97,9 @@ export function presentProblem(
       )
         continue;
       const key =
-        typeof entry.code === "string" && Object.hasOwn(fieldCodes, entry.code)
+        (typeof entry.code === "string" && Object.hasOwn(fieldCodes, entry.code)
           ? fieldCodes[entry.code]
-          : "invalid";
+          : undefined) ?? "invalid";
       const params: Record<string, number> = {};
       for (const name of ["min", "max"] as const) {
         const value = entry.params?.[name];
@@ -118,7 +118,7 @@ export function presentProblem(
   return {
     kind,
     code,
-    message: code && Object.hasOwn(messages, code) ? messages[code] : { key: kind },
+    message: (code && Object.hasOwn(messages, code) ? messages[code] : undefined) ?? { key: kind },
     fields,
     placement:
       kind === "unauthenticated"

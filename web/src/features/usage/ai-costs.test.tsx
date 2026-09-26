@@ -48,11 +48,11 @@ describe("AI cost periods and daily series", () => {
     const { rows, series } = chartRows(models, "MODEL", range);
     expect(rows).toHaveLength(3);
     expect(series).toEqual(["a", "b", "c", "d", "e", "OTHER"]);
-    expect(rows[1].OTHER).toBe(1);
-    expect(rows[0].a).toBe(0);
+    expect(rows[1]?.OTHER).toBe(1);
+    expect(rows[0]?.a).toBe(0);
     const boundary = chartRows([day("2026-09-19", "EXTERNAL", 2)], "BOUNDARY", range);
     expect(boundary.series).toEqual(["EXTERNAL", "INTERNAL", "NONE"]);
-    expect(boundary.rows[2].EXTERNAL).toBe(2);
+    expect(boundary.rows[2]?.EXTERNAL).toBe(2);
   });
 });
 

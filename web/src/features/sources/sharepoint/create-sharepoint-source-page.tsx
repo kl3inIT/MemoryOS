@@ -55,10 +55,9 @@ function SharePointSourceSetup() {
   const scoped = authority === "scoped";
   const canManage = authority !== "none";
   const current: SharePointSetupStep = step ?? "credential";
-  const currentIndex = Math.max(
-    0,
-    sharePointSetupSteps.findIndex((entry) => entry.id === current),
-  );
+  const currentStep =
+    sharePointSetupSteps.find((entry) => entry.id === current) ?? sharePointSetupSteps[0];
+  const currentIndex = sharePointSetupSteps.indexOf(currentStep);
   const credentials = useQuery({
     ...listSharePointCredentialsOptions(),
     enabled: canManage,
@@ -169,7 +168,7 @@ function SharePointSourceSetup() {
           {ui("Step {{number}} of {{count}} · {{step}}", {
             number: currentIndex + 1,
             count: sharePointSetupSteps.length,
-            step: ui(sharePointSetupSteps[currentIndex].label),
+            step: ui(currentStep.label),
           })}
         </p>
         {current === "credential" ? (

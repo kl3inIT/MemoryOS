@@ -61,11 +61,11 @@ export function parseSharePointAddress(value: string): SharePointAddressResult {
     segments.push(decoded);
   }
   // A sharing link keeps the real path after its ":f:/r" style prefix.
-  if (segments.length > 0 && SHARE_LINK.test(segments[0])) segments = segments.slice(2);
-  if (segments.length < 2 || !SITE_PREFIXES.includes(segments[0].toLowerCase()))
+  if (segments[0] !== undefined && SHARE_LINK.test(segments[0])) segments = segments.slice(2);
+  const [prefix, site, ...rest] = segments;
+  if (prefix === undefined || site === undefined || !SITE_PREFIXES.includes(prefix.toLowerCase()))
     return { error: "The address must contain /sites/, /teams/ or /personal/." };
-  const sitePath = `/${segments[0].toLowerCase()}/${segments[1]}`;
-  const rest = segments.slice(2);
+  const sitePath = `/${prefix.toLowerCase()}/${site}`;
   if (rest.length === 0)
     return { address: { kind: "SITE", host, sitePath, folderSegments: [], path: sitePath } };
   // "Forms" holds a library's views, not its content, so a view address means the library itself.

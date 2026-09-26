@@ -48,11 +48,11 @@ export function ClampedList({
     show(entries.length);
     if (more) more.style.display = "none";
     const rows = [...new Set(entries.map((entry) => entry.offsetTop))].sort((a, b) => a - b);
-    if (rows.length <= maxRows) {
+    const lastRowTop = rows[maxRows - 1];
+    if (rows.length <= maxRows || lastRowTop === undefined) {
       setVisible(entries.length);
       return;
     }
-    const lastRowTop = rows[maxRows - 1];
     let shown = entries.filter((entry) => entry.offsetTop <= lastRowTop).length;
     if (more) {
       // The "+N" trigger takes room on the last row, so give way until it fits beside the entries.

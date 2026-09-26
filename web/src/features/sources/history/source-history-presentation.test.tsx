@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse } from "msw";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, assert, describe, expect, it } from "vitest";
 import type { SourceIndexAttempt, SourceRun, SourceRunError } from "@/lib/hey-api/types.gen";
 import { listSourceRunsQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import {
@@ -315,6 +315,8 @@ describe("Source execution and current-file history", () => {
     fireEvent.click(screen.getByRole("button", { name: /View details/ }));
     const errors = within(await screen.findByRole("list", { name: "Run errors" }));
     const [standing, fixed] = errors.getAllByRole("listitem");
+    assert.isDefined(standing);
+    assert.isDefined(fixed);
     expect(within(standing).queryByText("Resolved")).not.toBeInTheDocument();
     expect(within(fixed).getByText("Resolved")).toBeInTheDocument();
     expect(within(fixed).getByText("fixed.pdf")).toHaveClass("text-content-muted");
