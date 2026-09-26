@@ -1,30 +1,31 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
+import {
+  createColumnHelper,
+  rowPaginationFeature,
+  tableFeatures,
+  useTable,
+  type PaginationState,
+} from "@tanstack/react-table";
 import { CircleAlert, Download, MessagesSquare, Search, ThumbsDown, ThumbsUp } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { createContext, use, useMemo, useState } from "react";
+import { DataTable, type DataTableColumnMeta } from "@/components/data-table/data-table";
 import { EmptyState } from "@/components/composites/empty-state";
 import { PersonAvatar } from "@/components/composites/person-avatar";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { TablePagination } from "@/components/ui/table-pagination";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { appText } from "@/i18n/app-text";
 import { formatUiDate } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -47,9 +48,131 @@ const feedbacks = Object.keys(feedbackLabels) as ChatHistoryEntry["feedback"][];
 
 type Filters = {
   period: HistoryPeriod;
-  text: string;
   feedback: ChatHistoryEntry["feedback"] | typeof ALL;
 };
+
+/** Opens a conversation's transcript; the question cell reads it. */
+const OpenTranscript = createContext<(entry: ChatHistoryEntry) => void>(() => {});
+
+const features = tableFeatures({ rowPaginationFeature, columnMeta: {} as DataTableColumnMeta });
+const column = createColumnHelper<typeof features, ChatHistoryEntry>();
+
+/*
+ * Columns live at module scope: a cell renderer is a component, so a column list rebuilt during render
+ * would remount every cell.
+ */
+const columns = column.columns([
+  column.accessor("updatedAt", {
+    header: function TimeHeader() {
+      const ui = useAppTranslation();
+      return ui("Time");
+    },
+    meta: { width: "w-38" },
+    cell: ({ row }) => (
+      <>
+        <span className="block text-content-primary">
+          {formatUiDate(row.original.updatedAt, {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          })}
+        </span>
+        <span className="block font-secondary-body text-content-muted">
+          {formatUiDate(row.original.updatedAt, { hour: "2-digit", minute: "2-digit" })}
+        </span>
+      </>
+    ),
+  }),
+  column.display({
+    id: "asker",
+    header: function AskerHeader() {
+      const ui = useAppTranslation();
+      return ui("Asked by");
+    },
+    meta: { width: "w-1/4" },
+    cell: function AskerCell({ row }) {
+      const ui = useAppTranslation();
+      const entry = row.original;
+      const person = ui(askerName(entry));
+      return (
+        <span className="flex min-w-0 items-center gap-2.5">
+          <PersonAvatar name={person} seed={entry.actorId ?? entry.id} />
+          <span className="min-w-0">
+            <span className="block truncate font-main-ui-action text-content-primary">
+              {person}
+            </span>
+            {entry.email && entry.email !== entry.person ? (
+              <span className="block truncate font-secondary-body text-content-muted">
+                {entry.email}
+              </span>
+            ) : null}
+          </span>
+        </span>
+      );
+    },
+  }),
+  column.display({
+    id: "question",
+    header: function QuestionHeader() {
+      const ui = useAppTranslation();
+      return ui("Question");
+    },
+    cell: function QuestionCell({ row }) {
+      const ui = useAppTranslation();
+      const open = use(OpenTranscript);
+      const entry = row.original;
+      return (
+        <>
+          <button
+            type="button"
+            className="block max-w-full truncate rounded-sm text-left text-content-secondary focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
+            onClick={() => open(entry)}
+          >
+            {entry.question ?? entry.title}
+          </button>
+          <span className="mt-1 flex items-center gap-2">
+            <span className="font-secondary-body text-content-muted">
+              {ui(appText("{{count}} messages", { count: entry.messages }))}
+            </span>
+            {/* The owner deleted this conversation; it is kept until retention removes it. */}
+            {entry.deleted ? (
+              <StatusBadge tone="neutral" size="sm">
+                {ui("Deleted")}
+              </StatusBadge>
+            ) : null}
+          </span>
+        </>
+      );
+    },
+  }),
+  column.accessor("feedback", {
+    header: function FeedbackHeader() {
+      const ui = useAppTranslation();
+      return ui("Feedback");
+    },
+    meta: { width: "w-36" },
+    cell: function FeedbackCell({ row }) {
+      const ui = useAppTranslation();
+      const { feedback } = row.original;
+      return feedback === "NONE" ? (
+        <span className="font-secondary-body text-content-muted">—</span>
+      ) : (
+        <StatusBadge tone={feedbackTones[feedback]} size="sm">
+          {ui(feedbackLabels[feedback])}
+        </StatusBadge>
+      );
+    },
+  }),
+]);
+
+/** The conversation history for the filters, read one cursor page after another. */
+function useHistory(query: NonNullable<ListChatHistoryData["query"]>) {
+  return useInfiniteQuery({
+    ...listChatHistoryInfiniteOptions({ query }),
+    initialPageParam: undefined as unknown as string,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+}
 
 /**
  * Admin › Monitoring › Conversation history (Onyx query history): what the organization asks, how the answers were
@@ -57,42 +180,23 @@ type Filters = {
  */
 export function ChatHistoryPage() {
   const ui = useAppTranslation();
-  const [filters, setFilters] = useState<Filters>({ period: "7d", text: "", feedback: ALL });
+  const [filters, setFilters] = useState<Filters>({ period: "7d", feedback: ALL });
   const [text, setText] = useState("");
+  const typed = useDebouncedValue(text.trim(), 300);
   const [open, setOpen] = useState<ChatHistoryEntry | null>(null);
-  useEffect(() => {
-    const timer = setTimeout(
-      () =>
-        setFilters((current) =>
-          current.text === text.trim() ? current : { ...current, text: text.trim() },
-        ),
-      300,
-    );
-    return () => clearTimeout(timer);
-  }, [text]);
 
   // The period is fixed when the filters change, so later pages share the first page's bounds.
   const query = useMemo<NonNullable<ListChatHistoryData["query"]>>(
     () => ({
       from: periodStart(filters.period),
-      q: filters.text || undefined,
+      q: typed || undefined,
       feedback: filters.feedback === ALL ? undefined : filters.feedback,
       size: PAGE_SIZE,
     }),
-    [filters],
+    [filters, typed],
   );
-  const history = useInfiniteQuery({
-    ...listChatHistoryInfiniteOptions({ query }),
-    initialPageParam: undefined as unknown as string,
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
-  });
-  const [paging, setPaging] = useState({ query, page: 0 });
-  const page = paging.query === query ? paging.page : 0;
-  const setPage = (next: number) => setPaging({ query, page: next });
-  const pages = history.data?.pages ?? [];
-  const current = pages[Math.min(page, Math.max(pages.length - 1, 0))];
-  const rows = current?.items ?? [];
-  const totals = pages[0];
+  const history = useHistory(query);
+  const totals = history.data?.pages[0];
   const exportHref = `/api/chat/history/export?${new URLSearchParams(
     Object.entries({ ...query, size: undefined }).filter(
       (entry): entry is [string, string] => typeof entry[1] === "string",
@@ -110,7 +214,7 @@ export function ChatHistoryPage() {
         actions={
           <Button asChild prominence="secondary">
             <a href={exportHref} download>
-              <Download aria-hidden="true" />
+              <Download data-icon="inline-start" aria-hidden="true" />
               {ui("Export CSV")}
             </a>
           </Button>
@@ -147,11 +251,13 @@ export function ChatHistoryPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {periods.map((period) => (
-              <SelectItem key={period} value={period}>
-                {ui(periodLabels[period])}
-              </SelectItem>
-            ))}
+            <SelectGroup>
+              {periods.map((period) => (
+                <SelectItem key={period} value={period}>
+                  {ui(periodLabels[period])}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
         <Select
@@ -164,27 +270,27 @@ export function ChatHistoryPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>{ui("Any feedback")}</SelectItem>
-            {feedbacks.map((feedback) => (
-              <SelectItem key={feedback} value={feedback}>
-                {ui(feedbackLabels[feedback])}
-              </SelectItem>
-            ))}
+            <SelectGroup>
+              <SelectItem value={ALL}>{ui("Any feedback")}</SelectItem>
+              {feedbacks.map((feedback) => (
+                <SelectItem key={feedback} value={feedback}>
+                  {ui(feedbackLabels[feedback])}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
-        <span className="relative min-w-56 flex-1">
-          <Search
-            aria-hidden="true"
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
-          />
-          <Input
+        <InputGroup className="min-w-56 flex-1">
+          <InputGroupAddon>
+            <Search aria-hidden="true" />
+          </InputGroupAddon>
+          <InputGroupInput
             value={text}
             onChange={(event) => setText(event.target.value)}
             placeholder={ui("Search a person or a title")}
             aria-label={ui("Search a person or a title")}
-            className="pl-9"
           />
-        </span>
+        </InputGroup>
       </div>
 
       {history.isError ? (
@@ -202,129 +308,63 @@ export function ChatHistoryPage() {
         <p role="status" className="font-secondary-body text-content-muted">
           {ui("Loading conversation history…")}
         </p>
-      ) : rows.length === 0 ? (
+      ) : history.data.pages[0]?.items.length === 0 ? (
         <EmptyState
           icon={<MessagesSquare />}
           title={ui("No conversation in this period.")}
           detail={ui("Widen the period or clear the filters.")}
         />
       ) : (
-        <div className="overflow-hidden rounded-md border border-border-subtle">
-          <Table className="w-full min-w-[52rem] table-fixed border-collapse">
-            <TableCaption className="sr-only">{ui("Conversation history")}</TableCaption>
-            <colgroup>
-              <col className="w-[9.5rem]" />
-              <col className="w-[26%]" />
-              <col />
-              <col className="w-[9rem]" />
-            </colgroup>
-            <TableHeader className="border-b border-border-subtle bg-surface-subtle text-left">
-              <TableRow>
-                <TableHead scope="col" className="h-11 px-4">
-                  {ui("Time")}
-                </TableHead>
-                <TableHead scope="col" className="h-11 px-4">
-                  {ui("Asked by")}
-                </TableHead>
-                <TableHead scope="col" className="h-11 px-4">
-                  {ui("Question")}
-                </TableHead>
-                <TableHead scope="col" className="h-11 px-4">
-                  {ui("Feedback")}
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody className="divide-y divide-border-subtle">
-              {rows.map((entry) => {
-                const person = ui(askerName(entry));
-                return (
-                  <TableRow
-                    key={entry.id}
-                    className="cursor-pointer bg-surface-raised align-middle transition-colors hover:bg-surface-subtle"
-                    onClick={() => setOpen(entry)}
-                  >
-                    <TableCell className="h-16 px-4 py-3 tabular-nums">
-                      <span className="block text-content-primary">
-                        {formatUiDate(entry.updatedAt, {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                        })}
-                      </span>
-                      <span className="block font-secondary-body text-content-muted">
-                        {formatUiDate(entry.updatedAt, { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <span className="flex min-w-0 items-center gap-2.5">
-                        <PersonAvatar name={person} seed={entry.actorId ?? entry.id} />
-                        <span className="min-w-0">
-                          <span className="block truncate font-main-ui-action text-content-primary">
-                            {person}
-                          </span>
-                          {entry.email && entry.email !== entry.person ? (
-                            <span className="block truncate font-secondary-body text-content-muted">
-                              {entry.email}
-                            </span>
-                          ) : null}
-                        </span>
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <button
-                        type="button"
-                        className="block max-w-full truncate rounded-sm text-left text-content-secondary focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
-                        onClick={(click) => {
-                          click.stopPropagation();
-                          setOpen(entry);
-                        }}
-                      >
-                        {entry.question ?? entry.title}
-                      </button>
-                      <span className="mt-1 flex items-center gap-2">
-                        <span className="font-secondary-body text-content-muted">
-                          {ui(appText("{{count}} messages", { count: entry.messages }))}
-                        </span>
-                        {/* The owner deleted this conversation; it is kept until retention removes it. */}
-                        {entry.deleted ? (
-                          <StatusBadge tone="neutral" size="sm">
-                            {ui("Deleted")}
-                          </StatusBadge>
-                        ) : null}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      {entry.feedback === "NONE" ? (
-                        <span className="font-secondary-body text-content-muted">—</span>
-                      ) : (
-                        <StatusBadge tone={feedbackTones[entry.feedback]} size="sm">
-                          {ui(feedbackLabels[entry.feedback])}
-                        </StatusBadge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-          <div className="border-t border-border-subtle bg-surface-raised px-4 py-2">
-            <TablePagination
-              label={ui("Conversation history")}
-              page={page}
-              totalPages={undefined}
-              previousDisabled={page === 0}
-              nextDisabled={!current?.nextCursor && !history.hasNextPage}
-              onPrevious={() => setPage(Math.max(page - 1, 0))}
-              onNext={() => {
-                if (page + 1 < pages.length) setPage(page + 1);
-                else void history.fetchNextPage().then(() => setPage(page + 1));
-              }}
-            />
-          </div>
-        </div>
+        <OpenTranscript value={setOpen}>
+          {/* Keyed on the filters, so a new query starts on its first page. */}
+          <HistoryTable key={JSON.stringify(query)} history={history} />
+        </OpenTranscript>
       )}
 
       <ChatHistoryDialog entry={open} onClose={() => setOpen(null)} />
     </SettingsLayout>
+  );
+}
+
+/** The conversations one cursor page at a time; the pages read so far stay in the query. */
+function HistoryTable({ history }: { history: ReturnType<typeof useHistory> }) {
+  const ui = useAppTranslation();
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: PAGE_SIZE,
+  });
+  const pages = history.data?.pages ?? [];
+  const rows = pages[Math.min(pagination.pageIndex, Math.max(pages.length - 1, 0))]?.items ?? [];
+  const table = useTable({
+    features,
+    columns,
+    data: rows,
+    getRowId: (entry) => entry.id,
+    manualPagination: true,
+    pageCount: pages.length + (history.hasNextPage ? 1 : 0),
+    state: { pagination },
+    onPaginationChange: (updater) =>
+      setPagination(typeof updater === "function" ? updater(pagination) : updater),
+  });
+  return (
+    <DataTable
+      table={table}
+      label={ui("Conversation history")}
+      className="min-w-208"
+      footer={
+        <TablePagination
+          label={ui("Conversation history")}
+          page={pagination.pageIndex}
+          totalPages={undefined}
+          previousDisabled={!table.getCanPreviousPage()}
+          nextDisabled={history.isFetchingNextPage || !table.getCanNextPage()}
+          onPrevious={() => table.previousPage()}
+          onNext={() => {
+            if (pagination.pageIndex + 1 < pages.length) table.nextPage();
+            else void history.fetchNextPage().then(() => table.nextPage());
+          }}
+        />
+      }
+    />
   );
 }
