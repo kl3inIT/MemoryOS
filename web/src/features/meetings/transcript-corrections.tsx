@@ -88,12 +88,12 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
       ]),
   });
   const { accept, keep, revert, acceptAll, revertAll } = useCorrectionDecisions(meeting.id);
-  const single = [run, accept, keep, revert];
-  /** One decision at a time: starting one clears what the last one said. */
+  const decisions = [accept, keep, revert];
+  /** One decision at a time: starting one clears what the last one said; what the pass found stays. */
   function reset() {
-    for (const mutation of single) mutation.reset();
+    for (const mutation of decisions) mutation.reset();
   }
-  const failed = single.find((mutation) => mutation.isError)?.error;
+  const failed = [...decisions, run].find((mutation) => mutation.isError)?.error;
   const found = run.isSuccess && !running ? run.data.corrections.length : null;
 
   const all = corrections.data ?? [];
@@ -118,6 +118,7 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
       disabled={busy}
       onClick={() => {
         reset();
+        run.reset();
         run.mutate({ path });
       }}
     >
