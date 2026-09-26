@@ -1,16 +1,15 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { chatSessionsKey } from "@/features/chat/chat-api";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { deleteAllChatSessions } from "@/lib/hey-api/sdk.gen";
+import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
 /** Onyx Danger Zone on the General settings page: delete every conversation the member owns, after confirmation. */
 export function DangerZoneSection() {
   const ui = useAppTranslation();
-  const cache = useQueryClient();
+  const refreshSessions = useRefreshChatSessions();
   return (
     <section aria-labelledby="danger-zone-heading" className="flex max-w-2xl flex-col gap-3">
       <h2 id="danger-zone-heading" className="font-heading-h3 text-content-primary">
@@ -37,7 +36,7 @@ export function DangerZoneSection() {
               confirmTone="danger"
               onConfirm={async () => {
                 await deleteAllChatSessions();
-                await cache.invalidateQueries({ queryKey: chatSessionsKey });
+                await refreshSessions();
               }}
             />
           }

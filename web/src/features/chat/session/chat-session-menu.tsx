@@ -1,6 +1,6 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ThreadListItemMorePrimitive as More } from "@assistant-ui/react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import {
@@ -18,14 +18,14 @@ import { IconButton } from "@/components/ui/icon-button";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useApplicationSession } from "@/features/identity/application-session-context";
 import { archiveChatSession, deleteChatSession, unarchiveChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
-import { chatSessionsKey } from "@/features/chat/chat-api";
 import { FormDialog } from "@/components/composites/form-dialog";
 import { SharingDialog } from "./chat-sharing-dialog";
 import { actionErrorText } from "@/lib/action-errors";
-import { loadProjects, moveConversation } from "@/features/chat/projects/chat-projects-api";
+import { projectsOptions } from "@/features/chat/projects/chat-projects-api";
+import { moveChatProjectMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
 export function ChatSessionMenu({
   session,
@@ -55,21 +55,16 @@ export function ChatSessionMenu({
   const [dialog, setDialog] = useState<"move" | "delete" | "share">();
   const [target, setTarget] = useState<string | null>();
   const trigger = useRef<HTMLButtonElement>(null);
-  const cache = useQueryClient();
+  const refreshSessions = useRefreshChatSessions();
+  const move = useMutation(moveChatProjectMutation());
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { actorId, authorizationVersion } = useApplicationSession();
   const projects = useQuery({
-    queryKey: ["chat-projects", actorId, authorizationVersion],
-    queryFn: ({ signal }) => loadProjects(signal),
+    ...projectsOptions(),
     enabled: dialog === "move",
   });
   async function refresh(notify = true) {
-    await Promise.all([
-      cache.invalidateQueries({ queryKey: chatSessionsKey }),
-      cache.invalidateQueries({ queryKey: ["chat-project-sessions"] }),
-      cache.invalidateQueries({ queryKey: ["chat-session", session.id] }),
-    ]);
+    await refreshSessions(session.id);
     if (notify) await onChange?.();
   }
   const archived = session.archivedAt != null;
@@ -184,7 +179,10 @@ export function ChatSessionMenu({
           submitDisabled={target === undefined || projects.isFetching || projects.isError}
           onSubmit={async () => {
             if (target === undefined) return;
-            await moveConversation(session.id, target);
+            await move.mutateAsync({
+              path: { sessionId: session.id },
+              body: { projectId: target },
+            });
             await refresh();
           }}
         >

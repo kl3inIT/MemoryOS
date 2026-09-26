@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useApplicationSession } from "@/features/identity/application-session-context";
+import { invalidateAgents } from "@/features/chat/chat-personas-api";
+import { listChatPersonaPinsQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { listChatPersonaPins, replaceChatPersonaPins } from "@/lib/hey-api/sdk.gen";
-import { personaSchema } from "@/features/chat/chat-personas-api";
 
 // Pin writes replace the whole ordered list, so they run one at a time on the latest server list.
 let queue: Promise<unknown> = Promise.resolve();
@@ -12,30 +12,19 @@ let queue: Promise<unknown> = Promise.resolve();
  */
 export function usePinUpdates() {
   const cache = useQueryClient();
-  const { actorId, authorizationVersion } = useApplicationSession();
-  const pinsKey = ["chat-persona-pins", actorId, authorizationVersion];
   return (change: (current: string[]) => string[]) => {
     const run = queue.then(async () => {
-      const current = personaSchema
-        .array()
-        .parse(
-          (
-            await listChatPersonaPins({
-              signal: AbortSignal.timeout(30000),
-            })
-          ).data,
-        )
-        .map((agent) => agent.id);
-      const saved = personaSchema.array().parse(
-        (
-          await replaceChatPersonaPins({
-            body: { personaIds: change(current) },
-            signal: AbortSignal.timeout(30000),
-          })
-        ).data,
-      );
-      cache.setQueryData(pinsKey, saved);
-      await cache.invalidateQueries({ queryKey: ["chat-personas"] });
+      const { data: current } = await listChatPersonaPins({ signal: AbortSignal.timeout(30000) });
+      const { data: saved } = await replaceChatPersonaPins({
+        body: {
+          personaIds: change(
+            current.flatMap((agent) => (agent.id === undefined ? [] : [agent.id])),
+          ),
+        },
+        signal: AbortSignal.timeout(30000),
+      });
+      cache.setQueryData(listChatPersonaPinsQueryKey(), saved);
+      await invalidateAgents(cache);
     });
     queue = run.catch(() => undefined);
     return run;

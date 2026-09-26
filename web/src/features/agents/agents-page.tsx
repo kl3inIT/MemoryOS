@@ -1,6 +1,6 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useDeferredValue, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import {
   ArrowRight,
@@ -34,16 +34,15 @@ import { hoverReveal } from "@/components/composites/hover-reveal";
 import { PersonAvatar } from "@/components/composites/person-avatar";
 import {
   useAdminAccess,
-  useApplicationSession,
   useGlobalCapability,
 } from "@/features/identity/application-session-context";
 import { can } from "@/lib/resource-permissions";
 import { cn } from "@/lib/utils";
 import { actionErrorText } from "@/lib/action-errors";
-import { chatSessionsKey, newChatSession } from "@/features/chat/chat-api";
+import { newChatSession } from "@/features/chat/chat-api";
 import {
   agentVisibility,
-  loadPersonas,
+  personasOptions,
   type AgentView,
   type Persona,
 } from "@/features/chat/chat-personas-api";
@@ -53,15 +52,13 @@ import { AgentShareDialog } from "./agent-share-dialog";
 import { AgentViewer } from "./agent-viewer";
 import { AgentActions } from "./agent-actions";
 import { usePinUpdates } from "./agent-pins";
-
-const agentsKey = ["chat-personas"] as const;
+import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
 export function AgentsPage() {
   const ui = useAppTranslation();
-  const { actorId, authorizationVersion } = useApplicationSession();
   const canCreate = useGlobalCapability("AGENTS_CREATE");
   const { canReadSources } = useAdminAccess();
-  const cache = useQueryClient();
+  const refreshSessions = useRefreshChatSessions();
   const navigate = useNavigate();
   const [view, setView] = useState<AgentView>("ALL");
   const [search, setSearch] = useState("");
@@ -74,8 +71,7 @@ export function AgentsPage() {
   const [pending, setPending] = useState<string>();
   const [error, setError] = useState<string>();
   const list = useQuery({
-    queryKey: [...agentsKey, actorId, authorizationVersion, view],
-    queryFn: ({ signal }) => loadPersonas(signal, view),
+    ...personasOptions(view),
   });
   const agents = list.data ?? [];
   // A copied share link opens that agent's detail view.
@@ -138,7 +134,7 @@ export function AgentsPage() {
           current.includes(agent.id) ? current : [...current, agent.id],
         );
       const session = await newChatSession(agent.name, AbortSignal.timeout(30000), agent.id);
-      await cache.invalidateQueries({ queryKey: chatSessionsKey });
+      await refreshSessions();
       await navigate({
         to: "/chat/$sessionId",
         params: { sessionId: session.id },

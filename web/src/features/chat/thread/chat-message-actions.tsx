@@ -13,7 +13,7 @@ import { setChatFeedback, removeChatFeedback } from "@/lib/hey-api/sdk.gen";
 import { ChatEditingContext } from "./chat-editing-context";
 import { FormDialog } from "@/components/composites/form-dialog";
 import { actionErrorText } from "@/lib/action-errors";
-import type { Feedback } from "@/features/chat/chat-api";
+import { invalidateChatVersions, type Feedback } from "@/features/chat/chat-api";
 import { fileIdFromReference } from "@/features/library/files";
 import { ChatFilePicker } from "@/features/library/file-picker";
 import { ChatBranchAction } from "./chat-branch-action";
@@ -196,7 +196,7 @@ export function ChatMessageActions({ role }: { role: "user" | "assistant" }) {
               path: { sessionId, assistantMessageId: message.id },
               signal: AbortSignal.timeout(30000),
             })
-              .then(() => cache.invalidateQueries({ queryKey: ["chat-feedback", sessionId] }))
+              .then(() => invalidateChatVersions(cache, sessionId))
               .catch((cause: unknown) => setError(actionErrorText(cause)))
               .finally(() => {
                 removeBusy.current = false;
@@ -281,7 +281,7 @@ function FeedbackEditor({
           body: { positive, comment, reason },
           signal: AbortSignal.timeout(30000),
         });
-        await cache.invalidateQueries({ queryKey: ["chat-feedback", sessionId] });
+        await invalidateChatVersions(cache, sessionId);
       }}
     >
       <FeedbackDialog

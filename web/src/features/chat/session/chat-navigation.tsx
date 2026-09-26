@@ -1,6 +1,6 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAuiState } from "@assistant-ui/react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Bot,
@@ -19,21 +19,20 @@ import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { ThreadList, groupThreadTitles } from "@/components/assistant-ui/elements/thread-list";
-import type { ChatSession } from "@/lib/hey-api/types.gen";
+import type { ChatSession, PersonaView } from "@/lib/hey-api/types.gen";
 import { ChatHistorySearch } from "./chat-history-search";
-import { useApplicationSession } from "@/features/identity/application-session-context";
-import { chatSessionsKey, newChatSession } from "@/features/chat/chat-api";
-import { listChatPersonaPins } from "@/lib/hey-api/sdk.gen";
+import { newChatSession } from "@/features/chat/chat-api";
+import {
+  listChatPersonaPinsOptions,
+  listChatPersonaPinsQueryKey,
+  moveChatProjectMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import { usePinUpdates } from "@/features/agents/agent-pins";
 import { AgentAvatar } from "@/features/agents/agent-avatar";
 import { ChatSessionRow, CHAT_DRAG_TYPE } from "./chat-session-row";
 import { ProjectEditor, ProjectIcon } from "@/features/chat/projects/chat-projects-page";
-import {
-  loadProjects,
-  moveConversation,
-  type Project,
-} from "@/features/chat/projects/chat-projects-api";
-import { personaSchema, type Persona } from "@/features/chat/chat-personas-api";
+import { projectsOptions, type Project } from "@/features/chat/projects/chat-projects-api";
+import { personaOf, type Persona } from "@/features/chat/chat-personas-api";
 import { actionErrorText } from "@/lib/action-errors";
 import {
   useChatThreads,
@@ -41,6 +40,7 @@ import {
 } from "@/features/chat/runtime/chat-threads-context";
 import { sessionFromThread } from "@/features/chat/runtime/chat-thread-list-adapter";
 import { cn } from "@/lib/utils";
+import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
 export function ChatNavigation({
   collapsed,
@@ -55,12 +55,10 @@ export function ChatNavigation({
   const ui = useAppTranslation();
 
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { actorId, authorizationVersion } = useApplicationSession();
   const threads = useOptionalChatThreads();
   const [creating, setCreating] = useState(false);
   const projects = useQuery({
-    queryKey: ["chat-projects", actorId, authorizationVersion],
-    queryFn: ({ signal }) => loadProjects(signal),
+    ...projectsOptions(),
   });
   return (
     <div className="flex h-full min-h-0 flex-col gap-1">
@@ -167,28 +165,29 @@ export function ChatNavigation({
 /** Pinned agents start a new conversation with that agent; drag to reorder, unpin on hover (Onyx sidebar pins). */
 function PinnedAgents({ onNavigate }: { onNavigate?: () => void }) {
   const ui = useAppTranslation();
-  const { actorId, authorizationVersion } = useApplicationSession();
   const cache = useQueryClient();
+  const refreshSessions = useRefreshChatSessions();
   const navigate = useNavigate();
   const [pending, setPending] = useState<string>();
   const [error, setError] = useState<string>();
-  const pinsKey = ["chat-persona-pins", actorId, authorizationVersion];
   const updatePins = usePinUpdates();
   const pins = useQuery({
-    queryKey: pinsKey,
-    queryFn: async ({ signal }) =>
-      personaSchema.array().parse((await listChatPersonaPins({ signal })).data),
+    ...listChatPersonaPinsOptions(),
+    select: (views) => views.map(personaOf),
   });
   if (!pins.data?.length) return null;
 
   async function savePins(next: Persona[], change: (current: string[]) => string[]) {
     setError(undefined);
-    cache.setQueryData(pinsKey, next);
+    // Shows the new order at once; the cache keeps the views as the API sent them.
+    cache.setQueryData<PersonaView[]>(listChatPersonaPinsQueryKey(), (views) =>
+      next.flatMap((agent) => views?.filter((view) => view.id === agent.id) ?? []),
+    );
     try {
       await updatePins(change);
     } catch (cause) {
       setError(actionErrorText(cause));
-      await cache.invalidateQueries({ queryKey: ["chat-persona-pins"] });
+      await cache.invalidateQueries({ queryKey: listChatPersonaPinsQueryKey() });
     }
   }
 
@@ -197,7 +196,7 @@ function PinnedAgents({ onNavigate }: { onNavigate?: () => void }) {
     setError(undefined);
     try {
       const session = await newChatSession(agent.name, AbortSignal.timeout(30000), agent.id);
-      await cache.invalidateQueries({ queryKey: chatSessionsKey });
+      await refreshSessions();
       await navigate({ to: "/chat/$sessionId", params: { sessionId: session.id } });
       onNavigate?.();
     } catch (cause) {
@@ -374,7 +373,8 @@ function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?:
   const [pending, setPending] = useState(false);
   const busy = useRef(false);
   const [error, setError] = useState<string>();
-  const cache = useQueryClient();
+  const refreshSessions = useRefreshChatSessions();
+  const move = useMutation(moveChatProjectMutation());
   const selected = useRouterState({
     select: (state) => state.location.pathname === `/projects/${project.id}`,
   });
@@ -399,13 +399,10 @@ function ProjectFolder({ project, onNavigate }: { project: Project; onNavigate?:
         busy.current = true;
         setPending(true);
         setError(undefined);
-        void moveConversation(sessionId, project.id)
+        void move
+          .mutateAsync({ path: { sessionId }, body: { projectId: project.id } })
           .then(async () => {
-            await Promise.all([
-              cache.invalidateQueries({ queryKey: chatSessionsKey }),
-              cache.invalidateQueries({ queryKey: ["chat-project-sessions"] }),
-              cache.invalidateQueries({ queryKey: ["chat-session", sessionId] }),
-            ]);
+            await refreshSessions(sessionId);
           })
           .catch((cause: unknown) => setError(actionErrorText(cause)))
           .finally(() => {

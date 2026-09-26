@@ -5,19 +5,18 @@ import { useAui } from "@assistant-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
-import { useApplicationSession } from "@/features/identity/application-session-context";
 import { configureChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { FormDialog } from "@/components/composites/form-dialog";
-import { loadPersonas } from "@/features/chat/chat-personas-api";
-import { loadProjects } from "@/features/chat/projects/chat-projects-api";
+import { personasOptions } from "@/features/chat/chat-personas-api";
+import { projectsOptions } from "@/features/chat/projects/chat-projects-api";
 import { ChatBranchOrigin } from "@/features/chat/thread/chat-branch-action";
 import { ChatSessionFiles } from "./chat-session-files";
 import { ChatSessionMenu } from "./chat-session-menu";
 import { SharingDialog } from "./chat-sharing-dialog";
-import { chatSessionsKey } from "@/features/chat/chat-api";
 import { waitForChatFile } from "@/features/library/files";
 import { composerAttachment } from "@/features/chat/composer/use-composer-file-selection";
+import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
 export function ChatSessionSettings({
   session,
@@ -36,19 +35,17 @@ export function ChatSessionSettings({
 }) {
   const ui = useAppTranslation();
 
-  const { actorId, authorizationVersion } = useApplicationSession();
   const cache = useQueryClient();
+  const refreshSessions = useRefreshChatSessions();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [personaId, setPersona] = useState("");
   const [projectId, setProject] = useState("");
   const personas = useQuery({
-    queryKey: ["chat-personas", actorId, authorizationVersion],
-    queryFn: ({ signal }) => loadPersonas(signal),
+    ...personasOptions(),
     enabled: settingsOpen,
   });
   const projects = useQuery({
-    queryKey: ["chat-projects", actorId, authorizationVersion],
-    queryFn: ({ signal }) => loadProjects(signal),
+    ...projectsOptions(),
     enabled: settingsOpen,
   });
   if (!session) return null;
@@ -90,8 +87,7 @@ export function ChatSessionSettings({
             });
             await onChange();
             await cache.invalidateQueries({ queryKey: ["chat-models"] });
-            await cache.invalidateQueries({ queryKey: ["chat-project-sessions"] });
-            await cache.invalidateQueries({ queryKey: chatSessionsKey });
+            await refreshSessions(session.id);
           }}
         >
           <label className="block space-y-1">
@@ -156,10 +152,8 @@ export function ChatStarterPrompts({
   disabled: boolean;
 }) {
   const aui = useAui();
-  const { actorId, authorizationVersion } = useApplicationSession();
   const personas = useQuery({
-    queryKey: ["chat-personas", actorId, authorizationVersion],
-    queryFn: ({ signal }) => loadPersonas(signal),
+    ...personasOptions(),
   });
   const persona = personaId
     ? personas.data?.find((p) => p.id === personaId)

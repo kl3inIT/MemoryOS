@@ -50,10 +50,10 @@ import { ChatFilePicker } from "@/features/library/file-picker";
 import { useMcpConnections } from "@/features/mcp/mcp-connections";
 import { ModelLogo } from "@/features/models/model-logo";
 import {
-  agentLabelSchema,
   agentTools,
   loadPersonaSources,
-  personaSchema,
+  namedRefsOf,
+  personaOf,
   type AgentTool,
   type Persona,
 } from "@/features/chat/chat-personas-api";
@@ -153,7 +153,7 @@ export function AgentEditorPage({ agentId }: { agentId?: string }) {
     queryKey: ["chat-personas", "detail", actorId, authorizationVersion, agentId],
     enabled: !!agentId,
     queryFn: async ({ signal }) =>
-      personaSchema.parse((await getChatPersona({ path: { personaId: agentId! }, signal })).data),
+      personaOf((await getChatPersona({ path: { personaId: agentId! }, signal })).data),
   });
   const title = agentId ? (agent.data?.name ?? ui("Sửa trợ lý")) : ui("Tạo trợ lý");
   return (
@@ -232,8 +232,7 @@ function AgentEditor({ agent }: { agent?: Persona }) {
   });
   const labels = useQuery({
     queryKey: ["chat-persona-labels", actorId, authorizationVersion],
-    queryFn: async ({ signal }) =>
-      agentLabelSchema.array().parse((await listChatPersonaLabels({ signal })).data),
+    queryFn: async ({ signal }) => namedRefsOf((await listChatPersonaLabels({ signal })).data),
   });
   const mcp = useMcpConnections();
   const toolNames: Record<AgentTool, { label: string; hint: string }> = {
@@ -287,14 +286,15 @@ function AgentEditor({ agent }: { agent?: Persona }) {
 
   async function createLabel(name: string) {
     try {
-      const created = agentLabelSchema.parse(
+      const [created] = namedRefsOf([
         (
           await createChatPersonaLabel({
             body: { name },
             signal: AbortSignal.timeout(30000),
           })
         ).data,
-      );
+      ]);
+      if (!created) return;
       setForm((current) => ({ ...current, labelIds: [...current.labelIds, created.id] }));
       await cache.invalidateQueries({ queryKey: ["chat-persona-labels"] });
     } catch (cause) {

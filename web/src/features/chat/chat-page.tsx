@@ -7,7 +7,12 @@ import {
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useAttachOnOpen } from "@/features/chat/composer/use-attach-on-open";
 import { useAuiState } from "@assistant-ui/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  getChatBranchesOptions,
+  getChatFeedbackOptions,
+  getChatProjectOptions,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { AppShellHeader } from "@/components/app-shell/app-shell-header";
@@ -17,9 +22,6 @@ import {
   editChatMessage,
   regenerateChatMessage,
   selectChatBranch,
-  getChatBranches,
-  getChatFeedback,
-  getChatProject,
   getChatSettings,
   getChatImageAvailability,
   getChatWebAvailability,
@@ -44,9 +46,9 @@ import {
   ChatTemporaryToggle,
 } from "@/features/chat/session/chat-temporary";
 import { ChatConversationSearch } from "@/features/chat/thread/chat-conversation-search";
-import { branchSchema, feedbackSchema, type Feedback } from "@/features/chat/chat-api";
-import { loadPersonas } from "@/features/chat/chat-personas-api";
-import { projectSchema, type Project } from "@/features/chat/projects/chat-projects-api";
+import { branchOf, feedbackOf } from "@/features/chat/chat-api";
+import { personasOptions } from "@/features/chat/chat-personas-api";
+import { projectOf, type Project } from "@/features/chat/projects/chat-projects-api";
 import {
   ProjectContextPanel,
   ProjectConversationList,
@@ -70,9 +72,8 @@ export function ChatPage() {
   );
   const controller = useSyncExternalStore(registry.subscribe, () => registry.get(mainId));
   const project = useQuery({
-    queryKey: ["chat-project", identity.actorId, identity.authorizationVersion, projectId],
-    queryFn: async ({ signal }) =>
-      projectSchema.parse((await getChatProject({ path: { projectId: projectId! }, signal })).data),
+    ...getChatProjectOptions({ path: { projectId: projectId ?? "" } }),
+    select: projectOf,
     enabled: !!projectId,
     retry: false,
   });
@@ -181,12 +182,7 @@ function ChatConversation({
     retry: false,
   });
   const personas = useQuery({
-    queryKey: [
-      "chat-personas",
-      applicationSession.actorId,
-      applicationSession.authorizationVersion,
-    ],
-    queryFn: ({ signal }) => loadPersonas(signal),
+    ...personasOptions(),
   });
   const persona = session?.personaId
     ? personas.data?.find((candidate) => candidate.id === session.personaId)
@@ -262,35 +258,7 @@ function ChatConversation({
     }),
     [transport],
   );
-  const branches = useQuery({
-    queryKey: ["chat-branches", session?.id],
-    enabled: !!session,
-    queryFn: async ({ signal }) =>
-      branchSchema
-        .array()
-        .parse((await getChatBranches({ path: { sessionId: session!.id }, signal })).data),
-  });
-  const feedback = useQuery({
-    queryKey: ["chat-feedback", session?.id, branches.data?.map((b) => b.id)],
-    enabled: !!session && !!branches.data,
-    queryFn: async ({ signal }) => {
-      const values: Feedback[] = [];
-      const ids = branches.data!.map((b) => b.id);
-      for (let i = 0; i < ids.length; i += 100)
-        values.push(
-          ...feedbackSchema.array().parse(
-            (
-              await getChatFeedback({
-                path: { sessionId: session!.id },
-                query: { messageIds: ids.slice(i, i + 100) },
-                signal,
-              })
-            ).data,
-          ),
-        );
-      return values;
-    },
-  });
+  const { branches, feedback } = useChatVersions(session?.id);
 
   /**
    * Scrolls to a message of this conversation (MEM-152 "show in conversation"). A message on another version is
@@ -612,4 +580,33 @@ function useChatModelChoice(transport: MemoryOsChatTransport) {
     writeChatModelPreference(actorId, id);
   }
   return { choice, select };
+}
+
+/** Feedback is read for at most this many answers per request. */
+const FEEDBACK_CHUNK = 100;
+
+/** The version relationships of a conversation and the feedback on each version. */
+function useChatVersions(sessionId: string | undefined) {
+  const branches = useQuery({
+    ...getChatBranchesOptions({ path: { sessionId: sessionId ?? "" } }),
+    enabled: sessionId !== undefined,
+    select: (views) => views.map(branchOf),
+  });
+  const ids = branches.data?.map((branch) => branch.id) ?? [];
+  const chunks = Array.from({ length: Math.ceil(ids.length / FEEDBACK_CHUNK) }, (_, index) =>
+    ids.slice(index * FEEDBACK_CHUNK, (index + 1) * FEEDBACK_CHUNK),
+  );
+  const feedback = useQueries({
+    queries: chunks.map((messageIds) => ({
+      ...getChatFeedbackOptions({ path: { sessionId: sessionId ?? "" }, query: { messageIds } }),
+      enabled: sessionId !== undefined,
+      select: (views: Parameters<typeof feedbackOf>[0][]) => views.map(feedbackOf),
+    })),
+    combine: (results) => ({
+      data: results.flatMap((result) => result.data ?? []),
+      isError: results.some((result) => result.isError),
+      refetch: () => Promise.all(results.map((result) => result.refetch())),
+    }),
+  });
+  return { branches, feedback };
 }

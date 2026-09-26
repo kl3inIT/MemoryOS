@@ -11,6 +11,7 @@ import {
   unarchiveChatSession,
 } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
+import { invalidateChatSessions } from "@/features/chat/chat-api";
 import type { ChatThreadController, ChatThreadRegistry } from "./chat-thread-controller";
 
 const PAGE = 30;
@@ -73,11 +74,8 @@ export function createChatThreadListAdapter(
   registry: ChatThreadRegistry,
   queries: QueryClient,
 ): RemoteThreadListAdapter {
-  const refreshLists = (sessionId: string) =>
-    Promise.all([
-      queries.invalidateQueries({ queryKey: ["chat-project-sessions"] }),
-      queries.invalidateQueries({ queryKey: ["chat-session", sessionId] }),
-    ]);
+  // assistant-ui updates its own list after these calls; the cached conversation queries follow here.
+  const refreshLists = (sessionId: string) => invalidateChatSessions(queries, sessionId);
   return {
     async list(params) {
       const offset = params?.after ? Number(params.after) : 0;

@@ -3,13 +3,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { TextButton } from "@/components/ui/text-button";
-import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { createChatProject } from "@/lib/hey-api/sdk.gen";
 import { FormDialog } from "@/components/composites/form-dialog";
 import { chatLibraryKey, type LibraryFile } from "@/features/library/library";
 import { addToProject, ProjectFull, PROJECT_FILE_LIMIT } from "./chat-project-files";
-import { loadProjects, projectSchema } from "@/features/chat/projects/chat-projects-api";
+import { projectsOptions, projectOf } from "@/features/chat/projects/chat-projects-api";
 
 /**
  * Adds library files to one of the caller's Projects (MEM-152). The Project's own update admits them, so the
@@ -27,15 +26,13 @@ export function ChatAddToProjectDialog({
 }) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
-  const { actorId, authorizationVersion } = useApplicationSession();
   const open = files !== undefined;
   const [projectId, setProjectId] = useState("");
   const [name, setName] = useState("");
   const [newProject, setNewProject] = useState(false);
   const [full, setFull] = useState(false);
   const projects = useQuery({
-    queryKey: ["chat-projects", actorId, authorizationVersion],
-    queryFn: ({ signal }) => loadProjects(signal),
+    ...projectsOptions(),
     enabled: open,
   });
   const chosen = projects.data?.find((project) => project.id === projectId) ?? projects.data?.[0];
@@ -61,7 +58,7 @@ export function ChatAddToProjectDialog({
         setFull(false);
         // A first Project is made here rather than sending the person away to make one and come back.
         const project = creating
-          ? projectSchema.parse(
+          ? projectOf(
               (
                 await createChatProject({
                   body: { name: name.trim(), description: "", instructions: "", fileIds: [] },

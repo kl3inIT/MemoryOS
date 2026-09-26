@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Archive, ArchiveRestore } from "lucide-react";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
@@ -7,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { archiveAllChatSessions } from "@/lib/hey-api/sdk.gen";
-import { chatSessionsKey } from "@/features/chat/chat-api";
+import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
 /**
  * Archiving from Settings, beside Delete All Chats (ChatGPT's Data controls): clearing the sidebar in one
@@ -15,7 +14,7 @@ import { chatSessionsKey } from "@/features/chat/chat-api";
  */
 export function ChatArchiveSection() {
   const ui = useAppTranslation();
-  const cache = useQueryClient();
+  const refreshSessions = useRefreshChatSessions();
   const [archived, setArchived] = useState<number>();
   return (
     <section aria-labelledby="chat-archive-heading" className="flex max-w-2xl flex-col gap-3">
@@ -55,7 +54,7 @@ export function ChatArchiveSection() {
                   signal: AbortSignal.timeout(60000),
                 });
                 setArchived(data.archived);
-                await cache.invalidateQueries({ queryKey: chatSessionsKey });
+                await refreshSessions();
               }}
             />
           }

@@ -27,9 +27,9 @@ import {
 import { FormDialog } from "@/components/composites/form-dialog";
 import { actionErrorText } from "@/lib/action-errors";
 import {
-  agentLabelSchema,
   agentVisibility,
-  personaSchema,
+  namedRefsOf,
+  personaOf,
   type Persona,
 } from "@/features/chat/chat-personas-api";
 import { personLabel, type NamedRef } from "@/features/identity/principals";
@@ -60,14 +60,12 @@ export function AdminAgentsPage() {
     queryKey: ["chat-personas", "administration", actorId, authorizationVersion, includeDeleted],
     queryFn: async ({ signal }) =>
       allAdministrationPages(async (offset) =>
-        personaSchema.array().parse(
-          (
-            await listChatPersonasForAdministration({
-              query: { includeDeleted, offset, limit: 100 },
-              signal,
-            })
-          ).data,
-        ),
+        (
+          await listChatPersonasForAdministration({
+            query: { includeDeleted, offset, limit: 100 },
+            signal,
+          })
+        ).data.map(personaOf),
       ),
   });
   const refresh = () => cache.invalidateQueries({ queryKey: ["chat-personas"] });
@@ -223,8 +221,7 @@ function AgentLabels() {
   const [removing, setRemoving] = useState<NamedRef>();
   const labels = useQuery({
     queryKey: ["chat-persona-labels", actorId, authorizationVersion],
-    queryFn: async ({ signal }) =>
-      agentLabelSchema.array().parse((await listChatPersonaLabels({ signal })).data),
+    queryFn: async ({ signal }) => namedRefsOf((await listChatPersonaLabels({ signal })).data),
   });
   const refresh = async () => {
     await cache.invalidateQueries({ queryKey: ["chat-persona-labels"] });

@@ -1,5 +1,5 @@
 import { useDeferredValue, useState } from "react";
-import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Archive, ArchiveRestore, Search, Trash2 } from "lucide-react";
 import { Alert, AlertTitle } from "@/components/ui/alert";
@@ -17,18 +17,16 @@ import { Input } from "@/components/ui/input";
 import { Item, ItemActions, ItemContent, ItemDescription } from "@/components/ui/item";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useApplicationSession } from "@/features/identity/application-session-context";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
-  deleteChatSession,
-  listChatSessions,
-  searchChatSessions,
-  unarchiveChatSession,
-} from "@/lib/hey-api/sdk.gen";
+  listChatSessionsInfiniteOptions,
+  searchChatSessionsOptions,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import { deleteChatSession, unarchiveChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { actionErrorText } from "@/lib/action-errors";
-import { chatSessionsKey } from "@/features/chat/chat-api";
+import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
 const PAGE = 30;
 
@@ -39,31 +37,22 @@ const PAGE = 30;
  */
 export function ChatArchivedSessionsPage() {
   const ui = useAppTranslation();
-  const cache = useQueryClient();
-  const { actorId, authorizationVersion } = useApplicationSession();
+  const refreshSessions = useRefreshChatSessions();
   const [search, setSearch] = useState("");
   const query = useDeferredValue(search.trim());
   const [failure, setFailure] = useState<string>();
 
   const pages = useInfiniteQuery({
-    queryKey: [...chatSessionsKey, actorId, authorizationVersion, "archived"],
-    queryFn: ({ pageParam, signal }) =>
-      listChatSessions({
-        query: { archived: true, offset: pageParam, limit: PAGE },
-        signal,
-      }).then((answer) => answer.data),
+    ...listChatSessionsInfiniteOptions({ query: { archived: true, limit: PAGE } }),
     initialPageParam: 0,
     getNextPageParam: (last, all) => (last.length === PAGE ? all.length * PAGE : undefined),
     enabled: query.length === 0,
   });
   const matches = useQuery({
-    queryKey: [...chatSessionsKey, actorId, authorizationVersion, "archived-search", query],
-    queryFn: ({ signal }) =>
-      searchChatSessions({ query: { query, limit: PAGE }, signal }).then(
-        // A search reads every conversation the owner has; this page shows the archived ones.
-        (answer) =>
-          answer.data.items.filter((item) => item.session.archivedAt).map((item) => item.session),
-      ),
+    ...searchChatSessionsOptions({ query: { query, limit: PAGE } }),
+    // A search reads every conversation the owner has; this page shows the archived ones.
+    select: (found) =>
+      found.items.filter((item) => item.session.archivedAt).map((item) => item.session),
     enabled: query.length > 0,
   });
 
@@ -76,7 +65,7 @@ export function ChatArchivedSessionsPage() {
     setFailure(undefined);
     try {
       await run();
-      await cache.invalidateQueries({ queryKey: chatSessionsKey });
+      await refreshSessions();
     } catch (cause) {
       setFailure(actionErrorText(cause));
     }

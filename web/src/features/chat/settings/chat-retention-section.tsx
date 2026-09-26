@@ -18,8 +18,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { getChatRetention, previewChatRetention, saveChatRetention } from "@/lib/hey-api/sdk.gen";
-import { chatSessionsKey } from "@/features/chat/chat-api";
 import { actionErrorText } from "@/lib/action-errors";
+import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
 const MAX_DAYS = 3650;
 /** The windows worth one click; anything else is typed in, as ChatGPT's own short list works. */
@@ -64,6 +64,7 @@ export function ChatRetentionSection() {
 function RetentionForm({ saved }: { saved: number | null }) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
+  const refreshSessions = useRefreshChatSessions();
   const { actorId, authorizationVersion } = useApplicationSession();
   const preset =
     saved === null ? OFF : (PRESETS as readonly number[]).includes(saved) ? String(saved) : CUSTOM;
@@ -99,7 +100,7 @@ function RetentionForm({ saved }: { saved: number | null }) {
       setDone(true);
       await cache.invalidateQueries({ queryKey: ["chat-retention"] });
       await cache.invalidateQueries({ queryKey: ["chat-retention-preview"] });
-      await cache.invalidateQueries({ queryKey: chatSessionsKey });
+      await refreshSessions();
     } catch (cause) {
       setFailure(actionErrorText(cause));
       throw cause;

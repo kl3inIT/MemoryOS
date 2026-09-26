@@ -23,12 +23,11 @@ import {
   listProjectChatSessions,
   getChatFile,
 } from "@/lib/hey-api/sdk.gen";
-import { chatSessionsKey } from "@/features/chat/chat-api";
 import { FormDialog } from "@/components/composites/form-dialog";
 import { formField, actionErrorText } from "@/lib/action-errors";
 import {
-  loadProjects,
-  projectSchema,
+  projectsOptions,
+  projectOf,
   type Project,
 } from "@/features/chat/projects/chat-projects-api";
 import { ChatSessionRow } from "@/features/chat/session/chat-session-row";
@@ -36,6 +35,7 @@ import { ChatFilePicker } from "@/features/library/file-picker";
 import { chatFileSchema } from "@/features/library/files";
 import { ChatFilePart } from "@/features/chat/thread/chat-attachments";
 import { fileReference } from "@/features/library/files";
+import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
 /** The project's chosen topic icon, or the plain folder when none was picked. */
 export function ProjectIcon({
@@ -52,11 +52,9 @@ export function ProjectIcon({
 export function ChatProjectsPage() {
   const ui = useAppTranslation();
 
-  const { actorId, authorizationVersion } = useApplicationSession();
   const [creating, setCreating] = useState(false);
   const projects = useQuery({
-    queryKey: ["chat-projects", actorId, authorizationVersion],
-    queryFn: ({ signal }) => loadProjects(signal),
+    ...projectsOptions(),
   });
   return (
     <>
@@ -124,6 +122,7 @@ export function ProjectContextPanel({ project }: { project: Project }) {
   const [deleting, setDeleting] = useState(false);
   const menuTrigger = useRef<HTMLButtonElement>(null);
   const cache = useQueryClient();
+  const refreshSessions = useRefreshChatSessions();
   const navigate = useNavigate();
   return (
     <div className="space-y-5 pt-4 text-left">
@@ -186,7 +185,7 @@ export function ProjectContextPanel({ project }: { project: Project }) {
             await Promise.all([
               cache.invalidateQueries({ queryKey: ["chat-projects"] }),
               cache.invalidateQueries({ queryKey: ["chat-project-sessions"] }),
-              cache.invalidateQueries({ queryKey: chatSessionsKey }),
+              refreshSessions(),
             ]);
             await navigate({ to: "/" });
           }}
@@ -421,7 +420,7 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
             body,
             signal: AbortSignal.timeout(30000),
           });
-          const created = projectSchema.parse(data);
+          const created = projectOf(data);
           await cache.invalidateQueries({ queryKey: ["chat-projects"] });
           onClose();
           await navigate({

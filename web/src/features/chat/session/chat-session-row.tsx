@@ -2,7 +2,6 @@ import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useRef, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
 import { Check, X } from "lucide-react";
 import { ThreadListRow } from "@/components/assistant-ui/elements/thread-list";
 import { IconButton } from "@/components/ui/icon-button";
@@ -10,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { renameChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { ChatSessionMenu } from "./chat-session-menu";
-import { chatSessionsKey } from "@/features/chat/chat-api";
 import { actionErrorText } from "@/lib/action-errors";
+import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
 export const CHAT_DRAG_TYPE = "application/x-memoryos-chat";
 
@@ -38,7 +37,7 @@ export function ChatSessionRow({
   const [pending, setPending] = useState(false);
   const busy = useRef(false);
   const [error, setError] = useState<string>();
-  const cache = useQueryClient();
+  const refreshSessions = useRefreshChatSessions();
   const link = useRef<HTMLAnchorElement>(null);
   function closeEditor() {
     setRenaming(false);
@@ -94,11 +93,7 @@ export function ChatSessionRow({
                     })
               )
                 .then(async () => {
-                  await Promise.all([
-                    cache.invalidateQueries({ queryKey: chatSessionsKey }),
-                    cache.invalidateQueries({ queryKey: ["chat-project-sessions"] }),
-                    cache.invalidateQueries({ queryKey: ["chat-session", session.id] }),
-                  ]);
+                  await refreshSessions(session.id);
                   closeEditor();
                 })
                 .catch((cause: unknown) => setError(actionErrorText(cause)))

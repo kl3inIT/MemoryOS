@@ -1,10 +1,23 @@
+import type { QueryClient } from "@tanstack/react-query";
 import type { UIMessage } from "ai";
-import { z } from "zod";
 import { i18n } from "@/i18n";
 import { sourcesSchema, type ChatSource } from "@/features/chat/sources/chat-evidence";
 import { activitySchema, historyParts } from "@/features/chat/activity/chat-activity";
 import { createChatSession, getChatHistory, getChatSession } from "@/lib/hey-api/sdk.gen";
-import type { ChatMessage, ChatSession } from "@/lib/hey-api/types.gen";
+import {
+  getChatBranchesQueryKey,
+  getChatFeedbackQueryKey,
+  getChatSessionQueryKey,
+  listChatSessionsQueryKey,
+  listProjectChatSessionsQueryKey,
+  searchChatSessionsQueryKey,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import type {
+  ChatBranch,
+  ChatMessage,
+  ChatSession,
+  Feedback as FeedbackView,
+} from "@/lib/hey-api/types.gen";
 import { fileReference } from "@/features/library/files";
 import { artifactsSchema, type ChatArtifact } from "@/features/chat/thread/chat-artifacts";
 import { parseGeneratedImages, type GeneratedImage } from "@/features/chat/image/chat-image";
@@ -31,21 +44,61 @@ export type ChatUiMessage = UIMessage<
   { research: ResearchState }
 >;
 export type ChatHistory = { session: ChatSession; messages: ChatMessage[] };
-export const chatSessionsKey = ["chat-sessions"] as const;
 
-export const feedbackSchema = z.object({
-  assistantMessageId: z.string().uuid(),
-  positive: z.boolean().nullable(),
-  comment: z.string(),
-  reason: z.string(),
-});
-export const branchSchema = z.object({
-  id: z.string().uuid(),
-  parentMessageId: z.string().uuid().nullable(),
-  latestChildMessageId: z.string().uuid().nullable(),
-});
-export type Feedback = z.infer<typeof feedbackSchema>;
-export type Branch = z.infer<typeof branchSchema>;
+/** Matches every cached call of a generated operation, whatever its path, query or base URL. */
+function everyCall([{ _id }]: readonly [{ _id: string }]) {
+  return [{ _id }];
+}
+
+/**
+ * Refreshes every cached read of conversations after one changes: the session lists (open and archived),
+ * conversation search, every Project's conversation list and, when given, the changed conversation. The
+ * assistant-ui thread list is not a query; `useRefreshChatSessions` reloads it beside this.
+ */
+export function invalidateChatSessions(cache: QueryClient, sessionId?: string) {
+  return Promise.all([
+    cache.invalidateQueries({ queryKey: listChatSessionsQueryKey() }),
+    cache.invalidateQueries({ queryKey: searchChatSessionsQueryKey() }),
+    cache.invalidateQueries({
+      queryKey: everyCall(listProjectChatSessionsQueryKey({ path: { projectId: "" } })),
+    }),
+    sessionId === undefined
+      ? undefined
+      : cache.invalidateQueries({ queryKey: getChatSessionQueryKey({ path: { sessionId } }) }),
+  ]);
+}
+
+/** Refreshes the version relationships of a conversation and the feedback on each of its versions. */
+export function invalidateChatVersions(cache: QueryClient, sessionId: string) {
+  const path = { sessionId };
+  return Promise.all([
+    cache.invalidateQueries({ queryKey: getChatBranchesQueryKey({ path }) }),
+    // Feedback is read in chunks of message ids; an empty id list matches every chunk.
+    cache.invalidateQueries({
+      queryKey: getChatFeedbackQueryKey({ path, query: { messageIds: [] } }),
+    }),
+  ]);
+}
+
+/** A version relationship as the API sends it; the published contract marks its fields optional. */
+export function branchOf({ id, parentMessageId = null, latestChildMessageId = null }: ChatBranch) {
+  if (id === undefined) throw new TypeError("A conversation branch carries its message id.");
+  return { id, parentMessageId, latestChildMessageId };
+}
+export type Branch = ReturnType<typeof branchOf>;
+
+/** Feedback on an answer as the API sends it; the published contract marks its fields optional. */
+export function feedbackOf({
+  assistantMessageId,
+  positive = null,
+  comment = "",
+  reason = "",
+}: FeedbackView) {
+  if (assistantMessageId === undefined)
+    throw new TypeError("Answer feedback carries its message id.");
+  return { assistantMessageId, positive, comment, reason };
+}
+export type Feedback = ReturnType<typeof feedbackOf>;
 
 export async function loadChatHistory(
   sessionId: string,

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { GitBranch } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
@@ -7,7 +6,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { branchChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
 import { actionErrorText } from "@/lib/action-errors";
-import { chatSessionsKey } from "@/features/chat/chat-api";
+import { useRefreshChatSessions } from "@/features/chat/runtime/chat-threads-context";
 
 /**
  * "Branch into a new chat" on one message, after Gemini's answer menu: the conversation so far is copied into a
@@ -26,7 +25,7 @@ export function ChatBranchAction({
   disabled?: boolean;
 }) {
   const ui = useAppTranslation();
-  const cache = useQueryClient();
+  const refreshSessions = useRefreshChatSessions();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -50,7 +49,7 @@ export function ChatBranchAction({
             signal: AbortSignal.timeout(120_000),
           })
             .then(async ({ data }) => {
-              await cache.invalidateQueries({ queryKey: chatSessionsKey });
+              await refreshSessions();
               await navigate({ to: "/chat/$sessionId", params: { sessionId: data.id } });
             })
             .catch((cause: unknown) => setError(actionErrorText(cause)))
