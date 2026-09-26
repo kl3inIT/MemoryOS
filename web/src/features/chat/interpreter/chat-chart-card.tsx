@@ -136,7 +136,7 @@ function Drawn({ chart }: { chart: SimpleChart }) {
               <Cell key={slice.key} fill={color(index)} />
             ))}
           </Pie>
-          <ChartLegend content={<ChartLegendContent nameKey="key" />} className="flex-wrap" />
+          <ChartLegend content={<ChartLegendContent nameKey="key" className="flex-wrap" />} />
         </PieChart>
       </ChartContainer>
     );
