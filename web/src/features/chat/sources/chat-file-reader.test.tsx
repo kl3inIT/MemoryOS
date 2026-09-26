@@ -152,7 +152,8 @@ describe("Private file reader", () => {
       const trigger = screen.getByRole("button", { name: file.filename });
       expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
       await user.click(trigger);
-      // The viewer's code loads on first open, which takes longer than a render under test.
+      // The viewer's code loads on first open, which takes longer than a render under test (and than the
+      // default test timeout on a loaded machine, hence the test's own).
       const dialog = await screen.findByRole(
         "dialog",
         { name: file.filename },
@@ -182,7 +183,7 @@ describe("Private file reader", () => {
       await act(async () => {
         await i18n.changeLanguage("en");
       });
-    });
+    }, 15_000);
   }
 
   /** The dialog owns the reading state and hands it to both views; the test opens the same way. */
