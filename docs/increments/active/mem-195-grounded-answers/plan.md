@@ -10,6 +10,8 @@ Owner decisions of 2026-09-26:
 
 ## One pull request
 
+Status 2026-09-26: items 1-14 implemented on the branch; see design "As implemented" for departures. Open: CI, review, staging acceptance and the grounded baseline.
+
 ### Backend
 
 1. **Migration**

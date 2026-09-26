@@ -1,6 +1,6 @@
 # MEM-195 — Grounded-only answers and topic guardrails
 
-Status: design agreed with the owner on 2026-09-26. No code yet. Flow diagram: [diagrams/grounded-flow.html](diagrams/grounded-flow.html).
+Status: design agreed with the owner on 2026-09-26; implemented on the branch (see "As implemented"); staging acceptance open. Flow diagram: [diagrams/grounded-flow.html](diagrams/grounded-flow.html).
 
 ## The failure
 
@@ -182,6 +182,37 @@ This pull request adds only the Chat entry. The regrouping and the consistent na
 
 - **Blocked topic or phrase.** Each one writes an audit record: who asked, when, which topic, which agent.
 - **No evidence and uncited refusals.** Counted as metrics, not audited per person, because they are routine and not sensitive. The counts show where the Tenant lacks documents.
+
+## As implemented
+
+These departures from the sections above were found while building the change; the Chat spec records the behaviour.
+
+- **No early stop when evidence is empty.**
+  - Check: in Embabel 1.5.2 an `@LlmTool` exception becomes error text fed back to the model; only
+    `ReplanRequestedException` escapes `MethodTool`. So a tool cannot end the streaming loop, and the answer model
+    still writes after a search that found nothing.
+  - Outcome: the release gate discards that answer and stores the refusal, so nothing is shown. The cost is the
+    answer call.
+- **Where the settings are stored.** Topics and phrases are JSONB columns on `chat_settings` (V132), not separate
+  tables. They are one row per Tenant under the existing revision, and Group scope arrives with Tenant-written topics.
+- **Classifier model.** Check 1 runs on the turn's own model through `ModelCalls` and records its usage as the `CHAT`
+  flow. There is no new model flow, so no catalog or provisioning change.
+- **Fail closed** uses the existing `CHAT_PROVIDER_UNAVAILABLE` failure code.
+- **Deep research** is refused on grounded turns, because research runs its own agents and tools.
+- **Grounded turns always search**, whatever the agent's search tool setting.
+- **Topics apply to every turn** when enabled, grounded or not, because the sensitive-topic request stands on its own.
+- **Browser.**
+  - Web search the Tenant does not allow is hidden from the composer, as tools an agent forbids already are, rather
+    than shown with a lock.
+  - No "Đang đối chiếu nguồn…" line was added: the existing pending indicator and search activity show progress
+    while text is held.
+  - The declined-reply marker reads the stored reason, so it appears from history. The stream protocol is unchanged
+    (MEM-26), and a live reply shows the refusal text itself.
+  - The "Internet sources" label is not implemented; Web citations already show as Web sources.
+- **Benchmark.** Abstention prefers `refusalReason` and falls back to the phrase list when it is null, because
+  ungrounded replies carry null. Time to first text is not measured, because the client reads saved history rather
+  than the stream. `baseline.grounded.json` is a placeholder until the first grounded staging run, and `baseline.json`
+  must be re-recorded because 22 must-decline questions were added.
 
 ## Out of scope
 

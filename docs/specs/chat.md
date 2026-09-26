@@ -348,7 +348,7 @@ The backend registers `search_knowledge` through Embabel `@LlmTool`/`Tool.fromIn
 
 Retrieval checks current source eligibility and generation before titles/content/metadata reach any model or event. Adjacent hits merge by document/generation before candidate limits. Selection sees at most three chunks around each section's best-ranked anchor plus permitted source/date/author metadata under a total token budget. Search prompts are the reference prompts verbatim except for their typed output lines. As in the reference, out-of-range selection ids are skipped, an empty, unparseable or entirely invalid selection falls back to the top-ranked candidate sections, and a NOT_RELEVANT classification keeps the selected main section, so a query that only names a document is not answered as if no document exists. The source scope is decided per search cycle from the last five user turns, this cycle's queries and previous cycles, restricted to the persona/tool sources, and latches off for the turn once no source is named; a scoped result carries a note naming the covered sources and queries. The time decision runs once per turn and returns created or updated with inclusive date or relative-offset bounds; a start after today and an end on or after today are dropped, and the end covers its whole day. Malformed optional author JSON yields no author and does not drop otherwise eligible documents. Reading progress bounds titles to 255 Java characters without splitting a surrogate pair; final citation titles retain their existing limit. Selected sections first read two neighbors around their full boundaries; separate typed classification chooses NOT_RELEVANT, MAIN_SECTION_ONLY, INCLUDE_ADJACENT_SECTIONS or FULL_DOCUMENT. FULL_DOCUMENT reads at most five neighbors per side and never widens when no neighbor exists. Expanded overlaps merge before bounded evidence/citations. Expansion reuses the authorized search set and checks generation; independent source previews check current permission.
 
-`ChatPrompts` and `SearchPrompts` are MemoryOS-owned prompt contracts for registered tools and native structured output. The default Persona instructions are configurable through `memoryos.chat.persona.instructions`; the current UTC datetime placeholder resolves into the in-memory turn setup. Every agent is told the date, once: the placeholder is filled, or instructions without one get Onyx's `Additional Information` date line. Unlike Onyx there is no per-agent `datetime_aware` switch (removed in V131), and Embabel's `CurrentDate` contributor is not added. Inference guidance derives from actual request tool callbacks: internal versus public sources, freshness, complementary queries and reputable primary pages. Every callable tool contributes its own block under a single `# Tools` heading: the knowledge base, `web_search`, `open_url`, the attachment pair `search_files`/`read_file` and `generate_image`; a tool absent from the request is never advertised. When `search_knowledge` is callable, an explicit request to answer from existing, connected or internal documents, a named internal Source/provider or a named document must search before answering; absent evidence is reported rather than replaced by general model knowledge. This provider-neutral instruction hardens the Onyx automatic-tool baseline after a Search-ready SharePoint turn completed without a tool call; it does not add provider-specific `tool_choice` behavior or claim protocol-level forcing. Evidence that answers only part of a request is answered in part: the uncovered part is named, never completed from general knowledge even when a law, a standard or common practice would give the same answer, and adjacent evidence is introduced as the nearest thing found rather than as the answer. A citation may not carry a statement its document does not support. The MEM-141 benchmark found replies that answered their half and then asserted the other half — a charter threshold, an appointment authority, once a figure the document contradicts — because a statutory default reads as general knowledge; its `cross_department` category is the regression test (`ChatGroundingPromptTest`). `web_search` queries are normalized (control characters and padded whitespace) before validation, while `open_url` still rejects a malformed URL. A recent `web_search` tool response triggers an open-page reminder only when `open_url` is available and another tool cycle remains; sufficient snippets do not require opening a page. Historical search before a new user message does not trigger it. Inference requests also receive inline citation reminders once evidence exists and a final-cycle reminder when tools are disabled. Guidance preserves Persona instructions and does not modify the stored transcript or user message. Unavailable tools are not advertised.
+`ChatPrompts` and `SearchPrompts` are MemoryOS-owned prompt contracts for registered tools and native structured output. The default Persona instructions are configurable through `memoryos.chat.persona.instructions`; the current UTC datetime placeholder resolves into the in-memory turn setup. Every agent is told the date, once: the placeholder is filled, or instructions without one get Onyx's `Additional Information` date line. Unlike Onyx there is no per-agent `datetime_aware` switch (removed in V131), and Embabel's `CurrentDate` contributor is not added. Inference guidance derives from actual request tool callbacks: internal versus public sources, freshness, complementary queries and reputable primary pages. Every callable tool contributes its own block under a single `# Tools` heading: the knowledge base, `web_search`, `open_url`, the attachment pair `search_files`/`read_file` and `generate_image`; a tool absent from the request is never advertised. When `search_knowledge` is callable, an explicit request to answer from existing, connected or internal documents, a named internal Source/provider or a named document must search before answering; absent evidence is reported rather than replaced by general model knowledge. This provider-neutral instruction hardens the Onyx automatic-tool baseline after a Search-ready SharePoint turn completed without a tool call; it does not add provider-specific `tool_choice` behavior or claim protocol-level forcing, except on a grounded turn (below), whose first inference offers only `search_knowledge` and requires a tool call. Evidence that answers only part of a request is answered in part: the uncovered part is named, never completed from general knowledge even when a law, a standard or common practice would give the same answer, and adjacent evidence is introduced as the nearest thing found rather than as the answer. A citation may not carry a statement its document does not support. The MEM-141 benchmark found replies that answered their half and then asserted the other half — a charter threshold, an appointment authority, once a figure the document contradicts — because a statutory default reads as general knowledge; its `cross_department` category is the regression test (`ChatGroundingPromptTest`). `web_search` queries are normalized (control characters and padded whitespace) before validation, while `open_url` still rejects a malformed URL. A recent `web_search` tool response triggers an open-page reminder only when `open_url` is available and another tool cycle remains; sufficient snippets do not require opening a page. Historical search before a new user message does not trigger it. Inference requests also receive inline citation reminders once evidence exists and a final-cycle reminder when tools are disabled. Guidance preserves Persona instructions and does not modify the stored transcript or user message. Unavailable tools are not advertised.
 
 `memoryos.chat.search` configures, with Onyx's sizes, candidates (50 merged sections, `NUM_RETURNED_HITS`), sections (10 selected), selection-tokens (25600: `MAX_CHUNKS_FED_TO_CHAT` 25 x 512-token chunks x `SELECTION_TOKEN_BUDGET_MULTIPLIER` 2), helper-timeout (60 seconds per helper call), auto-detect-filters (true), and cleanup-timeout (1 second, positive and at most 5 seconds). Helpers use the selected native binding/process with no tools and `withoutThinking()`; the adapter applies the supported helper reasoning effort after native conversion, independently of answer settings. See [model options](chat-models.md#credentials-and-provider-extension). Two native binding attempts remain allowed, within one helper deadline. As Onyx, neither search calls nor their helper inferences have a count of their own: `max-cycles` (Onyx `MAX_LLM_CYCLES`, 6) bounds tool work, with the optional token and cost budgets. Missing native usage leaves accounting unknown. Parallel requests reserve input/output token and known cost allowance before IO; native Embabel records usage once. Unknown/failed requests retain their allowance. The stream cycle/final-tools-off limit remains separate.
 
@@ -369,6 +369,66 @@ SSE `tool` events carry `{assistantMessageId, sequence, toolCallId, toolName, st
 Native tool observations keep timing, tool name and status. Search phase observations and `memoryos.search.stage.duration` timers distinguish prefetch, semantic/keyword rewrite, source/time filters, embedding, hybrid IO, authorization, fusion, selection, expansion and classification. Concurrent tasks retain the parent observation context. Tags contain bounded stage/outcome values, never questions, document metadata or identity. An ordered handler strips sensitive tool values before start/error handlers; a filter strips result/payload/error text before stop. Content-bearing Embabel loggers are disabled and Spring AI content capture remains off.
 
 Current source policy remains PUBLIC FILE. Restricted/provider principal ACL metadata and permission-aware top-k await the source authorization implementation. The opt-in grounded model corpus check and its recorded result are separate from fixture contracts; neither establishes broader ranking quality or browser citation acceptance.
+
+## Answers from documents only and sensitive topics (MEM-195)
+
+A Tenant or an agent can make Chat answer only from the organization's documents, after Amazon Q Business's
+`ENTERPRISE_CONTENT_ONLY` response scope. The Tenant settings `groundedAnswers` and `groundedAllowWeb` are
+changed at `PUT /api/chat/settings/grounded`. An agent's `grounded` flag applies when the Tenant setting is off; an
+agent cannot opt out of a Tenant that is on. The persona read resolves both into `ChatTurnOptions.grounded`, and a
+grounded turn always offers `search_knowledge`, whatever the agent's search tool setting.
+
+**Admission.** A grounded turn is refused:
+- Deep research (`CHAT_RESEARCH_UNAVAILABLE`);
+- Web search unless the Tenant allows it (`CHAT_WEB_UNAVAILABLE`);
+- a model without tool calling (`CHAT_GROUNDED_MODEL_UNSUPPORTED`).
+
+**Check 1.** Before the answer model, in the turn's background execution, `ChatGuardrailCheck`:
+1. matches the Tenant's blocked phrases in code;
+2. sends greetings and thanks to the answer model without a classifier call;
+3. otherwise asks one structured classifier call on the turn's model (`ModelCalls`, so it keeps the turn's budget,
+   deadline and usage recording) whether the question is `CONVERSATIONAL`, a `QUESTION` or a `BLOCKED_TOPIC`, with
+   each enabled topic's description and examples.
+
+Check 1 runs for grounded turns and, when a topic or phrase is enabled, for every turn. A failed check fails the turn
+closed with `CHAT_PROVIDER_UNAVAILABLE`. A blocked question is completed with the Tenant's message and
+`refusalReason = blocked_topic`, never reaches the answer model, and records `chat_guardrail.block` with the rule
+kind, topic and session. A conversational message in grounded mode is answered as an ungrounded turn.
+
+**The answer.** A grounded turn's first inference offers only `search_knowledge` and requires a tool call
+(`ModelBinding.requireTool`, the Onyx `forced_tool_id` equivalent). Every inference carries an instruction to answer
+from the returned evidence only.
+
+**The citation gate.** Answer text passes through `CitationGate` before it is stored or streamed:
+- A grounded turn holds all text until the first inline `[n]` naming evidence registered in this turn, then releases
+  it and streams the rest.
+- A citation naming no registered evidence is dropped, as Onyx `citation_processor` drops it.
+- An answer that ends without a valid citation is never shown. It is stored as the localized "not in the documents"
+  text with `refusalReason` `no_evidence` (no evidence was registered) or `uncited`.
+- Blocked phrases are checked on answers too, holding back as many trailing characters as the longest phrase so a
+  phrase split across chunks is caught (NeMo Guardrails `RollingBuffer`). A match replaces the answer with the
+  Tenant's message.
+
+Tools and activity events stream throughout. The gate sits before the replay buffer, so the replay buffer only ever
+holds released text.
+
+**What it does not do.**
+- Embabel's tool loop cannot be stopped by a tool, so a turn with no evidence still lets the model write an answer.
+  That answer is discarded; it is never shown.
+- A citation proves that the answer names a document, not that the document supports each sentence. Per-claim checks
+  are a later phase.
+
+**Sensitive topics.** Model managers read and change the guardrails at `GET`/`PUT /api/chat/settings/guardrails`:
+- the three built-in topics `POLITICS`, `LEADERS` and `RELIGION`, each with a switch and a message; their
+  descriptions and example questions live in `ChatGuardrails`;
+- at most 20 blocked phrases, with one message.
+
+The phrase list itself stays out of the audit stream.
+
+**History and browser.** History returns `refusalReason` on completed replies. The `/admin/chat` page (Onyx Chat
+Preferences) holds Deep research, conversation-history visibility, answers from documents and the sensitive topics.
+The agent editor has the grounded switch. The composer says when a conversation answers from documents only and
+hides Deep research and disallowed Web search. A declined reply shows why.
 
 ## Deep research
 
