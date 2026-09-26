@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["src/routes/**/*.tsx", "scripts/**/*.{ts,mjs}", "tests/**/*.ts"],
+  "project": ["src/**/*.{ts,tsx,css}", "scripts/**/*.{ts,mjs}", "tests/**/*.ts"],
+  "ignore": ["src/lib/hey-api/**", "src/components/ui/**"]
+}
