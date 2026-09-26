@@ -1042,6 +1042,7 @@ export const vietnameseUi: Record<string, string> = {
   "Không tìm thấy mô hình.": "No models found.",
   "Hội thoại mới": "New conversation",
   "Trợ lý": "Assistants",
+  "Trợ lý và công cụ": "Agents and tools",
   "An toàn": "Safety",
   "Biểu đồ": "Chart",
   "Công việc": "Work",

@@ -41,13 +41,7 @@ export type AdminPage =
   | "costs"
   | "audit";
 
-export type AdminGroup =
-  | "configuration"
-  | "agents"
-  | "connectors"
-  | "knowledge"
-  | "tenant"
-  | "monitoring";
+export type AdminGroup = "configuration" | "agents" | "knowledge" | "tenant" | "monitoring";
 
 export type AdminPageEntry = {
   id: AdminPage;
@@ -67,8 +61,7 @@ export type AdminPageEntry = {
 /** Sidebar sections, in the order the sidebar shows them. */
 export const adminGroups: readonly { id: AdminGroup; label: AppText }[] = [
   { id: "configuration", label: appText("Configuration") },
-  { id: "agents", label: appText("Trợ lý") },
-  { id: "connectors", label: appText("Connectors") },
+  { id: "agents", label: appText("Trợ lý và công cụ") },
   { id: "knowledge", label: appText("Documents & Knowledge") },
   { id: "tenant", label: appText("Tenant") },
   { id: "monitoring", label: appText("Monitoring") },
@@ -85,15 +78,6 @@ export const adminPages: readonly AdminPageEntry[] = [
     label: appText("Mô hình"),
     title: appText("Models"),
     icon: Sparkles,
-    group: "configuration",
-    visible: manageModels,
-  },
-  {
-    id: "searchSettings",
-    to: "/admin/search-settings",
-    label: appText("Cấu hình tìm kiếm"),
-    title: appText("Cấu hình tìm kiếm"),
-    icon: ScanSearch,
     group: "configuration",
     visible: manageModels,
   },
@@ -148,7 +132,7 @@ export const adminPages: readonly AdminPageEntry[] = [
     label: appText("Máy chủ MCP"),
     title: appText("Máy chủ MCP"),
     icon: Blocks,
-    group: "connectors",
+    group: "agents",
     visible: (authority) => authority.canManageMcp,
   },
   {
@@ -179,6 +163,15 @@ export const adminPages: readonly AdminPageEntry[] = [
     group: "knowledge",
     visible: readSources,
     fuzzy: true,
+  },
+  {
+    id: "searchSettings",
+    to: "/admin/search-settings",
+    label: appText("Cấu hình tìm kiếm"),
+    title: appText("Cấu hình tìm kiếm"),
+    icon: ScanSearch,
+    group: "knowledge",
+    visible: manageModels,
   },
   {
     id: "users",
