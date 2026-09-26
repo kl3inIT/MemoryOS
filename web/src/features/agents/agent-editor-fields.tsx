@@ -11,7 +11,11 @@ import {
   Tag,
   X,
 } from "lucide-react";
+import { EmptyState } from "@/components/composites/empty-state";
+import { SectionHeader } from "@/components/composites/section-header";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
+import { useFieldValidity } from "@/components/form/form-context";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -21,16 +25,17 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Field, FieldDescription, FieldError, FieldLabel, FieldTitle } from "@/components/ui/field";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { formField } from "@/lib/action-errors";
 import { cn } from "@/lib/utils";
 import { ChatFilePicker } from "@/features/library/file-picker";
 import type { NamedRef } from "@/features/identity/principals";
 import { findSourceProvider } from "@/features/sources/shared/source-provider-catalog";
-import { SectionHeader } from "@/components/composites/section-header";
 import { AgentAvatar } from "./agent-avatar";
+import { maxStarterPrompts } from "./agent-form";
 import { agentIconTones, agentIcons } from "./agent-icons";
 
 const avatarTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
@@ -59,33 +64,102 @@ export function EditorSection({
   );
 }
 
-export function Field({
+/**
+ * A labelled editor control with an optional counter beside the label and a hint under it. A control that is not
+ * one labelable element (a picker, a list) has a title instead of a label.
+ */
+export function EditorField({
   label,
   htmlFor,
   hint,
   counter,
+  invalid = false,
+  errors,
   children,
 }: {
   label: string;
   htmlFor?: string;
   hint?: ReactNode;
   counter?: ReactNode;
+  invalid?: boolean;
+  errors?: ({ message?: string } | undefined)[];
   children: ReactNode;
 }) {
-  const Label = htmlFor ? "label" : "span";
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
+    <Field data-invalid={invalid || undefined} className="min-w-0">
       <div className="flex items-baseline justify-between gap-3">
-        <Label htmlFor={htmlFor} className="font-main-ui-action text-content-primary">
-          {label}
-        </Label>
+        {htmlFor ? (
+          <FieldLabel htmlFor={htmlFor}>{label}</FieldLabel>
+        ) : (
+          <FieldTitle>{label}</FieldTitle>
+        )}
         {counter !== undefined && (
           <span className="font-secondary-body text-content-muted tabular-nums">{counter}</span>
         )}
       </div>
       {children}
-      {hint && <p className="font-secondary-body text-content-muted">{hint}</p>}
-    </div>
+      {hint && <FieldDescription>{hint}</FieldDescription>}
+      {invalid && <FieldError errors={errors} />}
+    </Field>
+  );
+}
+
+/** A multi-line text control bound to the `form.AppField` around it. */
+export function TextareaField({
+  label,
+  hint,
+  counter,
+  maxLength,
+  rows,
+  placeholder,
+  className,
+}: {
+  label: string;
+  hint?: ReactNode;
+  counter?: (value: string) => ReactNode;
+  maxLength: number;
+  rows: number;
+  placeholder?: string;
+  className?: string;
+}) {
+  const { field, invalid, errors } = useFieldValidity<string>();
+  return (
+    <EditorField
+      label={label}
+      htmlFor={field.name}
+      hint={hint}
+      counter={counter?.(field.state.value)}
+      invalid={invalid}
+      errors={errors}
+    >
+      <textarea
+        id={field.name}
+        name={field.name}
+        className={cn(formField, className)}
+        maxLength={maxLength}
+        rows={rows}
+        value={field.state.value}
+        placeholder={placeholder}
+        aria-invalid={invalid || undefined}
+        onBlur={field.handleBlur}
+        onChange={(event) => field.handleChange(event.target.value)}
+      />
+    </EditorField>
+  );
+}
+
+/** A failed read of the editor's choices, with a retry. */
+export function LoadFailure({ children, onRetry }: { children: ReactNode; onRetry: () => void }) {
+  const ui = useAppTranslation();
+  return (
+    <Alert variant="destructive">
+      <AlertDescription>{children}</AlertDescription>
+      <AlertAction>
+        <Button type="button" size="sm" prominence="tertiary" onClick={onRetry}>
+          {ui("Tải lại")}
+        </Button>
+      </AlertAction>
+    </Alert>
   );
 }
 
@@ -156,7 +230,7 @@ export function AgentIconPicker({
             )}
           </button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-[19.5rem] p-3">
+        <PopoverContent align="start" className="w-80 p-3">
           <p className="mb-2 font-secondary-action text-content-muted">{ui("Biểu tượng")}</p>
           <div role="radiogroup" aria-label={ui("Biểu tượng")} className="grid grid-cols-7 gap-1.5">
             {Object.entries(agentIcons).map(([key, Icon]) => {
@@ -198,7 +272,7 @@ export function AgentIconPicker({
                 }}
                 trigger={
                   <Button type="button" size="sm" prominence="secondary">
-                    <ImagePlus aria-hidden="true" />
+                    <ImagePlus data-icon="inline-start" aria-hidden="true" />
                     {ui("Dùng ảnh")}
                   </Button>
                 }
@@ -212,11 +286,7 @@ export function AgentIconPicker({
           )}
         </PopoverContent>
       </Popover>
-      {error && (
-        <p role="alert" className="font-secondary-body text-status-danger-content">
-          {error}
-        </p>
-      )}
+      {error && <FieldError>{error}</FieldError>}
     </div>
   );
 }
@@ -233,6 +303,7 @@ export function AgentLabelPicker({
   value: string[];
   disabled: boolean;
   onChange: (ids: string[]) => void;
+  /** Creates a label and resolves once it is selected; a rejection carries the message to show. */
   onCreate: (name: string) => Promise<void>;
 }) {
   const ui = useAppTranslation();
@@ -329,16 +400,10 @@ export function AgentLabelPicker({
           </Popover>
         )}
       </div>
-      {error && (
-        <p role="alert" className="font-secondary-body text-status-danger-content">
-          {error}
-        </p>
-      )}
+      {error && <FieldError>{error}</FieldError>}
     </div>
   );
 }
-
-export const maxStarterPrompts = 8;
 
 /** One input per conversation starter (StackAI, Zapier). */
 export function StarterPromptsField({
@@ -353,7 +418,7 @@ export function StarterPromptsField({
   const ui = useAppTranslation();
   const rows = value.length === 0 ? [""] : value;
   return (
-    <Field
+    <EditorField
       label={ui("Câu hỏi gợi ý")}
       counter={`${value.filter((prompt) => prompt.trim()).length}/${maxStarterPrompts}`}
       hint={ui("Hiện dưới ô chat để người dùng bấm hỏi ngay.")}
@@ -394,11 +459,11 @@ export function StarterPromptsField({
           disabled={rows.length >= maxStarterPrompts}
           onClick={() => onChange([...rows, ""])}
         >
-          <Plus aria-hidden="true" />
+          <Plus data-icon="inline-start" aria-hidden="true" />
           {ui("Thêm câu gợi ý")}
         </Button>
       )}
-    </Field>
+    </EditorField>
   );
 }
 
@@ -431,11 +496,6 @@ export function AgentSourcePicker({
 }) {
   const ui = useAppTranslation();
   const isDocumentSet = kind === "document-set";
-  const addLabel = isDocumentSet ? ui("Thêm bộ tài liệu") : ui("Thêm nguồn");
-  const searchPlaceholder = isDocumentSet ? ui("Tìm bộ tài liệu…") : ui("Tìm nguồn…");
-  const emptyLabel = isDocumentSet
-    ? ui("Không tìm thấy bộ tài liệu.")
-    : ui("Không tìm thấy nguồn.");
   const chosen = value.map(
     (id) =>
       options.find((source) => source.id === id) ??
@@ -476,83 +536,43 @@ export function AgentSourcePicker({
     );
   };
   const add = !disabled && (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button type="button" size="sm" prominence="secondary" disabled={pending || failed}>
-          <Plus aria-hidden="true" />
-          {addLabel}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-80 p-0">
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
-            <CommandEmpty>{emptyLabel}</CommandEmpty>
-            <CommandGroup>
-              {options.map((source) => {
-                const Icon = findSourceProvider(source.type)?.icon ?? Library;
-                const checked = value.includes(source.id);
-                return (
-                  <CommandItem
-                    key={source.id}
-                    value={`${source.name} ${source.id}`}
-                    onSelect={() =>
-                      onChange(
-                        checked ? value.filter((id) => id !== source.id) : [...value, source.id],
-                      )
-                    }
-                  >
-                    <Icon aria-hidden="true" className="size-4" />
-                    <span className="flex-1 truncate">{source.name}</span>
-                    {checked && <Check aria-hidden="true" />}
-                  </CommandItem>
-                );
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <SourceMenu
+      kind={kind}
+      options={options}
+      value={value}
+      disabled={pending || failed}
+      onChange={onChange}
+    />
   );
   return (
     <div className="flex flex-col gap-3">
       {failed && (
-        <p role="alert" className="font-secondary-body text-status-danger-content">
-          {isDocumentSet ? ui("Không tải được bộ tài liệu.") : ui("Không tải được nguồn.")}{" "}
-          <Button type="button" size="sm" prominence="tertiary" onClick={onRetry}>
-            {ui("Tải lại")}
-          </Button>
-        </p>
+        <LoadFailure onRetry={onRetry}>
+          {isDocumentSet ? ui("Không tải được bộ tài liệu.") : ui("Không tải được nguồn.")}
+        </LoadFailure>
       )}
       {chosen.length === 0 ? (
-        <div className="flex items-center gap-3 rounded-xl border border-dashed border-border-default px-4 py-3">
-          <span
-            aria-hidden="true"
-            className="grid size-9 shrink-0 place-items-center text-content-muted"
-          >
-            <Library className="size-4.5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="font-main-ui-action text-content-primary">
-              {isDocumentSet
-                ? ui("Không có bộ tài liệu nào được chọn")
-                : ui("Tìm trong mọi nguồn người dùng được phép đọc")}
-            </p>
-            <p className="font-secondary-body text-content-muted">
-              {isDocumentSet
-                ? ui("Chọn bộ tài liệu để trợ lý chỉ trả lời từ các nguồn trong đó.")
-                : ui("Chọn nguồn để trợ lý chỉ trả lời từ những tài liệu đó.")}
-            </p>
-          </div>
-          {add}
-        </div>
+        <EmptyState
+          icon={<Library />}
+          title={
+            isDocumentSet
+              ? ui("Không có bộ tài liệu nào được chọn")
+              : ui("Tìm trong mọi nguồn người dùng được phép đọc")
+          }
+          detail={
+            isDocumentSet
+              ? ui("Chọn bộ tài liệu để trợ lý chỉ trả lời từ các nguồn trong đó.")
+              : ui("Chọn nguồn để trợ lý chỉ trả lời từ những tài liệu đó.")
+          }
+          action={add || undefined}
+        />
       ) : (
         <>
           <SettingRows>
             {chosen.slice(0, visibleRows).map(row)}
             {chosen.length > visibleRows && (
-              <HoverCard>
-                <HoverCardTrigger asChild>
+              <Popover>
+                <PopoverTrigger asChild>
                   <button
                     type="button"
                     className="flex w-full items-center gap-3 px-4 py-3 text-left outline-none hover:bg-surface-subtle/50 focus-visible:ring-3 focus-visible:ring-focus-ring/40"
@@ -573,18 +593,76 @@ export function AgentSourcePicker({
                       className="size-4 shrink-0 text-content-muted"
                     />
                   </button>
-                </HoverCardTrigger>
-                <HoverCardContent className="max-h-80 w-96 overflow-y-auto p-0">
+                </PopoverTrigger>
+                <PopoverContent className="max-h-80 w-96 overflow-y-auto p-0">
                   <SettingRows className="border-0">
                     {chosen.slice(visibleRows).map(row)}
                   </SettingRows>
-                </HoverCardContent>
-              </HoverCard>
+                </PopoverContent>
+              </Popover>
             )}
           </SettingRows>
           <div>{add}</div>
         </>
       )}
     </div>
+  );
+}
+
+function SourceMenu({
+  kind,
+  options,
+  value,
+  disabled,
+  onChange,
+}: {
+  kind: "source" | "document-set";
+  options: SourceOption[];
+  value: string[];
+  disabled: boolean;
+  onChange: (ids: string[]) => void;
+}) {
+  const ui = useAppTranslation();
+  const isDocumentSet = kind === "document-set";
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button type="button" size="sm" prominence="secondary" disabled={disabled}>
+          <Plus data-icon="inline-start" aria-hidden="true" />
+          {isDocumentSet ? ui("Thêm bộ tài liệu") : ui("Thêm nguồn")}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80 p-0">
+        <Command>
+          <CommandInput placeholder={isDocumentSet ? ui("Tìm bộ tài liệu…") : ui("Tìm nguồn…")} />
+          <CommandList>
+            <CommandEmpty>
+              {isDocumentSet ? ui("Không tìm thấy bộ tài liệu.") : ui("Không tìm thấy nguồn.")}
+            </CommandEmpty>
+            <CommandGroup>
+              {options.map((source) => {
+                const Icon = findSourceProvider(source.type)?.icon ?? Library;
+                const checked = value.includes(source.id);
+                return (
+                  <CommandItem
+                    key={source.id}
+                    value={`${source.name} ${source.id}`}
+                    onSelect={() =>
+                      onChange(
+                        checked ? value.filter((id) => id !== source.id) : [...value, source.id],
+                      )
+                    }
+                  >
+                    <Icon aria-hidden="true" />
+                    <span className="flex-1 truncate">{source.name}</span>
+                    {checked && <Check aria-hidden="true" />}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
