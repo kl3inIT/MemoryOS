@@ -207,7 +207,7 @@ Document Sets (`web/src/features/document-sets`) is the reference implementation
 ## Colour and design tokens
 
 - Components and feature CSS use semantic tokens only: no hex, `rgb()`/`oklch()` or Tailwind palette classes (`bg-green-500`, `text-white`). A missing role is added to `web/src/styles/tokens.css` with light and dark values and mapped in `theme.css`. Brand artwork is the only exception.
-- A size several features repeat is a theme token in `theme.css`, not an arbitrary value: the reading width `max-w-reading` (78ch) and the viewer heights `max-h-viewer` (70vh) and `min-h-viewer-sheet` (72dvh).
+- A size several features repeat is a theme token in `theme.css`, not an arbitrary value: the reading width `max-w-reading` (78ch), the viewer heights `max-h-viewer` (70vh) and `min-h-viewer-sheet` (72dvh), the lightbox height `max-h-lightbox` (85dvh), the code sizes `text-code` and `text-code-inline`, `text-2xs`, `blur-2xs` and `ease-out-quint`. A value Tailwind has no utility for is an `@utility` in `theme.css` (`clip-reveal-open`/`-closed`, `scrollbar-stable`).
 - Status colours carry state only and come with an icon or label; charts use `chart-1` … `chart-8` in fixed order with `chart-neutral` for "Other". Roles, values and the chart validation rules are in the [design token guideline](guidelines/design-tokens.md).
 
 ## Data and security
