@@ -136,7 +136,6 @@ export type Persona = ReturnType<typeof personaOf>;
 function personaSourceOf({ id, name = "", type }: SourceOption) {
   return id === undefined ? [] : [{ id, name, type: type ?? "" }];
 }
-export type PersonaSource = ReturnType<typeof personaSourceOf>[number];
 
 /** The visibility shown on cards: Tenant-wide, shared with people or Groups, or private. */
 export function agentVisibility(persona: Persona) {
@@ -146,7 +145,7 @@ export function agentVisibility(persona: Persona) {
     : ("private" as const);
 }
 
-export function loadPersonas(signal: AbortSignal, view: AgentView = "ALL") {
+function loadPersonas(signal: AbortSignal, view: AgentView = "ALL") {
   return allPages(async (offset) =>
     (await listChatPersonas({ query: { offset, limit: 100, view }, signal })).data.map(personaOf),
   );
