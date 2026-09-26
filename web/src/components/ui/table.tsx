@@ -1,9 +1,23 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
+/**
+ * A named table's scroll container is a focusable region carrying the same name, so a keyboard can scroll a
+ * table that overflows (axe `scrollable-region-focusable`).
+ */
 function Table({ className, ...props }: React.ComponentProps<"table">) {
+  const label = props["aria-label"];
+  const labelledBy = props["aria-labelledby"];
+  const named = Boolean(label || labelledBy);
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto">
+    <div
+      data-slot="table-container"
+      role={named ? "region" : undefined}
+      tabIndex={named ? 0 : undefined}
+      aria-label={label}
+      aria-labelledby={labelledBy}
+      className="relative w-full overflow-x-auto rounded-[inherit] outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+    >
       <table
         data-slot="table"
         className={cn("w-full caption-bottom font-main-ui-body", className)}
