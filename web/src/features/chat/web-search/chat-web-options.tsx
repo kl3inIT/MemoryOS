@@ -140,7 +140,7 @@ export function ChatWebModes({
         orientation="vertical"
         aria-label={heading}
         value={value}
-        className="w-full flex-col items-stretch"
+        className="w-full"
         onValueChange={(mode) => {
           // Choosing the current mode again only closes the menu.
           if (mode) onChange(mode as WebSearchMode);
