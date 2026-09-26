@@ -117,7 +117,7 @@ export function DocumentPreviewContent({
                   key={match.matchingOrdinal}
                   type="button"
                   aria-current={index === activeMatchIndex ? "true" : undefined}
-                  className="inline-flex h-7 shrink-0 cursor-pointer items-center rounded-md px-2.5 font-secondary-action text-content-muted outline-none transition-[color,background-color,box-shadow] duration-150 hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40 aria-[current]:bg-surface-base aria-[current]:text-content-primary aria-[current]:shadow-xs motion-reduce:transition-none"
+                  className="inline-flex h-7 shrink-0 cursor-pointer items-center rounded-md px-2.5 font-secondary-action text-content-muted outline-none transition duration-150 hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40 aria-[current]:bg-surface-base aria-[current]:text-content-primary aria-[current]:shadow-xs motion-reduce:transition-none"
                   onClick={() => reading.select(index)}
                 >
                   {ui("Đoạn")} {index + 1}

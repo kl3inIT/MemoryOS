@@ -1,7 +1,7 @@
 import { FileText, TextQuote } from "lucide-react";
-import { Tabs } from "radix-ui";
 import { lazy, Suspense, useState, type ReactNode } from "react";
 import type { PdfHighlight } from "@/features/preview/pdf-pages";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PreviewCanvas, PreviewSkeleton } from "@/features/preview/preview-surface";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import type { OriginalReader } from "@/features/preview/original-view";
@@ -23,10 +23,7 @@ export type OriginalEvidence = {
   citations: readonly string[];
 };
 
-const trigger =
-  "inline-flex h-7 min-w-0 cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 font-secondary-action text-content-muted outline-none transition-[color,background-color,box-shadow] duration-150 hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40 data-[state=active]:bg-surface-base data-[state=active]:text-content-primary data-[state=active]:shadow-xs motion-reduce:transition-none [&_svg]:size-3.5 [&_svg]:shrink-0";
-
-const panel = "flex min-h-0 flex-1 flex-col outline-none";
+const panel = "flex min-h-0 flex-1 flex-col";
 
 /**
  * A segmented tab list between the extracted passages and the stored original, with the cited passages
@@ -58,7 +55,7 @@ export function EvidenceViewSwitch({
   );
   if (!original) return <>{children}</>;
   return (
-    <Tabs.Root
+    <Tabs
       value={view ?? ownView}
       onValueChange={(value) => {
         const next: EvidenceView = value === "original" ? "original" : "passages";
@@ -68,24 +65,21 @@ export function EvidenceViewSwitch({
       className={panel}
     >
       <div className="shrink-0 border-b border-border-subtle px-4 py-2 sm:px-5">
-        <Tabs.List
-          aria-label={ui("Cách xem bằng chứng")}
-          className="inline-grid grid-cols-2 gap-0.5 rounded-lg bg-surface-sunken p-0.5"
-        >
-          <Tabs.Trigger value="passages" className={trigger}>
+        <TabsList aria-label={ui("Cách xem bằng chứng")}>
+          <TabsTrigger value="passages">
             <TextQuote aria-hidden="true" />
             {ui("Đoạn trích")}
-          </Tabs.Trigger>
-          <Tabs.Trigger value="original" className={trigger}>
+          </TabsTrigger>
+          <TabsTrigger value="original">
             <FileText aria-hidden="true" />
             {ui("Tệp gốc")}
-          </Tabs.Trigger>
-        </Tabs.List>
+          </TabsTrigger>
+        </TabsList>
       </div>
-      <Tabs.Content value="passages" className={panel}>
+      <TabsContent value="passages" className={panel}>
         {children}
-      </Tabs.Content>
-      <Tabs.Content value="original" className={panel}>
+      </TabsContent>
+      <TabsContent value="original" className={panel}>
         <Suspense
           fallback={
             <PreviewCanvas>
@@ -102,7 +96,7 @@ export function EvidenceViewSwitch({
             texts={original.citations}
           />
         </Suspense>
-      </Tabs.Content>
-    </Tabs.Root>
+      </TabsContent>
+    </Tabs>
   );
 }

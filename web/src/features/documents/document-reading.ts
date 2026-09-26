@@ -1,11 +1,11 @@
-import { queryOptions, useQueries, useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import { useState } from "react";
-import { useApplicationSession } from "@/features/identity/application-session-context";
 import {
-  getSearchDocument,
-  readChatDocumentPassages,
-  readChatFilePassages,
-} from "@/lib/hey-api/sdk.gen";
+  getSearchDocumentOptions,
+  readChatDocumentPassagesOptions,
+  readChatFilePassagesOptions,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import type { SearchDocument } from "@/lib/hey-api/types.gen";
 import type { DocumentSelection } from "./document-preview-dialog";
 import { passageBody, passageSection } from "./passage";
 
@@ -18,52 +18,36 @@ export type PassageReader = {
   fileId?: string;
 };
 
-type Session = { actorId: string; authorizationVersion: number | string };
-
 type Match = DocumentSelection["matches"][number];
 
-/** One authorized window of a document's passages. Each reader has its own cache entry, never a shared one. */
+/**
+ * One authorized window of a document's passages. Each reader is its own generated operation, so a Chat file,
+ * a Chat citation and a Search result never share a cache entry or an in-flight request.
+ */
 function passageWindow(
   { variant, documentId, generation, fileId }: PassageReader,
   from: number,
-  session: Session,
-) {
-  return queryOptions({
-    queryFn: async ({ signal }) =>
-      (fileId
-        ? await readChatFilePassages({
-            path: { fileId },
-            query: { generation, from },
-            signal,
-          })
-        : await (variant === "chat" ? readChatDocumentPassages : getSearchDocument)({
-            path: { documentId },
-            query: { generation, from },
-            signal,
-          })
-      ).data,
-    queryKey: [
-      "document-preview",
-      session.actorId,
-      session.authorizationVersion,
-      // Each reader has its own authority, so they never share cache entries or in-flight requests.
-      fileId ? "chat-file" : variant,
-      fileId ?? documentId,
-      generation,
-      from,
-    ],
+): UseQueryOptions<SearchDocument, Error, SearchDocument, readonly unknown[]> {
+  const query = { generation, from };
+  const options = fileId
+    ? readChatFilePassagesOptions({ path: { fileId }, query })
+    : variant === "chat"
+      ? readChatDocumentPassagesOptions({ path: { documentId }, query })
+      : getSearchDocumentOptions({ path: { documentId }, query });
+  return {
+    ...(options as UseQueryOptions<SearchDocument, Error, SearchDocument, readonly unknown[]>),
     retry: false,
     // Each opening reads the requested generation from the authorized reader.
     staleTime: 0,
     gcTime: 0,
-  });
+  };
 }
 
 /**
  * The passages a match cites, without the chunk header and joined; the locator collapses whitespace, so the
  * join is one citation.
  */
-function citedText(data: Awaited<ReturnType<typeof getSearchDocument>>["data"], match: Match) {
+function citedText(data: SearchDocument | undefined, match: Match) {
   if (!data) return "";
   const last = match.matchingEndOrdinal ?? match.matchingOrdinal;
   return data.passages
@@ -73,7 +57,7 @@ function citedText(data: Awaited<ReturnType<typeof getSearchDocument>>["data"], 
 }
 
 /** The heading trail the first cited passage records, which is the context the citation is read in. */
-function citedSection(data: Awaited<ReturnType<typeof getSearchDocument>>["data"], match: Match) {
+function citedSection(data: SearchDocument | undefined, match: Match) {
   const first = data?.passages.find((passage) => passage.ordinal === match.matchingOrdinal);
   return first ? passageSection(first.content) : undefined;
 }
@@ -88,7 +72,6 @@ export function useDocumentReading(
   variant: "search" | "chat",
   fileId?: string,
 ) {
-  const session = useApplicationSession();
   const reader: PassageReader = {
     variant,
     documentId: selection.documentId,
@@ -99,13 +82,13 @@ export function useDocumentReading(
   const [activeMatchIndex, setActiveMatchIndex] = useState(selection.activeMatchIndex);
   const activeMatch = matches[activeMatchIndex] ?? matches[0];
   const [from, setFrom] = useState(activeMatch?.from ?? 0);
-  const detail = useQuery(passageWindow(reader, from, session));
+  const detail = useQuery(passageWindow(reader, from));
   // Each match reads its own window; several matches usually share one and so read it once. The combined
   // list is structurally shared by react-query, which is what keeps the original from repainting and
   // scrolling on every render.
   const windows = [...new Set(matches.map((match) => match.from))];
   const cited = useQueries({
-    queries: windows.map((window) => passageWindow(reader, window, session)),
+    queries: windows.map((window) => passageWindow(reader, window)),
     combine: (results) => ({
       citations: matches.map((match) =>
         citedText(results[windows.indexOf(match.from)]?.data, match),

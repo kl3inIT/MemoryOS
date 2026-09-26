@@ -1,7 +1,13 @@
 import { Download, Maximize2, Minimize2, X } from "lucide-react";
-import { Dialog } from "radix-ui";
 import { lazy, Suspense, useCallback, useState, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/icon-button";
 import type { CitationConfidence } from "@/features/preview/file-preview";
 import { previewKind, previewSize } from "@/features/preview/preview-kind";
@@ -43,19 +49,6 @@ export type DocumentSelection = {
 /** Kinds whose rendered text a citation can be searched in; elsewhere provenance is the only anchor. */
 const SEARCHABLE = new Set(["docx", "xlsx", "csv", "markdown", "text", "code"]);
 
-const SIZES = {
-  full: "sm:h-[calc(100dvh-3rem)] sm:w-[calc(100vw-3rem)] sm:max-w-[96rem]",
-  large: "sm:h-[min(48rem,calc(100dvh-3rem))] sm:w-[min(64rem,calc(100vw-3rem))]",
-  tall: "sm:h-[calc(100dvh-3rem)] sm:w-[min(64rem,calc(100vw-3rem))]",
-} as const;
-
-/**
- * Full screen leaves no margin and no rounding, so the expand control changes something for the formats that
- * already open at the largest windowed size — a PDF, a Word file, a wide workbook.
- */
-const FULL_SCREEN =
-  "sm:top-0 sm:left-0 sm:h-dvh sm:max-h-dvh sm:w-screen sm:max-w-none sm:translate-x-0 sm:translate-y-0 sm:rounded-none";
-
 type DocumentPreviewDialogProps = {
   selection: DocumentSelection;
   returnFocusRef: RefObject<HTMLElement | null>;
@@ -86,6 +79,7 @@ export function DocumentPreviewDialog({
   const ui = useAppTranslation();
   const reading = useDocumentReading(selection, variant, fileId);
   const kind = previewKind(selection.title, selection.mediaType || "application/octet-stream");
+  const size = previewSize(kind);
   const reader = fileId
     ? undefined
     : documentOriginalReader(variant, selection.documentId, selection.generation);
@@ -109,145 +103,176 @@ export function DocumentPreviewDialog({
   const located = kind === "pdf" ? cited.boxes.length > 0 : SEARCHABLE.has(kind);
 
   return (
-    <Dialog.Root
+    <Dialog
       open
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
     >
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none" />
-        <Dialog.Content
-          className={cn(
-            "fixed inset-x-0 bottom-0 z-50 flex max-h-[calc(100dvh-0.5rem)] min-h-[72dvh] flex-col overflow-hidden rounded-t-2xl border border-border-default bg-surface-overlay shadow-md outline-none sm:top-1/2 sm:left-1/2 sm:min-h-0 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl",
-            full ? FULL_SCREEN : SIZES[previewSize(kind)],
-          )}
-          onCloseAutoFocus={(event) => {
-            const target = returnFocusRef.current?.isConnected
-              ? returnFocusRef.current
-              : fallbackFocusRef.current;
-            if (target?.isConnected) {
-              event.preventDefault();
-              target.focus();
-            }
-            returnFocusRef.current = null;
-          }}
-        >
-          <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border-subtle px-5 py-4 sm:px-6">
-            <div className="flex min-w-0 items-start gap-3">
-              <DocumentSourceIcon
-                mediaType={selection.mediaType}
-                sourceTypes={selection.sourceTypes}
-              />
-              <div className="min-w-0">
-                <Dialog.Title className="line-clamp-2 break-words font-heading-h3 text-content-primary">
-                  {selection.title}
-                </Dialog.Title>
-                <Dialog.Description className="mt-0.5 font-secondary-body text-content-muted">
-                  {selection.mediaType || selection.sourceTypes?.length ? (
-                    <DocumentMeta
-                      mediaType={selection.mediaType}
-                      sourceTypes={selection.sourceTypes}
-                      providerUrl={selection.providerUrl}
-                      title={selection.title}
-                    />
-                  ) : (
-                    ui("Extracted document text with the selected match highlighted.")
-                  )}
-                </Dialog.Description>
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-1">
-              {reader ? (
-                <IconButton prominence="internal" size="sm" aria-label={ui("Tải xuống")} asChild>
-                  <a href={reader.url} download={selection.title}>
-                    <Download />
-                  </a>
-                </IconButton>
-              ) : null}
-              <IconButton
-                prominence="internal"
-                size="sm"
-                aria-label={full ? ui("Thu nhỏ cửa sổ") : ui("Mở toàn màn hình")}
-                className="hidden sm:inline-flex"
-                onClick={() => setFull((open) => !open)}
-              >
-                {full ? <Minimize2 /> : <Maximize2 />}
-              </IconButton>
-              <Dialog.Close asChild>
-                <IconButton
-                  prominence="internal"
-                  size="sm"
-                  aria-label={ui("Close document preview")}
-                >
-                  <X />
-                </IconButton>
-              </Dialog.Close>
-            </div>
-          </header>
+      <DialogContent
+        showCloseButton={false}
+        className={cn(
+          "inset-x-0 top-auto bottom-0 left-0 flex max-h-[calc(100dvh-0.5rem)] min-h-[72dvh] w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:min-h-0 sm:-translate-x-1/2 sm:-translate-y-1/2",
+          // Full screen leaves no margin, so the expand control changes something for the formats that already
+          // open at the largest windowed size — a PDF, a Word file, a wide workbook.
+          full &&
+            "sm:top-0 sm:left-0 sm:h-dvh sm:max-h-dvh sm:w-screen sm:max-w-none sm:translate-x-0 sm:translate-y-0",
+          !full &&
+            size === "full" &&
+            "sm:h-[calc(100dvh-3rem)] sm:w-[calc(100vw-3rem)] sm:max-w-[min(96rem,calc(100vw-3rem))]",
+          !full &&
+            size === "large" &&
+            "sm:h-[min(48rem,calc(100dvh-3rem))] sm:w-[min(64rem,calc(100vw-3rem))] sm:max-w-[min(64rem,calc(100vw-3rem))]",
+          !full &&
+            size === "tall" &&
+            "sm:h-[calc(100dvh-3rem)] sm:w-[min(64rem,calc(100vw-3rem))] sm:max-w-[min(64rem,calc(100vw-3rem))]",
+        )}
+        onCloseAutoFocus={(event) => {
+          const target = returnFocusRef.current?.isConnected
+            ? returnFocusRef.current
+            : fallbackFocusRef.current;
+          if (target?.isConnected) {
+            event.preventDefault();
+            target.focus();
+          }
+          returnFocusRef.current = null;
+        }}
+      >
+        <DocumentPreviewHeader
+          selection={selection}
+          download={reader?.url}
+          full={full}
+          onFull={() => setFull((open) => !open)}
+        />
 
-          <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-            {/* min-w-0 keeps a wide original — a workbook with many columns — from pushing the rail out. */}
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              {reader && !passages ? (
-                <Suspense
-                  fallback={
-                    <PreviewCanvas>
-                      <PreviewSkeleton />
-                    </PreviewCanvas>
-                  }
-                >
-                  <OriginalView
-                    reader={reader}
-                    filename={selection.title}
-                    mediaType={selection.mediaType}
-                    pages={cited.pages}
-                    boxes={cited.boxes}
-                    rows={places.map((place) =>
-                      place.row === undefined ? undefined : { sheet: place.sheet, row: place.row },
-                    )}
-                    texts={reading.citations}
-                    sections={reading.sections}
-                    active={reading.activeMatchIndex}
-                    onPlaced={onPlaced}
-                    onActive={reading.select}
-                    thumbnails
-                  />
-                </Suspense>
-              ) : (
-                <DocumentPreviewContent
-                  selection={selection}
-                  variant={variant}
-                  reading={reading}
-                  hideMatches={Boolean(reader)}
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+          {/* min-w-0 keeps a wide original — a workbook with many columns — from pushing the rail out. */}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {reader && !passages ? (
+              <Suspense
+                fallback={
+                  <PreviewCanvas>
+                    <PreviewSkeleton />
+                  </PreviewCanvas>
+                }
+              >
+                <OriginalView
+                  reader={reader}
+                  filename={selection.title}
+                  mediaType={selection.mediaType}
+                  pages={cited.pages}
+                  boxes={cited.boxes}
+                  rows={places.map((place) =>
+                    place.row === undefined ? undefined : { sheet: place.sheet, row: place.row },
+                  )}
+                  texts={reading.citations}
+                  sections={reading.sections}
+                  active={reading.activeMatchIndex}
+                  onPlaced={onPlaced}
+                  onActive={reading.select}
+                  thumbnails
                 />
+              </Suspense>
+            ) : (
+              <DocumentPreviewContent
+                selection={selection}
+                variant={variant}
+                reading={reading}
+                hideMatches={Boolean(reader)}
+              />
+            )}
+          </div>
+          {reader ? (
+            <CitationRail
+              entries={selection.matches.map((match, index) => ({
+                text: reading.citations[index] ?? "",
+                section: reading.sections[index],
+                provenance: match.provenance,
+              }))}
+              confidence={confidence}
+              active={reading.activeMatchIndex}
+              onActivate={reading.select}
+              located={located}
+              variant={variant}
+            >
+              <Button
+                size="sm"
+                prominence="internal"
+                onClick={() => setPassages((shown) => !shown)}
+              >
+                {passages ? ui("Tệp gốc") : ui("Toàn bộ đoạn trích")}
+              </Button>
+            </CitationRail>
+          ) : null}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** What the document is and where it lives, and the commands on the whole dialog. */
+function DocumentPreviewHeader({
+  selection,
+  download,
+  full,
+  onFull,
+}: {
+  selection: DocumentSelection;
+  /** Where the stored original is downloaded from; absent, there is no original. */
+  download?: string;
+  full: boolean;
+  onFull: () => void;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border-subtle px-5 py-4 sm:px-6">
+      <div className="flex min-w-0 items-start gap-3">
+        <DocumentSourceIcon mediaType={selection.mediaType} sourceTypes={selection.sourceTypes} />
+        <div className="min-w-0">
+          <DialogTitle asChild>
+            <h2 className="line-clamp-2 break-words font-heading-h3 text-content-primary">
+              {selection.title}
+            </h2>
+          </DialogTitle>
+          <DialogDescription asChild>
+            <div className="mt-0.5 font-secondary-body text-content-muted">
+              {selection.mediaType || selection.sourceTypes?.length ? (
+                <DocumentMeta
+                  mediaType={selection.mediaType}
+                  sourceTypes={selection.sourceTypes}
+                  providerUrl={selection.providerUrl}
+                  title={selection.title}
+                />
+              ) : (
+                ui("Extracted document text with the selected match highlighted.")
               )}
             </div>
-            {reader ? (
-              <CitationRail
-                entries={selection.matches.map((match, index) => ({
-                  text: reading.citations[index] ?? "",
-                  section: reading.sections[index],
-                  provenance: match.provenance,
-                }))}
-                confidence={confidence}
-                active={reading.activeMatchIndex}
-                onActivate={reading.select}
-                located={located}
-                variant={variant}
-              >
-                <Button
-                  size="sm"
-                  prominence="internal"
-                  onClick={() => setPassages((shown) => !shown)}
-                >
-                  {passages ? ui("Tệp gốc") : ui("Toàn bộ đoạn trích")}
-                </Button>
-              </CitationRail>
-            ) : null}
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+          </DialogDescription>
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        {download ? (
+          <IconButton prominence="internal" size="sm" aria-label={ui("Tải xuống")} asChild>
+            <a href={download} download={selection.title}>
+              <Download />
+            </a>
+          </IconButton>
+        ) : null}
+        <IconButton
+          prominence="internal"
+          size="sm"
+          aria-label={full ? ui("Thu nhỏ cửa sổ") : ui("Mở toàn màn hình")}
+          className="hidden sm:inline-flex"
+          onClick={onFull}
+        >
+          {full ? <Minimize2 /> : <Maximize2 />}
+        </IconButton>
+        <DialogClose asChild>
+          <IconButton prominence="internal" size="sm" aria-label={ui("Close document preview")}>
+            <X />
+          </IconButton>
+        </DialogClose>
+      </div>
+    </header>
   );
 }

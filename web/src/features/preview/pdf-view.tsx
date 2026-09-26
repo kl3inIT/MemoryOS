@@ -364,7 +364,7 @@ function PdfThumbnails({
                 aria-current={page === current ? "true" : undefined}
                 aria-label={ui("Trang {{pages}}", { pages: page })}
                 onClick={() => onGo(page)}
-                className="block w-full cursor-pointer rounded-md p-1 outline-none ring-1 ring-transparent transition-[box-shadow] focus-visible:ring-3 focus-visible:ring-focus-ring/40 aria-[current]:ring-pdf-highlight-border"
+                className="block w-full cursor-pointer rounded-md p-1 outline-none ring-1 ring-transparent transition-shadow focus-visible:ring-3 focus-visible:ring-focus-ring/40 aria-[current]:ring-pdf-highlight-border"
               >
                 <span
                   className="flex items-center justify-center overflow-hidden bg-surface-document shadow-sm"

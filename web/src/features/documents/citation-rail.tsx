@@ -54,7 +54,7 @@ export function CitationRail({
     <aside
       aria-label={heading}
       data-slot="citation-rail"
-      className="flex max-h-72 shrink-0 flex-col border-border-subtle border-t bg-surface-base lg:max-h-none lg:w-[22rem] lg:border-t-0 lg:border-l"
+      className="flex max-h-72 shrink-0 flex-col border-border-subtle border-t bg-surface-base lg:max-h-none lg:w-88 lg:border-t-0 lg:border-l"
     >
       <div className="flex shrink-0 items-center justify-between gap-3 px-5 pt-4 pb-3">
         <h3 className="flex items-center gap-2 font-secondary-action text-content-primary">
@@ -80,7 +80,7 @@ export function CitationRail({
                 aria-current={current ? "true" : undefined}
                 onClick={() => onActivate(index)}
                 className={cn(
-                  "relative block w-full cursor-pointer overflow-hidden rounded-xl border p-3 pl-4 text-left outline-none transition-[background-color,border-color] duration-150 focus-visible:ring-3 focus-visible:ring-focus-ring/40 motion-reduce:transition-none",
+                  "relative block w-full cursor-pointer overflow-hidden rounded-xl border p-3 pl-4 text-left outline-none transition-colors duration-150 focus-visible:ring-3 focus-visible:ring-focus-ring/40 motion-reduce:transition-none",
                   current
                     ? "border-evidence-highlight-border/70 bg-evidence-highlight-surface"
                     : "border-border-subtle bg-surface-base hover:border-border-default hover:bg-surface-subtle",
