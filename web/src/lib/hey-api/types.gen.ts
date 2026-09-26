@@ -664,11 +664,63 @@ export type ChatSettingsResponse = {
      * Who in the organization may read other people's conversations: NORMAL names the asker, ANONYMIZED hides only their name and e-mail, DISABLED refuses every read
      */
     chatHistoryVisibility: 'NORMAL' | 'ANONYMIZED' | 'DISABLED';
+    /**
+     * Every turn answers from the organization's documents only
+     */
+    groundedAnswers: boolean;
+    /**
+     * In that mode, a person may still turn Web search on for a turn
+     */
+    groundedAllowWeb: boolean;
     revision: number;
 };
 
 export type ChatHistoryVisibilityRequest = {
     visibility: 'NORMAL' | 'ANONYMIZED' | 'DISABLED';
+    revision?: number;
+};
+
+export type ChatGuardrailTopic = {
+    topic: 'POLITICS' | 'LEADERS' | 'RELIGION';
+    enabled: boolean;
+    /**
+     * What the person is told when a question matches
+     */
+    message: string;
+};
+
+export type ChatGuardrailsRequest = {
+    topics: Array<ChatGuardrailTopic>;
+    /**
+     * Exact phrases no question or answer may contain; at most 20
+     */
+    blockedPhrases: Array<string>;
+    /**
+     * What the person is told when a blocked phrase matches
+     */
+    blockedPhraseMessage?: string;
+    revision?: number;
+};
+
+export type ChatGuardrailsResponse = {
+    /**
+     * Every built-in topic, in a fixed order
+     */
+    topics: Array<ChatGuardrailTopic>;
+    blockedPhrases: Array<string>;
+    blockedPhraseMessage: string;
+    revision: number;
+};
+
+export type ChatGroundedRequest = {
+    /**
+     * Every turn answers from the organization's documents only
+     */
+    groundedAnswers: boolean;
+    /**
+     * In that mode, a person may still turn Web search on for a turn
+     */
+    groundedAllowWeb: boolean;
     revision?: number;
 };
 
@@ -877,6 +929,7 @@ export type PersonaInput = {
     labelIds?: Array<string>;
     replaceBaseSystemPrompt?: boolean;
     knowledgeCutoff?: string;
+    grounded?: boolean;
 };
 
 export type AgentGroupShare = {
@@ -958,6 +1011,7 @@ export type PersonaView = {
     featured?: boolean;
     displayPriority?: number;
     replaceBaseSystemPrompt?: boolean;
+    grounded?: boolean;
     knowledgeCutoff?: string;
     pinned?: boolean;
     deletedAt?: string;
@@ -2779,6 +2833,10 @@ export type ChatMessage = {
      * Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT; null otherwise
      */
     failureCode: string | null;
+    /**
+     * Why a COMPLETED reply declined instead of answering (answers from documents only, sensitive topics); null otherwise
+     */
+    refusalReason: 'no_evidence' | 'uncited' | 'blocked_topic';
 };
 
 export type ChatMessageResearch = {
@@ -5180,6 +5238,129 @@ export type SaveChatHistoryVisibilityResponses = {
 };
 
 export type SaveChatHistoryVisibilityResponse = SaveChatHistoryVisibilityResponses[keyof SaveChatHistoryVisibilityResponses];
+
+export type GetChatGuardrailsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/chat/settings/guardrails';
+};
+
+export type GetChatGuardrailsErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type GetChatGuardrailsError = GetChatGuardrailsErrors[keyof GetChatGuardrailsErrors];
+
+export type GetChatGuardrailsResponses = {
+    /**
+     * Sensitive-topic guardrails
+     */
+    200: ChatGuardrailsResponse;
+};
+
+export type GetChatGuardrailsResponse = GetChatGuardrailsResponses[keyof GetChatGuardrailsResponses];
+
+export type SaveChatGuardrailsData = {
+    body: ChatGuardrailsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/chat/settings/guardrails';
+};
+
+export type SaveChatGuardrailsErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type SaveChatGuardrailsError = SaveChatGuardrailsErrors[keyof SaveChatGuardrailsErrors];
+
+export type SaveChatGuardrailsResponses = {
+    /**
+     * Saved sensitive-topic guardrails
+     */
+    200: ChatGuardrailsResponse;
+};
+
+export type SaveChatGuardrailsResponse = SaveChatGuardrailsResponses[keyof SaveChatGuardrailsResponses];
+
+export type SaveChatGroundedData = {
+    body: ChatGroundedRequest;
+    path?: never;
+    query?: never;
+    url: '/api/chat/settings/grounded';
+};
+
+export type SaveChatGroundedErrors = {
+    /**
+     * Invalid Chat settings
+     */
+    400: ApiProblem;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Management authority or CSRF required
+     */
+    403: ApiProblem;
+    /**
+     * Chat unavailable
+     */
+    404: ApiProblem;
+    /**
+     * Chat settings changed
+     */
+    409: ApiProblem;
+};
+
+export type SaveChatGroundedError = SaveChatGroundedErrors[keyof SaveChatGroundedErrors];
+
+export type SaveChatGroundedResponses = {
+    /**
+     * Saved Tenant Chat settings
+     */
+    200: ChatSettingsResponse;
+};
+
+export type SaveChatGroundedResponse = SaveChatGroundedResponses[keyof SaveChatGroundedResponses];
 
 export type GenerateChatTitleData = {
     body?: never;

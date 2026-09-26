@@ -2592,6 +2592,161 @@ paths:
       security:
       - bearerAuth: []
       - browserSession: []
+  /api/chat/settings/guardrails:
+    get:
+      tags:
+      - Chat Settings
+      summary: Read the sensitive topics and blocked phrases; requires model management
+      operationId: getChatGuardrails
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Sensitive-topic guardrails
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatGuardrailsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+    put:
+      tags:
+      - Chat Settings
+      summary: Change the sensitive topics and blocked phrases; requires model management
+      operationId: saveChatGuardrails
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatGuardrailsRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved sensitive-topic guardrails
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatGuardrailsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
+  /api/chat/settings/grounded:
+    put:
+      tags:
+      - Chat Settings
+      summary: Answer from the organization's documents only; requires model management
+      operationId: saveChatGrounded
+      parameters:
+      - name: X-MemoryOS-CSRF
+        in: header
+        description: Same-origin non-simple request guard for browser-session mutations.
+        required: true
+        schema:
+          type: string
+          enum:
+          - "1"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatGroundedRequest"
+        required: true
+      responses:
+        "400":
+          description: Invalid Chat settings
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "401":
+          description: Authentication required
+        "403":
+          description: Management authority or CSRF required
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "404":
+          description: Chat unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "409":
+          description: Chat settings changed
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ApiProblem"
+        "200":
+          description: Saved Tenant Chat settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatSettingsResponse"
+      security:
+      - bearerAuth: []
+      - browserSession: []
   /api/chat/sessions/{sessionId}/title:
     put:
       tags:
@@ -20632,12 +20787,21 @@ components:
           - NORMAL
           - ANONYMIZED
           - DISABLED
+        groundedAnswers:
+          type: boolean
+          description: Every turn answers from the organization's documents only
+        groundedAllowWeb:
+          type: boolean
+          description: "In that mode, a person may still turn Web search on for a\
+            \ turn"
         revision:
           type: integer
           format: int64
       required:
       - chatHistoryVisibility
       - deepResearchEnabled
+      - groundedAllowWeb
+      - groundedAnswers
       - revision
     ChatHistoryVisibilityRequest:
       type: object
@@ -20654,6 +20818,93 @@ components:
           minimum: 0
       required:
       - visibility
+    ChatGuardrailTopic:
+      type: object
+      properties:
+        topic:
+          type: string
+          enum:
+          - POLITICS
+          - LEADERS
+          - RELIGION
+        enabled:
+          type: boolean
+        message:
+          type: string
+          description: What the person is told when a question matches
+          maxLength: 500
+          minLength: 0
+      required:
+      - enabled
+      - message
+      - topic
+    ChatGuardrailsRequest:
+      type: object
+      properties:
+        topics:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatGuardrailTopic"
+          maxItems: 10
+          minItems: 0
+        blockedPhrases:
+          type: array
+          description: Exact phrases no question or answer may contain; at most 20
+          items:
+            type: string
+          maxItems: 40
+          minItems: 0
+        blockedPhraseMessage:
+          type: string
+          description: What the person is told when a blocked phrase matches
+          maxLength: 500
+          minLength: 0
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - blockedPhrases
+      - topics
+    ChatGuardrailsResponse:
+      type: object
+      properties:
+        topics:
+          type: array
+          description: "Every built-in topic, in a fixed order"
+          items:
+            $ref: "#/components/schemas/ChatGuardrailTopic"
+        blockedPhrases:
+          type: array
+          items:
+            type: string
+        blockedPhraseMessage:
+          type: string
+        revision:
+          type: integer
+          format: int64
+      required:
+      - blockedPhraseMessage
+      - blockedPhrases
+      - revision
+      - topics
+    ChatGroundedRequest:
+      type: object
+      properties:
+        groundedAnswers:
+          type: boolean
+          description: Every turn answers from the organization's documents only
+        groundedAllowWeb:
+          type: boolean
+          description: "In that mode, a person may still turn Web search on for a\
+            \ turn"
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - groundedAllowWeb
+      - groundedAnswers
     Title:
       type: object
       properties:
@@ -21177,6 +21428,8 @@ components:
         knowledgeCutoff:
           type: string
           format: date-time
+        grounded:
+          type: boolean
     AgentGroupShare:
       type: object
       properties:
@@ -21362,6 +21615,8 @@ components:
           type: integer
           format: int32
         replaceBaseSystemPrompt:
+          type: boolean
+        grounded:
           type: boolean
         knowledgeCutoff:
           type: string
@@ -26330,6 +26585,16 @@ components:
           - "null"
           description: "Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT;\
             \ null otherwise"
+        refusalReason:
+          type:
+          - string
+          - "null"
+          description: "Why a COMPLETED reply declined instead of answering (answers\
+            \ from documents only, sensitive topics); null otherwise"
+          enum:
+          - no_evidence
+          - uncited
+          - blocked_topic
       required:
       - activity
       - artifacts
@@ -26343,6 +26608,7 @@ components:
       - images
       - latestChildMessageId
       - parentMessageId
+      - refusalReason
       - research
       - role
       - sessionId

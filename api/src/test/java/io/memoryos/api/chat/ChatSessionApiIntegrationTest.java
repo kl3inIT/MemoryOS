@@ -4567,6 +4567,44 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void groundedAnswersAndGuardrailsAreModelManagersSettings() throws Exception {
+        // Members read whether answers are grounded; only model managers change it or read the guardrails.
+        mockMvc.perform(get("/api/chat/settings").with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.groundedAnswers").value(false)).andExpect(jsonPath("$.groundedAllowWeb").value(false));
+        mockMvc.perform(put("/api/chat/settings/grounded").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"groundedAnswers\":true,\"groundedAllowWeb\":false,\"revision\":0}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/chat/settings/guardrails").with(authentication(actor))).andExpect(status().isForbidden());
+
+        grantModelManagement();
+        mockMvc.perform(put("/api/chat/settings/grounded").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"groundedAnswers\":true,\"groundedAllowWeb\":true,\"revision\":0}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.groundedAnswers").value(true))
+                .andExpect(jsonPath("$.groundedAllowWeb").value(true)).andExpect(jsonPath("$.revision").value(0));
+        // A stale revision is refused.
+        mockMvc.perform(put("/api/chat/settings/grounded").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"groundedAnswers\":false,\"groundedAllowWeb\":false,\"revision\":7}"))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(get("/api/chat/settings/guardrails").with(authentication(actor))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.topics.length()").value(3)).andExpect(jsonPath("$.topics[1].topic").value("LEADERS"))
+                .andExpect(jsonPath("$.topics[1].enabled").value(false)).andExpect(jsonPath("$.blockedPhrases.length()").value(0));
+        mockMvc.perform(put("/api/chat/settings/guardrails").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"topics":[{"topic":"LEADERS","enabled":true,"message":"Không trả lời câu hỏi về lãnh tụ."}],
+                                 "blockedPhrases":[" Dự án Phoenix ","dự án phoenix"],"blockedPhraseMessage":null,"revision":0}"""))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.topics[1].enabled").value(true))
+                .andExpect(jsonPath("$.topics[1].message").value("Không trả lời câu hỏi về lãnh tụ."))
+                .andExpect(jsonPath("$.blockedPhrases.length()").value(1)).andExpect(jsonPath("$.blockedPhrases[0]").value("Dự án Phoenix"))
+                .andExpect(jsonPath("$.revision").value(1));
+        String tooMany = java.util.stream.IntStream.range(0, 21).mapToObj(i -> "\"phrase " + i + "\"")
+                .collect(java.util.stream.Collectors.joining(","));
+        mockMvc.perform(put("/api/chat/settings/guardrails").with(authentication(actor)).with(csrf()).header("X-MemoryOS-CSRF", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"topics\":[],\"blockedPhrases\":[" + tooMany + "],\"revision\":1}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void theAuditLogIsReadAndExportedOnlyWithAuditRead() throws Exception {
         var since = Instant.now().minusSeconds(1).toString();
         // A recorded change to read back: a Group created by this member once they may manage Groups.
