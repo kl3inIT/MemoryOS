@@ -35,14 +35,14 @@ function DialogContent({ children, ...props }: ComponentProps<typeof DialogPrimi
       <DialogPrimitive.Content
         {...props}
         aria-describedby={undefined}
-        className="aui-attachment-preview-dialog-content fixed left-1/2 top-1/2 z-50 w-[min(48rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface-overlay p-2 outline-none sm:max-w-3xl"
+        className="aui-attachment-preview-dialog-content fixed top-1/2 left-1/2 z-50 w-[min(48rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-surface-overlay p-2 outline-none sm:max-w-3xl"
       >
         {children}
         <DialogPrimitive.Close asChild>
           <IconButton
             aria-label={t("closePreview")}
             prominence="secondary"
-            className="absolute right-2 top-2"
+            className="absolute top-2 right-2"
           >
             <XIcon />
           </IconButton>
@@ -92,7 +92,7 @@ function AttachmentPreviewDialog({ children }: PropsWithChildren) {
       </DialogTrigger>
       <DialogContent>
         <DialogTitle className="aui-sr-only sr-only">{t("previewTitle")}</DialogTitle>
-        <div className="aui-attachment-preview bg-background relative mx-auto flex max-h-lightbox w-full items-center justify-center overflow-hidden rounded-sm">
+        <div className="aui-attachment-preview relative mx-auto flex max-h-lightbox w-full items-center justify-center overflow-hidden rounded-sm bg-background">
           <AttachmentPreview src={src} />
         </div>
       </DialogContent>
@@ -173,7 +173,7 @@ function AttachmentUI() {
         <AttachmentPrimitive.Root
           className={cn(
             "aui-attachment-root relative flex w-64 max-w-full shrink-0 items-center gap-2 rounded-xl bg-muted p-2",
-            isComposer && "animate-in fade-in-0 zoom-in-95 duration-200 motion-reduce:animate-none",
+            isComposer && "animate-in duration-200 fade-in-0 zoom-in-95 motion-reduce:animate-none",
             isImage && !isComposer && "aui-attachment-root-message",
           )}
         >
@@ -192,17 +192,17 @@ function AttachmentUI() {
                   {isUploading && (
                     <div
                       aria-hidden="true"
-                      className="aui-attachment-tile-uploading bg-background/60 animate-in fade-in-0 absolute inset-0 flex items-center justify-center backdrop-blur-2xs motion-reduce:animate-none"
+                      className="aui-attachment-tile-uploading absolute inset-0 flex animate-in items-center justify-center bg-background/60 backdrop-blur-2xs fade-in-0 motion-reduce:animate-none"
                     >
-                      <Loader2Icon className="text-muted-foreground size-4 animate-spin" />
+                      <Loader2Icon className="size-4 animate-spin text-muted-foreground" />
                     </div>
                   )}
                   {isError && (
                     <div
                       aria-hidden="true"
-                      className="aui-attachment-tile-error bg-background/70 animate-in fade-in-0 absolute inset-0 flex items-center justify-center backdrop-blur-2xs motion-reduce:animate-none"
+                      className="aui-attachment-tile-error absolute inset-0 flex animate-in items-center justify-center bg-background/70 backdrop-blur-2xs fade-in-0 motion-reduce:animate-none"
                     >
-                      <AlertCircleIcon className="text-destructive size-4" />
+                      <AlertCircleIcon className="size-4 text-destructive" />
                     </div>
                   )}
                 </span>
@@ -267,7 +267,7 @@ export type ComposerPendingAttachment = {
 function PendingAttachmentUI({ item }: { item: ComposerPendingAttachment }) {
   const { t } = useTranslation("attachments");
   return (
-    <div className="aui-attachment-root animate-in fade-in-0 zoom-in-95 relative flex w-64 max-w-full shrink-0 items-center gap-2 rounded-xl bg-muted p-2 duration-200 motion-reduce:animate-none">
+    <div className="aui-attachment-root relative flex w-64 max-w-full shrink-0 animate-in items-center gap-2 rounded-xl bg-muted p-2 duration-200 fade-in-0 zoom-in-95 motion-reduce:animate-none">
       <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-background/50">
         <DocumentKindIcon
           mediaType={item.contentType}
@@ -277,12 +277,12 @@ function PendingAttachmentUI({ item }: { item: ComposerPendingAttachment }) {
         />
         <span
           aria-hidden="true"
-          className="bg-background/60 absolute inset-0 flex items-center justify-center backdrop-blur-2xs"
+          className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-2xs"
         >
           {item.failed ? (
-            <AlertCircleIcon className="text-destructive size-4" />
+            <AlertCircleIcon className="size-4 text-destructive" />
           ) : (
-            <Loader2Icon className="text-muted-foreground size-4 animate-spin" />
+            <Loader2Icon className="size-4 animate-spin text-muted-foreground" />
           )}
         </span>
       </span>

@@ -230,7 +230,7 @@ export function ChatStarterPrompts({
           key={index}
           prominence="secondary"
           disabled={disabled}
-          className="h-auto max-w-full whitespace-normal text-left"
+          className="h-auto max-w-full text-left whitespace-normal"
           onClick={() => aui.thread.composer().setText(text)}
         >
           {text}

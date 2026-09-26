@@ -345,7 +345,7 @@ function PdfThumbnails({
     <nav
       ref={rail}
       aria-label={ui("Các trang")}
-      className="hidden w-32 shrink-0 overflow-y-auto overscroll-contain border-border-subtle border-r bg-surface-base p-2 lg:block"
+      className="hidden w-32 shrink-0 overflow-y-auto overscroll-contain border-r border-border-subtle bg-surface-base p-2 lg:block"
     >
       <ol className="flex flex-col gap-2">
         {Array.from({ length: total }, (_, index) => {
@@ -362,7 +362,7 @@ function PdfThumbnails({
                 aria-current={page === current ? "true" : undefined}
                 aria-label={ui("Trang {{pages}}", { pages: page })}
                 onClick={() => onGo(page)}
-                className="block w-full cursor-pointer rounded-md p-1 outline-none ring-1 ring-transparent transition-shadow focus-visible:ring-3 focus-visible:ring-focus-ring/40 aria-[current]:ring-pdf-highlight-border"
+                className="block w-full cursor-pointer rounded-md p-1 ring-1 ring-transparent transition-shadow outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40 aria-[current]:ring-pdf-highlight-border"
               >
                 <span
                   className="flex items-center justify-center overflow-hidden bg-surface-document shadow-sm"

@@ -219,11 +219,11 @@ function ModelSelectorRoot({
 }
 
 export const modelSelectorTriggerVariants = cva(
-  "focus-visible:ring-ring/50 flex w-fit items-center justify-between gap-2 overflow-hidden rounded-md text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+  "flex w-fit items-center justify-between gap-2 overflow-hidden rounded-md text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-1 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
   {
     variants: {
       variant: {
-        outline: "border-input hover:bg-accent hover:text-accent-foreground border bg-transparent",
+        outline: "border border-input bg-transparent hover:bg-accent hover:text-accent-foreground",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         muted: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
       },
@@ -330,7 +330,7 @@ function ModelSelectorValue({
       {selectedModel.icon && <ModelIcon>{selectedModel.icon}</ModelIcon>}
       <span className="truncate font-medium">{selectedModel.name}</span>
       {effortName && (
-        <span className="text-muted-foreground min-w-7.5 truncate text-center">{effortName}</span>
+        <span className="min-w-7.5 truncate text-center text-muted-foreground">{effortName}</span>
       )}
     </span>
   );
@@ -525,7 +525,7 @@ function ModelSelectorItem({
           <span className="flex min-w-0 flex-col">
             <span className="truncate font-medium">{model.name}</span>
             {model.description && (
-              <span className="text-muted-foreground truncate text-xs">{model.description}</span>
+              <span className="truncate text-xs text-muted-foreground">{model.description}</span>
             )}
           </span>
         </>
@@ -563,7 +563,7 @@ function ModelSelectorEffort({
       )}
       {...props}
     >
-      <span className="text-muted-foreground text-xs">{label}</span>
+      <span className="text-xs text-muted-foreground">{label}</span>
       <RadioGroupPrimitive.Root
         value={effort ?? ""}
         onValueChange={setEffort}
@@ -591,8 +591,8 @@ function ModelSelectorEffort({
             key={option.id}
             value={option.id}
             className={cn(
-              "focus-visible:ring-ring/50 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer rounded-md px-2 py-1 text-xs transition-colors outline-none focus-visible:ring-1",
-              "data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground data-[state=checked]:font-medium",
+              "cursor-pointer rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring/50",
+              "data-[state=checked]:bg-accent data-[state=checked]:font-medium data-[state=checked]:text-accent-foreground",
             )}
           >
             {option.name}

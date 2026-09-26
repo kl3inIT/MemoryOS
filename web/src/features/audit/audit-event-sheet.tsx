@@ -113,15 +113,15 @@ export function AuditEventSheet({
                     <TableBody>
                       {changes.map((row) => (
                         <TableRow key={row.field}>
-                          <TableCell className="break-words align-top">
+                          <TableCell className="align-top break-words">
                             <span className="text-content-muted">
                               {row.field ? fieldLabel(row.field, ui) : "—"}
                             </span>
                           </TableCell>
-                          <TableCell className="break-words align-top">
+                          <TableCell className="align-top break-words">
                             <span className="text-content-secondary">{row.before}</span>
                           </TableCell>
-                          <TableCell className="break-words align-top">{row.after}</TableCell>
+                          <TableCell className="align-top break-words">{row.after}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

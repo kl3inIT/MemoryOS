@@ -269,7 +269,7 @@ export function ChatFilePickerContent({
       {uploadAction !== undefined ? (
         uploadAction
       ) : (
-        <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-surface-sunken focus-within:ring-2">
+        <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm focus-within:ring-2 hover:bg-surface-sunken">
           <Upload className="size-4" /> {ui("Tải tệp lên")}
           <input
             type="file"

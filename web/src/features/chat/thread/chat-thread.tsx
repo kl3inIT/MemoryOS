@@ -60,7 +60,7 @@ export function ChatThread({
             data-testid="chat-viewport"
             autoScroll={autoScroll}
             className={cn(
-              "relative flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto px-4 pt-6 scrollbar-gutter-stable sm:px-8",
+              "relative flex min-h-0 flex-1 scrollbar-gutter-stable flex-col overflow-x-hidden overflow-y-auto px-4 pt-6 sm:px-8",
               isEmpty && !welcome && "justify-center",
             )}
           >

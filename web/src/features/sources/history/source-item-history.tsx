@@ -335,7 +335,7 @@ function AttemptDetails({ attempt }: { attempt: SourceIndexAttempt }) {
     <div className="flex min-w-0 flex-col gap-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface-sunken px-4 py-3">
         <AttemptStatus attempt={attempt} />
-        <span className="text-sm font-medium tabular-nums text-content-primary">
+        <span className="text-sm font-medium text-content-primary tabular-nums">
           {historyDuration(attempt.startedAt, attempt.completedAt) ??
             (finished ? ui("Duration unknown") : ui("In progress"))}
         </span>
@@ -380,14 +380,14 @@ function AttemptDetails({ attempt }: { attempt: SourceIndexAttempt }) {
         {attempt.errorCode ? (
           <div>
             <dt>{ui("Error code")}</dt>
-            <dd className="mt-1 select-text wrap-anywhere">
+            <dd className="mt-1 wrap-anywhere select-text">
               <code>{attempt.errorCode}</code>
             </dd>
           </div>
         ) : null}
         <div>
           <dt>{ui("Attempt ID")}</dt>
-          <dd className="mt-1 select-text wrap-anywhere">
+          <dd className="mt-1 wrap-anywhere select-text">
             <code>{attempt.id}</code>
           </dd>
         </div>

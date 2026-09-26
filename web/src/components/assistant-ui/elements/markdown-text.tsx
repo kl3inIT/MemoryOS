@@ -107,8 +107,8 @@ function CodeHeader({ language, code }: CodeHeaderProps) {
   };
 
   return (
-    <div className="aui-code-header-root border-border/50 bg-muted/50 mt-3 flex items-center justify-between rounded-t-xl border border-b-0 px-3.5 py-1.5 text-xs">
-      <span className="aui-code-header-language text-muted-foreground font-medium lowercase">
+    <div className="aui-code-header-root mt-3 flex items-center justify-between rounded-t-xl border border-b-0 border-border/50 bg-muted/50 px-3.5 py-1.5 text-xs">
+      <span className="aui-code-header-language font-medium text-muted-foreground lowercase">
         {language}
       </span>
       <IconButton
@@ -118,8 +118,8 @@ function CodeHeader({ language, code }: CodeHeaderProps) {
         size="sm"
         onClick={() => void onCopy()}
       >
-        {!isCopied && <CopyIcon className="animate-in zoom-in-75 fade-in duration-150" />}
-        {isCopied && <CheckIcon className="animate-in zoom-in-50 fade-in duration-200 ease-out" />}
+        {!isCopied && <CopyIcon className="animate-in duration-150 zoom-in-75 fade-in" />}
+        {isCopied && <CheckIcon className="animate-in duration-200 ease-out zoom-in-50 fade-in" />}
       </IconButton>
     </div>
   );
@@ -132,7 +132,7 @@ function Pre({ className, node: _node, ...props }: ComponentProps<"pre"> & { nod
   return (
     <pre
       className={cn(
-        "aui-md-pre border-border/50 bg-muted/30 overflow-x-auto rounded-t-none rounded-b-xl border border-t-0 p-3.5 text-code leading-relaxed",
+        "aui-md-pre overflow-x-auto rounded-t-none rounded-b-xl border border-t-0 border-border/50 bg-muted/30 p-3.5 text-code leading-relaxed",
         className,
       )}
       {...props}
@@ -207,7 +207,7 @@ const tagComponents: Components = {
   a: ({ className, children, ...props }) => (
     <a
       className={cn(
-        "aui-md-a text-primary hover:text-primary/80 underline underline-offset-2",
+        "aui-md-a text-primary underline underline-offset-2 hover:text-primary/80",
         className,
       )}
       {...props}
@@ -218,7 +218,7 @@ const tagComponents: Components = {
   blockquote: ({ className, ...props }) => (
     <blockquote
       className={cn(
-        "aui-md-blockquote border-muted-foreground/30 text-muted-foreground my-3 border-s-2 ps-4",
+        "aui-md-blockquote my-3 border-s-2 border-muted-foreground/30 ps-4 text-muted-foreground",
         className,
       )}
       {...props}
@@ -227,7 +227,7 @@ const tagComponents: Components = {
   ul: ({ className, ...props }) => (
     <ul
       className={cn(
-        "aui-md-ul marker:text-muted-foreground my-3 ms-5 list-disc [&>li]:mt-1",
+        "aui-md-ul my-3 ms-5 list-disc marker:text-muted-foreground [&>li]:mt-1",
         className,
       )}
       {...props}
@@ -236,14 +236,14 @@ const tagComponents: Components = {
   ol: ({ className, ...props }) => (
     <ol
       className={cn(
-        "aui-md-ol marker:text-muted-foreground my-3 ms-5 list-decimal [&>li]:mt-1",
+        "aui-md-ol my-3 ms-5 list-decimal marker:text-muted-foreground [&>li]:mt-1",
         className,
       )}
       {...props}
     />
   ),
   hr: ({ className, ...props }) => (
-    <hr className={cn("aui-md-hr border-muted-foreground/20 my-3", className)} {...props} />
+    <hr className={cn("aui-md-hr my-3 border-muted-foreground/20", className)} {...props} />
   ),
   table: ({ className, ...props }) => (
     <div className="aui-md-table-wrapper my-3 overflow-x-auto">
@@ -265,7 +265,7 @@ const tagComponents: Components = {
   td: ({ className, ...props }) => (
     <td
       className={cn(
-        "aui-md-td border-muted-foreground/20 border-s border-b px-3 py-1.5 text-start last:border-e [[align=center]]:text-center [[align=right]]:text-right",
+        "aui-md-td border-s border-b border-muted-foreground/20 px-3 py-1.5 text-start last:border-e [[align=center]]:text-center [[align=right]]:text-right",
         className,
       )}
       {...props}
@@ -295,7 +295,7 @@ const tagComponents: Components = {
       <code
         className={cn(
           !isCodeBlock &&
-            "aui-md-inline-code bg-muted rounded-md px-1.5 py-0.5 font-mono text-code-inline",
+            "aui-md-inline-code rounded-md bg-muted px-1.5 py-0.5 font-mono text-code-inline",
           className,
         )}
         {...props}

@@ -148,7 +148,7 @@ export function StatToggleTile({
       onClick={onToggle}
       className={cn(
         tileClass,
-        "relative text-left outline-none transition-colors duration-150 hover:bg-surface-subtle focus-visible:z-10 focus-visible:ring-3 focus-visible:ring-focus-ring/40",
+        "relative text-left transition-colors duration-150 outline-none hover:bg-surface-subtle focus-visible:z-10 focus-visible:ring-3 focus-visible:ring-focus-ring/40",
         selected && "bg-surface-sunken",
         props.className,
       )}

@@ -71,7 +71,7 @@ export function ChatThreadComposer({
   return (
     <ThreadPrimitive.ViewportFooter
       className={cn(
-        "relative mx-auto flex w-full max-w-3xl flex-col bg-surface-base pb-[max(1rem,env(safe-area-inset-bottom))] pt-3",
+        "relative mx-auto flex w-full max-w-3xl flex-col bg-surface-base pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]",
         !isEmpty && "sticky bottom-0 mt-auto rounded-t-2xl",
       )}
     >

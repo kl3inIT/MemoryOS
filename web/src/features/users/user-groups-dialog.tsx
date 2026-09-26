@@ -174,7 +174,7 @@ export function UserGroupsDialog({
             <h2 id="ordinary-user-groups" className="font-secondary-action text-content-primary">
               {ui("Ordinary groups")}
             </h2>
-            <span className="font-secondary-body tabular-nums text-content-muted">
+            <span className="font-secondary-body text-content-muted tabular-nums">
               {selectedIds.size} {ui("selected")}
             </span>
           </div>

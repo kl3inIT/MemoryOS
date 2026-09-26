@@ -86,7 +86,7 @@ export function SourceCatalogPage() {
                     <Link
                       key={provider.type}
                       to={provider.setupPath}
-                      className="flex min-h-36 min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border-subtle bg-surface-sunken p-4 text-center text-content-primary transition-colors hover:border-border-default hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring sm:w-40"
+                      className="flex min-h-36 min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border-subtle bg-surface-sunken p-4 text-center text-content-primary transition-colors hover:border-border-default hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none sm:w-40"
                     >
                       <ProviderIcon className="size-8" aria-hidden="true" />
                       <span className="text-sm font-medium">{ui(provider.name)}</span>

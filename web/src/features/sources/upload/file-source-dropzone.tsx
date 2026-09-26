@@ -88,7 +88,7 @@ export function FileSourceDropzone({
             >
               <FileText className="size-5 shrink-0 text-content-muted" aria-hidden="true" />
               <div className="min-w-0 flex-1">
-                <p className="break-all text-sm font-medium text-content-primary">
+                <p className="text-sm font-medium break-all text-content-primary">
                   {selected.name}
                 </p>
                 <p className="text-sm text-content-muted">

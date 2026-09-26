@@ -32,7 +32,7 @@ export function ProviderLink({
       aria-label={ui("Mở {{title}} trong {{provider}}", { title, provider })}
       title={ui("Mở trong {{provider}}", { provider })}
       className={cn(
-        "inline-flex items-center gap-0.5 rounded-sm text-content-secondary underline decoration-border-default underline-offset-4 transition-colors hover:text-content-primary hover:decoration-current focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none",
+        "inline-flex items-center gap-0.5 rounded-sm text-content-secondary underline decoration-border-default underline-offset-4 transition-colors hover:text-content-primary hover:decoration-current focus-visible:ring-3 focus-visible:ring-focus-ring/30 focus-visible:outline-hidden motion-reduce:transition-none",
         className,
       )}
     >

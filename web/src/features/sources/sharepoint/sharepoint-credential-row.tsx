@@ -53,7 +53,7 @@ export function SharePointCredentialRow({
         <TableCell>
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1 text-sm">
-              <span className="block wrap-anywhere font-medium text-content-primary">
+              <span className="block font-medium wrap-anywhere text-content-primary">
                 {credential.name}
               </span>
               <span className="block font-mono text-xs text-content-secondary">
@@ -93,7 +93,7 @@ export function SharePointCredentialRow({
           </span>
         </TableCell>
         <TableCell>
-          <span className="block wrap-anywhere text-xs text-content-secondary">
+          <span className="block text-xs wrap-anywhere text-content-secondary">
             {credential.tenantHost ?? ui("Not resolved yet")}
           </span>
         </TableCell>

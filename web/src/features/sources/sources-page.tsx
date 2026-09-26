@@ -394,7 +394,7 @@ function SourceGroupBody({
               v3: documentCount,
             })}
             onClick={onToggle}
-            className="flex h-full w-full items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+            className="flex h-full w-full items-center gap-2 text-left focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
           >
             {collapsed ? (
               <ChevronRight className="size-4 text-content-secondary" aria-hidden="true" />
@@ -468,7 +468,7 @@ function SourceRow({ source }: { source: SourceSummary }) {
         <Link
           to="/admin/sources/$sourceId"
           params={{ sourceId: source.id }}
-          className="text-sm font-medium text-content-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          className="text-sm font-medium text-content-primary hover:underline focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
         >
           {source.name}
         </Link>
@@ -485,7 +485,7 @@ function SourceRow({ source }: { source: SourceSummary }) {
         <SourceAccessBadge access={source.access} />
       </TableCell>
       <TableCell className="px-4">
-        <span className="text-sm tabular-nums text-content-secondary">{source.documentCount}</span>
+        <span className="text-sm text-content-secondary tabular-nums">{source.documentCount}</span>
       </TableCell>
       <TableCell className="px-4 text-center">
         {Object.values(source.permissions).some(Boolean) ? (

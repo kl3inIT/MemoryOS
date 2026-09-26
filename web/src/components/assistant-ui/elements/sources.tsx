@@ -54,7 +54,7 @@ export function Sources({
         {icons.map(([key, icon], index) => (
           <span
             key={key}
-            className="relative flex size-5 items-center justify-center rounded border border-border-subtle bg-surface-base z-(--stack)"
+            className="relative z-(--stack) flex size-5 items-center justify-center rounded border border-border-subtle bg-surface-base"
             style={{ "--stack": icons.length - index } as CSSProperties}
           >
             {icon.domain ? (

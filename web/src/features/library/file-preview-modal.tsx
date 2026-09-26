@@ -262,7 +262,7 @@ function FilePreviewHeader({
           >
             <ChevronLeft />
           </IconButton>
-          <span className="font-secondary-body tabular-nums text-content-muted">
+          <span className="font-secondary-body text-content-muted tabular-nums">
             {ui("{{position}}/{{total}}", { position: position.at + 1, total: position.total })}
           </span>
           <IconButton
@@ -336,7 +336,7 @@ function ImageToolbar({
           edited && (
             // The applied crop is what the viewer, a download, a save and a question now use.
             <>
-              <span className="px-2 font-secondary-body tabular-nums text-content-muted">
+              <span className="px-2 font-secondary-body text-content-muted tabular-nums">
                 {ui("Đã cắt · {{width}} × {{height}} px", edited.pixels)}
               </span>
               {canSave && (

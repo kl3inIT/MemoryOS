@@ -175,7 +175,7 @@ function SavedScope({
                 <span className="min-w-0 wrap-anywhere text-content-primary">
                   {root.displayName ?? root.url}
                 </span>
-                <span className="min-w-0 wrap-anywhere text-xs text-content-muted">{root.url}</span>
+                <span className="min-w-0 text-xs wrap-anywhere text-content-muted">{root.url}</span>
               </li>
             ))}
           </ul>

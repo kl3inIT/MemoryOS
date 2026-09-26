@@ -195,7 +195,7 @@ export function MeetingsPage() {
                       <Link
                         to="/meetings/$meetingId"
                         params={{ meetingId: meeting.id }}
-                        className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-surface-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-surface-base focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
                       >
                         {meeting.kind === "ONLINE" ? (
                           <MonitorSpeaker

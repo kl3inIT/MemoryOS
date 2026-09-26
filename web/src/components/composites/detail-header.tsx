@@ -49,7 +49,7 @@ export function DetailHeader({
               <Link
                 {...link}
                 ref={backRef}
-                className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                className="rounded-sm focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
               >
                 {label}
               </Link>

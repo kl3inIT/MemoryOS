@@ -113,7 +113,7 @@ export function ChatUserMessageContent({
           />
         </EditMessage>
       ) : (
-        <div className="max-w-9/10 rounded-2xl bg-surface-sunken px-4 py-3 whitespace-pre-wrap wrap-anywhere">
+        <div className="max-w-9/10 rounded-2xl bg-surface-sunken px-4 py-3 wrap-anywhere whitespace-pre-wrap">
           {children}
         </div>
       )}

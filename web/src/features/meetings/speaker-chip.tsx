@@ -64,7 +64,7 @@ export function SpeakerChip({
       <PopoverTrigger asChild disabled={!meeting.owned}>
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 rounded text-sm font-medium text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring enabled:hover:underline"
+          className="inline-flex items-center gap-1.5 rounded text-sm font-medium text-content-primary focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none enabled:hover:underline"
           disabled={!meeting.owned}
           aria-label={meeting.owned ? ui("Đặt tên cho {{name}}", { name: display }) : display}
         >

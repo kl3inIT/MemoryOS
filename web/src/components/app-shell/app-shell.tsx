@@ -420,7 +420,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <main
             id="main-content"
             tabIndex={-1}
-            className="min-h-0 min-w-0 flex-1 overflow-auto outline-none scrollbar-stable"
+            className="min-h-0 min-w-0 flex-1 scrollbar-stable overflow-auto outline-none"
           >
             {children}
           </main>

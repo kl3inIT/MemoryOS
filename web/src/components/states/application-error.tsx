@@ -52,7 +52,7 @@ export function ApplicationError({
               ui("MemoryOS could not complete this request. Your data was not changed.")}
           </EmptyDescription>
           {details && (
-            <p className="max-w-md break-words font-mono text-xs text-content-muted">{details}</p>
+            <p className="max-w-md font-mono text-xs break-words text-content-muted">{details}</p>
           )}
         </EmptyHeader>
         {onRetry && (

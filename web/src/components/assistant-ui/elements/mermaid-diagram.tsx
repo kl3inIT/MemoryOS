@@ -46,7 +46,7 @@ export default function MermaidDiagram({ code }: { code: string }) {
       >
         <img src={src} alt={t("diagram")} className="mx-auto max-h-96 max-w-full" />
         <Dialog.Trigger asChild>
-          <IconButton aria-label={t("expand")} className="absolute right-2 top-2" size="sm">
+          <IconButton aria-label={t("expand")} className="absolute top-2 right-2" size="sm">
             <Maximize2 />
           </IconButton>
         </Dialog.Trigger>

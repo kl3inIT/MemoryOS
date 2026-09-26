@@ -118,7 +118,7 @@ export function ChatPreferencesSections() {
                   onValueChange={([next]) => setTemperature(next)}
                   onValueCommit={([next]) => save.mutate({ temperatureDefault: next })}
                 />
-                <span className="w-8 text-right font-secondary-body tabular-nums text-content-secondary">
+                <span className="w-8 text-right font-secondary-body text-content-secondary tabular-nums">
                   {(temperature ?? data?.temperatureDefault ?? 1).toFixed(1)}
                 </span>
               </div>
@@ -207,7 +207,7 @@ export function ChatPreferencesSections() {
               );
           }}
         />
-        <p className="text-right font-secondary-body tabular-nums text-content-muted">
+        <p className="text-right font-secondary-body text-content-muted tabular-nums">
           {ui(appText("{{count}}/{{limit}}", { count: draft.length, limit: PREFERENCES_LIMIT }))}
         </p>
       </section>

@@ -23,7 +23,7 @@ export function ChatCodeStep({ toolCallId, state }: { toolCallId: string; state:
           <p className="mb-1 font-medium text-content-muted">
             {state === "running" ? ui("Kết quả đang chạy") : ui("Kết quả")}
           </p>
-          <pre className="max-h-64 overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-content-primary">
+          <pre className="max-h-64 overflow-auto font-mono text-xs leading-relaxed whitespace-pre-wrap text-content-primary">
             {run.stdout}
           </pre>
         </section>
@@ -34,7 +34,7 @@ export function ChatCodeStep({ toolCallId, state }: { toolCallId: string; state:
           className="rounded-lg border border-destructive/30 bg-destructive/5 p-2.5"
         >
           <p className="mb-1 font-medium text-destructive">{ui("Lỗi")}</p>
-          <pre className="max-h-64 overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-destructive">
+          <pre className="max-h-64 overflow-auto font-mono text-xs leading-relaxed whitespace-pre-wrap text-destructive">
             {run.stderr}
           </pre>
         </section>

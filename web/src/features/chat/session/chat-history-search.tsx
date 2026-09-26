@@ -259,7 +259,7 @@ function MatchSnippet({ text }: { text: string }) {
       index % 2 === 1 ? (
         <mark
           key={index}
-          className="rounded-sm bg-evidence-highlight-surface font-medium text-content-primary box-decoration-clone"
+          className="rounded-sm bg-evidence-highlight-surface box-decoration-clone font-medium text-content-primary"
         >
           {part}
         </mark>

@@ -217,7 +217,7 @@ export function ChatComposerMenu({
           title={ui("Tắt tạo ảnh")}
           disabled={disabled}
           onClick={() => image.onChange("off")}
-          className="inline-flex items-center justify-center gap-1 rounded-full bg-surface-sunken px-2.5 py-1 text-sm text-content-secondary outline-none transition-colors hover:bg-surface-strong focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center justify-center gap-1 rounded-full bg-surface-sunken px-2.5 py-1 text-sm text-content-secondary transition-colors outline-none hover:bg-surface-strong focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ImagePlus className="size-3.5" aria-hidden="true" />
           {ui("Tạo ảnh")}

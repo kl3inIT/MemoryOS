@@ -96,7 +96,7 @@ export function ClampedList({
       )}
     >
       {items.map((item) => (
-        <li key={item.key} data-clamped-item className="flex min-w-0 max-w-full">
+        <li key={item.key} data-clamped-item className="flex max-w-full min-w-0">
           {item}
         </li>
       ))}
@@ -114,7 +114,7 @@ export function ClampedList({
           <HoverCardContent className="max-h-80 w-auto max-w-sm overflow-y-auto">
             <ul aria-label={label} className="flex flex-col gap-1.5">
               {items.slice(visible).map((item) => (
-                <li key={item.key} className="flex min-w-0 max-w-full">
+                <li key={item.key} className="flex max-w-full min-w-0">
                   {item}
                 </li>
               ))}

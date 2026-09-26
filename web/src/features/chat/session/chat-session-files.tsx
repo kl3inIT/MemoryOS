@@ -259,7 +259,7 @@ export function ChatSessionFiles({
             </InputGroup>
             <div className="flex items-center justify-between gap-2">
               <LibraryCategoryFilter categories={categories} onCategories={setCategories} />
-              <span className="font-secondary-body tabular-nums text-content-muted">
+              <span className="font-secondary-body text-content-muted tabular-nums">
                 {ui("{{count}} tệp", { count: items.length })}
               </span>
             </div>
@@ -410,7 +410,7 @@ function SessionFileRow({
       </ItemContent>
       <ItemActions>
         {/* Revealed while the row is hovered or focused on wide screens; always shown on touch widths. */}
-        <div className="flex items-center gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover/item:opacity-100 md:group-focus-within/item:opacity-100">
+        <div className="flex items-center gap-1 opacity-100 transition-opacity md:opacity-0 md:group-focus-within/item:opacity-100 md:group-hover/item:opacity-100">
           <IconButton
             size="sm"
             prominence="internal"

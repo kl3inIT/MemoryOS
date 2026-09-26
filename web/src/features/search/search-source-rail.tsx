@@ -58,7 +58,7 @@ export function SearchSourceRail({
                 name: ui(option.label),
                 count: option.count,
               })}
-              className="flex min-h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 text-left font-main-ui-body text-content-secondary outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 aria-pressed:bg-surface-sunken aria-pressed:text-content-primary disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-content-secondary motion-reduce:transition-none"
+              className="flex min-h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 text-left font-main-ui-body text-content-secondary transition-colors duration-150 outline-none hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-content-secondary aria-pressed:bg-surface-sunken aria-pressed:text-content-primary motion-reduce:transition-none"
               onClick={() => onChange(option.value)}
             >
               <span className="grid size-4 shrink-0 place-items-center" aria-hidden="true">

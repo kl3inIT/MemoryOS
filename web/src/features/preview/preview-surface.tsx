@@ -22,7 +22,7 @@ export function PreviewCanvas({
       ref={ref}
       data-slot="preview-canvas"
       className={cn(
-        "min-h-0 flex-1 overflow-auto overscroll-contain bg-surface-sunken p-4 scrollbar-gutter-stable sm:px-5",
+        "min-h-0 flex-1 scrollbar-gutter-stable overflow-auto overscroll-contain bg-surface-sunken p-4 sm:px-5",
         className,
       )}
     >

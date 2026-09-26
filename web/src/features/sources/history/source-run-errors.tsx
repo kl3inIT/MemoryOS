@@ -119,7 +119,7 @@ function RunErrorRow({ error }: { error: SourceRunError }) {
           <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
             <span
               className={cn(
-                "min-w-0 break-words font-medium whitespace-pre-wrap wrap-anywhere",
+                "min-w-0 font-medium break-words wrap-anywhere whitespace-pre-wrap",
                 text,
               )}
             >
@@ -166,26 +166,26 @@ function RunErrorRow({ error }: { error: SourceRunError }) {
         ) : null}
         <div>
           <dt className="text-content-muted">{ui("Error code")}</dt>
-          <dd className="mt-1 select-text wrap-anywhere">
+          <dd className="mt-1 wrap-anywhere select-text">
             <code>{error.code}</code>
           </dd>
         </div>
         <div>
           <dt className="text-content-muted">{ui("Operation ID")}</dt>
-          <dd className="mt-1 select-text wrap-anywhere">
+          <dd className="mt-1 wrap-anywhere select-text">
             <code>{error.operationId ?? ui("Not recorded")}</code>
           </dd>
         </div>
         <div>
           <dt className="text-content-muted">{ui("Run ID")}</dt>
-          <dd className="mt-1 select-text wrap-anywhere">
+          <dd className="mt-1 wrap-anywhere select-text">
             <code>{error.runId}</code>
           </dd>
         </div>
         {error.fileId ? (
           <div>
             <dt className="text-content-muted">{ui("File ID")}</dt>
-            <dd className="mt-1 select-text wrap-anywhere">
+            <dd className="mt-1 wrap-anywhere select-text">
               <code>{error.fileId}</code>
             </dd>
           </div>
@@ -194,7 +194,7 @@ function RunErrorRow({ error }: { error: SourceRunError }) {
       {error.errorDetail ? (
         <div className="mt-3">
           <p className="text-xs text-content-muted">{ui("Technical details")}</p>
-          <pre className="mt-1 max-h-64 overflow-auto rounded-md bg-surface-sunken p-3 text-xs whitespace-pre-wrap wrap-anywhere text-content-secondary select-text">
+          <pre className="mt-1 max-h-64 overflow-auto rounded-md bg-surface-sunken p-3 text-xs wrap-anywhere whitespace-pre-wrap text-content-secondary select-text">
             {error.errorDetail}
           </pre>
         </div>

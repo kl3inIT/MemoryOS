@@ -137,7 +137,7 @@ export function ChatNavigation({
               {ui("Tải lại dự án")}
             </Button>
           )}
-          <h2 className="px-2 pb-2 pt-6 text-sm font-medium text-content-secondary">
+          <h2 className="px-2 pt-6 pb-2 text-sm font-medium text-content-secondary">
             {ui("Hội thoại gần đây")}
           </h2>
           {threads && <ThreadListConversations onNavigate={onNavigate} />}
@@ -291,7 +291,7 @@ function ThreadListConversations({ onNavigate }: { onNavigate?: () => void }) {
       <ThreadList label={ui("Hội thoại gần đây")}>
         {groups.map((group) => (
           <section key={group.label} aria-label={groupLabels[group.label]}>
-            <h3 className="px-3 pb-1 pt-3 text-xs font-medium text-content-muted">
+            <h3 className="px-3 pt-3 pb-1 text-xs font-medium text-content-muted">
               {groupLabels[group.label]}
             </h3>
             {group.items.map((session) => (

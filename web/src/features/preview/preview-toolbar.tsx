@@ -34,7 +34,7 @@ export function PreviewToolbar({
 /** Groups controls inside the toolbar, with a hairline between groups. */
 export function ToolbarGroup({ children }: { children: ReactNode }) {
   return (
-    <div className="flex items-center gap-1 border-border-subtle border-l pl-1 first:border-0 first:pl-0">
+    <div className="flex items-center gap-1 border-l border-border-subtle pl-1 first:border-0 first:pl-0">
       {children}
     </div>
   );

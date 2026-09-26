@@ -8,7 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 const textButtonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-1 border-0 bg-transparent p-0 font-main-ui-action whitespace-nowrap outline-none transition-colors duration-150 select-none focus-visible:ring-3 focus-visible:ring-focus-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base disabled:pointer-events-none disabled:text-content-disabled aria-disabled:pointer-events-none aria-disabled:text-content-disabled [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "inline-flex shrink-0 items-center justify-center gap-1 border-0 bg-transparent p-0 font-main-ui-action whitespace-nowrap transition-colors duration-150 outline-none select-none focus-visible:ring-3 focus-visible:ring-focus-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base disabled:pointer-events-none disabled:text-content-disabled aria-disabled:pointer-events-none aria-disabled:text-content-disabled [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       tone: {

@@ -10,5 +10,9 @@
     "src/routeTree.gen.ts",
     "src/lib/cn-tables.ts",
     "test-results/**"
-  ]
+  ],
+  "sortTailwindcss": {
+    "stylesheet": "./src/index.css",
+    "functions": ["cn", "cva"]
+  }
 }

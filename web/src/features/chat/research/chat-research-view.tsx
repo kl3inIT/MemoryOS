@@ -124,7 +124,7 @@ function AgentPanel({ agent, running }: { agent: ResearchAgent; running: boolean
   const thoughts = agent.activity.reasoning.map((segment) => segment.text).join("\n\n");
   return (
     <div className="mt-2 flex min-w-0 flex-col gap-2">
-      {agent.task && <p className="text-content-primary wrap-anywhere">{agent.task}</p>}
+      {agent.task && <p className="wrap-anywhere text-content-primary">{agent.task}</p>}
       {agent.durationMs !== null && (
         <p className="text-xs text-content-muted">
           {ui("Đã chạy {{duration}}", { duration: spokenDuration(agent.durationMs) })}

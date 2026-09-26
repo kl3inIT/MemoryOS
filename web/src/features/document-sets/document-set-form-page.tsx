@@ -63,7 +63,7 @@ export function DocumentSetFormPage({ documentSetId }: { documentSetId?: string 
     <SettingsLayout className="gap-6">
       <Link
         to="/admin/document-sets"
-        className="inline-flex w-fit items-center gap-2 rounded-lg font-secondary-action text-content-secondary outline-none transition-colors hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
+        className="inline-flex w-fit items-center gap-2 rounded-lg font-secondary-action text-content-secondary transition-colors outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
         {ui("Quay lại")}

@@ -126,7 +126,7 @@ export function GroupAccessPicker<TPage extends GroupOptionPage, TError, TKey ex
             <p>{ui(description)}</p>
           </HelpPopover>
         </div>
-        <span className="font-secondary-body tabular-nums text-content-muted">
+        <span className="font-secondary-body text-content-muted tabular-nums">
           {ordinarySelected.size} {ui("selected")}
         </span>
       </div>

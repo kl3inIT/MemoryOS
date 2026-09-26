@@ -16,7 +16,7 @@ export function ThinkingIndicator({
   return (
     <div
       data-slot="thinking-indicator"
-      className={cn("text-foreground/55 flex items-center gap-2.5 text-sm", className)}
+      className={cn("flex items-center gap-2.5 text-sm text-foreground/55", className)}
 
       {...props}
     >
@@ -26,7 +26,7 @@ export function ThinkingIndicator({
       />
       <ShimmerLabel
         key={label}
-        className="fade-in slide-in-from-bottom-1 animate-in relative inline-block leading-none duration-300 motion-reduce:animate-none"
+        className="relative inline-block animate-in leading-none duration-300 fade-in slide-in-from-bottom-1 motion-reduce:animate-none"
       >
         {label}
       </ShimmerLabel>

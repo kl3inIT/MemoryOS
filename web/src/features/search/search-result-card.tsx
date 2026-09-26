@@ -98,7 +98,7 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
         <h3 className="font-heading-h3 text-content-primary">
           <button
             type="button"
-            className="max-w-full cursor-pointer rounded-sm text-left underline-offset-4 hover:underline focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-focus-ring/30"
+            className="max-w-full cursor-pointer rounded-sm text-left underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-focus-ring/30 focus-visible:outline-hidden"
             onClick={(event) => open(best, event)}
           >
             <span className="line-clamp-2 break-words">{title}</span>
@@ -179,13 +179,13 @@ function Snippet({
   const ui = useAppTranslation();
   const snippet = createSearchSnippet(content, title, query, length);
   return (
-    <span className={cn("block min-w-0 whitespace-pre-wrap break-words", className)}>
+    <span className={cn("block min-w-0 break-words whitespace-pre-wrap", className)}>
       {snippet.parts.length === 0 ? ui("No preview text available.") : null}
       {snippet.parts.map((part, partIndex) =>
         part.highlighted ? (
           <mark
             key={`${partIndex}:${part.text}`}
-            className="box-decoration-clone rounded-sm bg-evidence-highlight-surface font-medium text-content-primary"
+            className="rounded-sm bg-evidence-highlight-surface box-decoration-clone font-medium text-content-primary"
           >
             {part.text}
           </mark>

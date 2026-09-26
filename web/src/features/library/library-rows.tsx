@@ -280,7 +280,7 @@ function LibraryRow({
           <FileUsage file={file} onRemove={actions.onRemoveFromProject} />
         </ItemContent>
         <ItemActions>
-          <div className="opacity-100 transition-opacity md:opacity-0 md:group-hover/item:opacity-100 md:group-focus-within/item:opacity-100 md:has-[[data-state=open]]:opacity-100">
+          <div className="opacity-100 transition-opacity md:opacity-0 md:group-focus-within/item:opacity-100 md:group-hover/item:opacity-100 md:has-[[data-state=open]]:opacity-100">
             <RowActionButtons file={file} view={view} actions={actions} />
           </div>
         </ItemActions>

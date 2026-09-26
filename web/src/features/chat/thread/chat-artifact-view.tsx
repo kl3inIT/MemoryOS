@@ -20,9 +20,9 @@ const components = {
       </CardContent>
     </Card>
   ),
-  Heading: ({ text }: { text?: string }) => <h3 className="break-words font-semibold">{text}</h3>,
+  Heading: ({ text }: { text?: string }) => <h3 className="font-semibold break-words">{text}</h3>,
   Text: ({ text }: { text?: string }) => (
-    <p className="whitespace-pre-wrap break-words text-sm leading-6">{text}</p>
+    <p className="text-sm leading-6 break-words whitespace-pre-wrap">{text}</p>
   ),
   Metric: ({ label, value }: { label?: string; value?: string }) => (
     <StatTile
@@ -40,7 +40,7 @@ const components = {
   ),
   Row: ({ children }: { children?: ReactNode }) => <TableRow>{children}</TableRow>,
   Cell: ({ text }: { text?: string }) => (
-    <TableCell className="min-w-24 break-words px-3 py-2 align-top">{text}</TableCell>
+    <TableCell className="min-w-24 px-3 py-2 align-top break-words">{text}</TableCell>
   ),
 };
 

@@ -58,7 +58,7 @@ export function ActionNotifications({ children, scope }: { children: ReactNode; 
         ))}
         <Toast.Viewport
           label={ui("Action notifications ({hotkey})")}
-          className="pointer-events-none fixed right-0 top-0 z-50 flex max-h-[100dvh] w-full max-w-sm flex-col gap-2 overflow-y-auto p-4 outline-none"
+          className="pointer-events-none fixed top-0 right-0 z-50 flex max-h-[100dvh] w-full max-w-sm flex-col gap-2 overflow-y-auto p-4 outline-none"
         />
       </Toast.Provider>
     </NotificationContext>
@@ -103,7 +103,7 @@ function ActionNotificationToast({
           {ui(notice.title)}
         </Toast.Title>
         {notice.description ? (
-          <Toast.Description className="break-words text-sm text-content-secondary">
+          <Toast.Description className="text-sm break-words text-content-secondary">
             {typeof notice.description === "string" ? notice.description : ui(notice.description)}
           </Toast.Description>
         ) : null}

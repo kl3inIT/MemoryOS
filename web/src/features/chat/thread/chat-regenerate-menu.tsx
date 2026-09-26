@@ -33,7 +33,7 @@ export function ChatRegenerateMenu({
       <More.Content
         align="start"
         sideOffset={5}
-        className="z-50 max-h-72 min-w-52 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-border-subtle bg-surface-overlay p-1.5 shadow-md"
+        className="z-50 max-h-72 max-w-[calc(100vw-2rem)] min-w-52 overflow-y-auto rounded-xl border border-border-subtle bg-surface-overlay p-1.5 shadow-md"
       >
         <p className="px-3 pt-1 pb-1.5 text-xs text-content-muted">{ui("Tạo lại bằng")}</p>
         {models.map((model) => (

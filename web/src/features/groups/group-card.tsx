@@ -141,7 +141,7 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
                 </form>
               ) : (
                 <div className="flex min-w-0 items-center gap-2">
-                  <h2 className="truncate text-base font-semibold leading-5 text-content-primary">
+                  <h2 className="truncate text-base leading-5 font-semibold text-content-primary">
                     {group.name}
                   </h2>
                   {builtIn ? (
@@ -176,7 +176,7 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
               ) : null}
             </div>
             <div className="flex shrink-0 items-start gap-2">
-              <span className="pt-0.5 text-sm leading-5 tabular-nums text-content-secondary">
+              <span className="pt-0.5 text-sm leading-5 text-content-secondary tabular-nums">
                 {group.memberCount.toLocaleString(uiLocale())}{" "}
                 {group.memberCount === 1 ? ui("Member") : ui("Members")}
               </span>

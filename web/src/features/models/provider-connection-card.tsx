@@ -148,7 +148,7 @@ export function ProviderConnectionCard({
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex flex-wrap items-center gap-2">
-                <span className="break-words font-main-ui-action">{provider.name}</span>
+                <span className="font-main-ui-action break-words">{provider.name}</span>
                 {isDefault && <Badge variant="secondary">{ui("Default")}</Badge>}
                 {status.label !== "Enabled" && (
                   <StatusBadge tone={status.tone}>{ui(status.label)}</StatusBadge>
@@ -156,13 +156,13 @@ export function ProviderConnectionCard({
                 {!provider.isPublic && <Badge variant="outline">{ui("Restricted")}</Badge>}
                 <DataBoundaryTag boundary={provider.dataBoundary} />
               </span>
-              <span className="block break-all font-secondary-body text-content-muted">
+              <span className="block font-secondary-body break-all text-content-muted">
                 {provider.baseUrl}
               </span>
             </span>
           </button>
           <span className="flex shrink-0 items-center gap-1">
-            <span className="mr-1 hidden font-secondary-body tabular-nums text-content-muted sm:inline">
+            <span className="mr-1 hidden font-secondary-body text-content-muted tabular-nums sm:inline">
               {ui(appText("{{count}} models", { count: models.length }))}
             </span>
             <IconButton

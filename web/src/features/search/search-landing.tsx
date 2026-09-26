@@ -67,7 +67,7 @@ export function SearchLanding({
               <li key={item}>
                 <button
                   type="button"
-                  className="flex min-h-10 w-full cursor-pointer items-center gap-3 rounded-lg px-2 text-left font-main-ui-body text-content-secondary outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none"
+                  className="flex min-h-10 w-full cursor-pointer items-center gap-3 rounded-lg px-2 text-left font-main-ui-body text-content-secondary transition-colors duration-150 outline-none hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 motion-reduce:transition-none"
                   onClick={() => onAsk(item)}
                 >
                   <History className="size-4 shrink-0 text-content-muted" aria-hidden="true" />

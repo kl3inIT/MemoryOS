@@ -301,7 +301,7 @@ function CredentialRow({
           </Tooltip>
         </TableCell>
         <TableCell>
-          <span className="block wrap-anywhere text-sm font-medium text-content-primary">
+          <span className="block text-sm font-medium wrap-anywhere text-content-primary">
             {credential.name}
           </span>
         </TableCell>

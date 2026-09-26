@@ -125,7 +125,7 @@ export function AgentViewer({
                   type="button"
                   disabled={pending}
                   onClick={() => onStart(prompt)}
-                  className="rounded-xl border border-border-subtle bg-surface-raised px-3.5 py-3 text-left font-main-ui-body text-content-primary outline-none transition-colors hover:border-border-default hover:bg-surface-base focus-visible:ring-3 focus-visible:ring-focus-ring/40 disabled:opacity-60"
+                  className="rounded-xl border border-border-subtle bg-surface-raised px-3.5 py-3 text-left font-main-ui-body text-content-primary transition-colors outline-none hover:border-border-default hover:bg-surface-base focus-visible:ring-3 focus-visible:ring-focus-ring/40 disabled:opacity-60"
                 >
                   {prompt}
                 </button>

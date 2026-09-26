@@ -41,7 +41,7 @@ export function ProjectContextPanel({ project }: { project: Project }) {
     <div className="flex flex-col gap-5 pt-4 text-left">
       <div className="flex items-center gap-3">
         <ProjectIcon iconName={project.iconName} className="size-7 shrink-0 text-content-muted" />
-        <h1 className="min-w-0 flex-1 break-words font-heading-h2 text-content-primary">
+        <h1 className="min-w-0 flex-1 font-heading-h2 break-words text-content-primary">
           {project.name}
         </h1>
         <DropdownMenu>
@@ -96,7 +96,7 @@ export function ProjectContextPanel({ project }: { project: Project }) {
         />
       </div>
       {project.description && (
-        <p className="whitespace-pre-wrap text-sm text-content-secondary">{project.description}</p>
+        <p className="text-sm whitespace-pre-wrap text-content-secondary">{project.description}</p>
       )}
       <ProjectFiles project={project} />
       {editing && <ProjectEditor project={project} onClose={() => setEditing(false)} />}

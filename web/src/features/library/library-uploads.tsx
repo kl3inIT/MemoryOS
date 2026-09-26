@@ -45,7 +45,7 @@ export function LibraryDropZone({
       }}
       className={cn(
         "relative flex min-h-0 flex-1 flex-col",
-        over && "rounded-xl outline-2 outline-offset-4 outline-dashed outline-border-strong",
+        over && "rounded-xl outline-2 outline-offset-4 outline-border-strong outline-dashed",
       )}
     >
       {children}

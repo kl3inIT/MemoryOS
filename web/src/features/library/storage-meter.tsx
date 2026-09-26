@@ -67,7 +67,7 @@ export function StorageMeter({
         aria-label={ui("Dung lượng đã dùng")}
         className="flex flex-col gap-2 rounded-xl border border-border-subtle p-4"
       >
-        <p className="font-main-ui-action tabular-nums text-content-primary">
+        <p className="font-main-ui-action text-content-primary tabular-nums">
           {limit === null
             ? ui("Đã dùng {{used}}", { used: fileSize(usage.usedBytes, i18n.language) })
             : ui("Đã dùng {{used}} / {{limit}}", {
@@ -132,7 +132,7 @@ export function StorageMeter({
                     aria-hidden="true"
                   />
                   <span className="min-w-0 flex-1 truncate">{labels[category]}</span>
-                  <span className="shrink-0 tabular-nums text-content-muted">
+                  <span className="shrink-0 text-content-muted tabular-nums">
                     {fileSize(entry.usedBytes, i18n.language)}
                   </span>
                   <ChevronRight className="size-4 shrink-0 text-content-muted" aria-hidden="true" />

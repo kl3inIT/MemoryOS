@@ -245,7 +245,7 @@ function SharePointNotices({
           <AlertDescription>
             <StatusBadge tone="info">{ui("Pending validation")}</StatusBadge>{" "}
             {ui("Microsoft is resolving the submitted addresses. The saved scope still applies.")}{" "}
-            <span className="break-all text-xs">
+            <span className="text-xs break-all">
               {ui("Operation")} {operation?.id} · {ui(statusLabel(operation?.status ?? "PENDING"))}
             </span>
           </AlertDescription>

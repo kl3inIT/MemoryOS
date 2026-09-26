@@ -66,7 +66,7 @@ export function WordCorrection({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="cursor-text rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+          className="cursor-text rounded-sm focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
           aria-label={ui("Sửa “{{word}}”", { word: heard })}
         >
           {children}

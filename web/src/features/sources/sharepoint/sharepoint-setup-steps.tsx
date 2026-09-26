@@ -58,7 +58,7 @@ export function SharePointContentStep({
         <h2 id="sharepoint-content-heading" className="font-heading-h3">
           {ui("Choose what to synchronize")}
         </h2>
-        <p className="break-words text-sm text-content-secondary">
+        <p className="text-sm break-words text-content-secondary">
           {ui("Credential:")} {selected?.name ?? ui("Not selected")}
           {selected?.tenantHost ? ui(" ({{v1}})", { v1: selected.tenantHost }) : ""}
         </p>

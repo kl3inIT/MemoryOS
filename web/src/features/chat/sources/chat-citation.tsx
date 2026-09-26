@@ -57,12 +57,12 @@ function Citation({ source }: { source: ChatSource }) {
             )}
             <div className="min-w-0 flex-1">
               <p
-                className="line-clamp-2 break-words text-sm font-medium leading-5"
+                className="line-clamp-2 text-sm leading-5 font-medium break-words"
                 title={source.title}
               >
                 {source.title}
               </p>
-              <p className="mt-0.5 break-words text-xs leading-5 text-content-muted">
+              <p className="mt-0.5 text-xs leading-5 break-words text-content-muted">
                 {source.web ? (
                   ui("Web · Nguồn {{number}}", { number: source.citationId })
                 ) : (
@@ -83,7 +83,7 @@ function Citation({ source }: { source: ChatSource }) {
                   rel="noopener noreferrer"
                   title={source.web.url}
                   data-slot="source-url"
-                  className="mt-0.5 flex min-w-0 items-center gap-0.5 rounded-sm text-xs leading-5 text-content-secondary underline decoration-border-default underline-offset-4 hover:text-content-primary hover:decoration-current focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-focus-ring/30"
+                  className="mt-0.5 flex min-w-0 items-center gap-0.5 rounded-sm text-xs leading-5 text-content-secondary underline decoration-border-default underline-offset-4 hover:text-content-primary hover:decoration-current focus-visible:ring-3 focus-visible:ring-focus-ring/30 focus-visible:outline-hidden"
                 >
                   <span className="truncate">{webDisplayUrl(source.web.url)}</span>
                   <ArrowUpRight className="size-3 shrink-0" aria-hidden="true" />

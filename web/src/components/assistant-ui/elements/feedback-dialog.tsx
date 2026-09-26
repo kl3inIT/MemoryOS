@@ -26,7 +26,7 @@ export function FeedbackDialog({
             key={reason.id}
             type="button"
             size="sm"
-            className="max-w-full whitespace-normal text-start"
+            className="max-w-full text-start whitespace-normal"
             prominence={selected === reason.id ? "primary" : "secondary"}
             aria-pressed={selected === reason.id}
             onClick={() => onToggleReason(selected === reason.id ? "" : reason.id)}

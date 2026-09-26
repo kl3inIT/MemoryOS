@@ -55,7 +55,7 @@ export function SourceCreationStatus({
                   ? pendingMessage
                   : ui("Review the error and edit the proposal before submitting again.")}
               </p>
-              <p className="break-all text-xs text-content-muted">
+              <p className="text-xs break-all text-content-muted">
                 {ui("Operation")} {tracking.operation.id} ·{" "}
                 {ui(statusLabel(tracking.operation.status))}
               </p>

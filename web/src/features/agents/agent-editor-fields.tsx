@@ -231,7 +231,7 @@ export function AgentIconPicker({
                   aria-label={iconNames[key] ?? ui("Biểu tượng")}
                   onClick={() => onIcon(key)}
                   className={cn(
-                    "grid size-9 place-items-center rounded-lg outline-none transition-shadow focus-visible:ring-3 focus-visible:ring-focus-ring/40",
+                    "grid size-9 place-items-center rounded-lg transition-shadow outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40",
                     agentIconTones[key],
                     checked
                       ? "ring-2 ring-content-primary ring-offset-2 ring-offset-surface-overlay"

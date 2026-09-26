@@ -226,7 +226,7 @@ export function ChatFileAskComposer({
 function AttachedChip({ label, onRemove }: { label: string; onRemove: () => void }) {
   const ui = useAppTranslation();
   return (
-    <li className="flex max-w-56 items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-sunken py-1 pl-2 pr-1 font-secondary-body">
+    <li className="flex max-w-56 items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-sunken py-1 pr-1 pl-2 font-secondary-body">
       <Paperclip className="size-3.5 shrink-0 text-content-muted" aria-hidden="true" />
       <span className="min-w-0 truncate" title={label}>
         {label}

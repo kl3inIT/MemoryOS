@@ -36,7 +36,7 @@ export function ConnectionOutcome({ outcome }: { outcome: ProviderTestOutcome | 
       <AlertTitle className="break-words">{ui(outcome.message)}</AlertTitle>
       {outcome.detail && (
         <AlertDescription>
-          <p className="break-words font-mono">{outcome.detail}</p>
+          <p className="font-mono break-words">{outcome.detail}</p>
         </AlertDescription>
       )}
     </Alert>

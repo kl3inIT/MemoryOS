@@ -379,7 +379,7 @@ function SortButton({
       type="button"
       aria-label={ui("Sort by {{v1}}", { v1: label.toLowerCase() })}
       onClick={() => table.setSorting([{ id: field, desc: direction === "asc" }])}
-      className="inline-flex h-8 items-center gap-1 rounded-md px-1 font-secondary-action text-content-secondary outline-none transition-colors hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
+      className="inline-flex h-8 items-center gap-1 rounded-md px-1 font-secondary-action text-content-secondary transition-colors outline-none hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40"
     >
       {label}
       {direction === "asc" ? (

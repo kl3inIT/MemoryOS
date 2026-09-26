@@ -75,7 +75,7 @@ export function ChatGeneratedFiles() {
                         event.currentTarget,
                       )
                     }
-                    className="min-w-0 rounded-sm text-left hover:underline focus-visible:outline-hidden focus-visible:ring-3 focus-visible:ring-focus-ring/30"
+                    className="min-w-0 rounded-sm text-left hover:underline focus-visible:ring-3 focus-visible:ring-focus-ring/30 focus-visible:outline-hidden"
                   >
                     <FileDisplay.Name title={file.filename}>{file.filename}</FileDisplay.Name>
                   </button>

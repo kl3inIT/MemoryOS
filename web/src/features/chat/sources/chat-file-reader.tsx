@@ -109,7 +109,7 @@ export function ChatFileReader({
       )}
       {!failed && window && (
         <>
-          <pre className="max-h-120 overflow-y-auto rounded-lg bg-surface-sunken p-3 text-sm whitespace-pre-wrap break-words">
+          <pre className="max-h-120 overflow-y-auto rounded-lg bg-surface-sunken p-3 text-sm break-words whitespace-pre-wrap">
             {citationCount && offset === initialOffset ? (
               <>
                 <mark className="bg-status-info-surface text-content-primary">

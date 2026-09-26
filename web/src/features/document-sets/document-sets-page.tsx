@@ -284,7 +284,7 @@ function SourceList({
           return (
             <span
               key={source.id}
-              className="flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-border-subtle bg-surface-raised px-2.5 py-1 font-secondary-body text-content-secondary"
+              className="flex max-w-full min-w-0 items-center gap-1.5 rounded-full border border-border-subtle bg-surface-raised px-2.5 py-1 font-secondary-body text-content-secondary"
             >
               <Icon aria-hidden="true" className="size-3.5 shrink-0" />
               <span className="truncate" title={source.name || ui("Nguồn không còn khả dụng")}>

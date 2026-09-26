@@ -234,7 +234,7 @@ export function GroupSourcesSection({ draft }: { draft: GroupSourcesDraft }) {
                 key={source.id}
                 to="/admin/sources/$sourceId"
                 params={{ sourceId: source.id }}
-                className="rounded-xl border border-border-subtle bg-surface-raised px-4 py-3 outline-none transition-colors hover:bg-surface-subtle focus-visible:ring-3 focus-visible:ring-focus-ring/40"
+                className="rounded-xl border border-border-subtle bg-surface-raised px-4 py-3 transition-colors outline-none hover:bg-surface-subtle focus-visible:ring-3 focus-visible:ring-focus-ring/40"
               >
                 <SourceIdentity source={source} />
               </Link>

@@ -170,7 +170,7 @@ function RunStage({
       )}
       <span className="min-w-0 flex-1 font-medium text-content-primary">{name}</span>
       {duration ? (
-        <span className="text-xs tabular-nums text-content-muted">{duration}</span>
+        <span className="text-xs text-content-muted tabular-nums">{duration}</span>
       ) : null}
       <StatusBadge tone={tone} variant="pill">
         {ui(label)}
@@ -229,7 +229,7 @@ export function RunDetails({ initialRun }: { initialRun: SourceRun }) {
         <RunSection title={ui("Overview")}>
           <dl className="text-sm">
             <DetailRow icon={Hash} label={ui("Run ID")}>
-              <code className="text-xs select-text wrap-anywhere">{run.id}</code>
+              <code className="text-xs wrap-anywhere select-text">{run.id}</code>
             </DetailRow>
             <DetailRow icon={Zap} label={ui("Trigger")}>
               <RunTrigger run={run} />
@@ -335,7 +335,7 @@ export function RunDetails({ initialRun }: { initialRun: SourceRun }) {
                   <CollapsibleContent>
                     <dl className="text-xs">
                       <dt>{ui("Error code")}</dt>
-                      <dd className="mt-1 select-text wrap-anywhere">
+                      <dd className="mt-1 wrap-anywhere select-text">
                         <code>{run.errorCode}</code>
                       </dd>
                     </dl>

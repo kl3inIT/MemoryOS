@@ -8,7 +8,7 @@ import type { ChatSource } from "./chat-evidence";
 /** Cited text of a source as an inline block, so it can sit inside buttons and hover cards alike. */
 export function SourceExcerpt({ source, className }: { source: ChatSource; className?: string }) {
   const { t } = useTranslation("reader");
-  const style = cn("block break-words text-sm leading-5 text-content-secondary", className);
+  const style = cn("block text-sm leading-5 break-words text-content-secondary", className);
   if (source.web)
     return <span className={style}>{source.web.excerpt || new URL(source.web.url).hostname}</span>;
   if (source.fileId != null)

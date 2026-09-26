@@ -521,7 +521,7 @@ function LivePreviews({
               />
               {speakerName(meeting, track, preview.speaker || "1", ui)}
             </span>
-            <p className="mt-0.5 italic text-content-muted">{preview.text}…</p>
+            <p className="mt-0.5 text-content-muted italic">{preview.text}…</p>
           </div>
         </li>
       ))}

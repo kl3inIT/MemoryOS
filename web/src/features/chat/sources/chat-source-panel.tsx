@@ -127,7 +127,7 @@ export function ChatSourcePanel({
         </h2>
         {selected && !artifact && sources.length > 1 ? (
           <div className="flex shrink-0 items-center gap-0.5">
-            <span className="px-1 font-secondary-body whitespace-nowrap tabular-nums text-content-muted">
+            <span className="px-1 font-secondary-body whitespace-nowrap text-content-muted tabular-nums">
               {t("sourcePosition", { index: format(index + 1), total: format(sources.length) })}
             </span>
             <IconButton
@@ -265,7 +265,7 @@ function SourcePanelBody({
         <>
           <ChatSourceHeader source={selected} />
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
-            <blockquote className="whitespace-pre-wrap break-words border-l-2 border-evidence-highlight-border bg-evidence-highlight-surface px-4 py-3 text-sm leading-7 text-content-primary">
+            <blockquote className="border-l-2 border-evidence-highlight-border bg-evidence-highlight-surface px-4 py-3 text-sm leading-7 break-words whitespace-pre-wrap text-content-primary">
               {selected.web.excerpt}
             </blockquote>
           </div>

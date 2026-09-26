@@ -218,7 +218,7 @@ function DocumentPreviewHeader({
         <DocumentSourceIcon mediaType={selection.mediaType} sourceTypes={selection.sourceTypes} />
         <div className="min-w-0">
           <DialogTitle asChild>
-            <h2 className="line-clamp-2 break-words font-heading-h3 text-content-primary">
+            <h2 className="line-clamp-2 font-heading-h3 break-words text-content-primary">
               {selection.title}
             </h2>
           </DialogTitle>

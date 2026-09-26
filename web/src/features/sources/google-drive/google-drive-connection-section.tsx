@@ -68,7 +68,7 @@ export function GoogleDriveConnectionSection(props: GoogleDriveConnectionProps) 
               <CollapsibleTrigger asChild>
                 <button
                   type="button"
-                  className="flex min-h-11 w-full cursor-pointer flex-wrap items-center gap-3 rounded-lg text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  className="flex min-h-11 w-full cursor-pointer flex-wrap items-center gap-3 rounded-lg text-left text-sm focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:outline-none"
                 >
                   <StatusBadge tone={connected ? "success" : "warning"}>
                     {connected

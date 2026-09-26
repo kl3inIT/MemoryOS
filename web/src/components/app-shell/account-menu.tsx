@@ -79,7 +79,7 @@ export function AccountMenu({ onNavigate }: { onNavigate?: () => void }) {
         className="w-64 max-w-[calc(100vw-1.5rem)]"
       >
         <DropdownMenuLabel className="flex flex-col">
-          <span className="break-words font-main-ui-body text-content-primary">
+          <span className="font-main-ui-body break-words text-content-primary">
             {tenant.displayName}
           </span>
           <span className="font-secondary-body text-content-muted">{membershipLabel}</span>

@@ -36,7 +36,7 @@ export function GenerationIdentity({
       </span>
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-2">
-          <span className="break-all font-main-ui-action text-content-primary">
+          <span className="font-main-ui-action break-all text-content-primary">
             {generation.model}
           </span>
           {badge}
@@ -92,7 +92,7 @@ export function RebuildSection({
                 <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
                   {!sameModel && (
                     <span className="inline-flex min-w-0 items-center gap-1.5">
-                      <span className="break-words font-main-ui-body text-content-muted">
+                      <span className="font-main-ui-body break-words text-content-muted">
                         {present.model}
                       </span>
                       <ArrowRight
@@ -102,7 +102,7 @@ export function RebuildSection({
                       <span className="sr-only">{ui("sang")}</span>
                     </span>
                   )}
-                  <span className="min-w-0 break-words font-main-ui-action text-content-primary">
+                  <span className="min-w-0 font-main-ui-action break-words text-content-primary">
                     {future.model}
                   </span>
                   {future.automatic && <Badge variant="secondary">{ui("Tự động")}</Badge>}
@@ -125,7 +125,7 @@ export function RebuildSection({
             </div>
             <div className="flex flex-col gap-1.5">
               <Progress value={percent} aria-label={ui("Tiến độ dựng lại")} className="h-1" />
-              <p className="flex flex-wrap items-center gap-x-1.5 font-secondary-body tabular-nums text-content-muted">
+              <p className="flex flex-wrap items-center gap-x-1.5 font-secondary-body text-content-muted tabular-nums">
                 {progress ? (
                   <>
                     <span>
@@ -181,14 +181,14 @@ export function ProviderRow({
             </span>
             <div className="min-w-0 flex-1">
               <p className="flex flex-wrap items-center gap-2">
-                <span className="break-words font-main-ui-action">{provider.name}</span>
+                <span className="font-main-ui-action break-words">{provider.name}</span>
                 {provider.inUse && <Badge variant="secondary">{ui("Đang dùng")}</Badge>}
                 <DataBoundaryTag boundary={provider.dataBoundary} />
                 {!provider.hasApiKey && (
                   <StatusBadge tone="neutral">{ui("Không có khóa")}</StatusBadge>
                 )}
               </p>
-              <p className="break-all font-secondary-body text-content-muted">
+              <p className="font-secondary-body break-all text-content-muted">
                 {provider.endpoint}
               </p>
             </div>
