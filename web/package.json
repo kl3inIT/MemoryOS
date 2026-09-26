@@ -79,6 +79,7 @@
     "@babel/parser": "8.0.5",
     "@playwright/test": "1.63.0",
     "@sentry/vite-plugin": "5.4.0",
+    "@shadcn/lint": "0.2.0",
     "@tailwindcss/vite": "4.3.3",
     "@tanstack/router-plugin": "1.168.37",
     "@testing-library/jest-dom": "7.0.1",
