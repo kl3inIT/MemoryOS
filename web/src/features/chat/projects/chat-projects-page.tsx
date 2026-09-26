@@ -4,7 +4,7 @@ import { DropdownMenu } from "radix-ui";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, Folder, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
-import { AppShell } from "@/components/app-shell/app-shell";
+import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IconButton } from "@/components/ui/icon-button";
@@ -59,7 +59,8 @@ export function ChatProjectsPage() {
     queryFn: ({ signal }) => loadProjects(signal),
   });
   return (
-    <AppShell pageTitle={ui("Dự án")}>
+    <>
+      <AppShellHeader title={ui("Dự án")} />
       <div className="mx-auto w-full max-w-3xl overflow-y-auto px-6 py-10">
         <div className="mb-8 flex items-center justify-between gap-4">
           <h1 className="font-heading-h2 text-content-primary">{ui("Dự án")}</h1>
@@ -112,7 +113,7 @@ export function ChatProjectsPage() {
         </div>
         {creating && <ProjectEditor onClose={() => setCreating(false)} />}
       </div>
-    </AppShell>
+    </>
   );
 }
 

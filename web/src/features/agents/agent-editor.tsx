@@ -15,7 +15,7 @@ import {
   SquareTerminal,
   WifiOff,
 } from "lucide-react";
-import { AppShell } from "@/components/app-shell/app-shell";
+import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { BrandLoader } from "@/components/brand-loader";
 import { EmptyState } from "@/components/composites/empty-state";
 import {
@@ -157,7 +157,8 @@ export function AgentEditorPage({ agentId }: { agentId?: string }) {
   });
   const title = agentId ? (agent.data?.name ?? ui("Sửa trợ lý")) : ui("Tạo trợ lý");
   return (
-    <AppShell pageTitle={title}>
+    <>
+      <AppShellHeader title={title} />
       {agentId && agent.isPending ? (
         <div role="status" className="flex justify-center px-(--page-gutter) pt-16">
           <BrandLoader label={ui("Đang tải trợ lý…")} />
@@ -178,7 +179,7 @@ export function AgentEditorPage({ agentId }: { agentId?: string }) {
       ) : (
         <AgentEditor key={agent.data?.revision ?? "new"} agent={agent.data} />
       )}
-    </AppShell>
+    </>
   );
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useMatch, useNavigate } from "@tanstack/react-router";
 import { useAui } from "@assistant-ui/react";
 import { waitForChatFile } from "@/features/library/files";
 import { composerAttachment } from "./use-composer-file-selection";
@@ -13,7 +13,7 @@ import { composerAttachment } from "./use-composer-file-selection";
 export function useAttachOnOpen() {
   const aui = useAui();
   const navigate = useNavigate();
-  const search = useSearch({ strict: false }) as { attach?: string };
+  const search = useMatch({ from: "/_authenticated/_chat/", shouldThrow: false })?.search ?? {};
   const attached = useRef<string>(undefined);
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import { adminEntryPage, adminPages } from "@/components/app-shell/admin-pages";
 import type { CurrentIdentity, CurrentTenant } from "@/lib/hey-api/types.gen";
 
 export type ApplicationCapability = CurrentIdentity["capabilities"][number];
@@ -25,53 +26,36 @@ export function useCapabilityAuthority(capability: ApplicationCapability) {
   return "none";
 }
 
+/** What the session lets a person do in administration; each page's visibility reads it. */
+export type AdminAuthority = {
+  canManageUsers: boolean;
+  canReadGroups: boolean;
+  canReadSources: boolean;
+  canManageModels: boolean;
+  canManageProviders: boolean;
+  canManageMcp: boolean;
+  canManageAgents: boolean;
+  canReadAudit: boolean;
+  canReadChatHistory: boolean;
+};
+
 /** The single product rule for who may enter administration and where the entry lands. */
 export function useAdminAccess() {
-  const canManageUsers = useGlobalCapability("USERS_MANAGE");
-  const canReadGroups = useCapabilityAuthority("GROUPS_READ") !== "none";
-  const canReadSources = useCapabilityAuthority("SOURCES_READ") !== "none";
-  const canManageModels = useGlobalCapability("MODELS_MANAGE");
-  const canManageProviders = useGlobalCapability("SYSTEM_ADMIN");
-  const canManageMcp = useGlobalCapability("MCP_MANAGE");
-  const canManageAgents = useGlobalCapability("AGENTS_MANAGE");
-  const canReadAudit = useGlobalCapability("AUDIT_READ");
-  const canReadChatHistory = useGlobalCapability("CHAT_HISTORY_READ");
+  const authority: AdminAuthority = {
+    canManageUsers: useGlobalCapability("USERS_MANAGE"),
+    canReadGroups: useCapabilityAuthority("GROUPS_READ") !== "none",
+    canReadSources: useCapabilityAuthority("SOURCES_READ") !== "none",
+    canManageModels: useGlobalCapability("MODELS_MANAGE"),
+    canManageProviders: useGlobalCapability("SYSTEM_ADMIN"),
+    canManageMcp: useGlobalCapability("MCP_MANAGE"),
+    canManageAgents: useGlobalCapability("AGENTS_MANAGE"),
+    canReadAudit: useGlobalCapability("AUDIT_READ"),
+    canReadChatHistory: useGlobalCapability("CHAT_HISTORY_READ"),
+  };
   return {
-    canManageUsers,
-    canReadGroups,
-    canReadSources,
-    canManageModels,
-    canManageProviders,
-    canManageMcp,
-    canManageAgents,
-    canReadAudit,
-    canReadChatHistory,
-    canAccessAdmin:
-      canManageUsers ||
-      canReadGroups ||
-      canReadSources ||
-      canManageModels ||
-      canManageProviders ||
-      canManageMcp ||
-      canManageAgents ||
-      canReadAudit ||
-      canReadChatHistory,
-    adminEntryPath: canReadSources
-      ? "/admin"
-      : canReadGroups
-        ? "/admin/groups"
-        : canManageUsers
-          ? "/admin/users"
-          : canManageProviders
-            ? "/admin/identity-providers"
-            : canManageModels
-              ? "/admin/models"
-              : canManageMcp
-                ? "/admin/mcp"
-                : canManageAgents
-                  ? "/admin/agents"
-                  : canReadChatHistory && !canReadAudit
-                    ? "/admin/chat-history"
-                    : "/admin/audit",
+    ...authority,
+    authority,
+    canAccessAdmin: adminPages.some((page) => page.visible(authority)),
+    adminEntryPath: adminEntryPage(authority).to,
   } as const;
 }

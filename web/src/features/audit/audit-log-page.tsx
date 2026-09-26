@@ -1,4 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { getRouteApi } from "@tanstack/react-router";
 import { CircleAlert, Download, ScrollText, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/composites/empty-state";
@@ -38,6 +39,7 @@ import {
   periodStart,
   type AuditPeriod,
 } from "./audit-actions";
+import type { AuditLogSearch } from "./audit-log-search";
 
 const ALL = "all";
 const PAGE_SIZE = 50;
@@ -45,12 +47,7 @@ const periods: AuditPeriod[] = ["1d", "7d", "30d", "90d"];
 const classes = Object.keys(classLabels) as AuditEvent["eventClass"][];
 const outcomes = Object.keys(outcomeLabels) as AuditEvent["outcome"][];
 
-type Filters = {
-  period: AuditPeriod;
-  text: string;
-  eventClass: AuditEvent["eventClass"] | typeof ALL;
-  outcome: AuditEvent["outcome"] | typeof ALL;
-};
+const auditRoute = getRouteApi("/_authenticated/admin/audit");
 
 /**
  * Admin › Monitoring › Audit log (ADR 0013): who changed sign-in, users, Groups, models, connections and Sources.
@@ -58,35 +55,49 @@ type Filters = {
  */
 export function AuditLogPage() {
   const ui = useAppTranslation();
-  const [filters, setFilters] = useState<Filters>({
-    period: "7d",
-    text: "",
-    eventClass: ALL,
-    outcome: ALL,
-  });
-  const [text, setText] = useState("");
+  // The filters live in the address, so a reload or a shared link shows the same events.
+  const filters = auditRoute.useSearch();
+  const navigate = auditRoute.useNavigate();
+  const setFilters = (next: Partial<AuditLogSearch>) =>
+    void navigate({
+      search: (current) => ({ ...current, ...next }),
+      replace: true,
+      resetScroll: false,
+    });
+  const period = filters.period;
+  const [text, setText] = useState(filters.q ?? "");
+  const [shownText, setShownText] = useState(filters.q);
+  if (shownText !== filters.q) {
+    // Back and forward change the searched text; the box follows it.
+    setShownText(filters.q);
+    if ((text.trim() || undefined) !== filters.q) setText(filters.q ?? "");
+  }
   const [open, setOpen] = useState<AuditEvent | null>(null);
   useEffect(() => {
+    const searched = text.trim() || undefined;
+    if (searched === filters.q) return;
     const timer = setTimeout(
       () =>
-        setFilters((current) =>
-          current.text === text.trim() ? current : { ...current, text: text.trim() },
-        ),
+        void navigate({
+          search: (current) => ({ ...current, q: searched }),
+          replace: true,
+          resetScroll: false,
+        }),
       300,
     );
     return () => clearTimeout(timer);
-  }, [text]);
+  }, [text, filters.q, navigate]);
 
   // The period is fixed when the filters change, so later pages share the first page's bounds.
   const query = useMemo<NonNullable<ListAuditEventsData["query"]>>(
     () => ({
-      from: periodStart(filters.period),
-      q: filters.text || undefined,
-      eventClass: filters.eventClass === ALL ? undefined : filters.eventClass,
-      outcome: filters.outcome === ALL ? undefined : filters.outcome,
+      from: periodStart(period),
+      q: filters.q,
+      eventClass: filters.eventClass,
+      outcome: filters.outcome,
       size: PAGE_SIZE,
     }),
-    [filters],
+    [period, filters.q, filters.eventClass, filters.outcome],
   );
   const events = useInfiniteQuery({
     ...listAuditEventsInfiniteOptions({ query }),
@@ -125,8 +136,8 @@ export function AuditLogPage() {
 
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label={ui("Filters")}>
         <Select
-          value={filters.period}
-          onValueChange={(value) => setFilters({ ...filters, period: value as AuditPeriod })}
+          value={period}
+          onValueChange={(value) => setFilters({ period: value as AuditPeriod })}
         >
           <SelectTrigger aria-label={ui("Period")} className="w-40">
             <SelectValue />
@@ -140,9 +151,11 @@ export function AuditLogPage() {
           </SelectContent>
         </Select>
         <Select
-          value={filters.eventClass}
+          value={filters.eventClass ?? ALL}
           onValueChange={(value) =>
-            setFilters({ ...filters, eventClass: value as Filters["eventClass"] })
+            setFilters({
+              eventClass: value === ALL ? undefined : (value as AuditEvent["eventClass"]),
+            })
           }
         >
           <SelectTrigger aria-label={ui("Category")} className="w-40">
@@ -158,9 +171,9 @@ export function AuditLogPage() {
           </SelectContent>
         </Select>
         <Select
-          value={filters.outcome}
+          value={filters.outcome ?? ALL}
           onValueChange={(value) =>
-            setFilters({ ...filters, outcome: value as Filters["outcome"] })
+            setFilters({ outcome: value === ALL ? undefined : (value as AuditEvent["outcome"]) })
           }
         >
           <SelectTrigger aria-label={ui("Outcome")} className="w-36">

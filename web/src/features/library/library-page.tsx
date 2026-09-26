@@ -1,8 +1,8 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearch } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Download, Trash2, X } from "lucide-react";
-import { AppShell } from "@/components/app-shell/app-shell";
+import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import { actionErrorText } from "@/lib/action-errors";
 import { FormDialog } from "@/components/composites/form-dialog";
 import { LibraryContentMatches } from "./library-content";
 import { LibraryDropZone, LibraryUploadButton, LibraryUploadTray } from "./library-uploads";
-import { LibraryRail, type LibraryView } from "./library-rail";
+import { LibraryRail } from "./library-rail";
 import { LibrarySettingsButton } from "./library-settings";
 import { FileActions, LibraryEmpty, LibraryList } from "./library-rows";
 import {
@@ -29,10 +29,10 @@ import {
   LibrarySelectionBar,
   LibraryToolbar,
   type LibraryLayout,
-  type LibrarySearchMode,
 } from "./library-toolbar";
 import { archiveContentUrl, useLibraryArchive, type LibraryArchive } from "./use-library-archive";
 import { useLibraryUploads } from "./use-library-uploads";
+import { librarySearchDefaults, type LibrarySearch } from "./library-search";
 import { ChatFilePreviewModal } from "./file-preview-modal";
 import { type AskExtras } from "./file-ask-composer";
 import type { LibraryChat } from "./library-chat";
@@ -52,13 +52,9 @@ import {
   loadLibrary,
   refusedBy,
   searchLibraryContent,
-  LIBRARY_PAGE_SIZE,
   LIBRARY_PAGE_SIZES,
   type ContentMatch,
-  type LibraryCategory,
   type LibraryFile,
-  type LibrarySort,
-  type LibrarySource,
 } from "./library";
 
 /**
@@ -69,22 +65,23 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
   const { actorId, authorizationVersion } = useApplicationSession();
-  const [search, setSearch] = useState("");
+  // What the list shows lives in the address, so a reload, Back or a link opens the same list; outside the library
+  // route (a test mounting the page alone) it shows the defaults.
+  const shown =
+    useSearch({ from: "/_authenticated/library", shouldThrow: false }) ?? librarySearchDefaults;
+  const navigate = useNavigate({ from: "/library" });
+  const { mode, category: categories, source: sources, sort, view, size } = shown;
+  // The box holds what is typed; the address follows it, and Back or a cleared filter sets the box again.
+  const [search, setSearch] = useState(shown.q);
+  const [shownSearch, setShownSearch] = useState(shown.q);
+  if (shownSearch !== shown.q) {
+    setShownSearch(shown.q);
+    if (search !== shown.q) setSearch(shown.q);
+  }
+  const offset = shown.page * size;
   const query = useDeferredValue(search.trim());
-  const [sources, setSources] = useState<LibrarySource[]>([]);
-  // A link from the storage page names one category; the filters then behave like any other filter. The
-  // search is read without binding to the route, so the page also renders where that route is not mounted.
-  const linked = useSearch({ strict: false }).category as LibraryCategory | undefined;
-  const [categories, setCategories] = useState<LibraryCategory[]>(linked ? [linked] : []);
-  const [sort, setSort] = useState<LibrarySort>("NEWEST");
-  /** Name search reads the listing; content search asks the file search what a file contains. */
-  const [mode, setMode] = useState<LibrarySearchMode>("name");
-  /** Which slice of the library is on screen: the usable files, the favourites, what is arriving, the trash. */
-  const [view, setView] = useState<LibraryView>("ready");
   const [renaming, setRenaming] = useState<LibraryFile>();
   const [layout, setLayout] = useState<LibraryLayout>("list");
-  const [offset, setOffset] = useState(0);
-  const [size, setSize] = useState<number>(LIBRARY_PAGE_SIZE);
   const [selected, setSelected] = useState<string[]>([]);
   const [preview, setPreview] = useState<LibraryFile>();
   const [confirming, setConfirming] = useState<LibraryFile[]>();
@@ -94,18 +91,22 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
   const [purging, setPurging] = useState<LibraryFile[]>();
 
   /** A selection belongs to the page it was made on, so leaving that page drops it. */
-  const showPage = (next: number) => {
-    setOffset(next);
+  const show = (next: Partial<LibrarySearch>, replace = false) => {
     setSelected([]);
+    void navigate({ search: (current) => ({ ...current, ...next }), replace, resetScroll: false });
   };
-  const showFirstPage = () => showPage(0);
-  /** Every filter change starts the list again: page 3 of the previous filter means nothing. */
-  const fromTheFirstPage =
-    <T,>(set: (next: T) => void) =>
-    (value: T) => {
-      set(value);
-      showFirstPage();
-    };
+  const showPage = (nextOffset: number) => show({ page: Math.floor(nextOffset / size) });
+  /** After a change to the files the list restarts in place, without an entry to return to. */
+  const showFirstPage = () => show({ page: 0 }, true);
+  /** Every filter change starts the list again: page 3 of the previous filter means nothing. Typing replaces. */
+  const filterBy = (next: Partial<LibrarySearch>, replace = false) =>
+    show({ ...next, page: 0 }, replace);
+
+  useEffect(() => {
+    if (search !== shown.q) filterBy({ q: search }, true);
+    // Only typing writes the search; the other filters navigate themselves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   const uploads = useLibraryUploads();
   const archive = useLibraryArchive();
@@ -317,14 +318,11 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
         await cache.invalidateQueries({ queryKey: chatLibraryKey });
       }),
   };
-  const clearFilters = () => {
-    fromTheFirstPage(setSources)([]);
-    setCategories([]);
-    setSearch("");
-  };
+  const clearFilters = () => filterBy({ source: [], category: [], q: "" });
 
   return (
-    <AppShell pageTitle={ui("Thư viện")}>
+    <>
+      <AppShellHeader title={ui("Thư viện")} />
       <SettingsLayout wide>
         <LibraryDropZone onFiles={uploads.start}>
           <PageHeader
@@ -336,10 +334,7 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
                   usage={usage.data}
                   usageFailed={usage.isError}
                   trashDays={trashWindow.data}
-                  onCategory={(category) => {
-                    setView("ready");
-                    fromTheFirstPage(setCategories)([category]);
-                  }}
+                  onCategory={(category) => filterBy({ view: "ready", category: [category] })}
                   retention={chat && <chat.RetentionSection />}
                 />
               </>
@@ -352,13 +347,10 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
               counts={{ [view]: page.data?.totalCount }}
               usage={usage.data}
               onView={(next) => {
-                fromTheFirstPage(setView)(next);
+                filterBy({ view: next });
                 setRefusals([]);
               }}
-              onShowLargest={() => {
-                fromTheFirstPage(setView)("ready");
-                setSort("LARGEST");
-              }}
+              onShowLargest={() => filterBy({ view: "ready", sort: "LARGEST" })}
             />
 
             <div className="flex min-w-0 flex-col gap-4">
@@ -366,22 +358,22 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
                 sortable={view === "ready" || view === "favorite"}
                 state={{ search, mode, sources, categories, sort, layout }}
                 handlers={{
-                  onSearch: fromTheFirstPage(setSearch),
-                  onMode: fromTheFirstPage(setMode),
-                  onSources: fromTheFirstPage(setSources),
-                  onCategories: fromTheFirstPage(setCategories),
-                  onSort: fromTheFirstPage(setSort),
+                  onSearch: setSearch,
+                  onMode: (next) => filterBy({ mode: next }),
+                  onSources: (next) => filterBy({ source: next }),
+                  onCategories: (next) => filterBy({ category: next }),
+                  onSort: (next) => filterBy({ sort: next }),
                   onLayout: setLayout,
                 }}
               />
               <LibraryFilterPills
                 state={{ search, mode, sources, categories, sort, layout }}
                 handlers={{
-                  onSearch: fromTheFirstPage(setSearch),
-                  onMode: fromTheFirstPage(setMode),
-                  onSources: fromTheFirstPage(setSources),
-                  onCategories: fromTheFirstPage(setCategories),
-                  onSort: fromTheFirstPage(setSort),
+                  onSearch: setSearch,
+                  onMode: (next) => filterBy({ mode: next }),
+                  onSources: (next) => filterBy({ source: next }),
+                  onCategories: (next) => filterBy({ category: next }),
+                  onSort: (next) => filterBy({ sort: next }),
                   onLayout: setLayout,
                 }}
               />
@@ -532,10 +524,7 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
                         sizes={LIBRARY_PAGE_SIZES}
                         disabled={page.isPlaceholderData}
                         // A page size change re-cuts the list, so it restarts at its first page.
-                        onSizeChange={(next) => {
-                          setSize(next);
-                          showFirstPage();
-                        }}
+                        onSizeChange={(next) => filterBy({ size: next })}
                       />
                     </TablePagination>
                   )}
@@ -619,7 +608,7 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
           setPurging(undefined);
         }}
       />
-    </AppShell>
+    </>
   );
 }
 

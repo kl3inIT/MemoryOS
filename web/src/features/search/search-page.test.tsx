@@ -13,7 +13,9 @@ import { ApplicationSessionProvider } from "@/features/identity/application-sess
 import { ThemeProvider } from "@/features/theme/theme-provider";
 import { MicrophoneUnavailableError } from "@/features/voice/capture/audio-capture";
 import type * as VoiceDictationModule from "@/features/voice/voice-dictation";
+import { AppShell } from "@/components/app-shell/app-shell";
 import { SearchPage } from "./search-page";
+import { searchPageSearchSchema } from "./search-params";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type * as ChatSdk from "@/lib/hey-api/sdk.gen";
 
@@ -61,29 +63,36 @@ const OWNER_SESSION: ApplicationSession = {
   scopedCapabilities: [],
 };
 
+let renderedRouter: { state: { location: { href: string } } } | undefined;
+
 function speechToTextAvailable(sttAvailable: boolean) {
   voiceAvailabilityMock.mockResolvedValue({ data: { sttAvailable, ttsAvailable: false } });
 }
 
-async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
+async function renderNewSession(session: ApplicationSession = OWNER_SESSION, path = "/search") {
   vi.stubGlobal("scrollTo", vi.fn());
   const rootRoute = createRootRoute();
+  const authenticatedRoute = createRoute({ getParentRoute: () => rootRoute, id: "_authenticated" });
   const indexRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/search",
+    getParentRoute: () => authenticatedRoute,
+    path: "search",
+    validateSearch: searchPageSearchSchema,
     component: () => (
       <ApplicationSessionProvider session={session}>
         <ThemeProvider>
-          <SearchPage loadDocumentSets={loadDocumentSetsMock} />
+          <AppShell>
+            <SearchPage loadDocumentSets={loadDocumentSetsMock} />
+          </AppShell>
         </ThemeProvider>
       </ApplicationSessionProvider>
     ),
   });
   const router = createRouter({
-    routeTree: rootRoute.addChildren([indexRoute]),
-    history: createMemoryHistory({ initialEntries: ["/search"] }),
+    routeTree: rootRoute.addChildren([authenticatedRoute.addChildren([indexRoute])]),
+    history: createMemoryHistory({ initialEntries: [path] }),
   });
   await router.load();
+  renderedRouter = router;
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <RouterProvider router={router} />
@@ -107,10 +116,44 @@ afterEach(() => {
 });
 
 describe("SearchPage", () => {
+  it("searches what the address names and keeps a changed filter in it, leaving defaults out", async () => {
+    const user = userEvent.setup();
+    searchDocumentsMock.mockResolvedValue({
+      data: {
+        results: [],
+        page: 0,
+        hasMore: false,
+        totalResults: 0,
+        candidateLimit: 200,
+        sourceFacets: { total: 0, types: [] },
+      },
+    });
+    await renderNewSession(OWNER_SESSION, "/search?q=budget&source=FILE&page=0");
+
+    await waitFor(() =>
+      expect(searchDocumentsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.objectContaining({ query: "budget", sourceTypes: ["FILE"], page: 0 }),
+        }),
+      ),
+    );
+    expect(screen.getByRole("textbox", { name: "Search documents" })).toHaveValue("budget");
+
+    await user.click(await screen.findByRole("button", { name: "Updated: All time" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Past 30 days" }));
+
+    await waitFor(() =>
+      expect(renderedRouter?.state.location.href).toBe("/search?q=budget&source=FILE&time=30d"),
+    );
+  });
+
   it("renders Search inside the authenticated application shell", async () => {
     await renderNewSession();
 
     expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
+    // The page's title reaches the shell header, beside the navigation button.
+    const banner = screen.getByRole("button", { name: "Open navigation" }).closest("header")!;
+    expect(within(banner).getByText("Search documents")).toBeInTheDocument();
     // Document Search is its own sidebar entry; the header has no Chat/Search mode menu.
     expect(screen.getByRole("link", { name: "Search documents" })).toHaveAttribute(
       "href",

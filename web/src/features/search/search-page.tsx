@@ -14,8 +14,9 @@ import {
   TextSearch,
   X,
 } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { AppShell } from "@/components/app-shell/app-shell";
+import { getRouteApi } from "@tanstack/react-router";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { BrandLoader } from "@/components/brand-loader";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +38,7 @@ import type { DocumentSourceType } from "./document-source-presentation";
 import { sourceProviders } from "@/features/sources/shared/source-provider-catalog";
 import { SearchResultCard } from "./search-result-card";
 import { friendlyMediaType } from "./search-presentation";
+import { MAX_SEARCH_PAGES, type SearchPageSearch } from "./search-params";
 import {
   useApplicationSession,
   useGlobalCapability,
@@ -80,8 +82,8 @@ const TIME_RANGE_OPTIONS: readonly SearchFilterOption[] = [
 type SearchTimeRange = "all" | "7d" | "30d" | "365d";
 
 const PAGE_SIZE = 10;
-/** `SearchRequest.page` accepts 0–49. */
-const MAX_PAGES = 50;
+const MAX_PAGES = MAX_SEARCH_PAGES;
+const searchRoute = getRouteApi("/_authenticated/search");
 
 /** A Document Set offered as a filter. */
 export type SearchDocumentSet = { id: string; name: string };
@@ -96,7 +98,8 @@ export function SearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSearchD
   const canSearch = useGlobalCapability("SEARCH_READ");
   if (!canSearch) {
     return (
-      <AppShell pageTitle={ui("Search")}>
+      <>
+        <AppShellHeader title={ui("Search")} />
         <section role="alert" className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8">
           <h1 className="font-heading-h2 text-content-primary">{ui("Search access denied")}</h1>
           <p className="mt-2 text-content-secondary">
@@ -105,7 +108,7 @@ export function SearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSearchD
             )}
           </p>
         </section>
-      </AppShell>
+      </>
     );
   }
   return <AuthorizedSearchPage loadDocumentSets={loadDocumentSets} />;
@@ -115,12 +118,43 @@ function AuthorizedSearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSear
   const ui = useAppTranslation();
   const { actorId } = useApplicationSession();
   const [recentSearches, setRecentSearches] = useState(() => readRecentSearches(actorId));
-  const [query, setQuery] = useState("");
-  const [mediaType, setMediaType] = useState<string | null>(null);
-  const [sourceType, setSourceType] = useState<DocumentSourceType | null>(null);
-  const [timeRange, setTimeRange] = useState<SearchTimeRange>("all");
-  const [documentSetId, setDocumentSetId] = useState<string | null>(null);
-  const [request, setRequest] = useState<SearchRequest | null>(null);
+  // The submitted question, its filters and the result page live in the address; the box holds what is typed.
+  const search = searchRoute.useSearch();
+  const navigate = searchRoute.useNavigate();
+  const [query, setQuery] = useState(search.q ?? "");
+  const [shownQuery, setShownQuery] = useState(search.q);
+  if (shownQuery !== search.q) {
+    // Back and forward change the submitted question; the box follows it.
+    setShownQuery(search.q);
+    if ((query.trim() || undefined) !== search.q) setQuery(search.q ?? "");
+  }
+  const mediaType = search.type ?? null;
+  const sourceType: DocumentSourceType | null = search.source ?? null;
+  const timeRange: SearchTimeRange = search.time ?? "all";
+  const documentSetId = search.set ?? null;
+  const request = useMemo<SearchRequest | null>(
+    () =>
+      search.q
+        ? {
+            query: search.q,
+            mediaTypes: search.type ? [search.type] : [],
+            sourceTypes: search.source ? [search.source] : [],
+            updatedSince: updatedSinceForTimeRange(search.time ?? "all"),
+            documentSetIds: search.set ? [search.set] : [],
+            page: search.page ?? 0,
+            pageSize: PAGE_SIZE,
+          }
+        : null,
+    [search.q, search.type, search.source, search.time, search.set, search.page],
+  );
+  /** A filter applies to the question on screen from its first page, replacing the entry it refines. */
+  function showSearch(next: (current: SearchPageSearch) => SearchPageSearch, replace: boolean) {
+    void navigate({ search: next, replace, resetScroll: false });
+  }
+  function setFilter(filter: Partial<SearchPageSearch>) {
+    setSelected(null);
+    showSearch((current) => ({ ...current, ...filter, page: undefined }), true);
+  }
   const [selected, setSelected] = useState<DocumentSelection | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const searchFormRef = useRef<HTMLFormElement | null>(null);
@@ -202,78 +236,34 @@ function AuthorizedSearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSear
     setQuery(text);
     setSelected(null);
     setRecentSearches(rememberRecentSearch(actorId, text));
-    const nextRequest: SearchRequest = {
-      query: text.trim(),
-      mediaTypes: mediaType ? [mediaType] : [],
-      sourceTypes: sourceType ? [sourceType] : [],
-      updatedSince: updatedSinceForTimeRange(timeRange),
-      documentSetIds: documentSetId ? [documentSetId] : [],
-      page: 0,
-      pageSize: PAGE_SIZE,
-    };
-    if (JSON.stringify(nextRequest) === JSON.stringify(request)) void result.refetch();
-    else setRequest(nextRequest);
+    // Asking the question on screen again reads it again instead of adding a history entry.
+    if (text.trim() === search.q && !search.page) void result.refetch();
+    else showSearch((current) => ({ ...current, q: text.trim(), page: undefined }), false);
   }
 
   function clearFilters() {
-    setMediaType(null);
-    setSourceType(null);
-    setDocumentSetId(null);
-    setTimeRange("all");
-    setSelected(null);
-    if (request) {
-      setRequest({
-        ...request,
-        mediaTypes: [],
-        sourceTypes: [],
-        documentSetIds: [],
-        updatedSince: undefined,
-        page: 0,
-      });
-    }
+    setFilter({ type: undefined, source: undefined, time: undefined, set: undefined });
   }
 
   function selectSourceType(value: string) {
-    const nextSourceType = value === "all" ? null : (value as DocumentSourceType);
-    setSourceType(nextSourceType);
-    setSelected(null);
-    if (request) {
-      setRequest({ ...request, sourceTypes: nextSourceType ? [nextSourceType] : [], page: 0 });
-    }
+    setFilter({ source: value === "all" ? undefined : (value as DocumentSourceType) });
   }
 
   function selectMediaType(value: string) {
-    const nextMediaType = value === "all" ? null : value;
-    setMediaType(nextMediaType);
-    setSelected(null);
-    if (request) {
-      setRequest({ ...request, mediaTypes: nextMediaType ? [nextMediaType] : [], page: 0 });
-    }
+    setFilter({ type: value === "all" ? undefined : value });
   }
 
   function selectTimeRange(value: string) {
-    const nextTimeRange = value as SearchTimeRange;
-    setTimeRange(nextTimeRange);
-    setSelected(null);
-    if (request) {
-      setRequest({
-        ...request,
-        updatedSince: updatedSinceForTimeRange(nextTimeRange),
-        page: 0,
-      });
-    }
+    setFilter({ time: value === "all" ? undefined : (value as Exclude<SearchTimeRange, "all">) });
   }
 
   function selectDocumentSet(value: string) {
-    const nextDocumentSetId = value === "all" ? null : value;
-    setDocumentSetId(nextDocumentSetId);
+    setFilter({ set: value === "all" ? undefined : value });
+  }
+
+  function showPage(page: number) {
     setSelected(null);
-    if (request)
-      setRequest({
-        ...request,
-        documentSetIds: nextDocumentSetId ? [nextDocumentSetId] : [],
-        page: 0,
-      });
+    showSearch((current) => ({ ...current, page: page || undefined }), false);
   }
 
   function openDocument(
@@ -325,7 +315,8 @@ function AuthorizedSearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSear
   const totalPages = Math.min(MAX_PAGES, Math.max(1, Math.ceil(totalResults / PAGE_SIZE)));
 
   return (
-    <AppShell pageTitle={ui("Search documents")}>
+    <>
+      <AppShellHeader title={ui("Search documents")} />
       <section
         className={cn(
           "mx-auto w-full max-w-4xl px-5 py-5 sm:px-8 sm:py-7",
@@ -501,7 +492,7 @@ function AuthorizedSearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSear
                     aria-pressed={mediaType === option.value}
                     className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-border-subtle bg-surface-base pr-3 pl-2 font-secondary-action text-content-secondary outline-none transition-colors duration-150 hover:bg-surface-subtle hover:text-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/30 aria-pressed:border-content-primary aria-pressed:bg-surface-sunken aria-pressed:text-content-primary motion-reduce:transition-none"
                     onClick={() => {
-                      setMediaType(mediaType === option.value ? null : option.value);
+                      setFilter({ type: mediaType === option.value ? undefined : option.value });
                       searchInputRef.current?.focus();
                     }}
                   >
@@ -679,14 +670,8 @@ function AuthorizedSearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSear
                       currentPage + 1 >= MAX_PAGES ||
                       result.isPlaceholderData
                     }
-                    onPrevious={() => {
-                      setSelected(null);
-                      setRequest({ ...request, page: currentPage - 1 });
-                    }}
-                    onNext={() => {
-                      setSelected(null);
-                      setRequest({ ...request, page: currentPage + 1 });
-                    }}
+                    onPrevious={() => showPage(currentPage - 1)}
+                    onNext={() => showPage(currentPage + 1)}
                   />
                 </section>
               </div>
@@ -704,7 +689,7 @@ function AuthorizedSearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSear
           onClose={() => setSelected(null)}
         />
       ) : null}
-    </AppShell>
+    </>
   );
 }
 
