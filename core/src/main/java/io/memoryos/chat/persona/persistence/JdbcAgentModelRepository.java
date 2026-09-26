@@ -34,7 +34,7 @@ public class JdbcAgentModelRepository {
                         + (after == null ? "" : " AND p.id > :after") + " ORDER BY p.id LIMIT :limit")
                 .param("tenant", tenant).param("actor", actor).param("agentsManage", agentsManage)
                 .param("after", after, Types.OTHER).param("limit", limit)
-                .query((row, number) -> new PersonaSummary(row.getObject("id", UUID.class), row.getString("name"))).list();
+                .query((row, _) -> new PersonaSummary(row.getObject("id", UUID.class), row.getString("name"))).list();
     }
 
     /** Whether every id names an agent of this Tenant, deleted or not, as a provider restriction may. */

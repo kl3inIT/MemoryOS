@@ -73,13 +73,6 @@ public final class ChatTurnService implements AutoCloseable {
     public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
             TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
             @Nullable WebConnectionService web,
-            @Nullable ImageConnectionService images) {
-        this(persistence, model, limits, executor, streams, models, web, images, null);
-    }
-
-    public ChatTurnService(ChatTurnPersistence persistence, ChatModelExecutor model, ChatExecutionProperties limits,
-            TaskExecutor executor, StreamBufferWriter streams, ChatModelSelector models,
-            @Nullable WebConnectionService web,
             @Nullable ImageConnectionService images, @Nullable ChatSettingsService settings) {
         this(persistence, model, limits, executor, streams, models, web, images, settings, null);
     }
@@ -173,7 +166,8 @@ public final class ChatTurnService implements AutoCloseable {
         try { admission = admit(actor, session, command); }
         finally { lock.unlock(); }
         // The run is registered before the lock is released, so Stop, subscribe and delete see it from here on.
-        return admission.run() == null ? admission.accepted() : start(actor, command, admission);
+        var run = admission.run();
+        return run == null ? admission.accepted() : start(actor, command, admission, run);
     }
 
     /** A replayed or newly registered turn; {@code run} is null when nothing remains to start. */
@@ -183,8 +177,7 @@ public final class ChatTurnService implements AutoCloseable {
      * Network work runs here, after the session lock: opening MCP tools may refresh OAuth tokens. The registered run
      * owns the permit, so every failure settles it through the same terminal path as a failed execution.
      */
-    private Accepted start(ActorId actor, ChatCommand command, Admission admission) {
-        var run = admission.run();
+    private Accepted start(ActorId actor, ChatCommand command, Admission admission, Active run) {
         String failure = "CHAT_SETUP_FAILED";
         boolean dispatched = false;
         try {
@@ -393,7 +386,7 @@ public final class ChatTurnService implements AutoCloseable {
                         switch (event) {
                             case ChatToolEvent tool -> streams.tool(run.setup.assistantMessageId(), tool);
                             case ChatReasoningDelta reasoning -> streams.reasoning(run.setup.assistantMessageId(), reasoning.text(), reasoning.parentToolCallId());
-                            case ChatResearchEvent research -> streams.research(run.setup.assistantMessageId(), research);
+                            case ChatResearchEvent researchEvent -> streams.research(run.setup.assistantMessageId(), researchEvent);
                         }
                     }, imageEvent -> streams.image(run.setup.assistantMessageId(), imageEvent),
                     codeEvent -> streams.code(run.setup.assistantMessageId(), codeEvent),
@@ -424,7 +417,8 @@ public final class ChatTurnService implements AutoCloseable {
                     .addKeyValue("error_type", failure.getClass().getName()).log("Chat native cleanup failed");
             try { run.resolved.close(); }
             finally {
-                if (run.setup.mcp() != null) run.setup.mcp().close();
+                var tools = run.setup.mcp();
+                if (tools != null) tools.close();
                 run.drained = true;
                 // Terminal persistence and resource retirement may finish in either order.
                 releaseIfFinished(run);
@@ -582,8 +576,9 @@ public final class ChatTurnService implements AutoCloseable {
             }
             // The plan is stored with the outcome; beyond its column bound the rest is dropped, never failing the turn.
             if (event instanceof ChatResearchEvent research && research.kind() == ChatResearchEvent.Kind.CLARIFICATION) clarification = true;
-            if (event instanceof ChatResearchEvent research && research.kind() == ChatResearchEvent.Kind.PLAN_DELTA && plan.length() < ChatResearch.MAX_PLAN)
-                plan.append(research.text(), 0, Math.min(research.text().length(), ChatResearch.MAX_PLAN - plan.length()));
+            if (event instanceof ChatResearchEvent research && research.kind() == ChatResearchEvent.Kind.PLAN_DELTA
+                    && research.text() instanceof String text && plan.length() < ChatResearch.MAX_PLAN)
+                plan.append(text, 0, Math.min(text.length(), ChatResearch.MAX_PLAN - plan.length()));
             recorder.accept(event, content.length());
             agents.accept(event);
         }

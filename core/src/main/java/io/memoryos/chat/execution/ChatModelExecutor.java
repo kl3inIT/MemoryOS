@@ -32,7 +32,6 @@ import io.memoryos.chat.web.WebProviderClient;
 import io.memoryos.retrieval.DocumentOriginalService;
 import io.memoryos.retrieval.SearchTasks;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -91,13 +90,6 @@ public final class ChatModelExecutor {
     public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
             ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
             UserFileService files, UserFileSearchService fileSearch, UserFileContentService fileContent,
-            @Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts) {
-        this(contexts, processes, limits, search, searchLimits, scheduler, timings, files, fileSearch, fileContent, web, image, imageArtifacts, null, null, null, null, null, new SimpleMeterRegistry());
-    }
-
-    public ChatModelExecutor(ObjectProvider<ExecutingOperationContext> contexts, AgentProcessRepository processes,
-            ChatExecutionProperties limits, DocumentSearchService search, ChatSearchProperties searchLimits, Scheduler scheduler, SearchTimings timings,
-            UserFileService files, UserFileSearchService fileSearch, UserFileContentService fileContent,
             @Nullable WebProviderClient web, @Nullable ImageProviderClient image, ImageArtifactService imageArtifacts,
             @Nullable InterpreterClient interpreter,
             @Nullable InterpreterService interpreterSettings,
@@ -132,12 +124,10 @@ public final class ChatModelExecutor {
         return toolCalling && options.codeInterpreter();
     }
 
-    /** Separate best-effort naming invocation: no tools, no attachment bytes, no answer mutation. */
-    public String generateTitle(ModelBinding selected, List<ChatMessage> history) {
-        return generateTitle(selected, history, ignored -> {});
-    }
-
-    /** As {@link #generateTitle(ModelBinding, java.util.List)}; {@code accounting} receives its usage even when naming fails. */
+    /**
+     * Separate best-effort naming invocation: no tools, no attachment bytes, no answer mutation. {@code accounting}
+     * receives its usage even when naming fails.
+     */
     public String generateTitle(ModelBinding selected, List<ChatMessage> history,
                                 Consumer<ModelAccounting> accounting) {
         var context = contexts.getObject();
@@ -315,8 +305,10 @@ public final class ChatModelExecutor {
                         fileContent, setup.actor(), setup.tenant(), setup.assistantMessageId(), setup.fileIds(), fileActive,
                         activity, codeEvents).withSandbox(sandbox)));
             }
-            if (selected.toolCalling() && setup.mcp() != null && !setup.mcp().bindings().isEmpty()) {
-                var mcpTools = new McpTools(setup.mcp(), fileActive,
+            // The turn owns the MCP sessions; ChatTurnService closes them once the run has drained.
+            var mcp = setup.mcp();
+            if (selected.toolCalling() && mcp != null && !mcp.bindings().isEmpty()) {
+                var mcpTools = new McpTools(mcp, fileActive,
                         limits.mcpCallTimeout(), limits.mcpCallCap(), events::accept, activity,
                         guard::availableContextTokens, selected.policy().tokens(), meters);
                 for (var tool : mcpTools.tools()) runner = runner.withTools(List.of(tool));

@@ -268,7 +268,7 @@ public class SharePointSyncTraversal implements SyncTraversal {
                         : resuming && current.checkpointFolderId() != null ? current.checkpointFolderId() : target.itemId();
                 var queue = new ArrayDeque<String>(resuming ? current.checkpointFolders() : List.of());
                 // Mirrors the queue, so a folder already waiting is found without scanning it.
-                var queued = new HashSet<String>(queue);
+                var queued = new HashSet<>(queue);
                 while (true) {
                     if (sliceSpent()) {
                         String pending = link;

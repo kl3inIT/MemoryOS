@@ -5,6 +5,7 @@ import io.memoryos.objectstorage.ObjectUploadSpecification;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Set;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -64,5 +65,5 @@ public record GoogleDriveProviderProperties(
                 && ("https".equals(value.getScheme()) || Set.of("localhost", "127.0.0.1", "[::1]").contains(value.getHost()));
     }
 
-    @Override public String toString() { return "GoogleDriveProviderProperties[redacted]"; }
+    @Override public @NonNull String toString() { return "GoogleDriveProviderProperties[redacted]"; }
 }

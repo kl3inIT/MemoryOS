@@ -119,14 +119,17 @@ public final class SearchTool implements AutoCloseable {
     /** True when a requested update window ends before the agent's cutoff, so no document can match. */
     static boolean beforeFloor(SearchFilters.@Nullable Interval requested,
             SearchFilters.@Nullable Interval floor) {
-        return floor != null && requested != null && requested.to() != null && requested.to().isBefore(floor.from());
+        Instant start = floor == null ? null : floor.from();
+        Instant end = requested == null ? null : requested.to();
+        return start != null && end != null && end.isBefore(start);
     }
 
     static SearchFilters.@Nullable Interval floor(SearchFilters.@Nullable Interval requested,
             SearchFilters.@Nullable Interval floor) {
-        if (floor == null) return requested;
+        Instant start = floor == null ? null : floor.from();
+        if (start == null) return requested;
         if (requested == null) return floor;
-        var from = requested.from() == null || requested.from().isBefore(floor.from()) ? floor.from() : requested.from();
+        var from = requested.from() == null || requested.from().isBefore(start) ? start : requested.from();
         var to = requested.to();
         return to != null && to.isBefore(from) ? new SearchFilters.Interval(from, from) : new SearchFilters.Interval(from, to);
     }

@@ -53,16 +53,9 @@ public final class ModelResolver {
     /**
      * Models the provider endpoint reports, so an administrator selects real models instead of typing their
      * specs, as Onyx's per-provider {@code available-models} fetchers do. Limits and capabilities the endpoint
-     * publishes come first; the installed catalog fills the rest by name. The stored credential is read in its own
-     * transaction; the provider call follows it.
-     */
-    public List<ReportedModelSpec> reportedModels(ActorId actor, UUID providerId) {
-        return reportedModels(catalog.providerConnection(actor, providerId));
-    }
-
-    /**
-     * The same listing for a connection the administrator is still editing, so the provider form fills its model list
-     * before the provider exists, as Onyx's provider form does. The caller authorizes the connection.
+     * publishes come first; the installed catalog fills the rest by name. This serves a connection the administrator
+     * is still editing too, so the provider form fills its model list before the provider exists, as Onyx's provider
+     * form does. The caller authorizes the connection.
      */
     public List<ReportedModelSpec> reportedModels(ModelCatalogService.ProviderConnection connection) {
         var adapter = adapters.require(connection.adapterType());
@@ -117,20 +110,21 @@ public final class ModelResolver {
         // The context window is what one request may fill. OpenRouter reports OpenAI's total window (gpt-5-mini
         // 400,000) where OpenAI caps input at 272,000, and a 1M beta window for Claude: when both know the model,
         // the smaller window is the one every route accepts.
-        else if (context != null && catalogModel != null && catalogModel.contextWindow() < context)
+        else if (catalogModel != null && catalogModel.contextWindow() < context)
             context = catalogModel.contextWindow();
-        if (output == null || context == null || output < 1 || output >= context)
-            output = catalogModel != null && context != null && catalogModel.maxOutputTokens() < context
+        if (output == null || output < 1 || output >= context)
+            output = catalogModel != null && catalogModel.maxOutputTokens() < context
                     ? catalogModel.maxOutputTokens() : null;
         // Onyx sends tools to every model; an unknown model is assumed to call them, and the saved-connection check
         // probes a tool request so a model that rejects tools is caught before the first turn.
-        Boolean tools = first(first(reported.toolCalling(), catalogModel == null ? null : catalogModel.capabilities().toolCalling()), true);
+        Boolean toolCalling = first(reported.toolCalling(), catalogModel == null ? null : catalogModel.capabilities().toolCalling());
+        boolean tools = toolCalling == null || toolCalling;
         Boolean vision = first(reported.vision(), catalogModel == null ? null : catalogModel.capabilities().vision());
         Boolean reasoning = first(reported.reasoning(), catalogModel == null ? null : catalogModel.capabilities().reasoning());
         // An unpublished answer limit is never guessed: it stays empty and no cap is sent. Vision and reasoning are
         // only declared when published, since declaring them changes what the request carries.
         var capabilities = new ModelSettings.Capabilities(true,
-                Boolean.TRUE.equals(tools), Boolean.TRUE.equals(vision), Boolean.TRUE.equals(reasoning));
+                tools, Boolean.TRUE.equals(vision), Boolean.TRUE.equals(reasoning));
         var pricing = reported.pricing() != null ? reported.pricing() : catalogModel == null ? null : catalogModel.pricing();
         var source = fromProvider ? ReportedModelSpec.Source.PROVIDER
                 : catalogModel != null ? ReportedModelSpec.Source.CATALOG : ReportedModelSpec.Source.NONE;

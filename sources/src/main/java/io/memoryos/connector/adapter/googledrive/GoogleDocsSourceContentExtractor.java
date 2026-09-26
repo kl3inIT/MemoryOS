@@ -27,7 +27,7 @@ public final class GoogleDocsSourceContentExtractor {
                                    SourceInputDescriptor input) throws ExtractionException {
         JsonNode snapshot = NativeSnapshot.read(mapper, content, size, input, "GOOGLE_DOCS");
         JsonNode document = snapshot.path("content");
-        if (!input.providerFileId().equals(document.path("documentId").asString())
+        if (!document.path("documentId").asString().equals(input.providerFileId())
                 || !document.path("tabs").isArray() || document.path("tabs").isEmpty()) malformed();
         StructuredContent output = new StructuredContent(mapper, input);
         readTabs(document.path("tabs"), output, new HashSet<>(), 0);

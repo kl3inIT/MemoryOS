@@ -41,7 +41,7 @@ public class JdbcInterpreterRepository {
                 """).param("tenant", tenant.value()).param("messages", messageIds)
                 .query((row, ignored) -> {
                     boolean deleted = row.getBoolean("deleted");
-                    result.computeIfAbsent(row.getObject("message_id", UUID.class), key -> new ArrayList<>())
+                    result.computeIfAbsent(row.getObject("message_id", UUID.class), _ -> new ArrayList<>())
                             .add(new GeneratedFile(row.getObject("id", UUID.class), row.getString("filename"),
                                     row.getString("media_type"), deleted ? 0 : row.getLong("size_bytes"),
                                     !deleted && row.getBoolean("has_chart"), deleted));
@@ -67,10 +67,6 @@ public class JdbcInterpreterRepository {
                 .query((row, ignored) -> new Setting(row.getBoolean("enabled"), row.getLong("revision"))).single();
     }
 
-    /**
-     * Records the file against its answer. Owner and conversation come from the answer itself, so the file
-     * library reads them without joining and a caller cannot record a foreign owner.
-     */
     /** Who owns the conversation an answer belongs to; their library holds whatever that answer generates. */
     public Optional<UUID> owner(TenantId tenant, UUID messageId) {
         return jdbc.sql("""
@@ -80,6 +76,10 @@ public class JdbcInterpreterRepository {
                 .query((row, ignored) -> row.getObject("owner_actor_id", UUID.class)).optional();
     }
 
+    /**
+     * Records the file against its answer. Owner and conversation come from the answer itself, so the file
+     * library reads them without joining and a caller cannot record a foreign owner.
+     */
     public void insertArtifact(TenantId tenant, UUID messageId, UUID id, UUID storedObjectId, ObjectKey key,
                                String filename, String mediaType, long sizeBytes, @Nullable String chart) {
         int inserted = jdbc.sql("""

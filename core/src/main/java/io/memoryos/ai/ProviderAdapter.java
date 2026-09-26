@@ -29,12 +29,12 @@ public interface ProviderAdapter {
      * vLLM, Mistral and Groq do; OpenAI only names them). Contacting the provider is the point, so callers treat a
      * failure as provider unavailability and never echo the provider's payload.
      */
-    /** Whether {@link #reportedModels} contacts the endpoint, so it can verify a connection before it is saved. */
-    default boolean listsModels() { return false; }
-
     default List<ReportedModel> reportedModels(Connection connection, Duration timeout) {
         throw AiException.invalid("This adapter cannot list provider models.");
     }
+
+    /** Whether {@link #reportedModels} contacts the endpoint, so it can verify a connection before it is saved. */
+    default boolean listsModels() { return false; }
 
     /** Local validation only. Must not contact the model or echo credentials in errors. */
     void validate(String baseUrl, String modelName, ModelSettings settings);

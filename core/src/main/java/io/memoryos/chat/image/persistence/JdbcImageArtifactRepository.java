@@ -79,7 +79,7 @@ public class JdbcImageArtifactRepository {
                 ORDER BY created_at, id
                 """).param("tenant", tenant.value()).param("messages", messageIds).param("includeDeleted", includeDeleted)
                 .query((row, ignored) -> {
-                    result.computeIfAbsent(row.getObject("message_id", UUID.class), key -> new ArrayList<>())
+                    result.computeIfAbsent(row.getObject("message_id", UUID.class), _ -> new ArrayList<>())
                             .add(new GeneratedImage(row.getObject("id", UUID.class), row.getString("media_type"),
                                     row.getString("revised_prompt"), row.getBoolean("deleted")));
                     return true;
@@ -129,16 +129,6 @@ public class JdbcImageArtifactRepository {
                     WHERE tenant_id = :tenant AND owner_actor_id = :actor AND deleted_at IS NOT NULL AND purged_at IS NULL
                     ORDER BY deleted_at LIMIT :limit)
                 """).param("tenant", tenant.value()).param("actor", actor.value()).param("limit", limit).update();
-    }
-
-    public List<GeneratedImage> byMessage(TenantId tenant, UUID messageId) {
-        return jdbc.sql("""
-                SELECT id, media_type, revised_prompt FROM chat_image_artifact
-                WHERE tenant_id = :tenant AND message_id = :message AND deleted_at IS NULL ORDER BY created_at, id
-                """).param("tenant", tenant.value()).param("message", messageId)
-                .query((row, ignored) -> new GeneratedImage(row.getObject("id", UUID.class), row.getString("media_type"),
-                        row.getString("revised_prompt"), false))
-                .list();
     }
 
     /** Serving lookup: the actor must own the chat that produced the artifact. */

@@ -214,6 +214,7 @@ public final class ResearchPrompts {
             {research_plan}
             """.strip();
 
+    // Kept verbatim from Onyx 160f9b143 orchestration_layer.py for the reasoning-orchestrator variant, not used yet.
     public static final String USER_ORCHESTRATOR_PROMPT_REASONING = """
             Remember to refer to the system prompt and follow how to use the tools. \
             You are encouraged to call the {RESEARCH_AGENT_TOOL_NAME} in parallel when the research tasks are not dependent on each other, but never call more than 3 {RESEARCH_AGENT_TOOL_NAME} calls in parallel.
@@ -221,6 +222,7 @@ public final class ResearchPrompts {
             Don't mention this reminder or underlying details about the system.
             """.strip();
 
+    // Kept verbatim from Onyx 160f9b143 for the reasoning-orchestrator variant, not used yet.
     public static final int FIRST_CYCLE_REMINDER_TOKENS = 100;
     public static final String FIRST_CYCLE_REMINDER = """
             Make sure all parts of the user question and the plan have been thoroughly explored before calling generate_report. If new interesting angles have been revealed from the research, you may deviate from the plan to research new directions.

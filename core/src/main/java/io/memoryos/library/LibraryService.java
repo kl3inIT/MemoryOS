@@ -297,7 +297,7 @@ public class LibraryService {
         if (uploads.isEmpty()) return List.copyOf(items);
         Map<UUID, List<LibraryFile.Usage>> usage = new LinkedHashMap<>();
         for (var used : attachments.holders(tenant, uploads)) {
-            usage.computeIfAbsent(used.fileId(), id -> new ArrayList<>())
+            usage.computeIfAbsent(used.fileId(), _ -> new ArrayList<>())
                     .add(new LibraryFile.Usage(used.kind(), used.id(), used.name()));
         }
         return items.stream().map(file -> usage.containsKey(file.id()) ? file.withUsedBy(usage.get(file.id())) : file).toList();

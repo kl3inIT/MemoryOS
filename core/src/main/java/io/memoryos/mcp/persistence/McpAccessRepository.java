@@ -34,8 +34,8 @@ public class McpAccessRepository {
     }
 
     public boolean accessible(UUID tenantId, UUID serverId, UUID actorId) {
-        return Boolean.TRUE.equals(jdbc.sql("SELECT EXISTS (SELECT 1 FROM mcp_server server WHERE server.tenant_id = :tenant"
+        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM mcp_server server WHERE server.tenant_id = :tenant"
                         + " AND server.id = :server AND (" + ACCESSIBLE + "))")
-                .param("tenant", tenantId).param("server", serverId).param("actor", actorId).query(Boolean.class).single());
+                .param("tenant", tenantId).param("server", serverId).param("actor", actorId).query(Boolean.class).single();
     }
 }

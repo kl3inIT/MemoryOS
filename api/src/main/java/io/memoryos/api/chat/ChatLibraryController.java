@@ -205,7 +205,7 @@ class ChatLibraryController {
     @Operation(operationId = "getChatLibraryTrashWindow",
             summary = "How long a deleted file stays in the trash in this deployment")
     @ApiResponse(responseCode = "200", description = "The trash window", useReturnTypeSchema = true)
-    ResponseEntity<ChatLibraryTrashWindowResponse> trashWindow(@CurrentActor IdentityContext identity) {
+    ResponseEntity<ChatLibraryTrashWindowResponse> trashWindow() {
         return ResponseEntity.ok()
                 .body(new ChatLibraryTrashWindowResponse(trash.window().toDays()));
     }

@@ -157,7 +157,10 @@ final class FinancialTableDiagnostics {
                         headers.add(cell);
                     } else {
                         for (var label : labels) {
-                            if (label != null && cell.covers(label.row, column)) occupied = true;
+                            if (label != null && cell.covers(label.row, column)) {
+                                occupied = true;
+                                break;
+                            }
                         }
                     }
                 }

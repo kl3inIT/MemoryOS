@@ -4,6 +4,8 @@
  * {@link io.memoryos.chat.streaming.ChatStreamProperties}.
  */
 @NamedInterface("streaming")
+@NullMarked
 package io.memoryos.chat.streaming;
 
+import org.jspecify.annotations.NullMarked;
 import org.springframework.modulith.NamedInterface;

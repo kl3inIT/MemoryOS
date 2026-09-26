@@ -7,6 +7,7 @@ import io.memoryos.meeting.Meeting;
 import io.memoryos.meeting.MeetingService;
 import java.util.Map;
 import java.util.UUID;
+import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
@@ -20,6 +21,7 @@ import org.springframework.web.socket.server.HandshakeInterceptor;
  * Admits a meeting track socket only for the owner holding a fresh ticket for that meeting and track, while the
  * meeting still records. Spring's default origin check keeps the handshake same-origin.
  */
+@NullMarked
 final class MeetingHandshakeInterceptor implements HandshakeInterceptor {
     static final String ACTOR = "memoryos.meeting.actor";
     static final String MEETING = "memoryos.meeting.id";
@@ -38,7 +40,7 @@ final class MeetingHandshakeInterceptor implements HandshakeInterceptor {
                                    Map<String, Object> attributes) {
         if (!(request instanceof ServletServerHttpRequest servlet)
                 || !(servlet.getPrincipal() instanceof Authentication authentication)
-                || !(authentication.getPrincipal() instanceof IdentityContext identity)) {
+                || !(authentication.getPrincipal() instanceof IdentityContext(var actor))) {
             response.setStatusCode(HttpStatus.UNAUTHORIZED);
             return false;
         }
@@ -55,17 +57,17 @@ final class MeetingHandshakeInterceptor implements HandshakeInterceptor {
             response.setStatusCode(HttpStatus.BAD_REQUEST);
             return false;
         }
-        if (!tickets.consume(query.getParameter("ticket"), identity.actorId(), MeetingStreamWebSocketHandler.scope(meeting, track))) {
+        if (!tickets.consume(query.getParameter("ticket"), actor, MeetingStreamWebSocketHandler.scope(meeting, track))) {
             response.setStatusCode(HttpStatus.FORBIDDEN);
             return false;
         }
         try {
-            meetings.requireRecordable(identity.actorId(), meeting, track);
+            meetings.requireRecordable(actor, meeting, track);
         } catch (BusinessException denied) {
             response.setStatusCode(HttpStatus.FORBIDDEN);
             return false;
         }
-        attributes.put(ACTOR, identity.actorId());
+        attributes.put(ACTOR, actor);
         attributes.put(MEETING, meeting);
         attributes.put(TRACK, track);
         attributes.put(OFFSET, offset);

@@ -23,7 +23,7 @@ public class JdbcChatPreferencesRepository {
     public Optional<ChatPreferences> find(UUID tenant, UUID actor) {
         return jdbc.sql("SELECT " + COLUMNS + " FROM chat_preferences WHERE tenant_id = :tenant AND actor_id = :actor")
                 .param("tenant", tenant).param("actor", actor)
-                .query((row, index) -> map(row)).optional();
+                .query((row, _) -> map(row)).optional();
     }
 
     /** Replaces the member's preferences in one statement. */
@@ -45,7 +45,7 @@ public class JdbcChatPreferencesRepository {
                 .param("model", value.defaultModelId()).param("temperature", value.temperatureDefault())
                 .param("reasoning", value.reasoningEffortDefault() == null ? null : value.reasoningEffortDefault().name())
                 .param("autoScroll", value.autoScroll())
-                .query((row, index) -> map(row)).single();
+                .query((row, _) -> map(row)).single();
     }
 
     /**
@@ -55,8 +55,7 @@ public class JdbcChatPreferencesRepository {
     public Optional<Integer> retentionDays(UUID tenant, UUID actor) {
         return jdbc.sql("SELECT retention_days FROM chat_preferences WHERE tenant_id = :tenant AND actor_id = :actor")
                 .param("tenant", tenant).param("actor", actor)
-                .query((row, index) -> row.getObject(1, Integer.class)).optional()
-                .flatMap(Optional::ofNullable);
+                .query((row, _) -> row.getObject(1, Integer.class)).optional();
     }
 
     /** Records the number of days, or clears the policy with null; the row is created when it is missing. */

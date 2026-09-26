@@ -35,7 +35,7 @@ public final class ChatModelGuard extends ModelGuard {
     public void webSiteFilter(boolean supported) { webSiteFilter = supported; }
 
     /** Agent task prompt repeated as the final reminder of every inference (Onyx {@code task_prompt}). */
-    public void taskPrompt(String value) { taskPrompt = value == null ? "" : value; }
+    public void taskPrompt(String value) { taskPrompt = value; }
 
     public void evidenceAvailable(BooleanSupplier value) { this.hasEvidence = value; }
 

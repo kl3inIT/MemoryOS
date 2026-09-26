@@ -203,6 +203,15 @@ public final class McpOAuthProtocol {
         }
     }
 
+    /**
+     * RFC 7592 client deletion at {@code registration_client_uri} with the registration access token. Returns the
+     * HTTP status; transport failures throw {@link McpException}. The caller has already deleted the client locally.
+     */
+    public int deregister(URI registrationClientUri, String registrationAccessToken) {
+        return send(HttpRequest.newBuilder(registrationClientUri).timeout(requestTimeout)
+                .header("Authorization", "Bearer " + registrationAccessToken).DELETE().build(), false).status();
+    }
+
     /** Canonical MCP server URI for the RFC 8707 {@code resource} parameter. */
     public static String canonicalResource(String url) {
         URI uri = McpClients.endpoint(url);
@@ -241,7 +250,7 @@ public final class McpOAuthProtocol {
                 try {
                     metadata = endpoint(parameters.get("resource_metadata"), false);
                 } catch (McpException ignored) {
-                    metadata = null;
+                    // An unusable metadata address is treated as absent.
                 }
             }
             return new Challenge(metadata, parameters.get("scope"));

@@ -166,6 +166,18 @@ class McpOAuthProtocolTest {
     }
 
     @Test
+    void deletesARegisteredClientWithItsRegistrationAccessToken() {
+        var authorization = new AtomicReference<String>();
+        routes.put("DELETE /register/registered-client", exchange -> {
+            authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            respond(exchange, 204, null);
+        });
+
+        assertEquals(204, protocol.deregister(URI.create(origin + "/register/registered-client"), "rat"));
+        assertEquals("Bearer rat", authorization.get());
+    }
+
+    @Test
     void exchangesTheCodeWithPkceResourceAndBasicClientAuthentication() {
         var form = new AtomicReference<Map<String, String>>();
         var authorization = new AtomicReference<String>();

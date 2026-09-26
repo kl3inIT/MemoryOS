@@ -15,6 +15,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import org.jspecify.annotations.Nullable;
@@ -148,12 +149,13 @@ public final class RestGoogleDriveAccountClient implements GoogleDriveAccountCli
         String nonce = identity.getClaimAsString("nonce");
         String authorizedParty = identity.getClaimAsString("azp");
         String email = identity.getClaimAsString("email");
+        List<String> audience = identity.getAudience();
         if (nonce == null || !equal(expectedNonce, nonce)
                 || !Boolean.TRUE.equals(identity.getClaimAsBoolean("email_verified"))
                 || identity.getExpiresAt() == null || identity.getIssuedAt() == null
                 || identity.getIssuedAt().isAfter(Instant.now().plusSeconds(60))
                 || identity.getSubject() == null || identity.getSubject().isBlank() || email == null || email.isBlank()
-                || (identity.getAudience().size() > 1 && authorizedParty == null)
+                || audience == null || (audience.size() > 1 && authorizedParty == null)
                 || (authorizedParty != null && !oauthClient.clientId().equals(authorizedParty))) throw invalid();
         String accessToken = text(token, "access_token");
         String atHash = identity.getClaimAsString("at_hash");
@@ -181,7 +183,7 @@ public final class RestGoogleDriveAccountClient implements GoogleDriveAccountCli
             var form = new LinkedMultiValueMap<String, String>();
             form.add("token", new String(refreshToken, StandardCharsets.UTF_8));
             client.post().uri(endpoint(properties.revocationUri())).contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body(form).exchange((request, response) -> null);
+                    .body(form).exchange((_, _) -> null);
         } catch (RuntimeException ignored) {
             // The local disconnect has committed. Remote revocation cannot restore local authority.
         } finally { Arrays.fill(refreshToken, (byte) 0); }
@@ -211,7 +213,7 @@ public final class RestGoogleDriveAccountClient implements GoogleDriveAccountCli
     }
 
     private JsonNode json(RestClient.RequestHeadersSpec<?> request) {
-        return request.exchange((sent, response) -> {
+        return request.exchange((_, response) -> {
             if (!response.getStatusCode().is2xxSuccessful()) throw invalid();
             byte[] bytes = response.getBody().readNBytes(MAX_RESPONSE_BYTES + 1);
             try {

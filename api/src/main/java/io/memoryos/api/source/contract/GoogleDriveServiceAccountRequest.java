@@ -3,6 +3,7 @@ package io.memoryos.api.source.contract;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import org.jspecify.annotations.NonNull;
 
 @Schema(name = "GoogleDriveServiceAccountRequest", additionalProperties = Schema.AdditionalPropertiesValue.FALSE)
 public record GoogleDriveServiceAccountRequest(
@@ -11,5 +12,5 @@ public record GoogleDriveServiceAccountRequest(
                 description = "The JSON key downloaded for the service account") String serviceAccountKeyJson,
         @NotBlank @Size(max = 320) @Schema(requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "A Google Workspace administrator the service account acts as") String adminEmail) {
-    @Override public String toString() { return "GoogleDriveServiceAccountRequest[redacted]"; }
+    @Override public @NonNull String toString() { return "GoogleDriveServiceAccountRequest[redacted]"; }
 }

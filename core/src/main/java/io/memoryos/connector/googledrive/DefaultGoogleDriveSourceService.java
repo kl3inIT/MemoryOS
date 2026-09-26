@@ -172,8 +172,8 @@ public class DefaultGoogleDriveSourceService implements GoogleDriveSourceService
             if (receipt.isPresent()) return receipt.get();
             var saved = snapshot(actor, tenant, source, expectedRevision);
             if (saved.configuration().discoveryRevision() != expectedDiscoveryRevision
-                    || saved.credentialRevision() != expectedCredentialRevision) throw SourceException.staleConfiguration();
-                if (saved.configuration().scopeMode() != scopeMode)
+                        || saved.credentialRevision() != expectedCredentialRevision) throw SourceException.staleConfiguration();
+            if (saved.configuration().scopeMode() != scopeMode)
                 throw SourceException.invalid("Google Drive scope mode is chosen when the Source is created and cannot be changed.",
                         "attempt to change creation-only Drive scope mode");
             var candidates = new HashMap<String, LinkedDocument>();

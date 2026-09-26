@@ -41,7 +41,7 @@ class ChatModelCatalogConfiguration {
         // A model the catalog does not know takes Onyx's defaults, as a discovered one does: a 32,000-token window
         // and no output cap.
         int contextWindow = known != null ? known.contextWindow() : ModelResolver.FALLBACK_CONTEXT_WINDOW;
-        Integer maxOutput = known != null ? Integer.valueOf(known.maxOutputTokens()) : null;
+        Integer maxOutput = known != null ? known.maxOutputTokens() : null;
         boolean defaultCapability = known == null && gpt5;
         var settings = new ModelSettings(contextWindow, maxOutput,
                 new ModelSettings.Capabilities(true,

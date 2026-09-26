@@ -10,8 +10,4 @@ public record JitAdmissionProperties(Set<String> allowedProviderAliases) {
     public JitAdmissionProperties {
         allowedProviderAliases = allowedProviderAliases == null ? Set.of() : Set.copyOf(allowedProviderAliases);
     }
-
-    boolean allows(Object claim) {
-        return claim instanceof String alias && !alias.isBlank() && allowedProviderAliases.contains(alias);
-    }
 }

@@ -420,9 +420,8 @@ public class ChatPersonaService {
 
     private void relations(TenantId tenant, ActorId actor, PersonaEntity entity, PersonaInput input, boolean creating) {
         if (input.documentSetIds() != null || creating) {
-            List<UUID> documentSetIds = input.documentSetIds() == null
-                    ? (creating ? List.of() : documentSetRows.personaSets(tenant.value(), List.of(entity.id())).getOrDefault(entity.id(), List.of()))
-                    : input.documentSetIds();
+            // Only a new agent reaches here without a selection.
+            List<UUID> documentSetIds = input.documentSetIds() == null ? List.of() : input.documentSetIds();
             documentSets.admitAttachments(actor, tenant, documentSetIds);
             documentSetRows.replacePersonaSets(tenant.value(), entity.id(), documentSetIds);
         }

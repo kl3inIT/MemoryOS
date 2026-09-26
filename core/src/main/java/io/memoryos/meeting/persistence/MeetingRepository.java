@@ -410,7 +410,6 @@ public class MeetingRepository {
                 .query(MeetingRepository::item).optional();
     }
 
-    /** Writes what an item now says. The event beside it is the only history of what it said before. */
     /** An item the owner wrote in, after the others of its kind. */
     public void addItem(UUID tenant, UUID meeting, Meeting.MinutesItem item) {
         jdbc.sql("""
@@ -444,6 +443,7 @@ public class MeetingRepository {
                 .map(json -> JSON.readValue(json, MeetingMinutesDocument.Heading.class));
     }
 
+    /** Writes what an item now says. The event beside it is the only history of what it said before. */
     public void rewriteItem(UUID tenant, UUID meeting, Meeting.MinutesItem item) {
         jdbc.sql("""
                 UPDATE meeting_minutes_item SET text = :text, owner = :owner, due = :due, edited = TRUE
@@ -652,9 +652,9 @@ public class MeetingRepository {
 
     /** Whether anybody said anything in this meeting, without reading the transcript. */
     public boolean hasUtterances(UUID tenant, UUID meeting) {
-        return Boolean.TRUE.equals(jdbc.sql("""
+        return jdbc.sql("""
                 SELECT EXISTS (SELECT 1 FROM meeting_utterance WHERE tenant_id = :tenant AND meeting_id = :meeting)
-                """).param("tenant", tenant).param("meeting", meeting).query(Boolean.class).single());
+                """).param("tenant", tenant).param("meeting", meeting).query(Boolean.class).single();
     }
 
     /** Whether this line belongs to this meeting, which is what makes starring it meaningful. */

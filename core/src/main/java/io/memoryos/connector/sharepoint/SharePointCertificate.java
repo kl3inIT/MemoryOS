@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HexFormat;
 import java.util.Objects;
+import org.jspecify.annotations.NonNull;
 
 /**
  * Entra application certificate taken from a PKCS#12 upload. MemoryOS keeps the private key and the
@@ -124,5 +125,5 @@ public record SharePointCertificate(byte[] privateKey, byte[] certificate, Strin
 
     @Override public void close() { Arrays.fill(privateKey, (byte) 0); }
 
-    @Override public String toString() { return "SharePointCertificate[" + thumbprint + "]"; }
+    @Override public @NonNull String toString() { return "SharePointCertificate[" + thumbprint + "]"; }
 }

@@ -78,7 +78,7 @@ public final class McpClients {
                 .connectTimeout(connectTimeout.compareTo(timeout) < 0 ? connectTimeout : timeout)
                 .openConnectionOnStartup(false)
                 .resumableStreams(false)
-                .httpRequestCustomizer((request, method, target, body, context) -> requestHeaders.forEach(request::setHeader))
+                .httpRequestCustomizer((request, _, _, _, _) -> requestHeaders.forEach(request::setHeader))
                 .build();
         var client = McpClient.sync(transport)
                 .clientInfo(CLIENT_INFO)

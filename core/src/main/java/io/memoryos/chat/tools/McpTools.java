@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.IntSupplier;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.tokenizer.TokenCountEstimator;
@@ -82,8 +83,8 @@ public final class McpTools {
 
     /** The server's own JSON Schema, snapshotted at refresh; Embabel's factories build schemas from classes. */
     private record SnapshotSchema(String json) implements Tool.InputSchema {
-        @Override public String toJsonSchema() { return json; }
-        @Override public List<Tool.Parameter> getParameters() { return List.of(); }
+        @Override public @NonNull String toJsonSchema() { return json; }
+        @Override public @NonNull List<Tool.Parameter> getParameters() { return List.of(); }
     }
 
     private Tool.Result call(McpTurnTools.Binding binding, String argumentJson) {

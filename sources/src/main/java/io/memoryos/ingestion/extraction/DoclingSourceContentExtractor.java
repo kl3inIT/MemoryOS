@@ -217,7 +217,7 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
     /**
      * Reads the document natively when Docling failed for a reason of its own, and says so.
      *
-     * The shape follows Onyx, whose better parser is tried first and whose ordinary readers take
+     * <p>The shape follows Onyx, whose better parser is tried first and whose ordinary readers take
      * over on any failure. Two things differ, both because silence is the actual risk: a native
      * result that is empty or scan-thin is refused and the original failure stands, and the
      * document records which reader produced it and why, so it can be found and extracted again
@@ -302,10 +302,11 @@ public final class DoclingSourceContentExtractor implements AutoCloseable {
             }
             if (httpStatus == 413) reason = ExtractionFailure.WRITE_LIMIT;
             else if (httpStatus == 408 || httpStatus == 504) reason = ExtractionFailure.TIMEOUT;
+            var cause = e.getCause();
             LOG.atWarn().addKeyValue("event", "docling.extraction.failed")
                     .addKeyValue("error_code", reason.name()).addKeyValue("http_status", httpStatus)
                     .addKeyValue("error_type", e.getClass().getName())
-                    .addKeyValue("cause_type", e.getCause() == null ? "none" : e.getCause().getClass().getName())
+                    .addKeyValue("cause_type", cause == null ? "none" : cause.getClass().getName())
                     .log("Docling extraction failed");
             // Expected external/ambiguous requests terminate; retry must not submit duplicate remote work.
             if (externalFailure) return failure(reason);

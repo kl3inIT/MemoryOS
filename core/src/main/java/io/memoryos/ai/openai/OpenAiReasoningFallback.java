@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +23,7 @@ import reactor.core.publisher.Flux;
  * catalog entry whose configured effort predates either constraint would otherwise fail every affected turn until an
  * administrator edits it, so the rejected request is retried once with an effort the provider accepts.
  */
+@NullMarked
 final class OpenAiReasoningFallback implements ChatModel {
     private static final Logger LOG = LoggerFactory.getLogger(OpenAiReasoningFallback.class);
     private static final String DEMAND = "reasoning_effort to 'none'";
@@ -69,14 +71,13 @@ final class OpenAiReasoningFallback implements ChatModel {
     private Prompt remembered(Prompt prompt) {
         if (!(prompt.getOptions() instanceof OpenAiChatOptions options)) return prompt;
         String model = options.getModel();
-        String known = model == null ? null : accepted.get(model);
+        String known = accepted.get(model);
         if (known == null || known.equals(options.getReasoningEffort())) return prompt;
         return new Prompt(prompt.getInstructions(), options.mutate().reasoningEffort(known).build());
     }
 
     private void remember(Prompt retry) {
-        if (retry.getOptions() instanceof OpenAiChatOptions options && options.getModel() != null
-                && options.getReasoningEffort() != null)
+        if (retry.getOptions() instanceof OpenAiChatOptions options && options.getReasoningEffort() != null)
             accepted.put(options.getModel(), options.getReasoningEffort());
     }
 

@@ -74,7 +74,7 @@ public final class OfflineGoogleDriveLinkReader implements GoogleDriveLinkReader
         JsonNode content = NativeSnapshot.read(mapper, new ByteArrayInputStream(input.bytes()), input.bytes().length,
                 input.descriptor(), kind).path("content");
         String idField = "GOOGLE_SHEETS".equals(kind) ? "spreadsheetId" : "documentId";
-        if (!input.descriptor().providerFileId().equals(content.path(idField).asString())) throw failure(MALFORMED);
+        if (!content.path(idField).asString().equals(input.descriptor().providerFileId())) throw failure(MALFORMED);
         return content;
     }
 
@@ -134,7 +134,7 @@ public final class OfflineGoogleDriveLinkReader implements GoogleDriveLinkReader
     }
 
     private void docs(JsonNode document, AcquiredContent input, Links links) {
-        if (!input.descriptor().providerFileId().equals(document.path("documentId").asString())) throw failure(MALFORMED);
+        if (!document.path("documentId").asString().equals(input.descriptor().providerFileId())) throw failure(MALFORMED);
         JsonNode tabs = document.path("tabs");
         if (!tabs.isArray() || tabs.isEmpty()) throw failure(MALFORMED);
         docTabs(tabs, links, new int[1]);
@@ -272,7 +272,7 @@ public final class OfflineGoogleDriveLinkReader implements GoogleDriveLinkReader
     }
 
     static final class Links {
-        private static final Pattern URL = Pattern.compile("https://[^\\s\\p{Cntrl}<>\\\"'`\\[\\]{}]+", Pattern.CASE_INSENSITIVE);
+        private static final Pattern URL = Pattern.compile("https://[^\\s\\p{Cntrl}<>\"'`\\[\\]{}]+", Pattern.CASE_INSENSITIVE);
         private final LinkedHashSet<Link> values = new LinkedHashSet<>();
         private final long deadline = System.nanoTime() + Duration.ofSeconds(120).toNanos();
         private long characters;

@@ -129,23 +129,22 @@ public class DefaultIdentityProviderAdministration implements IdentityProviderAd
             gateway.create(existing);
             gateway.delete(alias);
         }
-        String effectiveAlias = targetAlias;
         transactions.executeWithoutResult(_ -> {
             authorization.lockAndRequireAdministration(actorId);
-            if (!effectiveAlias.equals(alias)) {
+            if (!targetAlias.equals(alias)) {
                 allowlist.disallow(alias);
             }
             if (update.jitAllowed()) {
-                allowlist.allow(effectiveAlias, actorId);
+                allowlist.allow(targetAlias, actorId);
             } else {
-                allowlist.disallow(effectiveAlias);
+                allowlist.disallow(targetAlias);
             }
         });
-        var updated = toView(gateway.find(effectiveAlias).orElseThrow(
+        var updated = toView(gateway.find(targetAlias).orElseThrow(
                 DefaultIdentityProviderAdministration::unavailableAfterWrite), update.jitAllowed());
         audit.recordSeparately(AuditRecord.of(AuditAction.IDENTITY_PROVIDER_UPDATE, tenant).actor(actorId)
-                .resource("IDENTITY_PROVIDER", effectiveAlias, existing.getDisplayName())
-                .detail("before", before).detail("after", facts(effectiveAlias, targetIssuer, update.jitAllowed())).build());
+                .resource("IDENTITY_PROVIDER", targetAlias, existing.getDisplayName())
+                .detail("before", before).detail("after", facts(targetAlias, targetIssuer, update.jitAllowed())).build());
         return updated;
     }
 

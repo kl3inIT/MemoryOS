@@ -22,10 +22,8 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -152,7 +150,8 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
         if (reasoning) builder.include(List.of(ResponseIncludable.REASONING_ENCRYPTED_CONTENT));
         if (tools) {
             var declared = new ArrayList<Tool>();
-            for (var callback : Objects.requireNonNullElse(options.getToolCallbacks(), List.<ToolCallback>of())) {
+            var callbacks = options.getToolCallbacks();
+            for (var callback : callbacks == null ? List.<ToolCallback>of() : callbacks) {
                 var definition = callback.getToolDefinition();
                 var function = new LinkedHashMap<String, Object>();
                 function.put("type", "function");
@@ -232,7 +231,6 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
         private final FluxSink<ChatResponse> sink;
         private final Set<String> started = new HashSet<>();
         private @Nullable String lastSearch;
-        private boolean searched;
         private boolean finished;
         private boolean streamedText;
         private boolean separate;
@@ -250,7 +248,7 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
             });
             // Every summary part opens with a bold heading. Parts of a new reasoning item or of the next inference
             // join the same timeline reasoning, so each part is separated, as Onyx's summary newline patch does.
-            event.reasoningSummaryPartAdded().ifPresent(part -> separate = true);
+            event.reasoningSummaryPartAdded().ifPresent(_ -> separate = true);
             event.reasoningSummaryTextDelta().ifPresent(delta -> reason(delta.delta()));
             event.webSearchCallInProgress().ifPresent(progress -> start(progress.itemId()));
             event.webSearchCallSearching().ifPresent(progress -> start(progress.itemId()));
@@ -299,7 +297,6 @@ final class OpenAiResponsesChatModel implements ChatModel, ModelTurns {
 
         private void search(ResponseFunctionWebSearch call) {
             start(call.id());
-            searched = true;
             lastSearch = webCall(call.id());
             meters.counter("memoryos.chat.native_web_search.calls", "provider", "openai", "status", call.status().asString()).increment();
             var queries = call.action().search().flatMap(ResponseFunctionWebSearch.Action.Search::queries).orElse(List.of()).stream()

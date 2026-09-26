@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 public interface GoogleDriveAuthorizationService {
@@ -31,12 +32,12 @@ public interface GoogleDriveAuthorizationService {
 
     record Preparation(TenantId tenantId, String name, @Nullable CredentialId credentialId, @Nullable Long expectedRevision,
                        UUID consentId, String oauthClientSnapshot) {
-        @Override public String toString() { return "GoogleDrivePreparation[redacted]"; }
+        @Override public @NonNull String toString() { return "GoogleDrivePreparation[redacted]"; }
     }
     record Grant(String accountSubject, String accountEmail, Set<String> scopes, byte[] refreshToken) implements AutoCloseable {
         public Grant { scopes = Set.copyOf(scopes); refreshToken = refreshToken.clone(); }
         @Override public byte[] refreshToken() { return refreshToken.clone(); }
         @Override public void close() { Arrays.fill(refreshToken, (byte) 0); }
-        @Override public String toString() { return "GoogleDriveGrant[redacted]"; }
+        @Override public @NonNull String toString() { return "GoogleDriveGrant[redacted]"; }
     }
 }

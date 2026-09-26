@@ -56,7 +56,7 @@ final class RedisOperationRelay {
 
     private void publish(RedisExecutionProperties.Workload settings, DispatchClaim claim) {
         var span = OperationTracing.start(telemetry, "memoryos.operation.publish", SpanKind.PRODUCER, claim.delivery());
-        try (var scope = span.makeCurrent()) {
+        try (var _ = span.makeCurrent()) {
             Map<String, String> payload = new HashMap<>(Map.of(
                     "tenant_id", claim.delivery().tenantId().value().toString(),
                     "operation_kind", claim.delivery().workload().name(),

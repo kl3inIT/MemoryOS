@@ -58,7 +58,7 @@ public class McpTurnService {
         if (serverIds == null || serverIds.isEmpty()) return empty();
         if (serverIds.size() > MAX_SERVERS)
             throw McpException.invalid("A turn uses at most " + MAX_SERVERS + " MCP servers.");
-        var resolved = Objects.requireNonNull(transactions.execute(status -> resolve(actor, serverIds)));
+        var resolved = Objects.requireNonNull(transactions.execute(_ -> resolve(actor, serverIds)));
         var targets = new LinkedHashMap<UUID, McpTurnTools.Target>();
         var bindings = new ArrayList<McpTurnTools.Binding>();
         var unavailable = new ArrayList<>(resolved.unavailable());
@@ -138,7 +138,7 @@ public class McpTurnService {
         var headers = McpServerRules.resolveHeaders(template, candidate.authType(), candidate.apiKey());
         if (candidate.authType() != McpAuthType.OAUTH) return headers;
         var authorized = new LinkedHashMap<>(headers);
-        UUID tenant = Objects.requireNonNull(transactions.execute(status ->
+        UUID tenant = Objects.requireNonNull(transactions.execute(_ ->
                 servers.findById(candidate.serverId()).map(McpServerEntity::tenantId).orElseThrow(McpException::notFound)));
         authorized.put("Authorization", "Bearer " + oauth.accessToken(tenant, candidate.serverId(), candidate.ownerActorId()));
         return Map.copyOf(authorized);

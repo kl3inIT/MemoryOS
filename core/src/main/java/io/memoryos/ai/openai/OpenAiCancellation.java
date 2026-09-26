@@ -28,6 +28,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -35,6 +36,7 @@ import org.springframework.ai.chat.prompt.Prompt;
 import reactor.core.publisher.Flux;
 
 /** Owns the shared SDK client; subscription views own only their transport exchange. */
+@NullMarked
 public final class OpenAiCancellation implements AutoCloseable {
     private final HttpClient transport;
     private final OpenAIClientAsync client;
@@ -130,8 +132,8 @@ public final class OpenAiCancellation implements AutoCloseable {
     private static final class Scope implements HttpClient {
         private final HttpClient transport;
         private final AtomicBoolean closed = new AtomicBoolean();
-        private final AtomicReference<HttpResponse> response = new AtomicReference<>();
-        private volatile CompletableFuture<HttpResponse> future;
+        private final AtomicReference<@Nullable HttpResponse> response = new AtomicReference<>();
+        private volatile @Nullable CompletableFuture<HttpResponse> future;
 
         Scope(HttpClient transport) { this.transport = transport; }
 
@@ -141,14 +143,14 @@ public final class OpenAiCancellation implements AutoCloseable {
 
         @Override public CompletableFuture<HttpResponse> executeAsync(HttpRequest request, RequestOptions options) {
             if (closed.get()) {
-                if (request.body() != null) request.body().close();
+                closeBody(request);
                 return CompletableFuture.failedFuture(new CancellationException());
             }
             // Track the transport future, whose cancellation invokes Call.cancel(),
             // not the dependent futures returned by the SDK service/retry layers.
             var pending = transport.executeAsync(request, options);
             future = pending;
-            pending.whenComplete((received, error) -> {
+            pending.whenComplete((received, _) -> {
                 if (received != null) {
                     response.set(received);
                     if (closed.get()) closeResponse();
@@ -175,6 +177,11 @@ public final class OpenAiCancellation implements AutoCloseable {
         }
     }
 
+    private static void closeBody(HttpRequest request) {
+        var body = request.body();
+        if (body != null) body.close();
+    }
+
     /** The SDK future ends at headers; the response must retain Call.cancel() until its body closes. */
     private static final class Transport implements HttpClient {
         private static final RequestBody EMPTY_BODY = RequestBody.create(new byte[0], null);
@@ -194,7 +201,7 @@ public final class OpenAiCancellation implements AutoCloseable {
             } catch (IOException failure) {
                 throw new OpenAIIoException("Request failed", failure);
             } finally {
-                if (request.body() != null) request.body().close();
+                closeBody(request);
             }
         }
 
@@ -203,7 +210,7 @@ public final class OpenAiCancellation implements AutoCloseable {
             var call = newCall(request, options);
             result.whenComplete((_, failure) -> {
                 if (failure instanceof CancellationException) call.cancel();
-                if (request.body() != null) request.body().close();
+                closeBody(request);
             });
             call.enqueue(new Callback() {
                 @Override public void onResponse(Call receivedCall, Response received) {
@@ -232,7 +239,8 @@ public final class OpenAiCancellation implements AutoCloseable {
             RequestBody body = null;
             var source = request.body();
             if (source != null) {
-                var type = source.contentType() == null ? null : MediaType.get(source.contentType());
+                var contentType = source.contentType();
+                var type = contentType == null ? null : MediaType.get(contentType);
                 body = new RequestBody() {
                     @Override public @Nullable MediaType contentType() { return type; }
                     @Override public long contentLength() { return source.contentLength(); }

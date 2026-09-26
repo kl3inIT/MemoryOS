@@ -44,7 +44,7 @@ final class BoundedDoclingClient extends DoclingServeClient implements AutoClose
     private static final Duration HTTP_TIMEOUT = Duration.ofMinutes(2);
     private static final Pattern TASK_ID = Pattern.compile("[A-Za-z0-9_-]{1,128}");
     private final JsonMapper mapper = JsonMapper.builder().addMixIn(ErrorItem.class, ErrorMapping.class).build();
-    private final ThreadLocal<Long> deadline = new ThreadLocal<>();
+    private final ThreadLocal<@Nullable Long> deadline = new ThreadLocal<>();
     private final Duration taskTimeout;
     private final String apiKey;
     private final HttpClient transport = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1)
@@ -175,7 +175,7 @@ final class BoundedDoclingClient extends DoclingServeClient implements AutoClose
     protected <T> T execute(HttpRequest request, Class<T> type) {
         int status = -1;
         try {
-            var builder = HttpRequest.newBuilder(request, (name, value) -> !name.equalsIgnoreCase("X-Api-Key"));
+            var builder = HttpRequest.newBuilder(request, (name, _) -> !name.equalsIgnoreCase("X-Api-Key"));
             if (!apiKey.isBlank()) builder.header("X-Api-Key", apiKey);
             if (deadline.get() != null) {
                 builder.timeout(Duration.ofNanos(Math.min(HTTP_TIMEOUT.toNanos(), remaining())));

@@ -58,7 +58,7 @@ public class PersonaEntity {
     @Version private @Nullable Long revision;
 
     protected PersonaEntity() {}
-    public PersonaEntity(UUID id, UUID tenantId, UUID ownerId, String model) {
+    public PersonaEntity(UUID id, UUID tenantId, @Nullable UUID ownerId, String model) {
         this.id = id; this.tenantId = tenantId; this.ownerId = ownerId; this.model = model;
     }
     public record Settings(String name, String description, String instructions, String taskPrompt, List<String> starters,
