@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
+import { HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Tabs } from "@/components/ui/tabs";
 import { ActionNotifications } from "@/components/ui/action-notifications";
@@ -16,6 +17,25 @@ import type {
   SourceOperation,
   SourceSummary,
 } from "@/lib/hey-api/types.gen";
+import {
+  handleDiscoverGoogleDriveLinkedDocuments,
+  handleGetGoogleDriveConfiguration,
+  handleGetGoogleDriveSelection,
+  handleGetGoogleDriveSelectionDraft,
+  handleGetGoogleDriveSelectionPolicy,
+  handleGetGoogleDriveSelectionRequest,
+  handleGetGoogleDriveSelectionTree,
+  handleGetSourceOperation,
+  handleListGoogleDriveCredentials,
+  handleListSourceGroups,
+  handleListSourceRuns,
+  handleReplaceGoogleDriveRoots,
+  handleRevokeGoogleDriveCredential,
+  handleStartGoogleDriveAuthorization,
+  handleSynchronizeGoogleDriveSource,
+  handleUpdateGoogleDriveSchedule,
+} from "@/lib/hey-api/msw.gen";
+import { server } from "@/test/msw";
 import { launchGoogleDriveAuthorization } from "./google-drive-authorization";
 import { GoogleDrivePanel } from "./google-drive-panel";
 
@@ -63,11 +83,9 @@ const candidate = (id: string, selected = false): GoogleDriveSelectionItemRespon
 });
 
 afterEach(() => {
-  cleanup();
   for (const client of clients) client.clear();
   clients.length = 0;
   sessionStorage.clear();
-  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 
@@ -113,204 +131,218 @@ function setup(
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   clients.push(queryClient);
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (request: Request) => {
-      requests.push(request.clone());
-      const url = new URL(request.url);
-      if (url.pathname === "/api/credentials/google-drive" && request.method === "GET")
-        return Response.json([
+  const record = (request: Request) => requests.push(request.clone());
+  const selectionPage = (request: Request, tree: boolean) => {
+    const url = new URL(request.url);
+    const parentId = url.searchParams.get("parentId");
+    const next = url.searchParams.get("cursor") === "second";
+    let items: GoogleDriveSelectionItemResponse[] = next
+      ? [candidate("research", true)]
+      : [
           {
-            id: configuration.credentialId,
-            name: "Shared account",
-            accountEmail: configuration.accountEmail,
-            status: configuration.credentialStatus,
-            credentialRevision: configuration.credentialRevision,
-            authMethod: configuration.credentialAuthMethod,
-            serviceAccountEmail: null,
-            oauthClientConfigured: configuration.oauthClientConfigured,
-            createdAt: "2026-09-01T00:00:00Z",
-            updatedAt: "2026-09-01T00:00:00Z",
-            sourceCount: 2,
-            actions: [
-              "reauthorize",
-              ...(currentSession.capabilities.includes("SOURCES_MANAGE")
-                ? ["replace_oauth_client"]
-                : []),
-              "revoke",
-              "delete",
-            ],
+            id: "folder-a",
+            name: "Team folder",
+            mimeType: "application/vnd.google-apps.folder",
+            kind: "FOLDER",
+            status: "AVAILABLE",
+            selected: true,
+            coveredByRoots: false,
+            origins: [],
           },
-        ]);
-      if (url.pathname.endsWith("/selection-policy"))
-        return Response.json({
-          maxExplicitRootsPerSource: 21,
-          maxRequestBytes: 100_000,
-          maxLinkedDocuments: 500,
-        });
-      if (url.pathname.includes("/selection-requests/"))
-        return operation && url.pathname.endsWith(storedRequestId ?? "missing")
-          ? Response.json({ sourceId: source.id, operation })
-          : Response.json({}, { status: 404 });
-      if (url.pathname.endsWith("/google-drive/selection-draft"))
-        return Response.json({
-          revision: configuration.revision,
-          discoveryRevision: configuration.discoveryRevision,
+          {
+            id: "file-a",
+            name: "Plan",
+            mimeType: "text/plain",
+            kind: "FILE",
+            status: "AVAILABLE",
+            selected: true,
+            coveredByRoots: false,
+            origins: [],
+          },
+          candidate("budget"),
+        ];
+    const kind = url.searchParams.get("kind");
+    const search = url.searchParams.get("search");
+    if (kind) items = items.filter((item) => item.kind === kind);
+    if (search)
+      items = items.filter((item) => item.name.toLowerCase().includes(search.toLowerCase()));
+    if (tree) {
+      items =
+        parentId === "file-a"
+          ? [candidate(next ? "research" : "budget", next)]
+          : parentId
+            ? []
+            : items.filter((item) => item.kind !== "LINKED");
+    }
+    return HttpResponse.json({
+      revision: configuration.revision,
+      discoveryRevision: configuration.discoveryRevision,
+      credentialRevision: configuration.credentialRevision,
+      counts: configuration.counts,
+      items: tree
+        ? items.map((item) => ({
+            ...item,
+            expandable: item.kind !== "LINKED" || item.selected || item.coveredByRoots,
+          }))
+        : items,
+      nextCursor: tree && parentId !== "file-a" ? null : next ? null : "second",
+    });
+  };
+  server.use(
+    handleListGoogleDriveCredentials(({ request }) => {
+      record(request);
+      return HttpResponse.json([
+        {
+          id: configuration.credentialId,
+          name: "Shared account",
+          accountEmail: configuration.accountEmail,
+          status: configuration.credentialStatus,
           credentialRevision: configuration.credentialRevision,
-          links,
-          linkedDocumentIds: approved,
-        });
-      if (
-        url.pathname.endsWith("/google-drive/selection") ||
-        url.pathname.endsWith("/google-drive/selection-tree")
-      ) {
-        const tree = url.pathname.endsWith("/selection-tree");
-        const parentId = url.searchParams.get("parentId");
-        const next = url.searchParams.get("cursor") === "second";
-        let items: GoogleDriveSelectionItemResponse[] = next
-          ? [candidate("research", true)]
-          : [
-              {
-                id: "folder-a",
-                name: "Team folder",
-                mimeType: "application/vnd.google-apps.folder",
-                kind: "FOLDER",
-                status: "AVAILABLE",
-                selected: true,
-                coveredByRoots: false,
-                origins: [],
-              },
-              {
-                id: "file-a",
-                name: "Plan",
-                mimeType: "text/plain",
-                kind: "FILE",
-                status: "AVAILABLE",
-                selected: true,
-                coveredByRoots: false,
-                origins: [],
-              },
-              candidate("budget"),
-            ];
-        if (url.searchParams.get("kind"))
-          items = items.filter((item) => item.kind === url.searchParams.get("kind"));
-        if (url.searchParams.get("search"))
-          items = items.filter((item) =>
-            item.name.toLowerCase().includes(url.searchParams.get("search")!.toLowerCase()),
-          );
-        if (tree) {
-          items =
-            parentId === "file-a"
-              ? [candidate(next ? "research" : "budget", next)]
-              : parentId
-                ? []
-                : items.filter((item) => item.kind !== "LINKED");
-        }
-        return Response.json({
-          revision: configuration.revision,
-          discoveryRevision: configuration.discoveryRevision,
-          credentialRevision: configuration.credentialRevision,
-          counts: configuration.counts,
-          items: tree
-            ? items.map((item) => ({
-                ...item,
-                expandable: item.kind !== "LINKED" || item.selected || item.coveredByRoots,
-              }))
-            : items,
-          nextCursor: tree && parentId !== "file-a" ? null : next ? null : "second",
-        });
-      }
-      if (url.pathname.endsWith("/google-drive") && request.method === "GET")
-        return Response.json(configuration);
-      if (url.pathname.endsWith("/runs"))
-        return Response.json({
-          items: [],
-          nextCursor: null,
-          totalItems: 0,
-          current: null,
-          lastCompleted: null,
-          lastSuccessful: null,
-        });
-      if (url.pathname.endsWith("/roots") && request.method === "PUT") {
-        if (rejection)
-          return Response.json(
-            {
-              code:
-                rejection === 412
-                  ? "SOURCE_GOOGLE_REVISION_CONFLICT"
-                  : "SOURCE_GOOGLE_ROOTS_OVERLAP",
-              detail: "private provider secret",
-            },
-            { status: rejection },
-          );
-        const body = await request.json();
-        if (!operation || body.requestId !== storedRequestId) {
-          proposed = body;
-          storedRequestId = body.requestId;
-          operation = {
-            id: crypto.randomUUID(),
-            type: "VALIDATE_GOOGLE_DRIVE_SELECTION",
-            status: "NOT_STARTED",
-            createdAt: "2026-09-08T10:00:00Z",
-            completedAt: null,
-            errorCode: null,
-          };
-          configuration = { ...configuration, pendingSelectionOperation: operation };
-        }
-        if (lostResponse) {
-          lostResponse = false;
-          throw new TypeError("Network response lost");
-        }
-        return Response.json({ sourceId: source.id, operation }, { status: 202 });
-      }
-      if (url.pathname.startsWith("/api/source-operations/") && operation)
-        return Response.json(operation);
-      if (url.pathname.endsWith("/schedule")) {
-        if (scheduleFailure)
-          return Response.json({ detail: "private provider secret" }, { status: scheduleFailure });
-        if (request.headers.get("If-Match") !== `"${configuration.scheduleRevision}"`)
-          return Response.json({ code: "SOURCE_GOOGLE_REVISION_CONFLICT" }, { status: 412 });
-        const body = await request.json();
-        configuration = {
-          ...configuration,
-          syncIntervalMinutes: body.syncIntervalMinutes,
-          scheduleRevision: configuration.scheduleRevision + 1,
-        };
-        return Response.json(configuration);
-      }
-      if (url.pathname.endsWith("/authorization"))
-        return authorize
-          ? authorize()
-          : Response.json({
-              authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth?state=test",
-            });
-      if (url.pathname.endsWith("/revoke")) {
-        configuration = {
-          ...configuration,
-          credentialStatus: "REVOKED",
-          credentialRevision: configuration.credentialRevision + 1,
-        };
-        return new Response(null, { status: 204 });
-      }
-      if (url.pathname.endsWith("/linked-documents/discover")) {
-        configuration = {
-          ...configuration,
-          discoveryRevision: configuration.discoveryRevision + 1,
-        };
-        return Response.json(configuration);
-      }
-      if (url.pathname.endsWith("/sync"))
-        return Response.json({
-          id: "sync",
-          type: "SYNC_SOURCE",
-          status: "SUCCEEDED",
-          createdAt: "2026-09-08T10:00:00Z",
-          completedAt: "2026-09-08T10:00:01Z",
-          errorCode: null,
-        });
-      if (url.pathname.endsWith("/groups")) return Response.json({ items: [] });
-      throw new Error(`Unexpected request ${request.method} ${url.pathname}`);
+          authMethod: configuration.credentialAuthMethod,
+          serviceAccountEmail: null,
+          oauthClientConfigured: configuration.oauthClientConfigured,
+          createdAt: "2026-09-01T00:00:00Z",
+          updatedAt: "2026-09-01T00:00:00Z",
+          sourceCount: 2,
+          actions: [
+            "reauthorize",
+            ...(currentSession.capabilities.includes("SOURCES_MANAGE")
+              ? ["replace_oauth_client"]
+              : []),
+            "revoke",
+            "delete",
+          ],
+        },
+      ]);
     }),
+    handleGetGoogleDriveSelectionPolicy({
+      body: { maxExplicitRootsPerSource: 21, maxRequestBytes: 100_000, maxLinkedDocuments: 500 },
+    }),
+    handleGetGoogleDriveSelectionRequest(({ params }) =>
+      operation && params.requestId === storedRequestId
+        ? HttpResponse.json({ sourceId: source.id, operation })
+        : HttpResponse.json({}, { status: 404 }),
+    ),
+    handleGetGoogleDriveSelectionDraft(({ request }) => {
+      record(request);
+      return HttpResponse.json({
+        revision: configuration.revision,
+        discoveryRevision: configuration.discoveryRevision,
+        credentialRevision: configuration.credentialRevision,
+        links,
+        linkedDocumentIds: approved,
+      });
+    }),
+    handleGetGoogleDriveSelection(({ request }) => {
+      record(request);
+      return selectionPage(request, false);
+    }),
+    handleGetGoogleDriveSelectionTree(({ request }) => {
+      record(request);
+      return selectionPage(request, true);
+    }),
+    handleGetGoogleDriveConfiguration(({ request }) => {
+      record(request);
+      return HttpResponse.json(configuration);
+    }),
+    handleListSourceRuns({
+      body: {
+        items: [],
+        nextCursor: null,
+        totalItems: 0,
+        current: null,
+        lastCompleted: null,
+        lastSuccessful: null,
+      },
+    }),
+    handleReplaceGoogleDriveRoots(async ({ request }) => {
+      record(request);
+      if (rejection)
+        return HttpResponse.json(
+          {
+            code:
+              rejection === 412 ? "SOURCE_GOOGLE_REVISION_CONFLICT" : "SOURCE_GOOGLE_ROOTS_OVERLAP",
+            detail: "private provider secret",
+          },
+          { status: rejection },
+        );
+      const body = (await request.json()) as NonNullable<typeof proposed>;
+      if (!operation || body.requestId !== storedRequestId) {
+        proposed = body;
+        storedRequestId = body.requestId;
+        operation = {
+          id: crypto.randomUUID(),
+          type: "VALIDATE_GOOGLE_DRIVE_SELECTION",
+          status: "NOT_STARTED",
+          createdAt: "2026-09-08T10:00:00Z",
+          completedAt: null,
+          errorCode: null,
+        };
+        configuration = { ...configuration, pendingSelectionOperation: operation };
+      }
+      if (lostResponse) {
+        lostResponse = false;
+        return HttpResponse.error();
+      }
+      return HttpResponse.json({ sourceId: source.id, operation }, { status: 202 });
+    }),
+    handleGetSourceOperation(() =>
+      operation ? HttpResponse.json(operation) : new HttpResponse(null, { status: 404 }),
+    ),
+    handleUpdateGoogleDriveSchedule(async ({ request }) => {
+      record(request);
+      if (scheduleFailure)
+        return HttpResponse.json(
+          { detail: "private provider secret" },
+          { status: scheduleFailure },
+        );
+      if (request.headers.get("If-Match") !== `"${configuration.scheduleRevision}"`)
+        return HttpResponse.json({ code: "SOURCE_GOOGLE_REVISION_CONFLICT" }, { status: 412 });
+      const body = (await request.json()) as { syncIntervalMinutes: number };
+      configuration = {
+        ...configuration,
+        syncIntervalMinutes: body.syncIntervalMinutes,
+        scheduleRevision: configuration.scheduleRevision + 1,
+      };
+      return HttpResponse.json(configuration);
+    }),
+    handleStartGoogleDriveAuthorization(({ request }) => {
+      record(request);
+      return authorize
+        ? authorize()
+        : HttpResponse.json({
+            authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth?state=test",
+          });
+    }),
+    handleRevokeGoogleDriveCredential(({ request }) => {
+      record(request);
+      configuration = {
+        ...configuration,
+        credentialStatus: "REVOKED",
+        credentialRevision: configuration.credentialRevision + 1,
+      };
+      return new HttpResponse(null, { status: 204 });
+    }),
+    handleDiscoverGoogleDriveLinkedDocuments(({ request }) => {
+      record(request);
+      configuration = {
+        ...configuration,
+        discoveryRevision: configuration.discoveryRevision + 1,
+      };
+      return HttpResponse.json(configuration);
+    }),
+    handleSynchronizeGoogleDriveSource(({ request }) => {
+      record(request);
+      return HttpResponse.json({
+        id: "sync",
+        type: "SYNC_SOURCE",
+        status: "SUCCEEDED",
+        createdAt: "2026-09-08T10:00:00Z",
+        completedAt: "2026-09-08T10:00:01Z",
+        errorCode: null,
+      });
+    }),
+    handleListSourceGroups({ body: { items: [] } }),
   );
   let currentSource = source;
   const tree = (session: ApplicationSession, sourceStale = false) => {
