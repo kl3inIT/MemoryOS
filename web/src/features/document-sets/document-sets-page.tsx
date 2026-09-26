@@ -144,6 +144,7 @@ export function DocumentSetsPage() {
         <DocumentSetTable
           rows={sets.data}
           pagination={pagination}
+          paging={sets.isPlaceholderData}
           onPaginationChange={setPagination}
         />
       ) : null}
@@ -154,11 +155,14 @@ export function DocumentSetsPage() {
 function DocumentSetTable({
   rows,
   pagination,
+  paging,
   onPaginationChange,
 }: {
   /** The current page and, when a next page exists, its first row. */
   rows: DocumentSet[];
   pagination: PaginationState;
+  /** The rows shown belong to the page being replaced. */
+  paging: boolean;
   onPaginationChange: (next: PaginationState) => void;
 }) {
   const ui = useAppTranslation();
@@ -189,8 +193,8 @@ function DocumentSetTable({
               label={ui("Trang bộ tài liệu")}
               page={pagination.pageIndex}
               totalPages={undefined}
-              previousDisabled={!table.getCanPreviousPage()}
-              nextDisabled={!table.getCanNextPage()}
+              previousDisabled={paging || !table.getCanPreviousPage()}
+              nextDisabled={paging || !table.getCanNextPage()}
               onPrevious={() => table.previousPage()}
               onNext={() => table.nextPage()}
             />
