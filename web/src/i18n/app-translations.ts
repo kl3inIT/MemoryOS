@@ -1058,6 +1058,7 @@ export const vietnameseUi: Record<string, string> = {
   "Chỉ từ tài liệu của tổ chức": "Only from the organization's documents",
   "Chủ đề bị hạn chế": "Restricted topic",
   "Không có trong tài liệu của tổ chức": "Not in the organization's documents",
+  "Trợ lý và công cụ": "Agents and tools",
   "An toàn": "Safety",
   "Biểu đồ": "Chart",
   "Công việc": "Work",
