@@ -1,18 +1,24 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { DropdownMenu } from "radix-ui";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { LogOut, MoreHorizontal, Trash2, UserRoundCog } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { IconButton } from "@/components/ui/icon-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { deleteChatPersona, leaveChatPersona } from "@/lib/hey-api/sdk.gen";
+import {
+  deleteChatPersonaMutation,
+  leaveChatPersonaMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import { can } from "@/lib/resource-permissions";
 import { actionErrorText } from "@/lib/action-errors";
-import type { Persona } from "@/features/chat/chat-personas-api";
+import { invalidateAgents, type Persona } from "@/features/chat/chat-personas-api";
 import { AgentTransferDialog } from "./agent-transfer-dialog";
-
-const itemClass =
-  "flex cursor-default items-center gap-2 rounded-lg px-3 py-2 text-sm outline-none data-[highlighted]:bg-surface-sunken data-[disabled]:opacity-40";
 
 /** Secondary agent actions; each renders only when the server's permission hint allows it. */
 export function AgentActions({ agent }: { agent: Persona }) {
@@ -20,17 +26,20 @@ export function AgentActions({ agent }: { agent: Persona }) {
   const cache = useQueryClient();
   const trigger = useRef<HTMLButtonElement>(null);
   const [dialog, setDialog] = useState<"delete" | "leave" | "transfer">();
+  const remove = useMutation({
+    ...deleteChatPersonaMutation(),
+    onSuccess: () => invalidateAgents(cache, agent.id),
+  });
+  const leave = useMutation({
+    ...leaveChatPersonaMutation(),
+    onSuccess: () => invalidateAgents(cache, agent.id),
+  });
   const actions = [can(agent, "transfer"), can(agent, "leave"), can(agent, "delete")];
   if (!actions.some(Boolean)) return null;
-  const refresh = () =>
-    Promise.all([
-      cache.invalidateQueries({ queryKey: ["chat-personas"] }),
-      cache.invalidateQueries({ queryKey: ["chat-persona-pins"] }),
-    ]);
   return (
     <>
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
           <IconButton
             ref={trigger}
             size="sm"
@@ -40,40 +49,37 @@ export function AgentActions({ agent }: { agent: Persona }) {
           >
             <MoreHorizontal />
           </IconButton>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content
-            align="end"
-            sideOffset={5}
-            className="z-50 min-w-52 rounded-xl border border-border-subtle bg-surface-overlay p-1.5 shadow-md"
-            onCloseAutoFocus={(event) => {
-              if (dialog) event.preventDefault();
-            }}
-          >
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          sideOffset={5}
+          className="w-auto min-w-52"
+          onCloseAutoFocus={(event) => {
+            if (dialog) event.preventDefault();
+          }}
+        >
+          <DropdownMenuGroup>
             {can(agent, "transfer") && (
-              <DropdownMenu.Item className={itemClass} onSelect={() => setDialog("transfer")}>
-                <UserRoundCog aria-hidden="true" className="size-4" />
+              <DropdownMenuItem onSelect={() => setDialog("transfer")}>
+                <UserRoundCog aria-hidden="true" />
                 {ui("Chuyển quyền sở hữu")}
-              </DropdownMenu.Item>
+              </DropdownMenuItem>
             )}
             {can(agent, "leave") && (
-              <DropdownMenu.Item className={itemClass} onSelect={() => setDialog("leave")}>
-                <LogOut aria-hidden="true" className="size-4" />
+              <DropdownMenuItem onSelect={() => setDialog("leave")}>
+                <LogOut aria-hidden="true" />
                 {ui("Rời khỏi trợ lý")}
-              </DropdownMenu.Item>
+              </DropdownMenuItem>
             )}
             {can(agent, "delete") && (
-              <DropdownMenu.Item
-                className={`${itemClass} text-status-danger-content`}
-                onSelect={() => setDialog("delete")}
-              >
-                <Trash2 aria-hidden="true" className="size-4" />
+              <DropdownMenuItem variant="destructive" onSelect={() => setDialog("delete")}>
+                <Trash2 aria-hidden="true" />
                 {ui("Xóa trợ lý")}
-              </DropdownMenu.Item>
+              </DropdownMenuItem>
             )}
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <ConfirmDialog
         open={dialog === "delete"}
         onOpenChange={(open) => setDialog(open ? "delete" : undefined)}
@@ -87,12 +93,10 @@ export function AgentActions({ agent }: { agent: Persona }) {
         confirmTone="danger"
         errorMessage={actionErrorText}
         onConfirm={async () => {
-          await deleteChatPersona({
+          await remove.mutateAsync({
             path: { personaId: agent.id },
             query: { revision: agent.revision },
-            signal: AbortSignal.timeout(30000),
           });
-          await refresh();
         }}
       />
       <ConfirmDialog
@@ -107,11 +111,7 @@ export function AgentActions({ agent }: { agent: Persona }) {
         pendingLabel={ui("Đang lưu…")}
         errorMessage={actionErrorText}
         onConfirm={async () => {
-          await leaveChatPersona({
-            path: { personaId: agent.id },
-            signal: AbortSignal.timeout(30000),
-          });
-          await refresh();
+          await leave.mutateAsync({ path: { personaId: agent.id } });
         }}
       />
       {dialog === "transfer" && (
