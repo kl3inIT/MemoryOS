@@ -156,39 +156,14 @@ export function SharePointCredentialInput({
   return (
     <FieldSet disabled={disabled} className="min-w-0">
       <FieldLegend className="sr-only">{ui("SharePoint authentication")}</FieldLegend>
-      <Field>
-        <FieldTitle>{ui("Authentication")}</FieldTitle>
-        {/* Choice cards: the whole card is the radio's label. */}
-        <RadioGroup
-          value={method}
-          onValueChange={(value) => {
-            clear();
-            onMethodChange(value as SharePointAuthMethod);
-          }}
-        >
-          <div className="flex flex-wrap gap-3">
-            {(["CLIENT_SECRET", "CERTIFICATE"] as const).map((value) => (
-              <FieldLabel key={value} htmlFor={`${id}-${value}`} className="min-w-48 flex-1">
-                <Field orientation="horizontal">
-                  <RadioGroupItem id={`${id}-${value}`} value={value} />
-                  <FieldContent>
-                    <FieldTitle>
-                      {value === "CLIENT_SECRET" ? ui("Client secret") : ui("Certificate")}
-                    </FieldTitle>
-                    <FieldDescription>
-                      {value === "CLIENT_SECRET"
-                        ? ui("Fastest to set up; Entra expires it on its own schedule.")
-                        : ui(
-                            "Upload a PKCS#12 keystore whose certificate is registered on the app.",
-                          )}
-                    </FieldDescription>
-                  </FieldContent>
-                </Field>
-              </FieldLabel>
-            ))}
-          </div>
-        </RadioGroup>
-      </Field>
+      <AuthMethodChoice
+        id={id}
+        method={method}
+        onMethodChange={(value) => {
+          clear();
+          onMethodChange(value);
+        }}
+      />
       {method === "CLIENT_SECRET" ? (
         <Field data-invalid={error ? true : undefined}>
           <FieldLabel htmlFor={`${id}-secret`}>{ui("Client secret Value")}</FieldLabel>
@@ -297,5 +272,47 @@ export function SharePointCredentialInput({
         </FieldError>
       ) : null}
     </FieldSet>
+  );
+}
+
+/** Client secret or certificate, as choice cards: the whole card is the radio's label. */
+function AuthMethodChoice({
+  id,
+  method,
+  onMethodChange,
+}: {
+  id: string;
+  method: SharePointAuthMethod;
+  onMethodChange: (method: SharePointAuthMethod) => void;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <Field>
+      <FieldTitle>{ui("Authentication")}</FieldTitle>
+      <RadioGroup
+        value={method}
+        onValueChange={(value) => onMethodChange(value as SharePointAuthMethod)}
+      >
+        <div className="flex flex-wrap gap-3">
+          {(["CLIENT_SECRET", "CERTIFICATE"] as const).map((value) => (
+            <FieldLabel key={value} htmlFor={`${id}-${value}`} className="min-w-48 flex-1">
+              <Field orientation="horizontal">
+                <RadioGroupItem id={`${id}-${value}`} value={value} />
+                <FieldContent>
+                  <FieldTitle>
+                    {value === "CLIENT_SECRET" ? ui("Client secret") : ui("Certificate")}
+                  </FieldTitle>
+                  <FieldDescription>
+                    {value === "CLIENT_SECRET"
+                      ? ui("Fastest to set up; Entra expires it on its own schedule.")
+                      : ui("Upload a PKCS#12 keystore whose certificate is registered on the app.")}
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
+            </FieldLabel>
+          ))}
+        </div>
+      </RadioGroup>
+    </Field>
   );
 }

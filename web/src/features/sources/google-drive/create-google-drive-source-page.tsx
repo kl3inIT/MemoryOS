@@ -56,8 +56,6 @@ function GoogleDriveSourceSetup() {
     from: "/_authenticated/admin/sources/new/google-drive",
   });
   const navigate = useNavigate({ from: "/admin/sources/new/google-drive" });
-  const notify = useActionNotifications();
-  const session = useApplicationSession();
   const authority = useCapabilityAuthority("SOURCES_MANAGE");
   const globalManage = authority === "global";
   const canManage = authority !== "none";
@@ -98,7 +96,6 @@ function GoogleDriveSourceSetup() {
   });
   const draft = useStore(form.store, (state) => state.values);
   const modalTrigger = useRef<HTMLButtonElement | null>(null);
-  const reportedCallback = useRef<string | null>(null);
   const busy = dialogBusy || credentialsBusy || createSource.isPending;
   const proposal = {
     name: draft.sourceName.trim(),
@@ -130,48 +127,12 @@ function GoogleDriveSourceSetup() {
     setDialog({ ...dialog, open: false, reconnecting: null });
   }
 
-  useEffect(() => {
-    if (!googleDrive) {
-      reportedCallback.current = null;
-      return;
-    }
-    const callbackKey = `${session.actorId}:${googleDrive}:${credentialId ?? ""}`;
-    if (reportedCallback.current === callbackKey) return;
-    if (googleDrive === "authorization-failed") {
-      reportedCallback.current = callbackKey;
-      notify({
-        title: "Credential connection failed",
-        description: appText(
-          "Google authorization was not completed. You can try connecting again.",
-        ),
-        tone: "error",
-      });
-    } else if (
-      googleDrive === "connected" &&
-      connected &&
-      selected &&
-      !unavailable &&
-      !credentials.isFetching
-    ) {
-      reportedCallback.current = callbackKey;
-      notify({
-        title: "Credential connected",
-        description: appText("{{v1}} is connected and ready to use with a Source.", {
-          v1: selected.name,
-        }),
-        tone: "success",
-      });
-    }
-  }, [
-    googleDrive,
+  useAuthorizationCallbackNotice({
+    callback: googleDrive,
     credentialId,
-    session.actorId,
-    connected,
     selected,
-    unavailable,
-    credentials.isFetching,
-    notify,
-  ]);
+    ready: connected && !unavailable && !credentials.isFetching,
+  });
 
   function openDialog(
     trigger: HTMLButtonElement | null,
@@ -309,4 +270,51 @@ function GoogleDriveSourceSetup() {
       />
     </SettingsLayout>
   );
+}
+
+/**
+ * Reports the outcome of Google's consent screen once per return: a refused authorization at
+ * once, a connected credential once the credentials read after the return show it ready.
+ */
+function useAuthorizationCallbackNotice({
+  callback,
+  credentialId,
+  selected,
+  ready,
+}: {
+  callback: "connected" | "authorization-failed" | undefined;
+  credentialId: string | undefined;
+  selected: GoogleDriveCredentialResponse | undefined;
+  ready: boolean;
+}) {
+  const notify = useActionNotifications();
+  const session = useApplicationSession();
+  const reportedCallback = useRef<string | null>(null);
+  useEffect(() => {
+    if (!callback) {
+      reportedCallback.current = null;
+      return;
+    }
+    const callbackKey = `${session.actorId}:${callback}:${credentialId ?? ""}`;
+    if (reportedCallback.current === callbackKey) return;
+    if (callback === "authorization-failed") {
+      reportedCallback.current = callbackKey;
+      notify({
+        title: "Credential connection failed",
+        description: appText(
+          "Google authorization was not completed. You can try connecting again.",
+        ),
+        tone: "error",
+      });
+    } else if (callback === "connected" && ready && selected) {
+      reportedCallback.current = callbackKey;
+      notify({
+        title: "Credential connected",
+        description: appText("{{v1}} is connected and ready to use with a Source.", {
+          v1: selected.name,
+        }),
+        tone: "success",
+      });
+    }
+  }, [callback, credentialId, session.actorId, ready, selected, notify]);
 }
