@@ -5,7 +5,8 @@ documents.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import re
+from collections.abc import Iterable, Sequence
 from math import log2
 
 
@@ -46,14 +47,26 @@ def citation_precision(cited: Sequence[str], gold: Sequence[str]) -> float:
     return len(set(cited) & set(gold)) / len(set(cited))
 
 
-def abstained(content: str, cited: Sequence[str], forbidden: Sequence[str] = ()) -> bool:
+def abstained(
+    content: str,
+    cited: Sequence[str],
+    forbidden: Sequence[str] = (),
+    refusal_reason: str | None = None,
+) -> bool:
     """
-    A reply abstains when it says it has no evidence and reaches nothing it may not read. Citing a
-    permitted document while declining is still an abstention: the question is whether the reply
-    answered from evidence it should not have, not whether it cited anything at all.
+    A reply abstains when it declines and reaches nothing it may not read. Citing a permitted
+    document while declining is still an abstention: the question is whether the reply answered
+    from evidence it should not have, not whether it cited anything at all.
+
+    The server's `refusalReason` decides when it is set. When it is null the wording decides:
+    an older server sends no field, and a current one sends null on every reply that grounded
+    mode or a blocked topic did not refuse, including an ordinary model reply that says it found
+    nothing.
     """
     if set(cited) & set(forbidden):
         return False
+    if refusal_reason:
+        return True
     text = " ".join(content.lower().split())
     markers = (
         "không tìm thấy",
@@ -74,6 +87,27 @@ def abstained(content: str, cited: Sequence[str], forbidden: Sequence[str] = ())
         "cannot determine",
     )
     return any(marker in text for marker in markers)
+
+
+_MARKER = re.compile(r"\[(\d{1,3})\]")
+
+
+def citation_markers(content: str) -> set[int]:
+    """The inline `[n]` markers of a reply, each number once."""
+    return {int(number) for number in _MARKER.findall(content)}
+
+
+def asserted_without_citation(
+    content: str, citation_ids: Iterable[int], declined: bool, status: str = "COMPLETED"
+) -> bool:
+    """
+    A finished reply that answers but carries no inline marker naming one of its own sources. A
+    marker the sources do not hold proves nothing, as the browser leaves it plain text. A refusal,
+    an empty reply and a turn that did not complete assert nothing.
+    """
+    if declined or status != "COMPLETED" or not content.strip():
+        return False
+    return not citation_markers(content) & set(citation_ids)
 
 
 def percentile(values: Sequence[float], share: float) -> float:

@@ -16,6 +16,8 @@ export type ChatUiMessage = UIMessage<
     serverStatus?: ChatMessage["status"];
     /** Why a FAILED reply ended (for example CHAT_MODEL_OUTPUT_LIMIT). */
     failureCode?: string;
+    /** MEM-195: why a completed reply declined instead of answering. */
+    refusalReason?: string;
     createdAt?: string;
     /** Set by assistant-ui on a live question sent with a composer quote. */
     custom?: { quote?: { text: string; messageId: string } };
@@ -140,6 +142,7 @@ export function toUiMessages(messages: ChatMessage[]): ChatUiMessage[] {
     metadata: {
       serverStatus: message.status,
       failureCode: message.failureCode ?? undefined,
+      refusalReason: message.refusalReason ?? undefined,
       createdAt: message.createdAt,
       sources: sourcesSchema.parse(message.sources),
       artifacts: artifactsSchema.parse(message.artifacts),

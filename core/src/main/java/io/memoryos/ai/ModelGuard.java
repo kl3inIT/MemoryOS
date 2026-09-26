@@ -48,6 +48,7 @@ public class ModelGuard implements ChatModel {
     private int outputLimit;
     private boolean researchPrompts;
     private UnaryOperator<Prompt> toolChoice = UnaryOperator.identity();
+    private UnaryOperator<Prompt> firstCycle = UnaryOperator.identity();
 
     public ModelGuard(ChatModel delegate, AgentProcess process, LlmMetadata model, Budget budget,
             int cycles, Runnable checkActive, ModelRequestPolicy policy, int inputLimit, UnaryOperator<Prompt> finalRequest) {
@@ -108,6 +109,9 @@ public class ModelGuard implements ChatModel {
 
     /** Request transform for the next inferences, for example the binding's required tool choice on research cycles. */
     public synchronized void toolChoice(UnaryOperator<Prompt> value) { this.toolChoice = value; }
+
+    /** Request transform for the first streamed inference only, for example forcing one named tool (MEM-195). */
+    public synchronized void firstCycle(UnaryOperator<Prompt> value) { this.firstCycle = value; }
 
     @Override
     public ChatResponse call(Prompt prompt) {
@@ -204,6 +208,7 @@ public class ModelGuard implements ChatModel {
         if (cycle > cycles) throw TurnFailure.CYCLE_LIMIT.exception();
         boolean lastCycle = cycle == cycles && !researchPrompts;
         var guided = researchPrompts ? original : guide(original, lastCycle);
+        if (cycle == 1 && !lastCycle) guided = firstCycle.apply(guided);
         var request = policy.options().apply(toolChoice.apply(lastCycle ? finalRequest.apply(guided) : guided));
         int input = policy.inputTokens(request, inputLimit);
         var reservation = reserve(input);

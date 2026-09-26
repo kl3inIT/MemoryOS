@@ -214,7 +214,11 @@ function ChatConversation({
   });
   // As Onyx: Deep research is offered outside Projects while the organization setting is on and research agents
   // have internal Search or an external Web search connection (research never uses provider-hosted search).
+  // MEM-195: answers from documents only, by the organization or the agent; Web search only where it is allowed.
+  const grounded = chatSettings.data?.groundedAnswers === true || persona?.grounded === true;
+  const groundedAllowsWeb = !grounded || chatSettings.data?.groundedAllowWeb === true;
   const researchAvailable =
+    !grounded &&
     !project &&
     !session?.projectId &&
     chatSettings.data?.deepResearchEnabled === true &&
@@ -237,12 +241,12 @@ function ChatConversation({
     () =>
       persona
         ? {
-            web: persona.tools.includes("web_search"),
+            web: persona.tools.includes("web_search") && groundedAllowsWeb,
             image: persona.tools.includes("image_generation"),
             mcpServerIds: persona.builtin ? null : persona.mcpServers.map((server) => server.id),
           }
         : { web: false, image: false, mcpServerIds: [] },
-    [persona],
+    [persona, groundedAllowsWeb],
   );
   // The server rejects tools the agent does not allow; the transport drops them and the composer hides them.
   useEffect(() => transport.restrictTools(allowedTools), [transport, allowedTools]);
@@ -541,6 +545,7 @@ function ChatConversation({
                   disabled={busy}
                 />
               }
+              grounded={grounded}
               modelNotice={
                 model.choice.fallback
                   ? ui(

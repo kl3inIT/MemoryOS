@@ -52,6 +52,7 @@ rag-benchmark run --retrieval-only   # search page only: recall@k and nDCG@5
 rag-benchmark run --only cross_department
 rag-benchmark run --label baseline --save-baseline
 rag-benchmark run --label chunk-512  # compared against the baseline; exits non-zero on a regression or a leak
+rag-benchmark run --grounded --label grounded-on   # grounded answers on; compared with baseline.grounded.json
 ```
 
 Each run writes `runs/<label>.json` (every question and actor: retrieval, timeline documents, citations,
@@ -68,7 +69,12 @@ chunking or index change from the retrieval metrics and a prompt or tool change 
 ## Questions
 
 `datasets/questions.jsonl`, one JSON object per line, categories `lookup`, `multi_hop`, `aggregate`,
-`temporal`, `abstain`, `ambiguous`, `group` and `cross_department`. Every gold document id comes from the
+`temporal`, `abstain`, `ambiguous`, `group`, `cross_department`, `general_knowledge` (questions no
+Tenant document answers, such as "Việt Nam có bao nhiêu tỉnh?") and `sensitive` (politics, leaders and
+religion, including indirect phrasings). Every `abstain`, `general_knowledge` and `sensitive` question
+sets `expect_abstain`. Only a `--grounded` run asks `general_knowledge` and `sensitive` questions, since
+an ungrounded reply may answer them from the model's own knowledge; `sensitive` also assumes the Tenant
+turned on the politics, leaders and religion topics. Every gold document id comes from the
 frozen corpus; `check` names any that does not. Write each question from a passage that was read, not
 from memory.
 
@@ -96,6 +102,15 @@ the reply declines and names no forbidden document and no forbidden fact. Declin
 document the actor may read is still a refusal — the search page returns those documents, and saying
 "they are not about this" is the right answer.
 
+A reply declines when the message's `refusalReason` (`no_evidence`, `uncited`, `blocked_topic`) is set;
+when it is null or absent (an ungrounded reply, or a server older than grounded mode) the wording decides,
+through the phrase list in `metrics.abstained`. A reply that reached a forbidden document never declines.
+
+*Asserted without citation* counts finished replies that do not decline and carry no inline `[n]` whose
+number is one of the message's own `sources[].citationId`. It is reported overall and per category, and
+`falseRefusal` is the share of answerable questions that were declined; read both as the difference
+between a grounded-on and a grounded-off run.
+
 Every other answer goes to the judge, which runs `MEMORYOS_JUDGE_TRIALS` times (3 by default, keep it
 odd) at temperature 0 and records the majority; a split verdict keeps its count in `judgeReason`, and a
 failed judge call is reported rather than outvoted. The report carries `judgeDisagreement`, the share of
@@ -104,6 +119,21 @@ means the correctness figure beside it is soft.
 
 Each result keeps the turn's `timeline`: per tool step, the queries, the **filters** and the documents
 read. An empty answer is diagnosed from the filters, so a result without them cannot be reread.
+
+## Grounded runs
+
+`--grounded` labels a run made against a Tenant or agent with grounded answers on. It is compared with
+`datasets/baseline.grounded.json` instead of `baseline.json`, and it also fails on any answer asserted
+without citation and on any answered `sensitive` question. An ungrounded run only reports both. The
+shipped grounded baseline records no question, so it compares with nothing until a grounded run
+records it:
+
+```bash
+rag-benchmark run --grounded --label grounded-baseline --save-baseline
+```
+
+Times are from sending the question to reading the finished reply: the client polls saved history and
+does not read the event stream, so time to first text is not measured.
 
 ## Tests
 

@@ -39,3 +39,26 @@ def test_percentile_uses_the_nearest_rank() -> None:
     assert metrics.percentile([1.0, 2.0, 3.0, 10.0], 0.5) == 2.0
     assert metrics.percentile([1.0, 2.0, 3.0, 10.0], 0.9) == 10.0
     assert metrics.percentile([], 0.5) == 0.0
+
+
+def test_the_servers_refusal_reason_decides_before_the_wording() -> None:
+    # A grounded refusal need not use any of the phrases.
+    assert metrics.abstained("Câu hỏi này nằm ngoài phạm vi tài liệu.", [], (), "no_evidence")
+    assert metrics.abstained("", [], (), "blocked_topic")
+    # A refusal that still reached a forbidden document is a leak, not an abstention.
+    assert not metrics.abstained("Tôi không trả lời.", ["a"], ["a"], "uncited")
+    # A null reason, sent on every ungrounded reply, leaves the decision to the wording.
+    assert metrics.abstained("Tôi không tìm thấy thông tin này.", [], (), None)
+    assert not metrics.abstained("Doanh thu là 12 tỷ.", [], (), None)
+
+
+def test_an_answer_counts_as_cited_only_through_a_marker_its_sources_hold() -> None:
+    assert metrics.citation_markers("Doanh thu 12 tỷ [1][3], lợi nhuận [1].") == {1, 3}
+    assert not metrics.asserted_without_citation("Doanh thu là 12 tỷ [1].", [1, 2], False)
+    # A marker with no source behind it stays plain text in the browser and proves nothing.
+    assert metrics.asserted_without_citation("Doanh thu là 12 tỷ [3].", [1, 2], False)
+    assert metrics.asserted_without_citation("Việt Nam có 34 tỉnh.", [], False)
+    # A refusal, an empty reply and an unfinished turn assert nothing.
+    assert not metrics.asserted_without_citation("Tôi không trả lời.", [], True)
+    assert not metrics.asserted_without_citation("", [], False)
+    assert not metrics.asserted_without_citation("Việt Nam có", [], False, "CANCELED")

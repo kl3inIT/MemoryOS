@@ -20,6 +20,7 @@ public final class ChatModelGuard extends ModelGuard {
     private BooleanSupplier hasEvidence = () -> false;
     private boolean webSiteFilter = true;
     private String taskPrompt = "";
+    private boolean grounded;
 
     public ChatModelGuard(ChatModel delegate, AgentProcess process, LlmMetadata model, Budget budget,
             int cycles, Runnable checkActive, ModelRequestPolicy policy, int inputLimit, UnaryOperator<Prompt> finalRequest) {
@@ -39,9 +40,12 @@ public final class ChatModelGuard extends ModelGuard {
 
     public void evidenceAvailable(BooleanSupplier value) { this.hasEvidence = value; }
 
+    /** MEM-195: every inference of this turn carries the answer-from-documents instruction. */
+    public void grounded(boolean value) { grounded = value; }
+
     @Override
     protected Prompt guide(Prompt original, boolean lastCycle) {
-        return ChatPrompts.forInference(original, hasEvidence.getAsBoolean(), lastCycle, webSiteFilter, taskPrompt);
+        return ChatPrompts.forInference(original, hasEvidence.getAsBoolean(), lastCycle, webSiteFilter, taskPrompt, grounded);
     }
 
     @Override

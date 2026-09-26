@@ -174,7 +174,7 @@ public final class ChatModelExecutor {
         Runnable active = () -> { fileWork.checkActive(); agent.checkActive().run(); };
         var tools = new ArrayList<Tool>();
         SearchTool searchTool = null;
-        if (setup.options().searchEnabled()) {
+        if (setup.options().searches()) {
             var selectionRunner = context.ai().withLlmService(selected.withModel(agent.guard()));
             selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm()).withMaxTokens(Math.min(2048, maxOutput)).withoutThinking());
             searchTool = new SearchTool(search, setup.actor(), selectionRunner, selected.policy().tokens(), searchLimits, active,
@@ -226,6 +226,11 @@ public final class ChatModelExecutor {
         // Onyx bounds tool work only by MAX_LLM_CYCLES: search helpers have no count of their own.
         guard.synchronousLimit(ChatModelGuard.UNBOUNDED_HELPERS);
         guard.taskPrompt(setup.options().taskPrompt());
+        if (setup.options().grounded()) {
+            // MEM-195: the first inference may only call search_knowledge, so the answer starts from the documents.
+            guard.grounded(true);
+            guard.firstCycle(selected.requireTool("search_knowledge"));
+        }
         var guards = new CopyOnWriteArrayList<ChatModelGuard>();
         var drains = new CopyOnWriteArrayList<CompletableFuture<Void>>();
         SearchTool searchTool = null;
@@ -278,7 +283,7 @@ public final class ChatModelExecutor {
                     && interpreter.configured() && interpreterSettings.enabled(setup.tenant()) && interpreter.healthy();
             // Onyx llm_loop.py: search hits with a stored original are staged for the Python calls that follow.
             var sandbox = python && originals != null ? new SandboxDocuments(originals, setup.actor()) : null;
-            if (selected.toolCalling() && setup.options().searchEnabled()) {
+            if (selected.toolCalling() && setup.options().searches()) {
                 var selectionRunner = context.ai().withLlmService(nativeService);
                 selectionRunner = selectionRunner.withLlm(Objects.requireNonNull(selectionRunner.getLlm())
                         .withMaxTokens(Math.min(2048, outputBound)).withoutThinking());

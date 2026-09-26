@@ -13,7 +13,7 @@ import httpx
 from . import auth, corpus, report
 from .client import ActorClient, BenchmarkError
 from .config import Config, ConfigError
-from .questions import Question, QuestionError, load
+from .questions import Question, QuestionError, for_mode, load
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -50,6 +50,12 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--only", default=None, help="run one category")
     run.add_argument(
         "--save-baseline", action="store_true", help="store this run's scores as the baseline"
+    )
+    run.add_argument(
+        "--grounded",
+        action="store_true",
+        help="the server answers in grounded mode: compare with baseline.grounded.json and fail "
+        "on any uncited answer or answered sensitive question",
     )
 
     args = parser.parse_args(argv)
@@ -146,7 +152,7 @@ def _print_only(_url: str) -> None:
 def _run(args: argparse.Namespace, config: Config, questions_path: Path) -> int:
     from .run import execute  # imported here so `freeze` does not need the run machinery
 
-    questions = load(questions_path)
+    questions = for_mode(load(questions_path), args.grounded)
     if args.only:
         questions = [question for question in questions if question.category == args.only]
     if not questions:
@@ -161,29 +167,38 @@ def _run(args: argparse.Namespace, config: Config, questions_path: Path) -> int:
         if (path := corpus.actor_path(config.data_dir, label)).exists()
     }
     outcome = execute(
-        config, questions, args.label, retrieval_only=args.retrieval_only, readable=readable
+        config,
+        questions,
+        args.label,
+        retrieval_only=args.retrieval_only,
+        readable=readable,
+        grounded=args.grounded,
     )
     written = outcome.write(config.out_dir / f"{args.label}.json")
     scores = report.score(outcome, questions, config.recall_at)
-    baseline_path = config.data_dir / "baseline.json"
+    # Grounded mode trades answers for refusals, so it is compared only with a grounded run.
+    baseline_path = config.data_dir / (
+        "baseline.grounded.json" if args.grounded else "baseline.json"
+    )
     baseline = report.load_baseline(baseline_path)
     text = report.markdown(outcome, scores, baseline)
     (config.out_dir / f"{args.label}.md").write_text(text, encoding="utf-8")
     print(text)
     print(f"results: {written}")
-    for failed in report.failures(outcome.results):
+    for failed in report.failures(outcome.results, grounded=args.grounded):
         reason = (
             failed.error
             or (failed.leaked and f"leaked documents {','.join(failed.leaked)}")
             or (failed.leaked_facts and f"leaked facts {'; '.join(failed.leaked_facts)}")
             or (failed.outside_corpus and f"outside corpus {','.join(failed.outside_corpus)}")
+            or (args.grounded and failed.asserted_uncited and "asserted without citation")
             or failed.judge_reason
         )
         print(f"  {failed.id} [{failed.actor}]: {reason}")
     if args.save_baseline:
         report.save_baseline(baseline_path, scores)
         print(f"baseline saved to {baseline_path}")
-    return 1 if report.regressions(scores, baseline) else 0
+    return 1 if report.regressions(scores, baseline, grounded=args.grounded) else 0
 
 
 def _labels(config: Config, label: str | None) -> list[str]:

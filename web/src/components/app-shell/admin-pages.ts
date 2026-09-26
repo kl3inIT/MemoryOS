@@ -8,6 +8,7 @@ import {
   ImageIcon,
   KeyRound,
   Library,
+  MessageSquare,
   MessagesSquare,
   Plug,
   ReceiptText,
@@ -33,6 +34,7 @@ export type AdminPage =
   | "voice"
   | "images"
   | "interpreter"
+  | "chat"
   | "providers"
   | "models"
   | "searchSettings"
@@ -114,6 +116,15 @@ export const adminPages: readonly AdminPageEntry[] = [
     label: appText("Code Interpreter"),
     title: appText("Code Interpreter"),
     icon: SquareTerminal,
+    group: "configuration",
+    visible: manageModels,
+  },
+  {
+    id: "chat",
+    to: "/admin/chat",
+    label: appText("Chat"),
+    title: appText("Chat"),
+    icon: MessageSquare,
     group: "configuration",
     visible: manageModels,
   },

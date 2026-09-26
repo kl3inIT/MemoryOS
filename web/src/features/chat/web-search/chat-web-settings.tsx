@@ -1,7 +1,7 @@
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { useState, type ReactNode } from "react";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Cpu, Globe, MessagesSquare, Settings2, Telescope } from "lucide-react";
+import { CheckCircle2, Cpu, Globe, Settings2 } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { Switch } from "@/components/ui/switch";
 import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
@@ -10,29 +10,19 @@ import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import {
-  getChatSettings,
   listChatProviderAdapters,
   listChatProviders,
   listChatWebConnections,
   listChatWebEngines,
   listConfiguredChatModels,
-  saveChatHistoryVisibility,
-  saveChatSettings,
   saveChatWebConnection,
   selectChatWebProvider,
   testChatWebConnection,
   updateChatModel,
 } from "@/lib/hey-api/sdk.gen";
-import type {
-  ChatHistoryVisibilityRequest,
-  Model,
-  WebConnectionResponse,
-} from "@/lib/hey-api/types.gen";
-
-type ChatHistoryVisibility = ChatHistoryVisibilityRequest["visibility"];
+import type { Model, WebConnectionResponse } from "@/lib/hey-api/types.gen";
 import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
-import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { ProviderCard } from "@/components/provider-logos/provider-card";
 import { ProviderLogo } from "@/components/provider-logos/provider-logo";
@@ -215,8 +205,6 @@ export function ChatWebSettings() {
             {readerProviders.map((provider) => card(provider, false))}
           </section>
           <NativeSearchSection onChanged={changed} />
-          <DeepResearchSection />
-          <ConversationHistorySection />
         </>
       )}
       {error && (
@@ -524,157 +512,6 @@ function ConnectionCard({
         </Dialog.Portal>
       </Dialog.Root>
     </ProviderCard>
-  );
-}
-
-/** As Onyx Chat Preferences: Deep research is offered in the composer while enabled, and is enabled until changed. */
-/**
- * Who may read other people's conversations (MEM-125). "Hide who asked" hides the name and the e-mail and nothing
- * else — a question often names its author — so the screen says that rather than promising anonymity.
- */
-function ConversationHistorySection() {
-  const ui = useAppTranslation();
-  const problemMessage = useProblemMessage();
-  const session = useApplicationSession();
-  const cache = useQueryClient();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<ErrorMessage>();
-  const settings = useQuery({
-    queryKey: ["chat-settings", session.actorId, session.authorizationVersion],
-    queryFn: async ({ signal }) => (await getChatSettings({ signal })).data,
-    retry: false,
-  });
-  async function choose(visibility: ChatHistoryVisibility) {
-    if (!settings.data) return;
-    setPending(true);
-    setError(undefined);
-    try {
-      await saveChatHistoryVisibility({
-        body: { visibility, revision: settings.data.revision },
-      });
-      await cache.invalidateQueries({ queryKey: ["chat-settings"] });
-    } catch (failed) {
-      setError(presentProblem(failed, "mutation").message);
-    } finally {
-      setPending(false);
-    }
-  }
-  if (settings.isPending) return null;
-  const modes: { value: ChatHistoryVisibility; label: AppCopy; detail: AppCopy }[] = [
-    {
-      value: "NORMAL",
-      label: "Show who asked",
-      detail: "A reader sees the name and e-mail of the person who asked.",
-    },
-    {
-      value: "ANONYMIZED",
-      label: "Hide who asked",
-      detail:
-        "The name and e-mail are hidden; the questions and answers are not. A question often names its author.",
-    },
-    {
-      value: "DISABLED",
-      label: "Nobody reads other people's conversations",
-      detail: "Conversations are still recorded; this screen and its export are refused.",
-    },
-  ];
-  return (
-    <section aria-label={ui("Conversation history")} className="mt-8 space-y-3">
-      <h2 className="text-lg font-semibold">{ui("Conversation history")}</h2>
-      <p className="text-content-muted">
-        {ui(
-          "Who may read the organization's questions and answers. Opening a conversation is recorded in the audit log.",
-        )}
-      </p>
-      {settings.isError ? (
-        <p role="alert">{ui("Không tải được cài đặt Chat.")}</p>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {modes.map((mode) => (
-            <ProviderCard
-              key={mode.value}
-              logo={<MessagesSquare />}
-              name={ui(mode.label)}
-              description={ui(mode.detail)}
-              selected={settings.data.chatHistoryVisibility === mode.value}
-              actions={
-                <Switch
-                  checked={settings.data.chatHistoryVisibility === mode.value}
-                  disabled={pending}
-                  aria-label={ui(mode.label)}
-                  onCheckedChange={(checked) => (checked ? void choose(mode.value) : undefined)}
-                />
-              }
-            />
-          ))}
-        </div>
-      )}
-      {error && (
-        <p role="alert" className="text-sm text-status-danger-content">
-          {problemMessage(error)}
-        </p>
-      )}
-    </section>
-  );
-}
-
-function DeepResearchSection() {
-  const ui = useAppTranslation();
-  const problemMessage = useProblemMessage();
-  const session = useApplicationSession();
-  const cache = useQueryClient();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<ErrorMessage>();
-  const settings = useQuery({
-    queryKey: ["chat-settings", session.actorId, session.authorizationVersion],
-    queryFn: async ({ signal }) => (await getChatSettings({ signal })).data,
-    retry: false,
-  });
-  async function toggle(enabled: boolean) {
-    if (!settings.data) return;
-    setPending(true);
-    setError(undefined);
-    try {
-      await saveChatSettings({
-        body: { deepResearchEnabled: enabled, revision: settings.data.revision },
-      });
-      await cache.invalidateQueries({ queryKey: ["chat-settings"] });
-    } catch (failed) {
-      setError(presentProblem(failed, "mutation").message);
-    } finally {
-      setPending(false);
-    }
-  }
-  if (settings.isPending) return null;
-  return (
-    <section aria-label={ui("Deep Research")} className="mt-8 space-y-3">
-      <h2 className="text-lg font-semibold">{ui("Deep Research")}</h2>
-      {settings.isError ? (
-        <p role="alert">{ui("Không tải được cài đặt Chat.")}</p>
-      ) : (
-        <ProviderCard
-          logo={<Telescope />}
-          name={ui("Deep Research")}
-          description={ui(
-            "Hệ thống nghiên cứu tự động trên Web và các nguồn đã kết nối. Dùng nhiều token hơn đáng kể cho mỗi câu hỏi.",
-          )}
-          selected={settings.data.deepResearchEnabled}
-          actions={
-            <Switch
-              checked={settings.data.deepResearchEnabled}
-              disabled={pending}
-              aria-label={ui("Bật Deep Research")}
-              onCheckedChange={(checked) => void toggle(checked)}
-            />
-          }
-        />
-      )}
-      {error && (
-        <p role="alert" className="text-sm text-status-danger-content">
-          {problemMessage(error)}
-        </p>
-      )}
-    </section>
   );
 }
 

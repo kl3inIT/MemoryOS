@@ -143,13 +143,13 @@ public class JdbcChatRepository {
                                          finished_at, deadline_at, sources, files, artifacts, activity, model_name,
                                          input_tokens, output_tokens, requested_model_configuration_id,
                                          selected_model_configuration_id, model_selection_fallback,
-                                         is_clarification, research_plan, research_agents, failure_code)
+                                         is_clarification, research_plan, research_agents, failure_code, refusal_reason)
                 SELECT c.copy_id, :branch, c.parent_id, c.child_id, m.role, m.content, m.status, c.request_id, c.reply_id,
                        m.created_at, m.finished_at, m.deadline_at, m.sources, m.files, m.artifacts, m.activity,
                        m.model_name,
                        m.input_tokens, m.output_tokens, m.requested_model_configuration_id,
                        m.selected_model_configuration_id, m.model_selection_fallback, m.is_clarification,
-                       m.research_plan, m.research_agents, m.failure_code
+                       m.research_plan, m.research_agents, m.failure_code, m.refusal_reason
                 FROM unnest(CAST(:originals AS uuid[]), CAST(:copies AS uuid[]), CAST(:parents AS uuid[]),
                             CAST(:children AS uuid[]), CAST(:requests AS uuid[]), CAST(:replies AS uuid[]))
                          WITH ORDINALITY AS c(original_id, copy_id, parent_id, child_id, request_id, reply_id, position)
@@ -396,7 +396,9 @@ public class JdbcChatRepository {
             WHERE s.id=:session AND s.deleted_at IS NULL AND p.deleted_at IS NULL AND
             """ + AgentAccessSql.USES.replace(":actor", "s.owner_actor_id");
 
-    private static final String REVISION = "concat_ws(':',p.id,p.revision,p.model_revision,pr.id,pr.revision)";
+    /** The Tenant's Chat settings are part of it because the turn reads grounded answers from them (MEM-195). */
+    private static final String REVISION = "concat_ws(':',p.id,p.revision,p.model_revision,pr.id,pr.revision,"
+            + "(SELECT cs.revision FROM chat_settings cs WHERE cs.tenant_id = p.tenant_id))";
 
     /**
      * Everything a turn takes from its agent, in one statement: tools, MCP servers and the Sources it searches are
@@ -407,6 +409,8 @@ public class JdbcChatRepository {
                         SELECT p.builtin_key, p.model, p.model_configuration_id, p.context_token_limit, p.output_token_limit,
                             s.reasoning_effort,
                             p.task_prompt, p.knowledge_cutoff,
+                            p.grounded OR COALESCE((SELECT cs.grounded_answers FROM chat_settings cs
+                                                    WHERE cs.tenant_id = p.tenant_id), FALSE) AS grounded,
                             CASE WHEN p.builtin_key IS NULL THEN p.file_ids ELSE COALESCE(pr.file_ids,'[]'::jsonb) END AS file_ids,
                             %s AS revision,
                             CASE WHEN p.builtin_key IS NULL AND p.replace_base_system_prompt
@@ -444,7 +448,7 @@ public class JdbcChatRepository {
                                     row.getBoolean("restricts_sources"),
                                     row.getObject("context_token_limit", Integer.class), row.getObject("output_token_limit", Integer.class),
                                     cutoff == null ? null : cutoff.toInstant(), row.getString("task_prompt"),
-                                    tools.contains("code_interpreter")),
+                                    tools.contains("code_interpreter")).withGrounded(row.getBoolean("grounded")),
                             row.getString("revision"), row.getObject("model_configuration_id", UUID.class),
                             List.of(JSON.readValue(row.getString("file_ids"), UUID[].class)), tools,
                             builtin ? null : List.of((UUID[]) row.getArray("mcp_servers").getArray()),
@@ -583,7 +587,7 @@ public class JdbcChatRepository {
                           @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
                           @Nullable Double cost, List<ChatSource> sources, ChatActivity activity,
                           ChatResearch research) {
-        return terminal(session, assistant, status, content, failure, model, input, output, cost, sources, activity, research)
+        return terminal(session, assistant, status, content, failure, model, input, output, cost, sources, activity, research, null)
                 .isPresent();
     }
 
@@ -594,15 +598,15 @@ public class JdbcChatRepository {
     public Control finishAndRead(UUID session, UUID assistant, Status status, String content,
                                  @Nullable String failure, @Nullable String model, @Nullable Long input, @Nullable Long output,
                                  @Nullable Double cost, List<ChatSource> sources, ChatActivity activity,
-                                 ChatResearch research) {
-        return terminal(session, assistant, status, content, failure, model, input, output, cost, sources, activity, research)
+                                 ChatResearch research, @Nullable String refusal) {
+        return terminal(session, assistant, status, content, failure, model, input, output, cost, sources, activity, research, refusal)
                 .orElseGet(() -> control(assistant));
     }
 
     private Optional<Control> terminal(UUID session, UUID assistant, Status status, String content,
                                        @Nullable String failure, @Nullable String model, @Nullable Long input,
                                        @Nullable Long output, @Nullable Double cost, List<ChatSource> sources,
-                                       ChatActivity activity, ChatResearch research) {
+                                       ChatActivity activity, ChatResearch research, @Nullable String refusal) {
         // Same lock order as reserve/Stop: session, then message. Reversing it can deadlock terminal races.
         if (jdbc.sql("SELECT id FROM chat_session WHERE id = :session FOR UPDATE").param("session", session)
                 .query(UUID.class).optional().isEmpty()) return Optional.empty();
@@ -613,7 +617,7 @@ public class JdbcChatRepository {
                             content = :content, model_name = :model, input_tokens = :input, output_tokens = :output,
                             cost_usd = :cost, sources = CAST(:sources AS jsonb),
                             activity = CAST(:activity AS jsonb), is_clarification = :clarification, research_plan = :plan,
-                            research_agents = CAST(:agents AS jsonb),
+                            research_agents = CAST(:agents AS jsonb), refusal_reason = :refusal,
                             finished_at = clock_timestamp()
                         WHERE session_id = :session AND id = :id AND role = 'ASSISTANT' AND status = 'RUNNING'
                         RETURNING status, failure_code
@@ -624,6 +628,7 @@ public class JdbcChatRepository {
                 .param("sources", JSON.writeValueAsString(sources))
                 .param("activity", JSON.writeValueAsString(activity)).param("clarification", research.clarification())
                 .param("plan", research.plan(), Types.VARCHAR).param("agents", JSON.writeValueAsString(research.agents()))
+                .param("refusal", refusal, Types.VARCHAR)
                 .query((row, ignored) -> new Control(Status.valueOf(row.getString("status")), row.getString("failure_code")))
                 .optional();
         if (written.isPresent()) touch(session);
@@ -678,6 +683,6 @@ public class JdbcChatRepository {
                 JSON.readValue(row.getString("activity"), ChatActivity.class),
                 new ChatResearch(row.getBoolean("is_clarification"), row.getString("research_plan"),
                         List.of(JSON.readValue(row.getString("research_agents"), ChatResearch.Agent[].class))),
-                row.getString("failure_code"));
+                row.getString("failure_code"), row.getString("refusal_reason"));
     }
 }

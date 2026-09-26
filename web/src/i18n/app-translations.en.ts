@@ -1,6 +1,23 @@
 // English for the Vietnamese source keys. Natural source keys are static UI copy, never document text, filenames or API identifiers.
 // Natural source keys are static UI copy, never document text, filenames or API identifiers.
 export const vietnameseUi: Record<string, string> = {
+  // MEM-195 answers from documents only and sensitive topics
+  "Trả lời từ tài liệu": "Answers from documents",
+  "Chỉ trả lời từ tài liệu của tổ chức": "Answer only from the organization's documents",
+  "Câu trả lời phải trích dẫn tài liệu; không có tài liệu thì trợ lý từ chối.":
+    "Answers must cite a document; without one the assistant declines.",
+  "Cho phép người dùng bật Tìm kiếm Web": "Let people turn on Web search",
+  "Câu trả lời dùng nguồn Internet được ghi rõ.": "Answers that use Internet sources say so.",
+  "Chủ đề nhạy cảm": "Sensitive topics",
+  "Chính trị": "Politics",
+  "Lãnh tụ và lãnh đạo": "Leaders",
+  "Tôn giáo": "Religion",
+  "Câu trả lời khi bị chặn": "Reply when blocked",
+  "Cụm từ bị chặn": "Blocked phrases",
+  "Mỗi dòng một cụm từ, tối đa 20": "One phrase per line, at most 20",
+  "Chỉ từ tài liệu của tổ chức": "Only from the organization's documents",
+  "Chủ đề bị hạn chế": "Restricted topic",
+  "Không có trong tài liệu của tổ chức": "Not in the organization's documents",
   // MEM-92 meetings
   "Chưa lưu được thay đổi. Hãy thử lại.": "The change could not be saved. Try again.",
   "Meeting minutes": "Meeting minutes",

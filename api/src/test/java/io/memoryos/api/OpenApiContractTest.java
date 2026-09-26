@@ -208,6 +208,8 @@ class OpenApiContractTest {
             "/api/chat/retention/preview",
             "/api/chat/history",
             "/api/chat/settings/history-visibility",
+            "/api/chat/settings/grounded",
+            "/api/chat/settings/guardrails",
             "/api/chat/history/{sessionId}",
             "/api/chat/history/export",
             "/api/chat/exports",

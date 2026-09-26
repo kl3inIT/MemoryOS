@@ -28,6 +28,8 @@ class QuestionResult:
     partial: bool = False
     retrieved: list[str] = field(default_factory=list)
     cited: list[str] = field(default_factory=list)
+    # The citation numbers of the reply's sources, which an inline `[n]` must name to count.
+    citation_ids: list[int] = field(default_factory=list)
     # Documents the Chat timeline read while answering.
     read: list[str] = field(default_factory=list)
     # Queries, filters and documents of each tool step, so a failure reads without a rerun.
@@ -45,6 +47,10 @@ class QuestionResult:
     judge_agreed: int = 0
     judge_trials: int = 0
     abstained: bool | None = None
+    # The server's reason for declining, when it gave one.
+    refusal_reason: str | None = None
+    # An answer with no inline citation naming one of its sources: zero with grounded mode on.
+    asserted_uncited: bool | None = None
     # Forbidden documents that reached the actor on any surface, and forbidden facts in the answer.
     leaked: list[str] = field(default_factory=list)
     leaked_facts: list[str] = field(default_factory=list)
@@ -58,6 +64,8 @@ class Run:
     label: str
     started_at: str
     results: list[QuestionResult]
+    # Run against a Tenant or agent with grounded answers on, and compared with its own baseline.
+    grounded: bool = False
 
     def write(self, path: Path) -> Path:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -66,6 +74,7 @@ class Run:
                 {
                     "label": self.label,
                     "startedAt": self.started_at,
+                    "grounded": self.grounded,
                     "results": [asdict(result) for result in self.results],
                 },
                 ensure_ascii=False,
@@ -83,6 +92,7 @@ def execute(
     label: str,
     retrieval_only: bool = False,
     readable: dict[str, set[str]] | None = None,
+    grounded: bool = False,
 ) -> Run:
     """`readable` maps an actor label to the documents of its frozen corpus, when one was frozen."""
     clients: dict[str, ActorClient] = {}
@@ -101,12 +111,13 @@ def execute(
                         expectation,
                         retrieval_only,
                         (readable or {}).get(expectation.actor),
+                        grounded,
                     )
                 )
     finally:
         for client in clients.values():
             client.close()
-    return Run(label=label, started_at=started_at, results=results)
+    return Run(label=label, started_at=started_at, results=results, grounded=grounded)
 
 
 def _ask(
@@ -117,6 +128,7 @@ def _ask(
     expectation: Expectation,
     retrieval_only: bool,
     corpus: set[str] | None,
+    grounded: bool = False,
 ) -> QuestionResult:
     result = QuestionResult(
         id=question.id,
@@ -143,7 +155,7 @@ def _ask(
     if result.error is None and not retrieval_only:
         # Scored after the leak check, because a question that expects a refusal is scored on what
         # the reply reached, not on its wording alone.
-        _score(judge, question, expectation, result)
+        _score(judge, question, expectation, result, grounded)
     return result
 
 
@@ -161,6 +173,8 @@ def _client(clients: dict[str, ActorClient], config: Config, label: str) -> Acto
 def _answer(client: ActorClient, question: Question, result: QuestionResult) -> None:
     reply = client.ask(question.question)
     result.cited = reply.document_ids
+    result.citation_ids = reply.citation_ids
+    result.refusal_reason = reply.refusal_reason
     result.read = reply.read_document_ids
     result.timeline = reply.timeline
     result.answer = reply.content
@@ -172,10 +186,24 @@ def _answer(client: ActorClient, question: Question, result: QuestionResult) -> 
 
 
 def _score(
-    judge: Judge, question: Question, expectation: Expectation, result: QuestionResult
+    judge: Judge,
+    question: Question,
+    expectation: Expectation,
+    result: QuestionResult,
+    grounded: bool = False,
 ) -> None:
     result.abstained = metrics.abstained(
-        result.answer, result.cited, expectation.forbidden_document_ids
+        result.answer,
+        result.cited,
+        expectation.forbidden_document_ids,
+        result.refusal_reason,
+    )
+    # Measured on every side of a question, the denied side of a group question included. With
+    # grounded answers on, only the recorded refusal declines: a reply that merely sounds like one
+    # but carries no refusal reason escaped the citation gate and must count.
+    declined = bool(result.refusal_reason) if grounded else result.abstained
+    result.asserted_uncited = metrics.asserted_without_citation(
+        result.answer, result.citation_ids, declined, result.status
     )
     if not expectation.scored:
         return
@@ -192,7 +220,10 @@ def _score(
             reasons.append(f"nêu dữ kiện cấm: {', '.join(result.leaked_facts)}")
         if not result.abstained:
             reasons.append("không từ chối")
-        result.judge_reason = "; ".join(reasons) if reasons else "đã từ chối, không lộ gì"
+        declined = "đã từ chối, không lộ gì"
+        if result.refusal_reason:
+            declined = f"đã từ chối ({result.refusal_reason}), không lộ gì"
+        result.judge_reason = "; ".join(reasons) if reasons else declined
         return
     verdict = judge.score(
         question.question, expectation.gold_answer, result.answer, partial=expectation.partial
