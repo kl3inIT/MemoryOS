@@ -10,7 +10,9 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { ClampedList } from "@/components/ui/clamped-list";
+import { Empty, EmptyDescription } from "@/components/ui/empty";
 import { IconButton } from "@/components/ui/icon-button";
+import { InputGroup, InputGroupAddon } from "@/components/ui/input-group";
 import { findSourceProvider } from "@/features/sources/shared/source-provider-catalog";
 
 export type SourceOption = { id: string; name: string; type: string };
@@ -52,9 +54,12 @@ export function DocumentSetSourcePicker({
     <div className="flex flex-col gap-3">
       {/* cmdk labels its input from this text; without it the field is nameless whatever the placeholder says. */}
       <Command label={ui("Tìm nguồn…")} className="relative overflow-visible">
-        <div className="flex h-10 items-center gap-2 rounded-xl border border-border-default bg-surface-raised px-3 focus-within:border-border-strong">
-          <Search aria-hidden="true" className="size-4 shrink-0 text-content-disabled" />
+        <InputGroup>
+          <InputGroupAddon>
+            <Search aria-hidden="true" />
+          </InputGroupAddon>
           <CommandPrimitive.Input
+            data-slot="input-group-control"
             value={search}
             disabled={disabled || allSelected}
             aria-invalid={invalid || undefined}
@@ -68,9 +73,9 @@ export function DocumentSetSourcePicker({
               if (event.key === "Escape") setOpen(false);
             }}
             placeholder={allSelected ? ui("Đã chọn tất cả nguồn") : ui("Tìm nguồn…")}
-            className="h-full min-w-0 flex-1 bg-transparent font-main-ui-body outline-none placeholder:text-content-muted disabled:cursor-not-allowed"
+            className="h-full min-w-0 flex-1 bg-transparent pr-2.5 font-main-ui-body outline-none placeholder:text-content-muted disabled:cursor-not-allowed"
           />
-        </div>
+        </InputGroup>
         {/* With every Source chosen the field is disabled, so its empty dropdown would only cover the chips. */}
         {open && !allSelected && (
           <div className="absolute top-full right-0 left-0 z-50 mt-1 rounded-xl border border-border-subtle bg-surface-overlay p-1 shadow-md">
@@ -134,9 +139,11 @@ export function DocumentSetSourcePicker({
           })}
         />
       ) : (
-        <p className="rounded-xl border border-dashed border-border-default bg-surface-sunken px-3 py-3 font-secondary-body text-content-muted">
-          {ui("Chưa chọn nguồn nào. Tìm và chọn nguồn ở ô phía trên.")}
-        </p>
+        <Empty>
+          <EmptyDescription>
+            {ui("Chưa chọn nguồn nào. Tìm và chọn nguồn ở ô phía trên.")}
+          </EmptyDescription>
+        </Empty>
       )}
     </div>
   );
