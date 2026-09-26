@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,7 @@ export function DocumentPreviewContent({
             </p>
           </div>
         ) : (
-          <div className={variant === "chat" ? "space-y-0" : "space-y-4"}>
+          <div className={cn("flex flex-col", variant !== "chat" && "gap-4")}>
             {detail.data.passages.map((passage) => {
               const isMatch =
                 !!activeMatch &&
@@ -84,7 +85,10 @@ export function DocumentPreviewContent({
                     </p>
                   ) : null}
                   <p
-                    className={`whitespace-pre-wrap break-words text-content-primary ${variant === "chat" ? "text-sm leading-7" : "font-main-content-body"}`}
+                    className={cn(
+                      "whitespace-pre-wrap break-words text-content-primary",
+                      variant === "chat" ? "text-sm leading-7" : "font-main-content-body",
+                    )}
                   >
                     {passageBody(passage.content).trim()}
                   </p>

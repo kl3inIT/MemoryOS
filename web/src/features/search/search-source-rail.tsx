@@ -47,7 +47,7 @@ export function SearchSourceRail({
       >
         {ui("Source")}
       </h2>
-      <ul className="space-y-0.5">
+      <ul className="flex flex-col gap-0.5">
         {options.map((option) => (
           <li key={option.value}>
             <button

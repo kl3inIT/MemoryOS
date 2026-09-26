@@ -68,7 +68,7 @@ export function CitationRail({
         </h3>
         {children}
       </div>
-      <ol className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-4 pb-4">
+      <ol className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-4 pb-4">
         {entries.map((entry, index) => {
           const place = readSourceLocation(entry.provenance ?? []);
           const pages = formatPages(place.pages);

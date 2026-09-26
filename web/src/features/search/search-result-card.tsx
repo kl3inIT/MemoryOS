@@ -133,7 +133,7 @@ export function SearchResultCard({ item, query, onOpen }: SearchResultCardProps)
           </button>
         ) : null}
         {related.length ? (
-          <ul className="space-y-0.5">
+          <ul className="flex flex-col gap-0.5">
             {related.map((section, index) => (
               <li key={`${section.startOrdinal}:${section.endOrdinal}`}>
                 <button
