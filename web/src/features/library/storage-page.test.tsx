@@ -1,21 +1,16 @@
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
+import { HttpResponse } from "msw";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { i18n } from "@/i18n/index";
+import { handleGetChatLibraryTrashWindow, handleGetChatLibraryUsage } from "@/lib/hey-api/msw.gen";
+import type { ChatLibraryUsage } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { StoragePage } from "./storage-page";
 
-const loadLibraryUsage = vi.hoisted(() => vi.fn());
-const loadTrashWindow = vi.hoisted(() => vi.fn());
+const usage = (body: ChatLibraryUsage) => server.use(handleGetChatLibraryUsage({ body }));
 
-vi.mock("./library", () => ({
-  chatLibraryKey: ["chat-library"],
-  loadLibraryUsage: (...args: unknown[]) => loadLibraryUsage(...args),
-  loadTrashWindow: (...args: unknown[]) => loadTrashWindow(...args),
-}));
-vi.mock("@/features/identity/application-session-context", () => ({
-  useApplicationSession: () => ({ actorId: "actor", authorizationVersion: 1, capabilities: [] }),
-}));
 vi.mock("@tanstack/react-router", () => ({
   Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
 }));
@@ -32,15 +27,14 @@ function show(retention?: ReactNode) {
 
 beforeEach(async () => {
   await i18n.changeLanguage("vi");
-  loadTrashWindow.mockResolvedValue(30);
+  server.use(handleGetChatLibraryTrashWindow({ body: { days: 30 } }));
 });
 afterEach(() => {
   cleanup();
-  vi.clearAllMocks();
 });
 
 it("shows what is used against the deployment limit, biggest kind first", async () => {
-  loadLibraryUsage.mockResolvedValue({
+  usage({
     usedBytes: 20 * 1024 * 1024,
     fileCount: 81,
     limitBytes: 512 * 1024 * 1024,
@@ -63,7 +57,7 @@ it("shows what is used against the deployment limit, biggest kind first", async 
 });
 
 it("warns when the library is nearly full", async () => {
-  loadLibraryUsage.mockResolvedValue({
+  usage({
     usedBytes: 500 * 1024 * 1024,
     fileCount: 12,
     limitBytes: 512 * 1024 * 1024,
@@ -75,7 +69,7 @@ it("warns when the library is nearly full", async () => {
 });
 
 it("says there is no limit when the deployment sets none, and shows no meter with it", async () => {
-  loadLibraryUsage.mockResolvedValue({
+  usage({
     usedBytes: 1024,
     fileCount: 1,
     limitBytes: null,
@@ -91,7 +85,7 @@ it("says there is no limit when the deployment sets none, and shows no meter wit
 });
 
 it("holds what the library's own panel holds: the trash window and the retention Chat supplies", async () => {
-  loadLibraryUsage.mockResolvedValue({
+  usage({
     usedBytes: 3072,
     fileCount: 2,
     limitBytes: 10240,
@@ -106,7 +100,9 @@ it("holds what the library's own panel holds: the trash window and the retention
 });
 
 it("offers a way to try again when the usage cannot be read", async () => {
-  loadLibraryUsage.mockRejectedValue(new Error("nope"));
+  server.use(
+    handleGetChatLibraryUsage(() => HttpResponse.json({ code: "UNAVAILABLE" }, { status: 503 })),
+  );
   show();
 
   expect(await screen.findByText("Không tải được dung lượng đã dùng.")).toBeInTheDocument();

@@ -5,7 +5,8 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { i18n } from "@/i18n/index";
 import { cn } from "@/lib/utils";
 import { fileSize } from "@/lib/file-size";
-import { type loadLibraryUsage, type LibraryCategory } from "./library";
+import type { ChatLibraryUsage } from "@/lib/hey-api/types.gen";
+import type { LibraryCategory } from "./library";
 import { categoryLabels } from "./library-labels";
 import { CATEGORY_ICONS } from "./library-icons";
 
@@ -25,7 +26,7 @@ const CATEGORY_COLOURS: Record<LibraryCategory, string> = {
   OTHER: "var(--chart-neutral)",
 };
 
-export type LibraryUsage = Awaited<ReturnType<typeof loadLibraryUsage>>;
+export type LibraryUsage = ChatLibraryUsage;
 
 /**
  * What this person has stored and what they may store (ChatGPT "Bộ nhớ lưu trữ"): the meter, then one row per

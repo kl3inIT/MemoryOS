@@ -1,13 +1,15 @@
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { HardDrive } from "lucide-react";
-import { Alert, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { chatLibraryKey, loadLibraryUsage, loadTrashWindow } from "./library";
+import {
+  getChatLibraryTrashWindowOptions,
+  getChatLibraryUsageOptions,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import { StorageMeter } from "./storage-meter";
 
 /**
@@ -23,14 +25,11 @@ export function StoragePage({
   retention?: ReactNode;
 }) {
   const ui = useAppTranslation();
-  const { actorId, authorizationVersion } = useApplicationSession();
-  const usage = useQuery({
-    queryKey: ["chat-library-usage", actorId, authorizationVersion],
-    queryFn: ({ signal }) => loadLibraryUsage(signal),
-  });
+  const usage = useQuery(getChatLibraryUsageOptions());
   const trashWindow = useQuery({
-    queryKey: [...chatLibraryKey, actorId, authorizationVersion, "trash-window"],
-    queryFn: ({ signal }) => loadTrashWindow(signal),
+    ...getChatLibraryTrashWindowOptions(),
+    select: (window) => window.days,
+    // A deleted file stays restorable for days, so the window is read again only after minutes.
     staleTime: 5 * 60_000,
   });
 
@@ -41,13 +40,15 @@ export function StoragePage({
         title={ui("Bộ nhớ lưu trữ")}
         description={ui("Tuỳ chọn cho các tệp của bạn.")}
       />
-      {usage.isPending && <Skeleton className="h-40 w-full max-w-2xl rounded-xl" />}
+      {usage.isPending && <Skeleton className="h-40 w-full max-w-2xl" />}
       {usage.isError && (
         <Alert variant="destructive">
           <AlertTitle>{ui("Không tải được dung lượng đã dùng.")}</AlertTitle>
-          <Button size="sm" prominence="internal" onClick={() => void usage.refetch()}>
-            {ui("Thử lại")}
-          </Button>
+          <AlertDescription>
+            <Button size="sm" prominence="internal" onClick={() => void usage.refetch()}>
+              {ui("Thử lại")}
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
       {usage.isSuccess && <StorageMeter usage={usage.data} />}
