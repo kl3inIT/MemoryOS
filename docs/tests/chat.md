@@ -119,6 +119,7 @@ API tests use synthetic Actor/OIDC fixtures; the SSE replay/lease and Nginx test
 | Browser socket sends PCM/end, applies current cumulative text, ignores delayed/invalid revisions, retains interim on final timeout and maps server/handshake errors | `transcribe-socket.test.ts` |
 | assistant-ui dictation keeps the draft, exposes live interim text, settles final text and Auto-Send behavior | `memoryos-dictation-adapter.test.ts`, `voice-dictation.test.ts`, `voice-dictation.spec.ts` with Chromium fake media and mocked WebSocket |
 | Voice provider administration, settings, read-aloud, streaming synthesis, Auto-Playback and auto-listen | Core/API/Vitest/Playwright cases enumerated in [MEM-91 verification](../increments/active/mem-91-chat-voice/verification.md) |
+| A read-aloud response releases its provider slot when the body ran, when the async request timed out first and when the executor refused the body; a slot lease held past its maximum is reclaimed, its speech stopped and a late release frees nothing; releasing twice returns one slot; streaming speech returns its slot and records usage once | `VoiceSynthesisAsyncReleaseTest` (real `StreamingResponseBodyReturnValueHandler` and `WebAsyncManager`), `SynthesisSlotsTest`, `VoiceSynthesisServiceTest` |
 
 The controlled OpenAI fixture verifies MemoryOS protocol construction and fallback, not live service acceptance, latency, billing or server VAD. Live OpenAI, OpenAI-compatible, ElevenLabs/Azure, actual microphones/speakers and Safari remain explicit acceptance gates.
 

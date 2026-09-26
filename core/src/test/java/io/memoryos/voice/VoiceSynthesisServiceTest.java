@@ -176,7 +176,8 @@ class VoiceSynthesisServiceTest {
         Mockito.when(connections.key(tts)).thenReturn("voice-secret");
         ObjectProvider<AiUsageRecorder> recorders = mock(ObjectProvider.class);
         Mockito.when(recorders.getIfAvailable()).thenReturn(usage);
-        return new VoiceSynthesisService(connections, mock(IamAuthorization.class), meters, recorders);
+        return new VoiceSynthesisService(connections, mock(IamAuthorization.class), meters, recorders,
+                VoiceSynthesisService.DEFAULT_MAX_STREAM_DURATION);
     }
 
     @Test
