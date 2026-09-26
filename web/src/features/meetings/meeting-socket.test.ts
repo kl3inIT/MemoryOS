@@ -50,11 +50,13 @@ function connect() {
 }
 
 describe("meeting track socket", () => {
-  it("addresses the track at a whole-millisecond offset over a secure same-origin socket", () => {
-    const { socket } = connect();
+  it("addresses the track at a whole-millisecond offset over a secure same-origin socket", async () => {
+    const { opening, socket } = connect();
     expect(socket().url).toBe(
       "wss://memoryos.example/api/meeting-stream?meeting=meeting-1&track=TAB&offset=61234&ticket=ticket-value",
     );
+    socket().receive({ type: "ready" });
+    (await opening).close();
   });
 
   it("opens on ready, sends audio, relays previews and stored utterances, and finishes after the server", async () => {

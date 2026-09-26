@@ -57,13 +57,19 @@ describe("voice transcription socket", () => {
     vi.useRealTimers();
   });
 
-  it("connects to the same-origin secure stream with the ticket and language", () => {
-    expect(connect({ language: "en" }).socket().url).toBe(
+  it("connects to the same-origin secure stream with the ticket and language", async () => {
+    const secure = connect({ language: "en" });
+    const local = connect({ location: { origin: "http://127.0.0.1:8080", protocol: "http:" } });
+    expect(secure.socket().url).toBe(
       "wss://memoryos.example/api/chat/voice/transcribe/stream?ticket=ticket-value&language=en",
     );
-    expect(
-      connect({ location: { origin: "http://127.0.0.1:8080", protocol: "http:" } }).socket().url,
-    ).toBe("ws://127.0.0.1:8080/api/chat/voice/transcribe/stream?ticket=ticket-value&language=vi");
+    expect(local.socket().url).toBe(
+      "ws://127.0.0.1:8080/api/chat/voice/transcribe/stream?ticket=ticket-value&language=vi",
+    );
+    for (const connection of [secure, local]) {
+      connection.socket().open();
+      (await connection.opening).close();
+    }
   });
 
   it("streams interim text and resolves the final transcript after end", async () => {
