@@ -18,7 +18,7 @@ const PAGE = 30;
 
 type RemoteThreadMetadata = Awaited<ReturnType<RemoteThreadListAdapter["fetch"]>>;
 
-export type ChatThreadCustom = Pick<
+type ChatThreadCustom = Pick<
   ChatSession,
   | "personaId"
   | "rootMessageId"
