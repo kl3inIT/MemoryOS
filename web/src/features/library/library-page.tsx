@@ -2,7 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearch } from "@tanstack/react-router";
 import { Download, Trash2, X } from "lucide-react";
-import { AppShell } from "@/components/app-shell/app-shell";
+import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -324,7 +324,8 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
   };
 
   return (
-    <AppShell pageTitle={ui("Thư viện")}>
+    <>
+      <AppShellHeader title={ui("Thư viện")} />
       <SettingsLayout wide>
         <LibraryDropZone onFiles={uploads.start}>
           <PageHeader
@@ -619,7 +620,7 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
           setPurging(undefined);
         }}
       />
-    </AppShell>
+    </>
   );
 }
 

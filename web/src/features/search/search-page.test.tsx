@@ -13,6 +13,7 @@ import { ApplicationSessionProvider } from "@/features/identity/application-sess
 import { ThemeProvider } from "@/features/theme/theme-provider";
 import { MicrophoneUnavailableError } from "@/features/voice/capture/audio-capture";
 import type * as VoiceDictationModule from "@/features/voice/voice-dictation";
+import { AppShell } from "@/components/app-shell/app-shell";
 import { SearchPage } from "./search-page";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type * as ChatSdk from "@/lib/hey-api/sdk.gen";
@@ -74,7 +75,9 @@ async function renderNewSession(session: ApplicationSession = OWNER_SESSION) {
     component: () => (
       <ApplicationSessionProvider session={session}>
         <ThemeProvider>
-          <SearchPage loadDocumentSets={loadDocumentSetsMock} />
+          <AppShell>
+            <SearchPage loadDocumentSets={loadDocumentSetsMock} />
+          </AppShell>
         </ThemeProvider>
       </ApplicationSessionProvider>
     ),

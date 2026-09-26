@@ -23,7 +23,7 @@ import {
   Users,
   WifiOff,
 } from "lucide-react";
-import { AppShell } from "@/components/app-shell/app-shell";
+import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { BrandLoader } from "@/components/brand-loader";
 import { DangerZone } from "@/components/composites/danger-zone";
 import { EmptyState } from "@/components/composites/empty-state";
@@ -183,7 +183,8 @@ export function MeetingPage({
 
   if (meeting.isPending)
     return (
-      <AppShell pageTitle={ui("Cuộc họp")}>
+      <>
+        <AppShellHeader title={ui("Cuộc họp")} />
         <SettingsLayout wide className="gap-6 md:pt-8">
           <PageHeader title={ui("Cuộc họp")} icon={<Mic />} />
           <div
@@ -193,11 +194,12 @@ export function MeetingPage({
             <BrandLoader label={ui("Đang tải cuộc họp")} />
           </div>
         </SettingsLayout>
-      </AppShell>
+      </>
     );
   if (meeting.isError)
     return (
-      <AppShell pageTitle={ui("Cuộc họp")}>
+      <>
+        <AppShellHeader title={ui("Cuộc họp")} />
         <SettingsLayout wide className="gap-6 md:pt-8">
           <PageHeader title={ui("Cuộc họp")} icon={<Mic />} />
           <EmptyState
@@ -212,7 +214,7 @@ export function MeetingPage({
             }
           />
         </SettingsLayout>
-      </AppShell>
+      </>
     );
   const data = meeting.data;
   const recording =
@@ -311,7 +313,8 @@ export function MeetingPage({
   const reconnecting = snapshot.tracks.some((track) => track.reconnecting);
 
   return (
-    <AppShell pageTitle={data.title}>
+    <>
+      <AppShellHeader title={data.title} />
       {recording && (
         <RecordingBar
           snapshot={snapshot}
@@ -614,7 +617,7 @@ export function MeetingPage({
           />
         )}
       </SettingsLayout>
-    </AppShell>
+    </>
   );
 }
 

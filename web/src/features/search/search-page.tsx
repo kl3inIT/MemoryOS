@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { AppShell } from "@/components/app-shell/app-shell";
+import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { BrandLoader } from "@/components/brand-loader";
 import { Button } from "@/components/ui/button";
 import {
@@ -96,7 +96,8 @@ export function SearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSearchD
   const canSearch = useGlobalCapability("SEARCH_READ");
   if (!canSearch) {
     return (
-      <AppShell pageTitle={ui("Search")}>
+      <>
+        <AppShellHeader title={ui("Search")} />
         <section role="alert" className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8">
           <h1 className="font-heading-h2 text-content-primary">{ui("Search access denied")}</h1>
           <p className="mt-2 text-content-secondary">
@@ -105,7 +106,7 @@ export function SearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSearchD
             )}
           </p>
         </section>
-      </AppShell>
+      </>
     );
   }
   return <AuthorizedSearchPage loadDocumentSets={loadDocumentSets} />;
@@ -325,7 +326,8 @@ function AuthorizedSearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSear
   const totalPages = Math.min(MAX_PAGES, Math.max(1, Math.ceil(totalResults / PAGE_SIZE)));
 
   return (
-    <AppShell pageTitle={ui("Search documents")}>
+    <>
+      <AppShellHeader title={ui("Search documents")} />
       <section
         className={cn(
           "mx-auto w-full max-w-4xl px-5 py-5 sm:px-8 sm:py-7",
@@ -704,7 +706,7 @@ function AuthorizedSearchPage({ loadDocumentSets }: { loadDocumentSets: LoadSear
           onClose={() => setSelected(null)}
         />
       ) : null}
-    </AppShell>
+    </>
   );
 }
 

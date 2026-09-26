@@ -82,10 +82,6 @@ vi.mock("@/features/identity/application-session-context", () => ({
   useApplicationSession: () => ({ actorId: "actor", authorizationVersion: 1, capabilities: [] }),
 }));
 
-vi.mock("@/components/app-shell/app-shell", () => ({
-  AppShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
-
 const file = (overrides: Partial<ChatLibraryFile> = {}): ChatLibraryFile => ({
   source: "GENERATED",
   id: "11111111-1111-4111-8111-111111111111",
