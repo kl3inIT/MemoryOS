@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Download, Trash2, X } from "lucide-react";
@@ -56,6 +56,7 @@ import {
   type ContentMatch,
   type LibraryFile,
 } from "./library";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 /**
  * The file library: uploads, files run_python generated and generated images in one owner-private list. What it
@@ -79,7 +80,7 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
     if (search !== shown.q) setSearch(shown.q);
   }
   const offset = shown.page * size;
-  const query = useDeferredValue(search.trim());
+  const query = useDebouncedValue(search.trim(), 250);
   const [renaming, setRenaming] = useState<LibraryFile>();
   const [layout, setLayout] = useState<LibraryLayout>("list");
   const [selected, setSelected] = useState<string[]>([]);
@@ -103,10 +104,10 @@ export function LibraryPage({ chat }: { chat?: LibraryChat }) {
     show({ ...next, page: 0 }, replace);
 
   useEffect(() => {
-    if (search !== shown.q) filterBy({ q: search }, true);
-    // Only typing writes the search; the other filters navigate themselves.
+    if (query !== shown.q) filterBy({ q: query }, true);
+    // Only the settled search is written; the other filters navigate themselves.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [query]);
 
   const uploads = useLibraryUploads();
   const archive = useLibraryArchive();

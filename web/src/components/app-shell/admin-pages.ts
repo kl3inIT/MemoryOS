@@ -237,7 +237,7 @@ export const adminPages: readonly AdminPageEntry[] = [
   },
 ];
 
-function adminPage(id: AdminPage) {
+export function adminPage(id: AdminPage) {
   const entry = adminPages.find((page) => page.id === id);
   if (!entry) throw new Error(`Administration page ${id} is not declared`);
   return entry;

@@ -39,19 +39,29 @@ export type AdminAuthority = {
   canReadChatHistory: boolean;
 };
 
+/** What an identity lets a person do in administration; the hook and route loaders read the same rule. */
+export function adminAuthorityOf(
+  identity: Pick<CurrentIdentity, "capabilities" | "scopedCapabilities">,
+) {
+  const global = (capability: ApplicationCapability) => identity.capabilities.includes(capability);
+  const any = (capability: ApplicationCapability) =>
+    global(capability) || identity.scopedCapabilities.includes(capability);
+  return {
+    canManageUsers: global("USERS_MANAGE"),
+    canReadGroups: any("GROUPS_READ"),
+    canReadSources: any("SOURCES_READ"),
+    canManageModels: global("MODELS_MANAGE"),
+    canManageProviders: global("SYSTEM_ADMIN"),
+    canManageMcp: global("MCP_MANAGE"),
+    canManageAgents: global("AGENTS_MANAGE"),
+    canReadAudit: global("AUDIT_READ"),
+    canReadChatHistory: global("CHAT_HISTORY_READ"),
+  } satisfies AdminAuthority;
+}
+
 /** The single product rule for who may enter administration and where the entry lands. */
 export function useAdminAccess() {
-  const authority: AdminAuthority = {
-    canManageUsers: useGlobalCapability("USERS_MANAGE"),
-    canReadGroups: useCapabilityAuthority("GROUPS_READ") !== "none",
-    canReadSources: useCapabilityAuthority("SOURCES_READ") !== "none",
-    canManageModels: useGlobalCapability("MODELS_MANAGE"),
-    canManageProviders: useGlobalCapability("SYSTEM_ADMIN"),
-    canManageMcp: useGlobalCapability("MCP_MANAGE"),
-    canManageAgents: useGlobalCapability("AGENTS_MANAGE"),
-    canReadAudit: useGlobalCapability("AUDIT_READ"),
-    canReadChatHistory: useGlobalCapability("CHAT_HISTORY_READ"),
-  };
+  const authority: AdminAuthority = adminAuthorityOf(useApplicationSession());
   return {
     ...authority,
     authority,
