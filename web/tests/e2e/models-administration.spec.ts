@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { expectNoSeriousA11yViolations } from "./axe";
 import type {
   CurrentIdentity,
   ListChatProviderAdaptersResponse,
@@ -67,6 +68,7 @@ for (const width of [1280, 390]) {
     const dialog = page.getByRole("dialog", { name: "Add provider", exact: true });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel("Provider name", { exact: true })).toBeFocused();
+    await expectNoSeriousA11yViolations(page);
     await dialog.getByLabel("Provider name", { exact: true }).fill("Private CPU service");
     await dialog
       .getByLabel("Endpoint URL", { exact: true })

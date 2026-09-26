@@ -49,10 +49,18 @@ export function RadioCard({
   return (
     <FieldLabel htmlFor={id}>
       <Field orientation="horizontal">
-        <RadioGroupItem id={id} value={value} />
+        {/* A label wrapping a radio button does not name it for every assistive technology, so the title does. */}
+        <RadioGroupItem
+          id={id}
+          value={value}
+          aria-labelledby={`${id}-title`}
+          aria-describedby={description ? `${id}-description` : undefined}
+        />
         <FieldContent>
-          <FieldTitle>{title}</FieldTitle>
-          {description ? <FieldDescription>{description}</FieldDescription> : null}
+          <FieldTitle id={`${id}-title`}>{title}</FieldTitle>
+          {description ? (
+            <FieldDescription id={`${id}-description`}>{description}</FieldDescription>
+          ) : null}
         </FieldContent>
       </Field>
     </FieldLabel>

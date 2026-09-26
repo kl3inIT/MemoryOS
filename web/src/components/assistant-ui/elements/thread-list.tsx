@@ -35,6 +35,7 @@ export function ThreadList({
   return (
     <div
       data-slot="thread-list"
+      role="group"
       aria-label={label}
       className={cn("flex w-full min-w-0 flex-col gap-0.5", className)}
     >

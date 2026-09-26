@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { expect, test } from "@playwright/test";
+import { expectNoSeriousA11yViolations } from "./axe";
 
 const ACTOR_ID = "7b9f56d0-3026-4d2d-8e5f-1d6af6da93a1";
 const OWNER_SESSION = {
@@ -82,6 +83,7 @@ test("renders the authenticated application shell", async ({ page }) => {
     page.getByRole("heading", { name: "What would you like to explore?" }),
   ).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Question", exact: true })).toBeEnabled();
+  await expectNoSeriousA11yViolations(page);
   await page.reload();
   await expect(
     page.getByRole("heading", { name: "What would you like to explore?" }),
@@ -239,6 +241,7 @@ test("opens the separate administration shell", async ({ page }) => {
     "page",
   );
   await expect(page.getByRole("heading", { name: "Existing sources", exact: true })).toBeVisible();
+  await expectNoSeriousA11yViolations(page);
 });
 
 test("separates listing Sources from adding one in the administration menu", async ({ page }) => {
@@ -316,6 +319,7 @@ test("keeps one document, identity session, and admin shell across internal rout
   const adminSidebar = page.getByRole("complementary", { name: "Administration sidebar" });
   await adminSidebar.getByRole("button", { name: "Collapse sidebar" }).click();
   await expect(adminSidebar.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+  await expectNoSeriousA11yViolations(page);
   await adminSidebar.getByRole("link", { name: "Users", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/users(?:\?|$)/);
   await expect(adminSidebar.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
@@ -349,6 +353,7 @@ test("closes mobile administration navigation after a client route change", asyn
   await page.goto("/admin");
   await page.getByRole("button", { name: "Open navigation" }).click();
   await expect(page.getByRole("dialog", { name: "Navigation" })).toBeVisible();
+  await expectNoSeriousA11yViolations(page);
   await page.getByRole("link", { name: "Users", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/users(?:\?|$)/);
   await expect(page.getByRole("dialog", { name: "Navigation" })).toHaveCount(0);
