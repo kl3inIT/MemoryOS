@@ -160,7 +160,7 @@ class McpClientsIntegrationTest {
             String name, boolean readOnly, Function<Map<String, Object>, McpSchema.CallToolResult> handler) {
         var schema = Map.<String, Object>of("type", "object",
                 "properties", Map.of("text", Map.of("type", "string")));
-        var tool = McpSchema.Tool.builder().name(name).description(name + " tool").inputSchema(schema)
+        var tool = McpSchema.Tool.builder(name, schema).description(name + " tool")
                 .annotations(McpSchema.ToolAnnotations.builder().readOnlyHint(readOnly).build()).build();
         return McpServerFeatures.SyncToolSpecification.builder().tool(tool)
                 .callHandler((exchange, request) -> handler.apply(request.arguments())).build();

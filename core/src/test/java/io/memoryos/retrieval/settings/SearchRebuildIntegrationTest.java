@@ -126,6 +126,8 @@ class SearchRebuildIntegrationTest {
     private JdbcDocumentRepository documents;
     private JdbcOperationDispatchRepository dispatch;
     private Process process;
+    /** Every Process opens its own OpenSearch transport; each is closed after the test. */
+    private final List<TestSearchGateways.Opened> transports = new ArrayList<>();
 
     /** One api or worker process: its own generation cache, index service and search work. */
     private final class Process {
@@ -156,7 +158,9 @@ class SearchRebuildIntegrationTest {
             when(sourceSearch.indexAccess(any(), ArgumentMatchers.any(DocumentId.class)))
                     .thenReturn(new DocumentAccess(true, Set.of()));
             SourceSearchMocks.answerPagesFromSingleDocuments(sourceSearch);
-            var gateway = gateways.apply(TestSearchGateways.gateway(properties, mapper));
+            var opened = TestSearchGateways.open(properties, mapper);
+            transports.add(opened);
+            var gateway = gateways.apply(opened.gateway());
             index = new OpenSearchIndexService(gateway, generations, properties, mapper, chunks, sourceSearch,
                     new SearchTimings(new SimpleMeterRegistry(), ObservationRegistry.NOOP));
             work = new JdbcSearchWorkRepository(jdbc);
@@ -222,7 +226,9 @@ class SearchRebuildIntegrationTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
+        for (var transport : transports) transport.close();
+        transports.clear();
         if (scheduler != null) scheduler.close();
         if (embeddings != null) embeddings.close();
         if (database != null) database.close();

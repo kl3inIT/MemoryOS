@@ -108,7 +108,7 @@ public final class McpFixtureServer implements AutoCloseable {
     }
 
     private static McpServerFeatures.SyncToolSpecification tool(String name, String title, Map<String, Object> schema, boolean readOnly) {
-        var tool = McpSchema.Tool.builder().name(name).title(title).description(name + " fixture").inputSchema(schema)
+        var tool = McpSchema.Tool.builder(name, schema).title(title).description(name + " fixture")
                 .annotations(McpSchema.ToolAnnotations.builder().readOnlyHint(readOnly).destructiveHint(!readOnly).build()).build();
         return McpServerFeatures.SyncToolSpecification.builder().tool(tool)
                 .callHandler((exchange, request) -> {

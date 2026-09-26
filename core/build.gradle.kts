@@ -17,10 +17,6 @@ tasks.withType<Test>().configureEach {
     maxHeapSize = "1536m"
     // Core is the longest test task; two JVMs each own a PostgreSQL container and template (TestDatabase).
     maxParallelForks = 2
-    // A test JVM that runs out of heap writes a dump; CI analyses it and uploads the leak suspects.
-    val heapDumps = layout.buildDirectory.dir("heapdump").get().asFile
-    jvmArgs("-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=${heapDumps.invariantSeparatorsPath}")
-    doFirst { heapDumps.mkdirs() }
     // Opt-in measurement must rerun when enabled instead of reusing a skipped result.
     inputs.property("memoryosSearchAuthzMeasure", providers.environmentVariable("MEMORYOS_SEARCH_AUTHZ_MEASURE").orElse("false"))
 }
