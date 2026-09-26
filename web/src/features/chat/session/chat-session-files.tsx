@@ -200,7 +200,7 @@ export function ChatSessionFiles({
         {count > 0 && (
           <span
             aria-hidden="true"
-            className="absolute -top-1 -right-1 min-w-4 rounded-full bg-surface-accent px-1 text-[10px] leading-4 font-medium text-content-on-accent"
+            className="absolute -top-1 -right-1 min-w-4 rounded-full bg-primary px-1 text-[10px] leading-4 font-medium text-primary-foreground"
           >
             {count > 99 ? "99+" : count}
           </span>

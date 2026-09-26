@@ -5,15 +5,14 @@ import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { CsvView } from "@/features/preview/csv-view";
-import { DocxView } from "@/features/preview/docx-view";
 import { DownloadView } from "@/features/preview/download-view";
-import { ImageControls, ImageView } from "@/features/preview/image-view";
+import { FilePreview } from "@/features/preview/file-preview";
+import { readPreviewContent, type PreviewContent } from "@/features/preview/preview-content";
+import { ImageControls } from "@/features/preview/image-view";
 import { useObjectUrl } from "@/features/preview/use-object-url";
 import {
   codeLanguage,
   lineCount,
-  MAX_TEXT_PREVIEW_BYTES,
   parseCsv,
   previewKind,
   previewSize,
@@ -21,10 +20,6 @@ import {
   type PreviewKind,
   type Sheets,
 } from "@/features/preview/preview-kind";
-import { SheetView } from "@/features/preview/sheet-view";
-import { MarkdownView } from "@/features/preview/markdown-view";
-import { TextView } from "@/features/preview/text-view";
-import { PdfView } from "@/features/preview/pdf-view";
 import { uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
@@ -83,12 +78,8 @@ async function readSheets(target: PreviewTarget, signal: AbortSignal): Promise<S
   return sheetsSchema.parse(data).sheets;
 }
 
-type Loaded =
-  | { kind: "xlsx"; sheets: Sheets }
-  | { kind: "text" | "code"; text: string; truncated: boolean; bytes: number }
-  | { kind: "markdown" | "csv"; text: string; truncated: boolean; bytes: number }
-  | { kind: "image" | "pdf" | "docx"; blob: Blob; converted?: boolean }
-  | { kind: "doc" | "unsupported" };
+/** A deck's PDF rendering is shown in place of the deck, and the header says so. */
+type Loaded = PreviewContent & { converted?: boolean };
 
 /**
  * Onyx PreviewModal fetch: resolve the variant by name, then by the stored type the response reports, so a
@@ -107,7 +98,7 @@ async function load(target: PreviewTarget, signal: AbortSignal): Promise<Loaded>
       signal,
     });
     if (!(data instanceof Blob)) throw new Error("Invalid preview");
-    return { kind: "pdf", blob: data.slice(0, data.size, "application/pdf"), converted: true };
+    return { kind: "pdf", file: data.slice(0, data.size, "application/pdf"), converted: true };
   }
   if (known === "doc" || (known === "unsupported" && target.mediaType)) return { kind: known };
   const blob = await readBlob(target, signal);
@@ -115,19 +106,12 @@ async function load(target: PreviewTarget, signal: AbortSignal): Promise<Loaded>
     target.mediaType ?? (blob.type && blob.type !== "application/octet-stream" ? blob.type : "");
   const kind = previewKind(target.filename, stored || "application/octet-stream");
   if (kind === "xlsx") return { kind, sheets: await readSheets(target, signal) };
-  if (kind === "doc" || kind === "unsupported" || kind === "pptx")
-    return { kind: kind === "pptx" ? "unsupported" : kind };
-  if (kind === "image" || kind === "pdf" || kind === "docx") {
-    // The attachment route serves octet-stream under nosniff; give the viewer the stored type.
-    return { kind, blob: stored && blob.type !== stored ? blob.slice(0, blob.size, stored) : blob };
-  }
-  const truncated = blob.size > MAX_TEXT_PREVIEW_BYTES;
-  return {
+  if (kind === "pptx") return { kind: "unsupported" };
+  // The attachment route serves octet-stream under nosniff; give the viewer the stored type.
+  return readPreviewContent(
+    stored && blob.type !== stored ? blob.slice(0, blob.size, stored) : blob,
     kind,
-    text: await blob.slice(0, MAX_TEXT_PREVIEW_BYTES).text(),
-    truncated,
-    bytes: blob.size,
-  };
+  );
 }
 
 const SIZES = {
@@ -376,8 +360,9 @@ export function ChatFilePreviewModal({
                 </div>
               </div>
             ) : loaded.isError ? (
-              <Unavailable
-                target={target}
+              <DownloadView
+                href={downloadUrl(target)}
+                filename={target.filename}
                 message={ui("Không xem trước được tệp. Bạn vẫn có thể tải tệp xuống.")}
               />
             ) : (
@@ -399,12 +384,11 @@ export function ChatFilePreviewModal({
                       onNatural={setNatural}
                     />
                   ) : (
-                    <Content
-                      loaded={override ?? loaded.data}
-                      target={target}
-                      zoom={zoom}
-                      rotation={rotation}
-                      onZoom={zoomBy}
+                    <FilePreview
+                      content={override ?? loaded.data}
+                      filename={target.filename}
+                      download={downloadUrl(target)}
+                      image={{ zoom, rotation, onZoom: zoomBy }}
                       onDocx={setDocxWords}
                     />
                   )}
@@ -555,88 +539,6 @@ function describe(
     default:
       return {};
   }
-}
-
-function Content({
-  loaded,
-  target,
-  zoom,
-  rotation,
-  onZoom,
-  onDocx,
-}: {
-  loaded: Loaded;
-  target: PreviewTarget;
-  zoom: number;
-  rotation: number;
-  /** Wheel over the picture; the same callback on every render, so its listener is attached once. */
-  onZoom: (deltaY: number) => void;
-  onDocx: (result: { words: number; text: string }) => void;
-}) {
-  const ui = useAppTranslation();
-  switch (loaded.kind) {
-    case "image":
-      return (
-        <ImageView
-          blob={loaded.blob}
-          alt={target.filename}
-          zoom={zoom}
-          rotation={rotation}
-          onZoom={onZoom}
-        />
-      );
-    case "pdf":
-      return <PdfPreview blob={loaded.blob} />;
-    case "xlsx":
-      return <SheetView sheets={loaded.sheets} />;
-    case "csv":
-      return (
-        <div className="p-4">
-          <CsvView csv={loaded.text} truncated={loaded.truncated} />
-        </div>
-      );
-    case "docx":
-      return <DocxView blob={loaded.blob} onLoad={onDocx} />;
-    case "markdown":
-      return <MarkdownView text={loaded.text} truncated={loaded.truncated} />;
-    case "code":
-    case "text":
-      return (
-        <TextView
-          text={loaded.text}
-          filename={target.filename}
-          kind={loaded.kind}
-          truncated={loaded.truncated}
-        />
-      );
-    case "doc":
-      return (
-        <Unavailable
-          target={target}
-          message={ui("Không xem trước được tệp .doc cũ. Hãy tải tệp xuống để mở.")}
-        />
-      );
-    default:
-      return (
-        <Unavailable
-          target={target}
-          message={ui("Chưa xem trước được loại tệp này. Hãy tải tệp xuống để mở.")}
-        />
-      );
-  }
-}
-
-function Unavailable({ target, message }: { target: PreviewTarget; message: string }) {
-  return <DownloadView href={downloadUrl(target)} filename={target.filename} message={message} />;
-}
-
-function PdfPreview({ blob }: { blob: Blob }) {
-  // pdf.js reads the Blob directly; a blob: URL would be fetched, which connect-src 'self' refuses.
-  return (
-    <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">
-      <PdfView url={blob} pages={[]} boxes={[]} />
-    </div>
-  );
 }
 
 function CopyButton({ text }: { text: string }) {

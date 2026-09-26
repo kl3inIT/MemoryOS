@@ -1,42 +1,41 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { Link } from "@tanstack/react-router";
+import { Link, useMatch, useMatchRoute, type LinkProps } from "@tanstack/react-router";
 import {
   ArrowLeft,
-  AudioLines,
   Blocks,
-  Bot,
   ChartColumn,
-  CloudUpload,
-  Globe,
   HardDrive,
-  ImageIcon,
-  KeyRound,
-  Library,
   Menu,
   MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
-  Plug,
-  ReceiptText,
-  MessagesSquare,
-  ScrollText,
   Settings,
-  ScanSearch,
-  Sparkles,
-  SquareTerminal,
-  User,
   UserRound,
-  Users,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Dialog } from "radix-ui";
 import { AccountMenu } from "@/components/app-shell/account-menu";
+import {
+  adminGroups,
+  adminPages,
+  useCurrentAdminPage,
+  type AdminPage,
+} from "@/components/app-shell/admin-pages";
+import { AppShellHeaderContent } from "@/components/app-shell/app-shell-header";
+import { AppShellHeaderSlot } from "@/components/app-shell/app-shell-header-slot";
+import {
+  useSourceSetupProgress,
+  type SourceSetupProgress,
+} from "@/components/app-shell/source-setup-progress";
 import { Brand } from "@/components/brand";
 import { IconButton } from "@/components/ui/icon-button";
 import { SidebarSection } from "@/components/ui/sidebar-section";
 import { SidebarTab } from "@/components/ui/sidebar-tab";
 import { useAdminAccess } from "@/features/identity/application-session-context";
+import { AccessDeniedScreen } from "@/features/identity/session-states";
+import { appText, type AppText } from "@/i18n/app-text";
 import { cn } from "@/lib/utils";
 import { ChatHistorySearch } from "@/features/chat/session/chat-history-search";
 import { ChatNavigation } from "@/features/chat/session/chat-navigation";
@@ -45,49 +44,40 @@ import { MeetingsTab } from "@/features/meetings/meetings-tab";
 export type AppShellArea = "app" | "admin" | "settings";
 /** Personal settings tabs, as Onyx Settings (MEM-145). */
 export type SettingsPage = "general" | "chat" | "storage" | "connections" | "usage";
-export type AdminPage =
-  | "chatHistory"
-  | "sources"
-  | "addSource"
-  | "documentSets"
-  | "users"
-  | "groups"
-  | "web"
-  | "voice"
-  | "images"
-  | "interpreter"
-  | "chat"
-  | "providers"
-  | "models"
-  | "searchSettings"
-  | "mcp"
-  | "agents"
-  | "costs"
-  | "audit";
 
-type AppShellProps = {
-  area?: AppShellArea;
-  adminPage?: AdminPage;
-  settingsPage?: SettingsPage;
-  sourceSetup?: SourceSetupProgress;
-  pageTitle: string;
-  headerActions?: ReactNode;
-  children: ReactNode;
+type SettingsEntry = { id: SettingsPage; to: LinkProps["to"]; label: AppText; icon: LucideIcon };
+
+const generalSettings: SettingsEntry = {
+  id: "general",
+  to: "/settings/general",
+  label: appText("General"),
+  icon: UserRound,
 };
+
+const settingsPages: readonly SettingsEntry[] = [
+  generalSettings,
+  { id: "chat", to: "/settings/chat", label: appText("Chat"), icon: MessageSquare },
+  { id: "storage", to: "/settings/storage", label: appText("Bộ nhớ lưu trữ"), icon: HardDrive },
+  { id: "connections", to: "/settings/connections", label: appText("Connections"), icon: Blocks },
+  { id: "usage", to: "/settings/usage", label: appText("Usage"), icon: ChartColumn },
+];
+
+/** The personal settings tab of the current route; General owns the settings index. */
+function useCurrentSettingsPage() {
+  const matchRoute = useMatchRoute();
+  return settingsPages.find((page) => matchRoute({ to: page.to }) !== false) ?? generalSettings;
+}
 
 type SidebarContentsProps = {
   area: AppShellArea;
-  adminPage?: AdminPage;
-  settingsPage?: SettingsPage;
+  adminPage: AdminPage;
+  settingsPage: SettingsPage;
   sourceSetup?: SourceSetupProgress;
   collapsed?: boolean;
   onCollapseToggle?: () => void;
   onNavigate?: () => void;
   mobile?: boolean;
 };
-
-/** Steps of a connector setup flow, shown in place of navigation while the flow is open. */
-export type SourceSetupProgress = { steps: readonly string[]; current: number };
 
 function SourceSetupSidebarSteps({ steps, current }: SourceSetupProgress) {
   const ui = useAppTranslation();
@@ -141,8 +131,8 @@ function SourceSetupSidebarSteps({ steps, current }: SourceSetupProgress) {
 
 function SidebarContents({
   area,
-  adminPage = "sources",
-  settingsPage = "general",
+  adminPage,
+  settingsPage,
   sourceSetup,
   collapsed = false,
   onCollapseToggle,
@@ -152,19 +142,7 @@ function SidebarContents({
   const ui = useAppTranslation();
 
   const appArea = area === "app";
-  const {
-    canManageUsers,
-    canReadGroups,
-    canReadSources,
-    canManageModels,
-    canManageProviders,
-    canManageMcp,
-    canManageAgents,
-    canReadAudit,
-    canReadChatHistory,
-    canAccessAdmin,
-    adminEntryPath,
-  } = useAdminAccess();
+  const { authority, canAccessAdmin, adminEntryPath } = useAdminAccess();
 
   return (
     <div className="flex h-full min-h-0 flex-col pb-2">
@@ -246,261 +224,45 @@ function SidebarContents({
           />
         ) : area === "settings" ? (
           <SidebarSection title={ui("Settings")} collapsed={collapsed}>
-            <SidebarTab
-              to="/settings/general"
-              icon={<UserRound className="size-4" />}
-              selected={settingsPage === "general"}
-              collapsed={collapsed}
-              onClick={onNavigate}
-            >
-              {ui("General")}
-            </SidebarTab>
-            <SidebarTab
-              to="/settings/chat"
-              icon={<MessageSquare className="size-4" />}
-              selected={settingsPage === "chat"}
-              collapsed={collapsed}
-              onClick={onNavigate}
-            >
-              {ui("Chat")}
-            </SidebarTab>
-            <SidebarTab
-              to="/settings/storage"
-              icon={<HardDrive className="size-4" />}
-              selected={settingsPage === "storage"}
-              collapsed={collapsed}
-              onClick={onNavigate}
-            >
-              {ui("Bộ nhớ lưu trữ")}
-            </SidebarTab>
-            <SidebarTab
-              to="/settings/connections"
-              icon={<Blocks className="size-4" />}
-              selected={settingsPage === "connections"}
-              collapsed={collapsed}
-              onClick={onNavigate}
-            >
-              {ui("Connections")}
-            </SidebarTab>
-            <SidebarTab
-              to="/settings/usage"
-              icon={<ChartColumn className="size-4" />}
-              selected={settingsPage === "usage"}
-              collapsed={collapsed}
-              onClick={onNavigate}
-            >
-              {ui("Usage")}
-            </SidebarTab>
+            {settingsPages.map((page) => (
+              <SidebarTab
+                key={page.id}
+                to={page.to}
+                icon={<page.icon className="size-4" />}
+                selected={settingsPage === page.id}
+                collapsed={collapsed}
+                onClick={onNavigate}
+              >
+                {ui(page.label)}
+              </SidebarTab>
+            ))}
           </SidebarSection>
         ) : (
           // Each section already pads its own heading, so the menu fits a laptop screen at this gap.
           <div className="space-y-4">
-            {canManageModels ? (
-              <SidebarSection title={ui("Configuration")} collapsed={collapsed}>
-                <SidebarTab
-                  to="/admin/models"
-                  icon={<Sparkles className="size-4" />}
-                  selected={adminPage === "models"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  {ui("Mô hình")}
-                </SidebarTab>
-                <SidebarTab
-                  to="/admin/web-search"
-                  icon={<Globe className="size-4" />}
-                  selected={adminPage === "web"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  {ui("Tìm kiếm Web")}
-                </SidebarTab>
-                <SidebarTab
-                  to="/admin/voice"
-                  icon={<AudioLines className="size-4" />}
-                  selected={adminPage === "voice"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  {ui("Giọng nói")}
-                </SidebarTab>
-                <SidebarTab
-                  to="/admin/image-generation"
-                  icon={<ImageIcon className="size-4" />}
-                  selected={adminPage === "images"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  {ui("Tạo ảnh")}
-                </SidebarTab>
-                <SidebarTab
-                  to="/admin/code-interpreter"
-                  icon={<SquareTerminal className="size-4" />}
-                  selected={adminPage === "interpreter"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  {ui("Code Interpreter")}
-                </SidebarTab>
-                <SidebarTab
-                  to="/admin/chat"
-                  icon={<MessageSquare className="size-4" />}
-                  selected={adminPage === "chat"}
-                  collapsed={collapsed}
-                  onClick={onNavigate}
-                >
-                  {ui("Chat")}
-                </SidebarTab>
-              </SidebarSection>
-            ) : null}
-            {canManageAgents || canManageMcp ? (
-              <SidebarSection title={ui("Trợ lý và công cụ")} collapsed={collapsed}>
-                {canManageAgents ? (
-                  <SidebarTab
-                    to="/admin/agents"
-                    icon={<Bot className="size-4" />}
-                    selected={adminPage === "agents"}
-                    collapsed={collapsed}
-                    onClick={onNavigate}
-                  >
-                    {ui("Quản lý trợ lý")}
-                  </SidebarTab>
-                ) : null}
-                {canManageMcp ? (
-                  <SidebarTab
-                    to="/admin/mcp"
-                    icon={<Blocks className="size-4" />}
-                    selected={adminPage === "mcp"}
-                    collapsed={collapsed}
-                    onClick={onNavigate}
-                  >
-                    {ui("Máy chủ MCP")}
-                  </SidebarTab>
-                ) : null}
-              </SidebarSection>
-            ) : null}
-            {canReadSources || canManageModels ? (
-              <SidebarSection title={ui("Documents & Knowledge")} collapsed={collapsed}>
-                {canReadSources ? (
-                  <>
+            {adminGroups.map((group) => {
+              const pages = adminPages.filter(
+                (page) => page.group === group.id && page.visible(authority),
+              );
+              return pages.length > 0 ? (
+                <SidebarSection key={group.id} title={ui(group.label)} collapsed={collapsed}>
+                  {pages.map((page) => (
                     <SidebarTab
-                      to="/admin"
+                      key={page.id}
+                      to={page.to}
                       // Without this the router marks the Sources tab current on every page under /admin.
-                      activeOptions={{ exact: true }}
-                      icon={<Plug className="size-4" />}
-                      selected={adminPage === "sources"}
+                      activeOptions={page.id === "sources" ? { exact: true } : undefined}
+                      icon={<page.icon className="size-4" />}
+                      selected={adminPage === page.id}
                       collapsed={collapsed}
                       onClick={onNavigate}
                     >
-                      {ui("Existing sources")}
+                      {ui(page.label)}
                     </SidebarTab>
-                    <SidebarTab
-                      to="/admin/sources/new"
-                      icon={<CloudUpload className="size-4" />}
-                      selected={adminPage === "addSource"}
-                      collapsed={collapsed}
-                      onClick={onNavigate}
-                    >
-                      {ui("Add a source")}
-                    </SidebarTab>
-                    <SidebarTab
-                      to="/admin/document-sets"
-                      icon={<Library className="size-4" />}
-                      selected={adminPage === "documentSets"}
-                      collapsed={collapsed}
-                      onClick={onNavigate}
-                    >
-                      {ui("Bộ tài liệu")}
-                    </SidebarTab>
-                  </>
-                ) : null}
-                {canManageModels ? (
-                  <SidebarTab
-                    to="/admin/search-settings"
-                    icon={<ScanSearch className="size-4" />}
-                    selected={adminPage === "searchSettings"}
-                    collapsed={collapsed}
-                    onClick={onNavigate}
-                  >
-                    {ui("Cấu hình tìm kiếm")}
-                  </SidebarTab>
-                ) : null}
-              </SidebarSection>
-            ) : null}
-            {canManageUsers || canReadGroups || canManageProviders ? (
-              <SidebarSection title={ui("Tenant")} collapsed={collapsed}>
-                {canManageUsers ? (
-                  <SidebarTab
-                    to="/admin/users"
-                    icon={<User className="size-4" />}
-                    selected={adminPage === "users"}
-                    collapsed={collapsed}
-                    onClick={onNavigate}
-                  >
-                    {ui("Users")}
-                  </SidebarTab>
-                ) : null}
-                {canReadGroups ? (
-                  <SidebarTab
-                    to="/admin/groups"
-                    icon={<Users className="size-4" />}
-                    selected={adminPage === "groups"}
-                    collapsed={collapsed}
-                    onClick={onNavigate}
-                  >
-                    {ui("Groups")}
-                  </SidebarTab>
-                ) : null}
-                {canManageProviders ? (
-                  <SidebarTab
-                    to="/admin/identity-providers"
-                    icon={<KeyRound className="size-4" />}
-                    selected={adminPage === "providers"}
-                    collapsed={collapsed}
-                    onClick={onNavigate}
-                  >
-                    {ui("Sign-in providers")}
-                  </SidebarTab>
-                ) : null}
-              </SidebarSection>
-            ) : null}
-            {canManageModels || canReadAudit || canReadChatHistory ? (
-              <SidebarSection title={ui("Monitoring")} collapsed={collapsed}>
-                {canManageModels ? (
-                  <SidebarTab
-                    to="/admin/ai-costs"
-                    icon={<ReceiptText className="size-4" />}
-                    selected={adminPage === "costs"}
-                    collapsed={collapsed}
-                    onClick={onNavigate}
-                  >
-                    {ui("AI costs")}
-                  </SidebarTab>
-                ) : null}
-                {canReadChatHistory ? (
-                  <SidebarTab
-                    to="/admin/chat-history"
-                    icon={<MessagesSquare className="size-4" />}
-                    selected={adminPage === "chatHistory"}
-                    collapsed={collapsed}
-                    onClick={onNavigate}
-                  >
-                    {ui("Conversation history")}
-                  </SidebarTab>
-                ) : null}
-                {canReadAudit ? (
-                  <SidebarTab
-                    to="/admin/audit"
-                    icon={<ScrollText className="size-4" />}
-                    selected={adminPage === "audit"}
-                    collapsed={collapsed}
-                    onClick={onNavigate}
-                  >
-                    {ui("Audit log")}
-                  </SidebarTab>
-                ) : null}
-              </SidebarSection>
-            ) : null}
+                  ))}
+                </SidebarSection>
+              ) : null;
+            })}
           </div>
         )}
       </nav>
@@ -546,20 +308,35 @@ function SidebarContents({
   );
 }
 
-export function AppShell({
-  area = "app",
-  adminPage = "sources",
-  settingsPage,
-  sourceSetup,
-  pageTitle,
-  headerActions,
-  children,
-}: AppShellProps) {
+/**
+ * The authenticated application frame: the sidebar of the area the route is in, the header and the main region. It is
+ * rendered once by the authenticated layout, so navigating keeps it mounted; application pages put their title and
+ * actions into its header with `AppShellHeader`, administration and settings take theirs from their page tables.
+ */
+export function AppShell({ children }: { children: ReactNode }) {
   const ui = useAppTranslation();
+  const admin = useMatch({ from: "/_authenticated/admin", shouldThrow: false }) !== undefined;
+  const settings = useMatch({ from: "/_authenticated/settings", shouldThrow: false }) !== undefined;
+  const area: AppShellArea = admin ? "admin" : settings ? "settings" : "app";
+  const adminPage = useCurrentAdminPage();
+  const settingsPage = useCurrentSettingsPage();
+  const { authority } = useAdminAccess();
+  const setupProgress = useSourceSetupProgress();
+  const sourceSetup = admin ? setupProgress : undefined;
+  const pageTitle =
+    area === "admin"
+      ? ui(adminPage.title)
+      : area === "settings"
+        ? ui(settingsPage.label)
+        : undefined;
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
   const sidebarCollapsed = sourceSetup === undefined && collapsed;
+
+  // An administration page the person may not open is refused before any administration frame renders.
+  if (area === "admin" && !adminPage.visible(authority)) return <AccessDeniedScreen />;
 
   return (
     <div className="flex h-dvh min-h-0 overflow-hidden bg-surface-canvas text-content-primary">
@@ -587,8 +364,8 @@ export function AppShell({
       >
         <SidebarContents
           area={area}
-          adminPage={adminPage}
-          settingsPage={settingsPage}
+          adminPage={adminPage.id}
+          settingsPage={settingsPage.id}
           sourceSetup={sourceSetup}
           collapsed={sidebarCollapsed}
           onCollapseToggle={() => setCollapsed((current) => !current)}
@@ -614,13 +391,11 @@ export function AppShell({
                 <Menu />
               </IconButton>
             </Dialog.Trigger>
-            <span
-              title={pageTitle}
-              className="min-w-0 flex-1 truncate font-main-ui-body text-content-primary md:max-w-xl"
-            >
-              {pageTitle}
-            </span>
-            <div className="ml-auto flex shrink-0 items-center">{headerActions}</div>
+            {pageTitle === undefined ? (
+              <div ref={setHeaderSlot} className="contents" />
+            ) : (
+              <AppShellHeaderContent title={pageTitle} />
+            )}
           </header>
 
           <Dialog.Portal>
@@ -632,8 +407,8 @@ export function AppShell({
               <Dialog.Title className="sr-only">{ui("Navigation")}</Dialog.Title>
               <SidebarContents
                 area={area}
-                adminPage={adminPage}
-                settingsPage={settingsPage}
+                adminPage={adminPage.id}
+                settingsPage={settingsPage.id}
                 sourceSetup={sourceSetup}
                 mobile
                 onNavigate={() => setMobileNavigationOpen(false)}
@@ -642,13 +417,15 @@ export function AppShell({
           </Dialog.Portal>
         </Dialog.Root>
 
-        <main
-          id="main-content"
-          tabIndex={-1}
-          className="min-h-0 min-w-0 flex-1 overflow-auto outline-none [scrollbar-gutter:stable]"
-        >
-          {children}
-        </main>
+        <AppShellHeaderSlot value={headerSlot}>
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="min-h-0 min-w-0 flex-1 overflow-auto outline-none [scrollbar-gutter:stable]"
+          >
+            {children}
+          </main>
+        </AppShellHeaderSlot>
       </section>
     </div>
   );

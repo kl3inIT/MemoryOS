@@ -326,7 +326,7 @@ function FilterChip({
       className={cn(
         "h-7 rounded-full border px-3 font-secondary-body transition-colors outline-none focus-visible:ring-3 focus-visible:ring-focus-ring/40",
         pressed
-          ? "border-transparent bg-surface-accent text-content-on-accent"
+          ? "border-transparent bg-primary text-primary-foreground"
           : "border-border-default text-content-secondary hover:text-content-primary",
       )}
     >

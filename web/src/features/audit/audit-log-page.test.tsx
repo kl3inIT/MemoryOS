@@ -1,11 +1,20 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+  stripSearchParams,
+} from "@tanstack/react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AuditEvent } from "@/lib/hey-api/types.gen";
 import { createMemoryOsQueryClient } from "@/lib/query-client";
 import { changeRows } from "./audit-actions";
 import { AuditLogPage } from "./audit-log-page";
+import { auditLogSearchSchema, DEFAULT_AUDIT_PERIOD } from "./audit-log-search";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -32,7 +41,29 @@ const event = (overrides: Partial<AuditEvent>): AuditEvent => ({
   ...overrides,
 });
 
-function mount(pages: { items: AuditEvent[]; nextCursor: string | null }[] | "error") {
+let router: ReturnType<typeof auditRouter> | undefined;
+
+function auditRouter(path: string) {
+  const root = createRootRoute();
+  const authenticated = createRoute({ getParentRoute: () => root, id: "_authenticated" });
+  const admin = createRoute({ getParentRoute: () => authenticated, path: "admin" });
+  const audit = createRoute({
+    getParentRoute: () => admin,
+    path: "audit",
+    validateSearch: auditLogSearchSchema,
+    search: { middlewares: [stripSearchParams({ period: DEFAULT_AUDIT_PERIOD })] },
+    component: AuditLogPage,
+  });
+  return createRouter({
+    routeTree: root.addChildren([authenticated.addChildren([admin.addChildren([audit])])]),
+    history: createMemoryHistory({ initialEntries: [path] }),
+  });
+}
+
+function mount(
+  pages: { items: AuditEvent[]; nextCursor: string | null }[] | "error",
+  path = "/admin/audit",
+) {
   const requested: URL[] = [];
   vi.stubGlobal(
     "fetch",
@@ -44,9 +75,10 @@ function mount(pages: { items: AuditEvent[]; nextCursor: string | null }[] | "er
       return Response.json(page);
     }),
   );
+  router = auditRouter(path);
   render(
     <QueryClientProvider client={createMemoryOsQueryClient()}>
-      <AuditLogPage />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
   return requested;
@@ -99,6 +131,22 @@ describe("audit log", () => {
     expect(href.pathname).toBe("/api/audit/export");
     expect(href.searchParams.get("from")).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(href.searchParams.has("size")).toBe(false);
+  });
+
+  it("reads its filters from the address and writes the search typed there, without defaults", async () => {
+    const requested = mount(
+      [{ items: [event({})], nextCursor: null }],
+      "/admin/audit?outcome=DENIED&period=7d",
+    );
+    await screen.findByText("OpenAI");
+    expect(requested.at(-1)!.searchParams.get("outcome")).toBe("DENIED");
+
+    await userEvent.type(screen.getByRole("textbox", { name: "Search people or items" }), "Hà");
+
+    await vi.waitFor(() => expect(requested.at(-1)!.searchParams.get("q")).toBe("Hà"));
+    await vi.waitFor(() =>
+      expect(router?.state.location.searchStr).toBe("?outcome=DENIED&q=H%C3%A0"),
+    );
   });
 
   it("offers a retry when the log cannot be read", async () => {

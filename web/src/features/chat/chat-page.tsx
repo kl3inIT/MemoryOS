@@ -10,7 +10,7 @@ import { useAuiState } from "@assistant-ui/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { AppShell } from "@/components/app-shell/app-shell";
+import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import {
@@ -84,28 +84,31 @@ export function ChatPage() {
   ]);
   if (sessionId && routeError === sessionId)
     return (
-      <AppShell pageTitle={ui("Chat")}>
+      <>
+        <AppShellHeader title={ui("Chat")} />
         <div role="alert" className="space-y-3 p-6">
           <p>{ui("Không tải được hội thoại.")}</p>
           <Button prominence="secondary" onClick={retryRoute}>
             {ui("Thử lại")}
           </Button>
         </div>
-      </AppShell>
+      </>
     );
   // The server ID of a conversation created here arrives before the route changes, so promotion
   // never passes through this branch and keeps the composer mounted.
   if ((sessionId && mainRemoteId !== sessionId) || !controller)
     return (
-      <AppShell pageTitle={ui("Chat")}>
+      <>
+        <AppShellHeader title={ui("Chat")} />
         <p role="status" className="p-6 text-content-secondary">
           {ui("Đang tải hội thoại…")}
         </p>
-      </AppShell>
+      </>
     );
   if (projectId && !project.data)
     return (
-      <AppShell pageTitle={ui("Dự án")}>
+      <>
+        <AppShellHeader title={ui("Dự án")} />
         <div className="p-6" role={project.isError ? "alert" : "status"}>
           {project.isError ? (
             <>
@@ -116,7 +119,7 @@ export function ChatPage() {
             ui("Đang tải dự án…")
           )}
         </div>
-      </AppShell>
+      </>
     );
   return (
     <ChatConversation
@@ -330,63 +333,67 @@ function ChatConversation({
 
   if (state.unavailable)
     return (
-      <AppShell pageTitle={ui("Chat")}>
+      <>
+        <AppShellHeader title={ui("Chat")} />
         <p role="alert" className="p-6">
           {ui("Hội thoại không còn khả dụng.")}
         </p>
-      </AppShell>
+      </>
     );
   if (state.historyFailed && !session)
     return (
-      <AppShell pageTitle={ui("Chat")}>
+      <>
+        <AppShellHeader title={ui("Chat")} />
         <div role="alert" className="space-y-3 p-6">
           <p>{ui("Không tải được hội thoại.")}</p>
           <Button prominence="secondary" onClick={() => void controller.check()}>
             {ui("Thử lại")}
           </Button>
         </div>
-      </AppShell>
+      </>
     );
   if (loadingHistory && controller.remoteId)
     return (
-      <AppShell pageTitle={ui("Chat")}>
+      <>
+        <AppShellHeader title={ui("Chat")} />
         <p role="status" className="p-6 text-content-secondary">
           {ui("Đang tải hội thoại…")}
         </p>
-      </AppShell>
+      </>
     );
   const headerSession = session && { ...session, title: title ?? session.title };
   return (
-    <AppShell
-      pageTitle={headerSession?.title ?? (project ? ui("Dự án") : ui("Chat"))}
-      headerActions={
-        <div className="flex items-center gap-1">
-          <ChatTemporaryBadge temporary={headerSession?.temporary ?? temporary} />
-          {!session && !project && (
-            <ChatTemporaryToggle
-              value={temporary}
-              disabled={busy}
-              onChange={(next) => {
-                transport.selectTemporary(next);
-                setTemporary(next);
+    <>
+      <AppShellHeader
+        title={headerSession?.title ?? (project ? ui("Dự án") : ui("Chat"))}
+        actions={
+          <div className="flex items-center gap-1">
+            <ChatTemporaryBadge temporary={headerSession?.temporary ?? temporary} />
+            {!session && !project && (
+              <ChatTemporaryToggle
+                value={temporary}
+                disabled={busy}
+                onChange={(next) => {
+                  transport.selectTemporary(next);
+                  setTemporary(next);
+                }}
+              />
+            )}
+            <ChatConversationSearch key={headerSession?.id ?? "new"} />
+            <ChatSessionSettings
+              session={headerSession}
+              busy={busy}
+              onChange={async () => {
+                model.select(undefined);
+                await controller.check();
               }}
+              deleteSession={() => runtime.threads.getItemById(controller.id).delete()}
+              onDelete={() => controller.markUnavailable()}
+              onShowMessage={showMessage}
             />
-          )}
-          <ChatConversationSearch key={headerSession?.id ?? "new"} />
-          <ChatSessionSettings
-            session={headerSession}
-            busy={busy}
-            onChange={async () => {
-              model.select(undefined);
-              await controller.check();
-            }}
-            deleteSession={() => runtime.threads.getItemById(controller.id).delete()}
-            onDelete={() => controller.markUnavailable()}
-            onShowMessage={showMessage}
-          />
-        </div>
-      }
-    >
+          </div>
+        }
+      />
       <div className="flex h-full min-h-0 flex-col">
         <ChatImageEditContext.Provider value={imageEditing}>
           <ChatEditingContext.Provider
@@ -562,7 +569,7 @@ function ChatConversation({
           </ChatEditingContext.Provider>
         </ChatImageEditContext.Provider>
       </div>
-    </AppShell>
+    </>
   );
 }
 

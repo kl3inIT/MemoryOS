@@ -33,19 +33,22 @@ import { historyDuration } from "./source-history";
 import { HistoryTime } from "./source-history-presentation";
 import { terminalOperationStatuses } from "@/features/sources/shared/source-operations";
 import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
+import { useCursorPaging } from "@/features/sources/shared/use-cursor-paging";
 
 /** File indexing attempts of a Source; it loads when its section tab opens. */
 export function SourceItemHistory({ sourceId }: { sourceId: string }) {
   const ui = useAppTranslation();
 
   const [size, setSize] = useState(5);
-  const [cursor, setCursor] = useState<string>();
-  const [previous, setPrevious] = useState<Array<string | undefined>>([]);
+  const paging = useCursorPaging();
   const [detail, setDetail] = useState<SourceIndexAttempt | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const detailOpener = useRef<HTMLElement | null>(null);
   const history = useQuery({
-    ...listSourceIndexAttemptsOptions({ path: { sourceId }, query: { size, cursor } }),
+    ...listSourceIndexAttemptsOptions({
+      path: { sourceId },
+      query: { size, cursor: paging.cursor },
+    }),
     retry: false,
     staleTime: 0,
     placeholderData: keepPreviousData,
@@ -58,10 +61,7 @@ export function SourceItemHistory({ sourceId }: { sourceId: string }) {
   // Polling keeps the open attempt current while it stays on the displayed page.
   const detailAttempt =
     detail && (history.data?.items.find((attempt) => attempt.id === detail.id) ?? detail);
-  if (totalPages !== undefined && previous.length >= Math.max(totalPages, 1)) {
-    setCursor(undefined);
-    setPrevious([]);
-  }
+  paging.clamp(totalPages);
 
   return (
     <section aria-label={ui("File indexing attempts")} className="min-w-0 space-y-4">
@@ -209,20 +209,14 @@ export function SourceItemHistory({ sourceId }: { sourceId: string }) {
           </div>
           <TablePagination
             label={ui("Indexing attempt pages")}
-            page={previous.length}
+            page={paging.page}
             totalPages={totalPages}
             previousLabel={ui("Previous indexing attempts")}
             nextLabel={ui("Next indexing attempts")}
-            previousDisabled={!previous.length || history.isPlaceholderData}
+            previousDisabled={!paging.hasPrevious || history.isPlaceholderData}
             nextDisabled={!history.data.nextCursor || history.isPlaceholderData || history.isError}
-            onPrevious={() => {
-              setCursor(previous.at(-1));
-              setPrevious((pages) => pages.slice(0, -1));
-            }}
-            onNext={() => {
-              setPrevious((pages) => [...pages, cursor]);
-              setCursor(history.data?.nextCursor ?? undefined);
-            }}
+            onPrevious={paging.goPrevious}
+            onNext={() => paging.goNext(history.data?.nextCursor)}
           >
             <PageSizeSelect
               label={ui("Rows per page")}
@@ -232,8 +226,7 @@ export function SourceItemHistory({ sourceId }: { sourceId: string }) {
               disabled={history.isPlaceholderData}
               onSizeChange={(next) => {
                 setSize(next);
-                setCursor(undefined);
-                setPrevious([]);
+                paging.reset();
               }}
             />
           </TablePagination>

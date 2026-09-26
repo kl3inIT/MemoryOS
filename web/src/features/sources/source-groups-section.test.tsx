@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GroupSourcesSection } from "@/features/groups/group-sources-section";
 import {
@@ -10,7 +10,7 @@ import {
 } from "@/features/identity/application-session-context";
 import { listSourceGroupOptionsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { GroupSummary, SourceGroup, SourceSummary } from "@/lib/hey-api/types.gen";
-import type { GroupDraftSectionHandle } from "@/features/groups/group-draft-section";
+import { useGroupSourcesDraft } from "@/features/groups/group-sources-draft";
 import { GroupAccessPicker } from "@/features/groups/group-access-picker";
 import { SourceGroupsSection } from "./source-groups-section";
 
@@ -137,20 +137,15 @@ function setup(
 }
 
 function DeferredGroupSources({ targetGroup = group }: { targetGroup?: GroupSummary }) {
-  const ref = useRef<GroupDraftSectionHandle>(null);
-  const [dirty, setDirty] = useState(false);
+  const draft = useGroupSourcesDraft(targetGroup);
 
   return (
     <>
-      <GroupSourcesSection
-        ref={ref}
-        group={targetGroup}
-        onDraftChange={(nextDirty) => setDirty(nextDirty)}
-      />
-      <button type="button" disabled={!dirty} onClick={() => void ref.current?.save()}>
+      <GroupSourcesSection draft={draft} />
+      <button type="button" disabled={!draft.dirty} onClick={() => void draft.save()}>
         Save Changes
       </button>
-      <button type="button" onClick={() => ref.current?.reset()}>
+      <button type="button" onClick={draft.reset}>
         Cancel
       </button>
     </>

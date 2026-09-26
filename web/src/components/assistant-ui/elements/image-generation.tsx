@@ -88,7 +88,7 @@ export function ImageGeneration({
                   className={cn(
                     "size-full object-contain transition-[clip-path,filter,transform,opacity] duration-[1100ms] ease-out motion-reduce:!transition-none",
                     revealed
-                      ? "scale-100 opacity-100 blur-0 [clip-path:inset(0%_0_0_0)]"
+                      ? "scale-100 opacity-100 blur-none [clip-path:inset(0%_0_0_0)]"
                       : "scale-[1.03] opacity-0 blur-md [clip-path:inset(0_0_100%_0)]",
                   )}
                 />

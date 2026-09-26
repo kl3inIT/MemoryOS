@@ -19,7 +19,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { AppShell } from "@/components/app-shell/app-shell";
+import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { IconButton } from "@/components/ui/icon-button";
@@ -188,7 +188,8 @@ export function AgentsPage() {
   );
 
   return (
-    <AppShell pageTitle={ui("Trợ lý")}>
+    <>
+      <AppShellHeader title={ui("Trợ lý")} />
       <SettingsLayout wide className="gap-6 md:pt-8">
         <PageHeader
           icon={<Bot />}
@@ -320,7 +321,7 @@ export function AgentsPage() {
         )}
         {sharing && <AgentShareDialog agent={sharing} onClose={() => setSharing(undefined)} />}
       </SettingsLayout>
-    </AppShell>
+    </>
   );
 }
 

@@ -13,7 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { PdfView } from "@/features/preview/pdf-view";
+import { LazyPdfView } from "@/features/preview/lazy-pdf-view";
 import { PreviewCanvas, PreviewSkeleton } from "@/features/preview/preview-surface";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { presentProblem } from "@/lib/problem-presentation";
@@ -342,7 +342,8 @@ function MinutesEditor({
                     layer === drawing && shown && "invisible absolute inset-0",
                   )}
                 >
-                  <PdfView
+                  <LazyPdfView
+                    skeletonWidth={560}
                     url={layer.document}
                     pages={[1]}
                     boxes={[]}

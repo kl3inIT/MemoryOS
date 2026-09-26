@@ -13,25 +13,12 @@ import {
   SignInRedirect,
 } from "@/features/identity/session-states";
 import { isUnauthenticated } from "@/lib/api";
-import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { getCurrentIdentity } from "@/lib/hey-api/sdk.gen";
-import { acceptCurrentIdentity } from "@/lib/query-client";
-
-const currentIdentityQueryKey = getCurrentIdentityQueryKey();
+import { currentIdentityQueryOptions } from "./current-identity-query";
 
 export function ApplicationSessionBoundary({ children }: { children?: ReactNode } = {}) {
   const { t } = useTranslation(["identity", "common"]);
   const queryClient = useQueryClient();
-  const sessionQuery = useQuery({
-    queryKey: currentIdentityQueryKey,
-    queryFn: async ({ signal }) => {
-      const { data } = await getCurrentIdentity({ signal });
-      acceptCurrentIdentity(queryClient, data);
-      return data;
-    },
-    refetchOnWindowFocus: "always",
-    retry: false,
-  });
+  const sessionQuery = useQuery(currentIdentityQueryOptions(queryClient));
 
   useLayoutEffect(() => {
     if (!sessionQuery.data) return;

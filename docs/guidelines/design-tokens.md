@@ -17,7 +17,7 @@ Tokens live in `web/src/styles/tokens.css` (values, light in `:root`, dark in `.
 | Content | `content-primary`, `-secondary`, `-muted`, `-disabled`, `-faint`, `-inverse` | Text and icons; never a series or status colour for body text |
 | Borders | `border-subtle`, `-default`, `-strong` | Dividers, inputs, cards |
 | Actions | `action-default-*`, `action-danger-*`, `action-selection*` | Buttons by prominence and state; `action-selection` is the one accent (switch on, selection, links) |
-| Status | `status-{success,warning,danger,info}-{content,surface,border,strong,faint,emphasis,emphasis-border}`; `status-error-*` aliases `danger` | State only: content is text (≥ 4.5:1), surface/faint the tinted background, border the tinted outline, strong icons and dots, emphasis the fill of a white-lettered pill (`content-on-emphasis`) |
+| Status | `status-{success,warning,danger,info}-{content,surface,border,strong,faint,emphasis,emphasis-border}` | State only: content is text (≥ 4.5:1), surface/faint the tinted background, border the tinted outline, strong icons and dots, emphasis the fill of a white-lettered pill (`content-on-emphasis`) |
 | Charts | `chart-1` … `chart-8`, `chart-neutral` | Data series (below) |
 | Highlights | `highlight-match`, `-active`, `-selection` | Search matches and the current match |
 | Fixed roles | `surface-document`/`content-document` (white paper for PDF and DOCX previews), `content-on-media`, `surface-on-media[-hover]`, `border-on-media`, `scrim-media-hover` (controls laid over images) | Colours that intentionally do not follow the theme |

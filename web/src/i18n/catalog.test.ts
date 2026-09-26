@@ -14,8 +14,11 @@ function flatten(value: object, prefix = ""): Record<string, string> {
 
 describe("bundled language catalogs", () => {
   it("keeps keys and interpolation parameters in parity with nonempty translations", () => {
-    const english = flatten(en);
-    const vietnamese = flatten(vi);
+    // The app namespace maps natural-language source keys and is checked by `pnpm check:i18n`.
+    const { app: _englishApp, ...englishCatalog } = en;
+    const { app: _vietnameseApp, ...vietnameseCatalog } = vi;
+    const english = flatten(englishCatalog);
+    const vietnamese = flatten(vietnameseCatalog);
     expect(Object.keys(vietnamese).sort()).toEqual(Object.keys(english).sort());
     for (const [key, source] of Object.entries(english)) {
       expect(vietnamese[key].trim(), key).not.toBe("");

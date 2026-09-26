@@ -99,7 +99,7 @@ export function EvidenceViewSwitch({
             mediaType={original.mediaType}
             pages={original.pages}
             boxes={original.boxes}
-            citations={original.citations}
+            texts={original.citations}
           />
         </Suspense>
       </Tabs.Content>

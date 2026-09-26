@@ -2,7 +2,7 @@
 import { lazy, Suspense } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { useAuiState } from "@assistant-ui/react";
-import type { SyntaxHighlighterProps } from "@assistant-ui/react-markdown";
+import type { SyntaxHighlighterProps } from "@assistant-ui/react-streamdown";
 
 const Shiki = lazy(() => import("./shiki-highlighter"));
 const Mermaid = lazy(() => import("./mermaid-diagram"));

@@ -109,12 +109,12 @@ export function ChatFileAskComposer({
           className="max-h-40 min-h-11 w-full resize-none bg-transparent px-2.5 py-1.5 text-base leading-6 outline-none placeholder:text-content-muted"
         />
         {dictation.failure && (
-          <p role="alert" className="px-2 font-secondary-body text-content-danger">
+          <p role="alert" className="px-2 font-secondary-body text-status-danger-content">
             {ui(dictation.failure)}
           </p>
         )}
         {failed && (
-          <p role="alert" className="px-2 font-secondary-body text-content-danger">
+          <p role="alert" className="px-2 font-secondary-body text-status-danger-content">
             {ui("Không mở được hội thoại.")}
           </p>
         )}

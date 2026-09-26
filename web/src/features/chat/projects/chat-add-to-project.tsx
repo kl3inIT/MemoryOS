@@ -127,7 +127,7 @@ export function ChatAddToProjectDialog({
         {ui("Đã chọn {{count}} tệp", { count: files?.length ?? 0 })}
       </p>
       {full && (
-        <p role="alert" className="text-sm text-content-danger">
+        <p role="alert" className="text-sm text-status-danger-content">
           {ui("Dự án chỉ giữ tối đa {{max}} tệp. Gỡ bớt tệp khỏi dự án rồi thử lại.", {
             max: PROJECT_FILE_LIMIT,
           })}

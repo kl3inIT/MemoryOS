@@ -1,13 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useRef, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ApplicationSessionContext,
   type ApplicationSession,
 } from "@/features/identity/application-session-context";
-import type { GroupDraftSectionHandle } from "./group-draft-section";
+import { useGroupMembersDraft } from "./group-members-draft";
 import { GroupMembersSection } from "./group-members-section";
 import type { GroupMember, GroupSummary } from "@/lib/hey-api/types.gen";
 
@@ -54,20 +53,15 @@ const session: ApplicationSession = {
 };
 
 function DeferredMembers() {
-  const ref = useRef<GroupDraftSectionHandle>(null);
-  const [dirty, setDirty] = useState(false);
+  const draft = useGroupMembersDraft(group);
 
   return (
     <>
-      <GroupMembersSection
-        ref={ref}
-        group={group}
-        onDraftChange={(nextDirty) => setDirty(nextDirty)}
-      />
-      <button type="button" disabled={!dirty} onClick={() => void ref.current?.save()}>
+      <GroupMembersSection group={group} draft={draft} />
+      <button type="button" disabled={!draft.dirty} onClick={() => void draft.save()}>
         Save Changes
       </button>
-      <button type="button" onClick={() => ref.current?.reset()}>
+      <button type="button" onClick={draft.reset}>
         Cancel
       </button>
     </>

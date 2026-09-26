@@ -2,7 +2,7 @@ import { useDeferredValue, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Clock, FileAudio, Mic, MonitorSpeaker, Search, Users, WifiOff } from "lucide-react";
-import { AppShell } from "@/components/app-shell/app-shell";
+import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { Button } from "@/components/ui/button";
 import { BrandLoader } from "@/components/brand-loader";
 import { EmptyState } from "@/components/composites/empty-state";
@@ -85,7 +85,8 @@ export function MeetingsPage() {
   const filtered = !!all && all.length > 0 && shown.length === 0;
 
   return (
-    <AppShell pageTitle={ui("Cuộc họp")}>
+    <>
+      <AppShellHeader title={ui("Cuộc họp")} />
       <SettingsLayout wide className="gap-6 md:pt-8">
         <PageHeader
           title={ui("Cuộc họp")}
@@ -256,6 +257,6 @@ export function MeetingsPage() {
       </SettingsLayout>
       <NewMeetingDialog open={creating} onOpenChange={setCreating} />
       <UploadRecordingDialog open={uploading} onOpenChange={setUploading} />
-    </AppShell>
+    </>
   );
 }

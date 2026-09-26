@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { CitationConfidence } from "@/features/preview/original-view";
+import type { CitationConfidence } from "@/features/preview/file-preview";
 import { formatPages } from "@/features/preview/pdf-pages";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";

@@ -306,7 +306,7 @@ function Choice<T extends string>({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <p className="font-main-ui-body-strong text-content-primary" id={`mcp-choice-${label}`}>
+      <p className="font-main-ui-action text-content-primary" id={`mcp-choice-${label}`}>
         {label}
       </p>
       {hint ? <p className="font-secondary-body text-content-muted">{hint}</p> : null}
@@ -340,7 +340,7 @@ function RedirectUri() {
   const uri = `${window.location.origin}/login/oauth2/code/mcp`;
   return (
     <div className="flex flex-col gap-2">
-      <p className="font-main-ui-body-strong text-content-primary">{ui("Địa chỉ callback")}</p>
+      <p className="font-main-ui-action text-content-primary">{ui("Địa chỉ callback")}</p>
       <p className="font-secondary-body text-content-muted">
         {ui("Đăng ký đúng địa chỉ này trong ứng dụng OAuth của mỗi tổ chức.")}
       </p>

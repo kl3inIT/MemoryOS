@@ -1,6 +1,7 @@
 /* assistant-ui DotMatrix (r.assistant-ui.com/base/dot-matrix), MIT. MemoryOS maps its palette colors to status tokens. */
 import type { ComponentProps, CSSProperties } from "react";
 import { cn } from "@/lib/utils";
+import "./dot-matrix.css";
 
 const GRID = 5;
 const CENTER = (GRID - 1) / 2;
@@ -195,9 +196,7 @@ export type DotMatrixProps = Omit<ComponentProps<"span">, "children"> & {
   label?: string;
 };
 
-/* The blink animation runs on every dot in every state (static states set hi = lo) and the registered hi/lo custom properties carry a transition, because removing or adding an animation never triggers a CSS transition on the animated property itself; transitioning the amplitude bounds is what makes state changes cross-fade. */
-const DOT_MATRIX_CSS =
-  '@property --aui-dot-matrix-hi{syntax:"<number>";inherits:false;initial-value:1}@property --aui-dot-matrix-lo{syntax:"<number>";inherits:false;initial-value:0.15}@keyframes aui-dot-matrix-blink{0%,100%{opacity:var(--aui-dot-matrix-hi,1)}50%{opacity:var(--aui-dot-matrix-lo,0.15)}}';
+/* The blink animation runs on every dot in every state (static states set hi = lo) and the registered hi/lo custom properties in dot-matrix.css carry a transition, because removing or adding an animation never triggers a CSS transition on the animated property itself; transitioning the amplitude bounds is what makes state changes cross-fade. The rules live in a stylesheet because the CSP allows no inline <style>. */
 
 /**
  * Tiny 5x5 dot-matrix status indicator with 20 built-in states. Dots inherit the text color and animate in state-specific patterns: twinkle, waves, ripples, sweeps, equalizer columns, and check/cross/bang glyphs. State changes cross-fade per dot.
@@ -217,10 +216,6 @@ function DotMatrix({ className, state = "loading", label, ...props }: DotMatrixP
       {...props}
     >
       <span className="sr-only">{label ?? state}</span>
-      {/* Hoisted and deduplicated across instances by React; must live in HTML scope, inside the SVG it would be an SVG-namespace element React does not hoist. */}
-      <style href="aui-dot-matrix" precedence="low">
-        {DOT_MATRIX_CSS}
-      </style>
       <svg aria-hidden viewBox="0 0 20 20" fill="currentColor" className="size-full">
         {DOT_INDEXES.map((i) => {
           const row = Math.floor(i / GRID);
