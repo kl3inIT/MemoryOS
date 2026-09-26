@@ -35,5 +35,7 @@ export default {
     "@hey-api/typescript",
     "@hey-api/sdk",
     "@tanstack/react-query",
+    // Schemas for parsing responses; forms and stream payloads build on them where OpenAPI describes the shape.
+    "zod",
   ],
 };
