@@ -349,8 +349,12 @@ function ModelChoiceField({
         ))}
         <FieldLabel htmlFor={`${id}-other`}>
           <Field orientation="horizontal">
-            <RadioGroupItem id={`${id}-other`} value={OTHER} />
-            <FieldTitle>{ui("Mô hình khác…")}</FieldTitle>
+            <RadioGroupItem
+              id={`${id}-other`}
+              value={OTHER}
+              aria-labelledby={`${id}-other-title`}
+            />
+            <FieldTitle id={`${id}-other-title`}>{ui("Mô hình khác…")}</FieldTitle>
           </Field>
         </FieldLabel>
       </RadioGroup>
@@ -365,10 +369,15 @@ function ModelOption({ id, model }: { id: string; model: ImageKnownModelResponse
   return (
     <FieldLabel htmlFor={id}>
       <Field orientation="horizontal">
-        <RadioGroupItem id={id} value={model.modelName} />
+        <RadioGroupItem
+          id={id}
+          value={model.modelName}
+          aria-labelledby={`${id}-title`}
+          aria-describedby={`${id}-description`}
+        />
         <FieldContent className="min-w-0">
-          <FieldTitle>{model.displayName}</FieldTitle>
-          <FieldDescription>
+          <FieldTitle id={`${id}-title`}>{model.displayName}</FieldTitle>
+          <FieldDescription id={`${id}-description`}>
             <span className="block truncate font-mono">{model.modelName}</span>
           </FieldDescription>
         </FieldContent>
@@ -428,16 +437,20 @@ function DisconnectStep({
             {replacements.map((other) => (
               <FieldLabel key={other} htmlFor={`${id}-${other}`}>
                 <Field orientation="horizontal">
-                  <RadioGroupItem id={`${id}-${other}`} value={other} />
+                  <RadioGroupItem
+                    id={`${id}-${other}`}
+                    value={other}
+                    aria-labelledby={`${id}-${other}-title`}
+                  />
                   <ProviderLogo mark={imageProviderMarks[other]} />
-                  <FieldTitle>{imageProviderNames[other]}</FieldTitle>
+                  <FieldTitle id={`${id}-${other}-title`}>{imageProviderNames[other]}</FieldTitle>
                 </Field>
               </FieldLabel>
             ))}
             <FieldLabel htmlFor={`${id}-off`}>
               <Field orientation="horizontal">
-                <RadioGroupItem id={`${id}-off`} value={OFF} />
-                <FieldTitle>{ui("Tắt tạo ảnh")}</FieldTitle>
+                <RadioGroupItem id={`${id}-off`} value={OFF} aria-labelledby={`${id}-off-title`} />
+                <FieldTitle id={`${id}-off-title`}>{ui("Tắt tạo ảnh")}</FieldTitle>
               </Field>
             </FieldLabel>
           </RadioGroup>

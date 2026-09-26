@@ -321,9 +321,14 @@ function KindField({
       >
         <FieldLabel htmlFor={`${id}-online`}>
           <Field orientation="horizontal">
-            <RadioGroupItem id={`${id}-online`} value="ONLINE" disabled={!online} />
+            <RadioGroupItem
+              id={`${id}-online`}
+              value="ONLINE"
+              disabled={!online}
+              aria-labelledby={`${id}-online-title`}
+            />
             <FieldContent>
-              <FieldTitle>
+              <FieldTitle id={`${id}-online-title`}>
                 <MonitorSpeaker className="size-4" aria-hidden="true" />
                 {ui("Họp online")}
               </FieldTitle>
@@ -332,9 +337,13 @@ function KindField({
         </FieldLabel>
         <FieldLabel htmlFor={`${id}-in-person`}>
           <Field orientation="horizontal">
-            <RadioGroupItem id={`${id}-in-person`} value="IN_PERSON" />
+            <RadioGroupItem
+              id={`${id}-in-person`}
+              value="IN_PERSON"
+              aria-labelledby={`${id}-in-person-title`}
+            />
             <FieldContent>
-              <FieldTitle>
+              <FieldTitle id={`${id}-in-person-title`}>
                 <Mic className="size-4" aria-hidden="true" />
                 {ui("Họp trực tiếp")}
               </FieldTitle>
