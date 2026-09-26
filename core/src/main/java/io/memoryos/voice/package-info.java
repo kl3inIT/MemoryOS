@@ -4,6 +4,8 @@
  */
 @ApplicationModule(displayName = "Voice", type = ApplicationModule.Type.CLOSED,
         allowedDependencies = {"shared", "ai", "iam", "audit", "usage"})
+@NullMarked
 package io.memoryos.voice;
 
+import org.jspecify.annotations.NullMarked;
 import org.springframework.modulith.ApplicationModule;

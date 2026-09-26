@@ -5,6 +5,8 @@
  */
 @ApplicationModule(displayName = "AI models", type = ApplicationModule.Type.CLOSED,
         allowedDependencies = {"shared", "iam", "audit", "usage"})
+@NullMarked
 package io.memoryos.ai;
 
+import org.jspecify.annotations.NullMarked;
 import org.springframework.modulith.ApplicationModule;

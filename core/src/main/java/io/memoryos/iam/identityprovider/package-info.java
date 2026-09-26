@@ -3,4 +3,7 @@
  * durable JIT admission allowlist. Keycloak remains the source of truth for provider configuration;
  * PostgreSQL owns only the allowlist and its audit fields.
  */
+@NullMarked
 package io.memoryos.iam.identityprovider;
+
+import org.jspecify.annotations.NullMarked;
