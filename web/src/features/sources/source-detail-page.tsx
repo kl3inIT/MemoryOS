@@ -141,12 +141,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const sourceQuery = useQuery({
     ...getSourceOptions({ path: { sourceId: selectedId } }),
     retry: false,
-    refetchInterval: (query) =>
-      query.state.data?.pendingWork
-        ? 1_500
-        : query.state.data?.type === "GOOGLE_DRIVE" || query.state.data?.type === "SHAREPOINT"
-          ? 5_000
-          : false,
+    refetchInterval: (query) => (query.state.data?.pendingWork ? 1_500 : false),
   });
   const itemsQuery = useQuery({
     ...listSourceItemsOptions({
@@ -166,11 +161,9 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
           item.searchStatus === "INDEXING",
       )
         ? 1_500
-        : sourceQuery.data?.type === "GOOGLE_DRIVE" || sourceQuery.data?.type === "SHAREPOINT"
-          ? 5_000
-          : false,
+        : false,
   });
-  // Both queries poll, so their refresh controls follow the press rather than the poll.
+  // Both queries poll while work is pending, so their refresh controls follow the press rather than the poll.
   const sourceRefresh = useManualRefresh(refreshSource);
   const filesRefresh = useManualRefresh(itemsQuery.refetch);
   const filesTotalPages = itemsQuery.data

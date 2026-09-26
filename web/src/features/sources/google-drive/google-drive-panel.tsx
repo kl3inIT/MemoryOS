@@ -143,14 +143,14 @@ export function GoogleDrivePanel({
         ),
       ),
     refetchInterval: (query) =>
-      query.state.data?.pendingWork || source.pendingWork ? 1_500 : 5_000,
+      query.state.data?.pendingWork || source.pendingWork ? 1_500 : false,
   });
   const credentials = useQuery({
     ...listGoogleDriveCredentialsOptions(),
     enabled: canListCredentials,
     retry: false,
   });
-  // This panel polls every few seconds, so its refresh controls follow the press, not the poll.
+  // This panel polls while work is pending, so its refresh controls follow the press, not the poll.
   const statusRefresh = useManualRefresh(refreshStatus);
   const credentialRefresh = useManualRefresh(refreshCredentials);
   const credential = credentials.data?.find(

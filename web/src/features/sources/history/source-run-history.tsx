@@ -184,9 +184,11 @@ export function SourceRunHistory({
     retry: false,
     staleTime: 0,
     placeholderData: keepPreviousData,
-    refetchInterval: 5_000,
+    // Only a run still in progress changes; settled history is read again on Refresh.
+    refetchInterval: (query) =>
+      query.state.data?.current || query.state.data?.items.some(runIsActive) ? 5_000 : false,
   });
-  // Runs are polled every few seconds, so the refresh control follows the press, not the poll.
+  // Active runs are polled, so the refresh control follows the press, not the poll.
   const runsRefresh = useManualRefresh(history.refetch);
   const totalPages = history.data ? Math.ceil(history.data.totalItems / size) : undefined;
   if (totalPages !== undefined && previous.length >= Math.max(totalPages, 1)) {
