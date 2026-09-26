@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@assistant-ui/ai-sdk@0.0.8': 2fc382ce45075cd7840c0f604f32b4ab0958fd373aaf2e5a836fd80b0e4bbf55
+
 importers:
 
   .:
@@ -13,7 +16,7 @@ importers:
         version: 4.0.117(react@19.3.0)(zod@4.6.5)
       '@assistant-ui/ai-sdk':
         specifier: 0.0.8
-        version: 0.0.8(@types/react@19.3.0)(ai@7.0.114(zod@4.6.5))(react@19.3.0)(zod@4.6.5)
+        version: 0.0.8(patch_hash=2fc382ce45075cd7840c0f604f32b4ab0958fd373aaf2e5a836fd80b0e4bbf55)(@types/react@19.3.0)(ai@7.0.114(zod@4.6.5))(react@19.3.0)(zod@4.6.5)
       '@assistant-ui/react':
         specifier: 0.15.22
         version: 0.15.22(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(ai@7.0.114(zod@4.6.5))(immer@11.1.18)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
@@ -5752,7 +5755,7 @@ snapshots:
       is-potential-custom-element-name: 1.0.1
       lru-cache: 11.5.3
 
-  '@assistant-ui/ai-sdk@0.0.8(@types/react@19.3.0)(ai@7.0.114(zod@4.6.5))(react@19.3.0)(zod@4.6.5)':
+  '@assistant-ui/ai-sdk@0.0.8(patch_hash=2fc382ce45075cd7840c0f604f32b4ab0958fd373aaf2e5a836fd80b0e4bbf55)(@types/react@19.3.0)(ai@7.0.114(zod@4.6.5))(react@19.3.0)(zod@4.6.5)':
     dependencies:
       '@ai-sdk/mcp': 2.0.58(zod@4.6.5)
       '@ai-sdk/react': 4.0.117(react@19.3.0)(zod@4.6.5)

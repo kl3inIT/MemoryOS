@@ -1,3 +1,5 @@
 allowBuilds:
   msw: false
   "@sentry/cli": true
+patchedDependencies:
+  "@assistant-ui/ai-sdk@0.0.8": patches/@assistant-ui__ai-sdk@0.0.8.patch
