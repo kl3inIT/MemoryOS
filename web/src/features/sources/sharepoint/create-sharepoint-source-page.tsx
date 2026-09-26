@@ -1,30 +1,24 @@
-import type { AppCopy } from "@/i18n/app-text";
-import { statusLabel } from "@/i18n/status-copy";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight, Pencil } from "lucide-react";
-import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Label } from "@/components/ui/label";
-import { StatusBadge } from "@/components/ui/status-badge";
 import {
   useApplicationSession,
   useCapabilityAuthority,
 } from "@/features/identity/application-session-context";
-import { ApiError } from "@/lib/api";
 import {
   createSharePointSourceMutation,
   getSharePointSelectionPolicyOptions,
   getSharePointSelectionRequestOptions,
   listSharePointCredentialsOptions,
-  listSourcesQueryKey,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { CreateSharePointSourceData } from "@/lib/hey-api/types.gen";
-import { sourceMutationError, sourceStatusMessage } from "@/features/sources/shared/source-errors";
 import { SharePointCredentialSection } from "./sharepoint-credential-section";
 import { SharePointIcon } from "./sharepoint-icon";
 import { SharePointScheduleFields } from "./sharepoint-schedule-fields";
@@ -39,7 +33,12 @@ import {
 import { SourceAccessChoice } from "@/features/sources/shared/source-access-choice";
 import { SourceGroupPicker } from "@/features/sources/shared/source-group-picker";
 import { sharePointSetupSteps, type SharePointSetupStep } from "./sharepoint-setup-search";
-import { useSourceSelectionOperation } from "@/features/sources/shared/source-selection-operation";
+import { SourceCreationStatus } from "@/features/sources/shared/source-creation-status";
+import {
+  sourceCreationLabel,
+  unsubmittedRequestId,
+  useSourceCreation,
+} from "@/features/sources/shared/use-source-creation";
 
 export function CreateSharePointSourcePage() {
   const session = useApplicationSession();
@@ -57,7 +56,6 @@ function SharePointSourceSetup() {
     from: "/_authenticated/admin/sources/new/sharepoint",
   });
   const navigate = useNavigate({ from: "/admin/sources/new/sharepoint" });
-  const queryClient = useQueryClient();
   const authority = useCapabilityAuthority("SOURCES_MANAGE");
   const scoped = authority === "scoped";
   const canManage = authority !== "none";
@@ -77,127 +75,50 @@ function SharePointSourceSetup() {
     retry: false,
   });
   const createSource = useMutation(createSharePointSourceMutation());
-  const tracking = useSourceSelectionOperation({
+  const creation = useSourceCreation({
     provider: "sharepoint",
-    scope: "create",
     recover: (requestId) => getSharePointSelectionRequestOptions({ path: { requestId } }),
+    create: (body: CreateSharePointSourceData["body"]) => createSource.mutateAsync({ body }),
+    failureCode: "SOURCE_SHAREPOINT_SELECTION_FAILED",
+    errorKind: "sharepoint",
+    refresh: () => credentials.refetch(),
   });
+  const { tracking, createdSourceId, error, setError, pendingValidation, frozen } = creation;
   const [sourceName, setSourceName] = useState("");
   const [access, setAccess] = useState<"PUBLIC" | "PRIVATE">(scoped ? "PRIVATE" : "PUBLIC");
   const [groupIds, setGroupIds] = useState<Set<string>>(() => new Set());
   const [draft, setDraft] = useState<SharePointScopeDraft>(emptySharePointScopeDraft);
-  const [error, setError] = useState<AppCopy | null>(null);
   const [credentialBusy, setCredentialBusy] = useState(false);
-  const [completedOperation, setCompletedOperation] = useState<string | null>(null);
-  const [createdSourceId, setCreatedSourceId] = useState<string | null>(null);
-  const submitting = useRef(false);
-  const submittedProposal = useRef<CreateSharePointSourceData["body"] | null>(null);
-  const active = useRef(true);
   const selected = credentials.data?.find((credential) => credential.id === credentialId);
   const ready = selected?.status === "ACTIVE";
   const unavailable = !canManage || credentials.isPending || credentials.isError;
-  const pendingValidation = Boolean(tracking.operation && !tracking.terminal);
-  const frozen =
-    pendingValidation || tracking.uncertain || tracking.recovering || tracking.recoveryError;
   const busy = credentialBusy || createSource.isPending;
   const proposal = {
-    requestId: tracking.requestId ?? "00000000-0000-4000-8000-000000000000",
     name: sourceName.trim(),
     credentialId: selected?.id ?? "",
     scope: sharePointScopeRequest(draft),
     access,
     ...(access === "PRIVATE" && groupIds.size > 0 ? { groupIds: [...groupIds] } : {}),
   };
-  const scopeError = sharePointScopeError(draft, policy.data, proposal);
-  const controlsDisabled = busy || unavailable || frozen || Boolean(createdSourceId);
-
-  useLayoutEffect(() => {
-    active.current = true;
-    return () => {
-      active.current = false;
-    };
-  }, []);
-
-  const terminalOperation = tracking.terminal ? tracking.operation : null;
-  if (terminalOperation && completedOperation !== terminalOperation.id) {
-    setCompletedOperation(terminalOperation.id);
-    if (terminalOperation.status === "SUCCEEDED") {
-      setCreatedSourceId(tracking.receipt?.sourceId ?? null);
-    } else {
-      setError(
-        terminalOperation.status === "SUPERSEDED"
-          ? "This creation proposal was superseded or cancelled. No Source was activated by this proposal."
-          : sourceStatusMessage(
-              terminalOperation.errorCode ?? "SOURCE_SHAREPOINT_SELECTION_FAILED",
-            ),
-      );
-    }
-  }
-  const handleTerminalOperation = useEffectEvent(() => {
-    if (terminalOperation?.status !== "SUCCEEDED") return;
-    const targetId = tracking.receipt?.sourceId;
-    if (!targetId) return;
-    void Promise.all([
-      queryClient.invalidateQueries({ queryKey: listSourcesQueryKey() }),
-      credentials.refetch(),
-    ])
-      .then(async () => {
-        if (!active.current) return;
-        await navigate({ to: "/admin/sources/$sourceId", params: { sourceId: targetId } });
-        tracking.forget();
-      })
-      .catch(() => {
-        if (active.current)
-          setError(
-            "The Source was activated but its page could not be opened. Open the created Source; it will not be created twice.",
-          );
-      });
+  const scopeError = sharePointScopeError(draft, policy.data, {
+    ...proposal,
+    requestId: tracking.requestId ?? unsubmittedRequestId,
   });
-  useEffect(() => {
-    handleTerminalOperation();
-  }, [tracking.operation, tracking.terminal]);
+  const controlsDisabled = busy || unavailable || frozen || Boolean(createdSourceId);
 
   function go(next: SharePointSetupStep) {
     setError(null);
     void navigate({ search: { credentialId, step: next } });
   }
 
-  function editProposal(change: () => void) {
-    if (tracking.terminal) tracking.forget();
-    change();
-    setError(null);
-  }
+  const editProposal = creation.edit;
 
-  async function create() {
-    if (submitting.current || busy || pendingValidation || tracking.recovering) return;
-    if (createdSourceId) {
-      await navigate({ to: "/admin/sources/$sourceId", params: { sourceId: createdSourceId } });
-      tracking.forget();
-      return;
-    }
-    if (!tracking.uncertain && (unavailable || !ready || !sourceName.trim() || scopeError)) return;
-    submitting.current = true;
-    setError(null);
-    try {
-      const requestId = tracking.begin(tracking.terminal);
-      const body =
-        tracking.uncertain && submittedProposal.current
-          ? submittedProposal.current
-          : { ...proposal, requestId };
-      submittedProposal.current = body;
-      const receipt = await createSource.mutateAsync({
-        body,
-      });
-      if (!active.current) return;
-      tracking.accept(receipt);
-    } catch (cause) {
-      if (!active.current) return;
-      if (cause instanceof ApiError && cause.status && cause.status >= 400 && cause.status < 500)
-        tracking.forget();
-      setError(sourceMutationError(cause, "sharepoint"));
-    } finally {
-      submitting.current = false;
-    }
+  function create() {
+    if (busy) return;
+    void creation.submit(
+      proposal,
+      !unavailable && ready && Boolean(sourceName.trim()) && !scopeError,
+    );
   }
 
   const rootCount =
@@ -226,60 +147,13 @@ function SharePointSourceSetup() {
           {ui(error)}
         </p>
       ) : null}
-      {tracking.operation && !createdSourceId ? (
-        <div
-          role="status"
-          className="space-y-2 rounded-lg border border-border-subtle bg-surface-subtle p-4 text-sm"
-        >
-          <StatusBadge tone={pendingValidation ? "info" : "warning"}>
-            {pendingValidation ? ui("Pending validation") : ui("Proposal not activated")}
-          </StatusBadge>
-          <p>
-            {pendingValidation
-              ? ui(
-                  "Microsoft is resolving every address in this scope. Your Source is not active yet. Leaving this page does not cancel verification; return here to recover its status.",
-                )
-              : ui("Review the error and edit the proposal before submitting again.")}
-          </p>
-          <p className="break-all text-xs text-content-muted">
-            {ui("Operation")} {tracking.operation.id} · {ui(statusLabel(tracking.operation.status))}
-          </p>
-        </div>
-      ) : null}
-      {tracking.recovering ? <p role="status">{ui("Recovering your submitted Source…")}</p> : null}
-      {!error && (tracking.recoveryError || tracking.statusUnavailable) ? (
-        <p role="alert" className="text-sm text-status-danger-content">
-          {ui("Validation status is unavailable. This does not mean creation failed.")}
-        </p>
-      ) : null}
-      {tracking.recoveryError ? (
-        <Button prominence="secondary" onClick={() => void tracking.retryRecovery()}>
-          {ui("Recover submitted Source")}
-        </Button>
-      ) : null}
-      {tracking.recoveryMissing ? (
-        <Button
-          prominence="secondary"
-          onClick={() => {
-            tracking.forget();
-            setError(null);
-          }}
-        >
-          {ui("Discard unaccepted request and start again")}
-        </Button>
-      ) : null}
-      {tracking.statusUnavailable ? (
-        <Button prominence="secondary" onClick={() => void tracking.retryStatus()}>
-          {ui("Retry validation status")}
-        </Button>
-      ) : null}
-      {tracking.uncertain && !busy ? (
-        <p className="text-sm text-content-muted">
-          {ui(
-            "No receipt was received. Retry this unchanged proposal with the same request ID to avoid duplicate Sources.",
-          )}
-        </p>
-      ) : null}
+      <SourceCreationStatus
+        creation={creation}
+        busy={busy}
+        pendingMessage={ui(
+          "Microsoft is resolving every address in this scope. Your Source is not active yet. Leaving this page does not cancel verification; return here to recover its status.",
+        )}
+      />
       {policy.isError ? (
         <div className="space-y-2">
           <p role="alert" className="text-sm text-status-danger-content">
@@ -429,7 +303,7 @@ function SharePointSourceSetup() {
               className="space-y-6 rounded-2xl border border-border-default bg-surface-base p-6"
               onSubmit={(event) => {
                 event.preventDefault();
-                void create();
+                create();
               }}
             >
               <h2 className="font-heading-h3">{ui("Review and create")}</h2>
@@ -582,12 +456,7 @@ function SharePointSourceSetup() {
                       (unavailable || !ready || !sourceName.trim() || Boolean(scopeError)))
                   }
                 >
-                  {createdSourceId
-                    ? ui("Open created Source")
-                    : tracking.uncertain
-                      ? ui("Retry Create Source")
-                      : ui("Create Source")}{" "}
-                  <ArrowRight />
+                  {ui(sourceCreationLabel(creation))} <ArrowRight />
                 </Button>
               </footer>
             </form>
