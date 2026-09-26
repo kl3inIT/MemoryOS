@@ -21,8 +21,8 @@ import {
 } from "@/components/assistant-ui/elements/activity-group";
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { SourceIcon } from "@/components/assistant-ui/elements/source-icon";
-import { DocumentSourceIcon } from "@/features/search/document-source-icon";
-import { documentSourceLabels } from "@/features/search/document-source-presentation";
+import { DocumentSourceIcon } from "@/features/documents/document-source-icon";
+import { documentSourceLabels } from "@/features/documents/document-source-presentation";
 import { toolProgressSchema, type ToolProgress } from "./chat-activity";
 import type { CodeRun } from "@/features/chat/interpreter/chat-code";
 import { HighlightedCode } from "@/components/assistant-ui/elements/code-renderers.aui";

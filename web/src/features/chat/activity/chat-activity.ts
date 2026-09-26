@@ -1,7 +1,7 @@
 import type { UIMessage, UIMessageChunk } from "ai";
 import { z } from "zod";
 import { sourceSchema } from "@/features/chat/sources/chat-evidence";
-import { documentSourceTypesSchema } from "@/features/search/document-source-presentation";
+import { documentSourceTypesSchema } from "@/features/documents/document-source-presentation";
 
 const toolNameSchema = z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/);
 const intervalSchema = z.object({

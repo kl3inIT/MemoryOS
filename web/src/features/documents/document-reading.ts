@@ -7,7 +7,7 @@ import {
   readChatFilePassages,
 } from "@/lib/hey-api/sdk.gen";
 import type { DocumentSelection } from "./document-preview-dialog";
-import { passageBody, passageSection } from "./search-presentation";
+import { passageBody, passageSection } from "./passage";
 
 export type PassageReader = {
   /** Chat citations read passages with Chat authority; the Search page keeps Search authority. */

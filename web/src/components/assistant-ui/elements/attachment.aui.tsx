@@ -61,7 +61,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { ClampedList } from "@/components/ui/clamped-list";
 import { useAttachmentSrc } from "@/hooks/use-attachment-src";
 import { cn } from "@/lib/utils";
-import { DocumentKindIcon } from "@/features/search/document-source-icon";
+import { DocumentKindIcon } from "@/features/documents/document-source-icon";
 
 type AttachmentPreviewProps = {
   src: string;

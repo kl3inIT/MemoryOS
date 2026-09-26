@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { stripGeneratedTitlePrefix } from "@/features/search/search-presentation";
+import { stripGeneratedTitlePrefix } from "@/features/documents/passage";
 import { readChatDocumentPassages } from "@/lib/hey-api/sdk.gen";
 import { cn } from "@/lib/utils";
 import type { ChatSource } from "./chat-evidence";

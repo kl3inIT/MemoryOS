@@ -29,15 +29,18 @@ import {
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { TablePagination } from "@/components/ui/table-pagination";
-import { DocumentPreviewDialog, type DocumentSelection } from "./document-preview-dialog";
+import {
+  DocumentPreviewDialog,
+  type DocumentSelection,
+} from "@/features/documents/document-preview-dialog";
 import { clearRecentSearches, readRecentSearches, rememberRecentSearch } from "./recent-searches";
 import { SearchFilterMenu, type SearchFilterOption } from "./search-filter-menu";
 import { SearchSourceRail, type SearchSourceOption } from "./search-source-rail";
-import { DocumentSourceIcon } from "./document-source-icon";
-import type { DocumentSourceType } from "./document-source-presentation";
+import { DocumentSourceIcon } from "@/features/documents/document-source-icon";
+import type { DocumentSourceType } from "@/features/documents/document-source-presentation";
 import { sourceProviders } from "@/features/sources/shared/source-provider-catalog";
 import { SearchResultCard } from "./search-result-card";
-import { friendlyMediaType } from "./search-presentation";
+import { friendlyMediaType } from "@/features/documents/document-source-presentation";
 import { MAX_SEARCH_PAGES, type SearchPageSearch } from "./search-params";
 import {
   useApplicationSession,
@@ -46,7 +49,7 @@ import {
 import { captureWorkflowFailure } from "@/lib/sentry";
 import { cn } from "@/lib/utils";
 import { searchDocuments } from "@/lib/hey-api/sdk.gen";
-import { matchingProvenance } from "./source-provenance";
+import { matchingProvenance } from "@/features/documents/source-provenance";
 import { useVoiceAvailability } from "@/features/voice/use-voice-availability";
 import { useDictationInput, type DictationStatus } from "@/features/voice/use-dictation-input";
 import type {

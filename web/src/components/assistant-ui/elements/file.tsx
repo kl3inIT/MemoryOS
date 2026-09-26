@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import type { FileMessagePartComponent } from "@assistant-ui/react";
 import { cn } from "@/lib/utils";
-import { DocumentKindIcon } from "@/features/search/document-source-icon";
+import { DocumentKindIcon } from "@/features/documents/document-source-icon";
 
 const fileVariants = cva(
   "aui-file-root inline-flex items-center gap-3 rounded-lg transition-colors",

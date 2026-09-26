@@ -1,3 +1,5 @@
+import { stripGeneratedTitlePrefix } from "@/features/documents/passage";
+
 export type HighlightPart = {
   text: string;
   highlighted: boolean;
@@ -9,73 +11,6 @@ export type SearchSnippet = {
 };
 
 const DEFAULT_SNIPPET_LENGTH = 320;
-
-const FRIENDLY_MEDIA_TYPES: Record<string, string> = {
-  "application/json": "JSON",
-  "application/msword": "Word document",
-  "application/pdf": "PDF",
-  "application/vnd.ms-excel": "Excel spreadsheet",
-  "application/vnd.ms-powerpoint": "PowerPoint presentation",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-    "PowerPoint presentation",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Excel spreadsheet",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word document",
-  "application/vnd.google-apps.document": "Google Docs",
-  "application/vnd.google-apps.presentation": "Google Slides",
-  "application/vnd.google-apps.spreadsheet": "Google Sheets",
-  "text/csv": "CSV",
-  "text/markdown": "Markdown",
-  "text/x-markdown": "Markdown",
-  "text/plain": "Text document",
-};
-
-export function friendlyMediaType(mediaType: string): string {
-  const normalized = mediaType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
-  const known = FRIENDLY_MEDIA_TYPES[normalized];
-  if (known) return known;
-  if (normalized.startsWith("image/")) return "Image";
-  if (normalized.startsWith("audio/")) return "Audio";
-  if (normalized.startsWith("video/")) return "Video";
-  return "Document";
-}
-
-export function stripGeneratedTitlePrefix(content: string, title: string): string {
-  const lineBreak = content.indexOf("\n");
-  const firstLine = (lineBreak === -1 ? content : content.slice(0, lineBreak)).replace(/\r$/, "");
-  if (firstLine !== `Title: ${title}`) return content;
-  return lineBreak === -1 ? "" : content.slice(lineBreak + 1);
-}
-
-/**
- * The passage without the header `StructuredDocumentChunker` writes in front of it: a `Title:` line and,
- * when the block sits under headings, a `Section:` line. The original document contains neither, so a
- * citation is located and shown without them. A long header is truncated at indexing time, so the lines are
- * recognised by how they start rather than by their whole value.
- */
-export function passageBody(content: string): string {
-  let body = content;
-  if (body.startsWith("Title: ")) body = afterFirstLine(body);
-  else return content;
-  if (body.startsWith("Section: ")) body = afterFirstLine(body);
-  return body;
-}
-
-/**
- * The heading trail the chunker recorded for this passage, which is the context a search result is read in.
- * The original document does not contain the line, so it is shown beside a citation rather than searched for.
- */
-export function passageSection(content: string): string | undefined {
-  if (!content.startsWith("Title: ")) return undefined;
-  const rest = afterFirstLine(content);
-  if (!rest.startsWith("Section: ")) return undefined;
-  const lineBreak = rest.indexOf("\n");
-  return (lineBreak === -1 ? rest : rest.slice(0, lineBreak)).slice("Section: ".length).trim();
-}
-
-function afterFirstLine(value: string): string {
-  const lineBreak = value.indexOf("\n");
-  return lineBreak === -1 ? "" : value.slice(lineBreak + 1);
-}
 
 export function createSearchSnippet(
   content: string,

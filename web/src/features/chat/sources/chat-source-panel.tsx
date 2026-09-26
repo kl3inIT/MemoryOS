@@ -2,22 +2,22 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Dialog } from "radix-ui";
 import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, X } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
-import { DocumentPreviewContent } from "@/features/search/document-preview-content";
+import { DocumentPreviewContent } from "@/features/documents/document-preview-content";
 import type { ChatSource } from "./chat-evidence";
 import { ChatFileReader } from "./chat-file-reader";
 import { useTranslation } from "react-i18next";
 import type { ChatArtifact } from "@/features/chat/thread/chat-artifacts";
 import { ChatArtifactView } from "@/features/chat/thread/chat-artifact-view";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { documentOriginalReader } from "@/features/search/document-original-reader";
-import { useDocumentReading } from "@/features/search/document-reading";
-import { firstEvidenceView, type EvidenceView } from "@/features/search/evidence-order";
-import { EvidenceViewSwitch } from "@/features/search/evidence-view-switch";
-import { matchingProvenance, readSourceLocation } from "@/features/search/source-provenance";
+import { documentOriginalReader } from "@/features/documents/document-original-reader";
+import { useDocumentReading } from "@/features/documents/document-reading";
+import { firstEvidenceView, type EvidenceView } from "@/features/documents/evidence-order";
+import { EvidenceViewSwitch } from "@/features/documents/evidence-view-switch";
+import { matchingProvenance, readSourceLocation } from "@/features/documents/source-provenance";
 import {
   DocumentPreviewDialog,
   type DocumentSelection,
-} from "@/features/search/document-preview-dialog";
+} from "@/features/documents/document-preview-dialog";
 import { ChatSourceHeader, ChatSourceRow } from "./chat-source-list";
 
 /** The cited passages of an indexed document or file citation, read with Chat authority. */

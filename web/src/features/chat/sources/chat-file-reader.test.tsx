@@ -10,9 +10,9 @@ import {
 } from "@/features/identity/application-session-context";
 import { ChatFileReader } from "./chat-file-reader";
 import { ChatFilePicker } from "@/features/library/file-picker";
-import { DocumentPreviewContent } from "@/features/search/document-preview-content";
-import { useDocumentReading } from "@/features/search/document-reading";
-import type { DocumentSelection } from "@/features/search/document-preview-dialog";
+import { DocumentPreviewContent } from "@/features/documents/document-preview-content";
+import { useDocumentReading } from "@/features/documents/document-reading";
+import type { DocumentSelection } from "@/features/documents/document-preview-dialog";
 import { AssistantRuntimeProvider, ComposerPrimitive, useLocalRuntime } from "@assistant-ui/react";
 import { ChatSourcesWorkspace } from "./chat-sources";
 import { ChatFilePart } from "@/features/chat/thread/chat-attachments";

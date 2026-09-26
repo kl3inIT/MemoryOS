@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { findSourceProvider } from "@/features/sources/shared/source-provider-catalog";
-import { friendlyMediaType } from "./search-presentation";
 
 export type DocumentSourceType = "FILE" | "GOOGLE_DRIVE" | "SHAREPOINT";
 
@@ -114,4 +113,33 @@ export function documentSourceLabels(
       type === "FILE" ? "Tệp tải lên" : (findSourceProvider(type)?.name ?? type),
     ),
   };
+}
+
+const FRIENDLY_MEDIA_TYPES: Record<string, string> = {
+  "application/json": "JSON",
+  "application/msword": "Word document",
+  "application/pdf": "PDF",
+  "application/vnd.ms-excel": "Excel spreadsheet",
+  "application/vnd.ms-powerpoint": "PowerPoint presentation",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+    "PowerPoint presentation",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Excel spreadsheet",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word document",
+  "application/vnd.google-apps.document": "Google Docs",
+  "application/vnd.google-apps.presentation": "Google Slides",
+  "application/vnd.google-apps.spreadsheet": "Google Sheets",
+  "text/csv": "CSV",
+  "text/markdown": "Markdown",
+  "text/x-markdown": "Markdown",
+  "text/plain": "Text document",
+};
+
+export function friendlyMediaType(mediaType: string): string {
+  const normalized = mediaType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  const known = FRIENDLY_MEDIA_TYPES[normalized];
+  if (known) return known;
+  if (normalized.startsWith("image/")) return "Image";
+  if (normalized.startsWith("audio/")) return "Audio";
+  if (normalized.startsWith("video/")) return "Video";
+  return "Document";
 }

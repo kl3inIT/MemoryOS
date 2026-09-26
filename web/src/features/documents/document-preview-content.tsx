@@ -2,7 +2,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import type { DocumentReading } from "./document-reading";
-import { passageBody } from "./search-presentation";
+import { passageBody } from "./passage";
 import type { DocumentSelection } from "./document-preview-dialog";
 
 export function DocumentPreviewContent({

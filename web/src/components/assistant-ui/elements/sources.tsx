@@ -3,11 +3,11 @@
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { DocumentSourceIcon } from "@/features/search/document-source-icon";
+import { DocumentSourceIcon } from "@/features/documents/document-source-icon";
 import {
   documentKind,
   type DocumentSourceType,
-} from "@/features/search/document-source-presentation";
+} from "@/features/documents/document-source-presentation";
 import { SourceIcon } from "./source-icon";
 import { useTranslation } from "react-i18next";
 

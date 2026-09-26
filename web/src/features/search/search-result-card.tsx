@@ -4,10 +4,11 @@ import { CornerDownRight } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import type { Result as SearchResult, Section as SearchSection } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
-import { DocumentSourceIcon } from "./document-source-icon";
-import { documentSourceLabels } from "./document-source-presentation";
-import { ProviderLink } from "./provider-link";
-import { createSearchSnippet, friendlyMediaType } from "./search-presentation";
+import { DocumentSourceIcon } from "@/features/documents/document-source-icon";
+import { documentSourceLabels } from "@/features/documents/document-source-presentation";
+import { ProviderLink } from "@/features/documents/provider-link";
+import { friendlyMediaType } from "@/features/documents/document-source-presentation";
+import { createSearchSnippet } from "./search-presentation";
 
 type SearchResultCardProps = {
   item: SearchResult;
