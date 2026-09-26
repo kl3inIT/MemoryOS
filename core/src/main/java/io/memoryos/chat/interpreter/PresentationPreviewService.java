@@ -4,7 +4,6 @@ import java.nio.charset.StandardCharsets;
 import org.springframework.modulith.NamedInterface;
 import io.memoryos.chat.ChatException;
 import io.memoryos.shared.ActorId;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
