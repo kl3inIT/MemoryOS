@@ -1,14 +1,15 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PlugZap } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { createSearchFutureGeneration } from "@/lib/hey-api/sdk.gen";
+import { createSearchFutureGenerationMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { EmbeddingProviderResponse } from "@/lib/hey-api/types.gen";
 import { CatalogDialog } from "@/components/composites/catalog-dialog";
 import { DataBoundaryTag } from "@/features/models/data-boundary";
@@ -43,6 +44,10 @@ export function ChangeModelDialog({
   const ui = useAppTranslation();
   const client = useQueryClient();
   const connection = useEmbeddingTest();
+  const create = useMutation({
+    ...createSearchFutureGenerationMutation(),
+    onSuccess: () => refreshSearchSettings(client),
+  });
   const [draft, setDraft] = useState<GenerationDraft>(() => draftFrom(present));
   const [confirming, setConfirming] = useState(false);
   const parsed = generationRequest(draft);
@@ -65,107 +70,119 @@ export function ChangeModelDialog({
   return (
     <CatalogDialog title={ui("Đổi model embedding")} onClose={onClose}>
       <form
-        className="space-y-4"
+        className="flex flex-col gap-4"
         onSubmit={(event) => {
           event.preventDefault();
           if (parsed.request && !unchanged) setConfirming(true);
         }}
       >
-        <label className="block space-y-1">
-          {ui("Provider embedding")}
-          <NativeSelect
-            value={draft.providerId}
-            aria-invalid={problems.has("provider")}
-            onChange={(event) => update({ providerId: event.target.value })}
-          >
-            {providers.map((entry) => (
-              <option key={entry.id} value={entry.id}>
-                {entry.name}
-              </option>
-            ))}
-          </NativeSelect>
-        </label>
-        {provider && (
-          <p className="-mt-2 flex min-w-0 flex-wrap items-center gap-2 font-secondary-body text-content-muted">
-            <DataBoundaryTag boundary={provider.dataBoundary} />
-            <span className="min-w-0 break-all">{provider.endpoint}</span>
-          </p>
-        )}
-        <label className="block space-y-1">
-          {ui("Model đã biết")}
-          <NativeSelect
-            value={preset?.model ?? custom}
-            onChange={(event) => {
-              const chosen = presets.find((entry) => entry.model === event.target.value);
-              if (chosen) {
-                setDraft((current) => applyPreset(current, chosen));
-                connection.reset();
-              }
-            }}
-          >
-            <option value={custom}>{ui("Tuỳ chỉnh")}</option>
-            {presets.map((entry) => (
-              <option key={entry.model} value={entry.model}>
-                {entry.label}
-              </option>
-            ))}
-          </NativeSelect>
-        </label>
-        <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
-          <label className="block min-w-0 space-y-1">
-            {ui("Tên model")}
-            <Input
-              required
+        <FieldGroup>
+          <Field data-invalid={problems.has("provider") || undefined}>
+            <FieldLabel htmlFor="generation-provider">{ui("Provider embedding")}</FieldLabel>
+            <NativeSelect
+              id="generation-provider"
+              value={draft.providerId}
+              aria-invalid={problems.has("provider")}
+              onChange={(event) => update({ providerId: event.target.value })}
+            >
+              {providers.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {entry.name}
+                </option>
+              ))}
+            </NativeSelect>
+            {provider && (
+              <FieldDescription>
+                <span className="flex min-w-0 flex-wrap items-center gap-2">
+                  <DataBoundaryTag boundary={provider.dataBoundary} />
+                  <span className="min-w-0 break-all">{provider.endpoint}</span>
+                </span>
+              </FieldDescription>
+            )}
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="generation-preset">{ui("Model đã biết")}</FieldLabel>
+            <NativeSelect
+              id="generation-preset"
+              value={preset?.model ?? custom}
+              onChange={(event) => {
+                const chosen = presets.find((entry) => entry.model === event.target.value);
+                if (chosen) {
+                  setDraft((current) => applyPreset(current, chosen));
+                  connection.reset();
+                }
+              }}
+            >
+              <option value={custom}>{ui("Tuỳ chỉnh")}</option>
+              {presets.map((entry) => (
+                <option key={entry.model} value={entry.model}>
+                  {entry.label}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <Field
+              className="min-w-0 sm:col-span-3"
+              data-invalid={problems.has("model") || undefined}
+            >
+              <FieldLabel htmlFor="generation-model">{ui("Tên model")}</FieldLabel>
+              <Input
+                id="generation-model"
+                required
+                spellCheck={false}
+                value={draft.model}
+                aria-invalid={problems.has("model")}
+                onChange={(event) => update({ model: event.target.value })}
+              />
+            </Field>
+            <Field data-invalid={problems.has("dimensions") || undefined}>
+              <FieldLabel htmlFor="generation-dimensions">{ui("Số chiều")}</FieldLabel>
+              <Input
+                id="generation-dimensions"
+                required
+                inputMode="numeric"
+                value={draft.dimensions}
+                aria-invalid={problems.has("dimensions")}
+                onChange={(event) => update({ dimensions: event.target.value })}
+              />
+            </Field>
+          </div>
+          <Field>
+            <FieldLabel htmlFor="generation-query-prefix">{ui("Tiền tố câu hỏi")}</FieldLabel>
+            <Textarea
+              id="generation-query-prefix"
+              rows={2}
               spellCheck={false}
-              value={draft.model}
-              aria-invalid={problems.has("model")}
-              onChange={(event) => update({ model: event.target.value })}
+              value={draft.queryPrefix}
+              onChange={(event) => update({ queryPrefix: event.target.value })}
             />
-          </label>
-          <label className="block space-y-1">
-            {ui("Số chiều")}
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="generation-document-prefix">{ui("Tiền tố tài liệu")}</FieldLabel>
+            <Textarea
+              id="generation-document-prefix"
+              rows={1}
+              spellCheck={false}
+              value={draft.documentPrefix}
+              onChange={(event) => update({ documentPrefix: event.target.value })}
+            />
+          </Field>
+          <Field className="sm:w-48" data-invalid={problems.has("score") || undefined}>
+            <FieldLabel htmlFor="generation-score">{ui("Ngưỡng ngữ nghĩa")}</FieldLabel>
             <Input
+              id="generation-score"
               required
-              inputMode="numeric"
-              value={draft.dimensions}
-              aria-invalid={problems.has("dimensions")}
-              onChange={(event) => update({ dimensions: event.target.value })}
+              type="number"
+              min={0}
+              max={1}
+              step={0.01}
+              value={draft.minimumSemanticScore}
+              aria-invalid={problems.has("score")}
+              onChange={(event) => update({ minimumSemanticScore: event.target.value })}
             />
-          </label>
-        </div>
-        <label className="block space-y-1">
-          {ui("Tiền tố câu hỏi")}
-          <Textarea
-            rows={2}
-            spellCheck={false}
-            className="font-mono text-xs md:text-xs"
-            value={draft.queryPrefix}
-            onChange={(event) => update({ queryPrefix: event.target.value })}
-          />
-        </label>
-        <label className="block space-y-1">
-          {ui("Tiền tố tài liệu")}
-          <Textarea
-            rows={1}
-            spellCheck={false}
-            className="font-mono text-xs md:text-xs"
-            value={draft.documentPrefix}
-            onChange={(event) => update({ documentPrefix: event.target.value })}
-          />
-        </label>
-        <label className="block space-y-1 sm:w-48">
-          {ui("Ngưỡng ngữ nghĩa")}
-          <Input
-            required
-            type="number"
-            min={0}
-            max={1}
-            step={0.01}
-            value={draft.minimumSemanticScore}
-            aria-invalid={problems.has("score")}
-            onChange={(event) => update({ minimumSemanticScore: event.target.value })}
-          />
-        </label>
+          </Field>
+        </FieldGroup>
         <ConnectionOutcome outcome={connection.outcome} />
         <div className="flex flex-wrap justify-end gap-2">
           <Button
@@ -184,7 +201,7 @@ export function ChangeModelDialog({
                 });
             }}
           >
-            <PlugZap aria-hidden="true" />
+            <PlugZap data-icon="inline-start" aria-hidden="true" />
             {ui("Kiểm tra")}
           </Button>
           <Button prominence="secondary" onClick={onClose}>
@@ -211,10 +228,7 @@ export function ChangeModelDialog({
           confirmLabel={ui("Bắt đầu dựng lại")}
           pendingLabel={ui("Đang bắt đầu")}
           onConfirm={async () => {
-            await createSearchFutureGeneration({
-              body: parsed.request!,
-            });
-            await refreshSearchSettings(client);
+            await create.mutateAsync({ body: parsed.request! });
             onClose();
           }}
           errorMessage={(cause) => searchSettingsProblem(cause, "create")}

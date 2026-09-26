@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { appText, type AppCopy, type AppText } from "@/i18n/app-text";
+import { uiLocale } from "@/i18n/format";
 import { ApiError } from "@/lib/api";
 import {
   getSearchSettingsQueryKey,
@@ -25,6 +26,12 @@ export async function refreshSearchSettings(client: QueryClient) {
       client.invalidateQueries({ queryKey }, { throwOnError: true }),
     ),
   );
+}
+
+/** Whole numbers in the interface language, such as document counts and dimensions. */
+export function useCount() {
+  const format = new Intl.NumberFormat(uiLocale());
+  return (value: number) => format.format(value);
 }
 
 /** How often the page rereads the settings while a future generation is being built. */

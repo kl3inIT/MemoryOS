@@ -1,12 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, PlugZap } from "lucide-react";
+import { CheckCircle2, CircleAlert, PlugZap } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { cn } from "@/lib/utils";
 import { createEmbeddingProvider, updateEmbeddingProvider } from "@/lib/hey-api/sdk.gen";
 import type { EmbeddingProviderRequest, EmbeddingProviderResponse } from "@/lib/hey-api/types.gen";
 import { CatalogDialog } from "@/components/composites/catalog-dialog";
@@ -28,13 +31,15 @@ export function ConnectionOutcome({ outcome }: { outcome: ProviderTestOutcome | 
       <AlertTitle className="break-words">{ui(outcome.message)}</AlertTitle>
     </Alert>
   ) : (
-    <div
-      role="alert"
-      className="space-y-1 rounded-lg bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content"
-    >
-      <p>{ui(outcome.message)}</p>
-      {outcome.detail && <p className="break-words font-mono text-xs">{outcome.detail}</p>}
-    </div>
+    <Alert variant="destructive" role="alert">
+      <CircleAlert aria-hidden="true" />
+      <AlertTitle className="break-words">{ui(outcome.message)}</AlertTitle>
+      {outcome.detail && (
+        <AlertDescription>
+          <p className="break-words font-mono">{outcome.detail}</p>
+        </AlertDescription>
+      )}
+    </Alert>
   );
 }
 
@@ -145,6 +150,15 @@ export function EmbeddingProviderEditor({
     { describe: (cause) => searchSettingsError(cause, "saveProvider") },
   );
 
+  function changeEndpoint(next: string) {
+    setEndpoint(next);
+    if (initial?.hasApiKey && next.trim() !== initial.endpoint && keyAction === "KEEP") {
+      setKeyAction("REPLACE");
+      clearSecret();
+    }
+    connection.reset();
+  }
+
   async function save() {
     if (invalid || action.pending) return;
     try {
@@ -172,122 +186,91 @@ export function EmbeddingProviderEditor({
       onClose={close}
     >
       <form
-        className="space-y-4"
+        className="flex flex-col gap-4"
         onSubmit={(event) => {
           event.preventDefault();
           void save();
         }}
       >
-        <fieldset disabled={action.pending} className="space-y-4">
-          <label className="block space-y-1">
-            {ui("Tên")}
-            <Input
-              required
-              maxLength={200}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </label>
-          <label className="block space-y-1">
-            {ui("Endpoint")}
-            <Input
-              required
-              type="url"
-              placeholder="http://10.0.0.5:8080/v1"
-              value={endpoint}
-              onChange={(event) => {
-                const next = event.target.value;
-                setEndpoint(next);
-                if (
-                  initial?.hasApiKey &&
-                  next.trim() !== initial.endpoint &&
-                  keyAction === "KEEP"
-                ) {
-                  setKeyAction("REPLACE");
-                  clearSecret();
-                }
-                connection.reset();
-              }}
-            />
-          </label>
-          {initial && (
-            <label className="block space-y-1">
-              {ui("API key")}
-              <NativeSelect
-                value={keyAction}
-                onChange={(event) => {
-                  setKeyAction(event.target.value as KeyAction);
-                  clearSecret();
-                  connection.reset();
-                }}
-              >
-                <option value="KEEP" disabled={keepBlocked}>
-                  {initial.hasApiKey ? ui("Keep existing key") : ui("Không có khóa")}
-                </option>
-                <option value="REPLACE">{ui("Replace key")}</option>
-                {initial.hasApiKey && <option value="REMOVE">{ui("Remove key")}</option>}
-              </NativeSelect>
-            </label>
-          )}
-          <label className={keyAction === "REPLACE" ? "block space-y-1" : "hidden"}>
-            {ui("API key")}
-            <Input
-              ref={keyInput}
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              disabled={keyAction !== "REPLACE" || action.pending}
-              onChange={(event) => {
-                secret.current = event.target.value;
-                setKeyTyped(Boolean(secret.current.trim()));
-                connection.reset();
-              }}
-            />
-          </label>
-          <DataBoundaryField value={dataBoundary} onChange={setDataBoundary} />
-        </fieldset>
-        <fieldset
-          disabled={action.pending}
-          className="space-y-3 rounded-xl border border-border-subtle p-3"
-        >
-          <legend className="px-1 font-main-ui-action">{ui("Kiểm tra kết nối")}</legend>
-          <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
-            <label className="block min-w-0 space-y-1">
-              {ui("Tên model")}
+        <FieldSet disabled={action.pending}>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="embedding-name">{ui("Tên")}</FieldLabel>
               <Input
-                value={model}
+                id="embedding-name"
+                required
+                maxLength={200}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="embedding-endpoint">{ui("Endpoint")}</FieldLabel>
+              <Input
+                id="embedding-endpoint"
+                required
+                type="url"
+                placeholder="http://10.0.0.5:8080/v1"
+                value={endpoint}
+                onChange={(event) => changeEndpoint(event.target.value)}
+              />
+            </Field>
+            {initial && (
+              <Field>
+                <FieldLabel htmlFor="embedding-key-action">{ui("API key")}</FieldLabel>
+                <NativeSelect
+                  id="embedding-key-action"
+                  value={keyAction}
+                  onChange={(event) => {
+                    setKeyAction(event.target.value as KeyAction);
+                    clearSecret();
+                    connection.reset();
+                  }}
+                >
+                  <option value="KEEP" disabled={keepBlocked}>
+                    {initial.hasApiKey ? ui("Keep existing key") : ui("Không có khóa")}
+                  </option>
+                  <option value="REPLACE">{ui("Replace key")}</option>
+                  {initial.hasApiKey && <option value="REMOVE">{ui("Remove key")}</option>}
+                </NativeSelect>
+              </Field>
+            )}
+            <Field className={cn(keyAction !== "REPLACE" && "hidden")}>
+              <FieldLabel htmlFor="embedding-key">{ui("API key")}</FieldLabel>
+              <Input
+                id="embedding-key"
+                ref={keyInput}
+                type="password"
+                autoComplete="off"
                 spellCheck={false}
+                disabled={keyAction !== "REPLACE" || action.pending}
                 onChange={(event) => {
-                  setModel(event.target.value);
+                  secret.current = event.target.value;
+                  setKeyTyped(Boolean(secret.current.trim()));
                   connection.reset();
                 }}
               />
-            </label>
-            <label className="block space-y-1">
-              {ui("Số chiều")}
-              <Input
-                inputMode="numeric"
-                value={dimensions}
-                aria-invalid={!dimensionsValid}
-                onChange={(event) => {
-                  setDimensions(event.target.value);
-                  connection.reset();
-                }}
-              />
-            </label>
-          </div>
-          <ConnectionOutcome outcome={connection.outcome} />
-          <Button
-            prominence="secondary"
-            size="sm"
-            pending={connection.pending}
-            disabled={!testable}
-            onClick={() => void test()}
-          >
-            <PlugZap aria-hidden="true" />
-            {ui("Kiểm tra")}
-          </Button>
-        </fieldset>
+            </Field>
+            <DataBoundaryField value={dataBoundary} onChange={setDataBoundary} />
+          </FieldGroup>
+        </FieldSet>
+        <ConnectionCheck
+          disabled={action.pending}
+          model={model}
+          dimensions={dimensions}
+          dimensionsValid={dimensionsValid}
+          testable={testable}
+          connection={connection}
+          onModel={(next) => {
+            setModel(next);
+            connection.reset();
+          }}
+          onDimensions={(next) => {
+            setDimensions(next);
+            connection.reset();
+          }}
+          onTest={() => void test()}
+        />
         {action.error && (
           <Alert variant="destructive" role="alert">
             <AlertDescription>{ui(action.error)}</AlertDescription>
@@ -303,5 +286,72 @@ export function EmbeddingProviderEditor({
         </div>
       </form>
     </CatalogDialog>
+  );
+}
+
+/** A real embedding call with the draft's endpoint and key, for the model and dimensions typed here. */
+function ConnectionCheck({
+  disabled,
+  model,
+  dimensions,
+  dimensionsValid,
+  testable,
+  connection,
+  onModel,
+  onDimensions,
+  onTest,
+}: {
+  disabled: boolean;
+  model: string;
+  dimensions: string;
+  dimensionsValid: boolean;
+  testable: boolean;
+  connection: ReturnType<typeof useEmbeddingTest>;
+  onModel: (model: string) => void;
+  onDimensions: (dimensions: string) => void;
+  onTest: () => void;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <Card size="sm">
+      <CardContent>
+        <FieldSet disabled={disabled}>
+          <FieldLegend variant="label">{ui("Kiểm tra kết nối")}</FieldLegend>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <Field className="min-w-0 sm:col-span-3">
+              <FieldLabel htmlFor="embedding-test-model">{ui("Tên model")}</FieldLabel>
+              <Input
+                id="embedding-test-model"
+                value={model}
+                spellCheck={false}
+                onChange={(event) => onModel(event.target.value)}
+              />
+            </Field>
+            <Field data-invalid={!dimensionsValid || undefined}>
+              <FieldLabel htmlFor="embedding-test-dimensions">{ui("Số chiều")}</FieldLabel>
+              <Input
+                id="embedding-test-dimensions"
+                inputMode="numeric"
+                value={dimensions}
+                aria-invalid={!dimensionsValid}
+                onChange={(event) => onDimensions(event.target.value)}
+              />
+            </Field>
+          </div>
+          <ConnectionOutcome outcome={connection.outcome} />
+          <Button
+            prominence="secondary"
+            size="sm"
+            className="self-start"
+            pending={connection.pending}
+            disabled={!testable}
+            onClick={onTest}
+          >
+            <PlugZap data-icon="inline-start" aria-hidden="true" />
+            {ui("Kiểm tra")}
+          </Button>
+        </FieldSet>
+      </CardContent>
+    </Card>
   );
 }
