@@ -44,10 +44,12 @@ export function DocumentKindIcon({
   mediaType,
   filename,
   className,
+  strokeWidth,
 }: {
   mediaType?: string | null;
   filename?: string | null;
   className?: string;
+  strokeWidth?: number;
 }) {
   const kind = documentKind(mediaType, filename);
   const Icon = ICONS[kind];
@@ -56,6 +58,7 @@ export function DocumentKindIcon({
       aria-hidden="true"
       data-slot="document-kind-icon"
       data-kind={kind}
+      strokeWidth={strokeWidth}
       className={cn("size-4 shrink-0", TINTS[kind], className)}
     />
   );

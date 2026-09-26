@@ -30,7 +30,8 @@
     "shadcn/no-restyle": [
       "error",
       {
-        "allow": ["layout"],
+        // `aui-*` are the assistant-ui registry's styling hooks: marker classes with no declarations.
+        "allow": ["layout", "aui-*"],
         "contracts": [
           {
             "pattern": "^(Table|TableHeader|TableBody|TableFooter|TableRow|TableHead|TableCell|TableCaption|Input|Textarea|Select|SelectTrigger|NativeSelect|Button|IconButton|PopoverContent|Skeleton|CollapsibleTrigger)$",
@@ -60,10 +61,23 @@
   },
   "overrides": [
     {
-      "files": ["src/components/ui/**/*.tsx"],
+      // The vendored primitives and their variant tables (action-styles.ts) are the design system itself: they define
+      // the token plumbing (`[--action-surface:var(...)]`) that product code consumes, compose one primitive's cva
+      // variants into another's className, and restyle the primitives they wrap by design.
+      "files": ["src/components/ui/**/*.{ts,tsx}"],
       "rules": {
         "shadcn/no-restyle": "off",
-        "shadcn/no-arbitrary-values": "off"
+        "shadcn/no-arbitrary-values": "off",
+        "shadcn/require-static-classes": "off"
+      }
+    },
+    {
+      // Upstream shadcn InputGroupAddon: a pointer shortcut that focuses the group's input; keyboard users reach the
+      // input directly, so the addon needs no key handler of its own.
+      "files": ["src/components/ui/input-group.tsx"],
+      "rules": {
+        "jsx-a11y/click-events-have-key-events": "off",
+        "jsx-a11y/no-noninteractive-element-interactions": "off"
       }
     },
     {

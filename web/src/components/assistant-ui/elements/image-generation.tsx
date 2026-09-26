@@ -5,7 +5,7 @@
 // top-to-bottom (clip + unblur) the way ChatGPT/Copilot reveal a fresh render.
 // Clicking the image opens a fullscreen viewer. Prop-driven (labels passed in) so the
 // element stays i18n-free and unit-testable.
-import { type ComponentProps, useEffect, useRef, useState } from "react";
+import { type ComponentProps, type CSSProperties, useEffect, useRef, useState } from "react";
 import { DownloadIcon, PencilIcon, XIcon } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { cn } from "@/lib/utils";
@@ -67,7 +67,7 @@ export function ImageGeneration({
         <div
           aria-hidden="true"
           className={cn(
-            "absolute inset-0 bg-gradient-to-br from-chart-1/30 via-chart-7/25 to-chart-4/30 transition-[filter,opacity] duration-500",
+            "absolute inset-0 bg-gradient-to-br from-chart-1/30 via-chart-7/25 to-chart-4/30 transition duration-500",
             showImage ? "opacity-30 blur-2xl" : "opacity-90 blur-xl",
           )}
         />
@@ -86,10 +86,10 @@ export function ImageGeneration({
                   onLoad={() => setRevealed(true)}
                   data-revealed={revealed}
                   className={cn(
-                    "size-full object-contain transition-[clip-path,filter,transform,opacity] duration-[1100ms] ease-out motion-reduce:!transition-none",
+                    "size-full object-contain transition-all duration-1100 ease-out motion-reduce:!transition-none",
                     revealed
-                      ? "scale-100 opacity-100 blur-none [clip-path:inset(0%_0_0_0)]"
-                      : "scale-[1.03] opacity-0 blur-md [clip-path:inset(0_0_100%_0)]",
+                      ? "scale-100 opacity-100 blur-none clip-reveal-open"
+                      : "scale-103 opacity-0 blur-md clip-reveal-closed",
                   )}
                 />
                 {/* Hover affordance for the "click to view" interaction. */}
@@ -109,7 +109,7 @@ export function ImageGeneration({
                 <img
                   src={src}
                   alt={description}
-                  className="max-h-[90dvh] max-w-full rounded-lg object-contain shadow-2xl"
+                  className="max-h-lightbox max-w-full rounded-lg object-contain shadow-2xl"
                 />
                 <div className="fixed top-3 right-3 flex items-center gap-2 sm:top-4 sm:right-4">
                   {src && (
@@ -143,12 +143,14 @@ export function ImageGeneration({
                 <span
                   key={index}
                   className={cn(
-                    "size-1 rounded-full bg-foreground/40 transition-opacity",
+                    "size-1 rounded-full bg-foreground/40 transition-opacity delay-(--pulse-delay)",
                     generating ? "animate-pulse motion-reduce:animate-none" : "opacity-0",
                   )}
                   style={
                     generating
-                      ? { animationDelay: `${((index % 8) + Math.floor(index / 8)) * 70}ms` }
+                      ? ({
+                          "--pulse-delay": `${((index % 8) + Math.floor(index / 8)) * 70}ms`,
+                        } as CSSProperties)
                       : undefined
                   }
                 />

@@ -41,10 +41,10 @@ export function ApplicationError({
     >
       <Empty className="max-w-lg">
         <EmptyHeader>
-          <EmptyMedia variant="icon" className="bg-muted text-foreground">
+          <EmptyMedia variant="icon">
             <TriangleAlert />
           </EmptyMedia>
-          <EmptyTitle role="heading" aria-level={1} className="font-heading-h2">
+          <EmptyTitle role="heading" aria-level={1} size="page">
             {title ?? ui("Something went wrong")}
           </EmptyTitle>
           <EmptyDescription>

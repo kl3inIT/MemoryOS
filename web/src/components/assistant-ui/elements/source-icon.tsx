@@ -38,7 +38,7 @@ export function SourceIcon({
       <span
         data-slot="source-icon-fallback"
         className={cn(
-          "flex size-3.5 shrink-0 items-center justify-center rounded-sm bg-surface-sunken text-[10px] font-medium",
+          "flex size-3.5 shrink-0 items-center justify-center rounded-sm bg-surface-sunken text-2xs font-medium",
           className,
         )}
       >

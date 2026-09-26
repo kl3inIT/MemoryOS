@@ -53,6 +53,8 @@ export function ConversationSearch({
             onChange={(event) => onQueryChange?.(event.target.value)}
             placeholder={ui("Tìm trong hội thoại này…")}
             aria-label={ui("Tìm trong hội thoại này…")}
+            // The person opened this search bar to type into it (Ctrl+F); the input takes focus as it appears.
+            // oxlint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.nativeEvent.isComposing) {
@@ -60,7 +62,7 @@ export function ConversationSearch({
                 onStep?.(event.shiftKey ? -1 : 1);
               }
             }}
-            className="text-content-primary placeholder:text-content-muted min-w-0 flex-1 bg-transparent text-[13px] outline-none"
+            className="text-content-primary placeholder:text-content-muted min-w-0 flex-1 bg-transparent text-sm outline-none"
           />
           <span role="status" className={cn(mono, "text-content-muted shrink-0 tabular-nums")}>
             {hits.length === 0

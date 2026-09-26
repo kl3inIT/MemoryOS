@@ -193,7 +193,6 @@ function SidebarContents({
                 aria-label={ui("Collapse sidebar")}
                 title={ui("Collapse sidebar")}
                 onClick={onCollapseToggle}
-                className="text-content-secondary"
               >
                 <PanelLeftClose />
               </IconButton>
@@ -342,7 +341,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex h-dvh min-h-0 overflow-hidden bg-surface-canvas text-content-primary">
       <a
         href="#main-content"
-        className="sr-only z-[60] rounded-lg bg-surface-base px-3 py-2 font-main-ui-body shadow-md focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:ring-3 focus:ring-ring/50"
+        className="sr-only z-60 rounded-lg bg-surface-base px-3 py-2 font-main-ui-body shadow-md focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:ring-3 focus:ring-ring/50"
       >
         {ui("Skip to content")}
       </a>
@@ -358,7 +357,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 : ui("Administration sidebar")
         }
         className={cn(
-          "relative hidden h-dvh shrink-0 overflow-hidden bg-surface-canvas transition-[width] duration-200 motion-reduce:transition-none md:block",
+          "relative hidden h-dvh shrink-0 overflow-hidden bg-surface-canvas transition-all duration-200 motion-reduce:transition-none md:block",
           sidebarCollapsed ? "w-(--sidebar-width-collapsed)" : "w-(--sidebar-width)",
         )}
       >
@@ -399,7 +398,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </header>
 
           <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none" />
+            <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-2xs data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none" />
             <Dialog.Content
               aria-describedby={undefined}
               className="fixed inset-y-0 left-0 z-50 w-[min(var(--sidebar-width),86vw)] border-r border-border-subtle bg-surface-canvas shadow-md outline-none data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left motion-reduce:animate-none"
@@ -421,7 +420,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <main
             id="main-content"
             tabIndex={-1}
-            className="min-h-0 min-w-0 flex-1 overflow-auto outline-none [scrollbar-gutter:stable]"
+            className="min-h-0 min-w-0 flex-1 overflow-auto outline-none scrollbar-stable"
           >
             {children}
           </main>

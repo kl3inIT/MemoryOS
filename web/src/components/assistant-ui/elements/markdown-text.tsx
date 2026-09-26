@@ -132,7 +132,7 @@ function Pre({ className, node: _node, ...props }: ComponentProps<"pre"> & { nod
   return (
     <pre
       className={cn(
-        "aui-md-pre border-border/50 bg-muted/30 overflow-x-auto rounded-t-none rounded-b-xl border border-t-0 p-3.5 text-[13px] leading-relaxed",
+        "aui-md-pre border-border/50 bg-muted/30 overflow-x-auto rounded-t-none rounded-b-xl border border-t-0 p-3.5 text-code leading-relaxed",
         className,
       )}
       {...props}
@@ -141,65 +141,79 @@ function Pre({ className, node: _node, ...props }: ComponentProps<"pre"> & { nod
 }
 
 const tagComponents: Components = {
-  h1: ({ className, ...props }) => (
+  h1: ({ className, children, ...props }) => (
     <h1
       className={cn(
         "aui-md-h1 mt-5 mb-2 scroll-m-20 text-xl font-semibold first:mt-0 last:mb-0",
         className,
       )}
       {...props}
-    />
+    >
+      {children}
+    </h1>
   ),
-  h2: ({ className, ...props }) => (
+  h2: ({ className, children, ...props }) => (
     <h2
       className={cn(
         "aui-md-h2 mt-5 mb-2 scroll-m-20 text-lg font-semibold first:mt-0 last:mb-0",
         className,
       )}
       {...props}
-    />
+    >
+      {children}
+    </h2>
   ),
-  h3: ({ className, ...props }) => (
+  h3: ({ className, children, ...props }) => (
     <h3
       className={cn(
         "aui-md-h3 mt-4 mb-1.5 scroll-m-20 text-base font-semibold first:mt-0 last:mb-0",
         className,
       )}
       {...props}
-    />
+    >
+      {children}
+    </h3>
   ),
-  h4: ({ className, ...props }) => (
+  h4: ({ className, children, ...props }) => (
     <h4
       className={cn(
         "aui-md-h4 mt-3.5 mb-1 scroll-m-20 text-base font-medium first:mt-0 last:mb-0",
         className,
       )}
       {...props}
-    />
+    >
+      {children}
+    </h4>
   ),
-  h5: ({ className, ...props }) => (
+  h5: ({ className, children, ...props }) => (
     <h5
       className={cn("aui-md-h5 mt-3 mb-1 text-sm font-semibold first:mt-0 last:mb-0", className)}
       {...props}
-    />
+    >
+      {children}
+    </h5>
   ),
-  h6: ({ className, ...props }) => (
+  h6: ({ className, children, ...props }) => (
     <h6
       className={cn("aui-md-h6 mt-3 mb-1 text-sm font-medium first:mt-0 last:mb-0", className)}
       {...props}
-    />
+    >
+      {children}
+    </h6>
   ),
   p: ({ className, ...props }) => (
     <p className={cn("aui-md-p my-3 leading-relaxed first:mt-0 last:mb-0", className)} {...props} />
   ),
-  a: ({ className, ...props }) => (
+  a: ({ className, children, ...props }) => (
     <a
       className={cn(
         "aui-md-a text-primary hover:text-primary/80 underline underline-offset-2",
         className,
       )}
       {...props}
-    />
+    >
+      {children}
+    </a>
   ),
   blockquote: ({ className, ...props }) => (
     <blockquote
@@ -281,7 +295,7 @@ const tagComponents: Components = {
       <code
         className={cn(
           !isCodeBlock &&
-            "aui-md-inline-code bg-muted rounded-md px-1.5 py-0.5 font-mono text-[0.85em]",
+            "aui-md-inline-code bg-muted rounded-md px-1.5 py-0.5 font-mono text-code-inline",
           className,
         )}
         {...props}

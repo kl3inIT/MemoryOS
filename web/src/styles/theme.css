@@ -22,6 +22,17 @@
      document viewer opened as a bottom sheet on a phone covers (`min-h-viewer-sheet`). */
   --spacing-viewer: 70vh;
   --spacing-viewer-sheet: 72dvh;
+  /* The tallest an image grows in a full-screen lightbox (`max-h-lightbox`). */
+  --spacing-lightbox: 85dvh;
+
+  /* Code blocks and inline code in answers, and the smallest glyph (a favicon's fallback letter). */
+  --text-code: 0.8125rem;
+  --text-code-inline: 0.85em;
+  --text-2xs: 0.625rem;
+  /* The light frosting behind scrims and over media, below Tailwind's `blur-xs` (4px). */
+  --blur-2xs: 2px;
+  /* The settle curve of the assistant surfaces (panels and fades). */
+  --ease-out-quint: cubic-bezier(0.23, 1, 0.32, 1);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -192,6 +203,20 @@
   font-size: 0.625rem;
   font-weight: 600;
   line-height: 0.75rem;
+}
+
+/* A top-down wipe that reveals a generated image: closed clips it to nothing, open shows all of it. */
+@utility clip-reveal-closed {
+  clip-path: inset(0 0 100% 0);
+}
+
+@utility clip-reveal-open {
+  clip-path: inset(0% 0 0 0);
+}
+
+/* Reserve the scrollbar's width so content does not shift when a scroller starts to scroll. */
+@utility scrollbar-stable {
+  scrollbar-gutter: stable;
 }
 
 @utility surface-card {

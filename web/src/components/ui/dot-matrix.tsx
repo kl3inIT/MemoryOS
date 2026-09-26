@@ -230,12 +230,11 @@ function DotMatrix({ className, state = "loading", label, ...props }: DotMatrixP
               cx={2 + col * 4}
               cy={2 + row * 4}
               r={1.3}
-              className="[transition-property:--aui-dot-matrix-hi,--aui-dot-matrix-lo,opacity] duration-300 [animation-iteration-count:infinite] [animation-name:aui-dot-matrix-blink] [animation-timing-function:ease-in-out] motion-reduce:[animation-name:none]"
+              className="[transition-property:--aui-dot-matrix-hi,--aui-dot-matrix-lo,opacity] duration-300 [animation-iteration-count:infinite] [animation-name:aui-dot-matrix-blink] [animation-timing-function:ease-in-out] motion-reduce:[animation-name:none] opacity-(--aui-dot-matrix-hi) [animation-duration:var(--aui-dot-matrix-duration)] [animation-delay:var(--aui-dot-matrix-delay)]"
               style={
                 {
-                  opacity: hi,
-                  animationDuration: `${blink?.duration ?? 1}s`,
-                  animationDelay: `${blink?.delay ?? 0}s`,
+                  "--aui-dot-matrix-duration": `${blink?.duration ?? 1}s`,
+                  "--aui-dot-matrix-delay": `${blink?.delay ?? 0}s`,
                   "--aui-dot-matrix-hi": hi,
                   "--aui-dot-matrix-lo": blink?.lo ?? hi,
                 } as CSSProperties

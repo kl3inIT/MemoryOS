@@ -26,7 +26,7 @@ export function ErrorState({ title, detail, action, className, ...props }: Error
         aria-hidden="true"
         className="mt-0.5 size-4 shrink-0 text-content-secondary"
       />
-      <div className="min-w-0 flex-1 basis-40 [overflow-wrap:anywhere]">
+      <div className="min-w-0 flex-1 basis-40 wrap-anywhere">
         <p className="font-medium">{title}</p>
         <p className="mt-0.5 text-sm leading-snug text-content-secondary">{detail}</p>
       </div>
