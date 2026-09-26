@@ -434,6 +434,10 @@ class SourceApiIntegrationTest {
                 .andExpect(jsonPath("$.items.length()").value(1))
                 .andExpect(jsonPath("$.items[0].status").value("COMPLETED_WITH_ERRORS"))
                 .andExpect(jsonPath("$.items[0].acquisitionStatus").value("COMPLETED_WITH_ERRORS"));
+        // The operation finished; its per-file errors are listed below, not reported as a failed operation.
+        mockMvc.perform(get("/api/source-operations/{id}", run).with(authentication(owner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"));
         mockMvc.perform(get("/api/sources/{id}/runs/{run}/errors", source.id().value(), run).with(authentication(owner)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(2))

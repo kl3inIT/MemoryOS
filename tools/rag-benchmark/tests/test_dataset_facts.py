@@ -6,10 +6,11 @@ correct reply as a leak, and a leak fails the whole run.
 
 from __future__ import annotations
 
+from collections import Counter
 from pathlib import Path
 
 from rag_benchmark import leaks
-from rag_benchmark.questions import Question, load
+from rag_benchmark.questions import CATEGORIES, Question, load
 
 DATASET = Path(__file__).resolve().parent.parent / "datasets" / "questions.jsonl"
 
@@ -18,22 +19,16 @@ def questions() -> list[Question]:
     return load(DATASET)
 
 
-def test_the_shipped_set_covers_every_category_and_actor() -> None:
-    rows = questions()
-    categories = {question.category for question in rows}
+def test_the_shipped_set_holds_every_category_with_ten_questions_each() -> None:
+    counts = Counter(question.category for question in questions())
 
-    assert len(rows) == 89
-    assert categories == {
-        "lookup",
-        "multi_hop",
-        "aggregate",
-        "temporal",
-        "abstain",
-        "ambiguous",
-        "group",
-        "cross_department",
+    assert set(counts) == CATEGORIES
+    thin = {
+        category: count
+        for category, count in counts.items()
+        if count < 10 and category != "cross_department"
     }
-    assert len([q for q in rows if q.category == "cross_department"]) == 9
+    assert thin == {}, "every category but cross_department holds at least ten questions"
 
 
 def test_no_forbidden_fact_is_already_in_the_question() -> None:

@@ -35,7 +35,7 @@ export type TranscriptionSocketOptions = {
   createSocket?: (url: string) => WebSocket;
 };
 
-export function transcriptionUrl(
+function transcriptionUrl(
   ticket: string,
   language: string,
   location: Pick<Location, "origin" | "protocol"> = window.location,

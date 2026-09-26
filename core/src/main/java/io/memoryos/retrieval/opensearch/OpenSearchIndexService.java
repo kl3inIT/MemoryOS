@@ -732,7 +732,7 @@ public class OpenSearchIndexService implements SearchIndex {
     private static Map<String,Object> term(String field, String value) { return Map.of("term", Map.of(field, value)); }
 
     /** The range, widened to documents without that date when the shared rule admits them. */
-    static Map<String, Object> dateRange(String field, SearchFilters.Interval interval, boolean keepUndated) {
+    private static Map<String, Object> dateRange(String field, SearchFilters.Interval interval, boolean keepUndated) {
         var within = range(field, interval);
         if (!keepUndated) return within;
         return Map.of("bool", Map.of(

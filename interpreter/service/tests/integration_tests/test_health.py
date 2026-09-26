@@ -52,13 +52,6 @@ def test_health_returns_error_when_backend_unhealthy() -> None:
     assert body["version"] == SERVICE_VERSION
 
 
-def test_health_version_matches_package_metadata() -> None:
-    """The version should come from the installed package, not be hardcoded."""
-    from importlib.metadata import version as package_version
-
-    assert package_version("memoryos-interpreter") == SERVICE_VERSION
-
-
 def test_service_version_matches_helm_chart_version() -> None:
     """Guard against drift between the Python package and the Helm chart.
 

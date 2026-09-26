@@ -323,7 +323,7 @@ class SearchIndexWorkIntegrationTest {
             assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
         }
         var maintenance = new SearchProjectionMaintenance(chunks, work, index,
-                new DataSourceTransactionManager(dataSource));
+                new DataSourceTransactionManager(dataSource), 64);
         when(index.inspect(any(), any())).thenAnswer(call -> projections(call.getArgument(0), SearchIndex.Projection.STALE_FIELDS));
         maintenance.reconcile();
         assertTrue(chunks.isCurrent(tenant, document, generation(document), IDENTITY), "Access-only drift must keep the document searchable");
@@ -344,7 +344,7 @@ class SearchIndexWorkIntegrationTest {
             assertEquals(IngestionCoordinator.Outcome.COMPLETED, coordinator.process(delivery()));
             var source = mapToFileSource(document);
             var maintenance = new SearchProjectionMaintenance(chunks, work, index,
-                    new DataSourceTransactionManager(dataSource));
+                    new DataSourceTransactionManager(dataSource), 64);
             var changed = new GoogleDriveAclChanged(tenant, source, "file", List.of(document), 2,
                     GoogleDriveAclSnapshot.Status.SUCCEEDED, null);
             tx.executeWithoutResult(_ -> maintenance.aclChanged(changed));

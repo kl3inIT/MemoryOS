@@ -17,6 +17,7 @@ import io.memoryos.document.persistence.JdbcExtractionArtifactRepository;
 import io.memoryos.shared.TenantId;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -81,9 +82,11 @@ class ExtractionArtifactLifecycleTest {
         var id = transaction.execute(_ -> documents.publish(tenant, null, new DocumentContent("text/csv", "private.csv", "Private value",
                 Map.of("origin", "USER_FILE", "user_file_id", file.toString()), json, artifact), "a".repeat(64)));
         var generation = jdbc.sql("SELECT content_generation FROM documents").query(UUID.class).single();
+        var opened = new ArrayList<ObjectContent>();
         Mockito.when(storage.open(ArgumentMatchers.any())).thenAnswer(_ -> {
             var content = Mockito.mock(ObjectContent.class);
             Mockito.when(content.inputStream()).thenReturn(new ByteArrayInputStream(bytes));
+            opened.add(content);
             return content;
         });
         var first = transaction.execute(_ -> chunks.prepare(tenant, id, generation).orElseThrow());
@@ -96,6 +99,7 @@ class ExtractionArtifactLifecycleTest {
         Mockito.verify(storage, Mockito.times(2)).open(ArgumentMatchers.any());
         assertEquals(DocumentChunk.CONVENTION, jdbc.sql("SELECT chunk_convention FROM documents").query(String.class).single());
         assertEquals(0, jdbc.sql("SELECT count(*) FROM document_artifact_readers").query(Integer.class).single());
+        opened.forEach(content -> Mockito.verify(content).close());
         assertEquals(artifact, jdbc.sql("SELECT extraction_artifact_id FROM documents").query(UUID.class).single());
     }
 

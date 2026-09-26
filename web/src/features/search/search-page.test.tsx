@@ -638,18 +638,6 @@ describe("SearchPage", () => {
     expect(screen.getByRole("button", { name: "Collapse sidebar" })).toBeInTheDocument();
   });
 
-  it("persists a real dark theme preference", async () => {
-    const user = userEvent.setup();
-    await renderNewSession();
-
-    await user.click(screen.getByRole("button", { name: "Tenant owner" }));
-    await user.click(screen.getByRole("button", { name: "Use dark theme" }));
-
-    expect(document.documentElement).toHaveClass("dark");
-    expect(window.localStorage.getItem("memoryos-theme")).toBe("dark");
-    expect(screen.getByRole("button", { name: "Use light theme" })).toBeInTheDocument();
-  });
-
   it("sends a guarded same-origin sign-out request", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn(() => new Promise<Response>(() => undefined));

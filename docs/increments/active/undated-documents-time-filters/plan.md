@@ -19,7 +19,7 @@
 
 - `SearchFiltersUndatedTest`: undated created kept; undated updated kept for an old open lower bound, dropped for a
   bounded recent window; an explicit window still excludes a dated origin outside it.
-- `UndatedDateClauseTest`: the emitted clause carries `must_not exists` exactly when the rule says so.
+- `OpenSearchRetrievalIntegrationTest` against real OpenSearch: a created-date window filters a dated Drive origin outside it and keeps the same document once its origin carries no date. (The clause-shape unit test was replaced by this boundary check in the test-audit cleanup.)
 - `SearchToolTest`: an inferred window that returns nothing is retried without it and then answers; a
   window the user asked for is kept and asked once. The Persona cutoff is covered in
   `SearchFiltersUndatedTest`, where the floor is built.

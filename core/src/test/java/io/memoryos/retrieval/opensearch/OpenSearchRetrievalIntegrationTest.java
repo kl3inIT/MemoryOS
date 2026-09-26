@@ -241,6 +241,19 @@ class OpenSearchRetrievalIntegrationTest {
             assertTrue(index.contains(leaveState));
             assertTrue(index.batch(driveOnly, queries, SearchFilters.NONE, () -> {}).stream()
                     .allMatch(h -> h.size() == 1 && h.getFirst().documentId().equals(leave.documentId().value())));
+            // A window keeps a Drive item that carries no source date: a bare range never matches an absent field.
+            var january = new SearchFilters(java.util.Set.of(),
+                    new SearchFilters.Interval(Instant.parse("2026-01-01T00:00:00Z"), Instant.parse("2026-01-31T23:59:59Z")), null);
+            assertTrue(index.batch(driveOnly, queries, january, () -> {}).stream().allMatch(List::isEmpty),
+                    "A dated item outside the window is filtered");
+            origins.set(List.of(new DocumentSourceMetadata(driveSource, remote.itemId(), SourceType.GOOGLE_DRIVE,
+                    null, null, remote.authors())));
+            index.index(leave);
+            assertTrue(index.batch(driveOnly, queries, january, () -> {}).stream()
+                    .allMatch(h -> h.size() == 1 && h.getFirst().documentId().equals(leave.documentId().value())),
+                    "An undated item is not removed by a window");
+            origins.set(List.of(remote));
+            index.index(leave);
             clearInvocations(model);
             origins.set(List.of(new DocumentSourceMetadata(uploaded.sourceId(), uploaded.itemId(), uploaded.type(),
                     uploaded.createdAt(), Instant.parse("2026-09-15T00:00:00Z"), uploaded.authors()), remote));

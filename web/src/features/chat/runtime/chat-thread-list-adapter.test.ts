@@ -7,7 +7,6 @@ import {
   chatHistoryAdapter,
   createChatThreadListAdapter,
   sessionFromThread,
-  threadMetadata,
 } from "./chat-thread-list-adapter";
 
 const session: ChatSession = {
@@ -81,7 +80,7 @@ describe("assistant-ui thread list adapter over the session API", () => {
 
     expect(requests).toEqual(["GET /api/chat/sessions?offset=0&limit=30&archived=false"]);
     expect(first.nextCursor).toBe("30");
-    expect(sessionFromThread(threadMetadata(page[1]!))).toEqual(page[1]);
+    expect(sessionFromThread(first.threads[1]!)).toEqual(page[1]);
     await adapter.list({ after: "30" });
     expect(requests.at(-1)).toBe("GET /api/chat/sessions?offset=30&limit=30&archived=false");
   });
@@ -97,9 +96,12 @@ describe("assistant-ui thread list adapter over the session API", () => {
     expect(requests.at(-1)).toBe(`POST /api/chat/sessions/${session.id}/unarchive`);
 
     // The thread list keeps an archived conversation as archived rather than dropping it.
-    expect(threadMetadata(archived).status).toBe("archived");
-    expect(threadMetadata(session).status).toBe("regular");
-    expect(sessionFromThread(threadMetadata(archived))).toEqual(archived);
+    stubFetch(() => json(archived));
+    const held = await adapter.fetch(session.id);
+    expect(held.status).toBe("archived");
+    expect(sessionFromThread(held)).toEqual(archived);
+    stubFetch(() => json(session));
+    expect((await adapter.fetch(session.id)).status).toBe("regular");
   });
 
   it("initializes from the transport's session and allows retry after a failed first send", async () => {
