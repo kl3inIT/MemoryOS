@@ -423,6 +423,14 @@ function setup(
   };
 }
 
+/** How often the root of Selected content was read. */
+function treeReads(requests: Request[]) {
+  return requests.filter((request) => {
+    const url = new URL(request.url);
+    return url.pathname.endsWith("/selection-tree") && !url.searchParams.get("parentId");
+  }).length;
+}
+
 async function edit(user: UserEvent) {
   await user.click(await screen.findByRole("button", { name: "Edit selection" }));
   return screen.findByRole("textbox", { name: "File or folder links" });
@@ -585,6 +593,33 @@ describe("Google Drive enterprise selection", () => {
     await user.click(screen.getByRole("button", { name: "Reload saved selection" }));
     await waitFor(() => expect(input).toHaveValue(firstLink));
     expect(screen.getByRole("button", { name: "Save selection" })).toBeDisabled();
+  });
+
+  it("reads Selected content again after a selection change made elsewhere", async () => {
+    const server = setup();
+    expect(await screen.findByText("Team folder")).toBeVisible();
+    const before = treeReads(server.requests);
+
+    server.setConfiguration({ revision: 8 });
+
+    await waitFor(() => expect(treeReads(server.requests)).toBeGreaterThan(before));
+    expect(await screen.findByText("Team folder")).toBeVisible();
+    expect(screen.queryByText(/Selection or discovery changed/)).toBeNull();
+  });
+
+  it("holds Selected content and says it changed while selection edits are unsaved", async () => {
+    const user = userEvent.setup();
+    const server = setup();
+    expect(await screen.findByText("Team folder")).toBeVisible();
+    const input = await edit(user);
+    await user.clear(input);
+    await user.paste(secondLink);
+    const before = treeReads(server.requests);
+
+    server.setConfiguration({ revision: 8 });
+
+    expect(await screen.findByText(/Selection or discovery changed/)).toBeVisible();
+    expect(treeReads(server.requests)).toBe(before);
   });
 
   it("keeps rejected requests editable with one safe error and no automatic retry", async () => {

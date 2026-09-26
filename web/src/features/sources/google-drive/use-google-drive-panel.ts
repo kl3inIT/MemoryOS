@@ -165,6 +165,29 @@ export function useGoogleDrivePanel({
     [source.id, session.actorId, session.authorizationVersion, capabilities],
   );
 
+  // A selection, discovery or credential change made elsewhere reaches the panel through the configuration; the
+  // Selected content read under the earlier revisions is then read again. Unsaved selection edits hold the pages as
+  // they are, and the panel says they changed, until the edits are saved or dropped.
+  const revisions = configuration
+    ? `${configuration.revision}:${configuration.discoveryRevision}:${configuration.credentialRevision}`
+    : undefined;
+  const readRevisions = useRef(revisions);
+  useEffect(() => {
+    if (revisions === undefined || editingSelection || revisions === readRevisions.current) return;
+    const first = readRevisions.current === undefined;
+    readRevisions.current = revisions;
+    if (first) return;
+    // A read already under way, such as the one after this person's own save, is not started again.
+    void queryClient.invalidateQueries(
+      { queryKey: getGoogleDriveSelectionQueryKey({ path: { sourceId: source.id } }) },
+      { cancelRefetch: false },
+    );
+    void queryClient.invalidateQueries(
+      { queryKey: getGoogleDriveSelectionTreeInfiniteQueryKey({ path: { sourceId: source.id } }) },
+      { cancelRefetch: false },
+    );
+  }, [revisions, editingSelection, queryClient, source.id]);
+
   async function refresh(throwOnError = false) {
     await queryClient.cancelQueries({ queryKey: configurationKey });
     await Promise.all([
