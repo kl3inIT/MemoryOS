@@ -37,5 +37,7 @@ export default {
     "@tanstack/react-query",
     // Schemas for parsing responses; forms and stream payloads build on them where OpenAPI describes the shape.
     "zod",
+    // MSW handler factories for unit tests, typed by the same operations (src/test/msw.ts).
+    { name: "msw", source: [] },
   ],
 };

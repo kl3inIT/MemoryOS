@@ -1,9 +1,14 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterEach, beforeEach, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest";
 import { i18n } from "@/i18n";
 // Registers the API client defaults and interceptors, as main.tsx does.
 import "@/lib/api";
+import { server } from "./msw";
+
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
 
 // Radix primitives measure their trigger; jsdom ships no ResizeObserver.
 if (!("ResizeObserver" in globalThis)) {
