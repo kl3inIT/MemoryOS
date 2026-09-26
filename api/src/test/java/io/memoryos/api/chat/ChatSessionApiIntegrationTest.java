@@ -4683,6 +4683,100 @@ class ChatSessionApiIntegrationTest {
     }
 
     @Test
+    void deletingARegisteredMcpOAuthClientDeletesItAtItsAuthorizationServerWithoutDependingOnIt() throws Exception {
+        grantCapability("MCP_MANAGE");
+        var deletions = new CopyOnWriteArrayList<String>();
+        var registrations = new AtomicInteger();
+        var deletionStatus = new AtomicInteger(204);
+        var authorizationServer = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        String issuer = "http://127.0.0.1:" + authorizationServer.getAddress().getPort();
+        authorizationServer.createContext("/", exchange -> {
+            String method = exchange.getRequestMethod();
+            String path = exchange.getRequestURI().getPath();
+            exchange.getRequestBody().readAllBytes();
+            int status = 200;
+            Object response = null;
+            if ("GET".equals(method) && path.equals("/.well-known/oauth-authorization-server")) {
+                response = Map.of("issuer", issuer, "authorization_endpoint", issuer + "/authorize",
+                        "token_endpoint", issuer + "/token", "registration_endpoint", issuer + "/register",
+                        "code_challenge_methods_supported", List.of("S256"));
+            } else if ("POST".equals(method) && path.equals("/register")) {
+                status = 201;
+                int number = registrations.incrementAndGet();
+                // The second registration answers without RFC 7592 management access.
+                response = number == 2
+                        ? Map.of("client_id", "dcr-" + number, "client_secret", "dcr-secret",
+                                "token_endpoint_auth_method", "client_secret_basic")
+                        : Map.of("client_id", "dcr-" + number, "client_secret", "dcr-secret",
+                                "token_endpoint_auth_method", "client_secret_basic",
+                                "registration_client_uri", issuer + "/register/dcr-" + number,
+                                "registration_access_token", "management-" + number);
+            } else if ("DELETE".equals(method) && path.startsWith("/register/")) {
+                deletions.add(path + " " + exchange.getRequestHeaders().getFirst("Authorization"));
+                status = deletionStatus.get();
+            } else {
+                status = 404;
+            }
+            byte[] bytes = response == null ? new byte[0] : Json.mapper().writeValueAsBytes(response);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(status, bytes.length == 0 ? -1 : bytes.length);
+            try (var output = exchange.getResponseBody()) { output.write(bytes); }
+        });
+        authorizationServer.start();
+        try (var fixture = McpFixtureServer.startOAuth("Bearer fixture-oauth-access", issuer)) {
+            var body = mcpServerBody("dcr" + (System.nanoTime() % 100000), fixture.url());
+            body.put("authType", "OAUTH").put("oauthProviderMode", "AUTO_DISCOVERY");
+            body.putObject("headers").put("action", "KEEP");
+            body.putObject("sharedApiKey").put("action", "KEEP");
+            var created = Json.mapper().readTree(mockMvc.perform(post("/api/mcp/servers").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                    .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+            String server = "/api/mcp/servers/" + created.path("id").asText();
+            mockMvc.perform(post(server + "/oauth/discovery").with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isOk());
+            var managed = register(server, "Managed", issuer);
+            var unmanaged = register(server, "Unmanaged", issuer);
+            var remaining = register(server, "Remaining", issuer);
+
+            // No management access was issued, so nothing is sent.
+            deleteClient(server, unmanaged);
+            assertEquals(List.of(), deletions);
+
+            // The authorization server refusing the deletion does not undo or fail the local one.
+            deletionStatus.set(500);
+            deleteClient(server, managed);
+            assertEquals(List.of("/register/dcr-1 Bearer management-1"), deletions);
+            assertEquals(0, jdbc.sql("SELECT count(*) FROM mcp_oauth_client WHERE id=:id")
+                    .param("id", UUID.fromString(managed.path("id").asText())).query(Long.class).single());
+
+            // Deleting the server deletes the registered clients that go with it.
+            deletionStatus.set(204);
+            String serverRevision = Json.mapper().readTree(mockMvc.perform(get(server).with(authentication(actor)))
+                    .andReturn().getResponse().getContentAsString()).path("revision").asText();
+            mockMvc.perform(delete(server).param("revision", serverRevision).with(authentication(actor)).with(csrf())
+                    .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+            assertEquals(List.of("/register/dcr-1 Bearer management-1", "/register/dcr-3 Bearer management-3"), deletions);
+            assertEquals(0, jdbc.sql("SELECT count(*) FROM mcp_oauth_client WHERE id=:id")
+                    .param("id", UUID.fromString(remaining.path("id").asText())).query(Long.class).single());
+        } finally {
+            authorizationServer.stop(0);
+        }
+    }
+
+    private JsonNode register(String server, String label, String issuer) throws Exception {
+        var registration = Json.mapper().createObjectNode().put("label", label).put("issuer", issuer).put("source", "REGISTERED");
+        return Json.mapper().readTree(mockMvc.perform(post(server + "/oauth/clients/registrations").with(authentication(actor))
+                .with(csrf()).header("X-MemoryOS-CSRF", "1").contentType(MediaType.APPLICATION_JSON).content(registration.toString()))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+    }
+
+    private void deleteClient(String server, JsonNode client) throws Exception {
+        mockMvc.perform(delete(server + "/oauth/clients/" + client.path("id").asText())
+                .param("revision", client.path("revision").asText()).with(authentication(actor)).with(csrf())
+                .header("X-MemoryOS-CSRF", "1")).andExpect(status().isNoContent());
+    }
+
+    @Test
     void mcpOAuthDiscoversRegistersConnectsRefreshesAndDisconnects(
             @Autowired McpOAuthService mcpOAuth,
             @Autowired McpSecrets mcpSecrets) throws Exception {

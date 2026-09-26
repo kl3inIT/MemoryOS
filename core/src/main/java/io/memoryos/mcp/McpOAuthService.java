@@ -28,6 +28,8 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +41,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class McpOAuthService {
+    private static final Logger LOG = LoggerFactory.getLogger(McpOAuthService.class);
     static final String CLIENT_NAME = "MemoryOS";
     /** Where an administrator's own connection returns; Users carry their originating page instead. */
     static final String ADMINISTRATION_PATH = "/admin/mcp";
@@ -108,6 +111,11 @@ public class McpOAuthService {
     private record TokenSnapshot(UUID credentialId, long revision, @Nullable UUID ownerActorId, Map<String, String> payload,
                                  @Nullable Instant expiresAt, URI tokenEndpoint, McpOAuthProtocol.Client client, String resource) {
         @Override public @NonNull String toString() { return "McpOAuthTokenSnapshot[redacted]"; }
+    }
+
+    /** A registered client's RFC 7592 management endpoint and access token. */
+    record Deregistration(URI clientUri, String accessToken) {
+        @Override public @NonNull String toString() { return "McpOAuthDeregistration[redacted]"; }
     }
 
     private record Revocation(URI endpoint, McpOAuthProtocol.Client client, String token) {
@@ -222,20 +230,72 @@ public class McpOAuthService {
         });
     }
 
-    @Transactional
+    /**
+     * Deletes the client, then asks its authorization server to delete a dynamically registered one (RFC 7592) once
+     * the local delete has committed. That request is best effort: it never fails the delete, and its request timeout
+     * bounds how long it can hold the caller.
+     */
     public void deleteClient(ActorId actor, UUID serverId, UUID clientId, long revision) {
-        UUID tenant = write(actor);
-        var server = oauthServer(tenant, serverId);
-        var client = clients.findByTenantIdAndServerIdAndId(tenant, serverId, clientId).orElseThrow(McpException::notFound);
-        if (client.revision() != revision) throw McpException.conflict();
-        boolean sharedConnection = credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(tenant, serverId)
-                .filter(credential -> clientId.equals(credential.oauthClientId())).isPresent();
-        var deleted = view(client);
-        clients.delete(client);
-        clientChange(tenant, actor, serverId, "DELETE", deleted);
-        if (sharedConnection) {
-            server.status(McpServerStatus.AWAITING_AUTH, null, Instant.now());
-            servers.saveAndFlush(server);
+        List<Deregistration> registered = inTransaction(() -> {
+            UUID tenant = write(actor);
+            var server = oauthServer(tenant, serverId);
+            var client = clients.findByTenantIdAndServerIdAndId(tenant, serverId, clientId).orElseThrow(McpException::notFound);
+            if (client.revision() != revision) throw McpException.conflict();
+            boolean sharedConnection = credentials.findByTenantIdAndServerIdAndOwnerActorIdIsNull(tenant, serverId)
+                    .filter(credential -> clientId.equals(credential.oauthClientId())).isPresent();
+            var deleted = view(client);
+            var deregistration = deregistration(client);
+            clients.delete(client);
+            clientChange(tenant, actor, serverId, "DELETE", deleted);
+            if (sharedConnection) {
+                server.status(McpServerStatus.AWAITING_AUTH, null, Instant.now());
+                servers.saveAndFlush(server);
+            }
+            return deregistration == null ? List.of() : List.of(deregistration);
+        });
+        deregister(registered);
+    }
+
+    /**
+     * The dynamically registered clients of a server about to be deleted with it. Read in the deleting transaction;
+     * pass the result to {@link #deregister} after that transaction commits.
+     */
+    List<Deregistration> deregistrations(UUID tenant, UUID serverId) {
+        return clients.findByTenantIdAndServerIdOrderByLabelAsc(tenant, serverId).stream()
+                .map(this::deregistration).filter(Objects::nonNull).toList();
+    }
+
+    /** RFC 7592 deletion of each client at its authorization server; failures are logged, never thrown. */
+    void deregister(List<Deregistration> registered) {
+        for (var registration : registered) {
+            try {
+                int status = protocol.deregister(registration.clientUri(), registration.accessToken());
+                // 404 and 410 mean the authorization server no longer knows the client, which is the outcome asked for.
+                if ((status < 200 || status >= 300) && status != 404 && status != 410) {
+                    LOG.atWarn().addKeyValue("event", "mcp.oauth.deregistration_failed").addKeyValue("http_status", status)
+                            .log("Authorization server did not delete the registered MCP OAuth client");
+                }
+            } catch (RuntimeException failure) {
+                LOG.atWarn().addKeyValue("event", "mcp.oauth.deregistration_failed")
+                        .addKeyValue("error_type", failure.getClass().getName())
+                        .log("Registered MCP OAuth client could not be deleted at its authorization server");
+            }
+        }
+    }
+
+    /** What RFC 7592 needs to delete a registered client, or null when registration returned no management access. */
+    private @Nullable Deregistration deregistration(McpOAuthClientEntity client) {
+        String uri = client.registrationClientUri();
+        String sealed = client.registrationAccessToken();
+        if (uri == null || sealed == null) return null;
+        try {
+            return new Deregistration(McpOAuthProtocol.endpoint(uri, false),
+                    secrets.open(client.tenantId(), client.getId(), McpSecrets.Purpose.REGISTRATION_ACCESS_TOKEN, sealed));
+        } catch (RuntimeException unusable) {
+            LOG.atWarn().addKeyValue("event", "mcp.oauth.deregistration_skipped")
+                    .addKeyValue("error_type", unusable.getClass().getName())
+                    .log("Registered MCP OAuth client has no usable management access");
+            return null;
         }
     }
 

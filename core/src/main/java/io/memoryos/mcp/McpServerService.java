@@ -156,14 +156,19 @@ public class McpServerService {
         return updated;
     }
 
-    @Transactional
+    /** Deletes the server with its OAuth clients, then deletes its dynamically registered clients remotely. */
     public void delete(ActorId actor, UUID serverId, long revision) {
-        UUID tenant = write(actor);
-        var server = server(tenant, serverId);
-        if (server.revision() != revision) throw McpException.conflict();
-        servers.delete(server);
-        record(tenant, actor, AuditAction.MCP_SERVER_DELETE, serverId, server.name(),
-                event -> event.detail("url", server.url()));
+        var registered = Objects.requireNonNull(transactions.execute(_ -> {
+            UUID tenant = write(actor);
+            var server = server(tenant, serverId);
+            if (server.revision() != revision) throw McpException.conflict();
+            var deregistrations = oauth.deregistrations(tenant, serverId);
+            servers.delete(server);
+            record(tenant, actor, AuditAction.MCP_SERVER_DELETE, serverId, server.name(),
+                    event -> event.detail("url", server.url()));
+            return deregistrations;
+        }));
+        oauth.deregister(registered);
     }
 
     @Transactional(readOnly = true)
