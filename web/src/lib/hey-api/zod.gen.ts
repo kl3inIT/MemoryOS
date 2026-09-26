@@ -656,6 +656,8 @@ export const zChatSettingsResponse = z.object({
         'ANONYMIZED',
         'DISABLED'
     ]),
+    groundedAnswers: z.boolean(),
+    groundedAllowWeb: z.boolean(),
     revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
 
@@ -665,6 +667,36 @@ export const zChatHistoryVisibilityRequest = z.object({
         'ANONYMIZED',
         'DISABLED'
     ]),
+    revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
+export const zChatGuardrailTopic = z.object({
+    topic: z.enum([
+        'POLITICS',
+        'LEADERS',
+        'RELIGION'
+    ]),
+    enabled: z.boolean(),
+    message: z.string().min(0).max(500)
+});
+
+export const zChatGuardrailsRequest = z.object({
+    topics: z.array(zChatGuardrailTopic).min(0).max(10),
+    blockedPhrases: z.array(z.string().min(0).max(100)).min(0).max(20),
+    blockedPhraseMessage: z.string().min(0).max(500).optional(),
+    revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
+});
+
+export const zChatGuardrailsResponse = z.object({
+    topics: z.array(zChatGuardrailTopic),
+    blockedPhrases: z.array(z.string()),
+    blockedPhraseMessage: z.string(),
+    revision: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+export const zChatGroundedRequest = z.object({
+    groundedAnswers: z.boolean(),
+    groundedAllowWeb: z.boolean(),
     revision: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional()
 });
 
@@ -870,7 +902,8 @@ export const zPersonaInput = z.object({
     avatarFileId: z.uuid().optional(),
     labelIds: z.array(z.uuid()).optional(),
     replaceBaseSystemPrompt: z.boolean().optional(),
-    knowledgeCutoff: z.iso.datetime().optional()
+    knowledgeCutoff: z.iso.datetime().optional(),
+    grounded: z.boolean().optional()
 });
 
 export const zAgentPerson = z.object({
@@ -952,6 +985,7 @@ export const zPersonaView = z.object({
     featured: z.boolean().optional(),
     displayPriority: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional(),
     replaceBaseSystemPrompt: z.boolean().optional(),
+    grounded: z.boolean().optional(),
     knowledgeCutoff: z.iso.datetime().optional(),
     pinned: z.boolean().optional(),
     deletedAt: z.iso.datetime().optional()
@@ -3001,7 +3035,8 @@ export const zChatMessage = z.object({
     images: z.array(zImageRef),
     generatedFiles: z.array(zGeneratedFileRef),
     research: zChatMessageResearch,
-    failureCode: z.string().nullable()
+    failureCode: z.string().nullable(),
+    refusalReason: z.string().nullable()
 });
 
 export const zTextDeltaEvent = z.object({
@@ -4035,6 +4070,25 @@ export const zSaveChatHistoryVisibilityBody = zChatHistoryVisibilityRequest;
  * Saved Tenant Chat settings
  */
 export const zSaveChatHistoryVisibilityResponse = zChatSettingsResponse;
+
+/**
+ * Sensitive-topic guardrails
+ */
+export const zGetChatGuardrailsResponse = zChatGuardrailsResponse;
+
+export const zSaveChatGuardrailsBody = zChatGuardrailsRequest;
+
+/**
+ * Saved sensitive-topic guardrails
+ */
+export const zSaveChatGuardrailsResponse = zChatGuardrailsResponse;
+
+export const zSaveChatGroundedBody = zChatGroundedRequest;
+
+/**
+ * Saved Tenant Chat settings
+ */
+export const zSaveChatGroundedResponse = zChatSettingsResponse;
 
 export const zGenerateChatTitlePath = z.object({
     sessionId: z.uuid()
