@@ -41,7 +41,7 @@ import {
 import { categoryLabels, sourceLabels } from "./library-labels";
 
 export type LibraryLayout = "list" | "grid";
-export type LibrarySearchMode = "name" | "content";
+type LibrarySearchMode = "name" | "content";
 
 const SOURCES: LibrarySource[] = ["UPLOAD", "GENERATED", "IMAGE"];
 /** The orders worth offering; the trash and the processing view order themselves and hide the control. */

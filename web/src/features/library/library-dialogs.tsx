@@ -37,7 +37,7 @@ export function RenameDialog({
     validationLogic: revalidateLogic(),
     validators: {
       onDynamic: z.object({
-        filename: z.string().trim().min(1, ui("Nhập tên tệp.")).max(filenameLimit),
+        filename: z.string().trim().min(1).max(filenameLimit),
       }),
     },
     onSubmit: async ({ value, formApi }) => {
@@ -81,7 +81,10 @@ export function RenameDialog({
                   {ui("Đóng")}
                 </Button>
               </DialogClose>
-              <form.SubmitButton>{ui("Đổi tên")}</form.SubmitButton>
+              {/* A blank name cannot be sent, so the command waits for one. */}
+              <form.Subscribe selector={(state) => state.values.filename.trim().length === 0}>
+                {(blank) => <form.SubmitButton disabled={blank}>{ui("Đổi tên")}</form.SubmitButton>}
+              </form.Subscribe>
             </DialogFooter>
           </form.AppForm>
         </form>

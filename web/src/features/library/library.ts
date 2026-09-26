@@ -30,7 +30,7 @@ export type LibraryFile = ChatLibraryFile;
 export type LibrarySource = ChatLibraryFile["source"];
 export type LibraryCategory = ChatLibraryFile["category"];
 export type LibrarySort = "NEWEST" | "OLDEST" | "LARGEST" | "SMALLEST" | "NAME" | "DELETED";
-export type LibraryStatus = "READY" | "PENDING" | "TRASH";
+type LibraryStatus = "READY" | "PENDING" | "TRASH";
 export type ContentMatch = ChatLibraryContentMatch;
 
 /**

@@ -651,7 +651,7 @@ function PendingActions({
 }
 
 /** What holds an upload, with a way to take it out of a Project; an assistant's files are edited on the assistant. */
-export function FileUsage({
+function FileUsage({
   file,
   onRemove,
 }: {

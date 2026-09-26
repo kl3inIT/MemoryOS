@@ -83,7 +83,7 @@ export function ChatFilePicker({
 }
 
 /** All recent files in a dialog; mounted only while open. */
-export function ChatRecentFilesDialog({
+function ChatRecentFilesDialog({
   open,
   onOpenChange,
   ...props

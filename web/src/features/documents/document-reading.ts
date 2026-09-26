@@ -9,7 +9,7 @@ import type { SearchDocument } from "@/lib/hey-api/types.gen";
 import type { DocumentSelection } from "./document-preview-dialog";
 import { passageBody, passageSection } from "./passage";
 
-export type PassageReader = {
+type PassageReader = {
   /** Chat citations read passages with Chat authority; the Search page keeps Search authority. */
   variant: "search" | "chat";
   documentId: string;

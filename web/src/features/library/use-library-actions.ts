@@ -218,5 +218,3 @@ export function useLibraryActions({
     rowCommands,
   };
 }
-
-export type LibraryActions = ReturnType<typeof useLibraryActions>;

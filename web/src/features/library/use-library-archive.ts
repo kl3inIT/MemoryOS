@@ -5,7 +5,7 @@ import type { ChatLibraryArchive } from "@/lib/hey-api/types.gen";
 import { actionErrorText } from "@/lib/action-errors";
 import type { LibraryFile } from "./library";
 
-export type ArchiveState =
+type ArchiveState =
   | { phase: "idle" }
   | { phase: "packing"; fileCount: number }
   | { phase: "ready"; archive: ChatLibraryArchive }

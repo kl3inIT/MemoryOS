@@ -1,7 +1,7 @@
 import type { PdfHighlight } from "@/features/preview/pdf-pages";
 
 /** What the PDF reader highlights; provenance is where MemoryOS records it. */
-export type ProvenanceBox = PdfHighlight;
+type ProvenanceBox = PdfHighlight;
 
 export type SourceLocation = {
   pages: number[];

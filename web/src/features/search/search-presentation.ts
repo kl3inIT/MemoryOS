@@ -1,6 +1,6 @@
 import { stripGeneratedTitlePrefix } from "@/features/documents/passage";
 
-export type HighlightPart = {
+type HighlightPart = {
   text: string;
   highlighted: boolean;
 };
