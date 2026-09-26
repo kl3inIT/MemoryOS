@@ -142,7 +142,7 @@ public class AuditTrail {
     private void emit(UUID id, Instant at, AuditRecord event, @Nullable String actorLabel,
                       String details) {
         try {
-            var line = new LinkedHashMap<String, Object>();
+            var line = new LinkedHashMap<String, @Nullable Object>();
             line.put("audit_schema_version", SCHEMA_VERSION);
             line.put("id", id.toString());
             line.put("ts", at.toString());

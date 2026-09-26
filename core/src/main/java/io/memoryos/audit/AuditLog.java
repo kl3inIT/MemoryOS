@@ -128,7 +128,7 @@ public class AuditLog {
     /** An opaque position in the stream: the last event a page returned. */
     record Cursor(Instant at, UUID id) {
         static String encode(Event last) {
-            String raw = last.occurredAt().toString() + "|" + last.id();
+            String raw = last.occurredAt() + "|" + last.id();
             return Base64.getUrlEncoder().withoutPadding().encodeToString(raw.getBytes(StandardCharsets.UTF_8));
         }
 

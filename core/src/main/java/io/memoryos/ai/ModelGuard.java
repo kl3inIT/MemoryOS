@@ -167,7 +167,7 @@ public class ModelGuard implements ChatModel {
                                 throw TurnFailure.LAST_CYCLE_TOOL_CALL.exception();
                         }
                     })
-                    .concatWith(Flux.defer(() -> finished.get() ? Flux.<ChatResponse>empty()
+                    .concatWith(Flux.defer(() -> finished.get() ? Flux.empty()
                             : Flux.error(TurnFailure.INCOMPLETE_RESPONSE.exception())))
                     .doOnComplete(record).doOnError(ignored -> record.run()).doOnCancel(record);
         });

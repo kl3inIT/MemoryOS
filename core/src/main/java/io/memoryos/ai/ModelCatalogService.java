@@ -270,16 +270,6 @@ public class ModelCatalogService {
                 : groups.listManagedGroupOptions(access.tenantId(), actor, search, page, size);
     }
 
-    /** Reads one provider's endpoint and decrypted credential; the caller performs the provider call. */
-    @Transactional(readOnly = true)
-    public ProviderConnection providerConnection(ActorId actor, UUID providerId) {
-        UUID tenant = reader(actor);
-        var provider = catalog.provider(tenant, providerId).orElseThrow(AiException::unavailable);
-        if (!provider.enabled()) throw AiException.invalid("Enable the provider before listing its models.");
-        return new ProviderConnection(provider.adapterType(), provider.baseUrl(),
-                credentials.resolve(tenant, providerId, provider.credential()));
-    }
-
     public record WebModels(List<UUID> automatic, @Nullable UUID inherited, List<UUID> nativeSearch) {}
 
     /**

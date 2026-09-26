@@ -2,7 +2,6 @@ package io.memoryos;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.Objects;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 

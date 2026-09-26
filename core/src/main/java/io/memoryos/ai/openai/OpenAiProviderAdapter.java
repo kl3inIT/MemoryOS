@@ -216,7 +216,7 @@ public final class OpenAiProviderAdapter implements ProviderAdapter {
     }
 
     private static @Nullable Boolean flag(JsonNode node, String field) {
-        return node.path(field).isBoolean() ? Boolean.valueOf(node.path(field).asBoolean()) : null;
+        return node.path(field).isBoolean() ? node.path(field).asBoolean() : null;
     }
 
     private static boolean contains(JsonNode array, String value) {
