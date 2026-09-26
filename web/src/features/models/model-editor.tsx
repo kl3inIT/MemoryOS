@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
@@ -463,7 +463,7 @@ export function ModelEditor({
                 {draft.reasoning && (
                   <label className="block space-y-1">
                     {ui("Reasoning effort")}
-                    <Select
+                    <NativeSelect
                       value={draft.reasoningEffort}
                       onChange={(event) => change("reasoningEffort", event.target.value)}
                     >
@@ -473,7 +473,7 @@ export function ModelEditor({
                           {effort}
                         </option>
                       ))}
-                    </Select>
+                    </NativeSelect>
                   </label>
                 )}
               </fieldset>

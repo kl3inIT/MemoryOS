@@ -11,7 +11,7 @@ import {
   ModelSelectorTrigger,
 } from "@/components/assistant-ui/elements/model-selector";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -134,7 +134,7 @@ export function ChatPreferencesSections() {
             )}
             className="flex-col items-stretch sm:flex-row sm:items-center"
             control={
-              <Select
+              <NativeSelect
                 id="default-reasoning"
                 aria-describedby="default-reasoning-description"
                 className="sm:w-64"
@@ -153,7 +153,7 @@ export function ChatPreferencesSections() {
                     {ui(level.name)}
                   </option>
                 ))}
-              </Select>
+              </NativeSelect>
             }
           />
           <SettingRow

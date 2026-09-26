@@ -6,7 +6,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TextButton } from "@/components/ui/text-button";
 import { TablePagination } from "@/components/ui/table-pagination";
@@ -198,7 +198,7 @@ export function GroupsPage() {
         >
           <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
             {ui("Rows")}
-            <Select
+            <NativeSelect
               size="sm"
               value={search.size}
               className="w-auto px-2"
@@ -210,7 +210,7 @@ export function GroupsPage() {
               <option value={20}>20</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
-            </Select>
+            </NativeSelect>
           </label>
         </TablePagination>
       ) : null}

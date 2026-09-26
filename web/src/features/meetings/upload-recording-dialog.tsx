@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
@@ -214,7 +214,7 @@ export function UploadRecordingDialog({
             {transcribers.data && transcribers.data.length > 1 && (
               <div className="grid gap-1.5">
                 <Label htmlFor={`${id}-provider`}>{ui("Nhận dạng bằng")}</Label>
-                <Select
+                <NativeSelect
                   id={`${id}-provider`}
                   value={chosen?.provider ?? ""}
                   onChange={(event) =>
@@ -226,7 +226,7 @@ export function UploadRecordingDialog({
                       {item.provider} · {item.model}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
               </div>
             )}
             {chosen && (

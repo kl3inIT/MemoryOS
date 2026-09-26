@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { TextButton } from "@/components/ui/text-button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -103,13 +103,16 @@ export function ChatAddToProjectDialog({
       {projects.data && projects.data.length > 0 && !creating && (
         <label className="block space-y-1">
           <span>{ui("Dự án")}</span>
-          <Select value={chosen?.id ?? ""} onChange={(event) => setProjectId(event.target.value)}>
+          <NativeSelect
+            value={chosen?.id ?? ""}
+            onChange={(event) => setProjectId(event.target.value)}
+          >
             {projects.data.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.name} ({project.fileIds.length}/{PROJECT_FILE_LIMIT})
               </option>
             ))}
-          </Select>
+          </NativeSelect>
         </label>
       )}
       {projects.data && projects.data.length > 0 && (

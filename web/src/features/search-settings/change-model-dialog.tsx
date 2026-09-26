@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -73,7 +73,7 @@ export function ChangeModelDialog({
       >
         <label className="block space-y-1">
           {ui("Provider embedding")}
-          <Select
+          <NativeSelect
             value={draft.providerId}
             aria-invalid={problems.has("provider")}
             onChange={(event) => update({ providerId: event.target.value })}
@@ -83,7 +83,7 @@ export function ChangeModelDialog({
                 {entry.name}
               </option>
             ))}
-          </Select>
+          </NativeSelect>
         </label>
         {provider && (
           <p className="-mt-2 flex min-w-0 flex-wrap items-center gap-2 font-secondary-body text-content-muted">
@@ -93,7 +93,7 @@ export function ChangeModelDialog({
         )}
         <label className="block space-y-1">
           {ui("Model đã biết")}
-          <Select
+          <NativeSelect
             value={preset?.model ?? custom}
             onChange={(event) => {
               const chosen = presets.find((entry) => entry.model === event.target.value);
@@ -109,7 +109,7 @@ export function ChangeModelDialog({
                 {entry.label}
               </option>
             ))}
-          </Select>
+          </NativeSelect>
         </label>
         <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
           <label className="block min-w-0 space-y-1">

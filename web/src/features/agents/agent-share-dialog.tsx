@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Building2, Check, Info, Link2, Lock, ShieldCheck } from "lucide-react";
 import { PersonAvatar } from "@/components/composites/person-avatar";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { shareChatPersona } from "@/lib/hey-api/sdk.gen";
 import { can } from "@/lib/resource-permissions";
 import { FormDialog } from "@/components/composites/form-dialog";
@@ -58,7 +58,7 @@ export function AgentShareDialog({ agent, onClose }: { agent: Persona; onClose: 
   ) => (
     <label className="shrink-0">
       <span className="sr-only">{label}</span>
-      <Select
+      <NativeSelect
         className="h-8 w-36 rounded-lg border-transparent bg-transparent text-sm hover:bg-surface-sunken"
         value={value}
         onChange={(event) =>
@@ -70,7 +70,7 @@ export function AgentShareDialog({ agent, onClose }: { agent: Persona; onClose: 
         <option value="VIEWER">{ui("Xem và chat")}</option>
         <option value="EDITOR">{ui("Sửa")}</option>
         <option value={removeAccess}>{ui("Gỡ quyền truy cập")}</option>
-      </Select>
+      </NativeSelect>
     </label>
   );
 
@@ -226,7 +226,7 @@ export function AgentShareDialog({ agent, onClose }: { agent: Persona; onClose: 
             <div className="min-w-0 flex-1">
               <label>
                 <span className="sr-only">{ui("Quyền truy cập chung")}</span>
-                <Select
+                <NativeSelect
                   className="-ml-2 h-8 w-auto max-w-full rounded-lg border-transparent bg-transparent font-main-ui-action hover:bg-surface-sunken"
                   value={access}
                   disabled={!canPublish}
@@ -235,7 +235,7 @@ export function AgentShareDialog({ agent, onClose }: { agent: Persona; onClose: 
                   <option value="INVITED">{ui("Chỉ người được mời")}</option>
                   <option value="VIEWER">{ui("Mọi người trong tổ chức có thể xem và chat")}</option>
                   <option value="EDITOR">{ui("Mọi người trong tổ chức có thể sửa")}</option>
-                </Select>
+                </NativeSelect>
               </label>
               <p className="font-secondary-body text-content-muted">
                 {!canPublish

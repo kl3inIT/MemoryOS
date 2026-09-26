@@ -3,7 +3,7 @@ import { Search, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { TextButton } from "@/components/ui/text-button";
 import type { UserGroupOption } from "./user-groups-dialog";
 import type { UserRoleFilter, UsersSearch } from "./users-search";
@@ -72,7 +72,7 @@ export function UsersFilters({
 
       <label className="grid gap-1.5 font-secondary-action text-content-secondary">
         {ui("Role")}
-        <Select
+        <NativeSelect
           size="sm"
           value={search.role ?? ""}
           aria-label={ui("Filter by role")}
@@ -83,13 +83,13 @@ export function UsersFilters({
           <option value="">{ui("All roles")}</option>
           <option value="OWNER">{ui("Owner")}</option>
           <option value="MEMBER">{ui("Member")}</option>
-        </Select>
+        </NativeSelect>
       </label>
 
       {groups ? (
         <label className="grid gap-1.5 font-secondary-action text-content-secondary">
           {ui("Group")}
-          <Select
+          <NativeSelect
             size="sm"
             value={search.groupId ?? ""}
             disabled={groupsLoading}
@@ -105,7 +105,7 @@ export function UsersFilters({
                 {group.name}
               </option>
             ))}
-          </Select>
+          </NativeSelect>
         </label>
       ) : null}
 
