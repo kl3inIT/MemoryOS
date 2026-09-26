@@ -100,6 +100,19 @@ public class GoogleDriveSelectionOperationTest {
     }
 
     @Test
+    void replacingRootsCannotChangeTheScopeModeChosenAtCreation() throws Exception {
+        var fixture=fixture();
+        var created=fixture.create(UUID.randomUUID(),fixture.mixedRoots(2,1));
+        fixture.finish(created);
+        var draft=fixture.service.selectionDraft(fixture.owner,created.sourceId());
+        var refused=assertThrows(SourceException.class,() -> fixture.service.replaceRoots(fixture.owner,UUID.randomUUID(),
+                created.sourceId(),draft.revision(),draft.discoveryRevision(),draft.credentialRevision(),ScopeMode.GENERAL,
+                List.of(),List.of()));
+        assertEquals("Google Drive scope mode is chosen when the Source is created and cannot be changed.",refused.safeMessage());
+        assertEquals(1,fixture.service.configuration(fixture.owner,created.sourceId()).revision());
+    }
+
+    @Test
     void pagedSearchDoesNotDropHiddenRootsOrApprovalsAndCursorsPinAuthority() throws Exception {
         var fixture=fixture();
         var links=fixture.mixedRoots(26,1);

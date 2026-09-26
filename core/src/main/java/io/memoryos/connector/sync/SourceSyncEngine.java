@@ -140,7 +140,7 @@ public class SourceSyncEngine implements ConnectorSyncPort {
             if (run.stopped()) return stopped(traversal, work);
             return failed(traversal, work, exception);
         }
-        if (run.stopped() || slice == SyncTraversal.Slice.STOPPED) return stopped(traversal, work);
+        if (run.stopped()) return stopped(traversal, work);
         return switch (slice) {
             case COMPLETED -> Result.COMPLETED;
             case CONTINUE -> run.fenced(_ -> {
