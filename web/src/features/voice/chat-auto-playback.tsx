@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
 import { useAui, useAuiState, type ThreadMessage } from "@assistant-ui/react";
 import { Square, Volume2, VolumeX } from "lucide-react";
+import { DotMatrix } from "@/components/ui/dot-matrix";
 import { IconButton } from "@/components/ui/icon-button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { cn } from "@/lib/utils";
 import { chatAutoPlayback, useAutoPlayback } from "./use-chat-auto-playback";
 import { useVoiceAvailability } from "./use-voice-availability";
 import { useVoiceSettings } from "./use-voice-settings";
@@ -87,18 +87,7 @@ export function ChatSpeakingIndicator() {
       aria-label={ui("Đọc tự động")}
       className="mb-2 flex items-center gap-2 rounded-xl bg-surface-sunken py-1 pr-1 pl-3 text-sm text-content-secondary"
     >
-      <span aria-hidden="true" className="flex h-4 items-center gap-[3px]">
-        {[0, 1, 2, 3].map((bar) => (
-          <span
-            key={bar}
-            className={cn(
-              "w-[3px] rounded-full bg-content-secondary",
-              speaking && !muted ? "h-4 animate-pulse motion-reduce:animate-none" : "h-1.5",
-            )}
-            style={{ animationDelay: `${bar * 150}ms` }}
-          />
-        ))}
-      </span>
+      <DotMatrix aria-hidden="true" state={speaking && !muted ? "speaking" : "waiting"} />
       <span role="status" className="mr-auto">
         {speaking ? ui("MemoryOS đang đọc câu trả lời") : ui("Đang chuẩn bị giọng đọc…")}
       </span>

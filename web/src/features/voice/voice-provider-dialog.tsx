@@ -1,354 +1,247 @@
-import { Alert, AlertTitle } from "@/components/ui/alert";
-import { useId, useState, type FormEvent } from "react";
-import { CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { useStore } from "@tanstack/react-form";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAppForm } from "@/components/form/app-form";
+import { useFieldValidity } from "@/components/form/form-context";
+import { ConnectionDialog, ConnectionForm } from "@/components/composites/connection-form";
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
-  saveChatVoiceConnection,
-  selectChatVoiceProvider,
-  testChatVoiceConnection,
-} from "@/lib/hey-api/sdk.gen";
+  saveChatVoiceConnectionMutation,
+  selectChatVoiceProviderMutation,
+  testChatVoiceConnectionMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { VoiceConnectionResponse, VoiceProviderResponse } from "@/lib/hey-api/types.gen";
-import type { ErrorMessage } from "@/lib/problem-presentation";
-import { useProblemMessage } from "@/lib/use-problem-message";
-import { canServe, voiceProblem, type VoiceFunction } from "./voice-providers";
+import { canServe, invalidateVoice, voiceProblem, type VoiceFunction } from "./voice-providers";
+
+/** Saving a connection and, once no default exists, making an existing one the default. */
+function useVoiceConnectionMutations() {
+  const cache = useQueryClient();
+  return {
+    save: useMutation({
+      ...saveChatVoiceConnectionMutation(),
+      onSuccess: () => invalidateVoice(cache),
+    }),
+    select: useMutation({
+      ...selectChatVoiceProviderMutation(),
+      onSuccess: () => invalidateVoice(cache),
+    }),
+    test: useMutation(testChatVoiceConnectionMutation()),
+  };
+}
 
 /**
  * Connect or edit one provider for one function. The server verifies the credential before it stores anything; the
  * other function's model and voice are sent back unchanged.
  */
 export function VoiceProviderDialog({
-  open,
-  onOpenChange,
   fn,
   name,
   provider,
   connection,
   autoSelect,
-  onSaved,
+  onClose,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   fn: VoiceFunction;
   name: string;
   provider: VoiceProviderResponse;
   connection?: VoiceConnectionResponse;
   autoSelect: boolean;
-  onSaved: () => Promise<void>;
+  onClose: () => void;
 }) {
   const ui = useAppTranslation();
-  const problemMessage = useProblemMessage();
-  const id = useId();
-  const initial = {
-    endpoint: connection?.endpoint ?? "",
-    model:
-      fn === "STT"
-        ? connection?.sttModel || provider.sttModels[0] || ""
-        : connection?.ttsModel || provider.ttsModels[0] || "",
-    voice: connection?.ttsVoice || provider.voices[0] || "",
-  };
-  const [endpoint, setEndpoint] = useState(initial.endpoint);
-  const [key, setKey] = useState("");
-  const [removeKey, setRemoveKey] = useState(false);
-  const [model, setModel] = useState(initial.model);
-  const [voice, setVoice] = useState(initial.voice);
-  const [pending, setPending] = useState<"save" | "test">();
-  const [error, setError] = useState<ErrorMessage>();
-  const [tested, setTested] = useState(false);
-  // The card stays mounted across saves, so each opening starts from the latest saved connection.
-  const [shownOpen, setShownOpen] = useState(open);
-  if (open !== shownOpen) {
-    setShownOpen(open);
-    if (open) {
-      setEndpoint(initial.endpoint);
-      setKey("");
-      setRemoveKey(false);
-      setModel(initial.model);
-      setVoice(initial.voice);
-      setError(undefined);
-      setTested(false);
-    }
-  }
-
-  function changeOpen(next: boolean) {
-    if (pending) return;
-    if (!next) {
-      setEndpoint(initial.endpoint);
-      setKey("");
-      setRemoveKey(false);
-      setModel(initial.model);
-      setVoice(initial.voice);
-      setError(undefined);
-      setTested(false);
-    }
-    onOpenChange(next);
-  }
-
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const body = {
-      endpoint: endpoint.trim(),
-      sttModel: fn === "STT" ? model.trim() : (connection?.sttModel ?? ""),
-      ttsModel: fn === "TTS" ? model.trim() : (connection?.ttsModel ?? ""),
-      ttsVoice: fn === "TTS" ? voice.trim() : (connection?.ttsVoice ?? ""),
-    };
-    const becomesDefault =
-      autoSelect &&
-      canServe(provider, fn, {
-        ...body,
-        credential: key !== "" || (!!connection?.credentialConfigured && !removeKey),
-      });
-    setPending("save");
-    setError(undefined);
-    setTested(false);
-    try {
-      await saveChatVoiceConnection({
-        path: { provider: provider.provider },
-        body: {
+  const { save, select, test } = useVoiceConnectionMutations();
+  const form = useAppForm({
+    defaultValues: {
+      endpoint: connection?.endpoint ?? "",
+      key: "",
+      removeKey: false,
+      model:
+        fn === "STT"
+          ? connection?.sttModel || provider.sttModels[0] || ""
+          : connection?.ttsModel || provider.ttsModels[0] || "",
+      voice: connection?.ttsVoice || provider.voices[0] || "",
+    },
+    onSubmit: async ({ value }) => {
+      test.reset();
+      select.reset();
+      const body = {
+        endpoint: value.endpoint.trim(),
+        sttModel: fn === "STT" ? value.model.trim() : (connection?.sttModel ?? ""),
+        ttsModel: fn === "TTS" ? value.model.trim() : (connection?.ttsModel ?? ""),
+        ttsVoice: fn === "TTS" ? value.voice.trim() : (connection?.ttsVoice ?? ""),
+      };
+      const becomesDefault =
+        autoSelect &&
+        canServe(provider, fn, {
           ...body,
-          credentialAction: key ? "REPLACE" : removeKey ? "REMOVE" : "KEEP",
-          credentialValue: key || undefined,
-          activate: becomesDefault && !connection ? fn : undefined,
-          revision: connection?.revision ?? 0,
-        },
-      });
-      // The server activates only newly created rows; an existing row is selected explicitly.
-      if (becomesDefault && connection)
-        await selectChatVoiceProvider({
-          body: { function: fn, provider: provider.provider },
+          credential: value.key !== "" || (!!connection?.credentialConfigured && !value.removeKey),
         });
-      setKey("");
-      await onSaved();
-      onOpenChange(false);
-    } catch (failed) {
-      setError(voiceProblem(failed));
-    } finally {
-      setPending(undefined);
-    }
-  }
-
-  async function test() {
-    setPending("test");
-    setError(undefined);
-    setTested(false);
-    try {
-      await testChatVoiceConnection({
-        path: { provider: provider.provider },
-      });
-      setTested(true);
-    } catch (failed) {
-      setError(voiceProblem(failed));
-    } finally {
-      setPending(undefined);
-    }
-  }
-
+      try {
+        await save.mutateAsync({
+          path: { provider: provider.provider },
+          body: {
+            ...body,
+            credentialAction: value.key ? "REPLACE" : value.removeKey ? "REMOVE" : "KEEP",
+            credentialValue: value.key || undefined,
+            activate: becomesDefault && !connection ? fn : undefined,
+            revision: connection?.revision ?? 0,
+          },
+        });
+        // The server activates only newly created rows; an existing row is selected explicitly.
+        if (becomesDefault && connection)
+          await select.mutateAsync({ body: { function: fn, provider: provider.provider } });
+        onClose();
+      } catch {
+        // The failure stays on its mutation and shows in the form.
+      }
+    },
+  });
+  const removeKey = useStore(form.store, (state) => state.values.removeKey);
+  const submitting = useStore(form.store, (state) => state.isSubmitting);
+  const busy = submitting || test.isPending;
+  const failure = save.error ?? select.error ?? test.error;
   const azure = provider.provider === "AZURE";
+
   return (
-    <Dialog open={open} onOpenChange={changeOpen}>
-      <DialogContent
-        className="sm:max-w-2xl"
-        onEscapeKeyDown={(event) => {
-          if (pending) event.preventDefault();
-        }}
-        onInteractOutside={(event) => {
-          if (pending) event.preventDefault();
-        }}
+    <ConnectionDialog open onOpenChange={(next) => !next && onClose()} busy={busy} wide>
+      <ConnectionForm
+        title={connection ? ui("Cấu hình {{name}}", { name }) : ui("Kết nối {{name}}", { name })}
+        description={
+          fn === "STT"
+            ? ui("Dùng để nhận dạng giọng nói trong Chat và Tìm kiếm.")
+            : ui("Dùng để đọc câu trả lời thành tiếng.")
+        }
+        onSubmit={() => void form.handleSubmit()}
+        saving={submitting}
+        busy={busy}
+        onTest={
+          connection
+            ? () => {
+                save.reset();
+                select.reset();
+                test.mutate({ path: { provider: provider.provider } });
+              }
+            : undefined
+        }
+        tested={test.isSuccess}
+        error={failure ? voiceProblem(failure) : undefined}
+        onClose={onClose}
       >
-        <form onSubmit={(event) => void save(event)} className="grid gap-5">
-          <DialogHeader>
-            <DialogTitle>
-              {connection ? ui("Cấu hình {{name}}", { name }) : ui("Kết nối {{name}}", { name })}
-            </DialogTitle>
-            <DialogDescription>
-              {fn === "STT"
-                ? ui("Dùng để nhận dạng giọng nói trong Chat và Tìm kiếm.")
-                : ui("Dùng để đọc câu trả lời thành tiếng.")}
-            </DialogDescription>
-          </DialogHeader>
-          <fieldset disabled={!!pending} className="grid gap-4">
-            <section className="grid gap-4 rounded-xl border border-border-subtle bg-surface-base p-4">
-              <h3 className="font-main-ui-action text-content-primary">
-                {ui("Thông tin kết nối")}
-              </h3>
-              <div className="grid gap-1.5">
-                <Label htmlFor={`${id}-endpoint`}>
-                  {azure
+        <FieldSet>
+          <FieldLegend variant="label">{ui("Thông tin kết nối")}</FieldLegend>
+          <form.AppField name="endpoint">
+            {(field) => (
+              <field.TextField
+                label={
+                  azure
                     ? ui("Địa chỉ tài nguyên Speech")
                     : provider.requiresEndpoint
                       ? ui("Địa chỉ máy chủ")
-                      : ui("Địa chỉ API")}
-                </Label>
-                <Input
-                  id={`${id}-endpoint`}
-                  value={endpoint}
-                  required={provider.requiresEndpoint}
-                  maxLength={2048}
-                  inputMode="url"
-                  placeholder={
-                    provider.defaultEndpoint ||
-                    (azure
-                      ? "https://your-resource.cognitiveservices.azure.com"
-                      : "http://speaches.internal:8000/v1")
-                  }
-                  aria-describedby={`${id}-endpoint-hint`}
-                  onChange={(event) => setEndpoint(event.target.value)}
-                />
-                <p id={`${id}-endpoint-hint`} className="text-xs text-content-muted">
-                  {azure
+                      : ui("Địa chỉ API")
+                }
+                required={provider.requiresEndpoint}
+                maxLength={2048}
+                inputMode="url"
+                placeholder={
+                  provider.defaultEndpoint ||
+                  (azure
+                    ? "https://your-resource.cognitiveservices.azure.com"
+                    : "http://speaches.internal:8000/v1")
+                }
+                description={
+                  azure
                     ? ui("Endpoint của tài nguyên Azure AI Speech, trong mục Keys and Endpoint.")
                     : provider.requiresEndpoint
                       ? ui("Địa chỉ gốc của API tương thích OpenAI, thường kết thúc bằng /v1.")
-                      : ui("Để trống để dùng địa chỉ mặc định của nhà cung cấp.")}
-                </p>
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor={`${id}-key`}>
-                  {provider.requiresKey ? ui("Khóa API") : ui("Khóa API (không bắt buộc)")}
-                </Label>
-                <Input
-                  id={`${id}-key`}
-                  type="password"
-                  autoComplete="new-password"
-                  value={key}
-                  maxLength={8192}
-                  required={provider.requiresKey && !connection?.credentialConfigured}
-                  disabled={removeKey}
-                  placeholder={
-                    connection?.credentialConfigured
-                      ? ui("Đã lưu khóa; để trống để giữ nguyên")
-                      : ""
-                  }
-                  onChange={(event) => setKey(event.target.value)}
-                />
-                {!provider.requiresKey && connection?.credentialConfigured && (
-                  <div className="flex items-center gap-2 pt-1">
-                    <Checkbox
-                      id={`${id}-remove-key`}
-                      checked={removeKey}
-                      onCheckedChange={(checked) => {
-                        setRemoveKey(checked === true);
-                        if (checked === true) setKey("");
-                      }}
-                    />
-                    <Label htmlFor={`${id}-remove-key`} className="font-normal">
-                      {ui("Xóa khóa đã lưu")}
-                    </Label>
-                  </div>
-                )}
-              </div>
-            </section>
-            <section className="grid gap-4 rounded-xl border border-border-subtle bg-surface-base p-4">
-              <h3 className="font-main-ui-action text-content-primary">{ui("Mô hình và giọng")}</h3>
+                      : ui("Để trống để dùng địa chỉ mặc định của nhà cung cấp.")
+                }
+              />
+            )}
+          </form.AppField>
+          <form.AppField name="key">
+            {(field) => (
+              <field.TextField
+                label={provider.requiresKey ? ui("Khóa API") : ui("Khóa API (không bắt buộc)")}
+                type="password"
+                autoComplete="new-password"
+                maxLength={8192}
+                required={provider.requiresKey && !connection?.credentialConfigured}
+                disabled={removeKey}
+                placeholder={
+                  connection?.credentialConfigured ? ui("Đã lưu khóa; để trống để giữ nguyên") : ""
+                }
+              />
+            )}
+          </form.AppField>
+          {!provider.requiresKey && connection?.credentialConfigured && (
+            <form.AppField
+              name="removeKey"
+              listeners={{ onChange: ({ value }) => value && form.setFieldValue("key", "") }}
+            >
+              {(field) => <field.CheckboxField label={ui("Xóa khóa đã lưu")} />}
+            </form.AppField>
+          )}
+        </FieldSet>
+        <FieldSet>
+          <FieldLegend variant="label">{ui("Mô hình và giọng")}</FieldLegend>
+          <form.AppField name="model">
+            {() => (
               <ChoiceField
-                id={`${id}-model`}
                 label={fn === "STT" ? ui("Mô hình nhận dạng") : ui("Mô hình giọng nói")}
-                value={model}
                 options={fn === "STT" ? provider.sttModels : provider.ttsModels}
                 hint={ui("Nhập đúng tên mô hình mà máy chủ cung cấp.")}
-                onChange={setModel}
               />
-              {fn === "TTS" && (
+            )}
+          </form.AppField>
+          {fn === "TTS" && (
+            <form.AppField name="voice">
+              {() => (
                 <ChoiceField
-                  id={`${id}-voice`}
                   label={ui("Giọng đọc")}
-                  value={voice}
                   options={provider.voices}
                   hint={
                     provider.provider === "ELEVENLABS"
                       ? ui("Voice ID trong thư viện giọng của ElevenLabs.")
                       : ui("Nhập đúng tên giọng mà máy chủ cung cấp.")
                   }
-                  onChange={setVoice}
                 />
               )}
-            </section>
-          </fieldset>
-          {tested && (
-            <Alert variant="success" role="status">
-              <CheckCircle2 aria-hidden="true" />
-              <AlertTitle>{ui("Kiểm tra kết nối thành công")}</AlertTitle>
-            </Alert>
+            </form.AppField>
           )}
-          {error && (
-            <p
-              role="alert"
-              className="rounded-lg bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content"
-            >
-              {problemMessage(error)}
-            </p>
-          )}
-          <DialogFooter>
-            {connection && (
-              <Button
-                prominence="secondary"
-                pending={pending === "test"}
-                disabled={!!pending}
-                onClick={() => void test()}
-              >
-                {ui("Kiểm tra kết nối")}
-              </Button>
-            )}
-            <DialogClose asChild>
-              <Button prominence="secondary" disabled={!!pending}>
-                {ui("Đóng")}
-              </Button>
-            </DialogClose>
-            <Button type="submit" pending={pending === "save"} disabled={!!pending}>
-              {pending === "save"
-                ? ui("Đang kiểm tra khóa…")
-                : connection
-                  ? ui("Lưu")
-                  : ui("Kết nối")}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </FieldSet>
+      </ConnectionForm>
+    </ConnectionDialog>
   );
 }
 
 /** Known identifiers as a list; OpenAI-compatible models and ElevenLabs voice IDs are typed. */
-function ChoiceField({
-  id,
-  label,
-  value,
-  options,
-  hint,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  options: string[];
-  hint: string;
-  onChange: (value: string) => void;
-}) {
+function ChoiceField({ label, options, hint }: { label: string; options: string[]; hint: string }) {
+  const { field, invalid, errors } = useFieldValidity<string>();
+  const value = field.state.value;
   const choices =
     options.length > 0 && value && !options.includes(value) ? [value, ...options] : options;
+  const control = {
+    id: field.name,
+    name: field.name,
+    value,
+    required: true,
+    "aria-invalid": invalid || undefined,
+    onBlur: field.handleBlur,
+  };
   return (
-    <div className="grid gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
+    <Field data-invalid={invalid || undefined}>
+      <FieldLabel htmlFor={field.name}>{label}</FieldLabel>
       {choices.length > 0 ? (
-        <NativeSelect
-          id={id}
-          value={value}
-          required
-          onChange={(event) => onChange(event.target.value)}
-        >
+        <NativeSelect {...control} onChange={(event) => field.handleChange(event.target.value)}>
           {choices.map((choice) => (
             <option key={choice} value={choice}>
               {choice}
@@ -358,18 +251,14 @@ function ChoiceField({
       ) : (
         <>
           <Input
-            id={id}
-            value={value}
-            required
+            {...control}
             maxLength={200}
-            aria-describedby={`${id}-hint`}
-            onChange={(event) => onChange(event.target.value)}
+            onChange={(event) => field.handleChange(event.target.value)}
           />
-          <p id={`${id}-hint`} className="text-xs text-content-muted">
-            {hint}
-          </p>
+          <FieldDescription>{hint}</FieldDescription>
         </>
       )}
-    </div>
+      {invalid ? <FieldError errors={errors} /> : null}
+    </Field>
   );
 }

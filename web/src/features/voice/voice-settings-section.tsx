@@ -1,17 +1,20 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Gauge, Mic2, Volume2 } from "lucide-react";
+import { SectionHeader } from "@/components/composites/section-header";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { updateChatVoiceSettings } from "@/lib/hey-api/sdk.gen";
-import type { VoiceSettingsRequest } from "@/lib/hey-api/types.gen";
+import {
+  getChatVoiceSettingsQueryKey,
+  updateChatVoiceSettingsMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { useVoiceAvailability } from "./use-voice-availability";
-import { useVoiceSettings, useVoiceSettingsKey } from "./use-voice-settings";
+import { useVoiceSettings } from "./use-voice-settings";
 
 /**
  * Personal voice preferences in General settings. Each control appears only while the Tenant has the provider that uses
@@ -25,35 +28,29 @@ export function VoiceSettingsSection() {
   const dictation = availability?.sttAvailable === true;
   const readAloud = availability?.ttsAvailable === true;
   const settings = useVoiceSettings(dictation || readAloud);
-  const key = useVoiceSettingsKey();
   const [speedDraft, setSpeedDraft] = useState<number>();
   const mutation = useMutation({
-    mutationFn: async (change: VoiceSettingsRequest) =>
-      (
-        await updateChatVoiceSettings({
-          body: change,
-        })
-      ).data,
-    onSuccess: (data) => cache.setQueryData(key, data),
+    ...updateChatVoiceSettingsMutation(),
+    onSuccess: (data) => cache.setQueryData(getChatVoiceSettingsQueryKey(), data),
     onSettled: () => setSpeedDraft(undefined),
   });
+  const save = (body: NonNullable<typeof mutation.variables>["body"]) => mutation.mutate({ body });
   if (!dictation && !readAloud) return null;
   const saved = settings.data;
-  const pending = mutation.isPending ? mutation.variables : undefined;
+  const pending = mutation.isPending ? mutation.variables.body : undefined;
   const autoSend = pending?.autoSend ?? saved?.autoSend ?? false;
   const autoPlayback = pending?.autoPlayback ?? saved?.autoPlayback ?? false;
   const speed = speedDraft ?? pending?.playbackSpeed ?? saved?.playbackSpeed ?? 1;
   const disabled = !settings.isSuccess || mutation.isPending;
   return (
     <section aria-labelledby="voice-settings-heading" className="flex max-w-2xl flex-col gap-4">
-      <div>
-        <h2 id="voice-settings-heading" className="font-heading-h3 text-content-primary">
-          {ui("Giọng nói")}
-        </h2>
-        <p className="mt-1 font-secondary-body text-content-muted">
-          {ui("Điều khiển cách micro và phần đọc câu trả lời phối hợp trong cuộc trò chuyện.")}
-        </p>
-      </div>
+      <SectionHeader
+        id="voice-settings-heading"
+        title={ui("Giọng nói")}
+        description={ui(
+          "Điều khiển cách micro và phần đọc câu trả lời phối hợp trong cuộc trò chuyện.",
+        )}
+      />
       <SettingRows>
         {dictation && (
           <SettingRow
@@ -68,7 +65,7 @@ export function VoiceSettingsSection() {
                 aria-describedby="voice-auto-send-description"
                 checked={autoSend}
                 disabled={disabled}
-                onCheckedChange={(checked) => mutation.mutate({ autoSend: checked })}
+                onCheckedChange={(checked) => save({ autoSend: checked })}
               />
             }
           />
@@ -88,7 +85,7 @@ export function VoiceSettingsSection() {
                 aria-describedby="voice-auto-playback-description"
                 checked={autoPlayback}
                 disabled={disabled}
-                onCheckedChange={(checked) => mutation.mutate({ autoPlayback: checked })}
+                onCheckedChange={(checked) => save({ autoPlayback: checked })}
               />
             }
           />
@@ -116,7 +113,7 @@ export function VoiceSettingsSection() {
                   onValueChange={([value]) => setSpeedDraft(tenths(value))}
                   onValueCommit={([value]) => {
                     if (tenths(value) === saved?.playbackSpeed) setSpeedDraft(undefined);
-                    else mutation.mutate({ playbackSpeed: tenths(value) });
+                    else save({ playbackSpeed: tenths(value) });
                   }}
                 />
                 <output

@@ -1,6 +1,6 @@
 /** Client for the voice transcription WebSocket (Onyx /voice/transcribe/stream parity). */
 
-export const TRANSCRIBE_STREAM_PATH = "/api/chat/voice/transcribe/stream";
+const TRANSCRIBE_STREAM_PATH = "/api/chat/voice/transcribe/stream";
 const OPEN_TIMEOUT_MS = 5_000;
 /**
  * The server finishes by transcribing the whole recording again, which takes provider time. Onyx waits three
