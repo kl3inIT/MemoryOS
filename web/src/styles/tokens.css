@@ -230,7 +230,7 @@
   --page-width-wide: 80rem;
   --page-gutter: 1rem;
   --sidebar-width: 15rem;
-  --sidebar-width-collapsed: 3.25rem;
+  --sidebar-width-icon: 4rem;
 
   /* shadcn compatibility aliases. */
   --background: var(--surface-base);

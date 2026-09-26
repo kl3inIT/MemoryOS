@@ -22,7 +22,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/icon-button";
-import { SidebarTab } from "@/components/ui/sidebar-tab";
+import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { formatUiDate } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -93,7 +93,7 @@ export function ChatHistorySearch({
     onNavigate?.();
   }
 
-  return (
+  const dialog = (
     <Dialog
       open={open}
       onOpenChange={(next) => {
@@ -113,13 +113,10 @@ export function ChatHistorySearch({
             <Search />
           </IconButton>
         ) : (
-          <SidebarTab
-            icon={<Search className="size-4" />}
-            collapsed
-            aria-keyshortcuts="Control+K Meta+K"
-          >
-            {label}
-          </SidebarTab>
+          <SidebarMenuButton tooltip={label} aria-keyshortcuts="Control+K Meta+K">
+            <Search />
+            <span>{label}</span>
+          </SidebarMenuButton>
         )}
       </DialogTrigger>
       <DialogContent className="top-[max(1rem,12dvh)] flex max-h-[min(36rem,calc(100dvh-2rem))] translate-y-0 flex-col overflow-hidden sm:max-w-2xl">
@@ -197,6 +194,8 @@ export function ChatHistorySearch({
       </DialogContent>
     </Dialog>
   );
+  // The rail entry is a row of the sidebar menu.
+  return variant === "tab" ? <SidebarMenuItem>{dialog}</SidebarMenuItem> : dialog;
 }
 
 /** The found conversations under their day, each with the matched fragment. */

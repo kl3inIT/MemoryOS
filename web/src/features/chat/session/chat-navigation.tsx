@@ -17,7 +17,8 @@ import { SortableList } from "@/components/composites/sortable-list";
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
-import { SidebarTab } from "@/components/ui/sidebar-tab";
+import { SidebarLink } from "@/components/app-shell/sidebar-link";
+import { SidebarMenu } from "@/components/ui/sidebar";
 import { ThreadList, groupThreadTitles } from "@/components/assistant-ui/elements/thread-list";
 import type { ChatSession, PersonaView } from "@/lib/hey-api/types.gen";
 import { ChatHistorySearch } from "./chat-history-search";
@@ -61,56 +62,49 @@ export function ChatNavigation({
   const projects = useQuery(projectsOptions());
   return (
     <div className="flex h-full min-h-0 flex-col gap-1">
-      <SidebarTab
-        to="/"
-        icon={<Plus className="size-4" />}
-        collapsed={collapsed}
-        selected={pathname === "/"}
-        onClick={onNavigate}
-      >
-        {ui("Hội thoại mới")}
-      </SidebarTab>
-      {/* Expanded sidebars show conversation search as an icon beside the collapse button. */}
-      {collapsed ? <ChatHistorySearch variant="tab" onNavigate={onNavigate} /> : null}
-      <SidebarTab
-        to="/search"
-        icon={<FileSearch className="size-4" />}
-        collapsed={collapsed}
-        selected={pathname === "/search"}
-        onClick={onNavigate}
-      >
-        {ui("Search documents")}
-      </SidebarTab>
-      <SidebarTab
-        to="/agents"
-        icon={<Bot className="size-4" />}
-        collapsed={collapsed}
-        selected={pathname === "/agents"}
-        onClick={onNavigate}
-      >
-        {ui("Trợ lý")}
-      </SidebarTab>
-      {meetingsTab}
-      <SidebarTab
-        to="/library"
-        icon={<FolderOpen className="size-4" />}
-        collapsed={collapsed}
-        selected={pathname === "/library"}
-        onClick={onNavigate}
-      >
-        {ui("Thư viện")}
-      </SidebarTab>
-      {collapsed ? (
-        <SidebarTab
-          to="/projects"
-          icon={<Folder className="size-4" />}
-          collapsed
-          selected={pathname.startsWith("/projects")}
-          onClick={onNavigate}
-        >
-          {ui("Dự án")}
-        </SidebarTab>
-      ) : (
+      <SidebarMenu>
+        <SidebarLink
+          to="/"
+          label={ui("Hội thoại mới")}
+          icon={<Plus />}
+          selected={pathname === "/"}
+          onNavigate={onNavigate}
+        />
+        {/* Expanded sidebars show conversation search as an icon beside the collapse button. */}
+        {collapsed ? <ChatHistorySearch variant="tab" onNavigate={onNavigate} /> : null}
+        <SidebarLink
+          to="/search"
+          label={ui("Search documents")}
+          icon={<FileSearch />}
+          selected={pathname === "/search"}
+          onNavigate={onNavigate}
+        />
+        <SidebarLink
+          to="/agents"
+          label={ui("Trợ lý")}
+          icon={<Bot />}
+          selected={pathname === "/agents"}
+          onNavigate={onNavigate}
+        />
+        {meetingsTab}
+        <SidebarLink
+          to="/library"
+          label={ui("Thư viện")}
+          icon={<FolderOpen />}
+          selected={pathname === "/library"}
+          onNavigate={onNavigate}
+        />
+        {collapsed ? (
+          <SidebarLink
+            to="/projects"
+            label={ui("Dự án")}
+            icon={<Folder />}
+            selected={pathname.startsWith("/projects")}
+            onNavigate={onNavigate}
+          />
+        ) : null}
+      </SidebarMenu>
+      {collapsed ? null : (
         <div className="min-h-0 flex-1 overflow-y-auto pt-4">
           <PinnedAgents onNavigate={onNavigate} />
           <div className="mb-2 flex items-center justify-between px-2">

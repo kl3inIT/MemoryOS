@@ -19,6 +19,21 @@ if (!("ResizeObserver" in globalThis)) {
   } as unknown as typeof ResizeObserver;
 }
 
+// jsdom ships no matchMedia; tests run as a wide screen that asks for nothing, and may stub their own.
+if (typeof window.matchMedia !== "function") {
+  window.matchMedia = (query: string) =>
+    ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      dispatchEvent: () => false,
+    }) as MediaQueryList;
+}
+
 // jsdom implements neither pointer capture nor scrollIntoView, which Radix popup
 // primitives (Select, DropdownMenu) call while opening.
 beforeEach(() => {

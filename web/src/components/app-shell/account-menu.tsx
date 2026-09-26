@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SidebarTab } from "@/components/ui/sidebar-tab";
+import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { useTheme } from "@/features/theme/theme-context";
 import {
   useAdminAccess,
@@ -21,13 +21,7 @@ import { sameOriginMutationHeaders } from "@/lib/api";
 
 const logoutLocationHeader = "X-MemoryOS-Logout-Location";
 
-export function AccountMenu({
-  collapsed,
-  onNavigate,
-}: {
-  collapsed: boolean;
-  onNavigate?: () => void;
-}) {
+export function AccountMenu({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation("common");
   const [menuOpen, setMenuOpen] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
@@ -66,17 +60,15 @@ export function AccountMenu({
   return (
     <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuTrigger asChild>
-        <SidebarTab
-          icon={
-            <span className="grid size-4 place-items-center rounded-full bg-surface-raised font-figure-small-label text-content-primary ring-1 ring-border-default">
-              {initials}
-            </span>
-          }
-          selected={menuOpen}
-          collapsed={collapsed}
-        >
-          {membershipLabel}
-        </SidebarTab>
+        <SidebarMenuButton tooltip={membershipLabel}>
+          <span
+            aria-hidden="true"
+            className="grid size-4 shrink-0 place-items-center rounded-full bg-surface-raised font-figure-small-label text-content-primary ring-1 ring-border-default"
+          >
+            {initials}
+          </span>
+          <span>{membershipLabel}</span>
+        </SidebarMenuButton>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
