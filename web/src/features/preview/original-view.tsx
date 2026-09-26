@@ -1,30 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { IconButton } from "@/components/ui/icon-button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import {
-  clearCitations,
-  paintCitations,
-  placeCitations,
-  type CitationPlacement,
-} from "./citation-highlight";
-import { CsvView } from "./csv-view";
-import { DocxView } from "./docx-view";
 import { DownloadView } from "./download-view";
-import { ImageControls, ImageView } from "./image-view";
-import type { PdfHighlight } from "./pdf-pages";
-import { PdfView } from "./pdf-view";
-import { MAX_TEXT_PREVIEW_BYTES, previewKind, type Sheets } from "./preview-kind";
+import { FilePreview, type PreviewCitations } from "./file-preview";
+import { readPreviewContent, type PreviewContent } from "./preview-content";
+import { previewKind, type Sheets } from "./preview-kind";
 import { PreviewCanvas, PreviewSkeleton } from "./preview-surface";
-import { PreviewToolbar, ToolbarGroup } from "./preview-toolbar";
-import { placeSheetCitations, renderedRows, type SheetCitation } from "./sheet-citations";
-import { SheetView } from "./sheet-view";
-import { MarkdownView } from "./markdown-view";
-import { TextView } from "./text-view";
-
-export type CitationConfidence = CitationPlacement["confidence"];
 
 /** The three ways a reader reaches one stored original; a surface supplies the routes its authority allows. */
 export type OriginalReader = {
@@ -35,18 +16,6 @@ export type OriginalReader = {
   sheets: (signal: AbortSignal) => Promise<Sheets>;
 };
 
-/** What a view reports once it has rendered; `DocxView` measures its own text while it does. */
-type Rendered = (result: { words: number; text: string }) => void;
-
-type Loaded =
-  | { kind: "pdf" }
-  | { kind: "xlsx"; sheets: Sheets }
-  | { kind: "csv"; text: string; truncated: boolean }
-  | { kind: "code" | "text"; text: string; truncated: boolean }
-  | { kind: "markdown"; text: string; truncated: boolean }
-  | { kind: "image" | "docx"; blob: Blob }
-  | { kind: "doc" | "pptx" | "unsupported" };
-
 /**
  * Reads only what the chosen view needs: pdf.js reads the URL itself by range, a workbook arrives already
  * parsed per sheet, and a file this app cannot show is never downloaded to find that out.
@@ -56,64 +25,34 @@ async function load(
   filename: string,
   mediaType: string,
   signal: AbortSignal,
-): Promise<Loaded> {
+): Promise<PreviewContent> {
   const kind = previewKind(filename, mediaType);
-  if (kind === "pdf") return { kind };
+  if (kind === "pdf") return { kind, file: reader.url };
   if (kind === "xlsx") return { kind, sheets: await reader.sheets(signal) };
   if (kind === "doc" || kind === "pptx" || kind === "unsupported") return { kind };
-  const blob = await reader.bytes(signal);
-  if (kind === "image" || kind === "docx") return { kind, blob };
-  const truncated = blob.size > MAX_TEXT_PREVIEW_BYTES;
-  return { kind, text: await blob.slice(0, MAX_TEXT_PREVIEW_BYTES).text(), truncated };
+  return readPreviewContent(await reader.bytes(signal), kind);
 }
 
 /**
- * The stored original of a cited Document, shown as the file looks, with the cited passages painted where
- * they were found in it. A passage the locator will not commit to is left undrawn: an unlocated citation is
- * never drawn somewhere merely plausible.
+ * The stored original of a cited Document, read through the surface's authority and shown by `FilePreview`
+ * with the cited passages painted where they were found in it.
  */
 export function OriginalView({
   reader,
   filename,
   mediaType,
-  pages = [],
-  boxes = [],
-  rows = [],
-  citations,
-  sections = [],
-  active = 0,
-  onPlaced,
-  onActive,
   thumbnails = false,
+  ...citations
 }: {
   reader: OriginalReader;
   filename: string;
   mediaType?: string | null;
-  /** Pages and regions the extraction recorded for the citation; PDF only, empty when none were recorded. */
-  pages?: readonly number[];
-  boxes?: readonly PdfHighlight[];
-  /** The sheet and row recorded for each citation; workbooks only, and absent where none was recorded. */
-  rows?: readonly (SheetCitation | undefined)[];
-  /** The cited passage text, in the order the citation rail lists it. */
-  citations: readonly string[];
-  /** The heading each citation was read under, which tells two identical passages apart. */
-  sections?: readonly (string | undefined)[];
-  active?: number;
-  /**
-   * Where each citation ended up, in citation order, so the rail can say which ones were located. A format
-   * with no text to search reports nothing, and the rail keeps saying it does not know.
-   */
-  onPlaced?: (confidence: readonly CitationConfidence[]) => void;
-  /** Steps the reader between citations from the toolbar; the rail does the same from its cards. */
-  onActive?: (index: number) => void;
   /** A page rail beside a paged original, for a reader wide enough to hold one. */
   thumbnails?: boolean;
-}) {
+} & PreviewCitations) {
   const ui = useAppTranslation();
   const { actorId, authorizationVersion } = useApplicationSession();
   const declared = mediaType || "application/octet-stream";
-  const [zoom, setZoom] = useState(100);
-  const [rotation, setRotation] = useState(0);
   const loaded = useQuery({
     queryKey: ["document-original", actorId, authorizationVersion, reader.url],
     queryFn: ({ signal }) => load(reader, filename, declared, signal),
@@ -128,7 +67,7 @@ export function OriginalView({
         <PreviewSkeleton />
       </PreviewCanvas>
     );
-  if (loaded.isError || !loaded.data)
+  if (loaded.isError)
     return (
       <DownloadView
         href={reader.url}
@@ -136,221 +75,13 @@ export function OriginalView({
         message={ui("Không mở được tệp gốc. Hãy tải xuống để xem toàn bộ tệp.")}
       />
     );
-
-  const data = loaded.data;
-  const highlighted = (children: (onRendered: Rendered) => ReactNode, rendered?: boolean) => (
-    <HighlightedOriginal
+  return (
+    <FilePreview
+      content={loaded.data}
+      filename={filename}
+      download={reader.url}
       citations={citations}
-      sections={sections}
-      active={active}
-      onPlaced={onPlaced}
-      onActive={onActive}
-      rendered={rendered}
-    >
-      {children}
-    </HighlightedOriginal>
-  );
-
-  switch (data.kind) {
-    case "pdf":
-      return <PdfView url={reader.url} pages={pages} boxes={boxes} thumbnails={thumbnails} />;
-    case "image":
-      return (
-        <div className="relative flex min-h-0 flex-1 flex-col bg-surface-sunken">
-          <ImageView blob={data.blob} alt={filename} zoom={zoom} rotation={rotation} />
-          <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
-            <div className="pointer-events-auto">
-              <ImageControls
-                zoom={zoom}
-                onZoom={setZoom}
-                onRotate={(degrees) => setRotation((turn) => (turn + degrees + 360) % 360)}
-              />
-            </div>
-          </div>
-        </div>
-      );
-    case "docx":
-      return highlighted((onRendered) => <DocxView blob={data.blob} onLoad={onRendered} />);
-    case "xlsx":
-      return (
-        <CitationSteps active={active} total={citations.length} onActive={onActive}>
-          <WorkbookOriginal sheets={data.sheets} rows={rows} active={active} onPlaced={onPlaced} />
-        </CitationSteps>
-      );
-    case "csv":
-      return highlighted(
-        () => (
-          <PreviewCanvas>
-            <CsvView csv={data.text} truncated={data.truncated} />
-          </PreviewCanvas>
-        ),
-        true,
-      );
-    case "markdown":
-      return highlighted(
-        () => (
-          <PreviewCanvas>
-            <MarkdownView text={data.text} truncated={data.truncated} />
-          </PreviewCanvas>
-        ),
-        true,
-      );
-    case "code":
-    case "text":
-      return highlighted(
-        () => (
-          <TextView
-            text={data.text}
-            filename={filename}
-            kind={data.kind}
-            truncated={data.truncated}
-          />
-        ),
-        true,
-      );
-    default:
-      return (
-        <DownloadView
-          href={reader.url}
-          filename={filename}
-          message={ui(
-            "Tệp này không xem trực tiếp được. Hãy tải xuống để mở bằng ứng dụng phù hợp.",
-          )}
-        />
-      );
-  }
-}
-
-/**
- * Paints the citations over whatever its child renders, once the child says it has rendered. The highlight
- * is drawn with the CSS Custom Highlight API, so the original's own markup and layout are never touched.
- */
-function HighlightedOriginal({
-  citations,
-  sections,
-  active,
-  rendered = false,
-  onPlaced,
-  onActive,
-  children,
-}: {
-  citations: readonly string[];
-  sections: readonly (string | undefined)[];
-  active: number;
-  /** A view that renders synchronously is ready as soon as it is in the tree. */
-  rendered?: boolean;
-  onPlaced?: (confidence: readonly CitationConfidence[]) => void;
-  onActive?: (index: number) => void;
-  children: (onRendered: Rendered) => ReactNode;
-}) {
-  const container = useRef<HTMLDivElement>(null);
-  const [ready, setReady] = useState(rendered);
-  const onRendered = useCallback(() => setReady(true), []);
-  const report = useRef(onPlaced);
-  useEffect(() => {
-    report.current = onPlaced;
-  }, [onPlaced]);
-  useEffect(() => {
-    const root = container.current;
-    if (!root || !ready || !citations.length) return undefined;
-    const placements = placeCitations(root, citations, sections);
-    paintCitations(placements, active);
-    report.current?.(placements.map((placement) => placement.confidence));
-    const opened = placements[active]?.range ?? placements.find((found) => found.range)?.range;
-    const anchor =
-      opened?.startContainer.nodeType === Node.ELEMENT_NODE
-        ? (opened.startContainer as Element)
-        : opened?.startContainer.parentElement;
-    anchor?.scrollIntoView({ block: "center" });
-    return () => clearCitations();
-  }, [citations, sections, active, ready]);
-  return (
-    <CitationSteps active={active} total={citations.length} onActive={onActive}>
-      <div ref={container} className="flex min-h-0 flex-1 flex-col">
-        {children(onRendered)}
-      </div>
-    </CitationSteps>
-  );
-}
-
-/**
- * A workbook shows its citations on the rows the extraction recorded. Nothing is searched for: the extraction
- * and this preview format numbers and dates differently, and a row number says exactly where the passage came
- * from.
- */
-function WorkbookOriginal({
-  sheets,
-  rows,
-  active,
-  onPlaced,
-}: {
-  sheets: Sheets;
-  rows: readonly (SheetCitation | undefined)[];
-  active: number;
-  onPlaced?: (confidence: readonly CitationConfidence[]) => void;
-}) {
-  // Parsing the workbook is the expensive part, so it happens once per workbook rather than once per citation.
-  const rendered = useMemo(() => renderedRows(sheets), [sheets]);
-  const placements = placeSheetCitations(sheets, rendered, rows);
-  const report = useRef(onPlaced);
-  useEffect(() => {
-    report.current = onPlaced;
-  });
-  useEffect(() => {
-    report.current?.(placements.map((placement) => (placement ? "exact" : "none")));
-  });
-  return (
-    <PreviewCanvas>
-      <SheetView sheets={sheets} placements={placements} active={active} />
-    </PreviewCanvas>
-  );
-}
-
-/** The floating previous/next control a reader steps through the citations with, over any original. */
-function CitationSteps({
-  active,
-  total,
-  onActive,
-  children,
-}: {
-  active: number;
-  total: number;
-  onActive?: (index: number) => void;
-  children: ReactNode;
-}) {
-  const ui = useAppTranslation();
-  return (
-    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-      {children}
-      {onActive && total > 1 ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-4">
-          <PreviewToolbar>
-            <ToolbarGroup>
-              <IconButton
-                prominence="internal"
-                size="sm"
-                aria-label={ui("Đoạn trước")}
-                disabled={active <= 0}
-                onClick={() => onActive(active - 1)}
-              >
-                <ChevronLeft />
-              </IconButton>
-              <span className="min-w-14 text-center font-secondary-action text-content-secondary tabular-nums">
-                {active + 1} / {total}
-              </span>
-              <IconButton
-                prominence="internal"
-                size="sm"
-                aria-label={ui("Đoạn sau")}
-                disabled={active >= total - 1}
-                onClick={() => onActive(active + 1)}
-              >
-                <ChevronRight />
-              </IconButton>
-            </ToolbarGroup>
-          </PreviewToolbar>
-        </div>
-      ) : null}
-    </div>
+      thumbnails={thumbnails}
+    />
   );
 }

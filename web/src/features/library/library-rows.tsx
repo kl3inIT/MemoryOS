@@ -692,7 +692,7 @@ export function FileUsage({
             </button>
           ))}
       {failed && (
-        <span role="alert" className="text-content-danger">
+        <span role="alert" className="text-status-danger-content">
           {ui("Không gỡ được. Hãy thử lại.")}
         </span>
       )}

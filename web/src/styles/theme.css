@@ -48,25 +48,14 @@
   --color-content-muted: var(--content-muted);
   --color-content-disabled: var(--content-disabled);
   --color-content-faint: var(--content-faint);
-  --color-content-inverse: var(--content-inverse);
   --color-border-subtle: var(--border-subtle);
   --color-border-default: var(--border-default);
   --color-border-strong: var(--border-strong);
 
   --color-action-primary: var(--action-primary);
-  --color-action-primary-hover: var(--action-primary-hover);
-  --color-action-primary-active: var(--action-primary-active);
   --color-action-primary-foreground: var(--action-primary-foreground);
-  --color-action-secondary: var(--action-secondary);
-  --color-action-secondary-hover: var(--action-secondary-hover);
-  --color-action-secondary-active: var(--action-secondary-active);
-  --color-action-secondary-foreground: var(--action-secondary-foreground);
-  --color-action-ghost-hover: var(--action-ghost-hover);
-  --color-action-ghost-active: var(--action-ghost-active);
   --color-focus-ring: var(--focus-ring);
   --color-action-selection: var(--action-selection);
-  --color-action-selection-hover: var(--action-selection-hover);
-  --color-action-selection-surface: var(--action-selection-surface);
 
   --color-status-danger-surface: var(--status-danger-surface);
   --color-status-danger-content: var(--status-danger-content);
@@ -98,13 +87,8 @@
   --color-status-info-strong: var(--status-info-strong);
   --color-status-info-border: var(--status-info-border);
   --color-status-info-faint: var(--status-info-faint);
-  --color-status-error-strong: var(--status-error-strong);
-  --color-status-error-surface: var(--status-error-surface);
-  --color-status-error-content: var(--status-error-content);
-  --color-status-error-border: var(--status-error-border);
   --color-highlight-match: var(--highlight-match);
   --color-highlight-active: var(--highlight-active);
-  --color-highlight-selection: var(--highlight-selection);
   --color-evidence-highlight-surface: var(--evidence-highlight-surface);
   --color-evidence-highlight-border: var(--evidence-highlight-border);
   --color-pdf-highlight: var(--pdf-highlight);
@@ -127,7 +111,6 @@
   --color-surface-on-media-hover: var(--surface-on-media-hover);
   --color-border-on-media: var(--border-on-media);
   --color-scrim-media-hover: var(--scrim-media-hover);
-  --color-action-selection: var(--action-selection);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);

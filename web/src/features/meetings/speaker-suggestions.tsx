@@ -18,7 +18,14 @@ import {
  * The names voices gave themselves, offered to the owner with the sentence they said it in. Accepting one is the
  * ordinary rename; dismissing keeps the automatic label and never asks again. Nothing is renamed without a press.
  */
-export function SpeakerSuggestions({ meeting }: { meeting: MeetingDetail }) {
+export function SpeakerSuggestions({
+  meeting,
+  onReveal,
+}: {
+  meeting: MeetingDetail;
+  /** Brings the sentence a name was given in into view. */
+  onReveal: (utteranceId: string) => void;
+}) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
   const problemMessage = useProblemMessage();
@@ -69,11 +76,7 @@ export function SpeakerSuggestions({ meeting }: { meeting: MeetingDetail }) {
                   <button
                     type="button"
                     className="truncate text-sm text-content-muted hover:underline"
-                    onClick={() =>
-                      document
-                        .getElementById(said.id)
-                        ?.scrollIntoView({ block: "center", behavior: "smooth" })
-                    }
+                    onClick={() => onReveal(said.id)}
                   >
                     {said.text}
                   </button>

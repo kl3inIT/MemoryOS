@@ -4,7 +4,7 @@ import { uiLocale } from "@/i18n/format";
 import { statusLabel } from "@/i18n/status-copy";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FolderTree, KeyRound, RefreshCw } from "lucide-react";
+import { KeyRound, RefreshCw } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { Button } from "@/components/ui/button";
@@ -27,24 +27,18 @@ import {
   updateSharePointPauseMutation,
   updateSharePointScheduleMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import type {
-  SharePointConfigurationResponse,
-  SharePointRootPageResponse,
-  SourceOperation,
-  SourceSummary,
-} from "@/lib/hey-api/types.gen";
+import type { SourceOperation, SourceSummary } from "@/lib/hey-api/types.gen";
 import { formatSyncInterval } from "@/features/sources/shared/sync-interval";
 import { sourceMutationError, sourceStatusMessage } from "@/features/sources/shared/source-errors";
 import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
 import { SourceSummaryCard } from "@/features/sources/shared/source-summary-card";
 import { useSourceSelectionOperation } from "@/features/sources/shared/source-selection-operation";
 import { waitForSourceOperation } from "@/features/sources/shared/source-operations";
+import { sourceOperationNotice } from "@/features/sources/shared/source-operation-notice";
 import { SharePointScheduleFields } from "./sharepoint-schedule-fields";
-import { SharePointScopeFields } from "./sharepoint-scope-fields";
+import { SharePointScopeCard } from "./sharepoint-scope-card";
 import {
-  emptySharePointScopeDraft,
   sharePointScheduleError,
-  sharePointScopeError,
   sharePointScopeRequest,
   type SharePointScopeDraft,
 } from "./sharepoint-scope";
@@ -74,10 +68,10 @@ export function SharePointPanel({
     ...getSharePointConfigurationOptions({ path: { sourceId: source.id } }),
     retry: false,
     refetchInterval: (query) =>
-      query.state.data?.pendingWork || source.pendingWork ? 1_500 : 5_000,
+      query.state.data?.pendingWork || source.pendingWork ? 1_500 : false,
   });
   const configuration = configurationQuery.data;
-  // This panel polls every few seconds, so its refresh controls follow the press, not the poll.
+  // This panel polls while work is pending, so its refresh controls follow the press, not the poll.
   const connectionRetry = useManualRefresh(configurationQuery.refetch);
   const statusRefresh = useManualRefresh(refresh);
   const credentials = useQuery({
@@ -189,37 +183,28 @@ export function SharePointPanel({
     setObserving(true);
     try {
       const completed = await waitForSourceOperation(operation, own.signal);
-      if (completed.status === "SUCCEEDED") {
-        notify({
-          tone: "success",
-          title: "Synchronization complete",
-          description: appText("{{v1}}: content is synchronized. Indexing may still be running.", {
-            v1: source.name,
-          }),
-        });
-      } else if (completed.status === "SUPERSEDED") {
-        notify({
-          tone: "info",
-          title: "Synchronization superseded",
-          description: appText("{{v1}}: this request was replaced by newer work.", {
-            v1: source.name,
-          }),
-        });
-      } else if (completed.status === "CANCELLED") {
-        notify({ tone: "info", title: "Synchronization cancelled", description: source.name });
-      } else {
-        const failureKind = completed.errorCode ?? "SOURCE_SYNC_FAILED";
+      if (completed.status === "FAILED")
         captureWorkflowFailure(new Error("SharePoint synchronization failed"), {
           workflow: "sharepoint-sync",
           stage: "operation-complete",
-          failureKind,
+          failureKind: completed.errorCode ?? "SOURCE_SYNC_FAILED",
         });
-        notify({
-          tone: "error",
-          title: "Synchronization failed",
-          description: appText(sourceStatusMessage(failureKind)),
-        });
-      }
+      notify(
+        sourceOperationNotice(completed, {
+          subject: source.name,
+          titles: {
+            succeeded: "Synchronization complete",
+            superseded: "Synchronization superseded",
+            cancelled: "Synchronization cancelled",
+            failed: "Synchronization failed",
+          },
+          succeeded: appText("{{v1}}: content is synchronized. Indexing may still be running.", {
+            v1: source.name,
+          }),
+          failureCode: "SOURCE_SYNC_FAILED",
+          failureSubject: false,
+        }),
+      );
       await refresh();
     } catch (cause) {
       if (!own.signal.aborted)
@@ -318,7 +303,6 @@ export function SharePointPanel({
   }
 
   const scheduleError = scheduleDraft ? sharePointScheduleError(scheduleDraft) : null;
-  const scopeError = scopeDraft ? sharePointScopeError(scopeDraft, policy.data) : null;
 
   return (
     <section aria-label={ui("SharePoint configuration")} className="space-y-6">
@@ -480,85 +464,18 @@ export function SharePointPanel({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <SourceSectionIcon icon={FolderTree} />
-            <h2 className="font-heading-h3 text-content-primary">{ui("Saved scope")}</h2>
-          </div>
-          {canConfigure && !scopeDraft ? (
-            <Button
-              prominence="secondary"
-              disabled={controlsDisabled}
-              onClick={() =>
-                setScopeDraft({
-                  ...emptySharePointScopeDraft(),
-                  scopeMode: configuration.scopeMode,
-                  siteUrlsText: (roots.data?.roots ?? []).map((root) => root.url).join("\n"),
-                  excludedSitesText: configuration.excludedSites.join("\n"),
-                  excludedPathsText: configuration.excludedPaths.join("\n"),
-                  includeDocuments: configuration.includeDocuments,
-                  includePages: configuration.includePages,
-                  syncIntervalMinutes: String(configuration.syncIntervalMinutes),
-                  pruneIntervalHours: String(configuration.pruneIntervalHours),
-                })
-              }
-            >
-              {ui("Edit scope")}
-            </Button>
-          ) : null}
-        </CardHeader>
-        <CardContent>
-          {scopeDraft ? (
-            <form
-              className="space-y-5 rounded-xl border border-border-subtle p-4 sm:p-5"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!scopeError) run("scope", saveScope);
-              }}
-            >
-              <SharePointScopeFields
-                draft={scopeDraft}
-                policy={policy.data}
-                disabled={busy}
-                onChange={setScopeDraft}
-              />
-              {roots.data && roots.data.total > roots.data.roots.length ? (
-                <p role="alert" className="text-sm text-status-warning-content">
-                  {ui(
-                    "Only the first {{count}} addresses are shown. Saving replaces the whole scope with what is listed here.",
-                    { count: roots.data.roots.length },
-                  )}
-                </p>
-              ) : null}
-              {scopeError ? (
-                <p role="alert" className="text-sm text-status-danger-content">
-                  {ui(scopeError)}
-                </p>
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="submit"
-                  pending={activeAction === "scope"}
-                  disabled={busy || Boolean(scopeError)}
-                >
-                  {ui("Save scope")}
-                </Button>
-                <Button prominence="tertiary" disabled={busy} onClick={() => setScopeDraft(null)}>
-                  {ui("Cancel")}
-                </Button>
-              </div>
-              <p className="text-sm text-content-muted">
-                {ui(
-                  "Saving answers with a receipt and resolves every address with Microsoft. The running synchronization is cancelled and the Source reads its content again.",
-                )}
-              </p>
-            </form>
-          ) : (
-            <SavedScope configuration={configuration} roots={roots} />
-          )}
-        </CardContent>
-      </Card>
+      <SharePointScopeCard
+        configuration={configuration}
+        roots={roots}
+        policy={policy.data}
+        draft={scopeDraft}
+        canConfigure={canConfigure}
+        controlsDisabled={controlsDisabled}
+        busy={busy}
+        saving={activeAction === "scope"}
+        onDraftChange={setScopeDraft}
+        onSave={() => run("scope", saveScope)}
+      />
 
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
@@ -619,73 +536,5 @@ export function SharePointPanel({
         </CardContent>
       </Card>
     </section>
-  );
-}
-
-function SavedScope({
-  configuration,
-  roots,
-}: {
-  configuration: SharePointConfigurationResponse;
-  roots: {
-    data: SharePointRootPageResponse | undefined;
-    isPending: boolean;
-    isError: boolean;
-  };
-}) {
-  const ui = useAppTranslation();
-
-  return (
-    <div className="space-y-3 text-sm">
-      <p className="text-content-primary">
-        {configuration.scopeMode === "ALL_SITES"
-          ? ui("All sites the Entra application can read")
-          : ui("{{count}} sites, libraries or folders", { count: configuration.rootCount })}
-      </p>
-      <p className="text-content-muted">
-        {configuration.includeDocuments && configuration.includePages
-          ? ui("Documents and site pages")
-          : configuration.includePages
-            ? ui("Site pages")
-            : ui("Documents")}
-      </p>
-      {configuration.scopeMode === "SPECIFIC" ? (
-        roots.isPending ? (
-          <p role="status" className="text-content-muted">
-            {ui("Loading saved addresses…")}
-          </p>
-        ) : roots.isError ? (
-          <p role="alert" className="text-status-danger-content">
-            {ui("Saved addresses could not be loaded. Refresh status before editing the scope.")}
-          </p>
-        ) : (
-          <ul className="space-y-1">
-            {roots.data?.roots.map((root) => (
-              <li key={root.url} className="flex flex-wrap items-center gap-2">
-                <StatusBadge tone={root.verified ? "neutral" : "warning"}>
-                  {root.kind === "SITE"
-                    ? ui("Site")
-                    : root.kind === "LIBRARY"
-                      ? ui("Library")
-                      : ui("Folder")}
-                </StatusBadge>
-                <span className="min-w-0 wrap-anywhere text-content-primary">
-                  {root.displayName ?? root.url}
-                </span>
-                <span className="min-w-0 wrap-anywhere text-xs text-content-muted">{root.url}</span>
-              </li>
-            ))}
-          </ul>
-        )
-      ) : null}
-      {configuration.excludedSites.length > 0 || configuration.excludedPaths.length > 0 ? (
-        <p className="text-content-muted">
-          {ui("{{sites}} site and {{paths}} path exclusions", {
-            sites: configuration.excludedSites.length,
-            paths: configuration.excludedPaths.length,
-          })}
-        </p>
-      ) : null}
-    </div>
   );
 }

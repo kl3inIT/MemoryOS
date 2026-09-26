@@ -1,6 +1,8 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   createContext,
+  lazy,
+  Suspense,
   useContext,
   useId,
   useRef,
@@ -21,7 +23,14 @@ import { sourceLocationLabels, webDisplayUrl } from "./chat-source-meta";
 import type { ChatSource } from "./chat-evidence";
 import { ChatPanelContext as PanelContext } from "@/features/chat/thread/chat-panel-context";
 import type { ChatArtifact } from "@/features/chat/thread/chat-artifacts";
-import { ChatFilePreviewModal, type PreviewTarget } from "@/features/library/file-preview-modal";
+import type { PreviewTarget } from "@/features/library/file-preview";
+
+// The file viewers are needed only once a file is opened, so they stay out of the conversation's own code.
+const ChatFilePreviewModal = lazy(() =>
+  import("@/features/library/file-preview-modal").then((module) => ({
+    default: module.ChatFilePreviewModal,
+  })),
+);
 
 const emptySources: ChatSource[] = [];
 const EvidenceContext = createContext<{ messageId: string; sources: ChatSource[] }>({
@@ -103,18 +112,20 @@ export function ChatSourcesWorkspace({ children }: { children: ReactNode }) {
           />
         )}
         {preview && (
-          <ChatFilePreviewModal
-            key={`${preview.source}:${preview.id}`}
-            target={preview}
-            onClose={() => setPreview(undefined)}
-            onCloseAutoFocus={(event) => {
-              event.preventDefault();
-              const trigger = previewTriggerRef.current;
-              (trigger?.isConnected ? trigger : fallbackFocusRef.current)?.focus({
-                preventScroll: true,
-              });
-            }}
-          />
+          <Suspense fallback={null}>
+            <ChatFilePreviewModal
+              key={`${preview.source}:${preview.id}`}
+              target={preview}
+              onClose={() => setPreview(undefined)}
+              onCloseAutoFocus={(event) => {
+                event.preventDefault();
+                const trigger = previewTriggerRef.current;
+                (trigger?.isConnected ? trigger : fallbackFocusRef.current)?.focus({
+                  preventScroll: true,
+                });
+              }}
+            />
+          </Suspense>
         )}
       </div>
     </PanelContext.Provider>

@@ -1,43 +1,14 @@
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { formatUiDate, uiLocale } from "@/i18n/format";
-import { useAppTranslation, type AppTranslate } from "@/i18n/use-app-translation";
+import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { type ReactNode, useRef, useState } from "react";
-import {
-  CalendarCheck,
-  CalendarClock,
-  ChevronRight,
-  CircleAlert,
-  CircleCheck,
-  CircleHelp,
-  CircleMinus,
-  CircleSlash,
-  CircleX,
-  Clock3,
-  Hand,
-  Hash,
-  History,
-  LoaderCircle,
-  Play,
-  RefreshCw,
-  RotateCw,
-  Sparkles,
-  Timer,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
+import { useRef, useState } from "react";
+import { ChevronRight, History, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { IconButton } from "@/components/ui/icon-button";
 import { PageSizeSelect } from "@/components/ui/page-size-select";
-import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
   Table,
   TableBody,
@@ -47,39 +18,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TablePagination } from "@/components/ui/table-pagination";
-import {
-  getSourceRunOptions,
-  listSourceRunErrorsOptions,
-  listSourceRunsOptions,
-} from "@/lib/hey-api/@tanstack/react-query.gen";
-import type { SourceRun, SourceRunCounts, SourceRunError } from "@/lib/hey-api/types.gen";
+import { listSourceRunsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
+import type { SourceRun } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
-import { sourceStatusMessage } from "@/features/sources/shared/source-errors";
-import { historyDuration, runIsActive } from "./source-history";
+import { runIsActive } from "./source-history";
 import { HistoryTime, RunOutcome } from "./source-history-presentation";
 import { statusPill } from "@/features/sources/shared/source-status-presentation";
-import { ExpandableRow } from "./expandable-row";
+import { useCursorPaging } from "@/features/sources/shared/use-cursor-paging";
 import { type SourceFilterOption, SourceFilterMenu } from "./source-filter-menu";
 import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
-
-const primaryCounts: Array<[keyof SourceRunCounts, string]> = [
-  ["scanned", "Checked"],
-  ["published", "Indexed"],
-  ["unchanged", "Unchanged"],
-];
-const additionalCounts: Array<[keyof SourceRunCounts, string]> = [
-  ["acquired", "Acquired"],
-  ["removed", "Removed"],
-  ["acquisitionFailed", "Acquisition failed"],
-  ["indexingFailed", "Indexing failed"],
-  ["indexingPending", "Indexing pending"],
-  ["alreadyPending", "Already pending"],
-  ["skipped", "Skipped"],
-  ["indexingSuperseded", "Superseded"],
-  ["indexingCancelled", "Cancelled"],
-];
-const failureCounts = new Set<keyof SourceRunCounts>(["acquisitionFailed", "indexingFailed"]);
+import { RunDetails, RunDuration, RunTrigger } from "./source-run-details";
+import { IDLE_SOURCE_POLL_MS } from "@/features/sources/shared/source-polling";
 
 const outcomeLegend: Array<
   [label: string, tone: "success" | "danger" | "info" | "neutral", description: string]
@@ -127,39 +77,6 @@ const runStatusFilter: {
   ],
 };
 
-const runTriggers: Record<NonNullable<SourceRun["trigger"]>, [label: string, icon: LucideIcon]> = {
-  SCHEDULED: ["Automatic schedule", CalendarClock],
-  MANUAL: ["Manual", Hand],
-  INITIAL: ["Initial synchronization", Sparkles],
-  RESUMED: ["Resumed after pause", Play],
-};
-
-type StageState = [label: string, tone: StatusTone, icon: LucideIcon];
-const unknownStage: StageState = ["Unknown", "neutral", CircleHelp];
-/** Acquisition and indexing phases share these states; indexing adds Not required. */
-const stageStates: Record<string, StageState> = {
-  QUEUED: ["Queued", "neutral", Clock3],
-  PENDING: ["Pending", "neutral", Clock3],
-  ACQUIRING: ["In progress", "info", LoaderCircle],
-  INDEXING: ["In progress", "info", LoaderCircle],
-  RETRY_SCHEDULED: ["Retry scheduled", "info", RotateCw],
-  RECOVERY_PENDING: ["Recovery pending", "info", RotateCw],
-  SUCCEEDED: ["Completed", "success", CircleCheck],
-  COMPLETED_WITH_ERRORS: ["Completed with errors", "danger", CircleAlert],
-  FAILED: ["Failed", "danger", CircleX],
-  SUPERSEDED: ["Superseded", "neutral", CircleSlash],
-  CANCELLED: ["Cancelled", "neutral", CircleSlash],
-  NOT_REQUIRED: ["Not required", "neutral", CircleMinus],
-  UNKNOWN: unknownStage,
-};
-const toneText: Record<StatusTone, string> = {
-  success: "text-status-success-content",
-  warning: "text-status-warning-content",
-  danger: "text-status-danger-content",
-  info: "text-status-info-content",
-  neutral: "text-content-muted",
-};
-
 export function SourceRunHistory({
   sourceId,
   kinds = false,
@@ -171,32 +88,28 @@ export function SourceRunHistory({
   const ui = useAppTranslation();
   const [size, setSize] = useState(5);
   const [statuses, setStatuses] = useState<SourceRun["status"][]>([]);
-  const [cursor, setCursor] = useState<string>();
-  const [previous, setPrevious] = useState<Array<string | undefined>>([]);
+  const paging = useCursorPaging();
   const [detailRun, setDetailRun] = useState<SourceRun | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const detailOpener = useRef<HTMLElement | null>(null);
   const history = useQuery({
     ...listSourceRunsOptions({
       path: { sourceId },
-      query: { size, cursor, status: statuses.length ? statuses : undefined },
+      query: { size, cursor: paging.cursor, status: statuses.length ? statuses : undefined },
     }),
     retry: false,
     staleTime: 0,
     placeholderData: keepPreviousData,
-    refetchInterval: 5_000,
+    // Only a run still in progress changes; settled history is read again on Refresh.
+    refetchInterval: (query) =>
+      query.state.data?.current || query.state.data?.items.some(runIsActive)
+        ? 5_000
+        : IDLE_SOURCE_POLL_MS,
   });
-  // Runs are polled every few seconds, so the refresh control follows the press, not the poll.
+  // Active runs are polled, so the refresh control follows the press, not the poll.
   const runsRefresh = useManualRefresh(history.refetch);
   const totalPages = history.data ? Math.ceil(history.data.totalItems / size) : undefined;
-  if (totalPages !== undefined && previous.length >= Math.max(totalPages, 1)) {
-    setCursor(undefined);
-    setPrevious([]);
-  }
-  const firstPage = () => {
-    setCursor(undefined);
-    setPrevious([]);
-  };
+  paging.clamp(totalPages);
   const viewDetails = (run: SourceRun, opener: HTMLElement) => {
     detailOpener.current = opener;
     setDetailRun(run);
@@ -296,7 +209,7 @@ export function SourceRunHistory({
                 value={statuses}
                 onValueChange={(next) => {
                   setStatuses(next as SourceRun["status"][]);
-                  firstPage();
+                  paging.reset();
                 }}
               />
             </div>
@@ -413,22 +326,16 @@ export function SourceRunHistory({
             </div>
             <TablePagination
               label={ui("Source attempt pages")}
-              page={previous.length}
+              page={paging.page}
               totalPages={totalPages}
               previousLabel={ui("Previous source attempts")}
               nextLabel={ui("Next source attempts")}
-              previousDisabled={!previous.length || history.isPlaceholderData}
+              previousDisabled={!paging.hasPrevious || history.isPlaceholderData}
               nextDisabled={
                 !history.data.nextCursor || history.isPlaceholderData || history.isError
               }
-              onPrevious={() => {
-                setCursor(previous.at(-1));
-                setPrevious((pages) => pages.slice(0, -1));
-              }}
-              onNext={() => {
-                setPrevious((pages) => [...pages, cursor]);
-                setCursor(history.data?.nextCursor ?? undefined);
-              }}
+              onPrevious={paging.goPrevious}
+              onNext={() => paging.goNext(history.data?.nextCursor)}
             >
               <PageSizeSelect
                 label={ui("Source attempts per page")}
@@ -438,7 +345,7 @@ export function SourceRunHistory({
                 disabled={history.isPlaceholderData}
                 onSizeChange={(next) => {
                   setSize(next);
-                  firstPage();
+                  paging.reset();
                 }}
               />
             </TablePagination>
@@ -458,26 +365,6 @@ export function SourceRunHistory({
         </SheetContent>
       </Sheet>
     </section>
-  );
-}
-
-function RunDuration({ run }: { run: SourceRun }) {
-  const ui = useAppTranslation();
-  const duration = historyDuration(run.startedAt, run.completedAt);
-  if (duration) return <>{duration}</>;
-  return <>{runIsActive(run) ? ui("In progress") : ui("Not recorded")}</>;
-}
-
-function RunTrigger({ run }: { run: SourceRun }) {
-  const ui = useAppTranslation();
-  const trigger = run.trigger ? runTriggers[run.trigger] : undefined;
-  if (!trigger) return <span className="text-content-muted">{ui("Not recorded")}</span>;
-  const [label, Icon] = trigger;
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <Icon aria-hidden="true" className="size-4 shrink-0 text-content-muted" />
-      {ui(label)}
-    </span>
   );
 }
 
@@ -535,533 +422,5 @@ function RunActivity({ run }: { run: SourceRun }) {
         </span>
       ))}
     </span>
-  );
-}
-
-function RunSection({
-  title,
-  help,
-  children,
-}: {
-  title: string;
-  help?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section className="px-5 py-4">
-      <h3 className="mb-3 flex items-center gap-1.5 text-sm font-medium text-content-primary">
-        {title}
-        {help}
-      </h3>
-      {children}
-    </section>
-  );
-}
-
-function DetailRow({
-  icon: Icon,
-  label,
-  children,
-}: {
-  icon: LucideIcon;
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4 py-1.5">
-      <dt className="flex shrink-0 items-center gap-2 text-content-muted">
-        <Icon aria-hidden="true" className="size-4" />
-        {label}
-      </dt>
-      <dd className="min-w-0 text-right text-content-primary">{children}</dd>
-    </div>
-  );
-}
-
-function RunStage({
-  name,
-  state,
-  duration,
-}: {
-  name: string;
-  state: string;
-  duration: string | null;
-}) {
-  const ui = useAppTranslation();
-  const [label, tone, Icon] = stageStates[state] ?? unknownStage;
-  return (
-    <li className="flex items-center gap-3 rounded-lg border border-border-subtle px-3 py-2.5">
-      <Icon
-        aria-hidden="true"
-        className={cn(
-          "size-4 shrink-0",
-          toneText[tone],
-          Icon === LoaderCircle && "motion-safe:animate-spin",
-        )}
-      />
-      <span className="min-w-0 flex-1 font-medium text-content-primary">{name}</span>
-      {duration ? (
-        <span className="text-xs tabular-nums text-content-muted">{duration}</span>
-      ) : null}
-      <StatusBadge tone={tone} className={statusPill(tone)}>
-        {ui(label)}
-      </StatusBadge>
-    </li>
-  );
-}
-
-function RunDetails({ initialRun }: { initialRun: SourceRun }) {
-  const ui = useAppTranslation();
-  const detail = useQuery({
-    ...getSourceRunOptions({ path: { sourceId: initialRun.sourceId, runId: initialRun.id } }),
-    initialData: initialRun,
-    retry: false,
-    staleTime: 0,
-    refetchInterval: (query) => (runIsActive(query.state.data ?? initialRun) ? 5_000 : false),
-  });
-  const run = detail.data;
-  const hasErrors =
-    Boolean(run.errorCode) ||
-    run.status === "FAILED" ||
-    run.status === "COMPLETED_WITH_ERRORS" ||
-    run.indexingStatus === "COMPLETED_WITH_ERRORS" ||
-    (run.counts.acquisitionFailed ?? 0) > 0 ||
-    (run.counts.indexingFailed ?? 0) > 0;
-  const counts = [
-    ...primaryCounts,
-    ...additionalCounts.filter(([field]) => run.counts[field] !== 0),
-  ];
-  return (
-    <>
-      <SheetHeader className="gap-1.5 border-b border-border-subtle px-5 py-4 pr-12">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <SheetTitle className="font-heading-h3 text-content-primary">
-            {ui("Run details")}
-          </SheetTitle>
-          <RunOutcome run={run} />
-        </div>
-        <SheetDescription className="text-content-muted">
-          {run.startedAt ? <HistoryTime value={run.startedAt} /> : ui("at an unknown time")}
-        </SheetDescription>
-      </SheetHeader>
-      <div className="min-w-0 divide-y divide-border-subtle">
-        {detail.isError ? (
-          <div
-            role="alert"
-            className="flex flex-wrap items-center gap-2 px-5 py-3 text-sm text-status-danger-content"
-          >
-            {ui("This run could not be refreshed. Displayed details may be out of date.")}
-            <Button size="sm" prominence="tertiary" onClick={() => void detail.refetch()}>
-              {ui("Retry")}
-            </Button>
-          </div>
-        ) : null}
-        <RunSection title={ui("Overview")}>
-          <dl className="text-sm">
-            <DetailRow icon={Hash} label={ui("Run ID")}>
-              <code className="text-xs select-text [overflow-wrap:anywhere]">{run.id}</code>
-            </DetailRow>
-            <DetailRow icon={Zap} label={ui("Trigger")}>
-              <RunTrigger run={run} />
-            </DetailRow>
-            {run.runKind ? (
-              <DetailRow icon={RefreshCw} label={ui("Kind")}>
-                {run.runKind === "PRUNE" ? ui("Prune") : ui("Refresh")}
-              </DetailRow>
-            ) : null}
-            <DetailRow icon={CalendarClock} label={ui("Started")}>
-              <HistoryTime value={run.startedAt} />
-            </DetailRow>
-            <DetailRow icon={CalendarCheck} label={ui("Finished")}>
-              {run.completedAt ? (
-                <HistoryTime value={run.completedAt} />
-              ) : runIsActive(run) ? (
-                ui("In progress")
-              ) : (
-                ui("Not recorded")
-              )}
-            </DetailRow>
-            <DetailRow icon={Timer} label={ui("Duration")}>
-              <RunDuration run={run} />
-            </DetailRow>
-            {run.nextRetryAt ? (
-              <DetailRow icon={RotateCw} label={ui("Next retry")}>
-                <span className="text-status-warning-content">
-                  <HistoryTime value={run.nextRetryAt} />
-                </span>
-              </DetailRow>
-            ) : null}
-          </dl>
-        </RunSection>
-        <RunSection title={ui("Stages")}>
-          <ol className="space-y-2 text-sm">
-            <RunStage
-              name={ui("Read content")}
-              state={run.acquisitionStatus}
-              duration={historyDuration(run.startedAt, run.acquisitionCompletedAt)}
-            />
-            <RunStage
-              name={ui("Index content")}
-              state={run.indexingStatus}
-              duration={
-                run.indexingStatus === "NOT_REQUIRED"
-                  ? null
-                  : historyDuration(run.acquisitionCompletedAt, run.completedAt)
-              }
-            />
-          </ol>
-        </RunSection>
-        <RunSection
-          title={ui("Files")}
-          help={
-            <HelpPopover label={ui("File counts")}>
-              <p className="leading-relaxed">
-                {ui(
-                  "Checked counts distinct files observed, Indexed counts successful publications (new or replaced), and Unchanged counts files needing no new indexing. Counts can overlap and are not a corpus total. Unknown means not recorded.",
-                )}
-              </p>
-              {run.counts.alreadyPending !== 0 ? (
-                <p className="mt-2 leading-relaxed">
-                  {ui("Already pending belongs to earlier work, not indexing owned by this run.")}
-                </p>
-              ) : null}
-            </HelpPopover>
-          }
-        >
-          <dl className="divide-y divide-border-subtle rounded-lg border border-border-subtle px-3 text-sm">
-            {counts.map(([field, label]) => {
-              const value = run.counts[field];
-              const failed = failureCounts.has(field) && (value ?? 0) > 0;
-              return (
-                <div key={field} className="flex items-center justify-between gap-4 py-2">
-                  <dt className="text-content-secondary">{ui(label)}</dt>
-                  <dd
-                    className={cn(
-                      "font-medium tabular-nums",
-                      failed ? "text-status-danger-content" : "text-content-primary",
-                    )}
-                  >
-                    {value?.toLocaleString(uiLocale()) ?? ui("Unknown")}
-                  </dd>
-                </div>
-              );
-            })}
-          </dl>
-        </RunSection>
-        {run.errorCode ? (
-          <section className="px-5 py-4">
-            <div className="rounded-xl bg-status-danger-surface p-4">
-              <h3 className="text-sm font-medium text-status-danger-content">
-                {ui("Historical run error")}
-              </h3>
-              <p className="mt-2 text-sm break-words text-content-primary">
-                {runErrorMessage(ui, run.errorCode)}
-              </p>
-              <Collapsible className="mt-2 text-xs text-content-secondary">
-                <CollapsibleTrigger className="min-h-11 cursor-pointer py-3 focus-visible:outline-2 focus-visible:outline-focus-ring">
-                  {ui("Technical details")}
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <dl className="space-y-2">
-                    <div>
-                      <dt>{ui("Error code")}</dt>
-                      <dd className="mt-1 select-text [overflow-wrap:anywhere]">
-                        <code>{run.errorCode}</code>
-                      </dd>
-                    </div>
-                  </dl>
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
-          </section>
-        ) : null}
-        {run.detailsExpired ? (
-          <RunSection title={ui("Error details")}>
-            <p className="text-sm text-content-muted">
-              {ui("Detailed errors expired; retained totals are shown.")}
-            </p>
-          </RunSection>
-        ) : hasErrors ? (
-          <RunSection title={ui("Error details")}>
-            <RunErrors key={run.id} run={run} />
-          </RunSection>
-        ) : null}
-      </div>
-    </>
-  );
-}
-
-const runErrorStages = {
-  PROVIDER: "Provider",
-  STORAGE_READ: "Reading storage",
-  STORAGE_WRITE: "Writing storage",
-  EXTRACTION: "Extraction",
-  PUBLICATION: "Publication",
-  SYSTEM: "System",
-} as const;
-
-function runErrorMessage(ui: AppTranslate, code: string) {
-  return code === "SOURCE_EXTRACTION_TIMEOUT"
-    ? ui(
-        "Extraction timed out during this run. The retained error does not identify the underlying cause.",
-      )
-    : ui(sourceStatusMessage(code));
-}
-
-function RunErrors({ run }: { run: SourceRun }) {
-  const ui = useAppTranslation();
-  const [cursor, setCursor] = useState<string>();
-  const [previous, setPrevious] = useState<Array<string | undefined>>([]);
-  const errors = useQuery({
-    ...listSourceRunErrorsOptions({
-      path: { sourceId: run.sourceId, runId: run.id },
-      query: { size: 5, cursor },
-    }),
-    retry: false,
-    staleTime: 0,
-    placeholderData: keepPreviousData,
-    refetchInterval: (query) =>
-      runIsActive(run) ||
-      query.state.data?.items.some(
-        (error) => error.currentItemStatus === "PENDING" || error.currentItemStatus === "DELETING",
-      )
-        ? 5_000
-        : false,
-  });
-  // A live run is polled, so the refresh control follows the press rather than the poll.
-  const errorsRefresh = useManualRefresh(errors.refetch);
-  return (
-    <div className="space-y-3 text-sm text-content-secondary" aria-busy={errors.isPlaceholderData}>
-      <div className="flex justify-end">
-        <Button
-          size="sm"
-          prominence="tertiary"
-          pending={errorsRefresh.pending}
-          onClick={errorsRefresh.refresh}
-        >
-          <RefreshCw aria-hidden="true" /> {ui("Refresh file states")}
-        </Button>
-      </div>
-      {errors.isError ? (
-        <p role="alert" className="text-status-danger-content">
-          {ui(
-            "Error details and current file states could not be refreshed. Displayed states may be out of date.",
-          )}{" "}
-          <Button size="sm" prominence="tertiary" onClick={() => void errors.refetch()}>
-            {ui("Retry")}
-          </Button>
-        </p>
-      ) : errors.isPending ? (
-        <p role="status">{ui("Loading errors…")}</p>
-      ) : null}
-      {errors.data ? (
-        <>
-          {errors.data.items.length ? (
-            <ul
-              aria-label={ui("Run errors")}
-              className="divide-y divide-border-subtle rounded-lg border border-border-subtle"
-            >
-              {errors.data.items.map((error) => (
-                <li key={error.id} className="min-w-0">
-                  <RunErrorRow error={error} />
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {previous.length || errors.data.nextCursor ? (
-            <TablePagination
-              label={ui("Run error pages")}
-              page={previous.length}
-              totalPages={undefined}
-              previousLabel={ui("Previous errors")}
-              nextLabel={ui("Next errors")}
-              previousDisabled={!previous.length || errors.isPlaceholderData}
-              nextDisabled={!errors.data.nextCursor || errors.isPlaceholderData || errors.isError}
-              onPrevious={() => {
-                setCursor(previous.at(-1));
-                setPrevious((pages) => pages.slice(0, -1));
-              }}
-              onNext={() => {
-                setPrevious((pages) => [...pages, cursor]);
-                setCursor(errors.data?.nextCursor ?? undefined);
-              }}
-            />
-          ) : null}
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-function RunErrorRow({ error }: { error: SourceRunError }) {
-  const ui = useAppTranslation();
-  const name = error.fileName ?? error.fileId ?? ui("Source execution");
-  // A later run acquired the file again, so the error no longer needs attention (Onyx resolves it the same way).
-  const resolved = error.resolvedAt !== null;
-  const text = resolved ? "text-content-muted" : "text-content-primary";
-  return (
-    <ExpandableRow
-      label={ui("Error details for {{v1}}", { v1: name })}
-      summary={
-        <span className="min-w-0">
-          <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-            <span
-              className={cn(
-                "min-w-0 break-words font-medium whitespace-pre-wrap [overflow-wrap:anywhere]",
-                text,
-              )}
-            >
-              {name}
-            </span>
-            {resolved ? (
-              <StatusBadge tone="success" className={statusPill("success")}>
-                <CircleCheck aria-hidden="true" className="size-3.5 shrink-0" />
-                {ui("Resolved")}
-              </StatusBadge>
-            ) : (
-              <CurrentFileStateBadge error={error} />
-            )}
-          </span>
-          <span className="mt-0.5 block text-xs text-content-muted">
-            {ui(runErrorStages[error.stage])}
-            {" · "}
-            <HistoryTime value={error.occurredAt} />
-          </span>
-          <span className={cn("mt-1 block text-sm leading-relaxed [overflow-wrap:anywhere]", text)}>
-            {error.errorMessage ?? runErrorMessage(ui, error.code)}
-          </span>
-        </span>
-      }
-    >
-      <dl className="grid gap-3 text-xs sm:grid-cols-2">
-        <div>
-          <dt className="text-content-muted">{ui("Stage")}</dt>
-          <dd className="mt-1">{ui(runErrorStages[error.stage])}</dd>
-        </div>
-        <div>
-          <dt className="text-content-muted">{ui("Occurred at")}</dt>
-          <dd className="mt-1">
-            <HistoryTime value={error.occurredAt} />
-          </dd>
-        </div>
-        {error.resolvedAt ? (
-          <div>
-            <dt className="text-content-muted">{ui("Resolved at")}</dt>
-            <dd className="mt-1">
-              <HistoryTime value={error.resolvedAt} />
-            </dd>
-          </div>
-        ) : null}
-        <div>
-          <dt className="text-content-muted">{ui("Error code")}</dt>
-          <dd className="mt-1 select-text [overflow-wrap:anywhere]">
-            <code>{error.code}</code>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-content-muted">{ui("Operation ID")}</dt>
-          <dd className="mt-1 select-text [overflow-wrap:anywhere]">
-            <code>{error.operationId ?? ui("Not recorded")}</code>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-content-muted">{ui("Run ID")}</dt>
-          <dd className="mt-1 select-text [overflow-wrap:anywhere]">
-            <code>{error.runId}</code>
-          </dd>
-        </div>
-        {error.fileId ? (
-          <div>
-            <dt className="text-content-muted">{ui("File ID")}</dt>
-            <dd className="mt-1 select-text [overflow-wrap:anywhere]">
-              <code>{error.fileId}</code>
-            </dd>
-          </div>
-        ) : null}
-      </dl>
-      {error.errorDetail ? (
-        <div className="mt-3">
-          <p className="text-xs text-content-muted">{ui("Technical details")}</p>
-          <pre className="mt-1 max-h-64 overflow-auto rounded-md bg-surface-sunken p-3 text-xs whitespace-pre-wrap [overflow-wrap:anywhere] text-content-secondary select-text">
-            {error.errorDetail}
-          </pre>
-        </div>
-      ) : null}
-      <div className="mt-3">
-        <p className="text-xs text-content-muted">{ui("Current state")}</p>
-        <div className="mt-1">
-          {error.itemId || error.fileId || error.fileName ? (
-            <CurrentFileState error={error} />
-          ) : (
-            <span className="text-content-muted">{ui("Not recorded")}</span>
-          )}
-        </div>
-      </div>
-    </ExpandableRow>
-  );
-}
-
-function CurrentFileStateBadge({ error }: { error: SourceRunError }) {
-  const ui = useAppTranslation();
-  const status = error.currentItemStatus;
-  const tone =
-    status === "INDEXED"
-      ? "success"
-      : status === "FAILED"
-        ? "danger"
-        : status === "PENDING"
-          ? "info"
-          : "neutral";
-  return (
-    <StatusBadge tone={tone} className={statusPill(tone)}>
-      {ui(
-        status === "INDEXED"
-          ? "Indexed"
-          : status === "FAILED"
-            ? "Failed"
-            : status === "PENDING"
-              ? "Pending"
-              : status === "DELETING"
-                ? "Deleting"
-                : "Unknown",
-      )}
-    </StatusBadge>
-  );
-}
-
-function CurrentFileState({ error }: { error: SourceRunError }) {
-  const ui = useAppTranslation();
-  const status = error.currentItemStatus;
-  const indexedSinceError =
-    status === "INDEXED" &&
-    error.currentItemLastIndexedAt !== null &&
-    new Date(error.currentItemLastIndexedAt).getTime() > new Date(error.occurredAt).getTime();
-  return (
-    <div className="space-y-1">
-      <CurrentFileStateBadge error={error} />
-      <p className="text-xs text-content-muted">
-        {status === "INDEXED"
-          ? indexedSinceError
-            ? ui("Content indexed since this error.")
-            : ui("Current content is indexed.")
-          : status === "PENDING"
-            ? ui("Indexing is pending or in progress.")
-            : status === "DELETING"
-              ? ui("Removal is in progress.")
-              : status === "FAILED"
-                ? error.currentItemErrorCode && error.currentItemErrorCode !== error.code
-                  ? ui(sourceStatusMessage(error.currentItemErrorCode))
-                  : ui("This file still needs attention.")
-                : error.itemId
-                  ? ui("Current file state is unavailable; the file may have been removed.")
-                  : ui("No current file is linked to this error.")}
-        {status === "INDEXED" && error.currentItemLastIndexedAt ? (
-          <>
-            {" "}
-            {ui("Last indexed")} <HistoryTime value={error.currentItemLastIndexedAt} />
-          </>
-        ) : null}
-      </p>
-    </div>
   );
 }

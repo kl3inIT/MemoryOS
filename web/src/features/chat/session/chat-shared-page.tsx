@@ -6,7 +6,7 @@ import {
 } from "@assistant-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
-import { AppShell } from "@/components/app-shell/app-shell";
+import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { getSharedChatHistory, getSharedChatSession } from "@/lib/hey-api/sdk.gen";
@@ -90,7 +90,8 @@ export function ChatSharedPage({ sessionId }: { sessionId: string }) {
     void shared.refetch();
   };
   return (
-    <AppShell pageTitle={ui("Hội thoại được chia sẻ")}>
+    <>
+      <AppShellHeader title={ui("Hội thoại được chia sẻ")} />
       <div className="flex h-full min-h-0 flex-col">
         {access.isError || shared.isError ? (
           <div role="alert" className="space-y-3 p-6">
@@ -127,7 +128,7 @@ export function ChatSharedPage({ sessionId }: { sessionId: string }) {
           </>
         )}
       </div>
-    </AppShell>
+    </>
   );
 }
 

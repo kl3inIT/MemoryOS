@@ -50,6 +50,7 @@ import {
   sourceAccessOptions,
   sourceStatusOptions,
 } from "@/features/sources/shared/source-status-presentation";
+import { IDLE_SOURCE_POLL_MS } from "@/features/sources/shared/source-polling";
 
 /** Radix selects reject an empty option value, so "any" stands for an unset filter. */
 const anyFilterValue = "any";
@@ -62,7 +63,7 @@ export function SourcesPage() {
     ...listSourcesOptions(),
     retry: false,
     refetchInterval: (query) =>
-      query.state.data?.some((source) => source.pendingWork) ? 1_500 : false,
+      query.state.data?.some((source) => source.pendingWork) ? 1_500 : IDLE_SOURCE_POLL_MS,
   });
   const sources = sourcesQuery.data ?? [];
 

@@ -1,6 +1,6 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
+import { useMatch, useNavigate, useParams } from "@tanstack/react-router";
 import { useAui } from "@assistant-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -166,8 +166,9 @@ export function ChatStarterPrompts({
     : personas.data?.find((p) => p.builtin);
   const navigate = useNavigate();
   const { sessionId } = useParams({ strict: false });
-  // `/` carries a single `attach`; a conversation carries the list the file preview may send.
-  const { ask, attach } = useSearch({ strict: false }) as { ask?: string; attach?: string[] };
+  // A conversation carries the question and the list of files the file preview may send.
+  const { ask, attach } =
+    useMatch({ from: "/_authenticated/_chat/chat/$sessionId", shouldThrow: false })?.search ?? {};
   /**
    * What a new conversation was opened with: a question from an agent's detail view, and the library files a
    * question in the file preview was about. Every file is attached before the question is sent, so the answer

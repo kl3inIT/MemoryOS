@@ -143,14 +143,11 @@
 
   /* Selection accent (switch on, selected row, link) and gallery card surfaces. */
   --action-selection: #286df8;
-  --action-selection-hover: #508afb;
-  --action-selection-surface: #e7effc;
   --surface-card-gradient: radial-gradient(
     236.31% 141.42% at 0% 0%,
     var(--surface-raised) 0%,
     var(--surface-base) 100%
   );
-  --interactive-duration: 150ms;
 
   /* Shared control dimensions. */
   --control-height-sm: 1.75rem;
@@ -162,15 +159,10 @@
 
   /* Compatibility aliases for non-action shadcn components. */
   --action-primary: var(--action-default-primary-surface);
-  --action-primary-hover: var(--action-default-primary-surface-hover);
-  --action-primary-active: var(--action-default-primary-surface-active);
   --action-primary-foreground: var(--action-default-primary-content);
   --action-secondary: var(--action-default-secondary-surface);
-  --action-secondary-hover: var(--action-default-secondary-surface-hover);
-  --action-secondary-active: var(--action-default-secondary-surface-active);
   --action-secondary-foreground: var(--action-default-secondary-content);
   --action-ghost-hover: var(--action-default-tertiary-surface-hover);
-  --action-ghost-active: var(--action-default-tertiary-surface-active);
 
   --status-danger-strong: #dc2626;
   --status-danger-surface: #fceae7;
@@ -197,10 +189,6 @@
   --status-warning-faint: #fef9f7;
   --status-info-faint: #f8fafe;
   /* Onyx names the danger role "error"; both names resolve to the same colours. */
-  --status-error-strong: var(--status-danger-strong);
-  --status-error-surface: var(--status-danger-surface);
-  --status-error-content: var(--status-danger-content);
-  --status-error-border: var(--status-danger-border);
   /* Fixed roles that do not follow the theme: printed documents stay white paper, pill text sits on a deep fill,
      and controls laid over images use white on a translucent scrim. */
   --surface-document: #ffffff;
@@ -214,7 +202,6 @@
   /* Onyx text highlights: search matches, the active match and a selection accent. */
   --highlight-match: #fef8004d;
   --highlight-active: #ffc73399;
-  --highlight-selection: #4dc3ff4d;
   /* Solid fills for white-lettered status pills. */
   --status-danger-emphasis: #c12222;
   --status-success-emphasis: #007a2d;
@@ -242,7 +229,6 @@
   --page-width-standard: 54.5rem;
   --page-width-wide: 80rem;
   --page-gutter: 1rem;
-  --page-gutter-compact: 1rem;
   --sidebar-width: 15rem;
   --sidebar-width-collapsed: 3.25rem;
 
@@ -321,8 +307,6 @@
   --action-danger-primary-surface-hover: #b02b27;
   --action-danger-primary-surface-active: #e8594e;
   --focus-ring: #ffffff;
-  --action-selection-hover: #3363c3;
-  --action-selection-surface: #091938;
 
   --status-danger-strong: #dc2626;
   --status-danger-surface: #330b09;

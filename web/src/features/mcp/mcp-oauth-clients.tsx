@@ -115,7 +115,7 @@ export function McpOAuthClients({ server }: { server: McpServerView }) {
   return (
     <div className="mt-4 flex flex-col gap-3 border-t border-border-subtle pt-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 className="font-main-ui-body-strong text-content-primary">{ui("Ứng dụng OAuth")}</h4>
+        <h4 className="font-main-ui-action text-content-primary">{ui("Ứng dụng OAuth")}</h4>
         <div className="flex flex-wrap gap-2">
           {server.oauthProviderMode === "AUTO_DISCOVERY" ? (
             <Button
@@ -259,7 +259,7 @@ function DiscoveryReview({
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-surface-sunken p-3">
       <div className="flex items-start justify-between gap-2">
-        <p className="font-main-ui-body-strong text-content-primary">{ui("Kết quả dò")}</p>
+        <p className="font-main-ui-action text-content-primary">{ui("Kết quả dò")}</p>
         <Button prominence="internal" size="sm" onClick={onDismiss}>
           {ui("Đóng")}
         </Button>

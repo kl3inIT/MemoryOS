@@ -2,7 +2,7 @@ import { Users } from "lucide-react";
 import { appText, type AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,36 +32,22 @@ export function SourceGroupsSection({
     retry: false,
   });
   const updateGroups = useMutation(updateSourceGroupsMutation());
-  const [baselineIds, setBaselineIds] = useState<Set<string>>(() => new Set());
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  // The draft holds only the person's unsaved selection; without one, the saved groups show.
+  const [draft, setDraft] = useState<ReadonlySet<string> | null>(null);
   const [error, setError] = useState<AppCopy | null>(null);
   const currentGroups = useMemo(
     () => (groups.data?.items ?? []).filter((group) => group.systemKey === null),
     [groups.data?.items],
   );
-  const incomingIds = useMemo(
-    () => new Set(currentGroups.map((group) => group.id)),
-    [currentGroups],
-  );
-  const baselineKey = [...baselineIds].sort().join("\u0000");
-  const selectedKey = [...selectedIds].sort().join("\u0000");
-  const incomingKey = [...incomingIds].sort().join("\u0000");
-  const seededIncomingKeyRef = useRef<string | null>(null);
-  const dirty = baselineKey !== selectedKey;
+  const savedIds = useMemo(() => new Set(currentGroups.map((group) => group.id)), [currentGroups]);
+  const selectedIds = (editable && draft) || savedIds;
+  const dirty = groupKey(selectedIds) !== groupKey(savedIds);
 
-  useEffect(() => {
-    if (!groups.data || dirty || seededIncomingKeyRef.current === incomingKey) return;
-    seededIncomingKeyRef.current = incomingKey;
-    setBaselineIds(new Set(incomingIds));
-    setSelectedIds(new Set(incomingIds));
-  }, [dirty, groups.data, incomingIds, incomingKey]);
-
-  const [previousAuthority, setPreviousAuthority] = useState({ sourceId, editable });
-  if (previousAuthority.sourceId !== sourceId || previousAuthority.editable !== editable) {
-    setPreviousAuthority({ sourceId, editable });
-    if (previousAuthority.sourceId !== sourceId || !editable) {
-      setSelectedIds(new Set(incomingIds));
-      setBaselineIds(new Set(incomingIds));
+  const [previousEditable, setPreviousEditable] = useState(editable);
+  if (previousEditable !== editable) {
+    setPreviousEditable(editable);
+    if (!editable) {
+      setDraft(null);
       setError(null);
     }
   }
@@ -74,8 +60,9 @@ export function SourceGroupsSection({
         path: { sourceId },
         body: { groupIds: [...selectedIds] },
       });
-      setBaselineIds(new Set(selectedIds));
+      // Every view reads again, the saved groups among them, before the draft goes.
       await onAuthorityChanged();
+      setDraft(null);
     } catch (cause) {
       setError(sourceMutationError(cause, "associations"));
     }
@@ -144,14 +131,14 @@ export function SourceGroupsSection({
             selected={selectedIds}
             knownGroups={groups.data?.items}
             disabled={updateGroups.isPending}
-            onChange={setSelectedIds}
+            onChange={setDraft}
           />
           <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               prominence="secondary"
               disabled={!dirty || updateGroups.isPending}
               onClick={() => {
-                setSelectedIds(new Set(baselineIds));
+                setDraft(null);
                 setError(null);
               }}
             >
@@ -182,4 +169,8 @@ export function SourceGroupsSection({
       )}
     </section>
   );
+}
+
+function groupKey(ids: ReadonlySet<string>) {
+  return [...ids].sort().join("\u0000");
 }

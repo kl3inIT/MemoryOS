@@ -1,13 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
 import { InvitationRoutePage } from "@/features/invitations/invitation-route-page";
 
-type InvitationSearch = {
-  reason?: string;
-};
-
 export const Route = createFileRoute("/invitation")({
-  validateSearch: (search): InvitationSearch => ({
-    reason: typeof search.reason === "string" ? search.reason : undefined,
-  }),
+  validateSearch: z.object({ reason: z.string().optional().catch(undefined) }),
   component: InvitationRoutePage,
 });

@@ -8,23 +8,25 @@ import { DangerZone } from "@/components/composites/danger-zone";
 import { DetailHeader } from "@/components/composites/detail-header";
 import { EmptyState } from "@/components/composites/empty-state";
 import { SettingsLayout } from "@/components/ui/settings-layout";
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import {
   deleteGroupMutation,
   getGroupOptions,
+  getGroupQueryKey,
   listGroupCapabilitiesOptions,
   renameGroupMutation,
   replaceGroupCapabilitiesMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { GroupCapability, GroupSummary } from "@/lib/hey-api/types.gen";
 import { groupMutationError } from "./group-errors";
+import { useGroupMembersDraft } from "./group-members-draft";
 import { GroupMembersSection } from "./group-members-section";
 import { GroupPermissionsSection } from "./group-permissions-section";
+import { useGroupSourcesDraft } from "./group-sources-draft";
 import { GroupSourcesSection } from "./group-sources-section";
-import { type GroupDraftSectionHandle, type GroupDraftStateChange } from "./group-draft-section";
 import { can } from "@/lib/resource-permissions";
 
 export function GroupDetailPage() {
@@ -120,80 +122,51 @@ function GroupDetail({
   const renameGroup = useMutation(renameGroupMutation());
   const replaceCapabilities = useMutation(replaceGroupCapabilitiesMutation());
   const deleteGroup = useMutation(deleteGroupMutation());
-  const membersRef = useRef<GroupDraftSectionHandle>(null);
-  const sourcesRef = useRef<GroupDraftSectionHandle>(null);
-  const [membersDirty, setMembersDirty] = useState(false);
-  const [membersPending, setMembersPending] = useState(false);
-  const [sourcesDirty, setSourcesDirty] = useState(false);
-  const [sourcesPending, setSourcesPending] = useState(false);
+  const members = useGroupMembersDraft(group);
+  const sources = useGroupSourcesDraft(group);
   const [saving, setSaving] = useState(false);
-  const [baselineName, setBaselineName] = useState(group.name);
-  const [name, setName] = useState(group.name);
-  const [baselineCapabilities, setBaselineCapabilities] = useState(
-    () => new Set<GroupSummary["capabilities"][number]>(group.capabilities),
-  );
-  const [selectedCapabilities, setSelectedCapabilities] = useState(
-    () => new Set<GroupSummary["capabilities"][number]>(group.capabilities),
-  );
+  // Drafts hold only the person's edits; without one, the saved Group shows through.
+  const [nameDraft, setNameDraft] = useState<string | null>(null);
+  const [capabilityDraft, setCapabilityDraft] = useState<ReadonlySet<Capability> | null>(null);
   const [error, setError] = useState<AppCopy | null>(null);
   const systemGroup = group.systemKey === "ADMIN" || group.systemKey === "BASIC";
   const canRename = !systemGroup && can(group, "manage");
   const canManageGrants = !systemGroup && can(group, "editPermissions");
   const canDelete = !systemGroup && can(group, "delete");
-  const nameDirty = canRename && name.trim() !== baselineName;
-  const baselineCapabilityKey = [...baselineCapabilities].sort().join("\u0000");
-  const selectedCapabilityKey = [...selectedCapabilities].sort().join("\u0000");
-  const capabilitiesDirty = canManageGrants && baselineCapabilityKey !== selectedCapabilityKey;
+  const name = canRename ? (nameDraft ?? group.name) : group.name;
+  const selectedCapabilities = useMemo(
+    () => (canManageGrants && capabilityDraft) || new Set(group.capabilities),
+    [canManageGrants, capabilityDraft, group.capabilities],
+  );
+  const nameDirty = canRename && name.trim() !== group.name;
+  const capabilitiesDirty =
+    canManageGrants && capabilityKey(selectedCapabilities) !== capabilityKey(group.capabilities);
   const settingsDirty = nameDirty || capabilitiesDirty;
-  const dirty = settingsDirty || membersDirty || sourcesDirty;
+  const dirty = settingsDirty || members.dirty || sources.dirty;
   const canSave = dirty;
   const busy =
     saving ||
-    membersPending ||
-    sourcesPending ||
+    members.pending ||
+    sources.pending ||
     renameGroup.isPending ||
     replaceCapabilities.isPending ||
     deleteGroup.isPending;
-  const incomingCapabilityKey = [...group.capabilities].sort().join("\u0000");
-  const incomingSettingsKey = `${group.name}\u0000${incomingCapabilityKey}`;
-  const seededIncomingKeyRef = useRef(incomingSettingsKey);
-  const [previousSettingsState, setPreviousSettingsState] = useState(() => ({
-    canRename,
-    canManageGrants,
-    incomingSettingsKey,
-  }));
 
+  const [previousAuthority, setPreviousAuthority] = useState({ canRename, canManageGrants });
   if (
-    previousSettingsState.canRename !== canRename ||
-    previousSettingsState.canManageGrants !== canManageGrants ||
-    previousSettingsState.incomingSettingsKey !== incomingSettingsKey
+    previousAuthority.canRename !== canRename ||
+    previousAuthority.canManageGrants !== canManageGrants
   ) {
-    setPreviousSettingsState({ canRename, canManageGrants, incomingSettingsKey });
-    if (!canRename) {
-      setName(group.name);
-      setBaselineName(group.name);
-    }
-    if (!canManageGrants) {
-      setSelectedCapabilities(new Set(group.capabilities));
-      setBaselineCapabilities(new Set(group.capabilities));
-    }
+    setPreviousAuthority({ canRename, canManageGrants });
+    if (!canRename) setNameDraft(null);
+    if (!canManageGrants) setCapabilityDraft(null);
     if (
-      (previousSettingsState.canRename && !canRename) ||
-      (previousSettingsState.canManageGrants && !canManageGrants)
+      (previousAuthority.canRename && !canRename) ||
+      (previousAuthority.canManageGrants && !canManageGrants)
     ) {
       setError(null);
     }
   }
-
-  useEffect(() => {
-    if (dirty || seededIncomingKeyRef.current === incomingSettingsKey) return;
-    seededIncomingKeyRef.current = incomingSettingsKey;
-    setBaselineName(group.name);
-    setName(group.name);
-    const incoming = new Set<GroupSummary["capabilities"][number]>(group.capabilities);
-    setBaselineCapabilities(incoming);
-    setSelectedCapabilities(new Set(incoming));
-  }, [dirty, group.capabilities, group.name, incomingSettingsKey]);
 
   // Set once the page leaves on purpose (saved or deleted), so that navigation is not held.
   const leaving = useRef(false);
@@ -203,39 +176,35 @@ function GroupDetail({
     withResolver: true,
   });
 
-  const onMembersDraftChange = useCallback<GroupDraftStateChange>((nextDirty, pending) => {
-    setMembersDirty(nextDirty);
-    setMembersPending(pending);
-  }, []);
-  const onSourcesDraftChange = useCallback<GroupDraftStateChange>((nextDirty, pending) => {
-    setSourcesDirty(nextDirty);
-    setSourcesPending(pending);
-  }, []);
-
   async function saveSettings() {
     const nextName = name.trim();
     if (!canSave || !nextName || busy) return;
     setError(null);
     setSaving(true);
     try {
-      const sourcesSaved = (await sourcesRef.current?.save()) ?? true;
-      if (!sourcesSaved) return;
-      const membersSaved = (await membersRef.current?.save()) ?? true;
-      if (!membersSaved) return;
+      // Source associations, then membership, then the Group's own settings: each step keeps
+      // the authority the next one needs.
+      if (!(await sources.save())) return;
+      if (!(await members.save())) return;
+      const groupKey = getGroupQueryKey({ path: { groupId: group.id } });
       if (canRename && nameDirty) {
-        await renameGroup.mutateAsync({
+        const renamed = await renameGroup.mutateAsync({
           path: { groupId: group.id },
           body: { name: nextName },
         });
-        setBaselineName(nextName);
-        setName(nextName);
+        queryClient.setQueryData(groupKey, renamed);
+        setNameDraft(null);
       }
       if (canManageGrants && capabilitiesDirty) {
+        const granted = [...selectedCapabilities];
         await replaceCapabilities.mutateAsync({
           path: { groupId: group.id },
-          body: { capabilities: [...selectedCapabilities] },
+          body: { capabilities: granted },
         });
-        setBaselineCapabilities(new Set(selectedCapabilities));
+        queryClient.setQueryData(groupKey, (current: GroupSummary | undefined) =>
+          current ? { ...current, capabilities: granted } : current,
+        );
+        setCapabilityDraft(null);
       }
       await onAuthorityChanged();
       leaving.current = true;
@@ -248,14 +217,14 @@ function GroupDetail({
   }
 
   function cancelSettings() {
-    membersRef.current?.reset();
-    sourcesRef.current?.reset();
+    members.reset();
+    sources.reset();
     if (!dirty) {
       void navigate({ to: "/admin/groups", search: { page: 0, size: 20 } });
       return;
     }
-    setName(baselineName);
-    setSelectedCapabilities(new Set(baselineCapabilities));
+    setNameDraft(null);
+    setCapabilityDraft(null);
     setError(null);
   }
 
@@ -273,7 +242,7 @@ function GroupDetail({
       <DetailHeader
         parent={{ label: ui("Groups"), to: "/admin/groups", search: { page: 0, size: 20 } }}
         icon={<Users />}
-        title={baselineName}
+        title={group.name}
         description={ui("Membership, permissions and the Sources this group may read.")}
         actions={
           <>
@@ -325,11 +294,11 @@ function GroupDetail({
           readOnly={!canRename}
           aria-readonly={!canRename}
           className="max-w-md"
-          onChange={(event) => setName(event.target.value)}
+          onChange={(event) => setNameDraft(event.target.value)}
         />
       </div>
 
-      <GroupMembersSection ref={membersRef} group={group} onDraftChange={onMembersDraftChange} />
+      <GroupMembersSection group={group} draft={members} />
       {systemGroup || canManageGrants ? (
         <GroupPermissionsSection
           registry={registry}
@@ -339,12 +308,10 @@ function GroupDetail({
           loading={registryLoading}
           error={registryError}
           onRetry={onRetryRegistry}
-          onChange={setSelectedCapabilities}
+          onChange={setCapabilityDraft}
         />
       ) : null}
-      {!systemGroup ? (
-        <GroupSourcesSection ref={sourcesRef} group={group} onDraftChange={onSourcesDraftChange} />
-      ) : null}
+      {!systemGroup ? <GroupSourcesSection draft={sources} /> : null}
 
       {canDelete ? (
         <DangerZone
@@ -360,7 +327,7 @@ function GroupDetail({
                   {ui("Delete group")}
                 </Button>
               }
-              title={ui("Delete {{v1}}?", { v1: baselineName })}
+              title={ui("Delete {{v1}}?", { v1: group.name })}
               description={ui(
                 "This ordinary group and its access edges will be permanently removed. Users, Sources, and documents are not deleted.",
               )}
@@ -386,4 +353,10 @@ function GroupDetail({
       />
     </>
   );
+}
+
+type Capability = GroupSummary["capabilities"][number];
+
+function capabilityKey(capabilities: Iterable<Capability>) {
+  return [...capabilities].sort().join("\u0000");
 }

@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Command as CommandPrimitive } from "cmdk";
 import { Search, Users, X } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { ClampedList } from "@/components/ui/clamped-list";
 import {
   Command,
@@ -11,6 +11,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { IconButton } from "@/components/ui/icon-button";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { listSourceGroupOptionsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { SourceGroup } from "@/lib/hey-api/types.gen";
@@ -43,12 +44,8 @@ export function SourceGroupPicker({
   const labelId = useId();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [query, setQuery] = useState("");
+  const query = useDebouncedValue(search.trim(), searchDelayMs);
   const [names, setNames] = useState<ReadonlyMap<string, string>>(() => new Map());
-  useEffect(() => {
-    const timer = setTimeout(() => setQuery(search.trim()), searchDelayMs);
-    return () => clearTimeout(timer);
-  }, [search]);
   const options = useQuery({
     ...listSourceGroupOptionsOptions({ query: { search: query, page: 0, size: optionPageSize } }),
     placeholderData: keepPreviousData,
