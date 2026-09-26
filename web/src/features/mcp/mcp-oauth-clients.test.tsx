@@ -1,29 +1,25 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { beforeEach, expect, it } from "vitest";
 import { i18n } from "@/i18n";
-import { ApiError } from "@/lib/api";
-import type { McpOAuthClientView, McpServerView } from "@/lib/hey-api/types.gen";
+import {
+  handleCreateMcpServerOAuthClient,
+  handleDisconnectMcpServerOAuth,
+  handleDiscoverMcpServerOAuth,
+  handleListMcpServerOAuthClients,
+  handleListMcpServers,
+  handleRegisterMcpServerOAuthClient,
+  handleStartMcpServerOAuthAuthorization,
+} from "@/lib/hey-api/msw.gen";
+import type {
+  McpOAuthAuthorizationServer,
+  McpOAuthClientView,
+  McpServerView,
+} from "@/lib/hey-api/types.gen";
+import { server as http } from "@/test/msw";
 import { McpOAuthClients } from "./mcp-oauth-clients";
-
-const listMcpServerOAuthClients = vi.fn();
-const discoverMcpServerOAuth = vi.fn();
-const registerMcpServerOAuthClient = vi.fn();
-const createMcpServerOAuthClient = vi.fn();
-const deleteMcpServerOAuthClient = vi.fn();
-const startMcpServerOAuthAuthorization = vi.fn();
-const disconnectMcpServerOAuth = vi.fn();
-
-vi.mock("@/lib/hey-api/sdk.gen", () => ({
-  listMcpServerOAuthClients: (...a: unknown[]) => listMcpServerOAuthClients(...a),
-  discoverMcpServerOAuth: (...a: unknown[]) => discoverMcpServerOAuth(...a),
-  registerMcpServerOAuthClient: (...a: unknown[]) => registerMcpServerOAuthClient(...a),
-  createMcpServerOAuthClient: (...a: unknown[]) => createMcpServerOAuthClient(...a),
-  deleteMcpServerOAuthClient: (...a: unknown[]) => deleteMcpServerOAuthClient(...a),
-  startMcpServerOAuthAuthorization: (...a: unknown[]) => startMcpServerOAuthAuthorization(...a),
-  disconnectMcpServerOAuth: (...a: unknown[]) => disconnectMcpServerOAuth(...a),
-}));
 
 const server = (overrides: Partial<McpServerView> = {}): McpServerView => ({
   id: "22222222-2222-4222-8222-222222222222",
@@ -64,8 +60,26 @@ const client = (overrides: Partial<McpOAuthClientView> = {}): McpOAuthClientView
   ...overrides,
 });
 
+const authorizationServer = (
+  overrides: Partial<McpOAuthAuthorizationServer> = {},
+): McpOAuthAuthorizationServer => ({
+  issuer: "https://accounts.google.com",
+  authorizationEndpoint: "https://accounts.google.com/authorize",
+  tokenEndpoint: "https://oauth2.googleapis.com/token",
+  registrationEndpoint: "https://accounts.google.com/register",
+  revocationEndpoint: null,
+  issParameterSupported: true,
+  registrationAvailable: true,
+  metadataDocumentAvailable: false,
+  ...overrides,
+});
+
 function show(view: McpServerView, clients: McpOAuthClientView[] = []) {
-  listMcpServerOAuthClients.mockResolvedValue({ data: clients });
+  http.use(
+    handleListMcpServerOAuthClients({ body: clients }),
+    // A change rereads the server list beside the clients.
+    handleListMcpServers({ body: [view] }),
+  );
   const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queries}>
@@ -74,9 +88,16 @@ function show(view: McpServerView, clients: McpOAuthClientView[] = []) {
   );
 }
 
+function discovering(authorizationServers: McpOAuthAuthorizationServer[]) {
+  http.use(
+    handleDiscoverMcpServerOAuth({
+      body: { resource: "https://drive.example/mcp", suggestedScopes: [], authorizationServers },
+    }),
+  );
+}
+
 beforeEach(async () => {
   await i18n.changeLanguage("vi");
-  vi.clearAllMocks();
 });
 
 it("says nobody can connect while the server has no OAuth application", async () => {
@@ -95,24 +116,14 @@ it("offers discovery only for an auto-discovery server", async () => {
 });
 
 it("requires a label before registering a discovered authorization server", async () => {
-  discoverMcpServerOAuth.mockResolvedValue({
-    data: {
-      resource: "https://drive.example/mcp",
-      suggestedScopes: [],
-      authorizationServers: [
-        {
-          issuer: "https://accounts.google.com",
-          authorizationEndpoint: "https://accounts.google.com/authorize",
-          tokenEndpoint: "https://oauth2.googleapis.com/token",
-          registrationEndpoint: "https://accounts.google.com/register",
-          revocationEndpoint: null,
-          issParameterSupported: true,
-          registrationAvailable: true,
-          metadataDocumentAvailable: false,
-        },
-      ],
-    },
-  });
+  const registered: unknown[] = [];
+  discovering([authorizationServer()]);
+  http.use(
+    handleRegisterMcpServerOAuthClient(async ({ request }) => {
+      registered.push(await request.json());
+      return HttpResponse.json(client({ source: "REGISTERED" }));
+    }),
+  );
   show(server());
   await userEvent.click(await screen.findByRole("button", { name: "Dò máy chủ OAuth" }));
   const register = await screen.findByRole("button", { name: "Tự đăng ký (DCR)" });
@@ -120,32 +131,21 @@ it("requires a label before registering a discovered authorization server", asyn
   await userEvent.type(screen.getByLabelText("Nhãn cho ứng dụng này"), "Tasco North");
   expect(register).toBeEnabled();
   await userEvent.click(register);
-  expect(registerMcpServerOAuthClient).toHaveBeenCalledWith(
-    expect.objectContaining({
-      body: { issuer: "https://accounts.google.com", label: "Tasco North", source: "REGISTERED" },
-    }),
+  await waitFor(() =>
+    expect(registered).toEqual([
+      { issuer: "https://accounts.google.com", label: "Tasco North", source: "REGISTERED" },
+    ]),
   );
 });
 
 it("says so when a discovered server supports neither registration route", async () => {
-  discoverMcpServerOAuth.mockResolvedValue({
-    data: {
-      resource: "https://drive.example/mcp",
-      suggestedScopes: [],
-      authorizationServers: [
-        {
-          issuer: "https://accounts.google.com",
-          authorizationEndpoint: "https://accounts.google.com/authorize",
-          tokenEndpoint: "https://oauth2.googleapis.com/token",
-          registrationEndpoint: null,
-          revocationEndpoint: null,
-          issParameterSupported: false,
-          registrationAvailable: false,
-          metadataDocumentAvailable: false,
-        },
-      ],
-    },
-  });
+  discovering([
+    authorizationServer({
+      registrationEndpoint: null,
+      issParameterSupported: false,
+      registrationAvailable: false,
+    }),
+  ]);
   show(server());
   await userEvent.click(await screen.findByRole("button", { name: "Dò máy chủ OAuth" }));
   expect(
@@ -160,19 +160,33 @@ it("offers the administrator's own connect only on a shared-connection server", 
 });
 
 it("connects and disconnects the shared connection", async () => {
-  startMcpServerOAuthAuthorization.mockResolvedValue({
-    data: { authorizationUrl: "https://as/auth" },
-  });
+  const started: unknown[] = [];
+  let disconnected = false;
+  http.use(
+    handleStartMcpServerOAuthAuthorization(async ({ request }) => {
+      started.push(await request.json());
+      return HttpResponse.json({ authorizationUrl: "https://as/auth" });
+    }),
+    handleDisconnectMcpServerOAuth(() => {
+      disconnected = true;
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
   show(server({ authPerformer: "ADMIN", sharedCredentialConfigured: true }), [client()]);
   await userEvent.click(await screen.findByRole("button", { name: "Kết nối" }));
-  expect(startMcpServerOAuthAuthorization).toHaveBeenCalledWith(
-    expect.objectContaining({ body: { oauthClientId: "c1" } }),
-  );
+  await waitFor(() => expect(started).toEqual([{ oauthClientId: "c1" }]));
   await userEvent.click(screen.getByRole("button", { name: "Ngắt kết nối dùng chung" }));
-  expect(disconnectMcpServerOAuth).toHaveBeenCalled();
+  await waitFor(() => expect(disconnected).toBe(true));
 });
 
 it("sends a pasted application with its secret posted in the token request", async () => {
+  const created: unknown[] = [];
+  http.use(
+    handleCreateMcpServerOAuthClient(async ({ request }) => {
+      created.push(await request.json());
+      return HttpResponse.json(client());
+    }),
+  );
   show(server());
   await userEvent.click(await screen.findByRole("button", { name: "Nhập ứng dụng" }));
   await userEvent.type(screen.getByLabelText("Nhãn"), "Tasco North");
@@ -188,20 +202,17 @@ it("sends a pasted application with its secret posted in the token request", asy
     "https://oauth2.googleapis.com/token",
   );
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
-  expect(createMcpServerOAuthClient).toHaveBeenCalledWith(
-    expect.objectContaining({
-      body: expect.objectContaining({
-        label: "Tasco North",
-        tokenEndpointAuthMethod: "CLIENT_SECRET_POST",
-        clientSecret: { action: "REPLACE", value: "s3cret" },
-      }),
-    }),
-  );
+  await waitFor(() => expect(created).toHaveLength(1));
+  expect(created[0]).toMatchObject({
+    label: "Tasco North",
+    tokenEndpointAuthMethod: "CLIENT_SECRET_POST",
+    clientSecret: { action: "REPLACE", value: "s3cret" },
+  });
 });
 
 it("shows an alert instead of an empty list when the load fails", async () => {
+  http.use(handleListMcpServerOAuthClients(() => new HttpResponse(null, { status: 503 })));
   const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  listMcpServerOAuthClients.mockRejectedValue(new ApiError(503, {}));
   render(
     <QueryClientProvider client={queries}>
       <McpOAuthClients server={server()} />

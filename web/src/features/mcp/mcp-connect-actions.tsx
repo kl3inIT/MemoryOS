@@ -1,16 +1,19 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { CatalogDialog } from "@/components/composites/catalog-dialog";
+import { Button } from "@/components/ui/button";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { saveMcpConnectionApiKey, startMcpConnectionAuthorization } from "@/lib/hey-api/sdk.gen";
+import {
+  saveMcpConnectionApiKeyMutation,
+  startMcpConnectionAuthorizationMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { McpConnection } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
-import { mcpConnectionsKey } from "./mcp-connections";
+import { invalidateMcpConnections } from "./mcp-connections";
 
 export function ConnectAction({
   connection,
@@ -28,20 +31,20 @@ export function ConnectAction({
   const [choosing, setChoosing] = useState(false);
   const problem = useProblemMessage();
   const authorize = useMutation({
-    mutationFn: async (oauthClientId: string) =>
-      await startMcpConnectionAuthorization({
-        path: { serverId: connection.id },
-        body: {
-          oauthClientId,
-          returnPath: returnPath ?? (sessionId === undefined ? "/" : `/chat/${sessionId}`),
-        },
-      }),
-    onSuccess: (response) => {
-      const url = response.data?.authorizationUrl;
+    ...startMcpConnectionAuthorizationMutation(),
+    onSuccess: ({ authorizationUrl }) => {
       // The authorization server owns the next navigation; the callback returns to this chat.
-      if (url) window.location.assign(url);
+      if (authorizationUrl) window.location.assign(authorizationUrl);
     },
   });
+  const start = (oauthClientId: string) =>
+    authorize.mutate({
+      path: { serverId: connection.id },
+      body: {
+        oauthClientId,
+        returnPath: returnPath ?? (sessionId === undefined ? "/" : `/chat/${sessionId}`),
+      },
+    });
 
   if (connection.authType === "API_TOKEN") {
     return (
@@ -55,9 +58,7 @@ export function ConnectAction({
     return <StatusBadge tone="neutral">{ui("Chờ quản trị viên")}</StatusBadge>;
   }
   const failure = authorize.isError ? (
-    <p role="alert" className="font-secondary-body text-status-danger-content">
-      {problem(presentProblem(authorize.error, "mutation").message)}
-    </p>
+    <FieldError>{problem(presentProblem(authorize.error, "mutation").message)}</FieldError>
   ) : null;
   if (clients.length === 1 || !choosing) {
     return (
@@ -66,9 +67,7 @@ export function ConnectAction({
           size="sm"
           prominence="secondary"
           pending={authorize.isPending}
-          onClick={() =>
-            clients.length === 1 ? authorize.mutate(clients[0].id) : setChoosing(true)
-          }
+          onClick={() => (clients.length === 1 ? start(clients[0].id) : setChoosing(true))}
         >
           {ui("Kết nối")}
         </Button>
@@ -84,7 +83,7 @@ export function ConnectAction({
           size="sm"
           prominence="secondary"
           pending={authorize.isPending}
-          onClick={() => authorize.mutate(client.id)}
+          onClick={() => start(client.id)}
         >
           {client.label}
         </Button>
@@ -102,20 +101,16 @@ export function McpApiKeyDialog({
   onClose: () => void;
 }) {
   const ui = useAppTranslation();
-  const client = useQueryClient();
+  const cache = useQueryClient();
   const [value, setValue] = useState("");
-  const [failed, setFailed] = useState(false);
   const save = useMutation({
-    mutationFn: async () =>
-      await saveMcpConnectionApiKey({
-        path: { serverId: connection.id },
-        body: { apiKey: value },
-      }),
+    ...saveMcpConnectionApiKeyMutation(),
+    // The request carries the key, so the finished mutation is not kept in the cache.
+    gcTime: 0,
     onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: mcpConnectionsKey });
+      await invalidateMcpConnections(cache);
       onClose();
     },
-    onError: () => setFailed(true),
   });
 
   return (
@@ -124,38 +119,40 @@ export function McpApiKeyDialog({
       description={ui("Khoá được thử với máy chủ trước khi lưu, và chỉ bạn dùng được.")}
       onClose={onClose}
     >
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="mcp-user-key">{ui("Khoá API")}</Label>
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (value.trim() !== "")
+            save.mutate({ path: { serverId: connection.id }, body: { apiKey: value } });
+        }}
+      >
+        <Field data-invalid={save.isError || undefined}>
+          <FieldLabel htmlFor="mcp-user-key">{ui("Khoá API")}</FieldLabel>
           <Input
             id="mcp-user-key"
             type="password"
             autoComplete="off"
             value={value}
+            aria-invalid={save.isError || undefined}
             onChange={(event) => {
               setValue(event.target.value);
-              setFailed(false);
+              save.reset();
             }}
           />
-        </div>
-        {failed ? (
-          <p role="alert" className="font-secondary-body text-status-danger-content">
-            {ui("Máy chủ từ chối khoá này. Khoá chưa được lưu.")}
-          </p>
-        ) : null}
+          {save.isError ? (
+            <FieldError>{ui("Máy chủ từ chối khoá này. Khoá chưa được lưu.")}</FieldError>
+          ) : null}
+        </Field>
         <div className="flex justify-end gap-2">
           <Button prominence="secondary" onClick={onClose}>
             {ui("Huỷ")}
           </Button>
-          <Button
-            disabled={value.trim() === ""}
-            pending={save.isPending}
-            onClick={() => save.mutate()}
-          >
+          <Button type="submit" disabled={value.trim() === ""} pending={save.isPending}>
             {ui("Kết nối")}
           </Button>
         </div>
-      </div>
+      </form>
     </CatalogDialog>
   );
 }
