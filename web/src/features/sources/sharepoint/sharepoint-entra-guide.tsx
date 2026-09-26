@@ -26,13 +26,15 @@ export function SharePointEntraGuide() {
   const ui = useAppTranslation();
 
   return (
-    <Collapsible className="font-secondary-body text-content-muted">
-      <CollapsibleTrigger className="w-fit cursor-pointer underline underline-offset-4">
-        {ui("Setup instructions")}
+    <Collapsible>
+      <CollapsibleTrigger asChild>
+        <Button size="sm" prominence="tertiary" className="w-fit px-0">
+          {ui("Setup instructions")}
+        </Button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="mt-3 flex flex-col gap-3">
-          <ol className="list-decimal space-y-2 pl-5">
+        <div className="mt-3 flex flex-col gap-3 font-secondary-body text-content-muted">
+          <ol className="flex list-decimal flex-col gap-2 pl-5">
             <li>
               {ui(
                 "In the Microsoft Entra admin center, register an application for MemoryOS. No redirect URI is needed: MemoryOS signs in as the application, not as a person.",
@@ -54,18 +56,17 @@ export function SharePointEntraGuide() {
               )}
             </li>
           </ol>
-          <Table className="w-full table-fixed text-sm">
+          <Table className="table-fixed">
+            <colgroup>
+              <col />
+              <col className="w-28" />
+              <col />
+            </colgroup>
             <TableHeader>
               <TableRow>
-                <TableHead scope="col" className="py-2 text-left font-medium">
-                  {ui("Permission")}
-                </TableHead>
-                <TableHead scope="col" className="w-28 py-2 text-left font-medium">
-                  {ui("Type")}
-                </TableHead>
-                <TableHead scope="col" className="py-2 text-left font-medium">
-                  {ui("Why")}
-                </TableHead>
+                <TableHead scope="col">{ui("Permission")}</TableHead>
+                <TableHead scope="col">{ui("Type")}</TableHead>
+                <TableHead scope="col">{ui("Why")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -111,7 +112,7 @@ function CopyableValue({ value }: { value: string }) {
             .catch(() => setCopied(false));
         }}
       >
-        {copied ? <Check /> : <Copy />}
+        {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
       </Button>
     </span>
   );

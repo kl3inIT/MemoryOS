@@ -1,9 +1,13 @@
 import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useQueryClient } from "@tanstack/react-query";
-import { KeyRound } from "lucide-react";
+import { revalidateLogic, useStore } from "@tanstack/react-form";
+import { KeyRound, TriangleAlert } from "lucide-react";
+import { z } from "zod";
+import { useAppForm } from "@/components/form/app-form";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { useActionNotifications } from "@/components/ui/action-notifications";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { FieldGroup } from "@/components/ui/field";
 import { isUnauthenticated } from "@/lib/api";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import {
@@ -22,6 +26,7 @@ import {
   replaceSharePointCredentialAuthentication,
 } from "@/lib/hey-api/sdk.gen";
 import type { SharePointCredentialResponse } from "@/lib/hey-api/types.gen";
+import { zSharePointCredentialRequest } from "@/lib/hey-api/zod.gen";
 import { sourceMutationError } from "@/features/sources/shared/source-errors";
 import { SharePointEntraGuide } from "./sharepoint-entra-guide";
 import {
@@ -95,16 +100,32 @@ function CredentialForm({
   const notify = useActionNotifications();
   const credentialInput = useRef<SharePointCredentialInputHandle>(null);
   const active = useRef(true);
-  const submitting = useRef(false);
-  const [name, setName] = useState(replacing?.name ?? "");
-  const [directoryId, setDirectoryId] = useState(replacing?.directoryId ?? "");
-  const [clientId, setClientId] = useState(replacing?.clientId ?? "");
   const [method, setMethod] = useState<SharePointAuthMethod>(
     replacing?.authMethod === "CERTIFICATE" ? "CERTIFICATE" : "CLIENT_SECRET",
   );
   const [authenticationReady, setAuthenticationReady] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<AppCopy | null>(null);
+  const guid = z
+    .string()
+    .trim()
+    .regex(GUID, ui("Supply the Directory (tenant) ID and Application (client) ID as GUIDs."));
+  const form = useAppForm({
+    defaultValues: {
+      name: replacing?.name ?? "",
+      directoryId: replacing?.directoryId ?? "",
+      clientId: replacing?.clientId ?? "",
+    },
+    validationLogic: revalidateLogic(),
+    validators: {
+      onDynamic: zSharePointCredentialRequest
+        .pick({ name: true })
+        .extend({ directoryId: guid, clientId: guid }),
+    },
+    onSubmit: ({ value }) => save(value),
+  });
+  const saving = useStore(form.store, (state) => state.isSubmitting);
+  // Save waits for a name and the secret or keystore, and names what is missing by staying disabled.
+  const named = useStore(form.store, (state) => Boolean(state.values.name.trim()));
   const busy = saving || stepBusy;
 
   useLayoutEffect(() => {
@@ -121,13 +142,9 @@ function CredentialForm({
     return () => onBusyChange(false);
   }, [saving, onBusyChange]);
 
-  async function save() {
-    if (submitting.current || busy || !name.trim() || !authenticationReady) return;
-    if (!GUID.test(directoryId.trim()) || !GUID.test(clientId.trim())) {
-      setError("Supply the Directory (tenant) ID and Application (client) ID as GUIDs.");
-      return;
-    }
-    // The secret or keystore is read here and never stored in React Query variables or state.
+  async function save(value: { name: string; directoryId: string; clientId: string }) {
+    if (stepBusy || !value.name.trim() || !authenticationReady) return;
+    // A direct call, not a mutation: the secret or keystore is read here and never enters React Query.
     const authentication = credentialInput.current?.take();
     if (!authentication) {
       setError(
@@ -137,28 +154,22 @@ function CredentialForm({
       );
       return;
     }
-    submitting.current = true;
-    setSaving(true);
     setError(null);
     try {
       const body = {
-        name: name.trim(),
-        directoryId: directoryId.trim(),
-        clientId: clientId.trim(),
+        name: value.name.trim(),
+        directoryId: value.directoryId.trim(),
+        clientId: value.clientId.trim(),
         cloud: "GLOBAL" as const,
         ...authentication,
       };
       const { data } = replacing
         ? await replaceSharePointCredentialAuthentication({
             path: { credentialId: replacing.id },
-            headers: {
-              "If-Match": `"${replacing.credentialRevision}"`,
-            },
+            headers: { "If-Match": `"${replacing.credentialRevision}"` },
             body,
           })
-        : await createSharePointCredential({
-            body,
-          });
+        : await createSharePointCredential({ body });
       if (!active.current) return;
       notify({
         title: replacing ? "Credential updated" : "Credential verified",
@@ -173,22 +184,20 @@ function CredentialForm({
       if (isUnauthenticated(cause))
         void queryClient.resetQueries({ queryKey: getCurrentIdentityQueryKey(), exact: true });
       setError(sourceMutationError(cause, "sharepoint-credential"));
-    } finally {
-      submitting.current = false;
-      if (active.current) setSaving(false);
     }
   }
 
   return (
     <form
-      className="grid gap-5"
+      className="flex flex-col gap-5"
+      noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        void save();
+        void form.handleSubmit();
       }}
     >
-      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(16rem,0.8fr)_minmax(0,1.2fr)]">
-        <aside className="h-fit rounded-xl border border-border-subtle bg-surface-base p-4">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-5">
+        <aside className="h-fit rounded-xl border border-border-subtle bg-surface-base p-4 lg:col-span-2">
           <div className="mb-3 flex items-center gap-2">
             <span className="grid size-8 place-items-center text-content-muted">
               <KeyRound className="size-4" aria-hidden="true" />
@@ -204,75 +213,54 @@ function CredentialForm({
           </div>
           <SharePointEntraGuide />
         </aside>
-        <div className="min-w-0 space-y-5">
-          <div>
-            <label
-              htmlFor="sharepoint-credential-name"
-              className="font-secondary-action text-content-primary"
-            >
-              {ui("Credential name")}
-            </label>
-            <Input
-              id="sharepoint-credential-name"
-              value={name}
-              maxLength={120}
-              required
-              disabled={busy}
-              onChange={(event) => setName(event.target.value)}
-              placeholder={ui("e.g. Contoso SharePoint")}
-              autoComplete="off"
-              className="mt-2"
-            />
-          </div>
+        <FieldGroup className="min-w-0 lg:col-span-3">
+          <form.AppField name="name">
+            {(field) => (
+              <field.TextField
+                label={ui("Credential name")}
+                maxLength={120}
+                disabled={busy}
+                placeholder={ui("e.g. Contoso SharePoint")}
+                autoComplete="off"
+              />
+            )}
+          </form.AppField>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="sharepoint-directory-id"
-                className="font-secondary-action text-content-primary"
-              >
-                {ui("Directory (tenant) ID")}
-              </label>
-              <Input
-                id="sharepoint-directory-id"
-                value={directoryId}
-                required
-                disabled={busy || Boolean(replacing)}
-                readOnly={Boolean(replacing)}
-                onChange={(event) => setDirectoryId(event.target.value)}
-                placeholder="00000000-0000-0000-0000-000000000000"
-                autoComplete="off"
-                spellCheck={false}
-                className="mt-2 font-mono text-xs"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="sharepoint-client-id"
-                className="font-secondary-action text-content-primary"
-              >
-                {ui("Application (client) ID")}
-              </label>
-              <Input
-                id="sharepoint-client-id"
-                value={clientId}
-                required
-                disabled={busy || Boolean(replacing)}
-                readOnly={Boolean(replacing)}
-                onChange={(event) => setClientId(event.target.value)}
-                placeholder="00000000-0000-0000-0000-000000000000"
-                autoComplete="off"
-                spellCheck={false}
-                className="mt-2 font-mono text-xs"
-              />
-            </div>
+            <form.AppField name="directoryId">
+              {(field) => (
+                <field.TextField
+                  label={ui("Directory (tenant) ID")}
+                  disabled={busy || Boolean(replacing)}
+                  readOnly={Boolean(replacing)}
+                  placeholder="00000000-0000-0000-0000-000000000000"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="clientId">
+              {(field) => (
+                <field.TextField
+                  label={ui("Application (client) ID")}
+                  disabled={busy || Boolean(replacing)}
+                  readOnly={Boolean(replacing)}
+                  placeholder="00000000-0000-0000-0000-000000000000"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              )}
+            </form.AppField>
           </div>
           {replacing ? (
-            <p className="rounded-lg bg-status-warning-surface p-4 text-sm text-status-warning-content">
-              {ui("Replacing authentication affects all")} {replacing.sourceCount}{" "}
-              {ui(
-                "Sources using this credential. The directory and application stay as they are; saved scopes and documents are retained.",
-              )}
-            </p>
+            <Alert variant="warning" role="note">
+              <TriangleAlert aria-hidden="true" />
+              <AlertDescription>
+                {ui("Replacing authentication affects all")} {replacing.sourceCount}{" "}
+                {ui(
+                  "Sources using this credential. The directory and application stay as they are; saved scopes and documents are retained.",
+                )}
+              </AlertDescription>
+            </Alert>
           ) : null}
           <SharePointCredentialInput
             ref={credentialInput}
@@ -281,15 +269,12 @@ function CredentialForm({
             onMethodChange={setMethod}
             onReadyChange={setAuthenticationReady}
           />
-        </div>
+        </FieldGroup>
       </div>
       {error ? (
-        <p
-          role="alert"
-          className="rounded-lg bg-status-danger-surface px-4 py-3 text-sm text-status-danger-content"
-        >
-          {ui(error)}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{ui(error)}</AlertDescription>
+        </Alert>
       ) : null}
       <DialogFooter>
         <DialogClose asChild>
@@ -297,11 +282,7 @@ function CredentialForm({
             {ui("Cancel")}
           </Button>
         </DialogClose>
-        <Button
-          type="submit"
-          pending={saving}
-          disabled={busy || !name.trim() || !authenticationReady}
-        >
+        <Button type="submit" pending={saving} disabled={busy || !named || !authenticationReady}>
           {ui("Verify and save")}
         </Button>
       </DialogFooter>
