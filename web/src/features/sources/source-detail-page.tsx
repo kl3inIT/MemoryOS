@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/composites/empty-state";
 import { Button } from "@/components/ui/button";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { SettingsLayout } from "@/components/ui/settings-layout";
+import { SettingsLayout } from "@/components/composites/settings-layout";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
   getSourceOptions,

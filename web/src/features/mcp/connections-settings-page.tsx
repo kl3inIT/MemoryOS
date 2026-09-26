@@ -4,7 +4,7 @@ import { Blocks } from "lucide-react";
 import { SettingRow, SettingRows } from "@/components/composites/setting-row";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { mcpConnectionsKey, useMcpConnections } from "@/features/mcp/mcp-connections";
 import { ConnectAction, McpApiKeyDialog } from "@/features/mcp/mcp-connect-actions";

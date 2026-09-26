@@ -3,7 +3,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { UserRound } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
+import { SettingsLayout, PageHeader } from "@/components/composites/settings-layout";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "./application-session-context";

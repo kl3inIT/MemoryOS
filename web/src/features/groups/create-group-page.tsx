@@ -5,7 +5,7 @@ import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/ui/settings-layout";
+import { PageHeader } from "@/components/composites/settings-layout";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { createGroupMutation } from "@/lib/hey-api/@tanstack/react-query.gen";

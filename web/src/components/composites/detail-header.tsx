@@ -8,7 +8,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { PageHeader } from "@/components/ui/settings-layout";
+import { PageHeader } from "@/components/composites/settings-layout";
 
 type DetailHeaderProps<TRouter extends RegisteredRouter = RegisteredRouter, TOptions = unknown> = {
   /** The list this resource belongs to: its label and the router link options that open it. */

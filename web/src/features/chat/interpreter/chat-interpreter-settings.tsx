@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { SquareTerminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
+import { SettingsLayout, PageHeader } from "@/components/composites/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
 import { useApplicationSession } from "@/features/identity/application-session-context";
