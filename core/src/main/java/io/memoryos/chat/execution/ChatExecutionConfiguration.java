@@ -6,6 +6,10 @@ import io.memoryos.chat.ChatExecutionProperties;
 import io.memoryos.chat.ChatModelSelector;
 import io.memoryos.chat.ChatSettingsService;
 import io.memoryos.chat.ChatTurnService;
+import io.memoryos.ai.ModelCalls;
+import io.memoryos.audit.AuditTrail;
+import io.memoryos.chat.grounding.ChatGuardrailCheck;
+import io.memoryos.chat.grounding.GroundingClassifier;
 import io.memoryos.chat.image.ImageArtifactService;
 import io.memoryos.chat.image.ImageConnectionService;
 import io.memoryos.chat.image.ImageProviderClient;
@@ -84,8 +88,13 @@ class ChatExecutionConfiguration {
                                     @Qualifier("chatTaskExecutor") SimpleAsyncTaskExecutor chatTaskExecutor, StreamBufferWriter streams,
                                     ChatModelSelector models, WebConnectionService web, ImageConnectionService images,
                                     ChatSettingsService settings, ResearchProperties research, McpTurnService mcp,
-                                    AiUsageLimitService spending) {
-        var service = new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images, settings, research, mcp, spending);
+                                    AiUsageLimitService spending, ObjectProvider<ModelCalls> calls, AuditTrail audit) {
+        // MEM-195 Check 1 needs single model calls, which the API application provides; without them a turn that needs
+        // the check is refused rather than answered unchecked.
+        var modelCalls = calls.getIfAvailable();
+        var guardrails = modelCalls == null ? null : new ChatGuardrailCheck(new GroundingClassifier(modelCalls), audit);
+        var service = new ChatTurnService(persistence, model, limits, chatTaskExecutor, streams, models, web, images, settings,
+                research, mcp, spending, guardrails);
         // Context refresh completes before the web server accepts requests, so no send can race this.
         service.failOrphanedRuns();
         return service;

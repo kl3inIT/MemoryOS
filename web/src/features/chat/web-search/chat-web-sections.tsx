@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Cpu, MessagesSquare, Telescope } from "lucide-react";
+import { Cpu } from "lucide-react";
 import { ConnectionStatusBadge } from "@/components/composites/connection-form";
 import { ProviderCard } from "@/components/provider-logos/provider-card";
 import { ProviderLogo } from "@/components/provider-logos/provider-logo";
@@ -8,27 +8,20 @@ import { hasProviderMark } from "@/components/provider-logos/provider-marks";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
-import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
-  getChatSettingsOptions,
-  getChatSettingsQueryKey,
   getChatWebAvailabilityQueryKey,
   listAvailableChatModelsQueryKey,
   listChatProviderAdaptersOptions,
   listChatProvidersOptions,
   listConfiguredChatModelsOptions,
   listConfiguredChatModelsQueryKey,
-  saveChatHistoryVisibilityMutation,
-  saveChatSettingsMutation,
   updateChatModelMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import type { ChatHistoryVisibilityRequest, Model, ProviderView } from "@/lib/hey-api/types.gen";
-import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
+import type { Model, ProviderView } from "@/lib/hey-api/types.gen";
+import type { ErrorMessage } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { webProblem } from "./use-web-connections";
-
-type ChatHistoryVisibility = ChatHistoryVisibilityRequest["visibility"];
 
 /** A section of the Web search page: its heading, its content and the failure of its last change. */
 export function WebSection({
@@ -66,126 +59,6 @@ export function WebNotice({ children }: { children: ReactNode }) {
     <Alert role="note">
       <AlertDescription>{children}</AlertDescription>
     </Alert>
-  );
-}
-
-/**
- * Who may read other people's conversations (MEM-125). "Hide who asked" hides the name and the e-mail and nothing
- * else — a question often names its author — so the screen says that rather than promising anonymity.
- */
-export function ConversationHistorySection() {
-  const ui = useAppTranslation();
-  const cache = useQueryClient();
-  const settings = useQuery({ ...getChatSettingsOptions(), retry: false });
-  const save = useMutation({
-    ...saveChatHistoryVisibilityMutation(),
-    onSuccess: () => cache.invalidateQueries({ queryKey: getChatSettingsQueryKey() }),
-  });
-  if (settings.isPending) return null;
-  const modes: { value: ChatHistoryVisibility; label: AppCopy; detail: AppCopy }[] = [
-    {
-      value: "NORMAL",
-      label: "Show who asked",
-      detail: "A reader sees the name and e-mail of the person who asked.",
-    },
-    {
-      value: "ANONYMIZED",
-      label: "Hide who asked",
-      detail:
-        "The name and e-mail are hidden; the questions and answers are not. A question often names its author.",
-    },
-    {
-      value: "DISABLED",
-      label: "Nobody reads other people's conversations",
-      detail: "Conversations are still recorded; this screen and its export are refused.",
-    },
-  ];
-  return (
-    <WebSection
-      title={ui("Conversation history")}
-      error={save.error ? presentProblem(save.error, "mutation").message : undefined}
-    >
-      <p className="text-content-muted">
-        {ui(
-          "Who may read the organization's questions and answers. Opening a conversation is recorded in the audit log.",
-        )}
-      </p>
-      {settings.isError ? (
-        <Alert variant="destructive">
-          <AlertTitle>{ui("Không tải được cài đặt Chat.")}</AlertTitle>
-        </Alert>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {modes.map((mode) => (
-            <ProviderCard
-              key={mode.value}
-              logo={<MessagesSquare />}
-              name={ui(mode.label)}
-              description={ui(mode.detail)}
-              selected={settings.data.chatHistoryVisibility === mode.value}
-              actions={
-                <Switch
-                  checked={settings.data.chatHistoryVisibility === mode.value}
-                  disabled={save.isPending}
-                  aria-label={ui(mode.label)}
-                  onCheckedChange={(checked) => {
-                    if (checked)
-                      save.mutate({
-                        body: { visibility: mode.value, revision: settings.data.revision },
-                      });
-                  }}
-                />
-              }
-            />
-          ))}
-        </div>
-      )}
-    </WebSection>
-  );
-}
-
-/** As Onyx Chat Preferences: Deep research is offered in the composer while enabled, and is enabled until changed. */
-export function DeepResearchSection() {
-  const ui = useAppTranslation();
-  const cache = useQueryClient();
-  const settings = useQuery({ ...getChatSettingsOptions(), retry: false });
-  const save = useMutation({
-    ...saveChatSettingsMutation(),
-    onSuccess: () => cache.invalidateQueries({ queryKey: getChatSettingsQueryKey() }),
-  });
-  if (settings.isPending) return null;
-  return (
-    <WebSection
-      title={ui("Deep Research")}
-      error={save.error ? presentProblem(save.error, "mutation").message : undefined}
-    >
-      {settings.isError ? (
-        <Alert variant="destructive">
-          <AlertTitle>{ui("Không tải được cài đặt Chat.")}</AlertTitle>
-        </Alert>
-      ) : (
-        <ProviderCard
-          logo={<Telescope />}
-          name={ui("Deep Research")}
-          description={ui(
-            "Hệ thống nghiên cứu tự động trên Web và các nguồn đã kết nối. Dùng nhiều token hơn đáng kể cho mỗi câu hỏi.",
-          )}
-          selected={settings.data.deepResearchEnabled}
-          actions={
-            <Switch
-              checked={settings.data.deepResearchEnabled}
-              disabled={save.isPending}
-              aria-label={ui("Bật Deep Research")}
-              onCheckedChange={(checked) =>
-                save.mutate({
-                  body: { deepResearchEnabled: checked, revision: settings.data.revision },
-                })
-              }
-            />
-          }
-        />
-      )}
-    </WebSection>
   );
 }
 

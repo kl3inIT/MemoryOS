@@ -33,6 +33,21 @@ public record ModelBinding(SpringAiLlmService service, UnaryOperator<Prompt> fin
      * runs per inference and can still tell a helper call from an answer, so the cached client and its lease are
      * untouched and helper calls keep their own low effort.
      */
+    /**
+     * The request with only the named tool offered and a tool call required, so the model must call exactly that tool
+     * (MEM-195 grounded turns search first). A request that does not offer the tool is left unchanged.
+     */
+    public UnaryOperator<Prompt> requireTool(String name) {
+        return prompt -> {
+            if (!(prompt.getOptions() instanceof org.springframework.ai.model.tool.ToolCallingChatOptions options)
+                    || options.getToolCallbacks() == null) return prompt;
+            var kept = options.getToolCallbacks().stream()
+                    .filter(callback -> callback.getToolDefinition().name().equals(name)).toList();
+            if (kept.isEmpty()) return prompt;
+            return requiredTools.apply(new Prompt(prompt.getInstructions(), options.mutate().toolCallbacks(kept).build()));
+        };
+    }
+
     public ModelBinding forOptions(ModelSampling turnSampling, @Nullable Integer outputTokenLimit) {
         return new ModelBinding(
                 turnSampling.isEmpty() ? service : sampling.apply(service, turnSampling),

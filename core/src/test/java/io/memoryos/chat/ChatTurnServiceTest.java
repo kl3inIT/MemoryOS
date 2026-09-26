@@ -83,7 +83,7 @@ class ChatTurnServiceTest {
                 EncodingType.O200K_BASE), p -> p), 32000, 4096, true, false);
         when(lease.binding()).thenReturn(binding);
         when(models.resolve(any(), any(), any(), any())).thenReturn(new ModelResolver.Resolved(UUID.randomUUID(), null, lease));
-        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(call -> new ChatTurnPersistence.TerminalOutcome(call.getArgument(2), call.getArgument(4)));
         when(persistence.existing(any(), any(), any(ChatCommand.class))).thenReturn(Optional.empty());
         // The builtin agent allows every tool and every MCP server the actor can use.
@@ -111,7 +111,7 @@ class ChatTurnServiceTest {
             verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
             verify(persistence).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.CANCELED), eq(""),
-                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), any());
+                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), isNull(), any());
         }
     }
 
@@ -123,7 +123,7 @@ class ChatTurnServiceTest {
         }, streams, models)) {
             assertThrows(TaskRejectedException.class, () -> service.send(actor, session, parent, request, "Question", null));
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.FAILED), eq(""),
-                    eq("CHAT_SUBMIT_FAILED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), any());
+                    eq("CHAT_SUBMIT_FAILED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), isNull(), any());
             verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
             // A second rejected dispatch reaches the executor; it is not falsely rejected as capacity exhausted.
             when(persistence.reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any()))
@@ -160,7 +160,7 @@ class ChatTurnServiceTest {
             // A fresh run is not due for lease renewal; renewal cadence, not every tick, touches its row.
             verify(persistence, never()).renewLeases(any(), any());
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.COMPLETED), eq("Answer"),
-                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), any());
+                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), isNull(), any());
         }
     }
 
@@ -185,12 +185,12 @@ class ChatTurnServiceTest {
             Thread.sleep(80);
             service.maintain();
             verify(persistence).renewLeases(eq(List.of(pair.assistantMessageId())), eq(Duration.ofMinutes(30)));
-            verify(persistence, never()).finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+            verify(persistence, never()).finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
             // The row was reconciled elsewhere: the next renewal does not return it, so the local run stops.
             service.maintain();
             verify(persistence, Mockito.timeout(5000)).finishAndRead(eq(session), eq(pair.assistantMessageId()),
                     eq(ChatMessage.Status.FAILED), eq("Partial"), eq("CHAT_INTERRUPTED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(),
-                    eq(List.of()), any(), eq(ChatResearch.EMPTY), any());
+                    eq(List.of()), any(), eq(ChatResearch.EMPTY), isNull(), any());
         }
     }
 
@@ -208,7 +208,7 @@ class ChatTurnServiceTest {
                 service.send(actor, session, parent, request, "Question", null);
                 service.maintain();
                 verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.COMPLETED), eq("Answer"),
-                        isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), any());
+                        isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), isNull(), any());
                 verify(lease, never()).close();
                 assertEquals("CHAT_CAPACITY_EXCEEDED", assertThrows(ChatException.class,
                         () -> service.send(actor, session, parent, UUID.randomUUID(), "Question", null)).code());
@@ -225,7 +225,7 @@ class ChatTurnServiceTest {
         prepare();
         doAnswer(call -> { call.<Consumer<String>>getArgument(3).accept("Partial"); return null; })
                 .when(model).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
-        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenThrow(new IllegalStateException("database unavailable"))
                 .thenReturn(new ChatTurnPersistence.TerminalOutcome(ChatMessage.Status.FAILED, "CHAT_INTERRUPTED"));
         try (var service = new ChatTurnService(persistence, model, limits, Runnable::run, streams, models)) {
@@ -261,7 +261,7 @@ class ChatTurnServiceTest {
                 assertTrue(started.await(5, TimeUnit.SECONDS));
             }
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.FAILED), eq("Partial"),
-                    eq("CHAT_INTERRUPTED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), any());
+                    eq("CHAT_INTERRUPTED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), isNull(), any());
         }
     }
 
@@ -272,7 +272,7 @@ class ChatTurnServiceTest {
         var release = new CountDownLatch(1);
         var queued = new AtomicReference<Runnable>();
         when(persistence.authorizeReply(actor, session, pair.assistantMessageId())).thenReturn(ChatMessage.Status.RUNNING);
-        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        when(persistence.finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenAnswer(_ -> {
                     writing.countDown();
                     assertTrue(release.await(5, TimeUnit.SECONDS));
@@ -290,7 +290,7 @@ class ChatTurnServiceTest {
                         () -> service.send(actor, session, parent, UUID.randomUUID(), "Question", null)).code());
             } finally { release.countDown(); }
             execution.get(5, TimeUnit.SECONDS);
-            verify(persistence).finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+            verify(persistence).finishAndRead(any(), any(), any(), anyString(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
         }
     }
 
@@ -412,7 +412,7 @@ class ChatTurnServiceTest {
             } finally { release.countDown(); }
             verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.CANCELED), eq(""),
-                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), any());
+                    isNull(), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), isNull(), any());
             // The opened sessions belong to the run, which closes them with its model lease.
             verify(tools).close();
             verify(lease).close();
@@ -431,7 +431,7 @@ class ChatTurnServiceTest {
             assertThrows(IllegalStateException.class, () -> service.command(actor, session, mcpCommand(request)));
             verify(persistence).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.FAILED), eq(""),
-                    eq("CHAT_SETUP_FAILED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), any());
+                    eq("CHAT_SETUP_FAILED"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), isNull(), any());
             verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
             verify(lease).close();
             // A subscriber sees the failed outcome, and the permit returned so a new turn is admitted.
@@ -491,7 +491,7 @@ class ChatTurnServiceTest {
         try (var service = new ChatTurnService(persistence, model, limits, Runnable::run, streams, models)) {
             service.send(actor, session, parent, request, "Question", null);
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.FAILED), eq(""),
-                    eq(persisted), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), any());
+                    eq(persisted), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), isNull(), any());
         }
     }
 
@@ -501,7 +501,7 @@ class ChatTurnServiceTest {
         try (var service = new ChatTurnService(persistence, model, limits, Runnable::run, streams, models)) {
             service.send(actor, session, parent, request, "Question", null);
             verify(persistence).finishAndRead(eq(session), eq(pair.assistantMessageId()), eq(ChatMessage.Status.FAILED), eq(""),
-                    eq("CHAT_EMPTY_RESPONSE"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), any());
+                    eq("CHAT_EMPTY_RESPONSE"), eq("gpt-5-mini"), isNull(), isNull(), isNull(), eq(List.of()), any(), eq(ChatResearch.EMPTY), isNull(), any());
         }
     }
 }

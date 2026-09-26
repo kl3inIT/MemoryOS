@@ -99,13 +99,13 @@ The member section has mutually exclusive browse/add modes, one shared search to
 | Group list/detail/member reads | Global `GROUPS_READ` or own managed ordinary Group |
 | Create/rename/delete ordinary Groups | Global `GROUPS_MANAGE`; system Groups remain protected |
 | Add/remove ordinary Group members | Global `GROUPS_MANAGE` or own managed Group, subject to delegation and protected-membership checks |
-| Assign/remove an ordinary Group's manager flag | Global `GROUPS_MANAGE`; scoped management cannot change manager status |
+| Assign/remove an ordinary Group's manager flag | Global `GROUPS_MANAGE` or own managed Group; a scoped manager cannot remove their own manager flag |
 | Replace explicit Group grants | Global `SYSTEM_ADMIN` |
 | Change Admin membership or replace a User's ordinary Groups | Global `SYSTEM_ADMIN`; preserve system edges and retained manager flags in ordinary-membership replacement |
 | Source operations and associations | The [Connector management matrix](connector.md#management-authority-and-group-associations) |
 | Search and document passage reads | Global `SEARCH_READ`, followed by existing Source/document eligibility checks; this does not grant Source administration or universal document access |
 
-A scoped manager cannot remove another manager membership, including their own, as an indirect manager-status mutation. Group commands revalidate delegation under the authority lock. Protected Groups cannot be deleted or renamed, the configured owner cannot lose protected authority, and the final active `STANDARD` administrator cannot be removed or deactivated.
+A scoped manager may delegate and revoke manager status and remove another manager's membership in a Group they manage, but cannot remove their own manager flag or their own membership. Group commands revalidate delegation under the authority lock. Protected Groups cannot be deleted or renamed, the configured owner cannot lose protected authority, and the final active `STANDARD` administrator cannot be removed or deactivated.
 
 Permission mutations serialize on the Tenant row using an exclusive lock and advance `authorization_version` in the same transaction. Protected resource writes take the corresponding shared lock, then reauthorize scope before committing. Provider IO occurs outside the lock and is followed by reauthorization. JPA lifecycle writes and concrete JDBC projections/locks share one transaction manager and DataSource; Flyway owns DDL, Hibernate validates, open-in-view and ORM caches are disabled.
 

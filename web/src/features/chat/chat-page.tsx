@@ -301,6 +301,7 @@ function ChatConversationBody({
             disabled={busy}
           />
         }
+        grounded={conversation.grounded}
         modelNotice={
           model.choice.fallback
             ? ui(

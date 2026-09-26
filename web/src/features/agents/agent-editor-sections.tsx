@@ -504,6 +504,21 @@ export function AdvancedSection({ form, agent, choices, editable }: SectionProps
               />
             )}
           </form.AppField>
+          <form.AppField name="grounded">
+            {(field) => (
+              <SettingRow
+                htmlFor="agent-grounded"
+                title={ui("Chỉ trả lời từ tài liệu của tổ chức")}
+                control={
+                  <Switch
+                    id="agent-grounded"
+                    checked={field.state.value}
+                    onCheckedChange={field.handleChange}
+                  />
+                }
+              />
+            )}
+          </form.AppField>
         </SettingRows>
       )}
     </EditorSection>

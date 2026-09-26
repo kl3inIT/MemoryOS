@@ -20,6 +20,13 @@ do not upgrade the appender independently of its SDK/API/incubator dependencies.
   Use INFO for lifecycle transitions, DEBUG for stale/no-op details, WARN for
   handled retries and ERROR for unhandled processing/transport failures. Do not
   append arbitrary provider exception messages or object/request content.
+- Every log call is fluent (`LOG.atWarn().addKeyValue(...).log(...)`); positional
+  `{}` placeholders are not used. `event` is `<capability>.<subject>.<outcome>` in
+  snake case, for example `chat.run.failed` or `ai.provider.connection_check_failed`.
+  `error_type` is the exception's class name; `error_code` is the typed code when one
+  exists (a turn failure code, an MCP rejection reason, a SQLState). A handled failure
+  logs these fields without attaching the stack trace. The audit SIEM line
+  (`memoryos.audit.<class>`) stays one JSON message as the [audit contract](../specs/audit.md) defines it.
 - Use INFO by default. `MEMORYOS_LOG_LEVEL` may enable scoped `io.memoryos` DEBUG
   during staging diagnosis. Do not enable broad Spring Security, HTTP wire, JDBC
   bind-value or provider payload DEBUG. JSON structure and credential protection

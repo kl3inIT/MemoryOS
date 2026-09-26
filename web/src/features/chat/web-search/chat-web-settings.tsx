@@ -7,13 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { useProblemMessage } from "@/lib/use-problem-message";
-import {
-  ConversationHistorySection,
-  DeepResearchSection,
-  NativeSearchSection,
-  WebNotice,
-  WebSection,
-} from "./chat-web-sections";
+import { NativeSearchSection, WebNotice, WebSection } from "./chat-web-sections";
 import { useWebConnections, webProblem, type WebProvider } from "./use-web-connections";
 import { WebConnectionCard } from "./web-connection-card";
 
@@ -117,8 +111,6 @@ export function ChatWebSettings() {
             {readerProviders.map((provider) => card(provider, false))}
           </WebSection>
           <NativeSearchSection />
-          <DeepResearchSection />
-          <ConversationHistorySection />
         </div>
       )}
       {select.error ? (

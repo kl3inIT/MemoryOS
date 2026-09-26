@@ -14,6 +14,7 @@ export function ChatThread({
   composerMenu,
   modelPicker,
   modelNotice,
+  grounded = false,
   connection,
   stopping,
   onStop,
@@ -31,6 +32,8 @@ export function ChatThread({
   /** Right of the composer toolbar, beside Send. */
   modelPicker: ReactNode;
   modelNotice?: string;
+  /** MEM-195: this conversation answers from the organization's documents only. */
+  grounded?: boolean;
   connection: ConnectionState;
   stopping: boolean;
   onStop: () => void;
@@ -87,6 +90,7 @@ export function ChatThread({
                 composerMenu={composerMenu}
                 modelPicker={modelPicker}
                 modelNotice={modelNotice}
+                grounded={grounded}
                 connection={connection}
                 stopping={stopping}
                 onStop={onStop}

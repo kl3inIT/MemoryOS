@@ -29,6 +29,7 @@ const agentValuesSchema = z.object({
   contextTokenLimit: z.string(),
   outputTokenLimit: z.string(),
   replaceBaseSystemPrompt: z.boolean(),
+  grounded: z.boolean(),
 });
 export type AgentValues = z.infer<typeof agentValuesSchema>;
 
@@ -60,6 +61,7 @@ export function initialValues(agent?: Persona): AgentValues {
     contextTokenLimit: agent?.contextTokenLimit?.toString() ?? "",
     outputTokenLimit: agent?.outputTokenLimit?.toString() ?? "",
     replaceBaseSystemPrompt: agent?.replaceBaseSystemPrompt ?? false,
+    grounded: agent?.grounded ?? false,
   };
 }
 
@@ -84,9 +86,13 @@ export function agentRequest(values: AgentValues, agent?: Persona): PersonaInput
     avatarFileId: values.avatarFileId ?? undefined,
     labelIds: values.labelIds,
     replaceBaseSystemPrompt: values.replaceBaseSystemPrompt,
+    grounded: values.grounded,
     knowledgeCutoff: values.knowledgeCutoff ? `${values.knowledgeCutoff}T00:00:00Z` : undefined,
   };
 }
+
+/** A draft kept before the grounded switch existed reads as not grounded. */
+const draftSchema = agentValuesSchema.extend({ grounded: z.boolean().default(false) });
 
 const draftKey = (actorId: string) => `memoryos.agent-draft.${actorId}`;
 
@@ -94,7 +100,7 @@ const draftKey = (actorId: string) => `memoryos.agent-draft.${actorId}`;
 export function readDraft(actorId: string) {
   try {
     const raw = window.localStorage.getItem(draftKey(actorId));
-    const parsed = raw ? agentValuesSchema.safeParse(JSON.parse(raw)) : undefined;
+    const parsed = raw ? draftSchema.safeParse(JSON.parse(raw)) : undefined;
     return parsed?.success ? parsed.data : undefined;
   } catch {
     return undefined;

@@ -80,6 +80,10 @@ public record ChatTurnSetup(UUID sessionId, UUID assistantMessageId, ActorId act
     public ChatTurnSetup withResearch(Research value) {
         return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, value, mcp);
     }
+    /** The same turn with other agent restrictions, for example a conversational message in grounded mode (MEM-195). */
+    public ChatTurnSetup withOptions(ChatTurnOptions value) {
+        return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, value, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, research, mcp);
+    }
     /** The turn owns the opened MCP sessions and closes them when it ends. */
     public ChatTurnSetup withMcp(McpTurnTools tools) {
         return new ChatTurnSetup(sessionId, assistantMessageId, actor, tenant, model, messages, binding, options, fileIds, images, evidence, webSearch, webAccess, image, imageAccess, research, tools);

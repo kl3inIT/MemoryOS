@@ -50,6 +50,8 @@ public class PersonaEntity {
     @Column(name = "avatar_file_id") private @Nullable UUID avatarFileId;
     @Column(name = "task_prompt", nullable = false, columnDefinition = "text") private String taskPrompt = "";
     @Column(name = "replace_base_system_prompt", nullable = false) private boolean replaceBaseSystemPrompt;
+    /** MEM-195: this agent answers from the organization's documents only, even when the Tenant setting is off. */
+    @Column(name = "grounded", nullable = false) private boolean grounded;
     @Column(name = "knowledge_cutoff") private @Nullable Instant knowledgeCutoff;
     @Column(name = "created_at", nullable = false, updatable = false) private Instant createdAt = Instant.now();
     @Column(name = "context_token_limit") private @Nullable Integer contextTokenLimit;
@@ -63,7 +65,7 @@ public class PersonaEntity {
     }
     public record Settings(String name, String description, String instructions, String taskPrompt, List<String> starters,
                            List<UUID> sources, @Nullable UUID modelId, @Nullable Integer contextLimit, @Nullable Integer outputLimit,
-                           @Nullable String iconName, @Nullable UUID avatarFileId, boolean replaceBaseSystemPrompt,
+                           @Nullable String iconName, @Nullable UUID avatarFileId, boolean replaceBaseSystemPrompt, boolean grounded,
                            @Nullable Instant knowledgeCutoff) {}
     public void update(Settings settings) {
         this.name = settings.name(); this.description = settings.description(); this.instructions = settings.instructions();
@@ -74,7 +76,7 @@ public class PersonaEntity {
         this.modelConfigurationId = settings.modelId();
         this.contextTokenLimit = settings.contextLimit(); this.outputTokenLimit = settings.outputLimit();
         this.iconName = settings.iconName(); this.avatarFileId = settings.avatarFileId();
-        this.replaceBaseSystemPrompt = settings.replaceBaseSystemPrompt();
+        this.replaceBaseSystemPrompt = settings.replaceBaseSystemPrompt(); this.grounded = settings.grounded();
         this.knowledgeCutoff = settings.knowledgeCutoff();
     }
     public void publish(boolean isPublic, String permission) { this.isPublic = isPublic; this.publicPermission = permission; }
@@ -105,6 +107,7 @@ public class PersonaEntity {
     public @Nullable UUID avatarFileId() { return avatarFileId; }
     public String taskPrompt() { return taskPrompt; }
     public boolean replaceBaseSystemPrompt() { return replaceBaseSystemPrompt; }
+    public boolean grounded() { return grounded; }
     public @Nullable Instant knowledgeCutoff() { return knowledgeCutoff; }
     public @Nullable Instant deletedAt() { return deletedAt; }
     public @Nullable UUID modelConfigurationId() { return modelConfigurationId; }

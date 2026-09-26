@@ -1,6 +1,10 @@
 package io.memoryos.api.chat;
 
 import io.memoryos.api.security.CurrentActor;
+import io.memoryos.api.chat.contract.ChatGroundedRequest;
+import io.memoryos.api.chat.contract.ChatGuardrailTopic;
+import io.memoryos.api.chat.contract.ChatGuardrailsRequest;
+import io.memoryos.api.chat.contract.ChatGuardrailsResponse;
 import io.memoryos.api.chat.contract.ChatHistoryVisibilityRequest;
 import io.memoryos.api.chat.contract.ChatSettingsRequest;
 import io.memoryos.api.chat.contract.ChatSettingsResponse;
@@ -56,6 +60,30 @@ class ChatSettingsController {
             @Valid @RequestBody ChatHistoryVisibilityRequest request) {
         return ChatSettingsResponse.from(
                 settings.saveHistoryVisibility(identity.actorId(), request.visibility(), request.revision()));
+    }
+
+    @PutMapping("/grounded")
+    @ApiResponse(responseCode = "200", description = "Saved Tenant Chat settings", useReturnTypeSchema = true)
+    @Operation(operationId = "saveChatGrounded", summary = "Answer from the organization's documents only; requires model management")
+    ChatSettingsResponse saveGrounded(@CurrentActor IdentityContext identity, @Valid @RequestBody ChatGroundedRequest request) {
+        return ChatSettingsResponse.from(settings.saveGrounded(identity.actorId(), request.groundedAnswers(),
+                request.groundedAllowWeb(), request.revision()));
+    }
+
+    @GetMapping("/guardrails")
+    @ApiResponse(responseCode = "200", description = "Sensitive-topic guardrails", useReturnTypeSchema = true)
+    @Operation(operationId = "getChatGuardrails", summary = "Read the sensitive topics and blocked phrases; requires model management")
+    ChatGuardrailsResponse guardrails(@CurrentActor IdentityContext identity) {
+        return ChatGuardrailsResponse.from(settings.guardrails(identity.actorId()));
+    }
+
+    @PutMapping("/guardrails")
+    @ApiResponse(responseCode = "200", description = "Saved sensitive-topic guardrails", useReturnTypeSchema = true)
+    @Operation(operationId = "saveChatGuardrails", summary = "Change the sensitive topics and blocked phrases; requires model management")
+    ChatGuardrailsResponse saveGuardrails(@CurrentActor IdentityContext identity, @Valid @RequestBody ChatGuardrailsRequest request) {
+        return ChatGuardrailsResponse.from(settings.saveGuardrails(identity.actorId(),
+                request.topics().stream().map(ChatGuardrailTopic::setting).toList(), request.blockedPhrases(),
+                request.blockedPhraseMessage(), request.revision()));
     }
 
 }

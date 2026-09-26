@@ -6,7 +6,7 @@ import {
   groupPartByType,
   useAuiState,
 } from "@assistant-ui/react";
-import { Copy } from "lucide-react";
+import { Copy, FileX, ShieldAlert } from "lucide-react";
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
 import { IconButton } from "@/components/ui/icon-button";
@@ -81,6 +81,9 @@ export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
   const failureCode = useAuiState(
     (state) => state.message.metadata.custom.failureCode as string | undefined,
   );
+  const refusalReason = useAuiState(
+    (state) => state.message.metadata.custom.refusalReason as string | undefined,
+  );
   const canceled = useAuiState(
     (state) =>
       state.message.status?.type === "incomplete" && state.message.status.reason === "cancelled",
@@ -125,6 +128,18 @@ export function AssistantMessage({ readOnly }: { readOnly: boolean }) {
         <ChatArtifactCards />
         <ChatImages />
         <ChatGeneratedFiles />
+        {refusalReason && (
+          <p className="mt-2 flex items-center gap-1.5 font-secondary-body text-content-muted">
+            {refusalReason === "blocked_topic" ? (
+              <ShieldAlert className="size-4" aria-hidden />
+            ) : (
+              <FileX className="size-4" aria-hidden />
+            )}
+            {refusalReason === "blocked_topic"
+              ? ui("Chủ đề bị hạn chế")
+              : ui("Không có trong tài liệu của tổ chức")}
+          </p>
+        )}
         {(serverStatus === "CANCELED" || canceled) && (
           <p className="mt-2 font-secondary-body text-content-muted">{ui("Đã dừng")}</p>
         )}

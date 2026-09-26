@@ -65,6 +65,7 @@ const row: ChatMessage = {
   activity: { steps: [], reasoning: [] },
   research: { clarification: false, plan: null, agents: [] },
   failureCode: null,
+  refusalReason: null,
   images: [],
   generatedFiles: [],
   id: runId,

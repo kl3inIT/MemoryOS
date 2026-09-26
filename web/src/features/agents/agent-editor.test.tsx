@@ -95,6 +95,9 @@ describe("AgentEditorPage", () => {
     await user.type(screen.getByRole("textbox", { name: "Assistant name" }), " Law ");
     await user.type(screen.getByRole("textbox", { name: /Reminder for every turn/ }), "Cite");
     await user.click(screen.getByRole("switch", { name: "Create image" }));
+    await user.click(
+      screen.getByRole("switch", { name: "Answer only from the organization's documents" }),
+    );
     await user.click(create);
 
     expect(await screen.findByText("Agent catalog")).toBeVisible();
@@ -105,6 +108,7 @@ describe("AgentEditorPage", () => {
       tools: ["search", "web_search", "code_interpreter"],
       modelConfigurationId: null,
       iconName: "bot",
+      grounded: true,
     });
     expect(window.localStorage.getItem(draftKey)).toBeNull();
   }, 15_000);

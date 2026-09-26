@@ -79,7 +79,8 @@ public class ChatPersonaService {
                                @Nullable Set<String> tools, @Nullable List<UUID> mcpServerIds, @Nullable UUID modelConfigurationId,
                                @Nullable Integer contextTokenLimit, @Nullable Integer outputTokenLimit, @Nullable List<UUID> fileIds,
                                @Nullable String iconName, @Nullable UUID avatarFileId, @Nullable List<UUID> labelIds,
-                               @Nullable Boolean replaceBaseSystemPrompt, @Nullable Instant knowledgeCutoff) {
+                               @Nullable Boolean replaceBaseSystemPrompt, @Nullable Instant knowledgeCutoff,
+                               @Nullable Boolean grounded) {
     }
 
     public record AgentSourceRef(UUID id, String name) {}
@@ -92,7 +93,7 @@ public class ChatPersonaService {
                               @Nullable String iconName, boolean hasAvatar, List<AgentRef> labels, AgentOwner owner,
                               boolean vacant, List<AgentUserShare> userShares, List<AgentGroupShare> groupShares, boolean isPublic,
                               AgentPermission publicPermission, boolean listed, boolean featured, @Nullable Integer displayPriority,
-                              boolean replaceBaseSystemPrompt, @Nullable Instant knowledgeCutoff,
+                              boolean replaceBaseSystemPrompt, boolean grounded, @Nullable Instant knowledgeCutoff,
                               boolean pinned, @Nullable Instant deletedAt) {}
 
     public record UserShareInput(UUID actorId, AgentPermission permission) {}
@@ -415,6 +416,7 @@ public class ChatPersonaService {
                 input.starterPrompts(), input.sourceIds(), input.modelConfigurationId(), input.contextTokenLimit(), input.outputTokenLimit(),
                 iconName, avatar,
                 input.replaceBaseSystemPrompt() == null ? entity.replaceBaseSystemPrompt() : input.replaceBaseSystemPrompt(),
+                input.grounded() == null ? entity.grounded() : input.grounded(),
                 input.knowledgeCutoff()));
     }
 
@@ -489,7 +491,7 @@ public class ChatPersonaService {
                     entity.iconName(), entity.avatarFileId() != null, details.labels().getOrDefault(id, List.of()),
                     details.owners().getOrDefault(id, new AgentOwner(null, null)), granted.vacant(), userShares,
                     details.groupShares().getOrDefault(id, List.of()), entity.isPublic(), AgentPermission.valueOf(entity.publicPermission()),
-                    entity.listed(), entity.featured(), entity.displayPriority(), entity.replaceBaseSystemPrompt(),
+                    entity.listed(), entity.featured(), entity.displayPriority(), entity.replaceBaseSystemPrompt(), entity.grounded(),
                     entity.knowledgeCutoff(), details.pinned().contains(id), entity.deletedAt()));
         }
         return result;
