@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 @Component
 public final class SharePointSelectionPolicy {
     public static final int ABSOLUTE_REQUEST_BYTES = 4 * 1024 * 1024;
-    private static final int MAX_INTERVAL_MINUTES = Integer.MAX_VALUE;
     private static final int MAX_PRUNE_HOURS = 8760;
 
     private final SelectionPolicy value;
@@ -40,7 +39,7 @@ public final class SharePointSelectionPolicy {
             throw SourceException.invalid("Select document libraries, site pages, or both.",
                     "SharePoint source selects neither documents nor pages");
         }
-        if (scope.syncIntervalMinutes() < 1 || scope.syncIntervalMinutes() > MAX_INTERVAL_MINUTES
+        if (scope.syncIntervalMinutes() < 1
                 || scope.pruneIntervalHours() < 0 || scope.pruneIntervalHours() > MAX_PRUNE_HOURS) {
             throw SourceException.invalid("Choose a synchronization interval of at least one minute and a"
                     + " prune interval of at most one year.", "SharePoint schedule outside deployment bounds");

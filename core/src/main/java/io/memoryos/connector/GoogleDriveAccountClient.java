@@ -1,6 +1,7 @@
 package io.memoryos.connector;
 
 import io.memoryos.connector.GoogleDriveAuthorizationService.Grant;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -37,6 +38,6 @@ public interface GoogleDriveAccountClient {
     void revoke(byte[] refreshToken);
 
     record Consent(String state, String nonce, String codeChallenge) {
-        @Override public String toString() { return "GoogleDriveConsent[redacted]"; }
+        @Override public @NonNull String toString() { return "GoogleDriveConsent[redacted]"; }
     }
 }

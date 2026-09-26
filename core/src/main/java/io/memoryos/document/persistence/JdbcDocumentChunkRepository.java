@@ -145,7 +145,7 @@ public class JdbcDocumentChunkRepository {
         if (count.isEmpty()) return false;
         jdbc.sql("""
                 UPDATE documents SET searchable_generation=:generation,search_index_identity=:identity,search_error_code=NULL
-                WHERE tenant_id=:tenant AND id=:document AND """ + " " + SERVED)
+                WHERE tenant_id=:tenant AND id=:document AND\s""" + SERVED)
                 .param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
                 .param("identity", identity).update();
         jdbc.sql("""
@@ -188,7 +188,7 @@ public class JdbcDocumentChunkRepository {
                 UPDATE documents SET search_error_code=:error,
                     searchable_generation=CASE WHEN searchable_generation=:generation THEN NULL ELSE searchable_generation END,
                     search_index_identity=CASE WHEN searchable_generation=:generation THEN NULL ELSE search_index_identity END
-                WHERE tenant_id=:tenant AND id=:document AND content_generation=:generation AND """ + " " + SERVED)
+                WHERE tenant_id=:tenant AND id=:document AND content_generation=:generation AND\s""" + SERVED)
                 .param("tenant", tenant.value()).param("document", document.value()).param("generation", generation)
                 .param("error", error, Types.VARCHAR).param("identity", identity).update();
         jdbc.sql("""
