@@ -102,7 +102,7 @@ export async function refreshModelCatalog(client: QueryClient) {
   ]);
 }
 
-export function providerUsable(provider: ManagedProvider, adapters: InstalledAdapter[]) {
+function providerUsable(provider: ManagedProvider, adapters: InstalledAdapter[]) {
   const adapter = adapters.find((entry) => entry.type === provider.adapterType);
   return Boolean(
     adapter &&

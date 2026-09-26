@@ -204,7 +204,7 @@ export function searchSettingsError(cause: unknown, operation: SearchOperation):
 }
 
 /** The server's own explanation, shown after our copy and never used as a translation key. */
-export function problemDetail(cause: unknown): string | undefined {
+function problemDetail(cause: unknown): string | undefined {
   if (!(cause instanceof ApiError)) return undefined;
   const problem = cause.cause;
   if (!problem || typeof problem !== "object" || !("detail" in problem)) return undefined;

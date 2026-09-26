@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { isCatalogConflict, sanitizeModelActionError } from "./model-catalog";
 
 /** Every catalog write, validation and reconciliation on the Models page shares this key. */
-export const modelCatalogMutationKey = ["models", "catalog-action"] as const;
+const modelCatalogMutationKey = ["models", "catalog-action"] as const;
 
 const discarded = "The operation was discarded.";
 
