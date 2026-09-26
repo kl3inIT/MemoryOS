@@ -362,6 +362,35 @@ describe("SearchPage", () => {
     expect(screen.getByRole("button", { name: "Updated: All time" })).toBeInTheDocument();
   }, 10_000);
 
+  it("offers every Document Set in the filter, beyond the first page of the listing", async () => {
+    const user = userEvent.setup();
+    searchDocumentsMock.mockResolvedValue({
+      data: { page: 0, hasMore: false, totalResults: 0, candidateLimit: 500, results: [] },
+    });
+    server.use(
+      handleListDocumentSets(({ request }) => {
+        const offset = Number(new URL(request.url).searchParams.get("offset"));
+        return HttpResponse.json(
+          Array.from({ length: offset === 0 ? 100 : 1 }, (_, index) => ({
+            id: `00000000-0000-4000-8000-${String(offset + index).padStart(12, "0")}`,
+            revision: 0,
+            name: `Set ${offset + index}`,
+          })),
+        );
+      }),
+    );
+    await renderNewSession();
+
+    await user.type(screen.getByRole("textbox", { name: "Search documents" }), "nghỉ phép");
+    await user.click(screen.getByRole("button", { name: "Search" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Document Sets: All Document Sets" }),
+    );
+
+    expect(await screen.findByRole("menuitemradio", { name: "Set 100" })).toBeInTheDocument();
+    expect(screen.getAllByRole("menuitemradio")).toHaveLength(102);
+  });
+
   it("narrows results to one connector from the Source rail and clears it with the filters", async () => {
     const user = userEvent.setup();
     searchDocumentsMock.mockResolvedValue({

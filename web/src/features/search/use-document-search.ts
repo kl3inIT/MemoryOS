@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getRouteApi } from "@tanstack/react-router";
-import { documentSetOf } from "@/features/document-sets/document-sets-api";
+import { loadDocumentSets } from "@/features/document-sets/document-sets-api";
 import type { DocumentSourceType } from "@/features/documents/document-source-presentation";
 import { useApplicationSession } from "@/features/identity/application-session-context";
-import { listDocumentSetsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { listDocumentSetsQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
 import { searchDocuments } from "@/lib/hey-api/sdk.gen";
 import type { SearchRequest } from "@/lib/hey-api/types.gen";
 import { captureWorkflowFailure } from "@/lib/sentry";
@@ -13,8 +13,6 @@ import { updatedSinceForTimeRange, type SearchTimeRange } from "./search-options
 import { MAX_SEARCH_PAGES, type SearchPageSearch } from "./search-params";
 
 export const PAGE_SIZE = 10;
-/** The most Document Sets the filter offers, which is what one page of the listing may hold. */
-const documentSetLimit = 100;
 const searchRoute = getRouteApi("/_authenticated/search");
 
 /**
@@ -49,9 +47,11 @@ export function useDocumentSearch() {
         : null,
     [search.q, search.type, search.source, search.time, search.set, search.page],
   );
+  // The filter offers every set the member may use. The listing has no name search, so the menu is the complete
+  // list, read page by page under the key Agents reads it with; a change to a set refreshes it by prefix.
   const documentSets = useQuery({
-    ...listDocumentSetsOptions({ query: { offset: 0, limit: documentSetLimit } }),
-    select: (views) => views.map(documentSetOf),
+    queryKey: [...listDocumentSetsQueryKey(), "all"] as const,
+    queryFn: ({ signal }) => loadDocumentSets(signal),
   });
   // The search is a POST read, for which no generated query exists; its key is the request it sends.
   const result = useQuery({
