@@ -159,7 +159,7 @@ function Drawn({ chart }: { chart: SimpleChart }) {
     <>
       <CartesianGrid vertical={false} />
       <XAxis dataKey="x" tickLine={false} axisLine={false} tickMargin={8} minTickGap={16} />
-      <YAxis tickLine={false} axisLine={false} width={56} />
+      <YAxis tickLine={false} axisLine={false} width="auto" />
       <ChartTooltip content={<ChartTooltipContent className="min-w-44" />} />
       {legend}
     </>
