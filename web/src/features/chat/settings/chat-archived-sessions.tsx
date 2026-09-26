@@ -15,7 +15,7 @@ import {
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { Item, ItemActions, ItemContent, ItemDescription } from "@/components/ui/item";
-import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { uiLocale } from "@/i18n/format";

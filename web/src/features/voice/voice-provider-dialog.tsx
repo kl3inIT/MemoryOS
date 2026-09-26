@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
   saveChatVoiceConnection,
@@ -343,13 +343,18 @@ function ChoiceField({
     <div className="grid gap-1.5">
       <Label htmlFor={id}>{label}</Label>
       {choices.length > 0 ? (
-        <Select id={id} value={value} required onChange={(event) => onChange(event.target.value)}>
+        <NativeSelect
+          id={id}
+          value={value}
+          required
+          onChange={(event) => onChange(event.target.value)}
+        >
           {choices.map((choice) => (
             <option key={choice} value={choice}>
               {choice}
             </option>
           ))}
-        </Select>
+        </NativeSelect>
       ) : (
         <>
           <Input

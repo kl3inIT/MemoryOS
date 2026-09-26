@@ -22,7 +22,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Empty, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { IconButton } from "@/components/ui/icon-button";
-import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,

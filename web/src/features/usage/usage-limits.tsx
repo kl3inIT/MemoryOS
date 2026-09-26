@@ -21,7 +21,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/radix-select";
+} from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import {

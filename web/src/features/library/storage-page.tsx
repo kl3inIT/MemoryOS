@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { HardDrive } from "lucide-react";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";

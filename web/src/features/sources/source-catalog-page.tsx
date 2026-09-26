@@ -4,7 +4,7 @@ import { CloudUpload } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import {
   sourceCategories,
   sourceProviders,

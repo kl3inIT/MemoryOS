@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
@@ -214,7 +214,7 @@ export function NewMeetingDialog({
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor={`${id}-language`}>{ui("Ngôn ngữ")}</Label>
-              <Select
+              <NativeSelect
                 id={`${id}-language`}
                 value={language}
                 aria-describedby={`${id}-language-hint`}
@@ -223,7 +223,7 @@ export function NewMeetingDialog({
                 <option value="vi">{ui("Tiếng Việt")}</option>
                 <option value="auto">{ui("Tiếng Việt xen tiếng Anh")}</option>
                 <option value="en">{ui("Tiếng Anh")}</option>
-              </Select>
+              </NativeSelect>
               <p id={`${id}-language-hint`} className="text-xs text-content-muted">
                 {ui("Không đổi được sau khi bắt đầu ghi.")}
               </p>

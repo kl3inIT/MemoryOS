@@ -1,5 +1,12 @@
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 
 /**
  * Why a page or a section has nothing to show, and what to do about it. One shape for an empty list, a resource
@@ -23,15 +30,19 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div role={role} className={cn("flex flex-col items-center py-8 text-center", className)}>
-      {icon && (
-        <span aria-hidden="true" className="mb-3 text-content-muted [&_svg]:size-6">
-          {icon}
-        </span>
-      )}
-      <h2 className="font-heading-h3 text-content-primary">{title}</h2>
-      {detail && <p className="mt-2 max-w-md font-main-ui-body text-content-muted">{detail}</p>}
-      {action && <div className="mt-5">{action}</div>}
-    </div>
+    <Empty role={role} className={className}>
+      <EmptyHeader>
+        {icon && (
+          <EmptyMedia variant="icon" aria-hidden="true">
+            {icon}
+          </EmptyMedia>
+        )}
+        <EmptyTitle asChild>
+          <h2>{title}</h2>
+        </EmptyTitle>
+        {detail && <EmptyDescription>{detail}</EmptyDescription>}
+      </EmptyHeader>
+      {action && <EmptyContent>{action}</EmptyContent>}
+    </Empty>
   );
 }

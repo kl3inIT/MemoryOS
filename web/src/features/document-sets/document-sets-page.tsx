@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ClampedList } from "@/components/ui/clamped-list";
 import { IconButton } from "@/components/ui/icon-button";
-import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { TablePagination } from "@/components/ui/table-pagination";
 import { actionErrorText } from "@/lib/action-errors";
 import {

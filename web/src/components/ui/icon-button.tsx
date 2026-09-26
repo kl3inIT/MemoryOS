@@ -8,6 +8,7 @@ import {
   type ActionProminence,
   type ActionTone,
 } from "@/components/ui/action-styles";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 const iconButtonSizes = cva(
@@ -83,7 +84,7 @@ function IconButton({
       disabled={asChild ? undefined : blocked}
       className={cn(actionVariants({ tone, prominence }), iconButtonSizes({ size }), className)}
     >
-      {renderedChildren}
+      {pending && !asChild ? <Spinner aria-hidden="true" /> : renderedChildren}
     </Comp>
   );
 }

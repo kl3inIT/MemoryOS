@@ -1,35 +1,39 @@
 import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
+
 import { cn } from "@/lib/utils";
-import { ChevronDownIcon } from "lucide-react";
 
-import { selectVariants, type SelectProps } from "@/components/ui/select";
+const nativeSelectVariants = cva(
+  "w-full min-w-0 rounded-lg border border-border-subtle bg-surface-raised px-3 font-main-ui-body text-content-primary outline-none transition-[color,background-color,border-color,box-shadow] duration-150 hover:border-border-default focus-visible:border-focus-ring focus-visible:shadow-[inset_0_0_0_2px_var(--surface-sunken)] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-surface-sunken disabled:text-content-disabled aria-invalid:border-status-danger-border",
+  {
+    variants: {
+      size: {
+        sm: "h-[var(--control-height-sm)]",
+        md: "h-[var(--control-height-md)]",
+        lg: "h-[var(--control-height-lg)]",
+      },
+    },
+    defaultVariants: {
+      size: "md",
+    },
+  },
+);
 
-/** The shadcn native select drawn with the repo's `Select` frame, so both native selects look the same. */
-function NativeSelect({ className, size = "md", ...props }: SelectProps) {
+type NativeSelectProps = Omit<React.ComponentProps<"select">, "size"> &
+  VariantProps<typeof nativeSelectVariants>;
+
+/**
+ * The browser's own select in the control frame. MemoryOS keeps the platform arrow and puts `className` on the
+ * `<select>` itself (the shadcn version wraps it and draws a chevron), so width and density stay with the caller.
+ */
+function NativeSelect({ className, size = "md", ...props }: NativeSelectProps) {
   return (
-    <div
-      className={cn(
-        "group/native-select relative w-fit has-[select:disabled]:opacity-50",
-        className,
-      )}
-      data-slot="native-select-wrapper"
+    <select
+      {...props}
+      data-slot="native-select"
       data-size={size}
-    >
-      <select
-        data-slot="native-select"
-        data-size={size}
-        className={cn(
-          selectVariants({ size }),
-          "appearance-none pr-8 select-none aria-invalid:border-status-danger-border",
-        )}
-        {...props}
-      />
-      <ChevronDownIcon
-        className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-content-muted select-none"
-        aria-hidden="true"
-        data-slot="native-select-icon"
-      />
-    </div>
+      className={cn(nativeSelectVariants({ size }), className)}
+    />
   );
 }
 
@@ -53,4 +57,10 @@ function NativeSelectOptGroup({ className, ...props }: React.ComponentProps<"opt
   );
 }
 
-export { NativeSelect, NativeSelectOptGroup, NativeSelectOption };
+export {
+  NativeSelect,
+  NativeSelectOptGroup,
+  NativeSelectOption,
+  nativeSelectVariants,
+  type NativeSelectProps,
+};

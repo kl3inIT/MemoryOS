@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { BrandLoader } from "@/components/brand-loader";
 import { EmptyState } from "@/components/composites/empty-state";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { NativeSelect } from "@/components/ui/native-select";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { i18n } from "@/i18n";
@@ -139,7 +139,7 @@ export function MeetingsPage() {
                   onChange={(event) => setSearch(event.target.value)}
                 />
               </div>
-              <Select
+              <NativeSelect
                 value={status}
                 aria-label={ui("Trạng thái")}
                 className="w-auto"
@@ -149,8 +149,8 @@ export function MeetingsPage() {
                 <option value="RECORDING">{ui("Chưa kết thúc")}</option>
                 <option value="TRANSCRIBING">{ui("Đang nhận dạng")}</option>
                 <option value="ENDED">{ui("Đã kết thúc")}</option>
-              </Select>
-              <Select
+              </NativeSelect>
+              <NativeSelect
                 value={period}
                 aria-label={ui("Thời gian")}
                 className="w-auto"
@@ -159,7 +159,7 @@ export function MeetingsPage() {
                 <option value="30">{ui("30 ngày qua")}</option>
                 <option value="90">{ui("90 ngày qua")}</option>
                 <option value="all">{ui("Tất cả")}</option>
-              </Select>
+              </NativeSelect>
             </div>
           </>
         )}

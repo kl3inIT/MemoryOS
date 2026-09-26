@@ -1,4 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
+import { Slot } from "radix-ui";
 
 import { cn } from "@/lib/utils";
 
@@ -55,9 +56,15 @@ function EmptyMedia({
   );
 }
 
-function EmptyTitle({ className, ...props }: React.ComponentProps<"div">) {
+/** `asChild` lets a page give the title its heading level. */
+function EmptyTitle({
+  className,
+  asChild = false,
+  ...props
+}: React.ComponentProps<"div"> & { asChild?: boolean }) {
+  const Comp = asChild ? Slot.Root : "div";
   return (
-    <div
+    <Comp
       data-slot="empty-title"
       className={cn("font-heading-h3 text-content-primary", className)}
       {...props}

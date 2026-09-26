@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/field";
 import { HelpPopover } from "@/components/ui/help-popover";
 import { IconButton } from "@/components/ui/icon-button";
-import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { Separator } from "@/components/ui/separator";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { actionErrorText } from "@/lib/action-errors";

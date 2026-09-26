@@ -4,7 +4,7 @@ import { useNavigate, useSearch } from "@tanstack/react-router";
 import { SearchX, User, UserPlus, WifiOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/ui/settings-layout";
+import { PageHeader } from "@/components/composites/settings-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TextButton } from "@/components/ui/text-button";
 import {

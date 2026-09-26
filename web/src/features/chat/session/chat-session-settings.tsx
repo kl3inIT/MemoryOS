@@ -4,7 +4,7 @@ import { useMatch, useNavigate, useParams } from "@tanstack/react-router";
 import { useAui } from "@assistant-ui/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { configureChatSession } from "@/lib/hey-api/sdk.gen";
 import type { ChatSession } from "@/lib/hey-api/types.gen";
@@ -96,7 +96,7 @@ export function ChatSessionSettings({
         >
           <label className="block space-y-1">
             <span>{ui("Trợ lý")}</span>
-            <Select value={personaId} onChange={(e) => setPersona(e.target.value)}>
+            <NativeSelect value={personaId} onChange={(e) => setPersona(e.target.value)}>
               {personas.data?.map((persona) => (
                 <option key={persona.id} value={persona.id}>
                   {persona.name}
@@ -106,11 +106,11 @@ export function ChatSessionSettings({
               {personas.data && !personas.data.some((p) => p.id === personaId) && (
                 <option value={personaId}>{ui("Trợ lý không còn khả dụng")}</option>
               )}
-            </Select>
+            </NativeSelect>
           </label>
           <label className="block space-y-1">
             <span>{ui("Dự án")}</span>
-            <Select value={projectId} onChange={(e) => setProject(e.target.value)}>
+            <NativeSelect value={projectId} onChange={(e) => setProject(e.target.value)}>
               <option value="">{ui("Ngoài dự án")}</option>
               {projects.data?.map((project) => (
                 <option key={project.id} value={project.id}>
@@ -123,7 +123,7 @@ export function ChatSessionSettings({
               {projectId && projects.data && !projects.data.some((p) => p.id === projectId) && (
                 <option value={projectId}>{ui("Dự án không còn khả dụng")}</option>
               )}
-            </Select>
+            </NativeSelect>
           </label>
           {(personas.isError || projects.isError) && (
             <p role="alert">

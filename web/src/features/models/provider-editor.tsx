@@ -5,7 +5,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Switch } from "@/components/ui/switch";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -314,7 +314,7 @@ export function ProviderEditor({
           {(adapters.length > 1 || !adapter) && (
             <label className="block space-y-1">
               {ui("Protocol")}
-              <Select
+              <NativeSelect
                 value={adapterType}
                 disabled={Boolean(baseline)}
                 onChange={(event) => {
@@ -337,7 +337,7 @@ export function ProviderEditor({
                     {entry.type === "openai" ? ui("OpenAI-compatible") : entry.type}
                   </option>
                 ))}
-              </Select>
+              </NativeSelect>
             </label>
           )}
           <label className="block space-y-1">
@@ -405,7 +405,7 @@ export function ProviderEditor({
           />
           <label className="block space-y-1">
             {ui("Credential action")}
-            <Select
+            <NativeSelect
               value={credentialAction}
               onChange={(event) => {
                 setCredentialAction(event.target.value as CredentialAction);
@@ -416,7 +416,7 @@ export function ProviderEditor({
               <option value="KEEP">{ui("Keep existing key")}</option>
               <option value="REPLACE">{ui("Replace key")}</option>
               <option value="REMOVE">{ui("Remove key")}</option>
-            </Select>
+            </NativeSelect>
           </label>
           <label className={credentialAction === "REPLACE" ? "block space-y-1" : "hidden"}>
             {ui("API key")}

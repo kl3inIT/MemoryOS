@@ -4,7 +4,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/radix-select";
+} from "@/components/ui/select";
 
 /** Rows-per-page control shared by every paginated table. */
 export function PageSizeSelect({

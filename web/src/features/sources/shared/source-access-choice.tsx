@@ -5,7 +5,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/radix-select";
+} from "@/components/ui/select";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import { sourceAccessPresentation } from "./source-status-presentation";
 

@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { appText } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { createEmbeddingProvider, updateEmbeddingProvider } from "@/lib/hey-api/sdk.gen";
@@ -213,7 +213,7 @@ export function EmbeddingProviderEditor({
           {initial && (
             <label className="block space-y-1">
               {ui("API key")}
-              <Select
+              <NativeSelect
                 value={keyAction}
                 onChange={(event) => {
                   setKeyAction(event.target.value as KeyAction);
@@ -226,7 +226,7 @@ export function EmbeddingProviderEditor({
                 </option>
                 <option value="REPLACE">{ui("Replace key")}</option>
                 {initial.hasApiKey && <option value="REMOVE">{ui("Remove key")}</option>}
-              </Select>
+              </NativeSelect>
             </label>
           )}
           <label className={keyAction === "REPLACE" ? "block space-y-1" : "hidden"}>

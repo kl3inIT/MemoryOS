@@ -20,7 +20,7 @@ import { EmptyState } from "@/components/composites/empty-state";
 import { StatStrip, StatTile } from "@/components/composites/stat-strip";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { i18n } from "@/i18n";
 import { useAppTranslation } from "@/i18n/use-app-translation";

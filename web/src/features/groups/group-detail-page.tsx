@@ -7,7 +7,7 @@ import { BrandLoader } from "@/components/brand-loader";
 import { DangerZone } from "@/components/composites/danger-zone";
 import { DetailHeader } from "@/components/composites/detail-header";
 import { EmptyState } from "@/components/composites/empty-state";
-import { SettingsLayout } from "@/components/ui/settings-layout";
+import { SettingsLayout } from "@/components/composites/settings-layout";
 import { useMemo, useRef, useState, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";

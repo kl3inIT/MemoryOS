@@ -1,12 +1,9 @@
 import { Users } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-const tones = [
-  "bg-status-info-surface text-status-info-content",
-  "bg-status-success-surface text-status-success-content",
-  "bg-status-warning-surface text-status-warning-content",
-  "bg-surface-sunken text-content-secondary",
-];
+const tones = ["info", "success", "warning", "neutral"] as const;
+
+const avatarSizes = { xs: "xs", sm: "sm", md: "default" } as const;
 
 function initials(name: string) {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -36,27 +33,11 @@ export function PersonAvatar({
   size?: "xs" | "sm" | "md";
   className?: string;
 }) {
-  const box =
-    size === "xs"
-      ? "size-4 text-[0.5rem]"
-      : size === "sm"
-        ? "size-6 text-[0.625rem]"
-        : "size-8 text-xs";
   return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "inline-grid shrink-0 place-items-center rounded-full font-semibold",
-        box,
-        kind === "group" ? "bg-surface-sunken text-content-secondary" : toneFor(seed ?? name),
-        className,
-      )}
-    >
-      {kind === "group" ? (
-        <Users className={size === "md" ? "size-4" : "size-3"} />
-      ) : (
-        initials(name)
-      )}
-    </span>
+    <Avatar aria-hidden="true" size={avatarSizes[size]} className={className}>
+      <AvatarFallback tone={kind === "group" ? "neutral" : toneFor(seed ?? name)}>
+        {kind === "group" ? <Users /> : initials(name)}
+      </AvatarFallback>
+    </Avatar>
   );
 }

@@ -688,14 +688,17 @@ describe("SearchPage", () => {
     await renderNewSession();
 
     await user.click(screen.getByRole("button", { name: "Tenant owner" }));
-    await user.click(screen.getByRole("button", { name: "Sign out" }));
+    await user.click(screen.getByRole("menuitem", { name: "Sign out" }));
 
     expect(fetchMock).toHaveBeenCalledWith("/logout", {
       method: "POST",
       credentials: "same-origin",
       headers: { "X-MemoryOS-CSRF": "1" },
     });
-    expect(screen.getByRole("button", { name: "Signing out…" })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "Signing out…" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
   });
 
   it("keeps the account menu actionable when sign-out fails", async () => {
@@ -704,9 +707,9 @@ describe("SearchPage", () => {
     await renderNewSession();
 
     await user.click(screen.getByRole("button", { name: "Tenant owner" }));
-    await user.click(screen.getByRole("button", { name: "Sign out" }));
+    await user.click(screen.getByRole("menuitem", { name: "Sign out" }));
 
     expect(await screen.findByRole("alert")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Sign out" })).toBeEnabled();
+    expect(screen.getByRole("menuitem", { name: "Sign out" })).not.toHaveAttribute("aria-disabled");
   });
 });

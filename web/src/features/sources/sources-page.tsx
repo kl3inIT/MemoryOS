@@ -24,8 +24,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/radix-select";
-import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+} from "@/components/ui/select";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import {
   Table,
   TableBody,

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Activity, ChartColumn, CircleDollarSign, Gauge, Layers } from "lucide-react";
 import { StatStrip, StatTile } from "@/components/composites/stat-strip";
-import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ModelLogo } from "@/features/models/model-logo";

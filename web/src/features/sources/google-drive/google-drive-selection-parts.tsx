@@ -15,7 +15,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/radix-select";
+} from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type {
   GetGoogleDriveConfigurationResponse,

@@ -2,7 +2,6 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Globe, Lock, Users, type LucideIcon } from "lucide-react";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { SourceHint } from "@/features/sources/shared/source-hint";
-import { statusPill } from "@/features/sources/shared/source-status-presentation";
 import type { DocumentSet } from "@/features/document-sets/document-sets-api";
 
 type AccessPresentation = { label: string; title: string; tone: StatusTone; icon: LucideIcon };
@@ -44,8 +43,8 @@ export function DocumentSetAccessBadge({ set }: { set: DocumentSet }) {
   return (
     <SourceHint hint={ui(presentation.title)}>
       <span className="inline-flex">
-        <StatusBadge tone={presentation.tone} className={statusPill(presentation.tone)}>
-          <AccessIcon className="size-3 shrink-0" aria-hidden="true" />
+        <StatusBadge tone={presentation.tone} variant="pill">
+          <AccessIcon aria-hidden="true" />
           {ui(presentation.label)}
         </StatusBadge>
       </span>

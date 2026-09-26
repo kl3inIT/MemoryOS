@@ -1,8 +1,15 @@
-import { Dialog } from "radix-ui";
 import { X } from "lucide-react";
 import { useRef, type ReactNode } from "react";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { IconButton } from "@/components/ui/icon-button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export function CatalogDialog({
   title,
@@ -18,43 +25,40 @@ export function CatalogDialog({
   const ui = useAppTranslation();
   const content = useRef<HTMLDivElement>(null);
   return (
-    <Dialog.Root
+    <Dialog
       open
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
     >
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px]" />
-        <Dialog.Content
-          ref={content}
-          onOpenAutoFocus={(event) => {
-            const field = content.current?.querySelector<HTMLInputElement>("input:not([disabled])");
-            if (field) {
-              event.preventDefault();
-              field.focus();
-            }
-          }}
-          className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[min(44rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border-subtle bg-surface-overlay p-6 shadow-md outline-none"
-        >
-          <div className="flex items-start justify-between gap-4">
-            <Dialog.Title className="font-heading-h3 text-content-primary">{title}</Dialog.Title>
-            <Dialog.Close asChild>
-              <IconButton prominence="tertiary" size="sm" aria-label={ui("Close editor")}>
-                <X />
-              </IconButton>
-            </Dialog.Close>
-          </div>
+      <DialogContent
+        ref={content}
+        showCloseButton={false}
+        className="sm:max-w-2xl"
+        onOpenAutoFocus={(event) => {
+          const field = content.current?.querySelector<HTMLInputElement>("input:not([disabled])");
+          if (field) {
+            event.preventDefault();
+            field.focus();
+          }
+        }}
+      >
+        {/* The editor's own close, named for what it closes: an editor body often has its own Close. */}
+        <DialogClose asChild>
+          <IconButton size="sm" aria-label={ui("Close editor")} className="absolute top-4 right-4">
+            <X />
+          </IconButton>
+        </DialogClose>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
           {description === undefined ? (
-            <Dialog.Description className="sr-only">{title}</Dialog.Description>
+            <DialogDescription className="sr-only">{title}</DialogDescription>
           ) : (
-            <Dialog.Description className="mt-2 font-main-ui-body text-content-muted">
-              {description}
-            </Dialog.Description>
+            <DialogDescription>{description}</DialogDescription>
           )}
-          <div className="mt-6">{children}</div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+        </DialogHeader>
+        <div>{children}</div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -6,7 +6,7 @@ import { Blocks, MoreHorizontal, Pencil, Plus, RefreshCw, Trash2 } from "lucide-
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
-import { PageHeader, SettingsLayout } from "@/components/ui/settings-layout";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Switch } from "@/components/ui/switch";
 import { useAppTranslation } from "@/i18n/use-app-translation";

@@ -3,8 +3,8 @@ import { useRef, useState, type ReactNode } from "react";
 import { UserRound } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
-import { Select } from "@/components/ui/select";
+import { SettingsLayout, PageHeader } from "@/components/composites/settings-layout";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { useApplicationSession } from "./application-session-context";
 import { getCurrentIdentityQueryKey } from "@/lib/hey-api/@tanstack/react-query.gen";
@@ -96,7 +96,7 @@ export function GeneralSettingsPage({ dangerZone }: { dangerZone?: ReactNode }) 
         <p id="ui-language-description" className="text-content-muted">
           {t("settings:languageDescription")}
         </p>
-        <Select
+        <NativeSelect
           id="ui-language"
           aria-describedby="ui-language-description"
           className="max-w-xs"
@@ -114,7 +114,7 @@ export function GeneralSettingsPage({ dangerZone }: { dangerZone?: ReactNode }) 
           <option value="en" lang="en">
             {ui("English")}
           </option>
-        </Select>
+        </NativeSelect>
         <p className="text-content-muted">{t("settings:replyHint")}</p>
         <div aria-live="polite">
           {mutation.isPending

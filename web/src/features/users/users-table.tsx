@@ -5,7 +5,7 @@ import type { ErrorMessage } from "@/lib/problem-presentation";
 import { ArrowDown, ArrowUp, ArrowUpDown, LoaderCircle, User } from "lucide-react";
 import { Fragment, useRef, useState, type RefObject } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { TablePagination } from "@/components/ui/table-pagination";
 import {
@@ -250,7 +250,7 @@ export function UsersTable({
       >
         <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
           {ui("Rows")}
-          <Select
+          <NativeSelect
             aria-label={ui("Rows per page")}
             value={size}
             size="sm"
@@ -260,7 +260,7 @@ export function UsersTable({
             <option value={20}>20</option>
             <option value={50}>50</option>
             <option value={100}>100</option>
-          </Select>
+          </NativeSelect>
         </label>
       </TablePagination>
 

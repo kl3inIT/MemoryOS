@@ -4,7 +4,7 @@ import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Cpu, Globe, MessagesSquare, Settings2, Telescope } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { Switch } from "@/components/ui/switch";
-import { SettingsLayout, PageHeader } from "@/components/ui/settings-layout";
+import { SettingsLayout, PageHeader } from "@/components/composites/settings-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";

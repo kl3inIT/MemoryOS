@@ -12,7 +12,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { LazyPdfView } from "@/features/preview/lazy-pdf-view";
 import { PreviewCanvas, PreviewSkeleton } from "@/features/preview/preview-surface";
 import { useAppTranslation } from "@/i18n/use-app-translation";
@@ -319,13 +319,13 @@ function MinutesEditor({
             </Collapsible>
             <Section title={ui("Trình bày")}>
               <Field label={ui("Phông chữ")} htmlFor={`${id}-font`}>
-                <Select {...field("font")}>
+                <NativeSelect {...field("font")}>
                   {TYPEFACES.map((font) => (
                     <option key={font} value={font}>
                       {font}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
               </Field>
             </Section>
           </div>
