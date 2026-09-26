@@ -54,11 +54,9 @@ export function ChatMcpServers({
 }) {
   const ui = useAppTranslation();
   const connections = useMcpConnections();
-  const list = {
-    data: connections.data?.filter(
-      (connection) => !allowedIds || allowedIds.includes(connection.id),
-    ),
-  };
+  const usable = connections.data?.filter(
+    (connection) => !allowedIds || allowedIds.includes(connection.id),
+  );
   const [apiKeyFor, setApiKeyFor] = useState<McpConnection | null>(null);
 
   return (
@@ -70,16 +68,16 @@ export function ChatMcpServers({
         className="self-start"
         onClick={onBack}
       >
-        <ArrowLeft className="size-4" aria-hidden="true" />
+        <ArrowLeft data-icon="inline-start" aria-hidden="true" />
         {ui("Công cụ MCP")}
       </Button>
-      {list.data && list.data.length === 0 ? (
+      {usable?.length === 0 ? (
         <p className="px-2 py-1 font-secondary-body text-content-muted">
           {ui("Chưa có máy chủ MCP nào dành cho bạn.")}
         </p>
       ) : null}
       <ul className="flex flex-col">
-        {(list.data ?? []).map((connection) => {
+        {(usable ?? []).map((connection) => {
           const status = connectionStatus(connection.connectionState);
           const actionable = needsUserAction(connection);
           return (
