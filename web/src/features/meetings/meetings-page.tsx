@@ -6,22 +6,16 @@ import { AppShellHeader } from "@/components/app-shell/app-shell-header";
 import { Button } from "@/components/ui/button";
 import { BrandLoader } from "@/components/brand-loader";
 import { EmptyState } from "@/components/composites/empty-state";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { NativeSelect } from "@/components/ui/native-select";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { useApplicationSession } from "@/features/identity/application-session-context";
 import { i18n } from "@/i18n";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { presentProblem } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
-import {
-  formatClock,
-  formatWhen,
-  loadMeetings,
-  meetingListKey,
-  type MeetingSummary,
-} from "./meetings-api";
+import { listMeetingsOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { formatClock, formatWhen, type MeetingSummary } from "./meetings-api";
 import { useActiveMeeting } from "./meeting-session";
 import { NewMeetingDialog } from "./new-meeting-dialog";
 import { UploadRecordingDialog } from "./upload-recording-dialog";
@@ -63,7 +57,6 @@ function matchingMeetings(
 export function MeetingsPage() {
   const ui = useAppTranslation();
   const problemMessage = useProblemMessage();
-  const { actorId, authorizationVersion } = useApplicationSession();
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
@@ -71,10 +64,7 @@ export function MeetingsPage() {
   const [period, setPeriod] = useState<"30" | "90" | "all">("30");
   const query = useDeferredValue(search.trim().toLocaleLowerCase("vi"));
   const live = useActiveMeeting();
-  const meetings = useQuery({
-    queryKey: [...meetingListKey, actorId, authorizationVersion],
-    queryFn: ({ signal }) => loadMeetings(signal),
-  });
+  const meetings = useQuery(listMeetingsOptions());
   const groupTitle = { today: ui("Hôm nay"), week: ui("7 ngày qua"), earlier: ui("Trước đó") };
   const all = meetings.data;
   /** The list is small and already owner-private, so it filters in the browser. */
@@ -124,44 +114,40 @@ export function MeetingsPage() {
             }
           />
         ) : (
-          <>
-            <div className="flex flex-wrap gap-2">
-              <div className="relative min-w-0 flex-1 sm:max-w-80">
-                <Search
-                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
-                  aria-hidden="true"
-                />
-                <Input
-                  value={search}
-                  className="pl-9"
-                  placeholder={ui("Tìm theo tên cuộc họp")}
-                  aria-label={ui("Tìm theo tên cuộc họp")}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
-              </div>
-              <NativeSelect
-                value={status}
-                aria-label={ui("Trạng thái")}
-                className="w-auto"
-                onChange={(event) => setStatus(event.target.value as typeof status)}
-              >
-                <option value="all">{ui("Mọi trạng thái")}</option>
-                <option value="RECORDING">{ui("Chưa kết thúc")}</option>
-                <option value="TRANSCRIBING">{ui("Đang nhận dạng")}</option>
-                <option value="ENDED">{ui("Đã kết thúc")}</option>
-              </NativeSelect>
-              <NativeSelect
-                value={period}
-                aria-label={ui("Thời gian")}
-                className="w-auto"
-                onChange={(event) => setPeriod(event.target.value as typeof period)}
-              >
-                <option value="30">{ui("30 ngày qua")}</option>
-                <option value="90">{ui("90 ngày qua")}</option>
-                <option value="all">{ui("Tất cả")}</option>
-              </NativeSelect>
-            </div>
-          </>
+          <div className="flex flex-wrap gap-2">
+            <InputGroup className="min-w-0 flex-1 sm:max-w-80">
+              <InputGroupAddon>
+                <Search aria-hidden="true" />
+              </InputGroupAddon>
+              <InputGroupInput
+                value={search}
+                placeholder={ui("Tìm theo tên cuộc họp")}
+                aria-label={ui("Tìm theo tên cuộc họp")}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </InputGroup>
+            <NativeSelect
+              value={status}
+              aria-label={ui("Trạng thái")}
+              className="w-auto"
+              onChange={(event) => setStatus(event.target.value as typeof status)}
+            >
+              <option value="all">{ui("Mọi trạng thái")}</option>
+              <option value="RECORDING">{ui("Chưa kết thúc")}</option>
+              <option value="TRANSCRIBING">{ui("Đang nhận dạng")}</option>
+              <option value="ENDED">{ui("Đã kết thúc")}</option>
+            </NativeSelect>
+            <NativeSelect
+              value={period}
+              aria-label={ui("Thời gian")}
+              className="w-auto"
+              onChange={(event) => setPeriod(event.target.value as typeof period)}
+            >
+              <option value="30">{ui("30 ngày qua")}</option>
+              <option value="90">{ui("90 ngày qua")}</option>
+              <option value="all">{ui("Tất cả")}</option>
+            </NativeSelect>
+          </div>
         )}
         {meetings.isPending || meetings.isError ? null : !all || all.length === 0 ? (
           <EmptyState

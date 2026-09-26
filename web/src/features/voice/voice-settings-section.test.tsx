@@ -1,23 +1,18 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
-import type * as Sdk from "@/lib/hey-api/sdk.gen";
+import {
+  handleGetChatVoiceAvailability,
+  handleGetChatVoiceSettings,
+  handleUpdateChatVoiceSettings,
+} from "@/lib/hey-api/msw.gen";
 import type { VoiceSettingsRequest } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { VoiceSettingsSection } from "./voice-settings-section";
-
-const api = vi.hoisted(() => ({
-  getChatVoiceAvailability: vi.fn(),
-  getChatVoiceSettings: vi.fn(),
-  updateChatVoiceSettings: vi.fn(),
-}));
-
-vi.mock("@/lib/hey-api/sdk.gen", async (importOriginal) => ({
-  ...(await importOriginal<typeof Sdk>()),
-  ...api,
-}));
 
 const member: ApplicationSession = {
   actorId: "3b8c5f2e-6a8d-4b1f-9a51-2f1c8e0d7a64",
@@ -39,11 +34,18 @@ function mount() {
 }
 
 function available(sttAvailable: boolean, ttsAvailable: boolean) {
-  api.getChatVoiceAvailability.mockResolvedValue({ data: { sttAvailable, ttsAvailable } });
+  server.use(handleGetChatVoiceAvailability({ body: { sttAvailable, ttsAvailable } }));
 }
 
+/** The changes the section saved, and whether it read the member's settings at all. */
+let updates: VoiceSettingsRequest[];
+const readSettings = vi.fn(() =>
+  HttpResponse.json({ autoSend: false, autoPlayback: false, playbackSpeed: 1 }),
+);
+
 beforeEach(() => {
-  vi.clearAllMocks();
+  updates = [];
+  readSettings.mockClear();
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -52,12 +54,12 @@ beforeEach(() => {
       disconnect() {}
     },
   );
-  api.getChatVoiceSettings.mockResolvedValue({
-    data: { autoSend: false, autoPlayback: false, playbackSpeed: 1 },
-  });
-  api.updateChatVoiceSettings.mockImplementation(
-    async ({ body }: { body: VoiceSettingsRequest }) => ({
-      data: { autoSend: false, autoPlayback: false, playbackSpeed: 1, ...body },
+  server.use(
+    handleGetChatVoiceSettings(readSettings),
+    handleUpdateChatVoiceSettings(async ({ request }) => {
+      const body = await request.json();
+      updates.push(body);
+      return HttpResponse.json({ autoSend: false, autoPlayback: false, playbackSpeed: 1, ...body });
     }),
   );
 });
@@ -77,8 +79,7 @@ describe("voice settings", () => {
 
     speed.focus();
     await user.keyboard("{ArrowRight}");
-    await waitFor(() => expect(api.updateChatVoiceSettings).toHaveBeenCalledOnce());
-    expect(api.updateChatVoiceSettings.mock.calls[0][0].body).toEqual({ playbackSpeed: 1.1 });
+    await waitFor(() => expect(updates).toEqual([{ playbackSpeed: 1.1 }]));
     expect(await screen.findByText("1.1×")).toBeVisible();
   });
 
@@ -91,15 +92,17 @@ describe("voice settings", () => {
     expect(screen.queryByRole("slider", { name: "Reading speed" })).not.toBeInTheDocument();
     await waitFor(() => expect(autoSend).toBeEnabled());
     await user.click(autoSend);
-    await waitFor(() => expect(api.updateChatVoiceSettings).toHaveBeenCalledOnce());
-    expect(api.updateChatVoiceSettings.mock.calls[0][0].body).toEqual({ autoSend: true });
+    await waitFor(() => expect(updates).toEqual([{ autoSend: true }]));
   });
 
   it("stays hidden and reads no settings while the Tenant has no voice provider", async () => {
-    available(false, false);
+    const availability = vi.fn(() =>
+      HttpResponse.json({ sttAvailable: false, ttsAvailable: false }),
+    );
+    server.use(handleGetChatVoiceAvailability(availability));
     mount();
-    await waitFor(() => expect(api.getChatVoiceAvailability).toHaveBeenCalled());
+    await waitFor(() => expect(availability).toHaveBeenCalled());
     expect(screen.queryByRole("heading", { name: "Voice" })).not.toBeInTheDocument();
-    expect(api.getChatVoiceSettings).not.toHaveBeenCalled();
+    expect(readSettings).not.toHaveBeenCalled();
   });
 });

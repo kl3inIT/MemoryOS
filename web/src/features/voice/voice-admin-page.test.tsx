@@ -1,27 +1,24 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { HttpResponse } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApplicationSession } from "@/features/identity/application-session-context";
 import { ApplicationSessionProvider } from "@/features/identity/application-session-provider";
-import { ApiError } from "@/lib/api";
-import type * as Sdk from "@/lib/hey-api/sdk.gen";
-import type { VoiceConnectionResponse, VoiceProviderResponse } from "@/lib/hey-api/types.gen";
+import {
+  handleDeleteChatVoiceConnection,
+  handleListChatVoiceConnections,
+  handleListChatVoiceProviders,
+  handleSaveChatVoiceConnection,
+  handleSelectChatVoiceProvider,
+} from "@/lib/hey-api/msw.gen";
+import type {
+  VoiceConnectionRequest,
+  VoiceConnectionResponse,
+  VoiceProviderResponse,
+} from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 import { VoiceAdminPage } from "./voice-admin-page";
-
-const api = vi.hoisted(() => ({
-  listChatVoiceProviders: vi.fn(),
-  listChatVoiceConnections: vi.fn(),
-  saveChatVoiceConnection: vi.fn(),
-  selectChatVoiceProvider: vi.fn(),
-  deleteChatVoiceConnection: vi.fn(),
-  testChatVoiceConnection: vi.fn(),
-}));
-
-vi.mock("@/lib/hey-api/sdk.gen", async (importOriginal) => ({
-  ...(await importOriginal<typeof Sdk>()),
-  ...api,
-}));
 
 const manager: ApplicationSession = {
   actorId: "5d0c6c57-4a3f-4d0e-9d62-0b7d0f8c1f11",
@@ -99,17 +96,38 @@ function row(section: string, provider: string) {
   );
 }
 
+/** What each change sent: the saved connections, the chosen defaults and the removed rows. */
+let sent: {
+  saved: { provider: string; body: VoiceConnectionRequest }[];
+  selected: unknown[];
+  deleted: { provider: string; revision: string | null }[];
+};
+
 beforeEach(() => {
-  vi.clearAllMocks();
-  api.listChatVoiceProviders.mockResolvedValue({ data: providers });
-  api.selectChatVoiceProvider.mockResolvedValue({ data: undefined });
-  api.deleteChatVoiceConnection.mockResolvedValue({ data: undefined });
-  api.testChatVoiceConnection.mockResolvedValue({ data: undefined });
+  sent = { saved: [], selected: [], deleted: [] };
+  server.use(
+    handleListChatVoiceProviders({ body: providers }),
+    handleSelectChatVoiceProvider(async ({ request }) => {
+      sent.selected.push(await request.json());
+      return new HttpResponse(null, { status: 204 });
+    }),
+    handleDeleteChatVoiceConnection(({ params, request }) => {
+      sent.deleted.push({
+        provider: params.provider,
+        revision: new URL(request.url).searchParams.get("revision"),
+      });
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
 });
+
+function connections(list: () => VoiceConnectionResponse[]) {
+  server.use(handleListChatVoiceConnections(() => HttpResponse.json(list())));
+}
 
 describe("Voice administration", () => {
   it("offers a speech-to-text-only provider for recognition but not for reading aloud", async () => {
-    api.listChatVoiceConnections.mockResolvedValue({ data: [] });
+    connections(() => []);
     mount();
 
     await screen.findByRole("region", { name: "Speech to text" });
@@ -125,18 +143,21 @@ describe("Voice administration", () => {
 
   it("connects the first provider as the default only through the verifying save", async () => {
     let saved: VoiceConnectionResponse[] = [];
-    api.listChatVoiceConnections.mockImplementation(async () => ({ data: saved }));
-    api.saveChatVoiceConnection.mockImplementation(async () => {
-      saved = [
-        connection({
-          provider: "OPENAI",
-          sttModel: "whisper-1",
-          credentialConfigured: true,
-          sttActive: true,
-        }),
-      ];
-      return { data: saved[0] };
-    });
+    connections(() => saved);
+    server.use(
+      handleSaveChatVoiceConnection(async ({ params, request }) => {
+        sent.saved.push({ provider: params.provider, body: await request.json() });
+        saved = [
+          connection({
+            provider: "OPENAI",
+            sttModel: "whisper-1",
+            credentialConfigured: true,
+            sttActive: true,
+          }),
+        ];
+        return HttpResponse.json(saved[0]);
+      }),
+    );
     const user = userEvent.setup();
     mount();
 
@@ -149,12 +170,12 @@ describe("Voice administration", () => {
     const dialog = await screen.findByRole("dialog", { name: "Connect OpenAI" });
     expect(within(dialog).getByLabelText("Transcription model")).toHaveValue("whisper-1");
     await user.type(within(dialog).getByLabelText("API key"), "synthetic-key");
-    await user.click(within(dialog).getByRole("button", { name: "Connect" }));
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(api.saveChatVoiceConnection).toHaveBeenCalledOnce();
-    expect(api.saveChatVoiceConnection.mock.calls[0][0]).toMatchObject({
-      path: { provider: "OPENAI" },
+    expect(sent.saved).toHaveLength(1);
+    expect(sent.saved[0]).toMatchObject({
+      provider: "OPENAI",
       body: {
         endpoint: "",
         sttModel: "whisper-1",
@@ -166,28 +187,26 @@ describe("Voice administration", () => {
         revision: 0,
       },
     });
-    expect(api.selectChatVoiceProvider).not.toHaveBeenCalled();
+    expect(sent.selected).toEqual([]);
     expect(await row("Speech to text", "OpenAI").findByText("Active")).toBeVisible();
     expect(row("Text to speech", "OpenAI").getByText("Needs setup")).toBeVisible();
   });
 
   it("switches the default and disconnects only after confirmation", async () => {
-    api.listChatVoiceConnections.mockResolvedValue({
-      data: [
-        connection({
-          provider: "OPENAI",
-          sttModel: "whisper-1",
-          credentialConfigured: true,
-          sttActive: true,
-          revision: 3,
-        }),
-        connection({
-          provider: "OPENAI_COMPATIBLE",
-          endpoint: "http://speaches.internal:8000/v1",
-          sttModel: "Systran/faster-whisper-small",
-        }),
-      ],
-    });
+    connections(() => [
+      connection({
+        provider: "OPENAI",
+        sttModel: "whisper-1",
+        credentialConfigured: true,
+        sttActive: true,
+        revision: 3,
+      }),
+      connection({
+        provider: "OPENAI_COMPATIBLE",
+        endpoint: "http://speaches.internal:8000/v1",
+        sttModel: "Systran/faster-whisper-small",
+      }),
+    ]);
     const user = userEvent.setup();
     mount();
 
@@ -198,28 +217,28 @@ describe("Voice administration", () => {
     ).toBeVisible();
     await user.click(compatible.getByRole("button", { name: "Set as Default" }));
     await waitFor(() =>
-      expect(api.selectChatVoiceProvider).toHaveBeenCalledWith(
-        expect.objectContaining({ body: { function: "STT", provider: "OPENAI_COMPATIBLE" } }),
-      ),
+      expect(sent.selected).toEqual([{ function: "STT", provider: "OPENAI_COMPATIBLE" }]),
     );
 
     await user.click(
       row("Speech to text", "OpenAI").getByRole("button", { name: "Disconnect OpenAI" }),
     );
     const confirm = await screen.findByRole("alertdialog", { name: "Disconnect OpenAI?" });
-    expect(api.deleteChatVoiceConnection).not.toHaveBeenCalled();
+    expect(sent.deleted).toEqual([]);
     await user.click(within(confirm).getByRole("button", { name: "Disconnect" }));
-    await waitFor(() =>
-      expect(api.deleteChatVoiceConnection).toHaveBeenCalledWith(
-        expect.objectContaining({ path: { provider: "OPENAI" }, query: { revision: 3 } }),
-      ),
-    );
+    await waitFor(() => expect(sent.deleted).toEqual([{ provider: "OPENAI", revision: "3" }]));
   });
 
   it("keeps the dialog open with coded copy when the provider rejects the key", async () => {
-    api.listChatVoiceConnections.mockResolvedValue({ data: [] });
-    api.saveChatVoiceConnection.mockRejectedValue(
-      new ApiError(503, { code: "CHAT_PROVIDER_UNAVAILABLE", detail: "upstream rejected key-123" }),
+    connections(() => []);
+    server.use(
+      handleSaveChatVoiceConnection(async ({ params, request }) => {
+        sent.saved.push({ provider: params.provider, body: await request.json() });
+        return HttpResponse.json(
+          { status: 503, code: "CHAT_PROVIDER_UNAVAILABLE", detail: "upstream rejected key-123" },
+          { status: 503 },
+        );
+      }),
     );
     const user = userEvent.setup();
     mount();
@@ -230,13 +249,13 @@ describe("Voice administration", () => {
     expect(within(dialog).getByLabelText("Speech model")).toHaveValue("tts-1");
     expect(within(dialog).getByLabelText("Voice")).toHaveValue("alloy");
     await user.type(within(dialog).getByLabelText("API key"), "synthetic-key");
-    await user.click(within(dialog).getByRole("button", { name: "Connect" }));
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
 
     expect(await within(dialog).findByRole("alert")).toHaveTextContent(
       "The voice provider could not be reached or rejected the key. Check the address, key and model, then try again.",
     );
     expect(dialog).not.toHaveTextContent("key-123");
-    expect(api.saveChatVoiceConnection.mock.calls[0][0].body).toMatchObject({
+    expect(sent.saved[0]?.body).toMatchObject({
       sttModel: "",
       ttsModel: "tts-1",
       ttsVoice: "alloy",
@@ -245,9 +264,10 @@ describe("Voice administration", () => {
   });
 
   it("does not read voice configuration without model management authority", () => {
+    const read = vi.fn(() => HttpResponse.json([]));
+    server.use(handleListChatVoiceProviders(read), handleListChatVoiceConnections(read));
     mount({ ...manager, capabilities: [] });
     expect(screen.getByRole("alert")).toBeVisible();
-    expect(api.listChatVoiceProviders).not.toHaveBeenCalled();
-    expect(api.listChatVoiceConnections).not.toHaveBeenCalled();
+    expect(read).not.toHaveBeenCalled();
   });
 });

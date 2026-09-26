@@ -1,13 +1,15 @@
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import {
-  correctionsKey,
+  listMeetingsQueryKey,
+  listMeetingTranscribersQueryKey,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import {
+  correctionsQueryKey,
   foldCorrection,
   invalidateMeetingList,
-  meetingKey,
-  meetingListKey,
+  meetingQueryKey,
   patchMeeting,
-  transcribersKey,
   withAddedMinutesItem,
   withMinutesItem,
   withoutMinutesItem,
@@ -15,22 +17,22 @@ import {
   type MeetingCorrection,
   type MeetingDetail,
   type MeetingMinutesItem,
-  type MeetingUtterance,
 } from "./meetings-api";
+import type { MeetingUtterance } from "@/lib/hey-api/types.gen";
 
 describe("invalidateMeetingList", () => {
-  it("marks the actor-scoped list stale without touching a meeting or the transcribers", async () => {
+  it("marks the list stale without touching a meeting or the transcribers", async () => {
     const cache = new QueryClient();
-    const list = [...meetingListKey, "actor-1", 3];
+    const list = listMeetingsQueryKey();
     cache.setQueryData(list, []);
-    cache.setQueryData(meetingKey("meeting-1"), { id: "meeting-1" });
-    cache.setQueryData(transcribersKey, []);
+    cache.setQueryData(meetingQueryKey("meeting-1"), { id: "meeting-1" });
+    cache.setQueryData(listMeetingTranscribersQueryKey(), []);
 
     await invalidateMeetingList(cache);
 
     expect(cache.getQueryState(list)?.isInvalidated).toBe(true);
-    expect(cache.getQueryState(meetingKey("meeting-1"))?.isInvalidated).toBe(false);
-    expect(cache.getQueryState(transcribersKey)?.isInvalidated).toBe(false);
+    expect(cache.getQueryState(meetingQueryKey("meeting-1"))?.isInvalidated).toBe(false);
+    expect(cache.getQueryState(listMeetingTranscribersQueryKey())?.isInvalidated).toBe(false);
   });
 });
 
@@ -103,7 +105,7 @@ describe("patching the cached meeting", () => {
   it("folds a change into a cached meeting and keeps the transcript it already had", () => {
     const cache = new QueryClient();
     const cached = meeting();
-    cache.setQueryData(meetingKey(cached.id), cached);
+    cache.setQueryData(meetingQueryKey(cached.id), cached);
 
     patchMeeting(cache, cached.id, (current) => ({
       ...current,
@@ -111,7 +113,7 @@ describe("patching the cached meeting", () => {
       revision: 5,
     }));
 
-    const patched = cache.getQueryData<MeetingDetail>(meetingKey(cached.id));
+    const patched = cache.getQueryData<MeetingDetail>(meetingQueryKey(cached.id));
     expect(patched?.notes).toBe("Hỏi hạn mức");
     expect(patched?.revision).toBe(5);
     expect(patched?.utterances).toBe(cached.utterances);
@@ -122,7 +124,7 @@ describe("patching the cached meeting", () => {
 
     patchMeeting(cache, "meeting-2", (current) => ({ ...current, starred: ["u1"] }));
 
-    expect(cache.getQueryData(meetingKey("meeting-2"))).toBeUndefined();
+    expect(cache.getQueryData(meetingQueryKey("meeting-2"))).toBeUndefined();
   });
 
   it("replaces one speaker by track and label", () => {
@@ -207,47 +209,47 @@ describe("folding one correction", () => {
   it("replaces the one line it rewrote and the proposal, and reads neither again", () => {
     const cache = new QueryClient();
     const cached = meeting();
-    cache.setQueryData(meetingKey(cached.id), cached);
-    cache.setQueryData(correctionsKey(cached.id), [correction("c1"), correction("c2")]);
+    cache.setQueryData(meetingQueryKey(cached.id), cached);
+    cache.setQueryData(correctionsQueryKey(cached.id), [correction("c1"), correction("c2")]);
 
     foldCorrection(cache, cached.id, {
       utterance: rewritten,
       correction: correction("c1", { status: "ACCEPTED" }),
     });
 
-    const patched = cache.getQueryData<MeetingDetail>(meetingKey(cached.id));
+    const patched = cache.getQueryData<MeetingDetail>(meetingQueryKey(cached.id));
     expect(patched?.utterances).toEqual([rewritten]);
     expect(patched?.speakers).toBe(cached.speakers);
     expect(
       cache
-        .getQueryData<MeetingCorrection[]>(correctionsKey(cached.id))
+        .getQueryData<MeetingCorrection[]>(correctionsQueryKey(cached.id))
         ?.map((item) => [item.id, item.status]),
     ).toEqual([
       ["c1", "ACCEPTED"],
       ["c2", "PENDING"],
     ]);
-    expect(cache.getQueryState(correctionsKey(cached.id))?.isInvalidated).toBe(false);
+    expect(cache.getQueryState(correctionsQueryKey(cached.id))?.isInvalidated).toBe(false);
   });
 
   it("leaves the transcript alone when a proposal is declined", () => {
     const cache = new QueryClient();
     const cached = meeting();
-    cache.setQueryData(meetingKey(cached.id), cached);
-    cache.setQueryData(correctionsKey(cached.id), [correction("c1")]);
+    cache.setQueryData(meetingQueryKey(cached.id), cached);
+    cache.setQueryData(correctionsQueryKey(cached.id), [correction("c1")]);
 
     foldCorrection(cache, cached.id, correction("c1", { status: "KEPT" }));
 
-    expect(cache.getQueryData(meetingKey(cached.id))).toBe(cached);
-    expect(cache.getQueryData<MeetingCorrection[]>(correctionsKey(cached.id))?.[0]?.status).toBe(
-      "KEPT",
-    );
+    expect(cache.getQueryData(meetingQueryKey(cached.id))).toBe(cached);
+    expect(
+      cache.getQueryData<MeetingCorrection[]>(correctionsQueryKey(cached.id))?.[0]?.status,
+    ).toBe("KEPT");
   });
 
   it("puts a word written by hand after the corrections already made", () => {
     const cache = new QueryClient();
     const cached = meeting();
-    cache.setQueryData(meetingKey(cached.id), cached);
-    cache.setQueryData(correctionsKey(cached.id), [correction("c1")]);
+    cache.setQueryData(meetingQueryKey(cached.id), cached);
+    cache.setQueryData(correctionsQueryKey(cached.id), [correction("c1")]);
 
     foldCorrection(cache, cached.id, {
       utterance: rewritten,
@@ -255,7 +257,9 @@ describe("folding one correction", () => {
     });
 
     expect(
-      cache.getQueryData<MeetingCorrection[]>(correctionsKey(cached.id))?.map((item) => item.id),
+      cache
+        .getQueryData<MeetingCorrection[]>(correctionsQueryKey(cached.id))
+        ?.map((item) => item.id),
     ).toEqual(["c1", "c9"]);
   });
 
@@ -264,6 +268,6 @@ describe("folding one correction", () => {
 
     foldCorrection(cache, "meeting-2", correction("c1", { status: "KEPT" }));
 
-    expect(cache.getQueryData(correctionsKey("meeting-2"))).toBeUndefined();
+    expect(cache.getQueryData(correctionsQueryKey("meeting-2"))).toBeUndefined();
   });
 });

@@ -1,33 +1,44 @@
 import { useState, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useAppForm, useProblemErrors } from "@/components/form/app-form";
+import { hoverReveal } from "@/components/composites/hover-reveal";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { presentProblem } from "@/lib/problem-presentation";
-import { useProblemMessage } from "@/lib/use-problem-message";
 import {
-  addMinutesItem,
-  editMinutesItem,
-  editMinutesSummary,
+  addMeetingMinutesItemMutation,
+  editMeetingMinutesItemMutation,
+  editMeetingMinutesSummaryMutation,
+  removeMeetingMinutesItemMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import { cn } from "@/lib/utils";
+import { InputField, TextareaField } from "./meeting-form-fields";
+import {
   patchMeeting,
-  removeMinutesItem,
   withAddedMinutesItem,
   withMinutesItem,
   withoutMinutesItem,
   type MeetingDetail,
   type MeetingMinutesItem,
 } from "./meetings-api";
+import { useFailureText } from "./use-failure-text";
+
+type ItemValues = { text: string; owner: string; due: string };
 
 /**
  * The pencil sits beside the line it edits and shows on hover or focus, as Fireflies and Otter do; a device without
  * hover always shows it.
  */
-const REVEAL =
-  "shrink-0 opacity-0 transition-opacity group-hover/row:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100";
+function EditButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <span className={cn("shrink-0", hoverReveal)}>
+      <IconButton size="sm" aria-label={label} onClick={onClick}>
+        <Pencil />
+      </IconButton>
+    </span>
+  );
+}
 
 /**
  * The minutes as the owner may correct them. A model that misheard one conclusion should cost one edit, not a rerun
@@ -35,73 +46,67 @@ const REVEAL =
  */
 export function EditableSummary({ meeting }: { meeting: MeetingDetail }) {
   const ui = useAppTranslation();
-  const cache = useQueryClient();
-  const problemMessage = useProblemMessage();
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(meeting.minutes.summary);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string>();
-
-  async function save() {
-    setPending(true);
-    setError(undefined);
-    try {
-      const saved = await editMinutesSummary(meeting.id, draft);
-      patchMeeting(cache, meeting.id, (current) => ({
-        ...current,
-        minutes: { ...current.minutes, summary: saved.summary, edited: saved.edited },
-      }));
-      setEditing(false);
-    } catch (failed) {
-      setError(problemMessage(presentProblem(failed, "mutation").message));
-    } finally {
-      setPending(false);
-    }
-  }
-
   if (!editing)
     return (
-      <div className="group/row flex items-start gap-2">
+      <div className="group flex items-start gap-2">
         <p className="min-w-0 flex-1 whitespace-pre-wrap text-content-secondary">
           {meeting.minutes.summary}
         </p>
-        {meeting.owned && (
-          <IconButton
-            size="sm"
-            aria-label={ui("Sửa tóm tắt")}
-            className={REVEAL}
-            onClick={() => {
-              setDraft(meeting.minutes.summary);
-              setEditing(true);
-            }}
-          >
-            <Pencil />
-          </IconButton>
-        )}
+        {meeting.owned && <EditButton label={ui("Sửa tóm tắt")} onClick={() => setEditing(true)} />}
       </div>
     );
+  return <SummaryForm meeting={meeting} onDone={() => setEditing(false)} />;
+}
 
+function SummaryForm({ meeting, onDone }: { meeting: MeetingDetail; onDone: () => void }) {
+  const ui = useAppTranslation();
+  const cache = useQueryClient();
+  const problemErrors = useProblemErrors();
+  const edit = useMutation(editMeetingMinutesSummaryMutation());
+  const form = useAppForm({
+    defaultValues: { summary: meeting.minutes.summary },
+    onSubmit: async ({ value, formApi }) => {
+      try {
+        const saved = await edit.mutateAsync({
+          path: { meetingId: meeting.id },
+          body: { summary: value.summary },
+        });
+        patchMeeting(cache, meeting.id, (current) => ({
+          ...current,
+          minutes: { ...current.minutes, summary: saved.summary, edited: saved.edited },
+        }));
+        onDone();
+      } catch (failed) {
+        formApi.setErrorMap({ onSubmit: problemErrors(failed) });
+      }
+    },
+  });
   return (
-    <div className="grid gap-2">
-      <Textarea
-        value={draft}
-        rows={6}
-        maxLength={20000}
-        aria-label={ui("Tóm tắt")}
-        onChange={(event) => setDraft(event.target.value)}
-      />
-      {error && <p className="text-sm text-status-danger-content">{error}</p>}
-      <div className="flex gap-2">
-        <Button size="sm" pending={pending} onClick={() => void save()}>
-          <Check aria-hidden="true" />
-          {ui("Lưu")}
-        </Button>
-        <Button size="sm" prominence="tertiary" onClick={() => setEditing(false)}>
-          <X aria-hidden="true" />
-          {ui("Huỷ")}
-        </Button>
-      </div>
-    </div>
+    <form
+      className="grid gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void form.handleSubmit();
+      }}
+    >
+      <form.AppField name="summary">
+        {() => <TextareaField label={ui("Tóm tắt")} hideLabel rows={6} maxLength={20000} />}
+      </form.AppField>
+      <form.AppForm>
+        <form.FormError />
+        <div className="flex gap-2">
+          <form.SubmitButton size="sm">
+            <Check data-icon="inline-start" aria-hidden="true" />
+            {ui("Lưu")}
+          </form.SubmitButton>
+          <Button size="sm" prominence="tertiary" onClick={onDone}>
+            <X data-icon="inline-start" aria-hidden="true" />
+            {ui("Huỷ")}
+          </Button>
+        </div>
+      </form.AppForm>
+    </form>
   );
 }
 
@@ -119,174 +124,65 @@ export function EditableItem({
 }) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
-  const problemMessage = useProblemMessage();
+  const failureText = useFailureText();
   const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(item.text);
-  const [owner, setOwner] = useState(item.owner ?? "");
-  const [due, setDue] = useState(item.due ?? "");
-  const [pending, setPending] = useState<"save" | "remove">();
-  const [error, setError] = useState<string>();
-  // A decision belongs to the meeting rather than to a person, so it carries neither an owner nor a deadline.
-  const assignable = kind === "ACTION";
-
-  async function remove() {
-    setPending("remove");
-    setError(undefined);
-    try {
-      await removeMinutesItem(meeting.id, item.id);
-      patchMeeting(cache, meeting.id, (current) => withoutMinutesItem(current, item.id));
-    } catch (failed) {
-      setError(problemMessage(presentProblem(failed, "mutation").message));
-      setPending(undefined);
-    }
-  }
-
-  async function save() {
-    setPending("save");
-    setError(undefined);
-    try {
-      const saved = await editMinutesItem(
-        meeting.id,
-        item.id,
-        text,
-        assignable ? owner : "",
-        assignable ? due : "",
-      );
-      patchMeeting(cache, meeting.id, (current) => withMinutesItem(current, saved));
-      setEditing(false);
-    } catch (failed) {
-      setError(problemMessage(presentProblem(failed, "mutation").message));
-    } finally {
-      setPending(undefined);
-    }
-  }
+  const edit = useMutation(editMeetingMinutesItemMutation());
+  const remove = useMutation({
+    ...removeMeetingMinutesItemMutation(),
+    onSuccess: () =>
+      patchMeeting(cache, meeting.id, (current) => withoutMinutesItem(current, item.id)),
+  });
 
   if (!editing)
     return (
-      <div className="group/row flex items-start gap-2">
+      <div className="group flex items-start gap-2">
         <div className="min-w-0 flex-1">
           {children}
           {item.edited && <p className="mt-0.5 text-xs text-content-muted">{ui("Bạn đã sửa")}</p>}
         </div>
         {meeting.owned && (
-          <IconButton
-            size="sm"
-            aria-label={ui("Sửa")}
-            className={REVEAL}
+          <EditButton
+            label={ui("Sửa")}
             onClick={() => {
-              setText(item.text);
-              setOwner(item.owner ?? "");
-              setDue(item.due ?? "");
+              remove.reset();
               setEditing(true);
             }}
-          >
-            <Pencil />
-          </IconButton>
+          />
         )}
       </div>
     );
 
   return (
-    <div className="grid gap-2">
-      <ItemFields
-        id={item.id}
-        assignable={assignable}
-        text={text}
-        owner={owner}
-        due={due}
-        onText={setText}
-        onOwner={setOwner}
-        onDue={setDue}
-      />
-      {error && <p className="text-sm text-status-danger-content">{error}</p>}
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          pending={pending === "save"}
-          disabled={!!pending}
-          onClick={() => void save()}
-        >
-          <Check aria-hidden="true" />
-          {ui("Lưu")}
-        </Button>
+    <ItemForm
+      kind={kind}
+      initial={{ text: item.text, owner: item.owner ?? "", due: item.due ?? "" }}
+      submitLabel={ui("Lưu")}
+      busy={remove.isPending}
+      failure={remove.isError ? failureText(remove.error) : undefined}
+      onSubmit={async (value) => {
+        remove.reset();
+        const saved = await edit.mutateAsync({
+          path: { meetingId: meeting.id, itemId: item.id },
+          body: { text: value.text, owner: value.owner || null, due: value.due || null },
+        });
+        patchMeeting(cache, meeting.id, (current) => withMinutesItem(current, saved));
+        setEditing(false);
+      }}
+      onCancel={() => setEditing(false)}
+      extra={
         <Button
           size="sm"
           prominence="tertiary"
-          disabled={!!pending}
-          onClick={() => setEditing(false)}
+          tone="danger"
+          className="ml-auto"
+          pending={remove.isPending}
+          onClick={() => remove.mutate({ path: { meetingId: meeting.id, itemId: item.id } })}
         >
-          <X aria-hidden="true" />
-          {ui("Huỷ")}
-        </Button>
-        <Button
-          size="sm"
-          prominence="tertiary"
-          className="ml-auto text-status-danger-content"
-          pending={pending === "remove"}
-          disabled={!!pending}
-          onClick={() => void remove()}
-        >
-          <Trash2 aria-hidden="true" />
+          <Trash2 data-icon="inline-start" aria-hidden="true" />
           {ui("Xoá")}
         </Button>
-      </div>
-    </div>
-  );
-}
-
-/** What an item says, and for a piece of work who takes it and by when. */
-function ItemFields({
-  id,
-  assignable,
-  text,
-  owner,
-  due,
-  onText,
-  onOwner,
-  onDue,
-}: {
-  id: string;
-  assignable: boolean;
-  text: string;
-  owner: string;
-  due: string;
-  onText: (value: string) => void;
-  onOwner: (value: string) => void;
-  onDue: (value: string) => void;
-}) {
-  const ui = useAppTranslation();
-  return (
-    <>
-      <Textarea
-        value={text}
-        rows={2}
-        maxLength={2000}
-        aria-label={ui("Nội dung")}
-        onChange={(event) => onText(event.target.value)}
-      />
-      {assignable && (
-        <div className="grid gap-2 sm:grid-cols-2">
-          <div className="grid gap-1">
-            <Label htmlFor={`owner-${id}`}>{ui("Người nhận")}</Label>
-            <Input
-              id={`owner-${id}`}
-              value={owner}
-              maxLength={200}
-              onChange={(event) => onOwner(event.target.value)}
-            />
-          </div>
-          <div className="grid gap-1">
-            <Label htmlFor={`due-${id}`}>{ui("Hạn")}</Label>
-            <Input
-              id={`due-${id}`}
-              value={due}
-              maxLength={100}
-              onChange={(event) => onDue(event.target.value)}
-            />
-          </div>
-        </div>
-      )}
-    </>
+      }
+    />
   );
 }
 
@@ -302,74 +198,124 @@ export function NewItem({
 }) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
-  const problemMessage = useProblemMessage();
   const [open, setOpen] = useState(false);
-  const [text, setText] = useState("");
-  const [owner, setOwner] = useState("");
-  const [due, setDue] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string>();
-
-  function close() {
-    setOpen(false);
-    setText("");
-    setOwner("");
-    setDue("");
-    setError(undefined);
-  }
-
-  async function add() {
-    setPending(true);
-    setError(undefined);
-    try {
-      const added = await addMinutesItem(meeting.id, kind, text, owner, due);
-      patchMeeting(cache, meeting.id, (current) => withAddedMinutesItem(current, kind, added));
-      close();
-    } catch (failed) {
-      setError(problemMessage(presentProblem(failed, "mutation").message));
-    } finally {
-      setPending(false);
-    }
-  }
+  const add = useMutation(addMeetingMinutesItemMutation());
 
   if (!open)
     return (
       <div>
-        <Button
-          size="sm"
-          prominence="tertiary"
-          className="-ml-2 text-content-secondary"
-          onClick={() => setOpen(true)}
-        >
-          <Plus aria-hidden="true" />
+        <Button size="sm" prominence="tertiary" className="-ml-2" onClick={() => setOpen(true)}>
+          <Plus data-icon="inline-start" aria-hidden="true" />
           {label}
         </Button>
       </div>
     );
 
   return (
-    <div className="grid gap-2">
-      <ItemFields
-        id={`new-${kind}`}
-        assignable={kind === "ACTION"}
-        text={text}
-        owner={owner}
-        due={due}
-        onText={setText}
-        onOwner={setOwner}
-        onDue={setDue}
-      />
-      {error && <p className="text-sm text-status-danger-content">{error}</p>}
-      <div className="flex gap-2">
-        <Button size="sm" pending={pending} disabled={!text.trim()} onClick={() => void add()}>
-          <Check aria-hidden="true" />
-          {ui("Thêm")}
-        </Button>
-        <Button size="sm" prominence="tertiary" disabled={pending} onClick={close}>
-          <X aria-hidden="true" />
-          {ui("Huỷ")}
-        </Button>
+    <ItemForm
+      kind={kind}
+      initial={{ text: "", owner: "", due: "" }}
+      submitLabel={ui("Thêm")}
+      onSubmit={async (value) => {
+        const added = await add.mutateAsync({
+          path: { meetingId: meeting.id },
+          body: { kind, text: value.text, owner: value.owner || null, due: value.due || null },
+        });
+        patchMeeting(cache, meeting.id, (current) => withAddedMinutesItem(current, kind, added));
+        setOpen(false);
+      }}
+      onCancel={() => setOpen(false)}
+    />
+  );
+}
+
+/**
+ * What an item says, and for a piece of work who takes it and by when. A decision belongs to the meeting rather than
+ * to a person, so it carries neither an owner nor a deadline.
+ */
+function ItemForm({
+  kind,
+  initial,
+  submitLabel,
+  busy = false,
+  failure,
+  onSubmit,
+  onCancel,
+  extra,
+}: {
+  kind: "ACTION" | "DECISION";
+  initial: ItemValues;
+  submitLabel: string;
+  /** Another request about the item runs, such as removing it. */
+  busy?: boolean;
+  failure?: string;
+  onSubmit: (value: ItemValues) => Promise<void>;
+  onCancel: () => void;
+  extra?: ReactNode;
+}) {
+  const ui = useAppTranslation();
+  const problemErrors = useProblemErrors();
+  const assignable = kind === "ACTION";
+  const form = useAppForm({
+    defaultValues: initial,
+    onSubmit: async ({ value, formApi }) => {
+      try {
+        await onSubmit({
+          text: value.text,
+          owner: assignable ? value.owner.trim() : "",
+          due: assignable ? value.due.trim() : "",
+        });
+      } catch (failed) {
+        formApi.setErrorMap({ onSubmit: problemErrors(failed) });
+      }
+    },
+  });
+  return (
+    <form
+      className="grid gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void form.handleSubmit();
+      }}
+    >
+      <div className="grid gap-2">
+        <form.AppField name="text">
+          {() => <TextareaField label={ui("Nội dung")} hideLabel rows={2} maxLength={2000} />}
+        </form.AppField>
+        {assignable && (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <form.AppField name="owner">
+              {() => <InputField label={ui("Người nhận")} maxLength={200} />}
+            </form.AppField>
+            <form.AppField name="due">
+              {() => <InputField label={ui("Hạn")} maxLength={100} />}
+            </form.AppField>
+          </div>
+        )}
       </div>
-    </div>
+      <form.AppForm>
+        <form.FormError />
+        {failure && (
+          <p role="alert" className="text-sm text-status-danger-content">
+            {failure}
+          </p>
+        )}
+        <div className="flex gap-2">
+          <form.Subscribe selector={(state) => state.values.text.trim() === ""}>
+            {(blank) => (
+              <form.SubmitButton size="sm" disabled={blank || busy}>
+                <Check data-icon="inline-start" aria-hidden="true" />
+                {submitLabel}
+              </form.SubmitButton>
+            )}
+          </form.Subscribe>
+          <Button size="sm" prominence="tertiary" onClick={onCancel}>
+            <X data-icon="inline-start" aria-hidden="true" />
+            {ui("Huỷ")}
+          </Button>
+          {extra}
+        </div>
+      </form.AppForm>
+    </form>
   );
 }

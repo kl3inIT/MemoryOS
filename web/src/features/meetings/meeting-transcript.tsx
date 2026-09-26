@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, ChevronUp, FileDown, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Empty, EmptyDescription, EmptyHeader } from "@/components/ui/empty";
+import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
 import type { MeetingRecorder, RecorderSnapshot } from "./meeting-recorder";
 import type { MeetingTrack } from "./meeting-socket";
 import { slug } from "./meeting-file-name";
-import { exportTranscript, formatClock, type MeetingDetail } from "./meetings-api";
+import { exportMeetingTranscript } from "@/lib/hey-api/sdk.gen";
+import { formatClock, saveDocument, type MeetingDetail } from "./meetings-api";
 import { useRecorderValue } from "./recorder-state";
 import { SpeakerChip } from "./speaker-chip";
 import { speakerColor, speakerName } from "./speakers";
@@ -148,20 +152,6 @@ export function Transcript({
     reveal(index, "center");
   }, [target, shown, starredOnly, reveal]);
 
-  /** The file is named after the meeting, so a folder of them reads as a folder of meetings. */
-  async function take(format: "DOCX" | "PDF") {
-    const file = await exportTranscript(meeting.id, format);
-    const url = URL.createObjectURL(file);
-    const link = Object.assign(window.document.createElement("a"), {
-      href: url,
-      download: `transcript-${slug(meeting.title)}.${format === "PDF" ? "pdf" : "docx"}`,
-    });
-    window.document.body.append(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
-
   function jump(step: number) {
     if (total === 0) return;
     const next = (((at + step) % total) + total) % total;
@@ -179,113 +169,42 @@ export function Transcript({
   }
 
   const tools = meeting.utterances.length > 0 && (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex items-center gap-1">
-        <Input
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setAt(0);
-          }}
-          placeholder={ui("Tìm trong transcript")}
-          aria-label={ui("Tìm trong transcript")}
-          className="h-8 w-56"
-        />
-        {query.trim() !== "" && (
-          <>
-            <span className="text-xs text-content-muted tabular-nums">
-              {total === 0 ? ui("Không thấy") : ui("{{at}}/{{total}}", { at: current + 1, total })}
-            </span>
-            <Button
-              prominence="tertiary"
-              size="sm"
-              disabled={total === 0}
-              aria-label={ui("Kết quả trước")}
-              onClick={() => jump(-1)}
-            >
-              <ChevronUp aria-hidden="true" />
-            </Button>
-            <Button
-              prominence="tertiary"
-              size="sm"
-              disabled={total === 0}
-              aria-label={ui("Kết quả tiếp theo")}
-              onClick={() => jump(1)}
-            >
-              <ChevronDown aria-hidden="true" />
-            </Button>
-          </>
-        )}
-      </div>
-      {(starred.size > 0 || starredOnly) && (
-        <Button
-          prominence={starredOnly ? "secondary" : "tertiary"}
-          size="sm"
-          aria-pressed={starredOnly}
-          onClick={() => setStarredOnly((only) => !only)}
-        >
-          <Star aria-hidden="true" className={starredOnly ? "fill-current" : undefined} />
-          {ui("Câu đã đánh dấu ({{count}})", { count: starred.size })}
-        </Button>
-      )}
-      <div className="ml-auto flex items-center gap-1">
-        <Button prominence="tertiary" size="sm" onClick={() => void take("DOCX")}>
-          <FileDown aria-hidden="true" />
-          {ui("Tải Word")}
-        </Button>
-        <Button prominence="tertiary" size="sm" onClick={() => void take("PDF")}>
-          <FileDown aria-hidden="true" />
-          {ui("Tải PDF")}
-        </Button>
-      </div>
-    </div>
+    <TranscriptTools
+      meeting={meeting}
+      query={query}
+      onQuery={(next) => {
+        setQuery(next);
+        setAt(0);
+      }}
+      total={total}
+      current={current}
+      onJump={jump}
+      starredCount={starred.size}
+      starredOnly={starredOnly}
+      onStarredOnly={() => setStarredOnly((only) => !only)}
+    />
   );
 
   if (meeting.utterances.length === 0 && !speaking)
     return (
-      <p className="rounded-xl border border-dashed border-border-default px-4 py-8 text-center text-sm text-content-muted">
-        {listening
-          ? ui("Đang nghe…")
-          : meeting.status === "TRANSCRIBING"
-            ? ui("Transcript sẽ hiện khi nhận dạng xong.")
-            : ui("Cuộc họp này chưa có transcript.")}
-      </p>
+      <Empty>
+        <EmptyHeader>
+          <EmptyDescription>
+            {listening
+              ? ui("Đang nghe…")
+              : meeting.status === "TRANSCRIBING"
+                ? ui("Transcript sẽ hiện khi nhận dạng xong.")
+                : ui("Cuộc họp này chưa có transcript.")}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     );
-  const topics = meeting.minutes.topics.flatMap((topic) => {
-    const line = meeting.utterances.find((utterance) => utterance.id === topic.sourceUtteranceId);
-    return line ? [{ topic, line }] : [];
-  });
   const newest = meeting.utterances.at(-1);
   const correctable = meeting.owned && meeting.status === "ENDED";
 
   return (
     <div className="grid gap-3">
-      {topics.length > 0 && !starredOnly && (
-        <nav
-          aria-label={ui("Dòng thời gian")}
-          className="rounded-xl border border-border-default p-2"
-        >
-          <h3 className="px-2 pt-1 pb-1.5 text-xs font-medium text-content-muted">
-            {ui("Dòng thời gian")}
-          </h3>
-          <ol className="grid gap-0.5">
-            {topics.map(({ topic, line }) => (
-              <li key={topic.id}>
-                <button
-                  type="button"
-                  className="grid w-full grid-cols-[4.5rem_1fr] gap-x-3 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-surface-base"
-                  onClick={() => reach(line)}
-                >
-                  <span className="font-mono text-xs text-content-muted tabular-nums">
-                    {formatClock(line.startMs)}
-                  </span>
-                  <span className="text-content-primary">{topic.text}</span>
-                </button>
-              </li>
-            ))}
-          </ol>
-        </nav>
-      )}
+      {!starredOnly && <TranscriptTimeline meeting={meeting} onReach={reach} />}
       {tools}
       {shown.length === 0 && (
         <p className="text-sm text-content-muted">{ui("Chưa đánh dấu câu nào.")}</p>
@@ -304,8 +223,9 @@ export function Transcript({
         role="region"
         aria-label={ui("Transcript")}
         // The list scrolls on its own, so it is reachable and scrollable from the keyboard.
+        // oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrolling region must take focus.
         tabIndex={0}
-        className="max-h-[70vh] overflow-auto overscroll-contain rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+        className="max-h-[calc(100dvh-16rem)] overflow-auto overscroll-contain rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
         onScroll={(event) => {
           const element = event.currentTarget;
           following.current =
@@ -315,7 +235,6 @@ export function Transcript({
         <ol className="relative" style={{ height: rows.getTotalSize() }}>
           {rows.getVirtualItems().map((item) => {
             const utterance = shown[item.index]!;
-            const isStarred = starred.has(utterance.id);
             return (
               <li
                 key={item.key}
@@ -327,60 +246,234 @@ export function Transcript({
                 className="absolute inset-x-0 top-0 pb-1"
                 style={{ transform: `translateY(${item.start}px)` }}
               >
-                <div className="grid grid-cols-[4.5rem_1fr_auto] gap-x-3 rounded-lg px-2 py-2 hover:bg-surface-base">
-                  <span className="pt-0.5 font-mono text-xs text-content-muted tabular-nums">
-                    {formatClock(utterance.startMs)}
-                  </span>
-                  <div className="min-w-0">
-                    <SpeakerChip
-                      meeting={meeting}
-                      track={utterance.track}
-                      label={utterance.speaker}
-                    />
-                    <p className="mt-0.5 text-content-secondary">
-                      <Said
-                        text={utterance.text}
-                        spans={utterance.spans}
-                        query={query}
-                        firstMatch={firstMatch[item.index] ?? 0}
-                        currentMatch={current}
-                        unsure={
-                          correctable
-                            ? (span, mark) => (
-                                <WordCorrection
-                                  meeting={meeting}
-                                  utteranceId={utterance.id}
-                                  text={utterance.text}
-                                  span={span}
-                                >
-                                  {mark}
-                                </WordCorrection>
-                              )
-                            : undefined
-                        }
-                      />
-                    </p>
-                  </div>
-                  <Button
-                    prominence="tertiary"
-                    size="sm"
-                    className="self-start"
-                    aria-pressed={isStarred}
-                    aria-label={ui("Đánh dấu câu này")}
-                    onClick={() => onStar(utterance.id, !isStarred)}
-                  >
-                    <Star
-                      aria-hidden="true"
-                      className={isStarred ? "fill-current" : "opacity-40"}
-                    />
-                  </Button>
-                </div>
+                <TranscriptLine
+                  meeting={meeting}
+                  utterance={utterance}
+                  query={query}
+                  firstMatch={firstMatch[item.index] ?? 0}
+                  currentMatch={current}
+                  correctable={correctable}
+                  starred={starred.has(utterance.id)}
+                  onStar={onStar}
+                />
               </li>
             );
           })}
         </ol>
         {recorder && <LivePreviews meeting={meeting} recorder={recorder} onChange={follow} />}
       </div>
+    </div>
+  );
+}
+
+/** Searching the transcript, showing only the starred lines, and taking it away as a document. */
+function TranscriptTools({
+  meeting,
+  query,
+  onQuery,
+  total,
+  current,
+  onJump,
+  starredCount,
+  starredOnly,
+  onStarredOnly,
+}: {
+  meeting: MeetingDetail;
+  query: string;
+  onQuery: (query: string) => void;
+  /** Search hits across the whole transcript, and the one in view. */
+  total: number;
+  current: number;
+  onJump: (step: number) => void;
+  starredCount: number;
+  starredOnly: boolean;
+  onStarredOnly: () => void;
+}) {
+  const ui = useAppTranslation();
+  /** The file is named after the meeting, so a folder of them reads as a folder of meetings. */
+  const take = useMutation({
+    mutationFn: async (format: "DOCX" | "PDF") =>
+      (await exportMeetingTranscript({ path: { meetingId: meeting.id }, query: { format } })).data,
+    onSuccess: (file, format) =>
+      saveDocument(file, `transcript-${slug(meeting.title)}.${format === "PDF" ? "pdf" : "docx"}`),
+  });
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-1">
+        <Input
+          value={query}
+          onChange={(event) => onQuery(event.target.value)}
+          placeholder={ui("Tìm trong transcript")}
+          aria-label={ui("Tìm trong transcript")}
+          size="sm"
+          className="w-56"
+        />
+        {query.trim() !== "" && (
+          <>
+            <span className="text-xs text-content-muted tabular-nums">
+              {total === 0 ? ui("Không thấy") : ui("{{at}}/{{total}}", { at: current + 1, total })}
+            </span>
+            <IconButton
+              size="sm"
+              disabled={total === 0}
+              aria-label={ui("Kết quả trước")}
+              onClick={() => onJump(-1)}
+            >
+              <ChevronUp />
+            </IconButton>
+            <IconButton
+              size="sm"
+              disabled={total === 0}
+              aria-label={ui("Kết quả tiếp theo")}
+              onClick={() => onJump(1)}
+            >
+              <ChevronDown />
+            </IconButton>
+          </>
+        )}
+      </div>
+      {(starredCount > 0 || starredOnly) && (
+        <Button
+          prominence={starredOnly ? "secondary" : "tertiary"}
+          size="sm"
+          aria-pressed={starredOnly}
+          onClick={onStarredOnly}
+        >
+          <Star
+            data-icon="inline-start"
+            aria-hidden="true"
+            className={starredOnly ? "fill-current" : undefined}
+          />
+          {ui("Câu đã đánh dấu ({{count}})", { count: starredCount })}
+        </Button>
+      )}
+      <div className="ml-auto flex items-center gap-1">
+        <Button
+          prominence="tertiary"
+          size="sm"
+          pending={take.isPending && take.variables === "DOCX"}
+          disabled={take.isPending}
+          onClick={() => take.mutate("DOCX")}
+        >
+          <FileDown data-icon="inline-start" aria-hidden="true" />
+          {ui("Tải Word")}
+        </Button>
+        <Button
+          prominence="tertiary"
+          size="sm"
+          pending={take.isPending && take.variables === "PDF"}
+          disabled={take.isPending}
+          onClick={() => take.mutate("PDF")}
+        >
+          <FileDown data-icon="inline-start" aria-hidden="true" />
+          {ui("Tải PDF")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** The topics of the minutes, each opening the transcript on the line it starts at. */
+function TranscriptTimeline({
+  meeting,
+  onReach,
+}: {
+  meeting: MeetingDetail;
+  onReach: (line: Utterance) => void;
+}) {
+  const ui = useAppTranslation();
+  const topics = meeting.minutes.topics.flatMap((topic) => {
+    const line = meeting.utterances.find((utterance) => utterance.id === topic.sourceUtteranceId);
+    return line ? [{ topic, line }] : [];
+  });
+  if (topics.length === 0) return null;
+  return (
+    <nav aria-label={ui("Dòng thời gian")} className="rounded-xl border border-border-default p-2">
+      <h3 className="px-2 pt-1 pb-1.5 text-xs font-medium text-content-muted">
+        {ui("Dòng thời gian")}
+      </h3>
+      <ol className="grid gap-0.5">
+        {topics.map(({ topic, line }) => (
+          <li key={topic.id}>
+            <button
+              type="button"
+              className="flex w-full gap-3 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-surface-base"
+              onClick={() => onReach(line)}
+            >
+              <span className="w-18 shrink-0 font-mono text-xs text-content-muted tabular-nums">
+                {formatClock(line.startMs)}
+              </span>
+              <span className="min-w-0 flex-1 text-content-primary">{topic.text}</span>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+/** One line: when it was said, who said it, what they said with its search hits, and its star. */
+function TranscriptLine({
+  meeting,
+  utterance,
+  query,
+  firstMatch,
+  currentMatch,
+  correctable,
+  starred,
+  onStar,
+}: {
+  meeting: MeetingDetail;
+  utterance: Utterance;
+  query: string;
+  firstMatch: number;
+  currentMatch: number;
+  /** The owner of an ended meeting may write what an unclear word was. */
+  correctable: boolean;
+  starred: boolean;
+  onStar: (utteranceId: string, starred: boolean) => void;
+}) {
+  const ui = useAppTranslation();
+  return (
+    <div className="flex gap-3 rounded-lg px-2 py-2 hover:bg-surface-base">
+      <span className="w-18 shrink-0 pt-0.5 font-mono text-xs text-content-muted tabular-nums">
+        {formatClock(utterance.startMs)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <SpeakerChip meeting={meeting} track={utterance.track} label={utterance.speaker} />
+        <p className="mt-0.5 text-content-secondary">
+          <Said
+            text={utterance.text}
+            spans={utterance.spans}
+            query={query}
+            firstMatch={firstMatch}
+            currentMatch={currentMatch}
+            unsure={
+              correctable
+                ? (span, mark) => (
+                    <WordCorrection
+                      meeting={meeting}
+                      utteranceId={utterance.id}
+                      text={utterance.text}
+                      span={span}
+                    >
+                      {mark}
+                    </WordCorrection>
+                  )
+                : undefined
+            }
+          />
+        </p>
+      </div>
+      <IconButton
+        size="sm"
+        className="shrink-0 self-start"
+        aria-pressed={starred}
+        aria-label={ui("Đánh dấu câu này")}
+        onClick={() => onStar(utterance.id, !starred)}
+      >
+        <Star aria-hidden="true" className={starred ? "fill-current" : "opacity-40"} />
+      </IconButton>
     </div>
   );
 }
@@ -414,9 +507,9 @@ function LivePreviews({
   return (
     <ol>
       {said.map(([track, preview]) => (
-        <li key={track} className="grid grid-cols-[4.5rem_1fr_auto] gap-x-3 px-2 py-2">
-          <span className="pt-0.5 text-xs text-content-muted">{ui("đang nói")}</span>
-          <div className="min-w-0">
+        <li key={track} className="flex gap-3 px-2 py-2">
+          <span className="w-18 shrink-0 pt-0.5 text-xs text-content-muted">{ui("đang nói")}</span>
+          <div className="min-w-0 flex-1">
             <span className="inline-flex items-center gap-1.5 text-sm font-medium text-content-muted">
               <span
                 className={cn(

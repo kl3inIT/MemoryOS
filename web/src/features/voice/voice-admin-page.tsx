@@ -1,24 +1,25 @@
-import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AudioLines } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AudioLines, WifiOff } from "lucide-react";
+import { EmptyState } from "@/components/composites/empty-state";
+import { SectionHeader } from "@/components/composites/section-header";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
+import { Alert, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import {
-  listChatVoiceConnections,
-  listChatVoiceProviders,
-  selectChatVoiceProvider,
-} from "@/lib/hey-api/sdk.gen";
+  listChatVoiceConnectionsOptions,
+  listChatVoiceProvidersOptions,
+  selectChatVoiceProviderMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { VoiceConnectionResponse, VoiceProviderResponse } from "@/lib/hey-api/types.gen";
-import type { ErrorMessage } from "@/lib/problem-presentation";
 import { useProblemMessage } from "@/lib/use-problem-message";
 import { VoiceProviderCard } from "./voice-provider-card";
 import {
+  invalidateVoice,
   isDefault,
   voiceProblem,
-  voiceQueryKey,
   type VoiceFunction,
   type VoiceProviderId,
 } from "./voice-providers";
@@ -28,17 +29,14 @@ export function VoiceAdminPage() {
   const ui = useAppTranslation();
   const session = useApplicationSession();
   const manager = session.capabilities.includes("MODELS_MANAGE");
-  const cache = useQueryClient();
   const providers = useQuery({
-    queryKey: [...voiceQueryKey, "providers", session.actorId, session.authorizationVersion],
+    ...listChatVoiceProvidersOptions(),
     enabled: manager,
-    queryFn: async ({ signal }) => (await listChatVoiceProviders({ signal })).data,
     retry: false,
   });
   const connections = useQuery({
-    queryKey: [...voiceQueryKey, "connections", session.actorId, session.authorizationVersion],
+    ...listChatVoiceConnectionsOptions(),
     enabled: manager,
-    queryFn: async ({ signal }) => (await listChatVoiceConnections({ signal })).data,
     retry: false,
   });
   if (!manager)
@@ -47,7 +45,6 @@ export function VoiceAdminPage() {
         {ui("Bạn không có quyền quản lý mô hình.")}
       </p>
     );
-  const changed = () => cache.invalidateQueries({ queryKey: voiceQueryKey });
   return (
     <SettingsLayout>
       <PageHeader
@@ -58,45 +55,45 @@ export function VoiceAdminPage() {
         )}
       />
       {providers.isError || connections.isError ? (
-        <div
+        <EmptyState
           role="alert"
-          className="flex flex-wrap items-center gap-3 rounded-xl border border-border-default bg-surface-sunken px-4 py-3"
-        >
-          <p className="mr-auto">{ui("Không tải được cấu hình giọng nói.")}</p>
-          <Button
-            size="sm"
-            prominence="secondary"
-            onClick={() => {
-              void providers.refetch();
-              void connections.refetch();
-            }}
-          >
-            {ui("Tải lại")}
-          </Button>
-        </div>
+          icon={<WifiOff />}
+          title={ui("Không tải được cấu hình giọng nói.")}
+          action={
+            <Button
+              size="sm"
+              prominence="secondary"
+              onClick={() => {
+                void providers.refetch();
+                void connections.refetch();
+              }}
+            >
+              {ui("Tải lại")}
+            </Button>
+          }
+        />
       ) : providers.isPending || connections.isPending ? (
-        <div role="status" className="space-y-8">
+        <div role="status" className="flex flex-col gap-8">
           <span className="sr-only">{ui("Đang tải…")}</span>
           {[0, 1].map((index) => (
-            <div key={index} className="space-y-3">
+            <div key={index} className="flex flex-col gap-3">
               <Skeleton className="h-6 w-64" />
               <Skeleton className="h-4 w-80 max-w-full" />
-              <Skeleton className="h-32 w-full rounded-2xl" />
+              <Skeleton className="h-32 w-full" />
             </div>
           ))}
         </div>
       ) : (
-        <>
+        <div className="flex flex-col gap-8">
           {(["STT", "TTS"] as const).map((fn) => (
             <VoiceFunctionSection
               key={fn}
               fn={fn}
               providers={providers.data}
               connections={connections.data}
-              onChanged={changed}
             />
           ))}
-        </>
+        </div>
       )}
     </SettingsLayout>
   );
@@ -106,90 +103,75 @@ function VoiceFunctionSection({
   fn,
   providers,
   connections,
-  onChanged,
 }: {
   fn: VoiceFunction;
   providers: VoiceProviderResponse[];
   connections: VoiceConnectionResponse[];
-  onChanged: () => Promise<void>;
 }) {
   const ui = useAppTranslation();
+  const cache = useQueryClient();
   const problemMessage = useProblemMessage();
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<ErrorMessage>();
+  const select = useMutation({
+    ...selectChatVoiceProviderMutation(),
+    onSuccess: () => invalidateVoice(cache),
+  });
   const active = connections.find((connection) => isDefault(connection, fn));
   const title =
     fn === "STT" ? ui("Chuyển giọng nói thành văn bản") : ui("Đọc văn bản thành giọng nói");
-  async function select(provider: VoiceProviderId | null) {
-    setPending(true);
-    setError(undefined);
-    try {
-      await selectChatVoiceProvider({
-        body: { function: fn, provider: provider ?? undefined },
-      });
-      await onChanged();
-    } catch (failed) {
-      setError(voiceProblem(failed));
-    } finally {
-      setPending(false);
-    }
-  }
+  const choose = (provider: VoiceProviderId | null) =>
+    select.mutate({ body: { function: fn, provider: provider ?? undefined } });
   return (
-    <section aria-label={title} className={fn === "STT" ? "space-y-3" : "mt-8 space-y-3"}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <Button
-          size="sm"
-          prominence="secondary"
-          pending={pending}
-          disabled={!active}
-          onClick={() => void select(null)}
-        >
-          {fn === "STT" ? ui("Tắt nhận dạng giọng nói") : ui("Tắt đọc thành tiếng")}
-        </Button>
-      </div>
-      <p className="text-sm text-content-muted">
-        {fn === "STT"
-          ? ui("Nhận dạng lời nói khi thành viên dùng micro trong Chat và Tìm kiếm.")
-          : ui("Đọc câu trả lời của trợ lý thành tiếng.")}
-      </p>
+    <section aria-label={title} className="flex flex-col gap-3">
+      <SectionHeader
+        title={title}
+        description={
+          fn === "STT"
+            ? ui("Nhận dạng lời nói khi thành viên dùng micro trong Chat và Tìm kiếm.")
+            : ui("Đọc câu trả lời của trợ lý thành tiếng.")
+        }
+        actions={
+          <Button
+            size="sm"
+            prominence="secondary"
+            pending={select.isPending && !select.variables.body.provider}
+            disabled={!active || select.isPending}
+            onClick={() => choose(null)}
+          >
+            {fn === "STT" ? ui("Tắt nhận dạng giọng nói") : ui("Tắt đọc thành tiếng")}
+          </Button>
+        }
+      />
       {!active && (
-        <p className={notice}>
-          {fn === "STT"
-            ? ui("Chưa có nhà cung cấp mặc định, nên micro trong Chat và Tìm kiếm đang tắt.")
-            : ui("Chưa có nhà cung cấp mặc định, nên đọc thành tiếng đang tắt.")}
-        </p>
+        <Alert role="status">
+          <AlertTitle>
+            {fn === "STT"
+              ? ui("Chưa có nhà cung cấp mặc định, nên micro trong Chat và Tìm kiếm đang tắt.")
+              : ui("Chưa có nhà cung cấp mặc định, nên đọc thành tiếng đang tắt.")}
+          </AlertTitle>
+        </Alert>
       )}
-      <ul className="space-y-3">
+      <ul className="flex flex-col gap-3">
         {/* A speech-to-text-only provider has no read-aloud card. */}
         {providers
           .filter((provider) => fn === "STT" || provider.speech)
-          .map((provider) => {
-            const connection = connections.find((item) => item.provider === provider.provider);
-            return (
-              <VoiceProviderCard
-                // Keyed by provider only, so a save keeps the card and returns focus to its trigger.
-                key={provider.provider}
-                fn={fn}
-                provider={provider}
-                connection={connection}
-                autoSelect={!active}
-                disabled={pending}
-                onSelect={select}
-                onChanged={onChanged}
-              />
-            );
-          })}
+          .map((provider) => (
+            <VoiceProviderCard
+              // Keyed by provider only, so a save keeps the card and returns focus to its trigger.
+              key={provider.provider}
+              fn={fn}
+              provider={provider}
+              connection={connections.find((item) => item.provider === provider.provider)}
+              autoSelect={!active}
+              disabled={select.isPending}
+              onSelect={choose}
+            />
+          ))}
       </ul>
-      {error && (
+      {select.isError && (
         <p role="alert" className="text-sm text-status-danger-content">
-          {problemMessage(error)}
+          {problemMessage(voiceProblem(select.error))}
         </p>
       )}
     </section>
   );
 }
-
-/** The neutral notice the other catalog pages show when a function has no provider. */
-const notice =
-  "rounded-xl border border-border-default bg-surface-sunken px-4 py-3 text-sm text-content-secondary";
