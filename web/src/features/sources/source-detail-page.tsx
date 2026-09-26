@@ -45,6 +45,7 @@ import { useSourceItemActions } from "./use-source-item-actions";
 import { useSourceLifecycle } from "./use-source-lifecycle";
 import { useSourceUpload } from "./use-source-upload";
 import { can } from "@/lib/resource-permissions";
+import { IDLE_SOURCE_POLL_MS } from "@/features/sources/shared/source-polling";
 
 const fileContentSections: readonly SourceSection[] = [
   { value: "content", label: "Files" },
@@ -88,7 +89,7 @@ function SourceDetailContent({ selectedId }: { selectedId: string }) {
   const sourceQuery = useQuery({
     ...getSourceOptions({ path: { sourceId: selectedId } }),
     retry: false,
-    refetchInterval: (query) => (query.state.data?.pendingWork ? 1_500 : false),
+    refetchInterval: (query) => (query.state.data?.pendingWork ? 1_500 : IDLE_SOURCE_POLL_MS),
   });
   const detail = sourceQuery.data;
   const files = useSourceFiles(selectedId, detail);

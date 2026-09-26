@@ -29,6 +29,7 @@ import { useCursorPaging } from "@/features/sources/shared/use-cursor-paging";
 import { type SourceFilterOption, SourceFilterMenu } from "./source-filter-menu";
 import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
 import { RunDetails, RunDuration, RunTrigger } from "./source-run-details";
+import { IDLE_SOURCE_POLL_MS } from "@/features/sources/shared/source-polling";
 
 const outcomeLegend: Array<
   [label: string, tone: "success" | "danger" | "info" | "neutral", description: string]
@@ -101,7 +102,9 @@ export function SourceRunHistory({
     placeholderData: keepPreviousData,
     // Only a run still in progress changes; settled history is read again on Refresh.
     refetchInterval: (query) =>
-      query.state.data?.current || query.state.data?.items.some(runIsActive) ? 5_000 : false,
+      query.state.data?.current || query.state.data?.items.some(runIsActive)
+        ? 5_000
+        : IDLE_SOURCE_POLL_MS,
   });
   // Active runs are polled, so the refresh control follows the press, not the poll.
   const runsRefresh = useManualRefresh(history.refetch);
