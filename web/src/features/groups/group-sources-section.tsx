@@ -3,8 +3,12 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Link } from "@tanstack/react-router";
 import { Lock, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Empty, EmptyDescription } from "@/components/ui/empty";
+import { IconButton } from "@/components/ui/icon-button";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { Spinner } from "@/components/ui/spinner";
 import type { SourceSummary } from "@/lib/hey-api/types.gen";
 import { findSourceProvider } from "@/features/sources/shared/source-provider-catalog";
 import { can } from "@/lib/resource-permissions";
@@ -58,62 +62,56 @@ export function GroupSourcesSection({ draft }: { draft: GroupSourcesDraft }) {
   if (!draft.ordinaryGroup || (!canOpenSources && !canManage)) return null;
 
   return (
-    <section aria-labelledby="group-sources-heading" className="border-t border-border-subtle pt-7">
+    <section
+      aria-labelledby="group-sources-heading"
+      className="flex flex-col gap-4 border-t border-border-subtle pt-7"
+    >
       <h2 id="group-sources-heading" className="font-heading-h3 text-content-primary">
         {ui("Sources")}
       </h2>
 
       {error ? (
-        <p
-          role="alert"
-          className="mt-4 rounded-lg bg-status-danger-surface px-4 py-3 font-secondary-body text-status-danger-content"
-        >
-          {ui(error)}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{ui(error)}</AlertDescription>
+        </Alert>
       ) : null}
 
       {associated.isPending ? (
         <p
           role="status"
-          className="mt-4 rounded-xl border border-border-subtle px-4 py-7 font-main-ui-body text-content-muted"
+          className="flex items-center gap-2 py-6 font-main-ui-body text-content-muted"
         >
+          <Spinner aria-hidden="true" />
           {ui("Loading associated Sources")}
         </p>
       ) : associated.isError ? (
-        <div className="mt-4 rounded-xl border border-border-subtle p-4">
-          <p role="alert" className="font-main-ui-body text-content-secondary">
-            {ui("Source associations could not be loaded.")}
-          </p>
-          <Button
-            size="sm"
-            prominence="secondary"
-            className="mt-3"
-            onClick={() => void associated.refetch()}
-          >
-            {ui("Try again")}
-          </Button>
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{ui("Source associations could not be loaded.")}</AlertDescription>
+          <AlertAction>
+            <Button size="sm" prominence="secondary" onClick={() => void associated.refetch()}>
+              {ui("Try again")}
+            </Button>
+          </AlertAction>
+        </Alert>
       ) : canManage ? (
-        <div className="mt-4">
+        <div className="flex flex-col gap-3">
           <div className="relative">
-            <label className="relative block">
-              <span className="sr-only">{ui("Search Sources")}</span>
-              <Search
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
-                aria-hidden="true"
-              />
-              <Input
+            <InputGroup>
+              <InputGroupAddon>
+                <Search aria-hidden="true" />
+              </InputGroupAddon>
+              <InputGroupInput
                 type="search"
                 value={search}
                 placeholder={ui("Search Sources…")}
-                className="bg-surface-sunken pl-9"
+                aria-label={ui("Search Sources")}
                 onChange={(event) => {
                   setSearch(event.target.value);
                   setDropdownOpen(true);
                 }}
                 onFocus={() => setDropdownOpen(true)}
               />
-            </label>
+            </InputGroup>
 
             {dropdownOpen ? (
               <div
@@ -123,23 +121,27 @@ export function GroupSourcesSection({ draft }: { draft: GroupSourcesDraft }) {
                 {allSources.isPending ? (
                   <p
                     role="status"
-                    className="px-4 py-6 text-center font-main-ui-body text-content-muted"
+                    className="flex items-center justify-center gap-2 px-4 py-6 font-main-ui-body text-content-muted"
                   >
+                    <Spinner aria-hidden="true" />
                     {ui("Loading Sources")}
                   </p>
                 ) : allSources.isError ? (
-                  <div className="p-4">
-                    <p role="alert" className="font-main-ui-body text-content-secondary">
-                      {ui("Source choices could not be loaded.")}
-                    </p>
-                    <Button
-                      size="sm"
-                      prominence="secondary"
-                      className="mt-3"
-                      onClick={() => void allSources.refetch()}
-                    >
-                      {ui("Try again")}
-                    </Button>
+                  <div className="p-2">
+                    <Alert variant="destructive">
+                      <AlertDescription>
+                        {ui("Source choices could not be loaded.")}
+                      </AlertDescription>
+                      <AlertAction>
+                        <Button
+                          size="sm"
+                          prominence="secondary"
+                          onClick={() => void allSources.refetch()}
+                        >
+                          {ui("Try again")}
+                        </Button>
+                      </AlertAction>
+                    </Alert>
                   </div>
                 ) : unselectedCandidates.length === 0 ? (
                   <p className="px-4 py-6 text-center font-secondary-body text-content-muted">
@@ -167,7 +169,7 @@ export function GroupSourcesSection({ draft }: { draft: GroupSourcesDraft }) {
           </div>
 
           {selectedSources.length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5">
               {selectedSources.map((source) => {
                 const ChipIcon = findSourceProvider(source.type)?.icon;
                 return (
@@ -190,28 +192,30 @@ export function GroupSourcesSection({ draft }: { draft: GroupSourcesDraft }) {
                         <span className="sr-only">{lockReason(source)}</span>
                       </span>
                     ) : (
-                      <button
-                        type="button"
+                      <IconButton
+                        size="sm"
+                        prominence="internal"
                         aria-label={ui("Remove {{v1}}", { v1: source.name })}
-                        className="ml-0.5 rounded p-0.5 text-content-muted transition-colors hover:text-content-primary"
                         disabled={draft.pending}
                         onClick={() => draft.remove(source.id)}
                       >
-                        <X className="size-3.5" aria-hidden="true" />
-                      </button>
+                        <X />
+                      </IconButton>
                     )}
                   </span>
                 );
               })}
             </div>
           ) : (
-            <div className="mt-3 rounded-xl border border-dashed border-border-default px-4 py-6 text-center font-secondary-body text-content-muted">
-              {ui("No Sources are associated with this group.")}
-            </div>
+            <Empty>
+              <EmptyDescription>
+                {ui("No Sources are associated with this group.")}
+              </EmptyDescription>
+            </Empty>
           )}
 
           {selectedSources.some(isLocked) ? (
-            <p className="mt-2 font-secondary-body text-content-muted">
+            <p className="font-secondary-body text-content-muted">
               {ui(
                 "Sources with a lock can't be removed from this group: they are being deleted, or only their responsible manager can remove them.",
               )}
@@ -219,11 +223,11 @@ export function GroupSourcesSection({ draft }: { draft: GroupSourcesDraft }) {
           ) : null}
         </div>
       ) : sources.length === 0 ? (
-        <div className="mt-4 rounded-xl border border-dashed border-border-default px-4 py-8 text-center font-main-ui-body text-content-muted">
-          {ui("No Sources are associated with this group.")}
-        </div>
+        <Empty>
+          <EmptyDescription>{ui("No Sources are associated with this group.")}</EmptyDescription>
+        </Empty>
       ) : (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           {sources.map((source) =>
             canOpenSources ? (
               <Link

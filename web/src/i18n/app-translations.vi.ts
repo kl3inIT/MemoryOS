@@ -377,7 +377,6 @@ export const englishUi: Record<string, string> = {
   "Members could not be loaded.": "Không tải được thành viên.",
   "No members found": "Không tìm thấy thành viên",
   "No members": "Chưa có thành viên",
-  "Members of": "Thành viên của",
   Name: "Tên",
   "Account type": "Loại tài khoản",
   Status: "Trạng thái",
@@ -523,6 +522,8 @@ export const englishUi: Record<string, string> = {
   "Enter the client ID.": "Nhập client ID.",
   "Enter the client secret.": "Nhập client secret.",
   "Enter an email address.": "Nhập địa chỉ email.",
+  "Enter a group name.": "Nhập tên Group.",
+  "Members of {{v1}}": "Thành viên của {{v1}}",
 };
 
 Object.assign(englishUi, {

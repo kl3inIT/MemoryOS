@@ -1,12 +1,15 @@
 import type { AppCopy } from "@/i18n/app-text";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useCapabilityAuthority } from "@/features/identity/application-session-context";
 import {
   listGroupSourcesOptions,
+  listSourceGroupsOptions,
+  listSourceGroupsQueryKey,
   listSourcesOptions,
+  removeGroupSourceMutation,
+  updateSourceGroupsMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { listSourceGroups, removeGroupSource, updateSourceGroups } from "@/lib/hey-api/sdk.gen";
 import type { GroupSummary } from "@/lib/hey-api/types.gen";
 import { can } from "@/lib/resource-permissions";
 import { groupMutationError } from "./group-errors";
@@ -18,6 +21,7 @@ const associationAccessChanged = "Source association access has changed";
  * and removals on top. Only the page-level Save Changes commits them; Cancel drops them.
  */
 export function useGroupSourcesDraft(group: GroupSummary) {
+  const queryClient = useQueryClient();
   const sourceAuthority = useCapabilityAuthority("SOURCES_READ");
   const ordinaryGroup = group.systemKey === null;
   const canManage = ordinaryGroup && can(group, "manageSources");
@@ -62,6 +66,8 @@ export function useGroupSourcesDraft(group: GroupSummary) {
     }
   }
 
+  const updateSourceGroups = useMutation(updateSourceGroupsMutation());
+  const removeGroupSource = useMutation(removeGroupSourceMutation());
   const saveAssociations = useMutation({
     mutationFn: async () => {
       if (!canManage) throw new Error(associationAccessChanged);
@@ -75,8 +81,10 @@ export function useGroupSourcesDraft(group: GroupSummary) {
         throw new Error(associationAccessChanged);
       const additionReplacements = await Promise.all(
         additions.map(async (sourceId) => {
-          const { data } = await listSourceGroups({
-            path: { sourceId },
+          // The Source's current Groups, read fresh: the association replaces them all.
+          const data = await queryClient.fetchQuery({
+            ...listSourceGroupsOptions({ path: { sourceId } }),
+            staleTime: 0,
           });
           const groupIds = new Set(
             data.items.filter((item) => item.systemKey === null).map((item) => item.id),
@@ -87,18 +95,27 @@ export function useGroupSourcesDraft(group: GroupSummary) {
       );
       await Promise.all([
         ...additionReplacements.map((replacement) =>
-          updateSourceGroups({
+          updateSourceGroups.mutateAsync({
             path: { sourceId: replacement.sourceId },
             body: { groupIds: replacement.groupIds },
           }),
         ),
         ...removals.map((sourceId) =>
-          removeGroupSource({
+          removeGroupSource.mutateAsync({
             path: { groupId: group.id, sourceId },
           }),
         ),
       ]);
     },
+    // Each changed Source's own Group list is stale now, saved or not.
+    onSettled: () =>
+      Promise.all(
+        [...additions, ...removals].map((sourceId) =>
+          queryClient.invalidateQueries({
+            queryKey: listSourceGroupsQueryKey({ path: { sourceId } }),
+          }),
+        ),
+      ),
   });
 
   function add(sourceId: string) {

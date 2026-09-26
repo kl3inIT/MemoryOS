@@ -179,7 +179,9 @@ export function GroupMemberTable({
         {footer}
       </>
     );
-  return <DataTable table={table} label={`${ui("Members of")} ${group.name}`} footer={footer} />;
+  return (
+    <DataTable table={table} label={ui("Members of {{v1}}", { v1: group.name })} footer={footer} />
+  );
 }
 
 function MemberActions({
