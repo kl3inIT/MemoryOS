@@ -253,6 +253,10 @@ test("separates listing Sources from adding one in the administration menu", asy
   await page.goto("/admin");
   const navigation = page.getByRole("navigation", { name: "Administration navigation" });
   await expect(navigation.getByText("Documents & Knowledge")).toBeVisible();
+  const knowledge = navigation.locator("section", {
+    has: page.getByRole("heading", { name: "Documents & Knowledge" }),
+  });
+  await expect(knowledge.getByRole("link", { name: "Search settings", exact: true })).toBeVisible();
   const list = navigation.getByRole("link", { name: "Existing sources", exact: true });
   const add = navigation.getByRole("link", { name: "Add a source", exact: true });
   await expect(list).toHaveAttribute("aria-current", "page");
