@@ -104,10 +104,8 @@ function StorageCard({ usage, onShowLargest }: { usage: LibraryUsage; onShowLarg
           <Progress
             value={percent}
             aria-label={ui("Dung lượng đã dùng")}
-            className={cn(
-              "mt-2",
-              nearlyFull && "[&_[data-slot=progress-indicator]]:bg-status-danger-emphasis",
-            )}
+            tone={nearlyFull ? "danger" : "default"}
+            className="mt-2"
           />
           <p
             className={cn(

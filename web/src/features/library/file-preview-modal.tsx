@@ -109,16 +109,9 @@ export function ChatFilePreviewModal({
         aria-describedby={undefined}
         onOpenAutoFocus={(event) => event.preventDefault()}
         onCloseAutoFocus={onCloseAutoFocus}
-        className={cn(
-          "inset-0 flex max-h-none w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden p-0",
-          "sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2",
-          size === "full" &&
-            "sm:h-[calc(100dvh-3rem)] sm:w-[calc(100vw-3rem)] sm:max-w-[min(96rem,calc(100vw-3rem))]",
-          size === "large" &&
-            "sm:h-[min(48rem,calc(100dvh-3rem))] sm:w-[min(64rem,calc(100vw-3rem))] sm:max-w-[min(64rem,calc(100vw-3rem))]",
-          size === "tall" &&
-            "sm:h-[calc(100dvh-3rem)] sm:w-[min(64rem,calc(100vw-3rem))] sm:max-w-[min(64rem,calc(100vw-3rem))]",
-        )}
+        layout="flush"
+        phone="screen"
+        size={size}
       >
         <FilePreviewHeader
           filename={filename}

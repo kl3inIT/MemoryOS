@@ -13,7 +13,7 @@ export function MarkdownView({ text, truncated = false }: { text: string; trunca
   const { preprocess, ...rendering } = markdownRendering;
 
   return (
-    <div className="mx-auto min-h-full w-full max-w-[78ch] bg-surface-document px-8 py-10 text-content-primary">
+    <div className="mx-auto min-h-full w-full max-w-reading bg-surface-document px-8 py-10 text-content-primary">
       <div className="aui-md">
         <Streamdown mode="static" {...rendering}>
           {preprocess(text)}

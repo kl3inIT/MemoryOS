@@ -76,7 +76,9 @@ export function ExportMinutesDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         aria-describedby={undefined}
-        className="flex h-[calc(100dvh-2rem)] flex-col overflow-clip sm:h-[calc(100dvh-3rem)] sm:w-[calc(100vw-3rem)] sm:max-w-[min(88rem,calc(100vw-3rem))]"
+        layout="flush"
+        size="full"
+        className="h-[calc(100dvh-2rem)]"
       >
         <DialogHeader>
           <DialogTitle>{ui("Biên bản cuộc họp")}</DialogTitle>
@@ -218,8 +220,8 @@ function MinutesEditor({
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row">
-        <div className="min-h-0 flex-1 overflow-y-auto md:w-md md:flex-none">
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <div className="min-h-0 flex-1 overflow-y-auto border-b border-border-subtle px-6 py-5 md:w-md md:flex-none md:border-r md:border-b-0">
           <HeadingFields meeting={meeting} form={form} organization={initial.organization} />
         </div>
         <PreviewPane preview={preview} />
@@ -418,7 +420,7 @@ function PreviewPane({ preview }: { preview: ReturnType<typeof useHeadingPreview
       ? { document: preview.data, at: preview.dataUpdatedAt }
       : undefined;
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-surface-base">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-base">
       {[shown, drawing].map(
         (layer) =>
           layer && (

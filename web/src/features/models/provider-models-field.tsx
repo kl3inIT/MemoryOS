@@ -180,9 +180,9 @@ export function ProviderModelsField({
               {ui("Clear selection")}
             </Button>
           </div>
-          <div className="max-h-80 overflow-y-auto rounded-lg border border-border-subtle">
-            <Table>
-              <TableHeader>
+          <div className="overflow-hidden rounded-lg border border-border-subtle">
+            <Table maxHeight="list">
+              <TableHeader sticky>
                 <TableRow>
                   <TableHead>{ui("Model")}</TableHead>
                   <TableHead className="text-right">{ui("Context")}</TableHead>

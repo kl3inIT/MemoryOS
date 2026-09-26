@@ -152,6 +152,7 @@ export function ChangeModelDialog({
             <FieldLabel htmlFor="generation-query-prefix">{ui("Tiền tố câu hỏi")}</FieldLabel>
             <Textarea
               id="generation-query-prefix"
+              variant="mono"
               rows={2}
               spellCheck={false}
               value={draft.queryPrefix}
@@ -162,6 +163,7 @@ export function ChangeModelDialog({
             <FieldLabel htmlFor="generation-document-prefix">{ui("Tiền tố tài liệu")}</FieldLabel>
             <Textarea
               id="generation-document-prefix"
+              variant="mono"
               rows={1}
               spellCheck={false}
               value={draft.documentPrefix}

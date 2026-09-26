@@ -232,7 +232,12 @@ function Spend({ limit }: { limit: AiUsageLimit }) {
           </StatusBadge>
         ) : null}
       </span>
-      <Progress className="h-1.5" value={Math.round(used * 100)} aria-hidden="true" />
+      <Progress
+        className="h-1.5"
+        value={Math.round(used * 100)}
+        tone={used >= 1 ? "danger" : used >= 0.8 ? "warning" : "default"}
+        aria-hidden="true"
+      />
       {limit.scope === "PERSON" ? (
         <span className="block font-secondary-body text-content-muted">
           {ui("The person who spent the most")}

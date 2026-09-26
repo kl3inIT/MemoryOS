@@ -16,6 +16,13 @@
   --shadow-md: var(--elevation-2);
   --shadow-hover: var(--elevation-hover);
 
+  /* A comfortable line length for reading a document (Markdown and text previews). */
+  --container-reading: 78ch;
+  /* The tallest a sheet preview grows inside a panel before it scrolls (`max-h-viewer`), and the least a
+     document viewer opened as a bottom sheet on a phone covers (`min-h-viewer-sheet`). */
+  --spacing-viewer: 70vh;
+  --spacing-viewer-sheet: 72dvh;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

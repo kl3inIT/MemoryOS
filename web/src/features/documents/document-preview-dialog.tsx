@@ -13,7 +13,6 @@ import type { CitationConfidence } from "@/features/preview/file-preview";
 import { previewKind, previewSize } from "@/features/preview/preview-kind";
 import { PreviewCanvas, PreviewSkeleton } from "@/features/preview/preview-surface";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { cn } from "@/lib/utils";
 import { CitationRail } from "./citation-rail";
 import { DocumentPreviewContent } from "./document-preview-content";
 import { documentOriginalReader } from "./document-original-reader";
@@ -111,22 +110,11 @@ export function DocumentPreviewDialog({
     >
       <DialogContent
         showCloseButton={false}
-        className={cn(
-          "inset-x-0 top-auto bottom-0 left-0 flex max-h-[calc(100dvh-0.5rem)] min-h-[72dvh] w-auto max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:min-h-0 sm:-translate-x-1/2 sm:-translate-y-1/2",
-          // Full screen leaves no margin, so the expand control changes something for the formats that already
-          // open at the largest windowed size — a PDF, a Word file, a wide workbook.
-          full &&
-            "sm:top-0 sm:left-0 sm:h-dvh sm:max-h-dvh sm:w-screen sm:max-w-none sm:translate-x-0 sm:translate-y-0",
-          !full &&
-            size === "full" &&
-            "sm:h-[calc(100dvh-3rem)] sm:w-[calc(100vw-3rem)] sm:max-w-[min(96rem,calc(100vw-3rem))]",
-          !full &&
-            size === "large" &&
-            "sm:h-[min(48rem,calc(100dvh-3rem))] sm:w-[min(64rem,calc(100vw-3rem))] sm:max-w-[min(64rem,calc(100vw-3rem))]",
-          !full &&
-            size === "tall" &&
-            "sm:h-[calc(100dvh-3rem)] sm:w-[min(64rem,calc(100vw-3rem))] sm:max-w-[min(64rem,calc(100vw-3rem))]",
-        )}
+        layout="flush"
+        phone="sheet"
+        // Full screen leaves no margin, so the expand control changes something for the formats that already open
+        // at the largest windowed size — a PDF, a Word file, a wide workbook.
+        size={full ? "screen" : size}
         onCloseAutoFocus={(event) => {
           const target = returnFocusRef.current?.isConnected
             ? returnFocusRef.current
