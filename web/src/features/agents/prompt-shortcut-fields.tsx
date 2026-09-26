@@ -4,7 +4,7 @@ import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, MinusCircle } from "lucide-react";
 import { z } from "zod";
-import { useAppForm, useProblemErrors } from "@/components/form/app-form";
+import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
 import { useActionNotifications } from "@/components/ui/action-notifications";
 import { FieldError } from "@/components/ui/field";
 import { IconButton } from "@/components/ui/icon-button";
@@ -128,7 +128,6 @@ export function ShortcutFields({
         ),
     },
     onSubmit: async ({ value, formApi }) => {
-      formApi.setErrorMap({ onSubmit: { form: undefined, fields: {} } });
       const body = { name: value.name.trim(), content: value.content };
       try {
         if (shortcut) {
@@ -144,7 +143,7 @@ export function ShortcutFields({
           onCreated?.();
         }
       } catch (cause) {
-        formApi.setErrorMap({ onSubmit: problemErrors(cause) });
+        setServerErrors(formApi, problemErrors(cause));
       }
     },
   });

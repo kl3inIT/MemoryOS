@@ -3,7 +3,7 @@ import { useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { FileAudio, Upload, Users } from "lucide-react";
-import { useAppForm, useProblemErrors } from "@/components/form/app-form";
+import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -107,7 +107,7 @@ function UploadRecordingForm({ onClose }: { onClose: () => void }) {
         onClose();
         await navigate({ to: "/meetings/$meetingId", params: { meetingId: uploaded.id } });
       } catch (failed) {
-        if (!controller.signal.aborted) formApi.setErrorMap({ onSubmit: problemErrors(failed) });
+        if (!controller.signal.aborted) setServerErrors(formApi, problemErrors(failed));
       } finally {
         aborter.current = undefined;
         setPercent(undefined);

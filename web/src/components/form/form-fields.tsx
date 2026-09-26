@@ -93,7 +93,7 @@ function SubmitButton(props: Omit<ButtonProps, "type" | "pending">) {
 function FormError() {
   const form = useFormContext();
   return (
-    <form.Subscribe selector={(state) => state.errorMap.onSubmit}>
+    <form.Subscribe selector={(state) => state.errorMap.onServer}>
       {(error) => (typeof error === "string" && error ? <FieldError>{error}</FieldError> : null)}
     </form.Subscribe>
   );

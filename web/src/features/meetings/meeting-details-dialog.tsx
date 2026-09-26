@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useStore } from "@tanstack/react-form";
 import { Pencil } from "lucide-react";
-import { useAppForm, useProblemErrors } from "@/components/form/app-form";
+import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -65,7 +65,7 @@ function DetailsForm({ meeting, onClose }: { meeting: MeetingDetail; onClose: ()
         void invalidateMeetingList(cache);
         onClose();
       } catch (failed) {
-        formApi.setErrorMap({ onSubmit: problemErrors(failed) });
+        setServerErrors(formApi, problemErrors(failed));
       }
     },
   });

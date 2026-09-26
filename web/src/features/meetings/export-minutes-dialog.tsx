@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useStore } from "@tanstack/react-form";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, FileDown } from "lucide-react";
-import { useAppForm } from "@/components/form/app-form";
+import { useAppForm, withForm } from "@/components/form/app-form";
 import { useFieldValidity } from "@/components/form/form-context";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -254,141 +254,136 @@ function MinutesEditor({
   );
 }
 
-type HeadingForm = ReturnType<typeof useHeadingForm>;
-/** Only for the type of the heading form, which `useAppForm` infers from its defaults. */
-function useHeadingForm(initial: HeadingValues) {
-  return useAppForm({ defaultValues: initial });
-}
-
 /** What the owner fills in: the meeting, the people, the issuing body and the typeface. */
-function HeadingFields({
-  meeting,
-  form,
-  organization,
-}: {
-  meeting: MeetingDetail;
-  form: HeadingForm;
-  /** The issuing body the heading opened with; without one its fields start open. */
-  organization: string;
-}) {
-  const ui = useAppTranslation();
-  const people = `${useId()}-people`;
-  const organizationNow = useStore(form.store, (state) => state.values.organization);
-  const number = useStore(form.store, (state) => state.values.number);
-  return (
-    <div className="grid gap-7">
-      <datalist id={people}>
-        {meeting.participants.map((person) => (
-          <option key={person} value={person}>
-            {person}
-          </option>
-        ))}
-      </datalist>
-      <FieldSet>
-        <FieldLegend variant="label">{ui("Buổi họp")}</FieldLegend>
-        <form.AppField name="about">
-          {(field) => <field.TextField label={ui("Về việc")} maxLength={500} />}
-        </form.AppField>
-        <form.AppField name="place">
-          {(field) => (
-            <field.TextField
-              label={ui("Địa điểm")}
-              maxLength={200}
-              placeholder={ui("Phòng họp A, Hà Nội")}
-            />
-          )}
-        </form.AppField>
-        <form.AppField name="opened">
-          {(field) => <field.TextField label={ui("Bắt đầu")} maxLength={200} />}
-        </form.AppField>
-        <form.AppField name="closed">
-          {(field) => <field.TextField label={ui("Kết thúc")} maxLength={200} />}
-        </form.AppField>
-      </FieldSet>
-      <FieldSet>
-        <FieldLegend variant="label">{ui("Thành phần")}</FieldLegend>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <form.AppField name="chair">
+const HeadingFields = withForm({
+  defaultValues: {} as HeadingValues,
+  props: {} as {
+    meeting: MeetingDetail;
+    /** The issuing body the heading opened with; without one its fields start open. */
+    organization: string;
+  },
+  render: function HeadingFieldsRender({ form, meeting, organization }) {
+    const ui = useAppTranslation();
+    const people = `${useId()}-people`;
+    const organizationNow = useStore(form.store, (state) => state.values.organization);
+    const number = useStore(form.store, (state) => state.values.number);
+    return (
+      <div className="grid gap-7">
+        <datalist id={people}>
+          {meeting.participants.map((person) => (
+            <option key={person} value={person}>
+              {person}
+            </option>
+          ))}
+        </datalist>
+        <FieldSet>
+          <FieldLegend variant="label">{ui("Buổi họp")}</FieldLegend>
+          <form.AppField name="about">
+            {(field) => <field.TextField label={ui("Về việc")} maxLength={500} />}
+          </form.AppField>
+          <form.AppField name="place">
             {(field) => (
               <field.TextField
-                label={ui("Chủ trì")}
+                label={ui("Địa điểm")}
                 maxLength={200}
-                list={people}
-                className={SUGGESTS}
+                placeholder={ui("Phòng họp A, Hà Nội")}
               />
             )}
           </form.AppField>
-          <form.AppField name="chairRole">
-            {(field) => <field.TextField label={ui("Chức vụ")} maxLength={200} />}
+          <form.AppField name="opened">
+            {(field) => <field.TextField label={ui("Bắt đầu")} maxLength={200} />}
           </form.AppField>
-          <form.AppField name="secretary">
-            {(field) => (
-              <field.TextField
-                label={ui("Thư ký")}
-                maxLength={200}
-                list={people}
-                className={SUGGESTS}
-              />
-            )}
+          <form.AppField name="closed">
+            {(field) => <field.TextField label={ui("Kết thúc")} maxLength={200} />}
           </form.AppField>
-          <form.AppField name="secretaryRole">
-            {(field) => <field.TextField label={ui("Chức vụ")} maxLength={200} />}
-          </form.AppField>
-        </div>
-        <form.AppField name="attendees">
-          {(field) => (
-            <field.TextField
-              label={ui("Người dự")}
-              placeholder={ui("Tên người dự, cách nhau bằng dấu phẩy")}
-            />
-          )}
-        </form.AppField>
-      </FieldSet>
-      <Collapsible defaultOpen={!organization}>
-        <CollapsibleTrigger asChild>
-          <Button prominence="tertiary" size="sm" className="-ml-2 max-w-full justify-start">
-            <ChevronDown
-              data-icon="inline-start"
-              aria-hidden="true"
-              className="transition-transform in-data-[state=open]:rotate-180"
-            />
-            <span className="shrink-0">{ui("Đơn vị ban hành")}</span>
-            <span className="truncate font-secondary-body text-content-muted">
-              {[organizationNow, number && ui("Số {{number}}", { number })]
-                .filter(Boolean)
-                .join(" · ")}
-            </span>
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="grid gap-4 pt-4">
-            <form.AppField name="organization">
+        </FieldSet>
+        <FieldSet>
+          <FieldLegend variant="label">{ui("Thành phần")}</FieldLegend>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <form.AppField name="chair">
               {(field) => (
                 <field.TextField
-                  label={ui("Cơ quan, tổ chức")}
+                  label={ui("Chủ trì")}
                   maxLength={200}
-                  placeholder={ui("CÔNG TY CỔ PHẦN TASCO")}
+                  list={people}
+                  className={SUGGESTS}
                 />
               )}
             </form.AppField>
-            <form.AppField name="parentOrganization">
-              {(field) => <field.TextField label={ui("Cơ quan cấp trên")} maxLength={200} />}
+            <form.AppField name="chairRole">
+              {(field) => <field.TextField label={ui("Chức vụ")} maxLength={200} />}
             </form.AppField>
-            <form.AppField name="number">
+            <form.AppField name="secretary">
               {(field) => (
-                <field.TextField label={ui("Số biên bản")} maxLength={100} placeholder="12" />
+                <field.TextField
+                  label={ui("Thư ký")}
+                  maxLength={200}
+                  list={people}
+                  className={SUGGESTS}
+                />
               )}
             </form.AppField>
+            <form.AppField name="secretaryRole">
+              {(field) => <field.TextField label={ui("Chức vụ")} maxLength={200} />}
+            </form.AppField>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
-      <FieldSet>
-        <FieldLegend variant="label">{ui("Trình bày")}</FieldLegend>
-        <form.AppField name="font">{() => <TypefaceField label={ui("Phông chữ")} />}</form.AppField>
-      </FieldSet>
-    </div>
-  );
-}
+          <form.AppField name="attendees">
+            {(field) => (
+              <field.TextField
+                label={ui("Người dự")}
+                placeholder={ui("Tên người dự, cách nhau bằng dấu phẩy")}
+              />
+            )}
+          </form.AppField>
+        </FieldSet>
+        <Collapsible defaultOpen={!organization}>
+          <CollapsibleTrigger asChild>
+            <Button prominence="tertiary" size="sm" className="-ml-2 max-w-full justify-start">
+              <ChevronDown
+                data-icon="inline-start"
+                aria-hidden="true"
+                className="transition-transform in-data-[state=open]:rotate-180"
+              />
+              <span className="shrink-0">{ui("Đơn vị ban hành")}</span>
+              <span className="truncate font-secondary-body text-content-muted">
+                {[organizationNow, number && ui("Số {{number}}", { number })]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="grid gap-4 pt-4">
+              <form.AppField name="organization">
+                {(field) => (
+                  <field.TextField
+                    label={ui("Cơ quan, tổ chức")}
+                    maxLength={200}
+                    placeholder={ui("CÔNG TY CỔ PHẦN TASCO")}
+                  />
+                )}
+              </form.AppField>
+              <form.AppField name="parentOrganization">
+                {(field) => <field.TextField label={ui("Cơ quan cấp trên")} maxLength={200} />}
+              </form.AppField>
+              <form.AppField name="number">
+                {(field) => (
+                  <field.TextField label={ui("Số biên bản")} maxLength={100} placeholder="12" />
+                )}
+              </form.AppField>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+        <FieldSet>
+          <FieldLegend variant="label">{ui("Trình bày")}</FieldLegend>
+          <form.AppField name="font">
+            {() => <TypefaceField label={ui("Phông chữ")} />}
+          </form.AppField>
+        </FieldSet>
+      </div>
+    );
+  },
+});
 
 /** The typeface the biên bản prints in. */
 function TypefaceField({ label }: { label: string }) {

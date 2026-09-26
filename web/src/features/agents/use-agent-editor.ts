@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useBlocker, useNavigate } from "@tanstack/react-router";
-import { useAppForm, useProblemErrors } from "@/components/form/app-form";
+import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
 import { useApplicationSession } from "@/features/identity/application-session-context";
 import { useMcpConnections } from "@/features/mcp/mcp-connections";
 import {
@@ -69,7 +69,6 @@ export function useAgentForm(agent?: Persona) {
     validators: { onDynamic: agentValidation },
     onSubmit: async ({ value, formApi }) => {
       if (!value.name.trim()) return;
-      formApi.setErrorMap({ onSubmit: { form: undefined, fields: {} } });
       const body = agentRequest(value, agent);
       try {
         if (agent)
@@ -80,7 +79,7 @@ export function useAgentForm(agent?: Persona) {
           });
         else await create.mutateAsync({ body });
       } catch (cause) {
-        formApi.setErrorMap({ onSubmit: problemErrors(cause) });
+        setServerErrors(formApi, problemErrors(cause));
         return;
       }
       saved.current = true;

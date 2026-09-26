@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Library, X } from "lucide-react";
 import { z } from "zod";
-import { useAppForm, useProblemErrors } from "@/components/form/app-form";
+import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
 import { useFieldValidity } from "@/components/form/form-context";
 import { PersonAvatar } from "@/components/composites/person-avatar";
 import { ClampedList } from "@/components/ui/clamped-list";
@@ -132,7 +132,6 @@ function DocumentSetForm({ existing }: { existing?: DocumentSet }) {
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: async ({ value, formApi }) => {
-      formApi.setErrorMap({ onSubmit: { form: undefined, fields: {} } });
       const body = {
         name: value.name.trim(),
         description: value.description.trim(),
@@ -151,7 +150,7 @@ function DocumentSetForm({ existing }: { existing?: DocumentSet }) {
             : await create.mutateAsync({ body }),
         );
       } catch (cause) {
-        formApi.setErrorMap({ onSubmit: problemErrors(cause) });
+        setServerErrors(formApi, problemErrors(cause));
         return;
       }
       const actorIds = value.people.map((person) => person.actorId);

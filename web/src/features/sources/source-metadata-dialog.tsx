@@ -2,7 +2,7 @@ import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { type RefObject, useRef } from "react";
 import { z } from "zod";
-import { useAppForm, useProblemErrors } from "@/components/form/app-form";
+import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -55,11 +55,8 @@ export function SourceMetadataDialog({
         name: zRenameSourceRequest.shape.name.trim().min(1, ui("Enter a source name.")),
         access: zUpdateSourceAccessRequest.shape.access,
       }),
-      // A new attempt clears the previous attempt's server errors.
-      onSubmit: () => undefined,
     },
     onSubmit: async ({ value, formApi }) => {
-      formApi.setErrorMap({ onSubmit: { form: undefined, fields: {} } });
       try {
         if (field === "name")
           await rename.mutateAsync({
@@ -72,7 +69,7 @@ export function SourceMetadataDialog({
             body: { access: value.access },
           });
       } catch (cause) {
-        formApi.setErrorMap({ onSubmit: problemErrors(cause) });
+        setServerErrors(formApi, problemErrors(cause));
         return;
       }
       saved.current = true;

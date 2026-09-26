@@ -4,7 +4,7 @@ import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { useAppForm, useProblemErrors } from "@/components/form/app-form";
+import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
 import { useFieldValidity } from "@/components/form/form-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,7 +55,6 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: async ({ value, formApi }) => {
-      formApi.setErrorMap({ onSubmit: { form: undefined, fields: {} } });
       const body = {
         name: value.name.trim(),
         description: project?.description ?? "",
@@ -80,8 +79,9 @@ export function ProjectEditor({ project, onClose }: { project?: Project; onClose
         await navigate({ to: "/projects/$projectId", params: { projectId: created.id } });
       } catch (cause) {
         // Field violations go on their fields; the form says whether the outcome is known.
-        formApi.setErrorMap({
-          onSubmit: { ...problemErrors(cause), form: problemMessage(actionProblem(cause)) },
+        setServerErrors(formApi, {
+          ...problemErrors(cause),
+          form: problemMessage(actionProblem(cause)),
         });
       }
     },

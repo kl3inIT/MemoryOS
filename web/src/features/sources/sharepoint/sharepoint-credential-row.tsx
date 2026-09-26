@@ -3,7 +3,7 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { revalidateLogic } from "@tanstack/react-form";
 import { Ellipsis } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { useAppForm, useProblemErrors } from "@/components/form/app-form";
+import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { IconButton } from "@/components/ui/icon-button";
@@ -208,14 +208,12 @@ function RenameForm({
       onDynamic: zRenameSharePointCredentialRequest.extend({
         name: zRenameSharePointCredentialRequest.shape.name.trim().min(1, ui("Enter a name.")),
       }),
-      // A new attempt clears the previous attempt's server errors.
-      onSubmit: () => undefined,
     },
     onSubmit: async ({ value, formApi }) => {
       try {
         await manager.saveName(credential, value.name);
       } catch (cause) {
-        formApi.setErrorMap({ onSubmit: problemErrors(cause) });
+        setServerErrors(formApi, problemErrors(cause));
       }
     },
   });

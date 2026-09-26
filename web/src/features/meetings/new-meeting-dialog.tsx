@@ -3,7 +3,7 @@ import { useStore } from "@tanstack/react-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ChevronDown, Copy, MonitorSpeaker, Mic } from "lucide-react";
-import { useAppForm, useProblemErrors } from "@/components/form/app-form";
+import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -126,17 +126,17 @@ function NewMeetingForm({ onClose }: { onClose: () => void }) {
       } catch (failed) {
         for (const stream of [sources?.microphone, sources?.tab])
           for (const track of stream?.getTracks() ?? []) track.stop();
-        formApi.setErrorMap({
-          onSubmit:
-            failed instanceof ShareCancelledError
-              ? { form: ui("Bạn chưa chọn tab cuộc họp nên chưa bắt đầu ghi."), fields: {} }
-              : failed instanceof DOMException
-                ? {
-                    form: ui("Trình duyệt không cho dùng micro. Hãy cho phép micro rồi thử lại."),
-                    fields: {},
-                  }
-                : problemErrors(failed),
-        });
+        setServerErrors(
+          formApi,
+          failed instanceof ShareCancelledError
+            ? { form: ui("Bạn chưa chọn tab cuộc họp nên chưa bắt đầu ghi."), fields: {} }
+            : failed instanceof DOMException
+              ? {
+                  form: ui("Trình duyệt không cho dùng micro. Hãy cho phép micro rồi thử lại."),
+                  fields: {},
+                }
+              : problemErrors(failed),
+        );
       }
     },
   });

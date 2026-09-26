@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useAppForm, useProblemErrors } from "@/components/form/app-form";
+import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
 import { hoverReveal } from "@/components/composites/hover-reveal";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
@@ -78,7 +78,7 @@ function SummaryForm({ meeting, onDone }: { meeting: MeetingDetail; onDone: () =
         }));
         onDone();
       } catch (failed) {
-        formApi.setErrorMap({ onSubmit: problemErrors(failed) });
+        setServerErrors(formApi, problemErrors(failed));
       }
     },
   });
@@ -266,7 +266,7 @@ function ItemForm({
           due: assignable ? value.due.trim() : "",
         });
       } catch (failed) {
-        formApi.setErrorMap({ onSubmit: problemErrors(failed) });
+        setServerErrors(formApi, problemErrors(failed));
       }
     },
   });

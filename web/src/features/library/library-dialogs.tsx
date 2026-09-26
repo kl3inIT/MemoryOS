@@ -1,6 +1,6 @@
 import { revalidateLogic } from "@tanstack/react-form";
 import { z } from "zod";
-import { useAppForm, useProblemErrors } from "@/components/form/app-form";
+import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -41,11 +41,10 @@ export function RenameDialog({
       }),
     },
     onSubmit: async ({ value, formApi }) => {
-      formApi.setErrorMap({ onSubmit: { form: undefined, fields: {} } });
       try {
         await onRename(value.filename.trim());
       } catch (cause) {
-        formApi.setErrorMap({ onSubmit: problemErrors(cause) });
+        setServerErrors(formApi, problemErrors(cause));
         return;
       }
       onOpenChange(false);

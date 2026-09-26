@@ -1,7 +1,7 @@
 import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
-import { useAppForm, useProblemErrors } from "@/components/form/app-form";
+import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
 import { useFieldValidity } from "@/components/form/form-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -125,7 +125,6 @@ export function AddLimitDialog({
     validationLogic: revalidateLogic(),
     validators: { onDynamic: limitSchema },
     onSubmit: async ({ value, formApi }) => {
-      formApi.setErrorMap({ onSubmit: { form: undefined, fields: {} } });
       try {
         await create.mutateAsync({
           body: {
@@ -138,7 +137,7 @@ export function AddLimitDialog({
           },
         });
       } catch (cause) {
-        formApi.setErrorMap({ onSubmit: problemErrors(cause) });
+        setServerErrors(formApi, problemErrors(cause));
         return;
       }
       onCreated();
