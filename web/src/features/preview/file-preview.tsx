@@ -56,7 +56,9 @@ export type ImageTransform = {
 /** What a view reports once it has rendered; `DocxView` measures its own text while it does. */
 type Rendered = (result: { words: number; text: string }) => void;
 
-const NO_CITATIONS: PreviewCitations = { texts: [] };
+// Shared empties: a fresh array per render would re-run the highlight and re-scroll to the citation each time.
+const NONE: readonly never[] = [];
+const NO_CITATIONS: PreviewCitations = { texts: NONE };
 
 /**
  * The one file preview every surface renders through — the library, Search and Chat. It picks the view by the
@@ -86,7 +88,7 @@ export function FilePreview({
   onDocx?: Rendered;
 }) {
   const ui = useAppTranslation();
-  const { texts, sections = [], pages = [], boxes = [], rows = [], active = 0 } = citations;
+  const { texts, sections = NONE, pages = NONE, boxes = NONE, rows = NONE, active = 0 } = citations;
   const highlighted = (children: (onRendered: Rendered) => ReactNode, rendered?: boolean) => (
     <HighlightedText
       citations={texts}
@@ -127,6 +129,13 @@ export function FilePreview({
         />
       ));
     case "xlsx":
+      // Without citations there is nothing to place, so the workbook is not read for rows.
+      if (!texts.length)
+        return (
+          <PreviewCanvas>
+            <SheetView sheets={content.sheets} />
+          </PreviewCanvas>
+        );
       return (
         <CitationSteps active={active} total={texts.length} onActive={citations.onActive}>
           <WorkbookOriginal
