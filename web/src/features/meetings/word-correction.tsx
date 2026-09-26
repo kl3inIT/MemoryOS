@@ -1,12 +1,12 @@
-import { useState, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useRef, useState, type ReactNode } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { presentProblem } from "@/lib/problem-presentation";
-import { useProblemMessage } from "@/lib/use-problem-message";
+import { correctMeetingWordsMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { UtteranceSpan } from "./meeting-socket";
-import { correctWords, foldCorrection, type MeetingDetail } from "./meetings-api";
+import { foldCorrection, type MeetingDetail } from "./meetings-api";
+import { useFailureText } from "./use-failure-text";
 
 /**
  * A word the provider was unsure of, opened by the owner to write what was said. Enter saves, Escape leaves it as it
@@ -27,33 +27,29 @@ export function WordCorrection({
 }) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
-  const problemMessage = useProblemMessage();
+  const failureText = useFailureText();
   const heard = text.slice(span.start, span.end);
+  const input = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [word, setWord] = useState(heard);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const correct = useMutation({
+    ...correctMeetingWordsMutation(),
+    onSuccess: (answer) => {
+      foldCorrection(cache, meeting.id, answer);
+      setOpen(false);
+    },
+  });
 
-  async function save() {
+  function save() {
     const written = word.trim();
     if (!written || written === heard) {
       setOpen(false);
       return;
     }
-    setPending(true);
-    setError(null);
-    try {
-      foldCorrection(
-        cache,
-        meeting.id,
-        await correctWords(meeting.id, utteranceId, span.start, span.end, written),
-      );
-      setOpen(false);
-    } catch (failed) {
-      setError(problemMessage(presentProblem(failed, "mutation").message));
-    } finally {
-      setPending(false);
-    }
+    correct.mutate({
+      path: { meetingId: meeting.id, utteranceId },
+      body: { start: span.start, end: span.end, text: written },
+    });
   }
 
   return (
@@ -63,7 +59,7 @@ export function WordCorrection({
         setOpen(next);
         if (next) {
           setWord(heard);
-          setError(null);
+          correct.reset();
         }
       }}
     >
@@ -76,24 +72,36 @@ export function WordCorrection({
           {children}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="grid w-64 gap-1.5 p-2">
+      <PopoverContent
+        align="start"
+        className="w-64 p-2"
+        // The word opens selected, ready to be typed over.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          input.current?.select();
+        }}
+      >
         <form
+          className="grid gap-1.5"
           onSubmit={(event) => {
             event.preventDefault();
-            void save();
+            save();
           }}
         >
           <Input
-            autoFocus
+            ref={input}
             value={word}
-            disabled={pending}
+            disabled={correct.isPending}
             maxLength={2000}
             aria-label={ui("Từ đúng")}
-            onFocus={(event) => event.currentTarget.select()}
             onChange={(event) => setWord(event.target.value)}
           />
+          {correct.isError && (
+            <p role="alert" className="text-xs text-status-danger-content">
+              {failureText(correct.error)}
+            </p>
+          )}
         </form>
-        {error && <p className="text-xs text-status-danger-content">{error}</p>}
       </PopoverContent>
     </Popover>
   );

@@ -1,18 +1,13 @@
-import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { presentProblem } from "@/lib/problem-presentation";
-import { useProblemMessage } from "@/lib/use-problem-message";
 import {
-  dismissSpeakerSuggestion,
-  nameSpeaker,
-  patchMeeting,
-  withSpeaker,
-  type MeetingDetail,
-  type MeetingSpeaker,
-} from "./meetings-api";
+  dismissMeetingSpeakerSuggestionMutation,
+  nameMeetingSpeakerMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import { patchMeeting, withSpeaker, type MeetingDetail, type MeetingSpeaker } from "./meetings-api";
+import { useFailureText } from "./use-failure-text";
 
 /**
  * The names voices gave themselves, offered to the owner with the sentence they said it in. Accepting one is the
@@ -28,31 +23,26 @@ export function SpeakerSuggestions({
 }) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
-  const problemMessage = useProblemMessage();
-  const [pending, setPending] = useState<string>();
-  const [error, setError] = useState<string | null>(null);
+  const failureText = useFailureText();
+  const onSuccess = (speaker: MeetingSpeaker) =>
+    patchMeeting(cache, meeting.id, (current) => withSpeaker(current, speaker));
+  const accept = useMutation({ ...nameMeetingSpeakerMutation(), onSuccess });
+  const dismiss = useMutation({ ...dismissMeetingSpeakerSuggestionMutation(), onSuccess });
   const offered = meeting.speakers.filter((speaker) => speaker.suggestion);
   if (!meeting.owned || offered.length === 0) return null;
-
-  async function decide(key: string, act: () => Promise<MeetingSpeaker>) {
-    setPending(key);
-    setError(null);
-    try {
-      const speaker = await act();
-      patchMeeting(cache, meeting.id, (current) => withSpeaker(current, speaker));
-    } catch (failed) {
-      setError(problemMessage(presentProblem(failed, "mutation").message));
-    } finally {
-      setPending(undefined);
-    }
-  }
+  const busy = accept.isPending || dismiss.isPending;
+  const failure = accept.error ?? dismiss.error;
 
   return (
     <section className="grid gap-2">
       <h3 className="text-sm font-medium">
         {ui("Tên người nói ({{count}})", { count: offered.length })}
       </h3>
-      {error && <p className="text-sm text-status-danger-content">{error}</p>}
+      {failure ? (
+        <p role="alert" className="text-sm text-status-danger-content">
+          {failureText(failure)}
+        </p>
+      ) : null}
       <ol className="grid gap-2">
         {offered.map((speaker) => {
           const key = `${speaker.track}/${speaker.label}`;
@@ -85,12 +75,14 @@ export function SpeakerSuggestions({
               <div className="flex shrink-0 gap-2">
                 <Button
                   size="sm"
-                  disabled={pending !== undefined}
-                  onClick={() =>
-                    void decide(key, () =>
-                      nameSpeaker(meeting.id, speaker.track, speaker.label, name),
-                    )
-                  }
+                  disabled={busy}
+                  onClick={() => {
+                    dismiss.reset();
+                    accept.mutate({
+                      path: { meetingId: meeting.id, track: speaker.track, label: speaker.label },
+                      body: { name },
+                    });
+                  }}
                 >
                   <Check aria-hidden="true" />
                   {ui("Đặt tên {{name}}", { name })}
@@ -98,12 +90,13 @@ export function SpeakerSuggestions({
                 <Button
                   prominence="secondary"
                   size="sm"
-                  disabled={pending !== undefined}
-                  onClick={() =>
-                    void decide(key, () =>
-                      dismissSpeakerSuggestion(meeting.id, speaker.track, speaker.label),
-                    )
-                  }
+                  disabled={busy}
+                  onClick={() => {
+                    accept.reset();
+                    dismiss.mutate({
+                      path: { meetingId: meeting.id, track: speaker.track, label: speaker.label },
+                    });
+                  }}
                 >
                   <X aria-hidden="true" />
                   {ui("Bỏ qua")}

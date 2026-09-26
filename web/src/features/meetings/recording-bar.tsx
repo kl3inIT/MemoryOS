@@ -67,7 +67,7 @@ export function RecordingBar({
         disabled={phase === "stopping"}
         onClick={() => onBookmark(recorder.getSnapshot().elapsedMs)}
       >
-        <Bookmark aria-hidden="true" />
+        <Bookmark data-icon="inline-start" aria-hidden="true" />
         {ui("Đánh dấu")}
       </Button>
       {tracks
@@ -85,7 +85,7 @@ export function RecordingBar({
       <span className="flex-1" />
       {paused ? (
         <Button size="sm" prominence="secondary" onClick={() => void recorder.resume()}>
-          <Play aria-hidden="true" />
+          <Play data-icon="inline-start" aria-hidden="true" />
           {ui("Tiếp tục")}
         </Button>
       ) : (
@@ -95,14 +95,14 @@ export function RecordingBar({
           disabled={phase !== "recording"}
           onClick={() => void recorder.pause()}
         >
-          <Pause aria-hidden="true" />
+          <Pause data-icon="inline-start" aria-hidden="true" />
           {ui("Tạm dừng")}
         </Button>
       )}
       <ConfirmDialog
         trigger={
           <Button size="sm" tone="danger" disabled={phase === "stopping"}>
-            <Square aria-hidden="true" />
+            <Square data-icon="inline-start" aria-hidden="true" />
             {ui("Dừng")}
           </Button>
         }
@@ -123,7 +123,9 @@ function StoppedAt({ recorder }: { recorder: MeetingRecorder }) {
   return ui("Đã lưu đến {{time}}. Sau khi dừng, cuộc họp không ghi tiếp được.", { time });
 }
 
-const BARS = 5;
+/** Rising bars, from 40% of the meter's height to all of it. */
+const BAR_HEIGHTS = ["h-2/5", "h-11/20", "h-7/10", "h-17/20", "h-full"];
+const BARS = BAR_HEIGHTS.length;
 
 function Meter({
   recorder,
@@ -154,9 +156,9 @@ function Meter({
             key={index}
             className={cn(
               "w-1 rounded-sm",
+              BAR_HEIGHTS[index],
               index < shown ? "bg-status-success-strong" : "bg-surface-strong",
             )}
-            style={{ height: `${40 + index * 15}%` }}
           />
         ))}
       </span>

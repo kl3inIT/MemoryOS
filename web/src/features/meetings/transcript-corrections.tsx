@@ -6,24 +6,46 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { uiLocale } from "@/i18n/format";
+import {
+  acceptAllMeetingCorrectionsMutation,
+  acceptMeetingCorrectionMutation,
+  keepMeetingWordingMutation,
+  listMeetingCorrectionsOptions,
+  proposeMeetingCorrectionsMutation,
+  revertAllMeetingCorrectionsMutation,
+  revertMeetingCorrectionMutation,
+} from "@/lib/hey-api/@tanstack/react-query.gen";
+import type { MeetingCorrectionApplied } from "@/lib/hey-api/types.gen";
 import { presentProblem } from "@/lib/problem-presentation";
-import { useProblemMessage } from "@/lib/use-problem-message";
 import { Said } from "./transcript-text";
 import {
-  acceptAllCorrections,
-  acceptCorrection,
-  correctionsKey,
+  correctionsQueryKey,
   foldCorrection,
-  keepWording,
-  loadCorrections,
-  meetingKey,
-  proposeCorrections,
-  revertAllCorrections,
-  revertCorrection,
+  meetingQueryKey,
   type MeetingCorrection,
-  type MeetingCorrectionApplied,
   type MeetingDetail,
 } from "./meetings-api";
+import { useFailureText } from "./use-failure-text";
+
+const confirmFailure = (error: unknown) => presentProblem(error, "mutation").message;
+
+/** The mutations that decide proposals: one stretch answers its line and proposal, a whole pass the meeting. */
+function useCorrectionDecisions(meetingId: string) {
+  const cache = useQueryClient();
+  const folded = (answer: MeetingCorrectionApplied | MeetingCorrection) =>
+    foldCorrection(cache, meetingId, answer);
+  const replaced = (detail: MeetingDetail) => {
+    cache.setQueryData(meetingQueryKey(meetingId), detail);
+    return cache.invalidateQueries({ queryKey: correctionsQueryKey(meetingId) });
+  };
+  return {
+    accept: useMutation({ ...acceptMeetingCorrectionMutation(), onSuccess: folded }),
+    keep: useMutation({ ...keepMeetingWordingMutation(), onSuccess: folded }),
+    revert: useMutation({ ...revertMeetingCorrectionMutation(), onSuccess: folded }),
+    acceptAll: useMutation({ ...acceptAllMeetingCorrectionsMutation(), onSuccess: replaced }),
+    revertAll: useMutation({ ...revertAllMeetingCorrectionsMutation(), onSuccess: replaced }),
+  };
+}
 
 /**
  * The owner asks a model about every stretch the speech provider was unsure of, then decides each answer. The
@@ -35,69 +57,51 @@ import {
 function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
   const ui = useAppTranslation();
   const cache = useQueryClient();
-  const problemMessage = useProblemMessage();
-  const [error, setError] = useState<string | null>(null);
+  const failureText = useFailureText();
   const [wording, setWording] = useState<Record<string, string>>({});
-  const [found, setFound] = useState<number | null>(null);
   // A pass runs on the server whether or not this page is still open, so whether one is running comes from the
   // meeting itself. Leaving and coming back shows it still running, and the button stays shut until it is done.
   // The meeting page polls the meeting while it is correcting.
   const running = meeting.correcting;
-  const corrections = useQuery({
-    queryKey: correctionsKey(meeting.id),
-    queryFn: ({ signal }) => loadCorrections(meeting.id, signal),
-    enabled,
-  });
+  const path = { meetingId: meeting.id };
+  const corrections = useQuery({ ...listMeetingCorrectionsOptions({ path }), enabled });
   const wasRunning = useRef(running);
   useEffect(() => {
     // A pass started elsewhere has just finished: its proposals are waiting to be read.
     if (wasRunning.current && !running)
-      void cache.invalidateQueries({ queryKey: correctionsKey(meeting.id) });
+      void cache.invalidateQueries({ queryKey: correctionsQueryKey(meeting.id) });
     wasRunning.current = running;
   }, [running, cache, meeting.id]);
 
   const run = useMutation({
-    mutationFn: () => {
-      setFound(null);
-      // Mark it running straight away, so the button shuts even before the server answers.
-      cache.setQueryData<MeetingDetail>(meetingKey(meeting.id), (current) =>
+    ...proposeMeetingCorrectionsMutation(),
+    // Marked running straight away, so the button shuts even before the server answers.
+    onMutate: () => {
+      cache.setQueryData<MeetingDetail>(meetingQueryKey(meeting.id), (current) =>
         current ? { ...current, correcting: true } : current,
       );
-      return proposeCorrections(meeting.id);
     },
-    onSuccess: (result) => setFound(result.corrections.length),
     onSettled: () =>
       Promise.all([
-        cache.invalidateQueries({ queryKey: correctionsKey(meeting.id) }),
-        cache.invalidateQueries({ queryKey: meetingKey(meeting.id) }),
+        cache.invalidateQueries({ queryKey: correctionsQueryKey(meeting.id) }),
+        cache.invalidateQueries({ queryKey: meetingQueryKey(meeting.id) }),
       ]),
   });
-  // One stretch answers the line it rewrote and the proposal; a whole pass answers the meeting.
-  const decide = useMutation({
-    mutationFn: (act: () => Promise<MeetingCorrectionApplied | MeetingCorrection>) => act(),
-    onSuccess: (answer) => foldCorrection(cache, meeting.id, answer),
-  });
-  const decideAll = useMutation({
-    mutationFn: (act: () => Promise<MeetingDetail>) => act(),
-    onSuccess: (detail) => {
-      cache.setQueryData(meetingKey(meeting.id), detail);
-      return cache.invalidateQueries({ queryKey: correctionsKey(meeting.id) });
-    },
-  });
-
-  async function guard(work: () => Promise<unknown>) {
-    setError(null);
-    try {
-      await work();
-    } catch (failed) {
-      setError(problemMessage(presentProblem(failed, "mutation").message));
-    }
+  const { accept, keep, revert, acceptAll, revertAll } = useCorrectionDecisions(meeting.id);
+  const single = [run, accept, keep, revert];
+  /** One decision at a time: starting one clears what the last one said. */
+  function reset() {
+    for (const mutation of single) mutation.reset();
   }
+  const failed = single.find((mutation) => mutation.isError)?.error;
+  const found = run.isSuccess && !running ? run.data.corrections.length : null;
 
   const all = corrections.data ?? [];
   const pending = all.filter((item) => item.status === "PENDING");
   const applied = all.filter((item) => item.status === "ACCEPTED");
-  const busy = running || run.isPending || decide.isPending || decideAll.isPending;
+  const busy =
+    running ||
+    [run, accept, keep, revert, acceptAll, revertAll].some((mutation) => mutation.isPending);
   // What a pass would look at: every stretch the provider marked, on lines nobody has rewritten by hand.
   const unclear = meeting.utterances
     .filter((utterance) => utterance.editSource !== "HUMAN")
@@ -112,7 +116,10 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
       prominence="secondary"
       size="sm"
       disabled={busy}
-      onClick={() => guard(() => run.mutateAsync())}
+      onClick={() => {
+        reset();
+        run.mutate({ path });
+      }}
     >
       <WandSparkles aria-hidden="true" className={running ? "animate-pulse" : undefined} />
       {running
@@ -120,14 +127,15 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
         : ui("Hiệu chỉnh {{count}} đoạn khó nghe", { count: unclear })}
     </Button>
   );
-  const panel = (error ||
-    (found !== null && !running) ||
-    pending.length > 0 ||
-    applied.length > 0) && (
+  const panel = (!!failed || found !== null || pending.length > 0 || applied.length > 0) && (
     <section className="grid gap-3">
-      {error && <p className="text-sm text-status-danger-content">{error}</p>}
+      {failed ? (
+        <p role="alert" className="text-sm text-status-danger-content">
+          {failureText(failed)}
+        </p>
+      ) : null}
 
-      {found !== null && !running && (
+      {found !== null && (
         <p role="status" className="text-sm text-content-muted">
           {found === 0
             ? ui("Không có chỗ nào cần sửa.")
@@ -150,9 +158,11 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
             description={ui("Transcript sẽ đổi ở {{count}} chỗ.", { count: pending.length })}
             confirmLabel={ui("Nhận hết")}
             pendingLabel={ui("Đang nhận…")}
-            onConfirm={() =>
-              guard(() => decideAll.mutateAsync(() => acceptAllCorrections(meeting.id, runId)))
-            }
+            errorMessage={confirmFailure}
+            onConfirm={async () => {
+              reset();
+              await acceptAll.mutateAsync({ path, body: { runId } });
+            }}
           />
         </div>
       )}
@@ -174,7 +184,8 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
                 →
               </span>
               <Input
-                className="h-8 w-auto max-w-xs min-w-40"
+                size="sm"
+                className="w-auto max-w-xs min-w-40"
                 value={wording[item.id] ?? item.after}
                 aria-label={ui("Chữ thay thế")}
                 onChange={(event) =>
@@ -193,19 +204,16 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
               <Button
                 size="sm"
                 disabled={busy}
-                onClick={() =>
-                  guard(() =>
-                    decide.mutateAsync(() =>
-                      acceptCorrection(
-                        meeting.id,
-                        item.id,
-                        wording[item.id] === undefined || wording[item.id] === item.after
-                          ? undefined
-                          : wording[item.id],
-                      ),
-                    ),
-                  )
-                }
+                onClick={() => {
+                  reset();
+                  const written = wording[item.id];
+                  accept.mutate({
+                    path: { ...path, correctionId: item.id },
+                    body: {
+                      text: written === undefined || written === item.after ? null : written,
+                    },
+                  });
+                }}
               >
                 <Check aria-hidden="true" />
                 {ui("Nhận")}
@@ -214,9 +222,10 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
                 prominence="secondary"
                 size="sm"
                 disabled={busy}
-                onClick={() =>
-                  guard(() => decide.mutateAsync(() => keepWording(meeting.id, item.id)))
-                }
+                onClick={() => {
+                  reset();
+                  keep.mutate({ path: { ...path, correctionId: item.id } });
+                }}
               >
                 <X aria-hidden="true" />
                 {ui("Giữ nguyên")}
@@ -243,9 +252,11 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
             })}
             confirmLabel={ui("Hoàn tác cả lượt")}
             pendingLabel={ui("Đang hoàn tác…")}
-            onConfirm={() =>
-              guard(() => decideAll.mutateAsync(() => revertAllCorrections(meeting.id, appliedRun)))
-            }
+            errorMessage={confirmFailure}
+            onConfirm={async () => {
+              reset();
+              await revertAll.mutateAsync({ path, body: { runId: appliedRun } });
+            }}
           />
         </div>
       )}
@@ -266,9 +277,10 @@ function useTranscriptCorrections(meeting: MeetingDetail, enabled: boolean) {
                 size="sm"
                 className="ml-auto"
                 disabled={busy}
-                onClick={() =>
-                  guard(() => decide.mutateAsync(() => revertCorrection(meeting.id, item.id)))
-                }
+                onClick={() => {
+                  reset();
+                  revert.mutate({ path: { ...path, correctionId: item.id } });
+                }}
               >
                 <Undo2 aria-hidden="true" />
                 {ui("Hoàn tác")}

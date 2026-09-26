@@ -1,7 +1,10 @@
-import { useId, useRef, useState, type FormEvent } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useId, useRef, useState } from "react";
+import { useStore } from "@tanstack/react-form";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { FileAudio, Upload, Users } from "lucide-react";
+import { useAppForm, useProblemErrors } from "@/components/form/app-form";
+import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,36 +13,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { NativeSelect } from "@/components/ui/native-select";
+import { Progress } from "@/components/ui/progress";
 import { useAppTranslation } from "@/i18n/use-app-translation";
-import { presentProblem } from "@/lib/problem-presentation";
-import { useProblemMessage } from "@/lib/use-problem-message";
-import { MeetingShareField, type MeetingAudience } from "./meeting-share-field";
+import { listMeetingTranscribersOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { MeetingShareField } from "./meeting-share-field";
 import {
-  loadTranscribers,
-  meetingKey,
-  invalidateMeetingList,
-  shareMeeting,
-  startMeeting,
-  transcribersKey,
+  splitNames,
   uploadRecording,
+  type MeetingAudience,
   type MeetingTranscriber,
 } from "./meetings-api";
+import { useCreateMeeting } from "./use-create-meeting";
 
 /** Containers every supported provider reads; the server checks the type again against the bytes. */
 const ACCEPT = ".mp3,.m4a,.wav,.webm,.ogg,.flac,.mp4,audio/*";
-
-/** Splits "Anh Thanh, Chị Lan" into names, as the recording dialog does. */
-function list(value: string) {
-  return value
-    .split(/[,;\n]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
 
 function megabytes(bytes: number) {
   return Math.round(bytes / (1024 * 1024));
@@ -63,231 +52,248 @@ export function UploadRecordingDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* Mounted per opening; closing it stops an upload still running. */}
+      {open && <UploadRecordingForm onClose={() => onOpenChange(false)} />}
+    </Dialog>
+  );
+}
+
+function UploadRecordingForm({ onClose }: { onClose: () => void }) {
   const ui = useAppTranslation();
   const id = useId();
-  const cache = useQueryClient();
   const navigate = useNavigate();
-  const problemMessage = useProblemMessage();
-  const aborter = useRef<AbortController>(undefined);
+  const problemErrors = useProblemErrors();
+  const { create, publish } = useCreateMeeting();
   const picker = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File>();
-  const [title, setTitle] = useState("");
-  const [participants, setParticipants] = useState("");
-  const [provider, setProvider] = useState<MeetingTranscriber["provider"]>();
-  const [audience, setAudience] = useState<MeetingAudience>({ people: [], groups: [] });
-  const [consent, setConsent] = useState(false);
+  const aborter = useRef<AbortController>(undefined);
+  // Leaving the dialog, by closing it or navigating away, stops the upload.
+  useEffect(() => () => aborter.current?.abort(), []);
   const [percent, setPercent] = useState<number>();
-  const [error, setError] = useState<string>();
-
-  const transcribers = useQuery({
-    queryKey: transcribersKey,
-    queryFn: ({ signal }) => loadTranscribers(signal),
-    enabled: open,
+  const transcribers = useQuery(listMeetingTranscribersOptions());
+  const audience: MeetingAudience = { people: [], groups: [] };
+  const form = useAppForm({
+    defaultValues: {
+      file: undefined as File | undefined,
+      title: "",
+      participants: "",
+      provider: undefined as MeetingTranscriber["provider"] | undefined,
+      audience,
+      consent: false,
+    },
+    onSubmit: async ({ value, formApi }) => {
+      const { file } = value;
+      if (!file || !value.consent) return;
+      const controller = new AbortController();
+      aborter.current = controller;
+      setPercent(0);
+      try {
+        const meeting = await create({
+          title: value.title.trim() || file.name.replace(/\.[^.]+$/, ""),
+          kind: "IN_PERSON",
+          language: "vi",
+          participants: splitNames(value.participants),
+          terms: [],
+        });
+        const uploaded = await uploadRecording({
+          meetingId: meeting.id,
+          file,
+          provider: chosenOf(transcribers.data, value.provider)?.provider,
+          signal: controller.signal,
+          onProgress: setPercent,
+        });
+        await publish(uploaded, value.audience);
+        onClose();
+        await navigate({ to: "/meetings/$meetingId", params: { meetingId: uploaded.id } });
+      } catch (failed) {
+        if (!controller.signal.aborted) formApi.setErrorMap({ onSubmit: problemErrors(failed) });
+      } finally {
+        aborter.current = undefined;
+        setPercent(undefined);
+      }
+    },
   });
-  const chosen =
-    transcribers.data?.find((item) => item.provider === provider) ??
-    transcribers.data?.find((item) => item.selected);
+  const file = useStore(form.store, (state) => state.values.file);
+  const provider = useStore(form.store, (state) => state.values.provider);
+  const consent = useStore(form.store, (state) => state.values.consent);
+  const chosen = chosenOf(transcribers.data, provider);
   const pending = percent !== undefined;
   const tooLarge = !!file && !!chosen && file.size > chosen.maxBytes;
   const nobody = transcribers.isSuccess && transcribers.data.length === 0;
 
-  async function upload(event: FormEvent) {
-    event.preventDefault();
-    if (!file || pending || tooLarge || nobody || !consent) return;
-    setPercent(0);
-    setError(undefined);
-    const controller = new AbortController();
-    aborter.current = controller;
-    try {
-      const meeting = await startMeeting({
-        title: title.trim() || file.name.replace(/\.[^.]+$/, ""),
-        kind: "IN_PERSON",
-        language: "vi",
-        participants: list(participants),
-        terms: [],
-      });
-      const uploaded = await uploadRecording(
-        meeting.id,
-        file,
-        chosen?.provider,
-        controller.signal,
-        setPercent,
-      );
-      const readers =
-        audience.people.length > 0 || audience.groups.length > 0
-          ? await shareMeeting(
-              uploaded.id,
-              audience.people.map((person) => person.actorId),
-              audience.groups.map((group) => group.id),
-            )
-          : uploaded.readers;
-      cache.setQueryData(meetingKey(uploaded.id), { ...uploaded, readers });
-      void invalidateMeetingList(cache);
-      onOpenChange(false);
-      await navigate({ to: "/meetings/$meetingId", params: { meetingId: uploaded.id } });
-    } catch (failed) {
-      if (!controller.signal.aborted)
-        setError(problemMessage(presentProblem(failed, "mutation").message));
-    } finally {
-      aborter.current = undefined;
-      setPercent(undefined);
-    }
-  }
-
-  function close(next: boolean) {
-    if (!next) aborter.current?.abort();
-    onOpenChange(next);
-  }
-
   return (
-    <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="sm:max-w-xl" aria-describedby={undefined}>
-        <form onSubmit={(event) => void upload(event)} className="grid gap-5">
-          <DialogHeader>
-            <DialogTitle>{ui("Tải file ghi âm")}</DialogTitle>
-          </DialogHeader>
-          {nobody && (
-            <p
-              role="status"
-              className="rounded-xl bg-status-warning-surface px-4 py-3 text-sm text-status-warning-content"
-            >
+    <DialogContent className="sm:max-w-xl" aria-describedby={undefined}>
+      <form
+        className="grid gap-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!tooLarge && !nobody) void form.handleSubmit();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>{ui("Tải file ghi âm")}</DialogTitle>
+        </DialogHeader>
+        {nobody && (
+          <Alert variant="warning" role="status">
+            <AlertTitle>
               {ui(
                 "Chưa có kết nối nhận dạng giọng nói nào đọc được file. Hãy nhờ quản trị viên cấu hình.",
               )}
+            </AlertTitle>
+          </Alert>
+        )}
+        <fieldset disabled={pending || nobody} className="min-w-0">
+          <FieldGroup>
+            <form.AppField name="file">
+              {(field) => (
+                <Field>
+                  <FieldLabel htmlFor={`${id}-file`}>{ui("File ghi âm")}</FieldLabel>
+                  {/* A button over a hidden input, as the library upload does: the native control cannot be styled
+                      and shows the browser's own English label. */}
+                  <div className="flex items-center gap-3">
+                    <Button
+                      size="sm"
+                      prominence="secondary"
+                      onClick={() => picker.current?.click()}
+                    >
+                      <Upload data-icon="inline-start" aria-hidden="true" />
+                      {ui("Chọn file")}
+                    </Button>
+                    <span className="min-w-0 truncate text-sm text-content-secondary">
+                      {field.state.value
+                        ? ui("{{name}} · {{size}}", {
+                            name: field.state.value.name,
+                            size: size(field.state.value.size),
+                          })
+                        : ui("Chưa chọn file nào")}
+                    </span>
+                  </div>
+                  <input
+                    ref={picker}
+                    id={`${id}-file`}
+                    type="file"
+                    accept={ACCEPT}
+                    className="sr-only"
+                    onChange={(event) => field.handleChange(event.target.files?.[0])}
+                  />
+                </Field>
+              )}
+            </form.AppField>
+            <form.AppField name="title">
+              {(field) => (
+                <field.TextField
+                  label={ui("Tên cuộc họp")}
+                  maxLength={200}
+                  placeholder={ui("Giao ban tuần")}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="participants">
+              {(field) => (
+                <field.TextField
+                  label={ui("Thành phần")}
+                  placeholder={ui("Tên người dự, cách nhau bằng dấu phẩy")}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="audience">
+              {(field) => (
+                <MeetingShareField
+                  label={ui("Chia sẻ với")}
+                  value={field.state.value}
+                  disabled={pending}
+                  onChange={field.handleChange}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="provider">
+              {(field) => (
+                <Field>
+                  {transcribers.data && transcribers.data.length > 1 && (
+                    <>
+                      <FieldLabel htmlFor={`${id}-provider`}>{ui("Nhận dạng bằng")}</FieldLabel>
+                      <NativeSelect
+                        id={`${id}-provider`}
+                        value={chosen?.provider ?? ""}
+                        onChange={(event) =>
+                          field.handleChange(event.target.value as MeetingTranscriber["provider"])
+                        }
+                      >
+                        {transcribers.data.map((item) => (
+                          <option key={item.provider} value={item.provider}>
+                            {item.provider} · {item.model}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    </>
+                  )}
+                  {chosen && (
+                    <FieldDescription>
+                      <span className="flex flex-wrap items-center gap-3">
+                        <span className="inline-flex items-center gap-1">
+                          <Users className="size-3" aria-hidden="true" />
+                          {chosen.diarizes ? ui("Tách được người nói") : ui("Không tách người nói")}
+                        </span>
+                        <span>
+                          {ui("Tối đa {{size}} MB", { size: megabytes(chosen.maxBytes) })}
+                        </span>
+                      </span>
+                    </FieldDescription>
+                  )}
+                </Field>
+              )}
+            </form.AppField>
+            <form.AppField name="consent">
+              {(field) => (
+                <field.CheckboxField
+                  label={ui("Những người trong bản ghi đã biết buổi họp được ghi lại.")}
+                />
+              )}
+            </form.AppField>
+          </FieldGroup>
+        </fieldset>
+        {tooLarge && chosen && (
+          <FieldError>
+            {ui("File {{size}} MB vượt giới hạn {{limit}} MB của {{provider}}.", {
+              size: megabytes(file.size),
+              limit: megabytes(chosen.maxBytes),
+              provider: chosen.provider,
+            })}
+          </FieldError>
+        )}
+        {pending && (
+          <div className="grid gap-1.5">
+            <Progress value={percent} />
+            <p role="status" className="text-xs text-content-muted">
+              {ui("Đang tải lên… {{percent}}%", { percent: Math.round(percent) })}
             </p>
-          )}
-          <fieldset disabled={pending || nobody} className="grid gap-4">
-            <div className="grid gap-1.5">
-              <Label htmlFor={`${id}-file`}>{ui("File ghi âm")}</Label>
-              {/* A button over a hidden input, as the library upload does: the native control cannot be styled
-                  and shows the browser's own English label. */}
-              <div className="flex items-center gap-3">
-                <Button
-                  type="button"
-                  size="sm"
-                  prominence="secondary"
-                  onClick={() => picker.current?.click()}
-                >
-                  <Upload aria-hidden="true" />
-                  {ui("Chọn file")}
-                </Button>
-                <span className="min-w-0 truncate text-sm text-content-secondary">
-                  {file
-                    ? ui("{{name}} · {{size}}", { name: file.name, size: size(file.size) })
-                    : ui("Chưa chọn file nào")}
-                </span>
-              </div>
-              <input
-                ref={picker}
-                id={`${id}-file`}
-                type="file"
-                accept={ACCEPT}
-                className="sr-only"
-                onChange={(event) => setFile(event.target.files?.[0])}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor={`${id}-title`}>{ui("Tên cuộc họp")}</Label>
-              <Input
-                id={`${id}-title`}
-                value={title}
-                maxLength={200}
-                placeholder={ui("Giao ban tuần")}
-                onChange={(event) => setTitle(event.target.value)}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor={`${id}-participants`}>{ui("Thành phần")}</Label>
-              <Input
-                id={`${id}-participants`}
-                value={participants}
-                placeholder={ui("Tên người dự, cách nhau bằng dấu phẩy")}
-                onChange={(event) => setParticipants(event.target.value)}
-              />
-            </div>
-            <MeetingShareField
-              label={ui("Chia sẻ với")}
-              value={audience}
-              disabled={pending}
-              onChange={setAudience}
-            />
-            {transcribers.data && transcribers.data.length > 1 && (
-              <div className="grid gap-1.5">
-                <Label htmlFor={`${id}-provider`}>{ui("Nhận dạng bằng")}</Label>
-                <NativeSelect
-                  id={`${id}-provider`}
-                  value={chosen?.provider ?? ""}
-                  onChange={(event) =>
-                    setProvider(event.target.value as MeetingTranscriber["provider"])
-                  }
-                >
-                  {transcribers.data.map((item) => (
-                    <option key={item.provider} value={item.provider}>
-                      {item.provider} · {item.model}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </div>
-            )}
-            {chosen && (
-              <p className="flex flex-wrap items-center gap-3 text-xs text-content-muted">
-                <span className="inline-flex items-center gap-1">
-                  <Users className="size-3" aria-hidden="true" />
-                  {chosen.diarizes ? ui("Tách được người nói") : ui("Không tách người nói")}
-                </span>
-                <span>{ui("Tối đa {{size}} MB", { size: megabytes(chosen.maxBytes) })}</span>
-              </p>
-            )}
-            <Label
-              htmlFor={`${id}-consent`}
-              className="flex items-start gap-3 font-normal text-content-secondary"
-            >
-              <Checkbox
-                id={`${id}-consent`}
-                checked={consent}
-                className="mt-0.5"
-                onCheckedChange={(checked) => setConsent(checked === true)}
-              />
-              {ui("Những người trong bản ghi đã biết buổi họp được ghi lại.")}
-            </Label>
-          </fieldset>
-          {tooLarge && chosen && (
-            <p role="alert" className="text-sm text-status-danger-content">
-              {ui("File {{size}} MB vượt giới hạn {{limit}} MB của {{provider}}.", {
-                size: megabytes(file.size),
-                limit: megabytes(chosen.maxBytes),
-                provider: chosen.provider,
-              })}
-            </p>
-          )}
-          {pending && (
-            <div className="grid gap-1.5">
-              <Progress value={percent} />
-              <p role="status" className="text-xs text-content-muted">
-                {ui("Đang tải lên… {{percent}}%", { percent: Math.round(percent) })}
-              </p>
-            </div>
-          )}
-          {error && (
-            <p role="alert" className="text-sm text-status-danger-content">
-              {error}
-            </p>
-          )}
+          </div>
+        )}
+        <form.AppForm>
+          <form.FormError />
           <DialogFooter>
-            <Button type="button" prominence="tertiary" onClick={() => close(false)}>
+            <Button prominence="tertiary" onClick={onClose}>
               {ui("Huỷ")}
             </Button>
-            <Button
-              type="submit"
-              pending={pending}
-              disabled={!file || tooLarge || nobody || !consent}
-            >
-              <FileAudio aria-hidden="true" />
+            <form.SubmitButton disabled={!file || tooLarge || nobody || !consent}>
+              <FileAudio data-icon="inline-start" aria-hidden="true" />
               {ui("Tải lên và nhận dạng")}
-            </Button>
+            </form.SubmitButton>
           </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </form.AppForm>
+      </form>
+    </DialogContent>
+  );
+}
+
+/** The transcriber the person picked, or the Tenant's selected one. */
+function chosenOf(
+  transcribers: MeetingTranscriber[] | undefined,
+  provider: MeetingTranscriber["provider"] | undefined,
+) {
+  return (
+    transcribers?.find((item) => item.provider === provider) ??
+    transcribers?.find((item) => item.selected)
   );
 }

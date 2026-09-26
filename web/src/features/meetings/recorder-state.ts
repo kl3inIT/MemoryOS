@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import type { MeetingRecorder, RecorderSnapshot } from "./meeting-recorder";
 
 /** What a page shows while nothing is being recorded here. */
-export const IDLE: RecorderSnapshot = { phase: "stopped", elapsedMs: 0, tracks: [], previews: {} };
+const IDLE: RecorderSnapshot = { phase: "stopped", elapsedMs: 0, tracks: [], previews: {} };
 
 const unsubscribed = () => () => undefined;
 

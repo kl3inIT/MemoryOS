@@ -1,12 +1,13 @@
 import { useId, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { cn } from "@/lib/utils";
 import type { MeetingTrack } from "./meeting-socket";
-import { nameSpeaker, patchMeeting, withSpeaker, type MeetingDetail } from "./meetings-api";
+import { nameMeetingSpeakerMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { patchMeeting, withSpeaker, type MeetingDetail } from "./meetings-api";
 import { speakerColor, speakerName } from "./speakers";
 
 /** Who said a line; its owner names the voice from here. */
@@ -24,7 +25,14 @@ export function SpeakerChip({
   const id = useId();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [error, setError] = useState<string>();
+  const rename = useMutation({
+    ...nameMeetingSpeakerMutation(),
+    onSuccess: (saved) => {
+      patchMeeting(cache, meeting.id, (current) => withSpeaker(current, saved));
+      setOpen(false);
+      setName("");
+    },
+  });
   const owner = meeting.kind === "ONLINE" && track === "MIC";
   const display = speakerName(meeting, track, label, ui);
   const dot = (
@@ -41,20 +49,18 @@ export function SpeakerChip({
       </span>
     );
 
-  async function save(value: string | null) {
-    setError(undefined);
-    try {
-      const saved = await nameSpeaker(meeting.id, track, label, value);
-      patchMeeting(cache, meeting.id, (current) => withSpeaker(current, saved));
-      setOpen(false);
-      setName("");
-    } catch {
-      setError(ui("Không đổi được tên. Hãy thử lại."));
-    }
+  function save(value: string | null) {
+    rename.mutate({ path: { meetingId: meeting.id, track, label }, body: { name: value } });
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) rename.reset();
+      }}
+    >
       <PopoverTrigger asChild disabled={!meeting.owned}>
         <button
           type="button"
@@ -66,49 +72,57 @@ export function SpeakerChip({
           {display}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="grid w-64 gap-2 p-2">
-        {meeting.participants.map((participant) => (
-          <button
-            key={participant}
-            type="button"
-            className="rounded-md px-2 py-1.5 text-left text-sm hover:bg-surface-subtle"
-            onClick={() => void save(participant)}
+      <PopoverContent align="start" className="w-64 p-2">
+        <div className="grid gap-2">
+          {meeting.participants.map((participant) => (
+            <button
+              key={participant}
+              type="button"
+              className="rounded-md px-2 py-1.5 text-left text-sm hover:bg-surface-subtle"
+              disabled={rename.isPending}
+              onClick={() => save(participant)}
+            >
+              {participant}
+            </button>
+          ))}
+          <form
+            className="flex gap-1.5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (name.trim()) save(name.trim());
+            }}
           >
-            {participant}
-          </button>
-        ))}
-        <form
-          className="flex gap-1.5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (name.trim()) void save(name.trim());
-          }}
-        >
-          <Input
-            id={`${id}-name`}
-            size="sm"
-            value={name}
-            maxLength={200}
-            placeholder={ui("Tên khác")}
-            aria-label={ui("Tên người nói")}
-            onChange={(event) => setName(event.target.value)}
-          />
-          <Button size="sm" type="submit" disabled={!name.trim()}>
-            {ui("Lưu")}
-          </Button>
-        </form>
-        {meeting.speakers.some(
-          (speaker) => speaker.track === track && speaker.label === label && speaker.name,
-        ) && (
-          <Button size="sm" prominence="tertiary" onClick={() => void save(null)}>
-            {ui("Bỏ tên")}
-          </Button>
-        )}
-        {error && (
-          <p role="alert" className="px-1 text-xs text-status-danger-content">
-            {error}
-          </p>
-        )}
+            <Input
+              id={`${id}-name`}
+              size="sm"
+              value={name}
+              maxLength={200}
+              placeholder={ui("Tên khác")}
+              aria-label={ui("Tên người nói")}
+              onChange={(event) => setName(event.target.value)}
+            />
+            <Button size="sm" type="submit" pending={rename.isPending} disabled={!name.trim()}>
+              {ui("Lưu")}
+            </Button>
+          </form>
+          {meeting.speakers.some(
+            (speaker) => speaker.track === track && speaker.label === label && speaker.name,
+          ) && (
+            <Button
+              size="sm"
+              prominence="tertiary"
+              disabled={rename.isPending}
+              onClick={() => save(null)}
+            >
+              {ui("Bỏ tên")}
+            </Button>
+          )}
+          {rename.isError && (
+            <p role="alert" className="px-1 text-xs text-status-danger-content">
+              {ui("Không đổi được tên. Hãy thử lại.")}
+            </p>
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );

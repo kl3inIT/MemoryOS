@@ -36,7 +36,7 @@ vi.mock("./meeting-recorder", () => ({ MeetingRecorder: FakeRecorder }));
 vi.mock("./meetings-api", () => ({
   finishMeeting: vi.fn(async (id: string) => ({ id })),
   issueMeetingTicket: vi.fn(),
-  meetingKey: (id: string) => ["meetings", id],
+  meetingQueryKey: (id: string) => ["meetings", id],
   invalidateMeetingList: vi.fn(),
 }));
 
