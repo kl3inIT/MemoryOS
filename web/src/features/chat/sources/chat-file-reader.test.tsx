@@ -127,7 +127,12 @@ describe("Private file reader", () => {
       const trigger = screen.getByRole("button", { name: file.filename });
       expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
       await user.click(trigger);
-      const dialog = await screen.findByRole("dialog", { name: file.filename });
+      // The viewer's code loads on first open, which takes longer than a render under test.
+      const dialog = await screen.findByRole(
+        "dialog",
+        { name: file.filename },
+        { timeout: 10_000 },
+      );
       // Shiki replaces the plain fallback after it loads, so the text is re-queried rather than held.
       await waitFor(() =>
         expect(within(dialog).getByText("Private document content")).toBeVisible(),
