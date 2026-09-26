@@ -161,7 +161,7 @@ test("signs out from the account menu with the same-origin guard", async ({ page
 
   await page.goto("/");
   await page.getByRole("button", { name: "Tenant owner" }).click();
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
 
   // The server ended the provider session, so the reloaded app is signed out and goes straight to sign-in.
   await expect(page).toHaveURL(/\/login\/oauth2\/code\/memoryos\?/, { timeout: 15_000 });
@@ -195,7 +195,7 @@ test("opens the provider logout page when the server could not end the provider 
 
   await page.goto("/");
   await page.getByRole("button", { name: "Tenant owner" }).click();
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
 
   await expect(page).toHaveURL(/\/signed-out-test$/);
 });
@@ -211,13 +211,13 @@ test("persists the selected dark theme", async ({ page }) => {
 
   await page.goto("/");
   await page.getByRole("button", { name: "Tenant owner" }).click();
-  await page.getByRole("button", { name: "Use dark theme" }).click();
+  await page.getByRole("menuitem", { name: "Use dark theme" }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
 
   await page.reload();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await page.getByRole("button", { name: "Tenant owner" }).click();
-  await expect(page.getByRole("button", { name: "Use light theme" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Use light theme" })).toBeVisible();
 });
 
 test("opens the separate administration shell", async ({ page }) => {
@@ -253,9 +253,7 @@ test("separates listing Sources from adding one in the administration menu", asy
   await page.goto("/admin");
   const navigation = page.getByRole("navigation", { name: "Administration navigation" });
   await expect(navigation.getByText("Documents & Knowledge")).toBeVisible();
-  const knowledge = navigation.locator("section", {
-    has: page.getByRole("heading", { name: "Documents & Knowledge" }),
-  });
+  const knowledge = navigation.getByRole("group", { name: "Documents & Knowledge" });
   await expect(knowledge.getByRole("link", { name: "Search settings", exact: true })).toBeVisible();
   const list = navigation.getByRole("link", { name: "Existing sources", exact: true });
   const add = navigation.getByRole("link", { name: "Add a source", exact: true });
@@ -357,7 +355,7 @@ test("closes mobile administration navigation after a client route change", asyn
 
   await page.getByRole("button", { name: "Open navigation" }).click();
   await page.getByRole("button", { name: "Tenant owner" }).click();
-  await page.getByRole("link", { name: "Admin Panel" }).click();
+  await page.getByRole("menuitem", { name: "Admin Panel" }).click();
   await expect(page).toHaveURL(/\/admin$/);
   await expect(page.getByRole("dialog", { name: "Navigation" })).toHaveCount(0);
 });

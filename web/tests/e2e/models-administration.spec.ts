@@ -59,7 +59,7 @@ for (const width of [1280, 390]) {
     if (width < 768) await page.getByRole("button", { name: "Open navigation" }).click();
     await page.getByRole("button", { name: "Tenant member", exact: true }).click();
     // The account menu and sidebar are distinct real entry points.
-    const accountEntry = page.getByRole("link", { name: "Admin Panel", exact: true }).last();
+    const accountEntry = page.getByRole("menuitem", { name: "Admin Panel", exact: true });
     await expect(accountEntry).toHaveAttribute("href", "/admin/models");
     await accountEntry.click();
     await expect(page).toHaveURL(/\/admin\/models$/);
