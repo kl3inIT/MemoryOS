@@ -16,7 +16,8 @@ Branch `dathip04/frontend-audit`; wave 1 runs in parallel worktrees on disjoint 
 
 - [ ] Generated query/mutation factories everywhere; MSW in unit tests.
 - [ ] Data tables on TanStack Table (the shadcn Data Table pattern, server-side paging and sorting kept through `manualPagination`/`manualSorting`): users, library, Source items and runs, Group members, models and provider models, document sets, audit log, Chat history. Static tables stay plain `Table`.
-- [ ] shadcn `Field` forms; mutation failures surfaced and rolled back; `useDebouncedValue`; `formatUiDate` everywhere.
+- [ ] Hey API zod plugin; generated schemas replace hand-written API response schemas.
+- [ ] Forms on TanStack Form + zod + shadcn `Field` (all form files); shadcn `input-group`, `spinner`, `combobox`, `pagination`, `avatar`, `button-group`, `native-select`, `calendar` replace their hand-written equivalents; mutation failures surfaced and rolled back; `useDebouncedValue`; `formatUiDate` everywhere.
 - [ ] React 19 APIs; hooks gathered in `src/hooks`; `noUncheckedIndexedAccess`.
 - [ ] `@shadcn/lint` and `jsx-a11y` findings to zero, rules at error; banners on `Alert`; axe in Playwright specs; oxfmt Tailwind sorting last.
 

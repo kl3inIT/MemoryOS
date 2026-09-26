@@ -14,10 +14,12 @@ Owner decision 2026-09-26: fix every item of the frontend audit (the phase 5 lis
 - **One preview.** Library, Search and Chat render files through one `preview/` component; Chat stops importing Search.
 - **Data layer.** Queries and mutations use the generated `*Options`/`*QueryKey`/`*Mutation` factories; unit tests mock HTTP with MSW instead of mocking the generated SDK module.
 - **Tables.** Tables with sorting, row selection or paging use TanStack Table through the shadcn Data Table pattern; paging and sorting stay server-side. Static tables stay plain `Table`.
-- **Forms.** Forms use the shadcn `Field` primitives (`FieldGroup`, `Field`, `FieldLabel`, `FieldDescription`, `FieldError`) with label, description and error wired to the control. No form library: forms are small, server validation arrives as `ApiProblem`, and the shadcn skill does not require one.
+- **Forms.** Owner decision 2026-09-26: forms use TanStack Form with zod schemas (Standard Schema, no resolver) and the shadcn `Field` primitives (`FieldGroup`, `Field`, `FieldLabel`, `FieldDescription`, `FieldError`), label, description, error and `aria-invalid` wired to the control, following the shadcn TanStack Form guide. Server validation still arrives as `ApiProblem` and is shown on the form.
+- **Schemas.** The Hey API zod plugin generates schemas from `openapi.yml`; hand-written zod copies of API responses are removed. Schemas for stream payloads that OpenAPI does not describe stay hand-written.
+- **shadcn components.** Installed only where they replace a hand-written equivalent: `field`, `input-group`, `spinner`, `combobox`, `pagination`, `avatar`, `button-group`, `native-select`, `calendar`. No commit hooks: CI runs `pnpm check`.
 - **React 19 and TypeScript.** `<Context value>`/`use()`, `ref` as a prop; `noUncheckedIndexedAccess` on.
 - **Security headers and hygiene.** The dot-matrix animation moves out of an inline `<style>` the CSP blocks; nginx adds `Permissions-Policy`; unused dependencies go; knip and a bundle budget run in `pnpm check`; oxfmt sorts Tailwind classes; axe runs in the existing Playwright specs.
-- **Kept.** i18n source keys stay in the language they were written in (Vietnamese-first product); no Storybook, visual regression, date library, toast library, React Compiler or commit hooks.
+- **Kept.** i18n source keys stay in the language they were written in (Vietnamese-first product); no Storybook, visual regression, date library, toast library (the i18n-typed Radix toast stays), React Compiler or commit hooks; zustand stays limited to what assistant-ui needs, because server state lives in TanStack Query, filters in the URL and UI state in components.
 
 ## Verification
 
