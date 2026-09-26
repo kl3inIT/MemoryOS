@@ -33,7 +33,7 @@ import { historyDuration } from "./source-history";
 import { HistoryTime } from "./source-history-presentation";
 import { terminalOperationStatuses } from "@/features/sources/shared/source-operations";
 import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
-import { cursorTablePaging, useCursorPaging } from "@/features/sources/shared/use-cursor-paging";
+import { cursorTablePaging, useCursorPaging } from "@/components/data-table/use-cursor-paging";
 
 const features = tableFeatures({
   rowPaginationFeature,
@@ -236,42 +236,40 @@ export function SourceItemHistory({ sourceId }: { sourceId: string }) {
         </p>
       ) : null}
       {history.data ? (
-        history.data.items.length ? (
-          <DataTable
-            table={table}
-            label={ui("File indexing attempts, newest first")}
-            className="min-w-3xl"
-            footer={
-              <TablePagination
-                label={ui("Indexing attempt pages")}
-                page={paging.page}
-                totalPages={totalPages}
-                previousLabel={ui("Previous indexing attempts")}
-                nextLabel={ui("Next indexing attempts")}
-                previousDisabled={!table.getCanPreviousPage() || history.isPlaceholderData}
-                nextDisabled={
-                  !history.data.nextCursor || history.isPlaceholderData || history.isError
-                }
-                onPrevious={() => table.previousPage()}
-                onNext={() => table.nextPage()}
-              >
-                <PageSizeSelect
-                  label={ui("Rows per page")}
-                  rowsLabel={ui("Rows")}
-                  value={size}
-                  sizes={[5, 10, 25, 50]}
-                  disabled={history.isPlaceholderData}
-                  onSizeChange={(next) => {
-                    setSize(next);
-                    paging.reset();
-                  }}
-                />
-              </TablePagination>
-            }
-          />
-        ) : (
-          <EmptyState title={ui("No file indexing attempts on this page.")} />
-        )
+        <DataTable
+          table={table}
+          label={ui("File indexing attempts, newest first")}
+          className="min-w-3xl"
+          empty={<EmptyState title={ui("No file indexing attempts on this page.")} />}
+          rowProps={(row) => ({ selected: detailOpen && detail?.id === row.id })}
+          footer={
+            <TablePagination
+              label={ui("Indexing attempt pages")}
+              page={paging.page}
+              totalPages={totalPages}
+              previousLabel={ui("Previous indexing attempts")}
+              nextLabel={ui("Next indexing attempts")}
+              previousDisabled={!table.getCanPreviousPage() || history.isPlaceholderData}
+              nextDisabled={
+                !history.data.nextCursor || history.isPlaceholderData || history.isError
+              }
+              onPrevious={() => table.previousPage()}
+              onNext={() => table.nextPage()}
+            >
+              <PageSizeSelect
+                label={ui("Rows per page")}
+                rowsLabel={ui("Rows")}
+                value={size}
+                sizes={[5, 10, 25, 50]}
+                disabled={history.isPlaceholderData}
+                onSizeChange={(next) => {
+                  setSize(next);
+                  paging.reset();
+                }}
+              />
+            </TablePagination>
+          }
+        />
       ) : null}
       <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
         <SheetContent

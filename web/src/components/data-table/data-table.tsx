@@ -1,5 +1,11 @@
-import type { ReactNode } from "react";
-import type { ReactTable, RowData, TableFeatures, TableState } from "@tanstack/react-table";
+import type { ComponentProps, ReactNode } from "react";
+import {
+  type ReactTable,
+  type Row,
+  type RowData,
+  type TableFeatures,
+  type TableState,
+} from "@tanstack/react-table";
 import {
   Table,
   TableBody,
@@ -21,6 +27,15 @@ export type DataTableColumnMeta = {
   align?: "end";
 };
 
+/**
+ * What a page sets on one body row: a click handler, `data-*` attributes and whether the row is
+ * the selected one (drawn selected and exposed as `aria-selected`). A row with a click handler is
+ * only a larger pointer target; a control inside the row stays the keyboard's way to the action.
+ */
+export type DataTableRowProps = Omit<ComponentProps<"tr">, "children" | "className" | "style"> & {
+  selected?: boolean;
+} & { [attribute: `data-${string}`]: string | undefined };
+
 const metaOf = (meta: unknown) => meta as DataTableColumnMeta | undefined;
 
 type DataTableProps<TFeatures extends TableFeatures, TData extends RowData> = {
@@ -32,20 +47,31 @@ type DataTableProps<TFeatures extends TableFeatures, TData extends RowData> = {
   className?: string;
   /** Pagination drawn inside the frame under the rows. */
   footer?: ReactNode;
+  /** Shown across the table in place of rows when there are none, such as an `EmptyState`. */
+  empty?: ReactNode;
+  /** Props of each body row. */
+  rowProps?: (row: Row<TFeatures, TData>) => DataTableRowProps;
 };
 
 /**
  * The shadcn Data Table: a TanStack Table instance rendered through the `Table` primitives in one
  * bordered frame. Paging and sorting stay with the page (`manualPagination`, `manualSorting`), which
- * builds the table with `useTable` and passes it here.
+ * builds the table with `useTable` and passes it here. Columns hidden through the table's
+ * `columnVisibility` state (`columnVisibilityFeature`) are not rendered.
  */
 export function DataTable<TFeatures extends TableFeatures, TData extends RowData>({
   table,
   label,
   className,
   footer,
+  empty,
+  rowProps,
 }: DataTableProps<TFeatures, TData>) {
-  const columns = table.getAllLeafColumns();
+  // The header groups leave hidden columns out, with or without `columnVisibilityFeature`, so the
+  // bottom group's headers are the visible leaf columns.
+  const columns = (table.getHeaderGroups().at(-1)?.headers ?? []).map((header) => header.column);
+  const shown = new Set(columns.map((column) => column.id));
+  const rows = table.getRowModel().rows;
   return (
     <div className="flex flex-col overflow-hidden rounded-lg border border-border-subtle">
       <Table aria-label={label} className={cn("table-fixed", className)}>
@@ -74,22 +100,41 @@ export function DataTable<TFeatures extends TableFeatures, TData extends RowData
           ))}
         </TableHeader>
         <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
-              {row.getAllCells().map((cell) => (
-                <TableCell
-                  key={cell.id}
-                  className={
-                    metaOf(cell.column.columnDef.meta)?.align === "end"
-                      ? "px-4 py-3 text-right align-top"
-                      : "px-4 py-3 align-top"
-                  }
-                >
-                  <table.FlexRender cell={cell} />
-                </TableCell>
-              ))}
+          {rows.map((row) => {
+            const { selected, ...props } = rowProps?.(row) ?? {};
+            return (
+              <TableRow
+                key={row.id}
+                {...props}
+                data-state={selected ? "selected" : undefined}
+                aria-selected={selected || undefined}
+                className={props.onClick ? "cursor-pointer" : undefined}
+              >
+                {row
+                  .getAllCells()
+                  .filter((cell) => shown.has(cell.column.id))
+                  .map((cell) => (
+                    <TableCell
+                      key={cell.id}
+                      className={
+                        metaOf(cell.column.columnDef.meta)?.align === "end"
+                          ? "px-4 py-3 text-right align-top"
+                          : "px-4 py-3 align-top"
+                      }
+                    >
+                      <table.FlexRender cell={cell} />
+                    </TableCell>
+                  ))}
+              </TableRow>
+            );
+          })}
+          {rows.length === 0 && empty ? (
+            <TableRow>
+              <TableCell colSpan={columns.length} className="p-0">
+                {empty}
+              </TableCell>
             </TableRow>
-          ))}
+          ) : null}
         </TableBody>
       </Table>
       {footer}

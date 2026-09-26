@@ -21,7 +21,7 @@ import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { FileTypeIcon } from "@/features/sources/shared/file-type-icon";
 import { sourceMutationError, sourceStatusMessage } from "@/features/sources/shared/source-errors";
 import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
-import { cursorTablePaging } from "@/features/sources/shared/use-cursor-paging";
+import { cursorTablePaging } from "@/components/data-table/use-cursor-paging";
 import { HistoryTime, ItemStatus } from "@/features/sources/history/source-history-presentation";
 import { SourceFileActions } from "./source-file-actions";
 import type { SourceFiles } from "./use-source-files";
@@ -241,23 +241,28 @@ export function SourceFilesPanel({
               <div className="py-8">
                 <LoadingLabel label={ui("Loading files")} />
               </div>
-            ) : items.data?.items.length === 0 ? (
-              <EmptyState
-                title={paging.hasPrevious ? ui("No files on this page") : ui("No files yet")}
-                detail={ui(
-                  paging.hasPrevious
-                    ? "Files may have been removed. Return to the previous page or refresh this page."
-                    : source.type === "GOOGLE_DRIVE"
-                      ? "Files appear here after synchronization acquires them from Google Drive."
-                      : source.type === "SHAREPOINT"
-                        ? "Files appear here after synchronization acquires them from SharePoint."
-                        : canUpload
-                          ? "Upload one supported file to start indexing."
-                          : "No files are indexed in this Source.",
-                )}
-              />
             ) : items.data ? (
-              <DataTable table={table} label={ui("Source files table")} className="min-w-4xl" />
+              <DataTable
+                table={table}
+                label={ui("Source files table")}
+                className="min-w-4xl"
+                empty={
+                  <EmptyState
+                    title={paging.hasPrevious ? ui("No files on this page") : ui("No files yet")}
+                    detail={ui(
+                      paging.hasPrevious
+                        ? "Files may have been removed. Return to the previous page or refresh this page."
+                        : source.type === "GOOGLE_DRIVE"
+                          ? "Files appear here after synchronization acquires them from Google Drive."
+                          : source.type === "SHAREPOINT"
+                            ? "Files appear here after synchronization acquires them from SharePoint."
+                            : canUpload
+                              ? "Upload one supported file to start indexing."
+                              : "No files are indexed in this Source.",
+                    )}
+                  />
+                }
+              />
             ) : null}
             <TablePagination
               label={ui("Files pagination")}

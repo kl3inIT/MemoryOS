@@ -329,6 +329,7 @@ export function ChatHistoryPage() {
 /** The conversations one cursor page at a time; the pages read so far stay in the query. */
 function HistoryTable({ history }: { history: ReturnType<typeof useHistory> }) {
   const ui = useAppTranslation();
+  const open = use(OpenTranscript);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: PAGE_SIZE,
@@ -351,6 +352,12 @@ function HistoryTable({ history }: { history: ReturnType<typeof useHistory> }) {
       table={table}
       label={ui("Conversation history")}
       className="min-w-208"
+      // The row is a larger pointer target for the question's button, which stays the keyboard's way in.
+      rowProps={(row) => ({
+        onClick: (event) => {
+          if (!(event.target as Element).closest("button, a")) open(row.original);
+        },
+      })}
       footer={
         <TablePagination
           label={ui("Conversation history")}

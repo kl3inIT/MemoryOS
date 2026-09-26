@@ -2,6 +2,7 @@ import { formatUiDate, uiLocale } from "@/i18n/format";
 import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
+  columnVisibilityFeature,
   createColumnHelper,
   rowPaginationFeature,
   tableFeatures,
@@ -24,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { runIsActive } from "./source-history";
 import { HistoryTime, RunOutcome } from "./source-history-presentation";
-import { cursorTablePaging, useCursorPaging } from "@/features/sources/shared/use-cursor-paging";
+import { cursorTablePaging, useCursorPaging } from "@/components/data-table/use-cursor-paging";
 import { type SourceFilterOption, SourceFilterMenu } from "./source-filter-menu";
 import { SourceSectionIcon } from "@/features/sources/shared/source-section-icon";
 import { RunDetails, RunDuration, RunTrigger } from "./source-run-details";
@@ -78,6 +79,7 @@ const runStatusFilter: {
 
 const features = tableFeatures({
   rowPaginationFeature,
+  columnVisibilityFeature,
   columnMeta: {} as DataTableColumnMeta,
   tableMeta: {} as { viewDetails: (run: SourceRun, opener: HTMLElement) => void },
 });
@@ -130,7 +132,11 @@ const kindColumn = column.display({
     );
   },
 });
-const trailingColumns = [
+/* Columns live at module scope, because a cell renderer is a component and a rebuilt list remounts every cell. */
+const columns = column.columns([
+  startedColumn,
+  statusColumn,
+  kindColumn,
   column.display({
     id: "trigger",
     header: function TriggerHeader() {
@@ -178,6 +184,7 @@ const trailingColumns = [
       return (
         <IconButton
           size="sm"
+          data-run-details
           aria-label={ui("View details for run started {{v1}}", {
             v1: run.startedAt
               ? new Date(run.startedAt).toLocaleString(uiLocale())
@@ -190,17 +197,6 @@ const trailingColumns = [
       );
     },
   }),
-];
-/*
- * Columns live at module scope, because a cell renderer is a component and a rebuilt list remounts
- * every cell. SharePoint alone adds the kind of run.
- */
-const runColumns = column.columns([startedColumn, statusColumn, ...trailingColumns]);
-const runColumnsWithKind = column.columns([
-  startedColumn,
-  statusColumn,
-  kindColumn,
-  ...trailingColumns,
 ]);
 
 export function SourceRunHistory({
@@ -241,13 +237,16 @@ export function SourceRunHistory({
     setDetailRun(run);
     setDetailOpen(true);
   };
+  const cursorPaging = cursorTablePaging(paging, size, history.data?.nextCursor, totalPages);
   const table = useTable({
     features,
-    columns: kinds ? runColumnsWithKind : runColumns,
+    columns,
     data: history.data?.items ?? [],
     getRowId: (run) => run.id,
     meta: { viewDetails },
-    ...cursorTablePaging(paging, size, history.data?.nextCursor, totalPages),
+    ...cursorPaging,
+    // SharePoint alone runs refreshes and prunes; one kind of run needs no column.
+    state: { ...cursorPaging.state, columnVisibility: { kind: kinds } },
   });
   const latestRun = history.data?.current ?? history.data?.lastCompleted;
   const overview = (
@@ -347,42 +346,48 @@ export function SourceRunHistory({
               }}
             />
           </div>
-          {history.data.items.length ? (
-            <DataTable
-              table={table}
-              label={ui("Source indexing attempts, newest first")}
-              className="min-w-3xl"
-              footer={
-                <TablePagination
-                  label={ui("Source attempt pages")}
-                  page={paging.page}
-                  totalPages={totalPages}
-                  previousLabel={ui("Previous source attempts")}
-                  nextLabel={ui("Next source attempts")}
-                  previousDisabled={!table.getCanPreviousPage() || history.isPlaceholderData}
-                  nextDisabled={
-                    !history.data.nextCursor || history.isPlaceholderData || history.isError
-                  }
-                  onPrevious={() => table.previousPage()}
-                  onNext={() => table.nextPage()}
-                >
-                  <PageSizeSelect
-                    label={ui("Source attempts per page")}
-                    rowsLabel={ui("Rows")}
-                    value={size}
-                    sizes={[5, 10, 25, 50]}
-                    disabled={history.isPlaceholderData}
-                    onSizeChange={(next) => {
-                      setSize(next);
-                      paging.reset();
-                    }}
-                  />
-                </TablePagination>
-              }
-            />
-          ) : (
-            <EmptyState title={ui("No Source executions on this page.")} />
-          )}
+          <DataTable
+            table={table}
+            label={ui("Source indexing attempts, newest first")}
+            className="min-w-3xl"
+            empty={<EmptyState title={ui("No Source executions on this page.")} />}
+            rowProps={(row) => ({
+              selected: detailOpen && detailRun?.id === row.id,
+              // The row is a larger pointer target for its details button, which stays the
+              // keyboard and assistive-technology control.
+              onClick: (event) => {
+                if ((event.target as Element).closest("button, a")) return;
+                event.currentTarget.querySelector<HTMLElement>("[data-run-details]")?.click();
+              },
+            })}
+            footer={
+              <TablePagination
+                label={ui("Source attempt pages")}
+                page={paging.page}
+                totalPages={totalPages}
+                previousLabel={ui("Previous source attempts")}
+                nextLabel={ui("Next source attempts")}
+                previousDisabled={!table.getCanPreviousPage() || history.isPlaceholderData}
+                nextDisabled={
+                  !history.data.nextCursor || history.isPlaceholderData || history.isError
+                }
+                onPrevious={() => table.previousPage()}
+                onNext={() => table.nextPage()}
+              >
+                <PageSizeSelect
+                  label={ui("Source attempts per page")}
+                  rowsLabel={ui("Rows")}
+                  value={size}
+                  sizes={[5, 10, 25, 50]}
+                  disabled={history.isPlaceholderData}
+                  onSizeChange={(next) => {
+                    setSize(next);
+                    paging.reset();
+                  }}
+                />
+              </TablePagination>
+            }
+          />
         </>
       ) : null}
       <Sheet open={detailOpen} onOpenChange={setDetailOpen}>

@@ -9,7 +9,7 @@ import type { SourceRun, SourceRunError } from "@/lib/hey-api/types.gen";
 import { cn } from "@/lib/utils";
 import { useManualRefresh } from "@/lib/use-manual-refresh";
 import { sourceStatusMessage } from "@/features/sources/shared/source-errors";
-import { useCursorPaging } from "@/features/sources/shared/use-cursor-paging";
+import { useCursorPaging } from "@/components/data-table/use-cursor-paging";
 import { runErrorMessage, runIsActive } from "./source-history";
 import { HistoryTime } from "./source-history-presentation";
 import { ExpandableRow } from "./expandable-row";

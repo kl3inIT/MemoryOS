@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { useCursorPaging } from "./use-cursor-paging";
+import { useCursorPaging } from "@/components/data-table/use-cursor-paging";
 
 describe("useCursorPaging", () => {
   it("walks forward by cursor and back through the cursors already seen", () => {
