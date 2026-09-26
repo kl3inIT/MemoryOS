@@ -30,7 +30,8 @@ import {
 import { usePinUpdates } from "@/features/agents/agent-pins";
 import { AgentAvatar } from "@/features/agents/agent-avatar";
 import { ChatSessionRow, CHAT_DRAG_TYPE } from "./chat-session-row";
-import { ProjectEditor, ProjectIcon } from "@/features/chat/projects/chat-projects-page";
+import { ProjectEditor } from "@/features/chat/projects/project-editor";
+import { ProjectIcon } from "@/features/chat/projects/project-icon";
 import { projectsOptions, type Project } from "@/features/chat/projects/chat-projects-api";
 import { personaOf, type Persona } from "@/features/chat/chat-personas-api";
 import { actionErrorText } from "@/lib/action-errors";

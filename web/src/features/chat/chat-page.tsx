@@ -26,10 +26,8 @@ import {
 } from "@/features/chat/session/chat-temporary";
 import { ChatConversationSearch } from "@/features/chat/thread/chat-conversation-search";
 import { projectOf, type Project } from "@/features/chat/projects/chat-projects-api";
-import {
-  ProjectContextPanel,
-  ProjectConversationList,
-} from "@/features/chat/projects/chat-projects-page";
+import { ProjectContextPanel } from "@/features/chat/projects/project-context-panel";
+import { ProjectConversationList } from "@/features/chat/projects/project-conversation-list";
 import { useChatThreads } from "@/features/chat/runtime/chat-threads-context";
 import type { ChatThreadController } from "@/features/chat/runtime/chat-thread-controller";
 import { ChatModelPicker } from "./chat-model-picker";

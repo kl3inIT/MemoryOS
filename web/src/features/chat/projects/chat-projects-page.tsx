@@ -10,11 +10,6 @@ import { projectsOptions } from "./chat-projects-api";
 import { ProjectEditor } from "./project-editor";
 import { ProjectIcon } from "./project-icon";
 
-export { ProjectContextPanel } from "./project-context-panel";
-export { ProjectConversationList } from "./project-conversation-list";
-export { ProjectEditor } from "./project-editor";
-export { ProjectIcon } from "./project-icon";
-
 export function ChatProjectsPage() {
   const ui = useAppTranslation();
   const [creating, setCreating] = useState(false);
