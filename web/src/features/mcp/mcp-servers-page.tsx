@@ -141,9 +141,7 @@ export function McpServersPage() {
                   <McpServerMark slug={server.slug} />
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-main-ui-action text-content-primary">
-                        {server.name}
-                      </h3>
+                      <h3 className="font-main-ui-action text-content-primary">{server.name}</h3>
                       <StatusBadge tone={status.tone}>{ui(status.label)}</StatusBadge>
                     </div>
                     {server.description ? (
