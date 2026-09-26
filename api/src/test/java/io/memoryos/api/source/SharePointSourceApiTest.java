@@ -109,6 +109,30 @@ class SharePointSourceApiTest {
         owner = new ActorAuthenticationToken(new IdentityContext(new ActorId(jdbcClient.sql("""
                 SELECT actor_id FROM external_identity_bindings WHERE subject = 'sharepoint-source-owner'
                 """).query(UUID.class).single())));
+        when(sources.selectionRequestByteLimit()).thenReturn(3_145_728);
+    }
+
+    @Test
+    void aSelectionAboveTheByteBudgetIsRefusedBeforeItReachesTheService() throws Exception {
+        when(sources.selectionRequestByteLimit()).thenReturn(64);
+
+        mockMvc.perform(post("/api/sources/sharepoint")
+                        .with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createBody()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SOURCE_INVALID_REQUEST"));
+        mockMvc.perform(put("/api/sources/{id}/sharepoint/scope", SOURCE)
+                        .with(authentication(owner))
+                        .header("X-MemoryOS-CSRF", "1")
+                        .header("If-Match", "\"3\"")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(scopeBody()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SOURCE_INVALID_REQUEST"));
+        verify(sources, never()).create(any(), any(), any(), any(), any(), any(), any());
+        verify(sources, never()).replaceScope(any(), any(), any(), anyLong(), anyLong(), any());
     }
 
     @Test
