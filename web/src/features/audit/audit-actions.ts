@@ -5,7 +5,7 @@ import type { AuditEvent } from "@/lib/hey-api/types.gen";
  * A readable sentence for each recorded action, shown beside its code as PlanetScale and Okta show theirs. The codes
  * are an append-only contract (ADR 0013); an action this build does not know still shows its code.
  */
-export const actionLabels: Record<string, AppCopy> = {
+const actionLabels: Record<string, AppCopy> = {
   "auth.login": "Signed in",
   "auth.login_failure": "Sign-in refused",
   "auth.logout": "Signed out",
