@@ -2,11 +2,12 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { SearchX, User, UserPlus, WifiOff } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { EmptyState } from "@/components/composites/empty-state";
+import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/composites/settings-layout";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TextButton } from "@/components/ui/text-button";
 import {
   useCapabilityAuthority,
   useGlobalCapability,
@@ -22,7 +23,7 @@ import { useUserActions } from "./use-user-actions";
 import { UsersFilters } from "./users-filters";
 import { UsersSummary } from "./users-summary";
 import { UsersTable } from "./users-table";
-import { usersQuery, type UsersSearch, type UsersSort } from "./users-search";
+import { usersQuery, type UsersSearch } from "./users-search";
 
 const emptyEntries: UserListItem[] = [];
 
@@ -49,18 +50,19 @@ export function UsersPage() {
     retry: false,
   });
 
-  const refreshUsers = useCallback(() => {
+  function refreshUsers() {
     void queryClient.invalidateQueries({ queryKey: listUsersQueryKey() }).catch(() => undefined);
-  }, [queryClient]);
+  }
 
-  const refreshPrivateViews = useCallback(async () => {
+  // Group membership changes what the person can read everywhere, so every private view refreshes.
+  async function refreshPrivateViews() {
     await queryClient.invalidateQueries();
-  }, [queryClient]);
+  }
 
-  const showIssuedInvitation = useCallback((invitation: IssuedInvitation) => {
+  function showIssuedInvitation(invitation: IssuedInvitation) {
     setIssuedInvitation(invitation);
     setInvitationDialogOpen(true);
-  }, []);
+  }
 
   const actions = useUserActions({
     onUsersChanged: refreshUsers,
@@ -93,6 +95,13 @@ export function UsersPage() {
     });
   }
 
+  function clearFilters() {
+    updateView(
+      { search: undefined, status: undefined, role: undefined, groupId: undefined },
+      { resetPage: true },
+    );
+  }
+
   const usersPage = users.data;
   const entries = usersPage?.items ?? emptyEntries;
   const hasFilters = Boolean(search.search || search.status || search.role || search.groupId);
@@ -100,7 +109,7 @@ export function UsersPage() {
 
   return (
     <>
-      <section className="mx-auto w-full max-w-[var(--page-width-wide)] px-5 pt-7 pb-12 sm:px-8 sm:pt-10 sm:pb-16">
+      <SettingsLayout wide className="gap-6">
         <PageHeader
           icon={<User />}
           title={ui("Users")}
@@ -112,42 +121,30 @@ export function UsersPage() {
               disabled={actions.invitationPending}
               onClick={openInvitationDialog}
             >
-              <UserPlus aria-hidden="true" />
+              <UserPlus data-icon="inline-start" aria-hidden="true" />
               {ui("Invite member")}
             </Button>
           }
         />
 
-        <div className="mt-6">
-          <UsersSummary
-            counts={usersPage?.counts}
-            selectedStatus={search.status}
-            loading={users.isPending}
-            onStatusChange={(status) => updateView({ status }, { resetPage: true })}
-          />
-        </div>
+        <UsersSummary
+          counts={usersPage?.counts}
+          selectedStatus={search.status}
+          loading={users.isPending}
+          onStatusChange={(status) => updateView({ status }, { resetPage: true })}
+        />
 
-        <div className="mt-6">
-          <UsersFilters
-            search={search}
-            groups={canReadGroups ? groups : undefined}
-            groupsLoading={groupOptions.isPending}
-            onSearchChange={(nextSearch) => updateView({ search: nextSearch }, { resetPage: true })}
-            onRoleChange={(role) => updateView({ role }, { resetPage: true })}
-            onGroupChange={(groupId) => updateView({ groupId }, { resetPage: true })}
-            onClear={() =>
-              updateView(
-                { search: undefined, status: undefined, role: undefined, groupId: undefined },
-                { resetPage: true },
-              )
-            }
-          />
-        </div>
+        <UsersFilters
+          search={search}
+          groups={canReadGroups ? groups : undefined}
+          groupsLoading={groupOptions.isPending}
+          onSearchChange={(nextSearch) => updateView({ search: nextSearch }, { resetPage: true })}
+          onRoleChange={(role) => updateView({ role }, { resetPage: true })}
+          onGroupChange={(groupId) => updateView({ groupId }, { resetPage: true })}
+          onClear={clearFilters}
+        />
 
-        <div
-          className="mt-5 overflow-hidden rounded-xl border border-border-subtle bg-surface-raised"
-          aria-busy={users.isFetching}
-        >
+        <div className="flex flex-col gap-3" aria-busy={users.isFetching}>
           <span className="sr-only" aria-live="polite">
             {users.isPending
               ? ui("Loading…")
@@ -162,37 +159,42 @@ export function UsersPage() {
           </span>
 
           {users.isError && usersPage ? (
-            <div
-              role="alert"
-              className="flex flex-col gap-2 border-b border-status-warning-content/20 bg-status-warning-surface px-4 py-3 font-secondary-body text-status-warning-content sm:flex-row sm:items-center sm:justify-between"
-            >
-              <span>{ui("Could not refresh users. Showing previous results.")}</span>
-              <TextButton size="sm" onClick={() => void users.refetch()}>
-                {ui("Retry refresh")}
-              </TextButton>
-            </div>
+            <Alert variant="warning">
+              <AlertDescription>
+                {ui("Could not refresh users. Showing previous results.")}
+              </AlertDescription>
+              <AlertAction>
+                <Button size="sm" prominence="tertiary" onClick={() => void users.refetch()}>
+                  {ui("Retry refresh")}
+                </Button>
+              </AlertAction>
+            </Alert>
           ) : null}
 
           {users.isPending ? (
             <UsersLoading />
           ) : users.isError && !usersPage ? (
-            <UsersError onRetry={() => void users.refetch()} />
+            <EmptyState
+              role="alert"
+              icon={<WifiOff />}
+              title={ui("Could not load users")}
+              action={
+                <Button prominence="secondary" size="sm" onClick={() => void users.refetch()}>
+                  {ui("Try again")}
+                </Button>
+              }
+            />
           ) : entries.length === 0 ? (
             <UsersEmpty
               filtered={hasFilters}
               invitationPending={actions.invitationPending}
-              onClear={() =>
-                updateView(
-                  { search: undefined, status: undefined, role: undefined, groupId: undefined },
-                  { resetPage: true },
-                )
-              }
+              onClear={clearFilters}
               onInvite={openInvitationDialog}
             />
           ) : (
             <UsersTable
               entries={entries}
-              sort={search.sort as UsersSort}
+              sort={search.sort}
               statusFilter={search.status}
               page={search.page}
               size={search.size}
@@ -217,7 +219,7 @@ export function UsersPage() {
             />
           )}
         </div>
-      </section>
+      </SettingsLayout>
 
       <InvitationDialog
         open={invitationDialogOpen}
@@ -239,46 +241,10 @@ function UsersLoading() {
   const ui = useAppTranslation();
 
   return (
-    <div role="status" aria-label={ui("Loading users")} className="p-4">
-      <span className="sr-only">{ui("Loading users")}</span>
-      <div className="grid grid-cols-[minmax(12rem,2fr)_1.4fr_0.8fr_1fr_2rem] gap-4 border-b border-border-subtle px-1 pb-3">
-        {Array.from({ length: 5 }, (_, index) => (
-          <Skeleton key={index} className="h-3 w-16" />
-        ))}
-      </div>
-      <div className="divide-y divide-border-subtle">
-        {Array.from({ length: 6 }, (_, index) => (
-          <div
-            key={index}
-            className="grid h-[4.5rem] grid-cols-[minmax(12rem,2fr)_1.4fr_0.8fr_1fr_2rem] items-center gap-4 px-1"
-          >
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-3 w-44" />
-            </div>
-            <Skeleton className="h-5 w-24 rounded-full" />
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-5 w-16 rounded-full" />
-            <Skeleton className="size-8" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function UsersError({ onRetry }: { onRetry: () => void }) {
-  const ui = useAppTranslation();
-
-  return (
-    <div className="px-6 py-16 text-center">
-      <span className="mx-auto grid size-10 place-items-center rounded-xl border border-border-subtle bg-surface-subtle text-content-secondary">
-        <WifiOff className="size-4.5" aria-hidden="true" />
-      </span>
-      <h2 className="mt-4 font-heading-h3 text-content-primary">{ui("Could not load users")}</h2>
-      <Button prominence="secondary" size="sm" className="mt-5" onClick={onRetry}>
-        {ui("Try again")}
-      </Button>
+    <div role="status" aria-label={ui("Loading users")} className="flex flex-col gap-2">
+      {Array.from({ length: 6 }, (_, index) => (
+        <Skeleton key={index} className="h-18" />
+      ))}
     </div>
   );
 }
@@ -297,26 +263,19 @@ function UsersEmpty({
   const ui = useAppTranslation();
 
   return (
-    <div className="px-6 py-16 text-center">
-      <span className="mx-auto grid size-10 place-items-center rounded-xl border border-border-subtle bg-surface-subtle text-content-secondary">
-        {filtered ? (
-          <SearchX className="size-4.5" aria-hidden="true" />
-        ) : (
-          <UserPlus className="size-4.5" aria-hidden="true" />
-        )}
-      </span>
-      <h2 className="mt-4 font-heading-h3 text-content-primary">
-        {filtered ? ui("No users found") : ui("No users yet")}
-      </h2>
-      <Button
-        prominence="secondary"
-        size="sm"
-        className="mt-5"
-        disabled={!filtered && invitationPending}
-        onClick={filtered ? onClear : onInvite}
-      >
-        {filtered ? ui("Clear filters") : ui("Invite member")}
-      </Button>
-    </div>
+    <EmptyState
+      icon={filtered ? <SearchX /> : <UserPlus />}
+      title={filtered ? ui("No users found") : ui("No users yet")}
+      action={
+        <Button
+          prominence="secondary"
+          size="sm"
+          disabled={!filtered && invitationPending}
+          onClick={filtered ? onClear : onInvite}
+        >
+          {filtered ? ui("Clear filters") : ui("Invite member")}
+        </Button>
+      }
+    />
   );
 }

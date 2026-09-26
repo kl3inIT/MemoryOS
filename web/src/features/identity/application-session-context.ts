@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, use } from "react";
 import { adminEntryPage, adminPages } from "@/components/app-shell/admin-pages";
 import type { CurrentIdentity, CurrentTenant } from "@/lib/hey-api/types.gen";
 
@@ -8,7 +8,7 @@ export type ApplicationSession = CurrentIdentity & { tenant: CurrentTenant };
 export const ApplicationSessionContext = createContext<ApplicationSession | null>(null);
 
 export function useApplicationSession() {
-  const session = useContext(ApplicationSessionContext);
+  const session = use(ApplicationSessionContext);
   if (!session) {
     throw new Error("Application session is unavailable outside ApplicationSessionProvider");
   }

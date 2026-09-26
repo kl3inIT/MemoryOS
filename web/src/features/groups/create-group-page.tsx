@@ -1,15 +1,20 @@
-import type { AppCopy } from "@/i18n/app-text";
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { revalidateLogic, useStore } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Users } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useRef } from "react";
+import { z } from "zod";
+import { useAppForm } from "@/components/form/app-form";
 import { PageHeader } from "@/components/composites/settings-layout";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Input } from "@/components/ui/input";
 import { createGroupMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
+import { zCreateGroupRequest } from "@/lib/hey-api/zod.gen";
 import { groupMutationError } from "./group-errors";
+
+const formId = "create-group-form";
 
 export function CreateGroupPage() {
   const ui = useAppTranslation();
@@ -17,9 +22,34 @@ export function CreateGroupPage() {
   const navigate = useNavigate({ from: "/admin/groups/new" });
   const queryClient = useQueryClient();
   const createGroup = useMutation(createGroupMutation());
-  const [name, setName] = useState("");
-  const [error, setError] = useState<AppCopy | null>(null);
-  const dirty = name.length > 0;
+  const form = useAppForm({
+    defaultValues: { name: "" },
+    validationLogic: revalidateLogic(),
+    validators: {
+      onDynamic: z.object({
+        name: zCreateGroupRequest.shape.name.trim().min(1, ui("Enter a group name.")),
+      }),
+      // A new attempt clears the previous attempt's server errors.
+      // TODO(INFRA): remove once useAppForm clears submit errors itself.
+      onSubmit: () => undefined,
+    },
+    onSubmit: async ({ value, formApi }) => {
+      formApi.setErrorMap({ onSubmit: { form: undefined, fields: {} } });
+      let groupId: string;
+      try {
+        groupId = (await createGroup.mutateAsync({ body: { name: value.name.trim() } })).id;
+      } catch (cause) {
+        formApi.setErrorMap({
+          onSubmit: { form: ui(groupMutationError(cause, "create")), fields: {} },
+        });
+        return;
+      }
+      await queryClient.invalidateQueries();
+      leaving.current = true;
+      await navigate({ to: "/admin/groups/$groupId", params: { groupId }, replace: true });
+    },
+  });
+  const dirty = useStore(form.store, (state) => state.values.name.length > 0);
   // Set once the page leaves on purpose (created or discarded), so that navigation is not held.
   const leaving = useRef(false);
   const blocker = useBlocker({
@@ -32,26 +62,6 @@ export function CreateGroupPage() {
   useEffect(() => {
     if (creating && blocker.status === "blocked") blocker.reset();
   }, [creating, blocker]);
-
-  async function submit() {
-    const normalizedName = name.trim();
-    if (!normalizedName || createGroup.isPending) return;
-    setError(null);
-    try {
-      const group = await createGroup.mutateAsync({
-        body: { name: normalizedName },
-      });
-      await queryClient.invalidateQueries();
-      leaving.current = true;
-      await navigate({
-        to: "/admin/groups/$groupId",
-        params: { groupId: group.id },
-        replace: true,
-      });
-    } catch (cause) {
-      setError(groupMutationError(cause, "create"));
-    }
-  }
 
   async function cancel() {
     leaving.current = true;
@@ -96,53 +106,46 @@ export function CreateGroupPage() {
                   </Link>
                 </Button>
               )}
-              <Button
-                pending={createGroup.isPending}
-                disabled={!name.trim()}
-                onClick={() => void submit()}
-              >
-                {createGroup.isPending ? ui("Creating…") : ui("Create group")}
-              </Button>
+              <form.AppForm>
+                <form.SubmitButton form={formId}>
+                  {createGroup.isPending ? ui("Creating…") : ui("Create group")}
+                </form.SubmitButton>
+              </form.AppForm>
             </>
           }
         />
       </div>
 
-      <form
-        className="mt-6 rounded-xl border border-border-subtle bg-surface-raised p-5 sm:p-6"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void submit();
-        }}
-      >
-        <label htmlFor="new-group-name" className="font-secondary-action text-content-primary">
-          {ui("Group name")}
-        </label>
-        <Input
-          id="new-group-name"
-          autoFocus
-          value={name}
-          maxLength={120}
-          disabled={createGroup.isPending}
-          placeholder={ui("e.g. Research")}
-          className="mt-2"
-          onChange={(event) => setName(event.target.value)}
-        />
-        <p className="mt-2 font-secondary-body text-content-muted">
-          {ui(
-            "You can add members, managers, capabilities, and Source associations after creation.",
-          )}
-        </p>
-        {error ? (
-          <p
-            role="alert"
-            className="mt-4 rounded-lg bg-status-danger-surface px-4 py-3 font-secondary-body text-status-danger-content"
+      <Card className="mt-6">
+        <CardContent>
+          <form
+            id={formId}
+            noValidate
+            className="flex flex-col gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void form.handleSubmit();
+            }}
           >
-            {ui(error)}
-          </p>
-        ) : null}
-        <button type="submit" className="sr-only" tabIndex={-1} aria-hidden="true" />
-      </form>
+            <form.AppField name="name">
+              {(field) => (
+                <field.TextField
+                  label={ui("Group name")}
+                  maxLength={120}
+                  disabled={createGroup.isPending}
+                  placeholder={ui("e.g. Research")}
+                  description={ui(
+                    "You can add members, managers, capabilities, and Source associations after creation.",
+                  )}
+                />
+              )}
+            </form.AppField>
+            <form.AppForm>
+              <form.FormError />
+            </form.AppForm>
+          </form>
+        </CardContent>
+      </Card>
       <ConfirmDialog
         open={blocker.status === "blocked" && !creating}
         onOpenChange={(open) => {

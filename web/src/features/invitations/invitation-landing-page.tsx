@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, CircleAlert, Clock3, ShieldCheck, UserCheck } from "lucide-react";
 import { AuthFrame } from "@/components/states/auth-frame";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { formatInvitationDate } from "@/features/invitations/invitation-presentation";
 import { getCurrentInvitationOptions } from "@/lib/hey-api/@tanstack/react-query.gen";
 
@@ -23,7 +25,11 @@ export function InvitationLandingPage({ reason }: { reason?: string }) {
   if (invitation.isPending) {
     return (
       <AuthFrame>
-        <div role="status" className="py-8 text-center font-main-ui-body text-content-muted">
+        <div
+          role="status"
+          className="flex items-center justify-center gap-2 py-8 font-main-ui-body text-content-muted"
+        >
+          <Spinner aria-hidden="true" />
           {ui("Checking your invitation…")}
         </div>
       </AuthFrame>
@@ -49,22 +55,20 @@ export function InvitationLandingPage({ reason }: { reason?: string }) {
         )}
       </p>
 
-      <div className="mt-6 flex items-start gap-3 rounded-lg border border-border-subtle bg-surface-base px-3 py-3">
-        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-content-secondary" aria-hidden="true" />
-        <div>
-          <p className="font-main-ui-action text-content-primary">{ui("Your access is scoped")}</p>
-          <p className="mt-1 font-secondary-body text-content-muted">
-            {ui(
-              "This invitation grants Tenant member access. It does not grant administration permissions.",
-            )}
-          </p>
-        </div>
-      </div>
+      <Alert role="note" className="mt-6">
+        <ShieldCheck aria-hidden="true" />
+        <AlertTitle>{ui("Your access is scoped")}</AlertTitle>
+        <AlertDescription>
+          {ui(
+            "This invitation grants Tenant member access. It does not grant administration permissions.",
+          )}
+        </AlertDescription>
+      </Alert>
 
       <Button asChild size="lg" className="mt-6 w-full">
         <a href={invitation.data.continueUrl}>
           {ui("Continue to sign in")}
-          <ArrowRight />
+          <ArrowRight data-icon="inline-end" />
         </a>
       </Button>
       <p className="mt-4 flex items-center gap-1.5 font-secondary-body text-content-muted">

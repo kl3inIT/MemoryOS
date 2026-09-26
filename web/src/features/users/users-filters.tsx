@@ -2,7 +2,8 @@ import { useAppTranslation } from "@/i18n/use-app-translation";
 import { Search, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { NativeSelect } from "@/components/ui/native-select";
 import { TextButton } from "@/components/ui/text-button";
 import type { UserGroupOption } from "./user-groups-dialog";
@@ -43,36 +44,35 @@ export function UsersFilters({
   return (
     <form
       aria-label={ui("User filters")}
-      className="grid gap-2 sm:grid-cols-2 sm:items-end lg:grid-cols-[minmax(14rem,1fr)_10rem_12rem_auto]"
+      className="flex flex-wrap items-end gap-2"
       onSubmit={(event) => {
         event.preventDefault();
         const normalized = searchValue.trim();
         onSearchChange(normalized || undefined);
       }}
     >
-      <label className="grid min-w-0 gap-1.5 font-secondary-action text-content-secondary">
-        {ui("Search")}
-        <span className="relative block">
-          <Search
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
-            aria-hidden="true"
-          />
-          <Input
+      <Field className="min-w-56 flex-1">
+        <FieldLabel htmlFor="users-search">{ui("Search")}</FieldLabel>
+        <InputGroup>
+          <InputGroupAddon>
+            <Search aria-hidden="true" />
+          </InputGroupAddon>
+          <InputGroupInput
+            id="users-search"
             type="search"
-            size="sm"
             value={searchValue}
             maxLength={200}
             placeholder={ui("Search users…")}
             aria-label={ui("Search users")}
-            className="bg-surface-sunken pl-9"
             onChange={(event) => setDraft({ applied: appliedSearch, value: event.target.value })}
           />
-        </span>
-      </label>
+        </InputGroup>
+      </Field>
 
-      <label className="grid gap-1.5 font-secondary-action text-content-secondary">
-        {ui("Role")}
+      <Field className="w-40">
+        <FieldLabel htmlFor="users-role">{ui("Role")}</FieldLabel>
         <NativeSelect
+          id="users-role"
           size="sm"
           value={search.role ?? ""}
           aria-label={ui("Filter by role")}
@@ -84,12 +84,13 @@ export function UsersFilters({
           <option value="OWNER">{ui("Owner")}</option>
           <option value="MEMBER">{ui("Member")}</option>
         </NativeSelect>
-      </label>
+      </Field>
 
       {groups ? (
-        <label className="grid gap-1.5 font-secondary-action text-content-secondary">
-          {ui("Group")}
+        <Field className="w-48">
+          <FieldLabel htmlFor="users-group">{ui("Group")}</FieldLabel>
           <NativeSelect
+            id="users-group"
             size="sm"
             value={search.groupId ?? ""}
             disabled={groupsLoading}
@@ -106,10 +107,10 @@ export function UsersFilters({
               </option>
             ))}
           </NativeSelect>
-        </label>
+        </Field>
       ) : null}
 
-      <div className="flex h-8 items-center gap-3 sm:justify-end">
+      <div className="flex items-center gap-3">
         <Button type="submit" size="sm" prominence="secondary">
           {ui("Search")}
         </Button>
@@ -122,7 +123,7 @@ export function UsersFilters({
               onClear();
             }}
           >
-            <X aria-hidden="true" />
+            <X data-icon="inline-start" aria-hidden="true" />
             {ui("Clear")}
           </TextButton>
         ) : null}

@@ -3,10 +3,14 @@ import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-quer
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { CirclePlus, Search, SearchX, Users, WifiOff } from "lucide-react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/composites/empty-state";
 import { PageHeader, SettingsLayout } from "@/components/composites/settings-layout";
-import { Input } from "@/components/ui/input";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { NativeSelect } from "@/components/ui/native-select";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TextButton } from "@/components/ui/text-button";
 import { TablePagination } from "@/components/ui/table-pagination";
@@ -88,31 +92,26 @@ export function GroupsPage() {
 
       <form
         role="search"
-        className="mt-6 flex items-center gap-3"
+        className="flex items-center gap-3"
         onSubmit={(event) => {
           event.preventDefault();
           const nextSearch = searchDraft.trim();
           updateView({ search: nextSearch || undefined }, true);
         }}
       >
-        <label className="relative min-w-0 flex-1">
-          <span className="sr-only">{ui("Search groups")}</span>
-          <Search
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-muted"
-            aria-hidden="true"
-          />
-          <Input
+        <InputGroup className="min-w-0 flex-1">
+          <InputGroupAddon>
+            <Search aria-hidden="true" />
+          </InputGroupAddon>
+          <InputGroupInput
             type="search"
             value={searchDraft}
             maxLength={200}
             placeholder={ui("Search groups…")}
-            className="border-transparent bg-transparent pl-9 shadow-none hover:border-transparent focus-visible:border-transparent"
+            aria-label={ui("Search groups")}
             onChange={(event) => setDraft({ applied: appliedSearch, value: event.target.value })}
           />
-        </label>
-        <button type="submit" className="sr-only">
-          {ui("Search groups")}
-        </button>
+        </InputGroup>
         {search.search ? (
           <TextButton
             onClick={() => {
@@ -127,13 +126,13 @@ export function GroupsPage() {
           <Button asChild size="sm" className="shrink-0">
             <Link to="/admin/groups/new">
               {ui("New Group")}
-              <CirclePlus className="size-4" aria-hidden="true" />
+              <CirclePlus data-icon="inline-end" aria-hidden="true" />
             </Link>
           </Button>
         ) : null}
       </form>
 
-      <div className="mt-10" aria-busy={groups.isFetching}>
+      <div className="flex flex-col gap-4" aria-busy={groups.isFetching}>
         <span className="sr-only" aria-live="polite">
           {groups.isFetching
             ? ui("Updating groups")
@@ -142,18 +141,32 @@ export function GroupsPage() {
               : ""}
         </span>
         {groups.isError && page ? (
-          <div className="mb-4 flex flex-col gap-2 rounded-xl border border-status-warning-content/20 bg-status-warning-surface px-4 py-3 font-secondary-body text-status-warning-content sm:flex-row sm:items-center sm:justify-between">
-            <span>{ui("Could not refresh groups. Showing previous results.")}</span>
-            <TextButton size="sm" onClick={() => void groups.refetch()}>
-              {ui("Retry refresh")}
-            </TextButton>
-          </div>
+          <Alert variant="warning">
+            <AlertDescription>
+              {ui("Could not refresh groups. Showing previous results.")}
+            </AlertDescription>
+            <AlertAction>
+              <Button size="sm" prominence="tertiary" onClick={() => void groups.refetch()}>
+                {ui("Retry refresh")}
+              </Button>
+            </AlertAction>
+          </Alert>
         ) : null}
 
         {groups.isPending ? (
           <GroupsLoading />
         ) : groups.isError && !page ? (
-          <GroupsError onRetry={() => void groups.refetch()} />
+          <EmptyState
+            role="alert"
+            icon={<WifiOff />}
+            title={ui("Groups unavailable")}
+            detail={ui("The authorized group list could not be loaded.")}
+            action={
+              <Button size="sm" prominence="secondary" onClick={() => void groups.refetch()}>
+                {ui("Try again")}
+              </Button>
+            }
+          />
         ) : items.length === 0 ? (
           <GroupsEmpty
             filtered={Boolean(search.search)}
@@ -164,12 +177,12 @@ export function GroupsPage() {
             }}
           />
         ) : (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             {systemGroups.map((group) => (
               <GroupCard key={group.id} group={group} onAuthorityChanged={refreshAuthorityViews} />
             ))}
             {systemGroups.length > 0 && ordinaryGroups.length > 0 ? (
-              <div role="separator" className="my-4 border-t border-border-subtle" />
+              <Separator className="my-2" />
             ) : null}
             {ordinaryGroups.map((group) => (
               <GroupCard key={group.id} group={group} onAuthorityChanged={refreshAuthorityViews} />
@@ -183,7 +196,6 @@ export function GroupsPage() {
       (page.totalPages > 1 || search.page > 0 || search.size !== 20) ? (
         <TablePagination
           label={ui("Group pages")}
-          className="mt-6 px-0 pt-4"
           page={search.page}
           totalPages={page.totalPages}
           summary={ui("Showing {{first}}–{{last}} of {{total}}", {
@@ -196,9 +208,10 @@ export function GroupsPage() {
           onPrevious={() => updateView({ page: search.page - 1 })}
           onNext={() => updateView({ page: search.page + 1 })}
         >
-          <label className="flex items-center gap-2 font-secondary-body text-content-secondary">
-            {ui("Rows")}
+          <Field orientation="horizontal" className="w-auto">
+            <FieldLabel htmlFor="groups-page-size">{ui("Rows")}</FieldLabel>
             <NativeSelect
+              id="groups-page-size"
               size="sm"
               value={search.size}
               className="w-auto px-2"
@@ -211,7 +224,7 @@ export function GroupsPage() {
               <option value={50}>50</option>
               <option value={100}>100</option>
             </NativeSelect>
-          </label>
+          </Field>
         </TablePagination>
       ) : null}
     </SettingsLayout>
@@ -222,37 +235,10 @@ function GroupsLoading() {
   const ui = useAppTranslation();
 
   return (
-    <div role="status" aria-label={ui("Loading groups")} className="space-y-3">
+    <div role="status" aria-label={ui("Loading groups")} className="flex flex-col gap-3">
       {Array.from({ length: 4 }, (_, index) => (
-        <div
-          key={index}
-          className="flex items-center gap-3 rounded-xl border border-border-subtle p-5"
-        >
-          <Skeleton className="size-10 shrink-0 rounded-xl" />
-          <div className="min-w-0 flex-1 space-y-2">
-            <Skeleton className="h-5 w-40" />
-            <Skeleton className="h-3 w-28" />
-          </div>
-          <Skeleton className="size-8" />
-        </div>
+        <Skeleton key={index} className="h-20" />
       ))}
-    </div>
-  );
-}
-
-function GroupsError({ onRetry }: { onRetry: () => void }) {
-  const ui = useAppTranslation();
-
-  return (
-    <div className="rounded-xl border border-border-subtle px-6 py-16 text-center">
-      <WifiOff className="mx-auto size-5 text-content-muted" aria-hidden="true" />
-      <h2 className="mt-3 font-heading-h3 text-content-primary">{ui("Groups unavailable")}</h2>
-      <p className="mt-2 font-main-ui-body text-content-muted">
-        {ui("The authorized group list could not be loaded.")}
-      </p>
-      <Button size="sm" prominence="secondary" className="mt-5" onClick={onRetry}>
-        {ui("Try again")}
-      </Button>
     </div>
   );
 }
@@ -269,29 +255,25 @@ function GroupsEmpty({
   const ui = useAppTranslation();
 
   return (
-    <div className="rounded-xl border border-dashed border-border-default px-6 py-16 text-center">
-      {filtered ? (
-        <SearchX className="mx-auto size-5 text-content-muted" aria-hidden="true" />
-      ) : (
-        <Users className="mx-auto size-5 text-content-muted" aria-hidden="true" />
-      )}
-      <h2 className="mt-3 font-heading-h3 text-content-primary">
-        {filtered ? ui("No groups found") : ui("No groups yet")}
-      </h2>
-      <p className="mt-2 font-main-ui-body text-content-muted">
-        {filtered
+    <EmptyState
+      icon={filtered ? <SearchX /> : <Users />}
+      title={filtered ? ui("No groups found") : ui("No groups yet")}
+      detail={
+        filtered
           ? ui("Try another name or clear the search.")
-          : ui("Create an ordinary group to organize members and access.")}
-      </p>
-      {filtered ? (
-        <Button size="sm" prominence="secondary" className="mt-5" onClick={onClear}>
-          {ui("Clear search")}
-        </Button>
-      ) : canCreate ? (
-        <Button asChild size="sm" className="mt-5">
-          <Link to="/admin/groups/new">{ui("New group")}</Link>
-        </Button>
-      ) : null}
-    </div>
+          : ui("Create an ordinary group to organize members and access.")
+      }
+      action={
+        filtered ? (
+          <Button size="sm" prominence="secondary" onClick={onClear}>
+            {ui("Clear search")}
+          </Button>
+        ) : canCreate ? (
+          <Button asChild size="sm">
+            <Link to="/admin/groups/new">{ui("New group")}</Link>
+          </Button>
+        ) : undefined
+      }
+    />
   );
 }

@@ -5,13 +5,17 @@ import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ChevronRight, Pencil, UserCog, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { hoverReveal } from "@/components/composites/hover-reveal";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/icon-button";
 import { Input } from "@/components/ui/input";
 import { renameGroupMutation } from "@/lib/hey-api/@tanstack/react-query.gen";
 import type { GroupSummary } from "@/lib/hey-api/types.gen";
 import { groupMutationError } from "./group-errors";
 import { can } from "@/lib/resource-permissions";
+import { cn } from "@/lib/utils";
 
 type GroupCardProps = {
   group: GroupSummary;
@@ -82,109 +86,115 @@ export function GroupCard({ group, onAuthorityChanged }: GroupCardProps) {
   }
 
   return (
-    <article className="group min-h-[74px] rounded-2xl border border-border-subtle bg-surface-raised p-4">
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 size-5 shrink-0 text-content-secondary">
-          {group.systemKey === "ADMIN" ? (
-            <UserCog className="size-5" aria-hidden="true" />
-          ) : (
-            <Users className="size-5" aria-hidden="true" />
-          )}
-        </span>
-        <div className="min-w-0 flex-1">
-          {editing && canRename ? (
-            <form
-              className="flex flex-col gap-2 sm:flex-row"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void saveName();
-              }}
-            >
-              <Input
-                ref={inputRef}
-                value={name}
-                maxLength={120}
-                aria-label={ui("Name for {{v1}}", { v1: group.name })}
-                disabled={renameGroup.isPending}
-                onChange={(event) => setName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
+    <article className="group">
+      <Card size="sm">
+        <CardContent>
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 size-5 shrink-0 text-content-secondary">
+              {group.systemKey === "ADMIN" ? (
+                <UserCog className="size-5" aria-hidden="true" />
+              ) : (
+                <Users className="size-5" aria-hidden="true" />
+              )}
+            </span>
+            <div className="min-w-0 flex-1">
+              {editing && canRename ? (
+                <form
+                  className="flex flex-col gap-2 sm:flex-row"
+                  onSubmit={(event) => {
                     event.preventDefault();
-                    cancelEdit();
-                  }
-                }}
-              />
-              <div className="flex gap-2">
-                <Button
-                  type="submit"
-                  size="sm"
-                  pending={renameGroup.isPending}
-                  disabled={!name.trim() || name.trim() === group.name}
-                >
-                  {renameGroup.isPending ? ui("Saving…") : ui("Save")}
-                </Button>
-                <Button
-                  size="sm"
-                  prominence="secondary"
-                  disabled={renameGroup.isPending}
-                  onClick={cancelEdit}
-                >
-                  {ui("Cancel")}
-                </Button>
-              </div>
-            </form>
-          ) : (
-            <div className="flex min-w-0 items-center gap-2">
-              <h2 className="truncate text-base font-semibold leading-5 text-content-primary">
-                {group.name}
-              </h2>
-              {builtIn ? (
-                <span className="shrink-0 rounded bg-surface-sunken px-1.5 py-px font-figure-small-label text-content-muted">
-                  {ui("Default")}
-                </span>
-              ) : null}
-              {canRename ? (
-                <IconButton
-                  ref={editButtonRef}
-                  size="sm"
-                  prominence="tertiary"
-                  aria-label={ui("Rename {{v1}}", { v1: group.name })}
-                  className="size-5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-                  onClick={() => {
-                    setName(group.name);
-                    setEditing(true);
+                    void saveName();
                   }}
                 >
-                  <Pencil />
-                </IconButton>
+                  <Input
+                    ref={inputRef}
+                    value={name}
+                    maxLength={120}
+                    aria-label={ui("Name for {{v1}}", { v1: group.name })}
+                    disabled={renameGroup.isPending}
+                    onChange={(event) => setName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        event.preventDefault();
+                        cancelEdit();
+                      }
+                    }}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="submit"
+                      size="sm"
+                      pending={renameGroup.isPending}
+                      disabled={!name.trim() || name.trim() === group.name}
+                    >
+                      {renameGroup.isPending ? ui("Saving…") : ui("Save")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      prominence="secondary"
+                      disabled={renameGroup.isPending}
+                      onClick={cancelEdit}
+                    >
+                      {ui("Cancel")}
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <div className="flex min-w-0 items-center gap-2">
+                  <h2 className="truncate text-base font-semibold leading-5 text-content-primary">
+                    {group.name}
+                  </h2>
+                  {builtIn ? (
+                    <Badge variant="secondary" className="shrink-0">
+                      {ui("Default")}
+                    </Badge>
+                  ) : null}
+                  {canRename ? (
+                    <span className={cn("inline-flex", hoverReveal)}>
+                      <IconButton
+                        ref={editButtonRef}
+                        size="sm"
+                        prominence="tertiary"
+                        aria-label={ui("Rename {{v1}}", { v1: group.name })}
+                        className="size-5"
+                        onClick={() => {
+                          setName(group.name);
+                          setEditing(true);
+                        }}
+                      >
+                        <Pencil />
+                      </IconButton>
+                    </span>
+                  ) : null}
+                </div>
+              )}
+              <p className="mt-1 text-xs leading-4 text-content-secondary">{ui(description)}</p>
+              {error ? (
+                <p role="alert" className="mt-3 font-secondary-body text-status-danger-content">
+                  {ui(error)}
+                </p>
               ) : null}
             </div>
-          )}
-          <p className="mt-1 text-xs leading-4 text-content-secondary">{ui(description)}</p>
-          {error ? (
-            <p role="alert" className="mt-3 font-secondary-body text-status-danger-content">
-              {ui(error)}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-start gap-2">
-          <span className="pt-0.5 text-sm leading-5 tabular-nums text-content-secondary">
-            {group.memberCount.toLocaleString(uiLocale())}{" "}
-            {group.memberCount === 1 ? ui("Member") : ui("Members")}
-          </span>
-          <IconButton
-            asChild
-            size="sm"
-            prominence="internal"
-            aria-label={ui("Open {{v1}}", { v1: group.name })}
-            className="-mt-1 -mr-1 text-content-muted"
-          >
-            <Link to="/admin/groups/$groupId" params={{ groupId: group.id }}>
-              <ChevronRight className="size-4" />
-            </Link>
-          </IconButton>
-        </div>
-      </div>
+            <div className="flex shrink-0 items-start gap-2">
+              <span className="pt-0.5 text-sm leading-5 tabular-nums text-content-secondary">
+                {group.memberCount.toLocaleString(uiLocale())}{" "}
+                {group.memberCount === 1 ? ui("Member") : ui("Members")}
+              </span>
+              <IconButton
+                asChild
+                size="sm"
+                prominence="internal"
+                aria-label={ui("Open {{v1}}", { v1: group.name })}
+                className="-mt-1 -mr-1"
+              >
+                <Link to="/admin/groups/$groupId" params={{ groupId: group.id }}>
+                  <ChevronRight />
+                </Link>
+              </IconButton>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </article>
   );
 }

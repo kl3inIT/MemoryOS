@@ -1,14 +1,21 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { describe, expect, it } from "vitest";
 import {
   ApplicationSessionContext,
   type ApplicationSession,
 } from "@/features/identity/application-session-context";
 import { useGroupMembersDraft } from "./group-members-draft";
 import { GroupMembersSection } from "./group-members-section";
+import {
+  handleAddGroupMembers,
+  handleListGroupCandidates,
+  handleListGroupMembers,
+} from "@/lib/hey-api/msw.gen";
 import type { GroupMember, GroupSummary } from "@/lib/hey-api/types.gen";
+import { server } from "@/test/msw";
 
 const group: GroupSummary = {
   id: "team",
@@ -69,49 +76,30 @@ function DeferredMembers() {
 }
 
 describe("GroupMembersSection", () => {
-  afterEach(() => {
-    cleanup();
-    vi.unstubAllGlobals();
-  });
-
   it("keeps added members local until the page-level save and discards them on cancel", async () => {
     const additions: string[][] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (request: Request) => {
-        const url = new URL(request.url);
-        if (url.pathname === "/api/groups/team/members") {
-          if (request.method === "POST") {
-            additions.push(((await request.json()) as { actorIds: string[] }).actorIds);
-            return Response.json({});
-          }
-          return Response.json({
-            items: [existingMember],
-            page: 0,
-            size: 10,
-            totalItems: 1,
-            totalPages: 1,
-          });
-        }
-        if (url.pathname === "/api/groups/team/candidates") {
-          return Response.json({
-            items: [candidate],
-            page: 0,
-            size: 10,
-            totalItems: 1,
-            totalPages: 1,
-          });
-        }
-        throw new Error(`Unexpected request: ${request.method} ${url.pathname}`);
+    const page = (items: GroupMember[]) => ({
+      items,
+      page: 0,
+      size: 10,
+      totalItems: items.length,
+      totalPages: 1,
+    });
+    server.use(
+      handleListGroupMembers({ body: page([existingMember]) }),
+      handleListGroupCandidates({ body: page([candidate]) }),
+      handleAddGroupMembers(async ({ request }) => {
+        additions.push((await request.json()).actorIds);
+        return new HttpResponse(null, { status: 204 });
       }),
     );
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const user = userEvent.setup();
     render(
       <QueryClientProvider client={client}>
-        <ApplicationSessionContext.Provider value={session}>
+        <ApplicationSessionContext value={session}>
           <DeferredMembers />
-        </ApplicationSessionContext.Provider>
+        </ApplicationSessionContext>
       </QueryClientProvider>,
     );
 

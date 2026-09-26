@@ -9,14 +9,15 @@ import {
   RouterProvider,
   stripSearchParams,
 } from "@tanstack/react-router";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse } from "msw";
+import { describe, expect, it, vi } from "vitest";
+import { handleListAuditEvents } from "@/lib/hey-api/msw.gen";
 import type { AuditEvent } from "@/lib/hey-api/types.gen";
 import { createMemoryOsQueryClient } from "@/lib/query-client";
+import { server } from "@/test/msw";
 import { changeRows } from "./audit-actions";
 import { AuditLogPage } from "./audit-log-page";
 import { auditLogSearchSchema, DEFAULT_AUDIT_PERIOD } from "./audit-log-search";
-
-afterEach(() => vi.unstubAllGlobals());
 
 const event = (overrides: Partial<AuditEvent>): AuditEvent => ({
   id: "7f000000-0000-4000-8000-000000000001",
@@ -65,14 +66,12 @@ function mount(
   path = "/admin/audit",
 ) {
   const requested: URL[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (request: Request) => {
+  server.use(
+    handleListAuditEvents(({ request }) => {
       const url = new URL(request.url);
       requested.push(url);
-      if (pages === "error") return new Response(null, { status: 403 });
-      const page = url.searchParams.get("cursor") ? pages[1]! : pages[0]!;
-      return Response.json(page);
+      if (pages === "error") return new HttpResponse(null, { status: 403 });
+      return HttpResponse.json(url.searchParams.get("cursor") ? pages[1]! : pages[0]!);
     }),
   );
   router = auditRouter(path);

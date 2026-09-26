@@ -56,9 +56,6 @@ export function documentSetOf({
 }
 export type DocumentSet = ReturnType<typeof documentSetOf>;
 
-/** Query key of the complete set list that Agents and Search read through {@link loadDocumentSets}. */
-const documentSetsKey = ["document-sets"] as const;
-
 /** Every Document Set the actor can use, for pickers that need the whole list. */
 export function loadDocumentSets(signal: AbortSignal) {
   return allPages(async (offset) =>
@@ -66,13 +63,15 @@ export function loadDocumentSets(signal: AbortSignal) {
   );
 }
 
-/** Refreshes every read of Document Sets after a change: the paged list, the changed set and the complete list. */
+/**
+ * Refreshes every read of Document Sets after a change: the paged list, the complete list (whose key extends the
+ * generated list key) and the changed set.
+ */
 export function invalidateDocumentSets(cache: QueryClient, documentSetId?: string) {
   return Promise.all([
     cache.invalidateQueries({ queryKey: listDocumentSetsQueryKey() }),
     documentSetId === undefined
       ? undefined
       : cache.invalidateQueries({ queryKey: getDocumentSetQueryKey({ path: { documentSetId } }) }),
-    cache.invalidateQueries({ queryKey: documentSetsKey }),
   ]);
 }

@@ -8,7 +8,10 @@ import { z } from "zod";
 import { useAppForm, setServerErrors, useProblemErrors } from "@/components/form/app-form";
 import { useFieldValidity } from "@/components/form/form-context";
 import { PersonAvatar } from "@/components/composites/person-avatar";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent } from "@/components/ui/card";
 import { ClampedList } from "@/components/ui/clamped-list";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   FieldDescription,
   FieldError,
@@ -27,15 +30,8 @@ import {
   invalidateDocumentSets,
   type DocumentSet,
 } from "@/features/document-sets/document-sets-api";
-import { loadPersonaSources } from "@/features/chat/chat-personas-api";
-import {
-  namedRefSchema,
-  personLabel,
-  personSchema,
-  type NamedRef,
-  type Person,
-} from "@/features/identity/principals";
-import { useApplicationSession } from "@/features/identity/application-session-context";
+import { personaSourcesOptions } from "@/features/chat/chat-personas-api";
+import { personLabel, type NamedRef, type Person } from "@/features/identity/principals";
 import { PrincipalPicker } from "@/features/identity/principal-picker";
 import {
   createDocumentSetMutation,
@@ -43,7 +39,7 @@ import {
   shareDocumentSetMutation,
   updateDocumentSetMutation,
 } from "@/lib/hey-api/@tanstack/react-query.gen";
-import { zInput } from "@/lib/hey-api/zod.gen";
+import { zInput, zPrincipalGroup, zPrincipalPerson } from "@/lib/hey-api/zod.gen";
 import { DocumentSetSourcePicker } from "./document-set-source-picker";
 import { Button } from "@/components/ui/button";
 
@@ -78,17 +74,17 @@ export function DocumentSetFormPage({ documentSetId }: { documentSetId?: string 
       {documentSetId === undefined ? (
         <DocumentSetForm />
       ) : existing.isPending ? (
-        <p role="status">{ui("Đang tải bộ tài liệu…")}</p>
+        <Skeleton role="status" aria-label={ui("Đang tải bộ tài liệu…")} className="h-96" />
       ) : existing.isError ? (
-        <p role="alert" className="text-status-danger-content">
-          {actionErrorText(existing.error)}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{actionErrorText(existing.error)}</AlertDescription>
+        </Alert>
       ) : existing.data.permissions.edit ? (
         <DocumentSetForm key={existing.data.revision} existing={existing.data} />
       ) : (
-        <p role="alert" className="text-status-danger-content">
-          {ui("Bạn không có quyền sửa bộ tài liệu này.")}
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{ui("Bạn không có quyền sửa bộ tài liệu này.")}</AlertDescription>
+        </Alert>
       )}
     </SettingsLayout>
   );
@@ -100,11 +96,7 @@ function DocumentSetForm({ existing }: { existing?: DocumentSet }) {
   const navigate = useNavigate();
   const notify = useActionNotifications();
   const problemErrors = useProblemErrors();
-  const { actorId, authorizationVersion } = useApplicationSession();
-  const sources = useQuery({
-    queryKey: ["chat-persona-sources", actorId, authorizationVersion],
-    queryFn: ({ signal }) => loadPersonaSources(signal),
-  });
+  const sources = useQuery(personaSourcesOptions());
   const create = useMutation(createDocumentSetMutation());
   const update = useMutation(updateDocumentSetMutation());
   const share = useMutation(shareDocumentSetMutation());
@@ -113,8 +105,8 @@ function DocumentSetForm({ existing }: { existing?: DocumentSet }) {
   const schema = zInput.required().extend({
     name: zInput.shape.name.unwrap().trim().min(1, ui("Nhập tên bộ tài liệu.")),
     sourceIds: zInput.shape.sourceIds.unwrap().min(1, ui("Chọn ít nhất một nguồn.")),
-    people: z.array(personSchema),
-    groups: z.array(namedRefSchema),
+    people: z.array(zPrincipalPerson.partial({ name: true, email: true })),
+    groups: z.array(zPrincipalGroup),
   });
 
   const people: Person[] = existing?.userShares ?? [];
@@ -201,162 +193,169 @@ function DocumentSetForm({ existing }: { existing?: DocumentSet }) {
   const saving = useStore(form.store, (state) => state.isSubmitting);
 
   return (
-    <form
-      noValidate
-      className="flex flex-col gap-6 rounded-2xl border border-border-subtle bg-surface-raised p-6"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void form.handleSubmit();
-      }}
-    >
-      <FieldGroup>
-        <form.AppField name="name">
-          {(field) => (
-            <field.TextField
-              label={ui("Tên")}
-              maxLength={200}
-              disabled={saving}
-              placeholder={ui("Tên của bộ tài liệu")}
-            />
-          )}
-        </form.AppField>
-        <form.AppField name="description">
-          {(field) => (
-            <field.TextField
-              label={ui("Mô tả")}
-              optional
-              maxLength={2000}
-              disabled={saving}
-              placeholder={ui("Mô tả bộ tài liệu này gồm những gì")}
-            />
-          )}
-        </form.AppField>
-        <form.AppField name="isPublic">
-          {(field) => (
-            <field.CheckboxField label={ui("Công khai bộ tài liệu này?")} disabled={saving}>
-              {/* The help control stays outside the label, so reading it cannot toggle the choice. */}
-              <HelpPopover label={ui("Công khai bộ tài liệu này?")}>
-                <p>
-                  {ui(
-                    "Bật thì mọi người trong tổ chức đều dùng được bộ tài liệu này. Quyền đọc từng nguồn và tài liệu vẫn được kiểm tra riêng, nên bộ công khai không cấp thêm quyền cho ai.",
-                  )}
-                </p>
-              </HelpPopover>
-            </field.CheckboxField>
-          )}
-        </form.AppField>
-        {canShare && (
-          <section className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <h2 className="font-main-ui-action text-content-primary">
-                {ui("Chia sẻ bộ tài liệu")}
-              </h2>
-              <form.Subscribe selector={(state) => state.values.isPublic}>
-                {(isPublic) => (
-                  <HelpPopover label={ui("Chia sẻ bộ tài liệu")}>
+    <Card>
+      <CardContent>
+        <form
+          noValidate
+          className="flex flex-col gap-6"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
+          }}
+        >
+          <FieldGroup>
+            <form.AppField name="name">
+              {(field) => (
+                <field.TextField
+                  label={ui("Tên")}
+                  maxLength={200}
+                  disabled={saving}
+                  placeholder={ui("Tên của bộ tài liệu")}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="description">
+              {(field) => (
+                <field.TextField
+                  label={ui("Mô tả")}
+                  optional
+                  maxLength={2000}
+                  disabled={saving}
+                  placeholder={ui("Mô tả bộ tài liệu này gồm những gì")}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="isPublic">
+              {(field) => (
+                <field.CheckboxField label={ui("Công khai bộ tài liệu này?")} disabled={saving}>
+                  {/* The help control stays outside the label, so reading it cannot toggle the choice. */}
+                  <HelpPopover label={ui("Công khai bộ tài liệu này?")}>
                     <p>
-                      {isPublic
-                        ? ui(
-                            "Bộ tài liệu đang công khai nên ai cũng dùng được. Danh sách dưới đây chỉ có tác dụng khi bạn tắt công khai.",
-                          )
-                        : ui(
-                            "Chỉ bạn, quản trị viên trợ lý và những người hoặc nhóm được chia sẻ mới dùng được bộ tài liệu này. Quyền đọc từng nguồn và tài liệu vẫn được kiểm tra riêng.",
-                          )}
+                      {ui(
+                        "Bật thì mọi người trong tổ chức đều dùng được bộ tài liệu này. Quyền đọc từng nguồn và tài liệu vẫn được kiểm tra riêng, nên bộ công khai không cấp thêm quyền cho ai.",
+                      )}
                     </p>
                   </HelpPopover>
-                )}
-              </form.Subscribe>
-            </div>
-            <form.Subscribe
-              selector={(state) => ({ people: state.values.people, groups: state.values.groups })}
-            >
-              {({ people, groups }) => (
-                <>
-                  <PrincipalPicker
-                    exclude={
-                      new Set([
-                        ...people.map((person) => person.actorId),
-                        ...groups.map((group) => group.id),
-                      ])
-                    }
-                    onPick={(principal) =>
-                      principal.kind === "person"
-                        ? form.setFieldValue("people", [...people, principal.person])
-                        : form.setFieldValue("groups", [...groups, principal.group])
-                    }
-                  />
-                  {(people.length > 0 || groups.length > 0) && (
-                    <ClampedList
-                      maxRows={visibleRows}
-                      label={ui("Đã chia sẻ với")}
-                      items={[
-                        ...people.map((person) => (
-                          <ShareChip
-                            key={person.actorId}
-                            avatar={
-                              <PersonAvatar
-                                name={personLabel(person)}
-                                seed={person.actorId}
-                                size="sm"
-                              />
-                            }
-                            label={personLabel(person)}
-                            disabled={saving}
-                            onRemove={() =>
-                              form.setFieldValue(
-                                "people",
-                                people.filter((other) => other.actorId !== person.actorId),
-                              )
-                            }
-                          />
-                        )),
-                        ...groups.map((group) => (
-                          <ShareChip
-                            key={group.id}
-                            avatar={<PersonAvatar name={group.name} kind="group" size="sm" />}
-                            label={group.name}
-                            disabled={saving}
-                            onRemove={() =>
-                              form.setFieldValue(
-                                "groups",
-                                groups.filter((other) => other.id !== group.id),
-                              )
-                            }
-                          />
-                        )),
-                      ]}
-                    />
-                  )}
-                </>
+                </field.CheckboxField>
               )}
-            </form.Subscribe>
-          </section>
-        )}
-      </FieldGroup>
+            </form.AppField>
+            {canShare && (
+              <section className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <h2 className="font-main-ui-action text-content-primary">
+                    {ui("Chia sẻ bộ tài liệu")}
+                  </h2>
+                  <form.Subscribe selector={(state) => state.values.isPublic}>
+                    {(isPublic) => (
+                      <HelpPopover label={ui("Chia sẻ bộ tài liệu")}>
+                        <p>
+                          {isPublic
+                            ? ui(
+                                "Bộ tài liệu đang công khai nên ai cũng dùng được. Danh sách dưới đây chỉ có tác dụng khi bạn tắt công khai.",
+                              )
+                            : ui(
+                                "Chỉ bạn, quản trị viên trợ lý và những người hoặc nhóm được chia sẻ mới dùng được bộ tài liệu này. Quyền đọc từng nguồn và tài liệu vẫn được kiểm tra riêng.",
+                              )}
+                        </p>
+                      </HelpPopover>
+                    )}
+                  </form.Subscribe>
+                </div>
+                <form.Subscribe
+                  selector={(state) => ({
+                    people: state.values.people,
+                    groups: state.values.groups,
+                  })}
+                >
+                  {({ people, groups }) => (
+                    <>
+                      <PrincipalPicker
+                        exclude={
+                          new Set([
+                            ...people.map((person) => person.actorId),
+                            ...groups.map((group) => group.id),
+                          ])
+                        }
+                        onPick={(principal) =>
+                          principal.kind === "person"
+                            ? form.setFieldValue("people", [...people, principal.person])
+                            : form.setFieldValue("groups", [...groups, principal.group])
+                        }
+                      />
+                      {(people.length > 0 || groups.length > 0) && (
+                        <ClampedList
+                          maxRows={visibleRows}
+                          label={ui("Đã chia sẻ với")}
+                          items={[
+                            ...people.map((person) => (
+                              <ShareChip
+                                key={person.actorId}
+                                avatar={
+                                  <PersonAvatar
+                                    name={personLabel(person)}
+                                    seed={person.actorId}
+                                    size="sm"
+                                  />
+                                }
+                                label={personLabel(person)}
+                                disabled={saving}
+                                onRemove={() =>
+                                  form.setFieldValue(
+                                    "people",
+                                    people.filter((other) => other.actorId !== person.actorId),
+                                  )
+                                }
+                              />
+                            )),
+                            ...groups.map((group) => (
+                              <ShareChip
+                                key={group.id}
+                                avatar={<PersonAvatar name={group.name} kind="group" size="sm" />}
+                                label={group.name}
+                                disabled={saving}
+                                onRemove={() =>
+                                  form.setFieldValue(
+                                    "groups",
+                                    groups.filter((other) => other.id !== group.id),
+                                  )
+                                }
+                              />
+                            )),
+                          ]}
+                        />
+                      )}
+                    </>
+                  )}
+                </form.Subscribe>
+              </section>
+            )}
+          </FieldGroup>
 
-      <Separator />
+          <Separator />
 
-      <form.AppField name="sourceIds">
-        {() => (
-          <SourcesField
-            options={sources.data ?? []}
-            known={existing?.sources ?? []}
-            disabled={saving || sources.isPending}
-            loadFailed={sources.isError}
-            onReload={() => void sources.refetch()}
-          />
-        )}
-      </form.AppField>
+          <form.AppField name="sourceIds">
+            {() => (
+              <SourcesField
+                options={sources.data ?? []}
+                known={existing?.sources ?? []}
+                disabled={saving || sources.isPending}
+                loadFailed={sources.isError}
+                onReload={() => void sources.refetch()}
+              />
+            )}
+          </form.AppField>
 
-      <form.AppForm>
-        <form.FormError />
-        <div className="flex justify-center border-t border-border-subtle pt-5">
-          <form.SubmitButton className="w-56">
-            {existing ? ui("Cập nhật bộ tài liệu") : ui("Tạo bộ tài liệu")}
-          </form.SubmitButton>
-        </div>
-      </form.AppForm>
-    </form>
+          <form.AppForm>
+            <form.FormError />
+            <div className="flex justify-center border-t border-border-subtle pt-5">
+              <form.SubmitButton className="w-56">
+                {existing ? ui("Cập nhật bộ tài liệu") : ui("Tạo bộ tài liệu")}
+              </form.SubmitButton>
+            </div>
+          </form.AppForm>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 

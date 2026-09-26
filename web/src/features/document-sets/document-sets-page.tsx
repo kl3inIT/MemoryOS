@@ -11,7 +11,9 @@ import {
 import { Link } from "@tanstack/react-router";
 import { Library, Pencil, PlusCircle, Trash2 } from "lucide-react";
 import { DataTable, type DataTableColumnMeta } from "@/components/data-table/data-table";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ClampedList } from "@/components/ui/clamped-list";
 import { IconButton } from "@/components/ui/icon-button";
@@ -23,11 +25,8 @@ import {
   invalidateDocumentSets,
   type DocumentSet,
 } from "@/features/document-sets/document-sets-api";
-import { loadPersonaSources } from "@/features/chat/chat-personas-api";
-import {
-  useApplicationSession,
-  useGlobalCapability,
-} from "@/features/identity/application-session-context";
+import { personaSourcesOptions } from "@/features/chat/chat-personas-api";
+import { useGlobalCapability } from "@/features/identity/application-session-context";
 import { findSourceProvider } from "@/features/sources/shared/source-provider-catalog";
 import {
   deleteDocumentSetMutation,
@@ -132,14 +131,20 @@ export function DocumentSetsPage() {
         )}
       </div>
       {sets.isPending ? (
-        <p role="status">{ui("Đang tải bộ tài liệu…")}</p>
+        <div role="status" aria-label={ui("Đang tải bộ tài liệu…")} className="flex flex-col gap-2">
+          {Array.from({ length: 3 }, (_, index) => (
+            <Skeleton key={index} className="h-16" />
+          ))}
+        </div>
       ) : sets.isError ? (
-        <p role="alert" className="text-status-danger-content">
-          {ui("Không tải được bộ tài liệu.")}{" "}
-          <Button size="sm" prominence="tertiary" onClick={() => void sets.refetch()}>
-            {ui("Tải lại")}
-          </Button>
-        </p>
+        <Alert variant="destructive">
+          <AlertDescription>{ui("Không tải được bộ tài liệu.")}</AlertDescription>
+          <AlertAction>
+            <Button size="sm" prominence="tertiary" onClick={() => void sets.refetch()}>
+              {ui("Tải lại")}
+            </Button>
+          </AlertAction>
+        </Alert>
       ) : sets.data.length > 0 || pagination.pageIndex > 0 ? (
         <DocumentSetTable
           rows={sets.data}
@@ -266,12 +271,8 @@ function SourceList({
   hidden: number;
 }) {
   const ui = useAppTranslation();
-  const { actorId, authorizationVersion } = useApplicationSession();
   // Source types come from the Sources the actor can select; the set view carries only names.
-  const selectable = useQuery({
-    queryKey: ["chat-persona-sources", actorId, authorizationVersion],
-    queryFn: ({ signal }) => loadPersonaSources(signal),
-  });
+  const selectable = useQuery(personaSourcesOptions());
   const typeOf = (id: string) => selectable.data?.find((source) => source.id === id)?.type ?? "";
   return (
     <div className="flex flex-col gap-1.5">

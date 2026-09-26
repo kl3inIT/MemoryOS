@@ -377,7 +377,6 @@ export const englishUi: Record<string, string> = {
   "Members could not be loaded.": "Không tải được thành viên.",
   "No members found": "Không tìm thấy thành viên",
   "No members": "Chưa có thành viên",
-  "Members of": "Thành viên của",
   Name: "Tên",
   "Account type": "Loại tài khoản",
   Status: "Trạng thái",
@@ -515,6 +514,16 @@ export const englishUi: Record<string, string> = {
   "No identity providers yet.": "Chưa có nhà cung cấp định danh.",
   "Add an upstream OIDC provider to let its members sign in through MemoryOS.":
     "Thêm nhà cung cấp OIDC upstream để thành viên của họ đăng nhập qua MemoryOS.",
+  "Enter an alias.": "Nhập alias.",
+  "Use lowercase letters, digits, dots, dashes or underscores.":
+    "Dùng chữ thường, chữ số, dấu chấm, gạch ngang hoặc gạch dưới.",
+  "Enter a display name.": "Nhập tên hiển thị.",
+  "Enter the issuer URL.": "Nhập issuer URL.",
+  "Enter the client ID.": "Nhập client ID.",
+  "Enter the client secret.": "Nhập client secret.",
+  "Enter an email address.": "Nhập địa chỉ email.",
+  "Enter a group name.": "Nhập tên Group.",
+  "Members of {{v1}}": "Thành viên của {{v1}}",
 };
 
 Object.assign(englishUi, {

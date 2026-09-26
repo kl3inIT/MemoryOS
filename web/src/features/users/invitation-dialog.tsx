@@ -1,13 +1,25 @@
 import { useAppTranslation } from "@/i18n/use-app-translation";
+import { revalidateLogic } from "@tanstack/react-form";
 import { Copy, Link2 } from "lucide-react";
-import { useRef, useState, type RefObject } from "react";
-import { useProblemMessage } from "@/lib/use-problem-message";
-import { presentProblem, type ErrorMessage } from "@/lib/problem-presentation";
-import { Dialog } from "radix-ui";
+import { useState, type RefObject } from "react";
+import { z } from "zod";
+import { useAppForm } from "@/components/form/app-form";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { formatInvitationDate } from "@/features/invitations/invitation-presentation";
 import type { IssuedInvitation } from "@/lib/hey-api/types.gen";
+import { presentProblem } from "@/lib/problem-presentation";
+import { useProblemMessage } from "@/lib/use-problem-message";
 import { invitationError } from "./user-action-errors";
 
 type InvitationDialogProps = {
@@ -20,6 +32,7 @@ type InvitationDialogProps = {
   onCreate: (email: string) => Promise<void>;
 };
 
+/** Invites a member by email, then shows the issued (or rotated) one-time recovery link. */
 export function InvitationDialog({
   open,
   pending,
@@ -29,181 +42,198 @@ export function InvitationDialog({
   onOpenChange,
   onCreate,
 }: InvitationDialogProps) {
-  const ui = useAppTranslation();
-
-  const errorMessage = useProblemMessage();
-  const [inviteeEmail, setInviteeEmail] = useState("");
-  const [formError, setFormError] = useState<ErrorMessage | null>(null);
-  const [emailInvalid, setEmailInvalid] = useState(false);
-  const [linkCopied, setLinkCopied] = useState(false);
-  const creationInFlight = useRef(false);
-
   function changeOpen(nextOpen: boolean) {
-    if (!nextOpen && (creationInFlight.current || pending)) return;
-    if (!nextOpen) {
-      setInviteeEmail("");
-      setFormError(null);
-      setLinkCopied(false);
-    }
+    if (!nextOpen && pending) return;
     onOpenChange(nextOpen);
   }
 
-  async function submitInvitation() {
-    const email = inviteeEmail.trim();
-    if (!email || creationInFlight.current) return;
+  return (
+    <Dialog open={open} onOpenChange={changeOpen}>
+      <DialogContent
+        onCloseAutoFocus={(event) => {
+          const target = returnFocusRef.current?.isConnected
+            ? returnFocusRef.current
+            : fallbackFocusRef.current;
+          if (target?.isConnected) {
+            event.preventDefault();
+            target.focus();
+          }
+          returnFocusRef.current = null;
+        }}
+        onEscapeKeyDown={(event) => {
+          if (pending) event.preventDefault();
+        }}
+      >
+        {issuedInvitation ? (
+          <IssuedInvitationView invitation={issuedInvitation} onDone={() => changeOpen(false)} />
+        ) : (
+          <InvitationForm
+            pending={pending}
+            onCreate={onCreate}
+            onCancel={() => changeOpen(false)}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
-    creationInFlight.current = true;
-    setFormError(null);
-    try {
-      await onCreate(email);
-      setInviteeEmail("");
-    } catch (error) {
-      setEmailInvalid(Boolean(presentProblem(error, "mutation").fields.email));
-      setFormError(invitationError(error));
-    } finally {
-      creationInFlight.current = false;
-    }
-  }
+function InvitationForm({
+  pending,
+  onCreate,
+  onCancel,
+}: {
+  pending: boolean;
+  onCreate: (email: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const ui = useAppTranslation();
+  const problemMessage = useProblemMessage();
+  const form = useAppForm({
+    defaultValues: { email: "" },
+    validationLogic: revalidateLogic(),
+    validators: {
+      onDynamic: z.object({
+        email: z
+          .string()
+          .trim()
+          .min(1, ui("Enter an email address."))
+          .pipe(z.email(problemMessage({ key: "email" })).max(254)),
+      }),
+      // A new attempt clears the previous attempt's server errors.
+      // TODO(INFRA): remove once useAppForm clears submit errors itself.
+      onSubmit: () => undefined,
+    },
+    onSubmit: async ({ value, formApi }) => {
+      formApi.setErrorMap({ onSubmit: { form: undefined, fields: {} } });
+      try {
+        await onCreate(value.email.trim());
+      } catch (cause) {
+        const message = problemMessage(invitationError(cause));
+        formApi.setErrorMap({
+          onSubmit: presentProblem(cause, "mutation").fields.email
+            ? { form: undefined, fields: { email: { message } } }
+            : { form: message, fields: {} },
+        });
+      }
+    },
+  });
 
-  async function copyInvitationLink() {
-    if (!issuedInvitation) return;
+  return (
+    <form
+      noValidate
+      aria-busy={pending}
+      className="flex flex-col gap-6"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void form.handleSubmit();
+      }}
+    >
+      <DialogHeader>
+        <DialogTitle>{ui("Invite a member")}</DialogTitle>
+        <DialogDescription>
+          {ui("Invite someone to join this Tenant as a member.")}
+        </DialogDescription>
+      </DialogHeader>
+      <form.AppField name="email">
+        {(field) => (
+          <field.TextField
+            label={ui("Email address")}
+            type="email"
+            autoComplete="email"
+            maxLength={254}
+            placeholder={ui("name@company.com")}
+            size="lg"
+            disabled={pending}
+          />
+        )}
+      </form.AppField>
+      <form.AppForm>
+        <form.FormError />
+        <DialogFooter>
+          <Button type="button" prominence="secondary" onClick={onCancel} disabled={pending}>
+            {ui("Cancel")}
+          </Button>
+          <form.SubmitButton disabled={pending}>
+            {pending ? ui("Sending invitation…") : ui("Send invitation")}
+          </form.SubmitButton>
+        </DialogFooter>
+      </form.AppForm>
+    </form>
+  );
+}
+
+function IssuedInvitationView({
+  invitation,
+  onDone,
+}: {
+  invitation: IssuedInvitation;
+  onDone: () => void;
+}) {
+  const ui = useAppTranslation();
+  const problemMessage = useProblemMessage();
+  const [copy, setCopy] = useState<"copied" | "failed">();
+  const link = new URL(invitation.invitationUrl, window.location.origin).toString();
+
+  async function copyLink() {
     try {
-      await navigator.clipboard.writeText(
-        new URL(issuedInvitation.invitationUrl, window.location.origin).toString(),
-      );
-      setLinkCopied(true);
-      setFormError(null);
+      await navigator.clipboard.writeText(link);
+      setCopy("copied");
     } catch {
-      setLinkCopied(false);
-      setFormError({ key: "copyInvitation" });
+      setCopy("failed");
     }
   }
 
   return (
-    <Dialog.Root open={open} onOpenChange={changeOpen}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-surface-scrim backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out data-[state=open]:fade-in motion-reduce:animate-none" />
-        <Dialog.Content
-          className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[min(31rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border-default bg-surface-overlay p-5 shadow-md outline-none sm:p-6"
-          onCloseAutoFocus={(event) => {
-            const target = returnFocusRef.current?.isConnected
-              ? returnFocusRef.current
-              : fallbackFocusRef.current;
-            if (target?.isConnected) {
-              event.preventDefault();
-              target.focus();
-            }
-            returnFocusRef.current = null;
-          }}
-          onEscapeKeyDown={(event) => {
-            if (creationInFlight.current) event.preventDefault();
-          }}
-        >
-          <form
-            aria-busy={pending}
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submitInvitation();
-            }}
-          >
-            <Dialog.Title className="font-heading-h3 text-content-primary">
-              {issuedInvitation ? ui(issuedTitle(issuedInvitation)) : ui("Invite a member")}
-            </Dialog.Title>
-            <Dialog.Description className="mt-2 max-w-md font-main-ui-body text-content-secondary">
-              {issuedInvitation
-                ? ui(issuedDescription(issuedInvitation))
-                : ui("Invite someone to join this Tenant as a member.")}
-            </Dialog.Description>
-
-            {issuedInvitation ? (
-              <div className="mt-6">
-                <div className="rounded-xl border border-border-subtle bg-surface-subtle p-4">
-                  <p className="font-secondary-action text-content-primary">
-                    {ui("One-time recovery link")}
-                  </p>
-                  <p className="mt-1 font-secondary-body text-content-muted">
-                    {ui(
-                      "Copy this link now. MemoryOS cannot show it again after this dialog closes.",
-                    )}
-                  </p>
-                  <label
-                    htmlFor="issued-invitation-link"
-                    className="mt-4 block font-secondary-action text-content-secondary"
-                  >
-                    {ui("Secure invitation link")}
-                  </label>
-                  <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                    <Input
-                      id="issued-invitation-link"
-                      readOnly
-                      value={new URL(
-                        issuedInvitation.invitationUrl,
-                        window.location.origin,
-                      ).toString()}
-                      className="min-w-0 flex-1 bg-surface-base font-mono text-xs"
-                      onFocus={(event) => event.currentTarget.select()}
-                    />
-                    <Button type="button" onClick={() => void copyInvitationLink()}>
-                      {linkCopied ? <Link2 /> : <Copy />}
-                      {linkCopied ? ui("Copied") : ui("Copy")}
-                    </Button>
-                  </div>
-                </div>
-                <p className="mt-3 font-secondary-body text-content-muted">
-                  {ui("Expires")} {formatInvitationDate(issuedInvitation.invitation.expiresAt)}.
-                </p>
-              </div>
-            ) : (
-              <label className="mt-6 grid gap-2 font-secondary-action text-content-secondary">
-                {ui("Email address")}
-                <Input
-                  type="email"
-                  autoComplete="email"
-                  required
-                  maxLength={254}
-                  value={inviteeEmail}
-                  aria-invalid={emailInvalid && formError !== null}
-                  aria-describedby={emailInvalid && formError ? "invitation-form-error" : undefined}
-                  onChange={(event) => setInviteeEmail(event.target.value)}
-                  placeholder={ui("name@company.com")}
-                  size="lg"
-                />
-              </label>
-            )}
-
-            {formError ? (
-              <p
-                id="invitation-form-error"
-                role="alert"
-                className="mt-4 rounded-lg bg-status-danger-surface px-4 py-3 font-secondary-body text-status-danger-content"
-              >
-                {errorMessage(formError)}
-              </p>
-            ) : linkCopied ? (
-              <p role="status" className="mt-4 font-secondary-body text-status-success-content">
-                {ui("Recovery link copied.")}
-              </p>
-            ) : null}
-
-            <div className="mt-7 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button
-                type="button"
-                prominence={issuedInvitation ? "primary" : "secondary"}
-                onClick={() => changeOpen(false)}
-                disabled={pending}
-              >
-                {issuedInvitation ? ui("Done") : ui("Cancel")}
+    <div className="flex flex-col gap-6">
+      <DialogHeader>
+        <DialogTitle>{ui(issuedTitle(invitation))}</DialogTitle>
+        <DialogDescription>{ui(issuedDescription(invitation))}</DialogDescription>
+      </DialogHeader>
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle>{ui("One-time recovery link")}</CardTitle>
+          <CardDescription>
+            {ui("Copy this link now. MemoryOS cannot show it again after this dialog closes.")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Field data-invalid={copy === "failed" || undefined}>
+            <FieldLabel htmlFor="issued-invitation-link">{ui("Secure invitation link")}</FieldLabel>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                id="issued-invitation-link"
+                readOnly
+                value={link}
+                className="min-w-0 flex-1"
+                onFocus={(event) => event.currentTarget.select()}
+              />
+              <Button type="button" onClick={() => void copyLink()}>
+                {copy === "copied" ? (
+                  <Link2 data-icon="inline-start" />
+                ) : (
+                  <Copy data-icon="inline-start" />
+                )}
+                {copy === "copied" ? ui("Copied") : ui("Copy")}
               </Button>
-              {!issuedInvitation ? (
-                <Button type="submit" pending={pending} disabled={!inviteeEmail.trim() || pending}>
-                  {pending ? ui("Sending invitation…") : ui("Send invitation")}
-                </Button>
-              ) : null}
             </div>
-          </form>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+            {copy === "failed" ? (
+              <FieldError>{problemMessage({ key: "copyInvitation" })}</FieldError>
+            ) : copy === "copied" ? (
+              <FieldDescription role="status">{ui("Recovery link copied.")}</FieldDescription>
+            ) : null}
+          </Field>
+        </CardContent>
+      </Card>
+      <p className="font-secondary-body text-content-muted">
+        {ui("Expires")} {formatInvitationDate(invitation.invitation.expiresAt)}.
+      </p>
+      <DialogFooter>
+        <Button type="button" onClick={onDone}>
+          {ui("Done")}
+        </Button>
+      </DialogFooter>
+    </div>
   );
 }
 

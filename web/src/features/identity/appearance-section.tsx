@@ -26,7 +26,7 @@ export function AppearanceSection() {
         value={preference}
         onValueChange={(value) => setTheme(value as ThemePreference)}
         aria-labelledby="appearance-heading"
-        className="grid grid-cols-3 gap-3"
+        className="grid-cols-3"
       >
         {options.map(({ value, label, icon: Icon }) => (
           <label
@@ -39,15 +39,19 @@ export function AppearanceSection() {
             <span
               aria-hidden="true"
               className={cn(
-                "grid h-14 grid-cols-[30%_1fr] overflow-hidden rounded-lg border border-border-subtle",
-                value === "light" && "bg-(--neutral-00) [&>span:first-child]:bg-(--neutral-50)",
-                value === "dark" && "bg-(--neutral-900) [&>span:first-child]:bg-(--neutral-950)",
+                "flex h-14 overflow-hidden rounded-lg border border-border-subtle",
+                value === "light" && "bg-(--neutral-00)",
+                value === "dark" && "bg-(--neutral-900)",
                 value === "system" &&
-                  "bg-[linear-gradient(90deg,var(--neutral-00)_50%,var(--neutral-900)_50%)] [&>span:first-child]:bg-(--neutral-50)",
+                  "bg-linear-to-r from-(--neutral-00) from-50% to-(--neutral-900) to-50%",
               )}
             >
-              <span />
-              <span />
+              <span
+                className={cn(
+                  "w-3/10",
+                  value === "dark" ? "bg-(--neutral-950)" : "bg-(--neutral-50)",
+                )}
+              />
             </span>
             <span className="flex items-center gap-2 font-main-ui-body text-content-primary">
               <RadioGroupItem value={value} className="sr-only" />

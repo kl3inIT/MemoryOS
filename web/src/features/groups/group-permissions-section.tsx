@@ -13,9 +13,13 @@ import {
   UserCog,
   Users,
 } from "lucide-react";
-import { Collapsible, Switch } from "radix-ui";
 import type { ComponentProps, ComponentType } from "react";
+import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import type { GroupCapability, GroupSummary } from "@/lib/hey-api/types.gen";
 
 type CapabilityId = GroupCapability["id"];
@@ -70,7 +74,7 @@ export function GroupPermissionsSection({
   );
 
   return (
-    <Collapsible.Root defaultOpen asChild>
+    <Collapsible defaultOpen asChild>
       <section
         aria-labelledby="group-permissions-heading"
         className="mt-8 border-t border-border-subtle pt-7"
@@ -81,49 +85,57 @@ export function GroupPermissionsSection({
               {ui("Group Permissions")}
             </h2>
           </div>
-          <Collapsible.Trigger asChild>
+          <CollapsibleTrigger asChild>
             <Button
               prominence="internal"
               size="sm"
               aria-label={ui("Toggle group permissions")}
-              className="group shrink-0 px-2 text-content-secondary"
+              className="group shrink-0 px-2"
             >
               <ChevronsDownUp
-                className="size-4 group-data-[state=closed]:hidden"
+                data-icon="inline-start"
+                className="group-data-[state=closed]:hidden"
                 aria-hidden="true"
               />
               <ChevronsUpDown
-                className="size-4 group-data-[state=open]:hidden"
+                data-icon="inline-start"
+                className="group-data-[state=open]:hidden"
                 aria-hidden="true"
               />
             </Button>
-          </Collapsible.Trigger>
+          </CollapsibleTrigger>
         </div>
 
-        <Collapsible.Content>
+        <CollapsibleContent className="mt-4">
           {loading ? (
-            <div role="status" className="mt-4 py-6 font-main-ui-body text-content-muted">
+            <p
+              role="status"
+              className="flex items-center gap-2 py-6 font-main-ui-body text-content-muted"
+            >
+              <Spinner aria-hidden="true" />
               {ui("Loading capability registry")}
-            </div>
+            </p>
           ) : error ? (
-            <div className="mt-4 rounded-2xl border border-border-subtle p-4">
-              <p role="alert" className="font-main-ui-body text-content-secondary">
+            <Alert variant="destructive">
+              <AlertDescription>
                 {ui(
                   "The capability registry could not be loaded. Existing grants have not been changed.",
                 )}
-              </p>
-              <Button size="sm" prominence="secondary" className="mt-3" onClick={onRetry}>
-                {ui("Try again")}
-              </Button>
-            </div>
+              </AlertDescription>
+              <AlertAction>
+                <Button size="sm" prominence="secondary" onClick={onRetry}>
+                  {ui("Try again")}
+                </Button>
+              </AlertAction>
+            </Alert>
           ) : rows.length === 0 ? (
-            <p className="mt-4 py-6 font-main-ui-body text-content-muted">
+            <p className="py-6 font-main-ui-body text-content-muted">
               {ui("No capabilities are available.")}
             </p>
           ) : (
             <ul
               aria-label={ui("Group permission grants")}
-              className="mt-4 rounded-2xl border border-border-subtle bg-surface-raised p-4"
+              className="rounded-2xl border border-border-subtle bg-surface-raised p-4"
             >
               {rows.map((capability, index) => {
                 const copy = capabilityCopy[capability.id];
@@ -147,28 +159,20 @@ export function GroupPermissionsSection({
                         aria-hidden="true"
                       />
                       <div className="min-w-0 flex-1">
-                        <label
-                          id={labelId}
-                          htmlFor={`group-grant-${capability.id}`}
-                          className={`font-main-ui-action text-content-primary ${mutable ? "cursor-pointer" : "cursor-default"}`}
-                        >
+                        <FieldLabel id={labelId} htmlFor={`group-grant-${capability.id}`}>
                           {ui(copy?.label ?? "Unknown")}
-                        </label>
-                        <p
-                          id={descriptionId}
-                          className="mt-1 font-secondary-body text-content-muted"
-                        >
+                        </FieldLabel>
+                        <FieldDescription id={descriptionId} className="mt-1">
                           {copy ? ui(copy.description) : null}
-                        </p>
+                        </FieldDescription>
                       </div>
-                      <Switch.Root
+                      <Switch
                         id={`group-grant-${capability.id}`}
-                        type="button"
                         checked={checked}
                         disabled={!mutable}
                         aria-labelledby={labelId}
                         aria-describedby={descriptionId}
-                        className="mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full border border-border-default bg-surface-sunken p-0.5 outline-none transition-colors data-[state=checked]:border-content-primary data-[state=checked]:bg-content-primary focus-visible:ring-3 focus-visible:ring-focus-ring/40 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="mt-0.5"
                         onCheckedChange={(enabled) => {
                           if (!mutable) return;
                           const next = new Set(selected);
@@ -176,17 +180,15 @@ export function GroupPermissionsSection({
                           else next.delete(capability.id);
                           onChange(next);
                         }}
-                      >
-                        <Switch.Thumb className="pointer-events-none block size-3.5 rounded-full bg-content-primary shadow-xs transition-transform data-[state=checked]:translate-x-4 data-[state=checked]:bg-surface-base" />
-                      </Switch.Root>
+                      />
                     </div>
                   </li>
                 );
               })}
             </ul>
           )}
-        </Collapsible.Content>
+        </CollapsibleContent>
       </section>
-    </Collapsible.Root>
+    </Collapsible>
   );
 }
