@@ -56,6 +56,7 @@ export type AdminPage =
   | "voice"
   | "images"
   | "interpreter"
+  | "chat"
   | "providers"
   | "models"
   | "searchSettings"
@@ -349,6 +350,15 @@ function SidebarContents({
                   onClick={onNavigate}
                 >
                   {ui("Code Interpreter")}
+                </SidebarTab>
+                <SidebarTab
+                  to="/admin/chat"
+                  icon={<MessageSquare className="size-4" />}
+                  selected={adminPage === "chat"}
+                  collapsed={collapsed}
+                  onClick={onNavigate}
+                >
+                  {ui("Chat")}
                 </SidebarTab>
               </SidebarSection>
             ) : null}

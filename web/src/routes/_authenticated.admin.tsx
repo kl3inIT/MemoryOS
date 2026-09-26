@@ -58,6 +58,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
     const voiceSelected = Boolean(matchRoute({ to: "/admin/voice" }));
     const imageGenerationSelected = Boolean(matchRoute({ to: "/admin/image-generation" }));
     const interpreterSelected = Boolean(matchRoute({ to: "/admin/code-interpreter" }));
+    const chatSettingsSelected = Boolean(matchRoute({ to: "/admin/chat" }));
     const mcpSelected = Boolean(matchRoute({ to: "/admin/mcp" }));
     const agentsSelected = Boolean(matchRoute({ to: "/admin/agents" }));
     const costsSelected = Boolean(matchRoute({ to: "/admin/ai-costs" }));
@@ -83,21 +84,23 @@ export const Route = createFileRoute("/_authenticated/admin")({
                     ? "images"
                     : interpreterSelected
                       ? "interpreter"
-                      : mcpSelected
-                        ? "mcp"
-                        : agentsSelected
-                          ? "agents"
-                          : costsSelected
-                            ? "costs"
-                            : auditSelected
-                              ? "audit"
-                              : chatHistorySelected
-                                ? "chatHistory"
-                                : documentSetsSelected
-                                  ? "documentSets"
-                                  : addSourceSelected
-                                    ? "addSource"
-                                    : "sources";
+                      : chatSettingsSelected
+                        ? "chat"
+                        : mcpSelected
+                          ? "mcp"
+                          : agentsSelected
+                            ? "agents"
+                            : costsSelected
+                              ? "costs"
+                              : auditSelected
+                                ? "audit"
+                                : chatHistorySelected
+                                  ? "chatHistory"
+                                  : documentSetsSelected
+                                    ? "documentSets"
+                                    : addSourceSelected
+                                      ? "addSource"
+                                      : "sources";
     const allowed =
       page === "users"
         ? canManageUsers
@@ -111,6 +114,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
                 page === "voice" ||
                 page === "images" ||
                 page === "interpreter" ||
+                page === "chat" ||
                 page === "costs"
               ? canManageModels
               : page === "mcp"
@@ -150,21 +154,23 @@ export const Route = createFileRoute("/_authenticated/admin")({
                           ? "Tạo ảnh"
                           : page === "interpreter"
                             ? "Code Interpreter"
-                            : page === "mcp"
-                              ? "Máy chủ MCP"
-                              : page === "agents"
-                                ? "Quản lý trợ lý"
-                                : page === "costs"
-                                  ? "AI costs"
-                                  : page === "audit"
-                                    ? "Audit log"
-                                    : page === "chatHistory"
-                                      ? "Conversation history"
-                                      : page === "documentSets"
-                                        ? "Bộ tài liệu"
-                                        : page === "addSource"
-                                          ? "Add a source"
-                                          : "Sources",
+                            : page === "chat"
+                              ? "Chat"
+                              : page === "mcp"
+                                ? "Máy chủ MCP"
+                                : page === "agents"
+                                  ? "Quản lý trợ lý"
+                                  : page === "costs"
+                                    ? "AI costs"
+                                    : page === "audit"
+                                      ? "Audit log"
+                                      : page === "chatHistory"
+                                        ? "Conversation history"
+                                        : page === "documentSets"
+                                          ? "Bộ tài liệu"
+                                          : page === "addSource"
+                                            ? "Add a source"
+                                            : "Sources",
         )}
         sourceSetup={sourceSetup}
       >

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import httpx
@@ -35,7 +35,14 @@ class Reply:
     # answer is diagnosed from the filters, which a bare step count cannot explain.
     timeline: list[dict[str, Any]]
     steps: int
+    # From sending the question to reading the finished reply. History is polled, not streamed, so
+    # the time to the first text is not observable here.
     seconds: float
+    # The citation numbers the reply's sources hold; an inline `[n]` is valid only if n is here.
+    citation_ids: list[int] = field(default_factory=list)
+    # Why the server declined instead of answering (`no_evidence`, `uncited`, `blocked_topic`);
+    # null for an answer, and absent on a server older than grounded mode.
+    refusal_reason: str | None = None
     # The model configuration that produced this reply, and why the requested one was not used.
     model: str | None = None
     fallback: str | None = None
@@ -260,4 +267,12 @@ class ActorClient:
             ],
             steps=len(activity.get("steps", [])),
             seconds=seconds,
+            citation_ids=sorted(
+                {
+                    int(source["citationId"])
+                    for source in sources
+                    if isinstance(source.get("citationId"), int)
+                }
+            ),
+            refusal_reason=message.get("refusalReason"),
         )

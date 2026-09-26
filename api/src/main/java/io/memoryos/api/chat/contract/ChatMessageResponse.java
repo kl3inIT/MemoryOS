@@ -31,8 +31,7 @@ public record ChatMessageResponse(
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"},
                 description = "Why a FAILED reply ended, for example CHAT_MODEL_OUTPUT_LIMIT; null otherwise") @Nullable String failureCode,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = {"string", "null"},
-                allowableValues = {"no_evidence", "uncited", "blocked_topic"},
-                description = "Why a COMPLETED reply declined instead of answering (answers from documents only, sensitive topics); null otherwise")
+                description = "Why a COMPLETED reply declined instead of answering: no_evidence, uncited or blocked_topic (answers from documents only, sensitive topics); null otherwise")
         @Nullable String refusalReason) {
 
     /** A file run_python produced; bytes are served at /api/chat/file-artifacts/{id}/content. */

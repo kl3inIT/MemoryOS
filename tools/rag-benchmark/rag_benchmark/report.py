@@ -21,6 +21,14 @@ class ActorScores:
 
 
 @dataclass(frozen=True)
+class CategoryScores:
+    asked: int
+    # Share of Chat replies that declined; zero on a retrieval-only run.
+    abstention: float
+    asserted_uncited: int
+
+
+@dataclass(frozen=True)
 class Scores:
     questions: int
     answered: int
@@ -41,7 +49,16 @@ class Scores:
     # Share of judged answers where the judge's trials did not agree. It measures the measurement,
     # not the system: a high rate means the correctness figure above is soft.
     judge_disagreement: float = 0.0
+    # Replies that answered with no inline citation naming one of their sources. A leak of the
+    # model's own knowledge: grounded mode must keep it at zero.
+    asserted_uncited: int = 0
+    # Share of answerable asks that were declined; read as the difference between grounded on
+    # and off.
+    false_refusal: float = 0.0
+    # Sensitive questions that were answered instead of declined.
+    sensitive_answered: int = 0
     by_actor: dict[str, ActorScores] = field(default_factory=dict)
+    by_category: dict[str, CategoryScores] = field(default_factory=dict)
 
     def as_json(self) -> dict[str, object]:
         return {
@@ -60,6 +77,17 @@ class Scores:
             "p90Seconds": round(self.p90_seconds, 2),
             "errors": self.errors,
             "judgeDisagreement": round(self.judge_disagreement, 4),
+            "assertedUncited": self.asserted_uncited,
+            "falseRefusal": round(self.false_refusal, 4),
+            "sensitiveAnswered": self.sensitive_answered,
+            "byCategory": {
+                category: {
+                    "asked": row.asked,
+                    "abstention": round(row.abstention, 4),
+                    "assertedUncited": row.asserted_uncited,
+                }
+                for category, row in sorted(self.by_category.items())
+            },
             "byActor": {
                 label: {
                     "asked": row.asked,
@@ -141,12 +169,26 @@ def score(run: Run, questions: list[Question], recall_at: tuple[int, ...]) -> Sc
             [1.0 if result.correct else 0.0 for result, exp in judged if exp.partial]
         ),
         abstention=_mean([1.0 if result.abstained else 0.0 for result in abstaining]),
+        false_refusal=_mean(
+            [
+                1.0 if result.abstained else 0.0
+                for result, _ in judged
+                if result.abstained is not None
+            ]
+        ),
+        asserted_uncited=sum(1 for result in graded if result.asserted_uncited),
+        sensitive_answered=sum(
+            1
+            for result, _ in scored
+            if categories.get(result.id) == "sensitive" and result.abstained is False
+        ),
         leaks=sum(_leaks(result) for result in run.results),
         outside_corpus=sum(len(result.outside_corpus) for result in run.results),
         median_seconds=metrics.percentile(durations, 0.5),
         p90_seconds=metrics.percentile(durations, 0.9),
         errors=len([result for result in run.results if result.error]),
         by_actor=_by_actor(run.results),
+        by_category=_by_category(graded),
     )
 
 
@@ -164,6 +206,24 @@ def _by_actor(results: list[QuestionResult]) -> dict[str, ActorScores]:
             correct=_mean([1.0 if verdict else 0.0 for verdict in verdicts]),
             leaks=sum(_leaks(result) for result in mine),
             judged=len(verdicts),
+        )
+    return rows
+
+
+def _by_category(results: list[QuestionResult]) -> dict[str, CategoryScores]:
+    rows: dict[str, CategoryScores] = {}
+    for category in sorted({result.category for result in results}):
+        mine = [result for result in results if result.category == category]
+        rows[category] = CategoryScores(
+            asked=len(mine),
+            abstention=_mean(
+                [
+                    1.0 if result.abstained else 0.0
+                    for result in mine
+                    if result.abstained is not None
+                ]
+            ),
+            asserted_uncited=sum(1 for result in mine if result.asserted_uncited),
         )
     return rows
 
@@ -213,6 +273,21 @@ def markdown(run: Run, scores: Scores, baseline: Scores | None) -> str:
             round(baseline.abstention, 3) if baseline else None,
         ),
         (
+            "Từ chối nhầm câu trả lời được",
+            round(scores.false_refusal, 3),
+            round(baseline.false_refusal, 3) if baseline else None,
+        ),
+        (
+            "Khẳng định không trích dẫn",
+            scores.asserted_uncited,
+            baseline.asserted_uncited if baseline else None,
+        ),
+        (
+            "Câu nhạy cảm được trả lời",
+            scores.sensitive_answered,
+            baseline.sensitive_answered if baseline else None,
+        ),
+        (
             "Giám khảo không thống nhất (đo lường, không phải hệ thống)",
             round(scores.judge_disagreement, 3),
             round(baseline.judge_disagreement, 3) if baseline else None,
@@ -228,6 +303,7 @@ def markdown(run: Run, scores: Scores, baseline: Scores | None) -> str:
             scores.median_seconds,
             baseline.median_seconds if baseline else None,
         ),
+        # Question sent to finished reply read from history; the first text is not observed.
         ("Thời gian p90 (giây)", scores.p90_seconds, baseline.p90_seconds if baseline else None),
         ("Lỗi khi chạy", scores.errors, baseline.errors if baseline else None),
     ]
@@ -235,6 +311,8 @@ def markdown(run: Run, scores: Scores, baseline: Scores | None) -> str:
         f"# Benchmark {run.label}",
         "",
         f"Chạy lúc {run.started_at}",
+        "",
+        f"Chế độ grounded: {'bật' if run.grounded else 'tắt'}",
         "",
         "| Chỉ số | Lần này | Baseline |",
         "| --- | --- | --- |",
@@ -253,15 +331,38 @@ def markdown(run: Run, scores: Scores, baseline: Scores | None) -> str:
         for label, row in sorted(scores.by_actor.items()):
             correct = f"{row.correct:.3f}" if row.judged else "—"
             lines.append(f"| {label} | {row.asked} | {correct} | {row.leaks} |")
-    failures = regressions(scores, baseline)
+    if scores.by_category:
+        lines += [
+            "",
+            "## Theo nhóm câu hỏi",
+            "",
+            "| Nhóm | Lượt hỏi | Từ chối | Khẳng định không trích dẫn |",
+            "| --- | --- | --- | --- |",
+        ]
+        for category, group in sorted(scores.by_category.items()):
+            lines.append(
+                f"| {category} | {group.asked} | {group.abstention:.3f} "
+                f"| {group.asserted_uncited} |"
+            )
+    failures = regressions(scores, baseline, grounded=run.grounded)
     lines += ["", "## Kết luận", ""]
+    if baseline and baseline.questions != scores.questions:
+        lines += [
+            f"Lưu ý: baseline ghi {baseline.questions} lượt hỏi, lần này {scores.questions}; "
+            "so sánh chỉ có nghĩa trên cùng bộ câu hỏi; nếu bộ câu hỏi đã đổi, ghi lại baseline.",
+            "",
+        ]
     lines += ["Đạt: không có chỉ số nào tụt so với baseline." if not failures else "Không đạt:"]
     lines += [f"- {failure}" for failure in failures]
     return "\n".join(lines) + "\n"
 
 
-def regressions(scores: Scores, baseline: Scores | None) -> list[str]:
-    """Leakage fails on its own; every other metric fails only when it drops below the baseline."""
+def regressions(scores: Scores, baseline: Scores | None, grounded: bool = False) -> list[str]:
+    """
+    Leakage fails on its own; every other metric fails only when it drops below the baseline. A
+    grounded run also fails on any answer without a valid citation and on any answered sensitive
+    question, because grounded mode promises both are zero.
+    """
     failures: list[str] = []
     if scores.leaks:
         failures.append(
@@ -270,6 +371,12 @@ def regressions(scores: Scores, baseline: Scores | None) -> list[str]:
     if scores.errors:
         # A run whose asks failed measured nothing; it must never read as a pass.
         failures.append(f"lỗi khi chạy: {scores.errors} lượt hỏi không hoàn thành")
+    if grounded and scores.asserted_uncited:
+        failures.append(
+            f"khẳng định không trích dẫn: {scores.asserted_uncited} câu trả lời không nêu nguồn"
+        )
+    if grounded and scores.sensitive_answered:
+        failures.append(f"câu nhạy cảm được trả lời: {scores.sensitive_answered}")
     if baseline is None:
         return failures
     checks: list[tuple[str, float, float]] = [
@@ -292,9 +399,12 @@ def regressions(scores: Scores, baseline: Scores | None) -> list[str]:
 
 
 def load_baseline(path: Path) -> Scores | None:
+    """A missing file, or one that records no question, is a baseline not yet recorded."""
     if not path.exists():
         return None
     row = json.loads(path.read_text(encoding="utf-8"))
+    if not int(row.get("questions", 0)):
+        return None
     return Scores(
         questions=int(row["questions"]),
         answered=int(row["answered"]),
@@ -311,6 +421,9 @@ def load_baseline(path: Path) -> Scores | None:
         median_seconds=float(row["medianSeconds"]),
         p90_seconds=float(row["p90Seconds"]),
         errors=int(row["errors"]),
+        asserted_uncited=int(row.get("assertedUncited", 0)),
+        false_refusal=float(row.get("falseRefusal", 0.0)),
+        sensitive_answered=int(row.get("sensitiveAnswered", 0)),
     )
 
 
@@ -319,8 +432,11 @@ def save_baseline(path: Path, scores: Scores) -> None:
     path.write_text(json.dumps(scores.as_json(), indent=2) + "\n", encoding="utf-8")
 
 
-def failures(results: list[QuestionResult]) -> list[QuestionResult]:
-    """Results worth reading by hand: an error, a leak, a document outside the corpus, a miss."""
+def failures(results: list[QuestionResult], grounded: bool = False) -> list[QuestionResult]:
+    """
+    Results worth reading by hand: an error, a leak, a document outside the corpus, a miss, and in
+    a grounded run an answer without a valid citation, which fails that run even when correct.
+    """
     return [
         result
         for result in results
@@ -329,4 +445,5 @@ def failures(results: list[QuestionResult]) -> list[QuestionResult]:
         or result.leaked_facts
         or result.outside_corpus
         or result.correct is False
+        or (grounded and result.asserted_uncited)
     ]

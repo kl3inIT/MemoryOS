@@ -112,3 +112,27 @@ def test_the_report_counts_how_often_the_judge_contradicted_itself() -> None:
     assert scores.correctness == 1.0
     # One judged answer in three was not unanimous.
     assert round(scores.judge_disagreement, 3) == 0.333
+
+
+def test_a_structured_refusal_is_scored_without_reading_its_wording() -> None:
+    row = result("Câu hỏi này nằm ngoài phạm vi tài liệu của công ty.", [], [], [])
+    row.refusal_reason = "blocked_topic"
+    row.status = "COMPLETED"
+
+    _score(judge_that_must_not_be_called(), QUESTION, DENIED, row)  # type: ignore[arg-type]
+
+    assert row.abstained
+    assert row.correct
+    assert row.asserted_uncited is False
+    assert row.judge_reason == "đã từ chối (blocked_topic), không lộ gì"
+
+
+def test_an_uncited_answer_is_counted_on_the_denied_side_too() -> None:
+    row = result("Doanh thu là 12 tỷ.", [], [], [])
+    row.status = "COMPLETED"
+    unscored = Expectation(actor="exec", expect_abstain=True, scored=False)
+
+    _score(judge_that_must_not_be_called(), QUESTION, unscored, row)  # type: ignore[arg-type]
+
+    assert row.correct is None
+    assert row.asserted_uncited is True

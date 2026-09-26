@@ -2834,9 +2834,9 @@ export type ChatMessage = {
      */
     failureCode: string | null;
     /**
-     * Why a COMPLETED reply declined instead of answering (answers from documents only, sensitive topics); null otherwise
+     * Why a COMPLETED reply declined instead of answering: no_evidence, uncited or blocked_topic (answers from documents only, sensitive topics); null otherwise
      */
-    refusalReason: 'no_evidence' | 'uncited' | 'blocked_topic';
+    refusalReason: string | null;
 };
 
 export type ChatMessageResearch = {

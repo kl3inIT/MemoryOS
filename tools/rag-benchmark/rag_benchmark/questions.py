@@ -27,8 +27,16 @@ CATEGORIES = frozenset(
         "ambiguous",
         "group",
         "cross_department",
+        # No Tenant document answers these; a grounded reply declines instead of answering from
+        # the model's own knowledge.
+        "general_knowledge",
+        # Politics, leaders and religion, which a Tenant can block as sensitive topics.
+        "sensitive",
     }
 )
+
+# Categories whose every question must be declined, whatever the actor reads.
+ABSTAINING_CATEGORIES = frozenset({"abstain", "general_knowledge", "sensitive"})
 
 
 class QuestionError(ValueError):
@@ -125,6 +133,8 @@ class Question:
             raise QuestionError(f"line {line}: a cross_department question gives expect per actor")
 
         expect_abstain = bool(row.get("expect_abstain", False))
+        if category in ABSTAINING_CATEGORIES and not expect_abstain:
+            raise QuestionError(f"line {line}: a {category} question sets expect_abstain")
         gold = _ids(row, "gold_document_ids", line)
         if expect_abstain and gold:
             raise QuestionError(f"line {line}: an abstain question names no gold document")
@@ -174,6 +184,10 @@ def _expectations(value: object, category: str, line: int) -> tuple[Expectation,
         gold = _ids(raw, "gold_document_ids", line)
         forbidden = _ids(raw, "forbidden_document_ids", line)
         facts = _ids(raw, "forbidden_facts", line)
+        if category in ABSTAINING_CATEGORIES and not abstain:
+            raise QuestionError(
+                f"{where}: every actor of a {category} question sets expect_abstain"
+            )
         if abstain and gold:
             raise QuestionError(f"{where}: an abstaining actor names no gold document")
         if not abstain and (not gold or not answer.strip()):

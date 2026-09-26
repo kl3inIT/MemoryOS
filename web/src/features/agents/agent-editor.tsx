@@ -97,6 +97,7 @@ const formSchema = z.object({
   context: z.string(),
   output: z.string(),
   replaceBase: z.boolean(),
+  grounded: z.boolean(),
 });
 type AgentForm = z.infer<typeof formSchema>;
 
@@ -121,6 +122,7 @@ function initialForm(agent?: Persona): AgentForm {
     context: agent?.contextTokenLimit?.toString() ?? "",
     output: agent?.outputTokenLimit?.toString() ?? "",
     replaceBase: agent?.replaceBaseSystemPrompt ?? false,
+    grounded: agent?.grounded ?? false,
   };
 }
 
@@ -323,6 +325,7 @@ function AgentEditor({ agent }: { agent?: Persona }) {
       avatarFileId: form.avatarFileId ?? undefined,
       labelIds: form.labelIds,
       replaceBaseSystemPrompt: form.replaceBase,
+      grounded: form.grounded,
       knowledgeCutoff: form.cutoff ? `${form.cutoff}T00:00:00Z` : undefined,
     };
     try {
@@ -774,6 +777,17 @@ function AgentEditor({ agent }: { agent?: Persona }) {
                       id="agent-replace-base"
                       checked={form.replaceBase}
                       onCheckedChange={(replaceBase) => set({ replaceBase })}
+                    />
+                  }
+                />
+                <SettingRow
+                  htmlFor="agent-grounded"
+                  title={ui("Chỉ trả lời từ tài liệu của tổ chức")}
+                  control={
+                    <Switch
+                      id="agent-grounded"
+                      checked={form.grounded}
+                      onCheckedChange={(grounded) => set({ grounded })}
                     />
                   }
                 />
