@@ -8,7 +8,7 @@ import { DangerZone } from "@/components/composites/danger-zone";
 import { DetailHeader } from "@/components/composites/detail-header";
 import { EmptyState } from "@/components/composites/empty-state";
 import { SettingsLayout } from "@/components/composites/settings-layout";
-import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs } from "@/components/ui/tabs";
@@ -104,7 +104,7 @@ function SourceDetailContent({ sourceId }: { sourceId: string }) {
           <AlertDescription>
             {ui("Source status could not be refreshed. Displayed values may be out of date.")}
           </AlertDescription>
-          <AlertAction>
+          <div className="mt-2">
             <Button
               size="sm"
               prominence="secondary"
@@ -113,7 +113,7 @@ function SourceDetailContent({ sourceId }: { sourceId: string }) {
             >
               {ui("Refresh source")}
             </Button>
-          </AlertAction>
+          </div>
         </Alert>
       ) : null}
 
@@ -122,7 +122,7 @@ function SourceDetailContent({ sourceId }: { sourceId: string }) {
           <AlertDescription>
             {upload.pendingFinalize.filename} {ui("is stored and still needs finalization.")}
           </AlertDescription>
-          <AlertAction>
+          <div className="mt-2">
             <Button asChild size="sm" prominence="secondary">
               <Link
                 to="/admin/sources/$sourceId"
@@ -131,7 +131,7 @@ function SourceDetailContent({ sourceId }: { sourceId: string }) {
                 {ui("Return to pending upload")}
               </Link>
             </Button>
-          </AlertAction>
+          </div>
         </Alert>
       ) : null}
 
