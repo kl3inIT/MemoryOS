@@ -1,6 +1,6 @@
 # Meetings
 
-Owner-private meetings recorded without a bot: the member's microphone and, online, the shared meeting tab stream to MemoryOS, which transcribes them and stores the finalized utterances. A recording made elsewhere can be uploaded instead. Audio is never stored, and an uploaded recording is deleted once it has been transcribed. Design and remaining phases: [MEM-92](../increments/active/meeting-notes/design.md).
+Owner-private meetings recorded without a bot: the member's microphone and, online, the shared meeting tab stream to MemoryOS, which transcribes them and stores the finalized utterances. A recording made elsewhere can be uploaded instead. Audio is never stored, and an uploaded recording is deleted once it has been transcribed. Design and remaining phases: [MEM-92](../increments/completed/meeting-notes/design.md).
 
 ## Ownership and sharing
 

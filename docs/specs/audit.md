@@ -112,7 +112,8 @@ The Worker task `memoryos-audit-retention-v1` runs hourly and deletes events old
 
 Admin › Monitoring › Audit log (`/admin/audit`) has:
 
-- a row of filters: period, category, outcome and search;
+- a row of filters: period, category, outcome and search, kept in the page address (the default 7-day period and
+  empty filters are left out);
 - the shared table and pager used by Users;
 - a readable sentence for each action;
 - a When / Who / What panel with a field-by-field before-and-after table;

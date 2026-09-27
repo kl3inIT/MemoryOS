@@ -16,16 +16,19 @@ flowchart LR
     API --> PG[(PostgreSQL)]
     API --> S3[(Object storage)]
     API --> OS[(OpenSearch)]
-    API --> LLM[Configured model providers]
+    API --> LLM[Configured model and embedding providers]
+    API --> RS[(Redis Streams)]
+    API --> INTERP[Code interpreter]
 
-    PG --> RELAY[Database scheduler relay]
-    RELAY --> RS[(Redis Streams)]
+    PG --> RELAY[Worker db-scheduler relay]
+    RELAY --> RS
     RS --> WORKER[Worker]
     WORKER --> PG
     WORKER --> S3
     WORKER --> DOC[Docling Serve]
     WORKER --> PVL[PaddleOCR-VL]
     WORKER --> OS
+    WORKER --> LLM
 ```
 
 The API and worker are separate deployables. The API owns HTTP, browser sessions, authorization, business commands, Chat inference and Flyway. The worker owns durable background execution for source synchronization, ingestion, cleanup and Search projection. The web application is a separate Vite/React deployable served by Nginx.
@@ -79,12 +82,16 @@ flowchart TB
     RET --> OBJ
     RET --> CON
     RET --> DOC
+    RET --> USAGE
     CHAT --> IAM
     CHAT --> CON
     CHAT --> RET
     CHAT --> MCP
     CHAT --> AI
     CHAT --> LIB
+    CHAT --> OBJ
+    CHAT --> DOC
+    CHAT --> USAGE
     LIB --> IAM
     LIB --> OBJ
     LIB --> CON
@@ -100,6 +107,7 @@ flowchart TB
     MEET --> VOICE
     MEET --> LIB
     MEET --> OBJ
+    MEET --> USAGE
     IAM --> AUD
     CON --> AUD
     CHAT --> AUD
@@ -123,6 +131,7 @@ flowchart TB
     API --> MCP
     API --> MEET
     API --> AUD
+    API --> USAGE
     WORKER[worker composition root] --> IAM
     WORKER --> OBJ
     WORKER --> CON
@@ -130,10 +139,12 @@ flowchart TB
     WORKER --> ING
     WORKER --> RET
     WORKER --> LIB
+    WORKER --> CHAT
+    WORKER --> USAGE
     WORKER --> AUD
 ```
 
-Arrows show allowed use of public capability contracts. Every module depends on `shared`, the shared kernel that holds `TenantId` and `ActorId` and a few technical utilities without domain; only the `audit` arrow to it is drawn. A module that needs IAM depends on `iam`, whose root package is its published API (Tenant access, the authorization decision, Groups, identity, users and the people-and-Group search every sharing picker uses, invitations and identity providers); IAM's feature packages are internal and it declares no named interfaces. `objectstorage`, `document` and `ingestion` do not depend on IAM at all. `chat`, `voice` and `meeting` run on `ai`, the model catalog and its providers; `meeting` records through `voice` and publishes its minutes to `library`. `ai` knows Chat's agents only by id, through the `AgentDirectory` port and the `ModelsRemoved` event that `chat` serves. `library` holds a person's files and never depends on `chat`: `chat`, `meeting` and `ingestion` (the extraction of an upload) depend on it, and it asks Chat which agents grant an upload and what attaches one through the `FileAttachments` port, and changes Chat's generated files and images through the `LibraryArtifacts` port, both of which `chat` implements; its listing reads Chat's artifact tables by SQL, because one statement pages across both. `audit` sits below every capability that records into it (`iam`, `connector`, `chat`, `ai`, `voice`, `mcp`, `usage`) and depends only on `shared`: it carries typed Tenant and actor identifiers, and asks IAM who may read the stream through the `AuditReaders` port that `iam` implements. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided. The `api` and `worker` composition roots use only published module APIs, never a `persistence` package, and map core types to their own HTTP contracts. [ADR 0015](docs/decisions/0015-capability-module-map.md) records the target module map (`ai`, `voice`, `audit` and `library` are extracted) and the layout rule this structure is moving to.
+Arrows show allowed use of public capability contracts: a capability's arrows are the `allowedDependencies` of the `@ApplicationModule` in its `package-info.java`, and the composition-root arrows are the modules `api` and `worker` import. Every module depends on `shared`, the shared kernel that holds `TenantId` and `ActorId` and a few technical utilities without domain; only the `audit` arrow to it is drawn. A module that needs IAM depends on `iam`, whose root package is its published API (Tenant access, the authorization decision, Groups, identity, users and the people-and-Group search every sharing picker uses, invitations and identity providers); IAM's feature packages are internal and it declares no named interfaces. `objectstorage`, `document` and `ingestion` do not depend on IAM at all. `chat`, `voice` and `meeting` run on `ai`, the model catalog and its providers; `meeting` records through `voice` and publishes its minutes to `library`. `ai` knows Chat's agents only by id, through the `AgentDirectory` port and the `ModelsRemoved` event that `chat` serves. `library` holds a person's files and never depends on `chat`: `chat`, `meeting` and `ingestion` (the extraction of an upload) depend on it, and it asks Chat which agents grant an upload and what attaches one through the `FileAttachments` port, and changes Chat's generated files and images through the `LibraryArtifacts` port, both of which `chat` implements; its listing reads Chat's artifact tables by SQL, because one statement pages across both. `audit` sits below every capability that records into it (`iam`, `connector`, `chat`, `ai`, `voice`, `mcp`, `usage`) and depends only on `shared`: it carries typed Tenant and actor identifiers, and asks IAM who may read the stream through the `AuditReaders` port that `iam` implements. Capability internals, persistence models and provider-specific types do not cross these boundaries. Application services own authorization, validation, orchestration and transaction boundaries. Concrete capability repositories own SQL/JPA persistence, row mapping, locks, claims and bulk writes. Cross-capability JPA relationships and single-implementation repository interfaces are avoided. The `api` and `worker` composition roots use only published module APIs, never a `persistence` package, and map core types to their own HTTP contracts. [ADR 0015](docs/decisions/0015-capability-module-map.md) records the target module map (`ai`, `voice`, `audit` and `library` are extracted) and the layout rule this structure is moving to.
 
 | Gradle module | Responsibility |
 | --- | --- |
@@ -151,13 +162,13 @@ Arrows show allowed use of public capability contracts. Every module depends on 
 | `connector` | Sources, credentials, provider selection, items, synchronization and Source–Group associations | [Connector](docs/specs/connector.md) |
 | `document` | Current Document metadata, canonical extraction artifact and current chunk identity | [Document](docs/specs/document.md) |
 | `ingestion` | Durable selection, synchronization, extraction, indexing and cleanup orchestration | [Ingestion](docs/specs/ingestion.md) |
-| `retrieval` | Embedding/OpenSearch adapters, search configuration generations and embedding providers, authorized Search, document passages and original PDF readers | [Search](docs/specs/search.md) |
+| `retrieval` | Embedding/OpenSearch adapters, search configuration generations and embedding providers, authorized Search, document passages and stored-original readers | [Search](docs/specs/search.md) |
 | `chat` | Personas and the model each runs on, shared Document Sets, projects, sessions, message trees, turns, the files and images an answer generates, sharing, feedback and per-member voice settings | [Chat](docs/specs/chat.md) |
 | `library` | A person's uploads and their extraction work, the file library listing (uploads beside Chat's generated files and images), trash, the storage limit, thumbnails, copies, published files and ZIP archives | [Chat: file library](docs/specs/chat.md), [ADR 0015 step 3](docs/decisions/0015-capability-module-map.md#step-3-what-library-holds) |
 | `ai` | The Tenant's provider/model catalog, flow models, provider adapters (OpenAI) and their native clients, and single model calls outside a conversation such as meeting minutes and transcript corrections | [Model catalog](docs/specs/chat-models.md) |
-| `voice` | Tenant voice connections, batch and live transcription and speech synthesis; audio is never stored | [MEM-91 design](docs/increments/active/mem-91-chat-voice/design.md) |
-| `mcp` | Tenant-registered remote MCP servers, their OAuth clients, tool snapshots, sealed credentials and the Streamable HTTP client (MEM-112, in progress) | [MEM-112 design](docs/increments/active/mem-112-chat-mcp-client/design.md) |
-| `meeting` | Owner-private meetings: live track recording or an uploaded recording through `voice`, stored utterances, speaker names and notes, leased minutes written by the API from the transcript through `ai`, and minutes published to the owner's file library; audio is never stored, and an uploaded recording is deleted once it has been transcribed (MEM-92, in progress) | [Meetings](docs/specs/meeting.md) |
+| `voice` | Tenant voice connections, batch and live transcription and speech synthesis; audio is never stored | [MEM-91 design](docs/increments/completed/mem-91-chat-voice/design.md) |
+| `mcp` | Tenant-registered remote MCP servers, their OAuth clients, tool snapshots, sealed credentials and the Streamable HTTP client | [MEM-112 design](docs/increments/completed/mem-112-chat-mcp-client/design.md) |
+| `meeting` | Owner-private meetings: live track recording or an uploaded recording through `voice`, stored utterances, speaker names and notes, leased minutes written by the API from the transcript through `ai`, and minutes published to the owner's file library; audio is never stored, and an uploaded recording is deleted once it has been transcribed | [Meetings](docs/specs/meeting.md) |
 | `usage` | Daily AI usage ledger for every AI flow, the AI costs report, and usage reports (a period's CSV and PDF export, built by the Worker and stored through `objectstorage`) | [AI usage and costs](docs/specs/ai-usage.md) |
 
 ## Durable ingestion and Search projection
@@ -197,7 +208,7 @@ Google SOURCE_SYNC also records bounded, fully paginated permission observations
 
 Collected permissions are consumed server-side only through `GoogleDriveAclReader.readByDocument` and the `GoogleDriveAclChanged` event; no HTTP endpoint or UI displays them. The web Source detail uses a shared synchronization summary above Content, Sync history and Connection/settings tabs. Sync history shows per-run outcomes and counts, with bounded errors in a separate selected-run dialog; an error a later run resolved is shown as resolved.
 
-Extraction routes by content, not by file name. A PDF whose text layer is too thin to be anything but a scan, and an image, go to PaddleOCR-VL when the deployment configures it: layout detection and reading order, then a 0.9B vision-language model reading each block, on the production serving node's GPU. Other PDFs, DOCX and PPTX go to Docling, which then reads text layers only; without PaddleOCR-VL, Docling keeps its own OCR. Each adapter maps its provider's output onto the one Document, and a PaddleOCR-VL failure is final for the attempt rather than a silent fall back to a weaker reader ([Ingestion](docs/specs/ingestion.md), [MEM-192](docs/increments/active/mem-192-ocr-gpu/design.md)).
+Extraction routes by content, not by file name. A PDF whose text layer is too thin to be anything but a scan, and an image, go to PaddleOCR-VL when the deployment configures it: layout detection and reading order, then a 0.9B vision-language model reading each block, on the production serving node's GPU. Other PDFs, DOCX and PPTX go to Docling, which then reads text layers only; without PaddleOCR-VL, Docling keeps its own OCR. Each adapter maps its provider's output onto the one Document, and a PaddleOCR-VL failure is final for the attempt rather than a silent fall back to a weaker reader ([Ingestion](docs/specs/ingestion.md), [MEM-192](docs/increments/completed/mem-192-ocr-gpu/design.md)).
 
 The standalone OCR image owns a thin Serve composition and PDF backend/pipeline extensions for conservative pre-layout orientation. Worker retains its byte-only API boundary; its bounded adapter preserves raw document JSON and source-frame metadata rather than routing it through the SDK's closed document model. The [OCR recipe](infrastructure/deployment/ocr/README.md) and [Document contract](docs/specs/document.md) distinguish corrected coordinates, original provenance and unresolved financial periods. Image publication and deployment remain separate operational decisions.
 FILE and Drive binary admission is bounded at 100 MiB; native snapshots retain their separate 32 MiB bound. Admission, parser/OCR completion, financial fidelity and Search readiness are separate acceptance claims; the [Ingestion contract](docs/specs/ingestion.md) owns parser budgets and current OCR limits.
@@ -221,7 +232,7 @@ flowchart LR
     RET --> OS[(OpenSearch)]
     RET --> PG[(PostgreSQL provenance)]
     LOOP --> MODEL[Configured model provider]
-    LOOP --> SSE[Bounded in-memory replay and SSE]
+    LOOP --> SSE[Bounded Redis Stream replay and SSE]
     SSE --> UI[assistant-ui runtime]
     LOOP --> OUTCOME[Persist terminal or partial outcome]
 ```
@@ -244,7 +255,7 @@ No self-hosted model is deployed. MEM-77 managed serving (vLLM behind a private 
 
 Voice is its own capability (`voice`), used by the Chat composer, Search and meetings. Tenant voice connections live in PostgreSQL and belong to `voice`; the per-member settings (auto-send, auto-playback, playback speed) are how Chat uses voice and stay in `chat`. Encrypted credentials follow the same deployment-key contract as the catalog and the other tool connections. The browser obtains a one-use, purpose-bound in-memory ticket before opening a same-origin transcription or synthesis WebSocket. The handshake rechecks current membership and capability. Tickets are process-local, so a multi-replica API deployment requires sticky routing or a shared ticket store.
 
-The browser captures PCM16 mono audio at 24 kHz. For the public OpenAI provider, the API opens a provider-side Realtime transcription session with `gpt-live-transcribe`, forwards audio frames and relays cumulative transcript deltas. Manual Stop commits the provider buffer. The API retains the bounded recording only for the lifetime of the connection and replays it through the existing batch transcriber if Realtime setup or streaming fails. OpenAI-compatible, ElevenLabs and Azure connections use the bounded chunked/REST path because MemoryOS does not assume their Realtime protocols are compatible. Soniox, a speech-to-text-only provider, streams over its own realtime WebSocket and falls back to its async file API. Transcript messages carry a monotonically increasing connection revision plus separate committed-final and utterance-boundary signals; the current OpenAI session has turn detection disabled and therefore never invents a VAD boundary. Audio and provider text are not persisted or logged. The complete behavior and remaining live-provider acceptance are in the [Voice design](docs/increments/active/mem-91-chat-voice/design.md).
+The browser captures PCM16 mono audio at 24 kHz. For the public OpenAI provider, the API opens a provider-side Realtime transcription session with `gpt-live-transcribe`, forwards audio frames and relays cumulative transcript deltas. Manual Stop commits the provider buffer. The API retains the bounded recording only for the lifetime of the connection and replays it through the existing batch transcriber if Realtime setup or streaming fails. OpenAI-compatible, ElevenLabs and Azure connections use the bounded chunked/REST path because MemoryOS does not assume their Realtime protocols are compatible. Soniox, a speech-to-text-only provider, streams over its own realtime WebSocket and falls back to its async file API. Transcript messages carry a monotonically increasing connection revision plus separate committed-final and utterance-boundary signals; the current OpenAI session has turn detection disabled and therefore never invents a VAD boundary. Audio and provider text are not persisted or logged. The complete behavior and remaining live-provider acceptance are in the [Voice design](docs/increments/completed/mem-91-chat-voice/design.md).
 
 ## Identity and authorization
 
@@ -290,7 +301,7 @@ The shared runtime mounts the repository-owned `memoryos` login theme read-only 
 
 Flyway owns schema evolution and runs from the API composition root. Released migrations are append-only; local or historical review databases with divergent unpublished histories are not upgrade targets. Verification uses fresh disposable databases or an explicit data-preserving migration plan.
 
-The merged layout has 107 migrations. Published main V1–V74 stay unchanged. `V75__add_google_drive_acl_snapshots.sql`, `V76__persist_run_error_messages.sql`, `V77__source_access_modes.sql` and `V78__default_google_drive_sync_interval_30_minutes.sql` retain the current Google Drive and Source-access additions, and `V79__source_pause_resume.sql` adds Source pause/resume. SharePoint uses `V80__add_sharepoint_credentials.sql` and `V81__add_sharepoint_sources.sql`, while Voice uses `V82__chat_voice_connections.sql` and `V83__chat_voice_settings.sql`. `V84__model_flows_and_provider_data_boundary.sql`, `V85__ai_usage.sql`, `V86__chat_preferences.sql`, `V87__drop_chat_start_page.sql`, `V88__chat_sampling_defaults.sql`, `V89__document_sets.sql`, `V90__chat_file_library.sql`, `V91__ai_usage_report.sql`, `V92__chat_library_copies.sql`, `V93__chat_library_favorites.sql`, `V94__chat_library_archive.sql` and `V95__audit_event.sql` follow, then `V96__google_drive_service_accounts.sql`, `V97__google_group_membership.sql`, `V98__chat_storage_quota.sql`, `V99__chat_library_trash.sql`, the MEM-153 conversation-lifecycle migrations `V100__chat_session_archive_and_branch.sql`, `V101__chat_temporary_and_retention.sql` and `V102__chat_export.sql`, `V103__ai_usage_limit.sql`, the MEM-152 library migrations V104–V106 and `V107__chat_history_visibility.sql`. V1–V53 include Chat uploads/message files, 100 MiB binary admission, automatic titles, account language, read-only message artifacts, Web connections, history search and Search access in V37–V52. The MEM-77 tokenizer-profile backfill is `V54__backfill_model_tokenizer_profile.sql`, `V55__chat_web_gateway_provider.sql` widens the Web gateway provider constraint, and `V61__chat_web_search_modes.sql` narrows persisted Web intent to `off`/`auto`. PR #106 integrated the earlier feature migrations under these nonconflicting versions:
+The merged layout has 132 migrations, V1–V132. Published main V1–V74 stay unchanged. `V75__add_google_drive_acl_snapshots.sql`, `V76__persist_run_error_messages.sql`, `V77__source_access_modes.sql` and `V78__default_google_drive_sync_interval_30_minutes.sql` retain the current Google Drive and Source-access additions, and `V79__source_pause_resume.sql` adds Source pause/resume. SharePoint uses `V80__add_sharepoint_credentials.sql` and `V81__add_sharepoint_sources.sql`, while Voice uses `V82__chat_voice_connections.sql` and `V83__chat_voice_settings.sql`. `V84__model_flows_and_provider_data_boundary.sql`, `V85__ai_usage.sql`, `V86__chat_preferences.sql`, `V87__drop_chat_start_page.sql`, `V88__chat_sampling_defaults.sql`, `V89__document_sets.sql`, `V90__chat_file_library.sql`, `V91__ai_usage_report.sql`, `V92__chat_library_copies.sql`, `V93__chat_library_favorites.sql`, `V94__chat_library_archive.sql` and `V95__audit_event.sql` follow, then `V96__google_drive_service_accounts.sql`, `V97__google_group_membership.sql`, `V98__chat_storage_quota.sql`, `V99__chat_library_trash.sql`, the MEM-153 conversation-lifecycle migrations `V100__chat_session_archive_and_branch.sql`, `V101__chat_temporary_and_retention.sql` and `V102__chat_export.sql`, `V103__ai_usage_limit.sql`, the MEM-152 library migrations V104–V106 and `V107__chat_history_visibility.sql`; V108–V132 follow, among them the meeting migrations, Soniox voice, the search settings generations and their rebuild, provider-neutral Source sync (`V130`), the always-dated persona prompt (`V131`) and grounded answers (`V132`). V1–V53 include Chat uploads/message files, 100 MiB binary admission, automatic titles, account language, read-only message artifacts, Web connections, history search and Search access in V37–V52. The MEM-77 tokenizer-profile backfill is `V54__backfill_model_tokenizer_profile.sql`, `V55__chat_web_gateway_provider.sql` widens the Web gateway provider constraint, and `V61__chat_web_search_modes.sql` narrows persisted Web intent to `off`/`auto`. PR #106 integrated the earlier feature migrations under these nonconflicting versions:
 
 | Historical local version | Current filename |
 | --- | --- |
@@ -301,7 +312,7 @@ The merged layout has 107 migrations. Published main V1–V74 stay unchanged. `V
 | V41 | `V47__group_manager_source_scope.sql` |
 | V42 | `V48__ordinary_source_group_associations.sql` |
 
-Existing local databases containing the old feature V37–V42 cannot run this merged layout until deliberate, data-preserving Flyway-history and schema reconciliation. The same caution applies to older feature V18–V21 and retained `memoryos_main_review`/`memoryos_drive_review` histories. Do not start either deployable against a divergent database, reset it, or automatically repair checksums/history. Deploy matching API/worker/schema only after reconciliation or use a fresh isolated database. Historical verification keeps its original migration numbers; current PR evidence is recorded in [Basic Access verification](docs/increments/completed/basic-access-capabilities/verification.md#pr-106-ci-repair). The increment remains active until merge.
+Existing local databases containing the old feature V37–V42 cannot run this merged layout until deliberate, data-preserving Flyway-history and schema reconciliation. The same caution applies to older feature V18–V21 and retained `memoryos_main_review`/`memoryos_drive_review` histories. Do not start either deployable against a divergent database, reset it, or automatically repair checksums/history. Deploy matching API/worker/schema only after reconciliation or use a fresh isolated database. Historical verification keeps its original migration numbers; current PR evidence is recorded in [Basic Access verification](docs/increments/completed/basic-access-capabilities/verification.md#pr-106-ci-repair).
 
 ## Deployment and operations
 
@@ -315,18 +326,22 @@ flowchart TB
     API --> PG[(PostgreSQL)]
     API --> KC[Keycloak]
     API --> MINIO
+    API --> REDIS[(Redis)]
+    API --> OPENSEARCH[(OpenSearch)]
+    API --> INTERP[Code interpreter]
     WORKER[Worker] --> PG
-    WORKER --> REDIS[(Redis)]
+    WORKER --> REDIS
     WORKER --> MINIO
+    WORKER --> OPENSEARCH
     WORKER --> DOCLING[Docling]
     WORKER --> PADDLE[PaddleOCR-VL on the serving node]
     API --> OTEL[OTel collector]
     WORKER --> OTEL
 ```
 
-Base Compose owns PostgreSQL, MinIO, Keycloak, Redis-dependent application services, API, worker and web. Production's GPU services run on a second node from `compose.serving.yaml`, published on its private address and admitted to the application node alone by a `DOCKER-USER` rule; the production deployment rolls that node out first. Staging adds protected inspection and observability surfaces; production exposes none of them. API and worker images remain distinct, use bounded resources and report readiness for their owned dependencies. Exact deployment, recovery and evidence boundaries are in the [CI/CD runbook](docs/runbooks/ci-cd.md) and [delivery matrix](docs/tests/delivery.md).
+Base Compose owns PostgreSQL, MinIO, Keycloak, TLS Redis, Docling, the code interpreter, API, worker and web; OpenSearch comes from a separate `compose.search.<environment>.yaml`. Production's GPU services run on a second node from `compose.serving.yaml`, published on its private address and admitted to the application node alone by a `DOCKER-USER` rule; the production deployment rolls that node out first. Staging adds protected inspection and observability surfaces; production exposes none of them. API and worker images remain distinct, use bounded resources and report readiness for their owned dependencies. Exact deployment, recovery and evidence boundaries are in the [CI/CD runbook](docs/runbooks/ci-cd.md) and [delivery matrix](docs/tests/delivery.md).
 
-The deployment is an explicit overlay contract. `compose.base.yaml` owns PostgreSQL, private MinIO with a durable volume, one-shot bucket/policy/sentinel bootstrap, shared Keycloak, API, worker, and web. The Keycloak service receives the versioned MemoryOS theme through one read-only repository bind mount; production theme and template caches stay enabled. MinIO receives distinct least-privilege API and worker identities from mounted secret files; its browser CORS allowlist and the web `connect-src` are configured to exact origins. The API signs against a browser-reachable endpoint but inspects through the internal service endpoint. `compose.staging.yaml` adds Mailpit, TLS Redis, read-only PostgreSQL/Redis inspectors, native MinIO Console OIDC, and file-backed inspection secrets. pgweb and Redis Insight remain behind separate OAuth2 Proxies on loopback ports `18026` and `18027`; MinIO's container-only port `9001` is reached through a dedicated HTTPS proxy host and receives no host binding. `compose.production.yaml` adds production profiles and no inspection exposure or MinIO OIDC configuration. API and worker remain separate image targets; worker starts after API and Redis health, exposes datasource/Redis/db-scheduler/object-storage readiness internally, and runs with bounded resources and shutdown.
+The deployment is an explicit overlay contract. `compose.base.yaml` owns PostgreSQL, private MinIO with a durable volume, one-shot bucket/policy/sentinel bootstrap, shared Keycloak, TLS Redis, Docling, the code interpreter, API, worker, and web. The Keycloak service receives the versioned MemoryOS theme through one read-only repository bind mount; production theme and template caches stay enabled. MinIO receives distinct least-privilege API and worker identities from mounted secret files; its browser CORS allowlist and the web `connect-src` are configured to exact origins. The API signs against a browser-reachable endpoint but inspects through the internal service endpoint. `compose.staging.yaml` adds Mailpit, read-only PostgreSQL/Redis inspectors, native MinIO Console OIDC, and file-backed inspection secrets. pgweb and Redis Insight remain behind separate OAuth2 Proxies on loopback ports `18026` and `18027`; MinIO's container-only port `9001` is reached through a dedicated HTTPS proxy host and receives no host binding. `compose.production.yaml` adds production profiles and no inspection exposure or MinIO OIDC configuration. API and worker remain separate image targets; worker starts after API and Redis health, exposes datasource/Redis/db-scheduler/object-storage readiness internally, and runs with bounded resources and shutdown.
 
 Structured logs, metrics and traces flow through OpenTelemetry to the independently operated LGTM stack. Telemetry carries correlation and operation-origin identifiers but never changes authorization, durable claims or acknowledgement semantics. See the [observability policy](docs/guidelines/observability.md).
 
@@ -334,4 +349,4 @@ The public `vadan.app` landing site is a separate static image and Compose proje
 
 ## Current boundary and future direction
 
-The implemented system has no multi-Tenant switcher, dynamic broker administration, audit evidence viewer, SCIM, Google document ACL enforcement, reader identity linking, MCP server, GraphRAG engine or durable memory-management surface. These are candidate capabilities rather than implied parts of the current runtime.
+The implemented system has no multi-Tenant switcher, SCIM, reader identity linking, MCP server, GraphRAG engine or durable memory-management surface. These are candidate capabilities rather than implied parts of the current runtime.

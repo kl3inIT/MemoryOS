@@ -10,7 +10,9 @@ administrator action under `MCP_MANAGE`; this runbook covers what the deployment
 | `MEMORYOS_MCP_CREDENTIAL_ENCRYPTION_KEY` | API only | Base64 random 32-byte AES key sealing OAuth client secrets, header templates and every stored credential. Missing configuration disables MCP secret reads and writes. Preserve it with database backups: changing it without re-sealing makes stored credentials unreadable. |
 | `MEMORYOS_MCP_REDIRECT_URI` | API only | The OAuth callback. HTTPS, or loopback HTTP for local development, and it must end with `/login/oauth2/code/mcp`. |
 
-Both live with the other application secrets, not in Compose. The redirect URI belongs to the browser origin,
+On a server the key is the `mcp_credential_encryption_key` secret file Compose mounts
+(`/apps/memoryos/secrets/encryption/mcp-credential-key.txt` by default), and the redirect URI is set in the environment
+file Compose reads. The redirect URI belongs to the browser origin,
 so it matches `MEMORYOS_GOOGLE_DRIVE_REDIRECT_URI` except for the final path segment.
 
 ## Network

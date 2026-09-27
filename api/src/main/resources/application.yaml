@@ -108,7 +108,7 @@ embabel:
         data-binding:
           max-attempts: 2
   models:
-    default-llm: ${memoryos.chat.persona.model:gpt-5-mini}
+    default-llm: ${memoryos.chat.persona.model:gpt-6-luna}
 
 # Native framework diagnostics include prompts, tool arguments/results and binding errors.
 # Keep native observations (sanitized at the tool boundary) and MemoryOS lifecycle/failure logs.

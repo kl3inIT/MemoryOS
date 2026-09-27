@@ -38,6 +38,16 @@ class ChatModelCatalogConfigurationTest {
     }
 
     @Test
+    void theDefaultDeploymentModelIsAKnownReasoningModelSentMaxCompletionTokens() {
+        var deployment = new ChatModelCatalogConfiguration().chatDeploymentModel(new PersonaProperties(), limits(null), ADAPTERS,
+                "http://model.internal/v1", -1, -1, null, null, null, null);
+        assertEquals("gpt-6-luna", deployment.modelName());
+        assertTrue(deployment.settings().capabilities().reasoning());
+        assertEquals(true, deployment.settings().options().get("maxCompletionTokens"));
+        assertNotNull(deployment.settings().pricing());
+    }
+
+    @Test
     void aCatalogModelImportsItsOwnLimitsAndPricesNotTheExecutionBounds() {
         // MEM-130: staging imported gpt-5-mini as 36096/4096 (context-token-limit + max-output-tokens).
         var persona = new PersonaProperties();

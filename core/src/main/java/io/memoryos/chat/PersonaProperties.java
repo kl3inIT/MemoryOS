@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 public class PersonaProperties {
     private String name = "MemoryOS";
     private String instructions = ChatPrompts.DEFAULT_SYSTEM;
-    private String model = "gpt-5-mini";
+    private String model = "gpt-6-luna";
 
     public String getName() { return name; }
     public String getInstructions() { return instructions; }
