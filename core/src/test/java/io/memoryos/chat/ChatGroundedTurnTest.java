@@ -17,12 +17,16 @@ import static org.mockito.Mockito.when;
 import com.embabel.agent.spi.support.springai.SpringAiLlmService;
 import com.knuddels.jtokkit.api.EncodingType;
 import io.memoryos.ai.ModelBinding;
+import io.memoryos.audit.AuditAction;
+import io.memoryos.audit.AuditRecord;
+import io.memoryos.audit.AuditTrail;
 import io.memoryos.ai.ModelClients;
 import io.memoryos.ai.ModelRequestPolicy;
 import io.memoryos.ai.ModelResolver;
 import io.memoryos.chat.execution.ChatModelExecutor;
 import io.memoryos.chat.execution.ChatTurnSetup;
 import io.memoryos.chat.grounding.ChatGuardrailCheck;
+import io.memoryos.chat.grounding.GroundingClassifier;
 import io.memoryos.chat.session.ChatTurnPersistence;
 import io.memoryos.chat.session.persistence.JdbcChatRepository;
 import io.memoryos.chat.streaming.ChatStreamProperties;
@@ -152,7 +156,7 @@ class ChatGroundedTurnTest {
             service.send(actor, session, parent, UUID.randomUUID(), "Vợ bác Hồ là ai?", null);
             queued.get().run();
             verify(model, never()).execute(any(), any(), any(), any(), any(), any(), any(), any(), any());
-            verify(guardrails).recordBlock(any(), any(), any());
+            verify(guardrails).recordBlock(any(), any(), any(), any(), any());
             verifyStored("Trợ lý không trả lời câu hỏi về lãnh tụ.", ChatMessage.BLOCKED_TOPIC);
             assertEquals(1, meters.get("memoryos.chat.turn").tag("refusal", "blocked_topic").timer().count());
             assertEquals(1, meters.get("memoryos.chat.guardrail.check").tag("kind", "blocked").timer().count());
@@ -191,5 +195,19 @@ class ChatGroundedTurnTest {
                     () -> service.command(actor, session, web)).code());
             verify(persistence, never()).reserve(any(), any(), any(ChatCommand.class), any(), anyInt(), any());
         }
+    }
+
+    @Test
+    void aBlockIsRecordedInItsOwnTransactionBecauseAChatTurnHasNone() {
+        // Staging, 2026-09-27: record() requires the caller's transaction, so every blocked turn failed instead of
+        // answering with the Tenant's message.
+        var audit = mock(AuditTrail.class);
+        var check = new ChatGuardrailCheck(mock(GroundingClassifier.class), audit);
+        check.recordBlock(new TenantId(UUID.randomUUID()), actor, session,
+                new ChatGuardrailCheck.Result(ChatGuardrailCheck.Kind.BLOCKED, "Không trả lời.", ChatGuardrails.Topic.LEADERS, null), null);
+        var event = ArgumentCaptor.forClass(AuditRecord.class);
+        verify(audit).recordSeparately(event.capture());
+        verify(audit, never()).record(any());
+        assertEquals(AuditAction.CHAT_GUARDRAIL_BLOCK, event.getValue().action());
     }
 }
